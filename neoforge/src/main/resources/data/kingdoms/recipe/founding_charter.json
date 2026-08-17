@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "P": "minecraft:paper",
+    "E": "minecraft:emerald",
+    "B": "minecraft:book"
+  },
+  "pattern": [
+    "PEP",
+    "EBE",
+    "PEP"
+  ],
+  "result": {
+    "id": "kingdoms:founding_charter"
+  }
+}

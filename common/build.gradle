@@ -1,0 +1,18 @@
+// The simulation core.
+//
+// This module has NO Minecraft dependency and NO loader dependency, by design.
+// It models kingdoms, settlements, and people as plain data that ticks on a slow
+// scheduler, so the whole simulation can be unit-tested without launching a game.
+//
+// If you ever add a Fabric module, it depends on this unchanged.
+//
+// Rule: if you find yourself wanting to import net.minecraft.* here, the type you
+// want belongs in the platform bridge instead. See com.kingdoms.sim.platform.
+
+apply plugin: 'java-library'
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}

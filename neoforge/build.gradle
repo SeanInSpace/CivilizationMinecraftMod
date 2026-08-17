@@ -1,0 +1,65 @@
+// The NeoForge platform layer.
+//
+// This module owns everything that touches Minecraft: registration, events,
+// persistence, networking, rendering, and the entity "view" layer that
+// materializes simulated people as real mobs near players.
+//
+// It depends on :common. :common never depends on it.
+
+plugins {
+    id 'net.neoforged.moddev' version '2.0.144'
+}
+
+neoForge {
+    version = project.neoforge_version
+
+    runs {
+        client {
+            client()
+            // Boot straight into the test world; remove to get the menu back.
+            programArguments.addAll('--quickPlaySingleplayer', 'New World')
+        }
+        server {
+            server()
+        }
+    }
+
+    mods {
+        register(project.mod_id) {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+// Otherwise the jar is named after the subproject ("neoforge-0.1.0.jar").
+base {
+    archivesName = project.mod_id
+}
+
+dependencies {
+    implementation project(':common')
+}
+
+// Bundle the loader-free simulation core into the mod jar.
+tasks.named('jar', Jar) {
+    dependsOn ':common:classes'
+    from project(':common').sourceSets.main.output
+}
+
+// Expand gradle.properties into neoforge.mods.toml so versions live in one place.
+tasks.named('processResources', ProcessResources) {
+    def props = [
+            mod_id           : project.mod_id,
+            mod_name         : project.mod_name,
+            mod_version      : project.mod_version,
+            mod_license      : project.mod_license,
+            mod_authors      : project.mod_authors,
+            mod_description  : project.mod_description,
+            minecraft_version: project.minecraft_version,
+            neoforge_version : project.neoforge_version
+    ]
+    inputs.properties(props)
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand props
+    }
+}
