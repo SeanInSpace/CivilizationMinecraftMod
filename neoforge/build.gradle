@@ -16,8 +16,6 @@ neoForge {
     runs {
         client {
             client()
-            // Boot straight into the test world; remove to get the menu back.
-            programArguments.addAll('--quickPlaySingleplayer', 'New World')
         }
         server {
             server()

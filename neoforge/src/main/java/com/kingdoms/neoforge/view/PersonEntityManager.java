@@ -85,6 +85,24 @@ public final class PersonEntityManager {
     /** Sites that have made no progress recently, by settlement id. */
     private final Map<UUID, Integer> constructionStalls = new HashMap<>();
 
+    /** How far to hunt for a spot a body fits when spawning someone in. */
+    private static final int FOOTING_SEARCH = 8;
+
+    /** A drop of at least this counts as stranded rather than a kerb. */
+    private static final int MIN_STRANDED_DROP = 3;
+
+    /** How far down to look for a floor to climb to. */
+    private static final int DESCENT_SEARCH = 24;
+
+    /** Beyond this drop, staying put beats a fatal fall. */
+    private static final int SURVIVABLE_DROP = 16;
+
+    /** Passes standing still up high before someone climbs down. */
+    private static final int STRANDED_PASSES = 3;
+
+    /** People going nowhere while stranded aloft, by person id. */
+    private final Map<UUID, Integer> strandedPasses = new HashMap<>();
+
     /** Guards engage hostiles within this range, strike within melee reach. */
     private static final double GUARD_ENGAGE_RANGE = 20.0;
     private static final double GUARD_STRIKE_RANGE = 2.5;
@@ -121,6 +139,7 @@ public final class PersonEntityManager {
                 }
 
                 dailyRoutine(settlement);
+                freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
                 guardCombat(settlement);
             }
@@ -190,12 +209,94 @@ public final class PersonEntityManager {
                 } else if (BlueprintPlacer.nextBlock(level, task) != null) {
                     int stalled = constructionStalls.merge(key, 1, Integer::sum);
                     if (stalled >= STALL_PASSES_BEFORE_ASSIST) {
+                        // Still credited to a builder, so no block is ever laid
+                        // without a visible hand behind it.
+                        builders.getFirst().swing(InteractionHand.MAIN_HAND);
                         BlueprintPlacer.placeNextBlock(level, task);
                         constructionStalls.remove(key);
                     }
                 }
             }
         }
+    }
+
+    // --- footing ---
+
+    /**
+     * A Y where a body actually fits at this column, preferring the recorded one.
+     *
+     * <p>Never the motion-blocking surface: that is the top of whatever stands
+     * there, so spawning "on the surface" at a house drops people onto its roof.
+     * Searches down first (the usual case — the record points at a floor under a
+     * roof), then up, then gives up and uses the surface.
+     */
+    private int standableY(SimPos pos) {
+        BlockPos start = new BlockPos(pos.x(), pos.y(), pos.z());
+        if (fitsBody(start)) {
+            return start.getY();
+        }
+        for (int d = 1; d <= FOOTING_SEARCH; d++) {
+            if (fitsBody(start.below(d))) {
+                return start.getY() - d;
+            }
+            if (fitsBody(start.above(d))) {
+                return start.getY() + d;
+            }
+        }
+        return world.bridge().surfaceHeight(pos);
+    }
+
+    /** Two blocks of clear space on something solid. */
+    private boolean fitsBody(BlockPos pos) {
+        if (!level.isLoaded(pos)) {
+            return false;
+        }
+        return level.getBlockState(pos).isAir()
+                && level.getBlockState(pos.above()).isAir()
+                && level.getBlockState(pos.below()).blocksMotion();
+    }
+
+    /**
+     * Gets people down off roofs they should never have been on.
+     *
+     * <p>Somebody standing well above a floor they could occupy, going nowhere for
+     * several seconds, climbs down to it — but only when the drop is survivable.
+     * Stranded higher than that, they stay put, because falling would kill them.
+     */
+    private void freeStrandedPeople(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            UUID key = person.id().value();
+            PersonEntity view = person.isEmbodied() ? tracked.get(key) : null;
+            if (view == null || view.isRemoved() || !view.getNavigation().isDone()) {
+                strandedPasses.remove(key);
+                continue;
+            }
+            BlockPos at = view.blockPosition();
+            int floor = floorBelow(at);
+            if (floor == Integer.MIN_VALUE) {
+                strandedPasses.remove(key);
+                continue;
+            }
+            if (strandedPasses.merge(key, 1, Integer::sum) < STRANDED_PASSES) {
+                continue;
+            }
+            strandedPasses.remove(key);
+            if (at.getY() - floor <= SURVIVABLE_DROP) {
+                view.snapTo(at.getX() + 0.5, floor, at.getZ() + 0.5);
+                person.setPosition(NeoForgeWorldBridge.toSimPos(view.blockPosition()));
+            }
+        }
+    }
+
+    /** First standable floor meaningfully below this spot, or MIN_VALUE if none. */
+    private int floorBelow(BlockPos from) {
+        for (int dy = MIN_STRANDED_DROP; dy <= DESCENT_SEARCH; dy++) {
+            BlockPos candidate = from.below(dy);
+            if (fitsBody(candidate)) {
+                return candidate.getY();
+            }
+        }
+        return Integer.MIN_VALUE;
     }
 
     /** Put the next building material in the builder's hand, if not already held. */
@@ -341,7 +442,7 @@ public final class PersonEntityManager {
     private boolean embody(Person person) {
         PersonEntity view = new PersonEntity(KingdomsEntities.PERSON.get(), level);
         SimPos pos = person.position();
-        int y = world.bridge().surfaceHeight(pos);
+        int y = standableY(pos);
         view.setPos(pos.x() + 0.5, y, pos.z() + 0.5);
         view.setCustomName(Component.literal(person.name() + " — " + pretty(person)));
         view.setCustomNameVisible(true);
@@ -430,8 +531,10 @@ public final class PersonEntityManager {
             double dz = view.getZ() - (target.z() + 0.5);
             double arrive = underThreat && !guard ? 2.0 : ARRIVE_RADIUS;
             if (dx * dx + dz * dz > arrive * arrive) {
-                int y = world.bridge().surfaceHeight(target);
-                view.getNavigation().moveTo(target.x() + 0.5, y, target.z() + 0.5, speed);
+                // The target's own Y, never the surface heightmap: a building's
+                // "surface" is its ROOF, and routing people there is what put
+                // villagers on rooftops in the first place.
+                view.getNavigation().moveTo(target.x() + 0.5, target.y(), target.z() + 0.5, speed);
             }
         }
     }
