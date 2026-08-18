@@ -85,7 +85,27 @@ public final class KingdomsCommand {
                         .executes(ctx -> raid(ctx, 0))
                         .then(Commands.argument("strength", IntegerArgumentType.integer(1, 100))
                                 .executes(ctx -> raid(ctx, IntegerArgumentType.getInteger(ctx, "strength")))))
+
+                .then(Commands.literal("hunger")
+                        .then(Commands.argument("level", IntegerArgumentType.integer(0, 99))
+                                .executes(ctx -> hunger(ctx, IntegerArgumentType.getInteger(ctx, "level")))))
         );
+    }
+
+    /** Sets every resident's hunger in the nearest settlement — the starvation test lever. */
+    private static int hunger(CommandContext<CommandSourceStack> ctx, int value) {
+        CommandSourceStack source = ctx.getSource();
+        Settlement settlement = nearestSettlement(source);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No settlement nearby."));
+            return 0;
+        }
+        settlement.residents().forEach(p -> p.setHunger(value));
+        markDirty(source);
+        source.sendSuccess(() -> Component.literal(
+                "Hunger of all " + settlement.population() + " residents of "
+                        + settlement.name() + " set to " + value), true);
+        return value;
     }
 
     // --- subcommands ---
@@ -150,8 +170,16 @@ public final class KingdomsCommand {
                 sb.append("(").append(embodied).append(" visible as villagers)");
                 sb.append("\n      defense ").append(RaidPlanner.defensePower(s))
                         .append(" (guards x").append(RaidPlanner.GUARD_POWER).append(" + structures)");
-                sb.append("\n      granary ").append(s.foodStock())
-                        .append("/").append(FoodPlanner.granaryCapacity(s));
+                sb.append("\n      food: granary ").append(s.foodStock())
+                        .append("/").append(FoodPlanner.granaryCapacity(s))
+                        .append(", fields ").append(FoodPlanner.farmStock(s))
+                        .append(", market ").append(FoodPlanner.marketStock(s))
+                        .append(", pantries ").append(FoodPlanner.pantryTotal(s));
+                int worstHunger = s.residents().stream().mapToInt(Person::hunger).max().orElse(0);
+                long starving = s.residents().stream()
+                        .filter(p -> p.hunger() >= Person.HUNGER_SEVERE).count();
+                sb.append("\n      hunger: worst ").append(worstHunger)
+                        .append(starving > 0 ? " (" + starving + " STARVING)" : "");
                 List<SettlementEvent> events = s.events();
                 if (!events.isEmpty()) {
                     sb.append("\n      history:");

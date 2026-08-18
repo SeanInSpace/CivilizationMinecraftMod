@@ -1,43 +1,67 @@
 package com.kingdoms.sim.settlement;
 
+import com.kingdoms.sim.person.Household;
+import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
- * The subsistence loop — what "self-sustaining" literally means.
+ * The food chain, from field to mouth:
  *
- * <p>Every step, farmers working the fields put food into the granary and every
- * mouth takes some out. A village whose fields keep up grows; one that outruns
- * its farms stops growing until they catch up. This replaces "farmers are a
- * decorative job" with the oldest economy there is.
+ * <pre>
+ *   fields grow → FARMERS haul → granary pool → TRADERS stock → market
+ *                                                                  ↓
+ *      mouths ← personal inventory ← family pantry ← a family member fetches
+ * </pre>
  *
+ * <p>Every link is real, held state: harvest waits at the farm until a farmer
+ * carries it, the granary holds the town's bulk, market hands move retail stock,
+ * one member per family keeps the pantry filled, and each person carries and
+ * eats their own food. Break any link — no farmers, no granary space, no market
+ * hands, a housebound family — and hunger arrives downstream.
+ *
+ * <p><strong>Hunger</strong> rises every step and is scored 0–99:
  * <ul>
- *   <li>Each farm employs up to {@link #FARMERS_PER_FARM} farmers; farmers
- *       beyond the fields' capacity produce nothing.</li>
- *   <li>Production is {@link #FOOD_PER_FARMER_PER_STEP} per working farmer;
- *       consumption is {@link #FOOD_EATEN_PER_PERSON_PER_STEP} per resident.</li>
- *   <li>The granary holds {@link #BASE_GRANARY}, plus
- *       {@link #GRANARY_PER_STOREHOUSE} per storehouse — the building finally
- *       earns its name. Surplus beyond capacity is wasted.</li>
- *   <li><strong>Births require banked food</strong> — see
- *       {@link #canFeedAnotherMouth} — so the food supply, not just housing,
- *       paces growth.</li>
- *   <li>Nobody starves to death. An empty granary halts growth and is written
- *       into the town's history; a quaint village goes hungry, it does not
- *       collapse. Starvation deaths can arrive with a harsher difficulty later.</li>
+ *   <li><b>0–29</b> — fed;</li>
+ *   <li><b>30–59</b> — hungry (eats at 30 when there is anything to eat);</li>
+ *   <li><b>60–89</b> — weak: stops farming, hauling and building; visibly
+ *       debuffed in the world;</li>
+ *   <li><b>90–99</b> — severe: heavier debuffs, and after
+ *       {@link #STARVATION_GRACE_STEPS} steps held at the cap, death. Starvation
+ *       deaths are permanent and enter the town's history.</li>
  * </ul>
  *
- * <p>New settlements begin with {@link #STARTING_PROVISIONS} — the founding
- * party packs supplies to survive until the first field is tilled.
+ * <p>Young settlements without a market fetch straight from the granary pool;
+ * once a market stands, families shop there — the chain grows with the town.
  */
 public final class FoodPlanner {
 
     public static final int STARTING_PROVISIONS = 100;
-    public static final int FOOD_PER_FARMER_PER_STEP = 6;
+
+    // hunger pacing
+    public static final int HUNGER_PER_STEP = 2;
+    public static final int NUTRITION_PER_FOOD = 30;
+    public static final int STARVATION_GRACE_STEPS = 10;
+
+    // the chain's carrying numbers
+    public static final int FOOD_PER_FARMER_PER_STEP = 1;
     public static final int FARMERS_PER_FARM = 2;
-    public static final int FOOD_EATEN_PER_PERSON_PER_STEP = 1;
+    public static final int FARM_STORE_CAP = 40;
+    public static final int FARMER_CARRY = 4;
+    public static final int TRADER_CARRY = 6;
+    public static final int MARKET_STOCK_CAP = 150;
+    public static final int PANTRY_PER_MEMBER = 3;
+    public static final int FETCH_MAX = 8;
+    public static final int CARRY_WHEN_EATING = 2;
+
+    // granary pool capacity
     public static final int BASE_GRANARY = 200;
-    public static final int GRANARY_PER_STOREHOUSE = 400;
+    public static final int GRANARY_PER_BUILDING = 400;
 
     /** Births need this many steps of food banked per resident (including the newborn). */
     public static final int BIRTH_FOOD_BUFFER_STEPS = 5;
@@ -45,26 +69,164 @@ public final class FoodPlanner {
     private FoodPlanner() {
     }
 
-    /** One step of the subsistence loop: harvest, eat, and note an empty granary. */
+    /** One step of the chain, source to mouth, then hunger and its consequences. */
     public static void advance(Settlement settlement, SimContext ctx) {
-        int before = settlement.foodStock();
+        int poolBefore = settlement.foodStock();
 
-        int farmers = JobPlanner.count(settlement, Profession.FARMER);
-        int fields = countBuildings(settlement, "farm");
-        int working = Math.min(farmers, fields * FARMERS_PER_FARM);
-        int produced = working * FOOD_PER_FARMER_PER_STEP;
-        int eaten = settlement.population() * FOOD_EATEN_PER_PERSON_PER_STEP;
+        growHarvest(settlement);
+        haulHarvestToGranary(settlement);
+        stockMarkets(settlement);
+        fetchForFamilies(settlement);
+        eatAndHunger(settlement, ctx);
 
-        int after = before + produced - eaten;
-        // The granary clamps what can be BANKED, never confiscates what is held:
-        // a stock above capacity (founding provisions, future imports) drains
-        // naturally instead of snapping down.
-        int ceiling = Math.max(granaryCapacity(settlement), before);
-        settlement.setFoodStock(Math.max(0, Math.min(after, ceiling)));
-
-        if (before > 0 && settlement.foodStock() == 0) {
+        if (poolBefore > 0 && settlement.foodStock() == 0) {
             settlement.logEvent(ctx.step(),
                     "The granary is empty — growth halts until the fields catch up");
+        }
+    }
+
+    /** Fields produce into their own stores, worked by healthy farmers. */
+    private static void growHarvest(Settlement settlement) {
+        List<Building> farms = buildingsOf(settlement, "farm");
+        if (farms.isEmpty()) {
+            return;
+        }
+        int healthyFarmers = countHealthy(settlement, Profession.FARMER);
+        int working = Math.min(healthyFarmers, farms.size() * FARMERS_PER_FARM);
+        int harvest = working * FOOD_PER_FARMER_PER_STEP;
+        for (int i = 0; harvest > 0 && i < farms.size() * FARM_STORE_CAP; i++) {
+            Building farm = farms.get(i % farms.size());
+            if (farm.foodStored() < FARM_STORE_CAP) {
+                farm.setFoodStored(farm.foodStored() + 1);
+                harvest--;
+            }
+        }
+    }
+
+    /** Each healthy farmer carries a load from the fullest field to the granary. */
+    private static void haulHarvestToGranary(Settlement settlement) {
+        List<Building> farms = buildingsOf(settlement, "farm");
+        if (farms.isEmpty()) {
+            return;
+        }
+        int haulers = countHealthy(settlement, Profession.FARMER);
+        int space = granaryCapacity(settlement) - settlement.foodStock();
+        for (int i = 0; i < haulers && space > 0; i++) {
+            Building fullest = null;
+            for (Building farm : farms) {
+                if (fullest == null || farm.foodStored() > fullest.foodStored()) {
+                    fullest = farm;
+                }
+            }
+            if (fullest == null || fullest.foodStored() == 0) {
+                break;
+            }
+            int load = Math.min(FARMER_CARRY, Math.min(fullest.foodStored(), space));
+            fullest.setFoodStored(fullest.foodStored() - load);
+            settlement.setFoodStock(settlement.foodStock() + load);
+            space -= load;
+        }
+    }
+
+    /** Market hands (traders) carry granary stock to the emptiest market. */
+    private static void stockMarkets(Settlement settlement) {
+        List<Building> markets = buildingsOf(settlement, "market");
+        if (markets.isEmpty()) {
+            return;
+        }
+        int hands = countHealthy(settlement, Profession.TRADER);
+        for (int i = 0; i < hands && settlement.foodStock() > 0; i++) {
+            Building emptiest = null;
+            for (Building market : markets) {
+                if (market.foodStored() >= MARKET_STOCK_CAP) {
+                    continue;
+                }
+                if (emptiest == null || market.foodStored() < emptiest.foodStored()) {
+                    emptiest = market;
+                }
+            }
+            if (emptiest == null) {
+                break;
+            }
+            int load = Math.min(TRADER_CARRY,
+                    Math.min(settlement.foodStock(), MARKET_STOCK_CAP - emptiest.foodStored()));
+            settlement.setFoodStock(settlement.foodStock() - load);
+            emptiest.setFoodStored(emptiest.foodStored() + load);
+        }
+    }
+
+    /**
+     * One member per family keeps the pantry stocked — from the best-stocked
+     * market once one stands, straight from the granary before that.
+     */
+    private static void fetchForFamilies(Settlement settlement) {
+        List<Building> markets = buildingsOf(settlement, "market");
+        for (Household household : settlement.households()) {
+            int target = household.size() * PANTRY_PER_MEMBER;
+            if (household.size() == 0 || household.pantry() >= target) {
+                continue;
+            }
+            int want = Math.min(FETCH_MAX, target - household.pantry());
+
+            if (markets.isEmpty()) {
+                int take = Math.min(want, settlement.foodStock());
+                settlement.setFoodStock(settlement.foodStock() - take);
+                household.setPantry(household.pantry() + take);
+                continue;
+            }
+            Building fullest = null;
+            for (Building market : markets) {
+                if (fullest == null || market.foodStored() > fullest.foodStored()) {
+                    fullest = market;
+                }
+            }
+            int take = Math.min(want, fullest.foodStored());
+            fullest.setFoodStored(fullest.foodStored() - take);
+            household.setPantry(household.pantry() + take);
+        }
+    }
+
+    /** Hunger rises; the hungry eat what they carry; the starving die. */
+    private static void eatAndHunger(Settlement settlement, SimContext ctx) {
+        Map<Person.Id, Household> families = new HashMap<>();
+        for (Household household : settlement.households()) {
+            for (Person.Id member : household.members()) {
+                families.put(member, household);
+            }
+        }
+
+        List<Person> starved = new ArrayList<>();
+        for (Person person : settlement.residents()) {
+            person.addHunger(HUNGER_PER_STEP);
+
+            if (person.hunger() >= Person.HUNGER_HUNGRY) {
+                if (person.foodCarried() == 0) {
+                    Household family = families.get(person.id());
+                    if (family != null && family.pantry() > 0) {
+                        int take = Math.min(CARRY_WHEN_EATING, family.pantry());
+                        family.setPantry(family.pantry() - take);
+                        person.setFoodCarried(take);
+                    }
+                }
+                if (person.foodCarried() > 0) {
+                    person.setFoodCarried(person.foodCarried() - 1);
+                    person.setHunger(person.hunger() - NUTRITION_PER_FOOD);
+                }
+            }
+
+            if (person.hunger() >= Person.HUNGER_MAX) {
+                person.setStarvingSteps(person.starvingSteps() + 1);
+                if (person.starvingSteps() >= STARVATION_GRACE_STEPS) {
+                    starved.add(person);
+                }
+            } else {
+                person.setStarvingSteps(0);
+            }
+        }
+
+        for (Person person : starved) {
+            settlement.removePerson(person.id());
+            settlement.logEvent(ctx.step(), person.name() + " starved");
         }
     }
 
@@ -74,17 +236,42 @@ public final class FoodPlanner {
                 >= (settlement.population() + 1) * BIRTH_FOOD_BUFFER_STEPS;
     }
 
+    /** Granary buildings and storehouses both extend the town's bulk storage. */
     public static int granaryCapacity(Settlement settlement) {
-        return BASE_GRANARY + countBuildings(settlement, "storehouse") * GRANARY_PER_STOREHOUSE;
+        int extensions = buildingsOf(settlement, "granary").size()
+                + buildingsOf(settlement, "storehouse").size();
+        return BASE_GRANARY + extensions * GRANARY_PER_BUILDING;
+    }
+
+    public static int marketStock(Settlement settlement) {
+        return buildingsOf(settlement, "market").stream().mapToInt(Building::foodStored).sum();
+    }
+
+    public static int farmStock(Settlement settlement) {
+        return buildingsOf(settlement, "farm").stream().mapToInt(Building::foodStored).sum();
+    }
+
+    public static int pantryTotal(Settlement settlement) {
+        return settlement.households().stream().mapToInt(Household::pantry).sum();
+    }
+
+    private static int countHealthy(Settlement settlement, Profession profession) {
+        return (int) settlement.residents().stream()
+                .filter(p -> p.profession() == profession && !p.isTooWeakToWork())
+                .count();
     }
 
     /**
      * Matched by blueprint-path suffix so any catalogue's "farm" counts. A
      * placeholder for datapack-declared building roles, like the catalogue itself.
      */
-    private static int countBuildings(Settlement settlement, String pathSuffix) {
-        return (int) settlement.buildings().stream()
-                .filter(b -> b.blueprintId().endsWith(pathSuffix))
-                .count();
+    private static List<Building> buildingsOf(Settlement settlement, String pathSuffix) {
+        List<Building> result = new ArrayList<>();
+        for (Building building : settlement.buildings()) {
+            if (building.blueprintId().endsWith(pathSuffix)) {
+                result.add(building);
+            }
+        }
+        return result;
     }
 }

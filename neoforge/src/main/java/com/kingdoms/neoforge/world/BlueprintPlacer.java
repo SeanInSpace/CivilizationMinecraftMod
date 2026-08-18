@@ -50,7 +50,9 @@ public final class BlueprintPlacer {
         switch (id.getPath()) {
             case "town_hall" -> hall(level, base);
             case "house" -> house(level, base);
+            case "granary" -> granary(level, base);
             case "farm" -> farm(level, base);
+            case "market" -> market(level, base);
             case "watchtower" -> watchtower(level, base);
             case "storehouse" -> storehouse(level, base);
             case "workshop" -> workshop(level, base);
@@ -67,6 +69,36 @@ public final class BlueprintPlacer {
     private static void hall(ServerLevel level, BlockPos base) {
         cabin(level, base, 7, 7, 4, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
         set(level, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);   // something to aspire to
+    }
+
+    /** Where the harvest is banked: a stout spruce store stacked with hay. */
+    private static void granary(ServerLevel level, BlockPos base) {
+        cabin(level, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
+        set(level, base.offset(-1, 1, -1), Blocks.HAY_BLOCK);
+        set(level, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
+        set(level, base.offset(-1, 2, -1), Blocks.HAY_BLOCK);
+        set(level, base.offset(1, 1, 0), Blocks.BARREL);
+    }
+
+    /** An open-air stall: corner posts, a plank awning, goods on the counter. */
+    private static void market(ServerLevel level, BlockPos base) {
+        prepareSite(level, base, 5, 5, 4);
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                set(level, base.offset(dx, 0, dz), Blocks.OAK_PLANKS);        // deck
+                set(level, base.offset(dx, 3, dz), Blocks.SPRUCE_PLANKS);     // awning
+            }
+        }
+        for (int dx = -2; dx <= 2; dx += 4) {
+            for (int dz = -2; dz <= 2; dz += 4) {
+                set(level, base.offset(dx, 1, dz), Blocks.STRIPPED_OAK_LOG);
+                set(level, base.offset(dx, 2, dz), Blocks.STRIPPED_OAK_LOG);
+            }
+        }
+        set(level, base.offset(-1, 1, 0), Blocks.HAY_BLOCK);                  // the counter
+        set(level, base.offset(0, 1, 0), Blocks.BARREL);
+        set(level, base.offset(1, 1, 0), Blocks.HAY_BLOCK);
+        set(level, base.offset(0, 2, 0), Blocks.LANTERN);
     }
 
     private static void storehouse(ServerLevel level, BlockPos base) {

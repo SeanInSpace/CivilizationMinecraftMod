@@ -26,7 +26,7 @@ You cannot found a town too close to an existing one; the overlay message will t
 You do not manage anything. The town runs itself, on these rules:
 
 - **It builds what it lacks** — town hall first, then houses, farms, a storehouse, workshops, watchtowers as it grows. Buildings go up whether you are there or not; if you are away, they appear when you return.
-- **It feeds itself.** Farmers work the fields into the granary; every resident eats from it. Families only have children when food is banked, so the fields pace the village as much as the housing does. A hungry town stops growing — it never starves to death — and the granary shows in every report.
+- **It feeds itself — or fails to.** Harvest waits in the fields until farmers haul it to the granary; market hands carry it to the market stall; one member of each family shops for the pantry; and every settler carries and eats their own food. Hunger is personal now: the underfed grow visibly weak (they stop working and slow down), and the starving die — permanently, with a line in the town's history. Watch the chain in the reports: granary, fields, market, pantries.
 - **It keeps village hours.** By day, farmers head to the fields, builders to the construction site, traders to the storehouse and guards to the watchtower; at dusk everyone but the watch walks home. When danger is near, civilians run indoors and only guards hold the ground.
 - **Families grow into the housing.** People pair into households, claim houses, and have children only when there is room. No houses, no growth — the builders set the pace of everything.
 - **Jobs staff themselves.** Children take up whatever the town is short of; idlers and surplus workers retrain. The name tag tells you who does what.

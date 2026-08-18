@@ -108,17 +108,38 @@ If you retune those numbers, keep `capacity × (base + pop/perResidents) > pop` 
 
 ## How the village feeds itself
 
-*(Added with the food economy — see [`FoodPlanner`](common/src/main/java/com/kingdoms/sim/settlement/FoodPlanner.java).)*
+*(See [`FoodPlanner`](common/src/main/java/com/kingdoms/sim/settlement/FoodPlanner.java).)*
 
-Every step, working farmers put food into the granary and every resident takes one out:
+Food travels a real chain, and every link is held state:
 
-- Each **farm employs up to 2 farmers**; farmers beyond the fields' capacity contribute nothing — more mouths need more fields, not just more farmers.
-- A working farmer produces **6 food per step**; every resident eats **1**.
-- The **granary holds 200**, plus **400 per storehouse** — surplus beyond capacity is wasted, so big towns want storehouses.
-- **Births require banked food**: a family only has a child when the granary holds at least 5 steps of food for everyone including the newborn. The fields pace the village as much as the housing does.
-- **Nobody starves.** An empty granary halts growth and is written into the town's history ("The granary is empty — growth halts until the fields catch up"); a quaint village goes hungry, it does not collapse.
+```
+fields grow → FARMERS haul → granary → MARKET HANDS stock → market
+                                                              ↓
+   mouths ← personal inventory ← family pantry ← a family member fetches
+```
 
-New settlements begin with **100 provisions** — the founding party packs supplies to survive until the first field is tilled. With the default staffing (1 farmer per 5 residents) and build tables (1 farm per 5), a healthy village runs a ~20% food surplus; lose your farms or your farmers and growth stops until they are restored.
+- **Fields grow harvest into their own stores** (up to 2 farmers worked per farm); **farmers carry it to the granary**, one load per step.
+- The **granary** is the town's bulk store — 200 base, +400 per granary or storehouse building. Towns build a granary early (population 4) and a market at 6.
+- **Market hands (traders) stock the market** from the granary; **one member per family fetches from the market** to keep the pantry at 3 food per member. Young towns without a market shop straight from the granary.
+- **Each person carries food** and eats from their own inventory when hunger bites, refilling from the family pantry.
+- **Births require banked food** in the granary — the fields pace the village as much as the housing does.
+
+Break any link — no farmers, full granary, no market hands, an unhoused family — and hunger arrives downstream.
+
+### Hunger and starvation
+
+Everyone's hunger rises 2 per step and is scored 0–99:
+
+| Hunger | State | Effect |
+|---|---|---|
+| 0–29 | Fed | none — eats at 30 when food is available |
+| 30–59 | Hungry | none yet, but eating whenever food can be had |
+| 60–89 | Weak | **stops farming, hauling and building**; visibly slowed in the world |
+| 90–99 | Starving | heavy debuffs; after 10 steps held at the cap, **death** |
+
+Starvation deaths are permanent — roster, family, and a line in the town's history ("Ada Baker starved"). The weak-worker rule makes famine compound: hungry farmers bring in less, which is exactly how real famines spiral — and why the granary buffer matters.
+
+New settlements begin with **100 provisions** — the founding party packs supplies to survive until the first field is tilled.
 
 ## The population ceiling
 

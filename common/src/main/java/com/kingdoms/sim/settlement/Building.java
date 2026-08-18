@@ -23,6 +23,9 @@ public final class Building {
     private final long completedOnStep;
     private boolean materialized;
 
+    /** Food held at this building — harvest waiting at a farm, stock at a market. */
+    private int foodStored;
+
     public Building(String blueprintId, SimPos origin, long completedOnStep) {
         this(blueprintId, origin, completedOnStep, false);
     }
@@ -54,6 +57,14 @@ public final class Building {
 
     public void setMaterialized(boolean materialized) {
         this.materialized = materialized;
+    }
+
+    public int foodStored() {
+        return foodStored;
+    }
+
+    public void setFoodStored(int foodStored) {
+        this.foodStored = Math.max(0, foodStored);
     }
 
     @Override

@@ -18,6 +18,8 @@ import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -28,6 +30,7 @@ import net.minecraft.world.phys.AABB;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -59,6 +62,9 @@ public final class PersonEntityManager {
 
     /** Civilians run (not stroll) for home while the settlement is threatened. */
     private static final double SHELTER_SPEED = 0.9;
+
+    /** Hunger debuffs are reapplied every manager pass; this outlasts the gap. */
+    private static final int EFFECT_REFRESH_TICKS = 40;
 
     /** Guards engage hostiles within this range, strike within melee reach. */
     private static final double GUARD_ENGAGE_RANGE = 20.0;
@@ -96,11 +102,57 @@ public final class PersonEntityManager {
                 }
 
                 dailyRoutine(settlement);
+                applyHungerEffects(settlement);
                 guardCombat(settlement);
             }
         }
+        reapOrphans();
         if (changed) {
             KingdomsSavedData.get(level).setDirty();
+        }
+    }
+
+    /**
+     * Hunger made visible. Weak (60+) people move slowly; the severely starved
+     * (90+) barely crawl and hit like children. Effects refresh each second so
+     * they lift on their own once the person eats.
+     */
+    private void applyHungerEffects(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied() || person.hunger() < Person.HUNGER_WEAK) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view == null || view.isRemoved()) {
+                continue;
+            }
+            if (person.hunger() >= Person.HUNGER_SEVERE) {
+                view.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, EFFECT_REFRESH_TICKS, 1), null);
+                view.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, EFFECT_REFRESH_TICKS, 0), null);
+            } else {
+                view.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, EFFECT_REFRESH_TICKS, 0), null);
+            }
+        }
+    }
+
+    /**
+     * A person can die inside the simulation — starvation, off-screen raid math —
+     * while their view entity still stands. The record is the authority: the
+     * orphaned body collapses here, on screen, rather than living on as a ghost.
+     */
+    private void reapOrphans() {
+        for (Map.Entry<UUID, PersonEntity> entry : List.copyOf(tracked.entrySet())) {
+            if (world.settlementOf(new Person.Id(entry.getKey())).isPresent()) {
+                continue;
+            }
+            PersonEntity view = entry.getValue();
+            tracked.remove(entry.getKey());
+            if (view != null && !view.isRemoved()) {
+                view.hurtServer(level, level.damageSources().starve(), Float.MAX_VALUE);
+                if (!view.isRemoved() && !view.isDeadOrDying()) {
+                    view.discard();
+                }
+            }
         }
     }
 
@@ -255,7 +307,7 @@ public final class PersonEntityManager {
             case BUILDER -> settlement.buildQueue().isEmpty()
                     ? nearestBuilding(settlement, "hall", person.position())
                     : settlement.buildQueue().getFirst().origin();
-            case TRADER -> nearestBuilding(settlement, "storehouse", person.position());
+            case TRADER -> nearestBuilding(settlement, "market", person.position());
             case GUARD -> nearestBuilding(settlement, "watchtower", person.position());
             case IDLER -> home != null ? home : settlement.centre();
         };

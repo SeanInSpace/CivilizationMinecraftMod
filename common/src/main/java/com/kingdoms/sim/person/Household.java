@@ -38,6 +38,9 @@ public final class Household {
     private SimPos home;
     private int growthProgress;
 
+    /** The family larder. A close member restocks it from the market. */
+    private int pantry;
+
     public Household(Id id, String name) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
@@ -95,6 +98,14 @@ public final class Household {
 
     public void resetGrowthProgress() {
         growthProgress = 0;
+    }
+
+    public int pantry() {
+        return pantry;
+    }
+
+    public void setPantry(int pantry) {
+        this.pantry = Math.max(0, pantry);
     }
 
     @Override

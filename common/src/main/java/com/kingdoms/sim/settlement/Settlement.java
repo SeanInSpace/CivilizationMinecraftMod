@@ -271,7 +271,7 @@ public final class Settlement {
             return;
         }
         int builders = (int) residents.values().stream()
-                .filter(p -> p.profession() == Profession.BUILDER)
+                .filter(p -> p.profession() == Profession.BUILDER && !p.isTooWeakToWork())
                 .count();
         if (builders == 0) {
             return;

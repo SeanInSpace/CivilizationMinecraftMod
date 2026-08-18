@@ -83,8 +83,17 @@ public final class KingdomsCodecs {
             PERSON_ID.fieldOf("id").forGetter(Person::id),
             Codec.STRING.fieldOf("name").forGetter(Person::name),
             PROFESSION.fieldOf("profession").forGetter(Person::profession),
-            SIM_POS.fieldOf("position").forGetter(Person::position)
-    ).apply(i, Person::new));
+            SIM_POS.fieldOf("position").forGetter(Person::position),
+            Codec.INT.optionalFieldOf("hunger", 0).forGetter(Person::hunger),
+            Codec.INT.optionalFieldOf("food_carried", 0).forGetter(Person::foodCarried),
+            Codec.INT.optionalFieldOf("starving_steps", 0).forGetter(Person::starvingSteps)
+    ).apply(i, (id, name, profession, position, hunger, carried, starving) -> {
+        Person person = new Person(id, name, profession, position);
+        person.setHunger(hunger);
+        person.setFoodCarried(carried);
+        person.setStarvingSteps(starving);
+        return person;
+    }));
 
     public static final Codec<BuildTask> BUILD_TASK = RecordCodecBuilder.create(i -> i.group(
             Codec.STRING.fieldOf("blueprint").forGetter(BuildTask::blueprintId),
@@ -105,12 +114,14 @@ public final class KingdomsCodecs {
             Codec.STRING.fieldOf("name").forGetter(Household::name),
             PERSON_ID.listOf().fieldOf("members").forGetter(Household::members),
             SIM_POS.optionalFieldOf("home").forGetter(h -> Optional.ofNullable(h.home())),
-            Codec.INT.fieldOf("growth").forGetter(Household::growthProgress)
-    ).apply(i, (id, name, members, home, growth) -> {
+            Codec.INT.fieldOf("growth").forGetter(Household::growthProgress),
+            Codec.INT.optionalFieldOf("pantry", 0).forGetter(Household::pantry)
+    ).apply(i, (id, name, members, home, growth, pantry) -> {
         Household household = new Household(id, name);
         members.forEach(household::addMember);
         home.ifPresent(household::setHome);
         household.addGrowthProgress(growth);
+        household.setPantry(pantry);
         return household;
     }));
 
@@ -123,8 +134,13 @@ public final class KingdomsCodecs {
             Codec.STRING.fieldOf("blueprint").forGetter(Building::blueprintId),
             SIM_POS.fieldOf("origin").forGetter(Building::origin),
             Codec.LONG.fieldOf("completed_on_step").forGetter(Building::completedOnStep),
-            Codec.BOOL.fieldOf("materialized").forGetter(Building::isMaterialized)
-    ).apply(i, Building::new));
+            Codec.BOOL.fieldOf("materialized").forGetter(Building::isMaterialized),
+            Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored)
+    ).apply(i, (blueprint, origin, step, materialized, food) -> {
+        Building building = new Building(blueprint, origin, step, materialized);
+        building.setFoodStored(food);
+        return building;
+    }));
 
     // "buildings" is optional so saves written before it existed still load.
     public static final Codec<Settlement> SETTLEMENT = RecordCodecBuilder.create(i -> i.group(

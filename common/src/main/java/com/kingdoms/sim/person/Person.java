@@ -29,10 +29,25 @@ public final class Person {
         }
     }
 
+    /** Hunger 30+: hungry. 60+: too weak to work, debuffed. 90+: severe. */
+    public static final int HUNGER_HUNGRY = 30;
+    public static final int HUNGER_WEAK = 60;
+    public static final int HUNGER_SEVERE = 90;
+    public static final int HUNGER_MAX = 99;
+
     private final Id id;
     private final String name;
     private Profession profession;
     private SimPos position;
+
+    /** 0 (fed) to {@link #HUNGER_MAX}. Held at the cap while starving. */
+    private int hunger;
+
+    /** Food carried on the person — eaten first, refilled from the family pantry. */
+    private int foodCarried;
+
+    /** Consecutive steps spent at maximum hunger. Death comes when it runs out. */
+    private int starvingSteps;
 
     /**
      * Whether a real entity currently represents this person in the world.
@@ -78,6 +93,39 @@ public final class Person {
 
     public void setEmbodied(boolean embodied) {
         this.embodied = embodied;
+    }
+
+    public int hunger() {
+        return hunger;
+    }
+
+    public void setHunger(int hunger) {
+        this.hunger = Math.max(0, Math.min(HUNGER_MAX, hunger));
+    }
+
+    public void addHunger(int amount) {
+        setHunger(hunger + amount);
+    }
+
+    /** Too hungry to farm, haul, or build. */
+    public boolean isTooWeakToWork() {
+        return hunger >= HUNGER_WEAK;
+    }
+
+    public int foodCarried() {
+        return foodCarried;
+    }
+
+    public void setFoodCarried(int foodCarried) {
+        this.foodCarried = Math.max(0, foodCarried);
+    }
+
+    public int starvingSteps() {
+        return starvingSteps;
+    }
+
+    public void setStarvingSteps(int starvingSteps) {
+        this.starvingSteps = Math.max(0, starvingSteps);
     }
 
     @Override
