@@ -54,6 +54,7 @@ class StressTest {
             Settlement s = new Settlement(
                     Settlement.Id.random(), "Town " + i, new SimPos(i * 1000, 64, 0), 64);
             s.setCatalogue(catalogue);
+            s.setFoodStock(1_000_000);   // food never binds here; the benchmark isolates core cost
             for (int r = 0; r < 20; r++) {
                 s.addResident(new Person(
                         Person.Id.random(), "Builder " + r, Profession.BUILDER, new SimPos(i * 1000, 64, 0)));

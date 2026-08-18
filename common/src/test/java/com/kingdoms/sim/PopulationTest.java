@@ -52,6 +52,7 @@ class PopulationTest {
     private static Settlement settlement(int residents, Profession trade, int houses) {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
         s.setCatalogue(CATALOGUE);
+        s.setFoodStock(100_000);   // these tests isolate housing; food is tested separately
         for (int i = 0; i < residents; i++) {
             s.addResident(new Person(Person.Id.random(), "Settler " + i, trade, new SimPos(0, 64, 0)));
         }

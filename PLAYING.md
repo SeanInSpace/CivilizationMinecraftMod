@@ -26,8 +26,10 @@ You cannot found a town too close to an existing one; the overlay message will t
 You do not manage anything. The town runs itself, on these rules:
 
 - **It builds what it lacks** — town hall first, then houses, farms, a storehouse, workshops, watchtowers as it grows. Buildings go up whether you are there or not; if you are away, they appear when you return.
+- **It feeds itself.** Farmers work the fields into the granary; every resident eats from it. Families only have children when food is banked, so the fields pace the village as much as the housing does. A hungry town stops growing — it never starves to death — and the granary shows in every report.
+- **It keeps village hours.** By day, farmers head to the fields, builders to the construction site, traders to the storehouse and guards to the watchtower; at dusk everyone but the watch walks home. When danger is near, civilians run indoors and only guards hold the ground.
 - **Families grow into the housing.** People pair into households, claim houses, and have children only when there is room. No houses, no growth — the builders set the pace of everything.
-- **Jobs staff themselves.** Children take up whatever the town is short of; idlers retrain. Builders wear mason's clothes, guards a weaponsmith's, farmers a farmer's — the outfit tells you the job, and so does the name tag.
+- **Jobs staff themselves.** Children take up whatever the town is short of; idlers and surplus workers retrain. The name tag tells you who does what.
 - **Raids come.** Every so often, scaled to the town's size. If you are there, you'll see the attackers arrive, **civilians run for their homes**, and the guards charge. If you are not, the fight still happens — arithmetically, garrison against raiders — and people can die either way. Towns under 6 people are left alone.
 - **Deaths are permanent.** A settler killed — by a raid, a creeper, or you — is gone: struck from their family and the roster.
 - **Full towns found new ones.** At the population ceiling, a party of young families departs and plants a daughter settlement ~160 blocks away under the same kingdom. Left alone long enough, one charter becomes a realm. See it with the charter's border sparkles.
@@ -64,7 +66,7 @@ Per-world settings in `<world>/serverconfig/kingdoms-server.toml`:
 | `view.max_villagers_per_settlement` | 64 | Entity cap per town |
 | `defense.raids_enabled` | true | Turn off for peaceful building |
 | `defense.raid_interval_steps` | 50 | Time between raids |
-| `debug.commands_enabled` | true | The `/kingdoms` operator commands |
+| `debug.commands_enabled` | true | The `/civ` operator commands |
 
 ## Custom building styles
 
@@ -72,4 +74,4 @@ Every building the mod places checks for a structure template first: put an `.nb
 
 ## For operators
 
-`/kingdoms` (permission level 2) offers `found`, `info`, `populate`, `build`, `threat`, `step`, and `raid` for inspecting and prodding the simulation. `info` is the full X-ray; `step 50` fast-forwards; `raid` starts trouble on demand.
+`/civ` (permission level 2) offers `found`, `info`, `populate`, `build`, `threat`, `step`, and `raid` for inspecting and prodding the simulation. `info` is the full X-ray; `step 50` fast-forwards; `raid` starts trouble on demand.

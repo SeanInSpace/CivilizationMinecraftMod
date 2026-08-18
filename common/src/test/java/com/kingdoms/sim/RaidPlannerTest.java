@@ -104,7 +104,9 @@ class RaidPlannerTest {
             RaidPlanner.advance(s, ctx(bridge, step));
         }
         assertEquals(RaidPlanner.MIN_POPULATION_FOR_RAIDS - 1, s.population(), "nobody lost");
-        assertTrue(s.events().isEmpty(), "no raid should ever have fired");
+        assertTrue(s.events().stream().noneMatch(e ->
+                        e.message().contains("Raid") || e.message().contains("sighted")),
+                "no raid should ever have fired");
     }
 
     // --- unobserved resolution ---

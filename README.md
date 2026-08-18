@@ -96,34 +96,34 @@ Launch a dev client:
 Create a world, then in chat (needs cheats on, or op on a server):
 
 ```
-/kingdoms found Normandy
-/kingdoms populate 3 BUILDER
-/kingdoms build bakery 12
-/kingdoms info
+/civ found Normandy
+/civ populate 3 BUILDER
+/civ build bakery 12
+/civ info
 ```
 
 `info` reports every kingdom, settlement, population, threat level, and build progress. Then fast-forward instead of waiting 5 seconds per step:
 
 ```
-/kingdoms step 6
-/kingdoms info
+/civ step 6
+/civ info
 ```
 
 The bakery leaves the queue, appears under `built (1)`, and a stone platform with a gold marker is placed at the position you queued it from. Remove the builders and it stalls — that is the entire profession system as currently implemented.
 
-To see deferred placement, queue a build and immediately walk far enough away that the chunk unloads, then `/kingdoms step 6` and come back. `info` will show the building as `[PENDING placement]` until a step runs with the chunk loaded.
+To see deferred placement, queue a build and immediately walk far enough away that the chunk unloads, then `/civ step 6` and come back. `info` will show the building as `[PENDING placement]` until a step runs with the chunk loaded.
 
 ### The full command set
 
 | Command | Effect |
 |---|---|
-| `/kingdoms found <name>` | Found a kingdom + settlement at your position |
-| `/kingdoms info` | Dump all simulation state, including jobs and visible-villager counts |
-| `/kingdoms populate <count> <profession>` | Add residents to the nearest settlement |
-| `/kingdoms build <blueprint> <work>` | Queue a build task |
-| `/kingdoms threat <level>` | Set threat on the nearest settlement |
-| `/kingdoms step [count]` | Force simulation steps immediately |
-| `/kingdoms raid [strength]` | Force a raid — real zombies if you stand there, arithmetic if run from the console |
+| `/civ found <name>` | Found a kingdom + settlement at your position |
+| `/civ info` | Dump all simulation state, including jobs and visible-villager counts |
+| `/civ populate <count> <profession>` | Add residents to the nearest settlement |
+| `/civ build <blueprint> <work>` | Queue a build task |
+| `/civ threat <level>` | Set threat on the nearest settlement |
+| `/civ step [count]` | Force simulation steps immediately |
+| `/civ raid [strength]` | Force a raid — real zombies if you stand there, arithmetic if run from the console |
 
 All require permission level 2 (gamemaster) and can be disabled with `debug.commands_enabled` in the config.
 
@@ -133,9 +133,9 @@ Server config lives at `<world>/serverconfig/kingdoms-server.toml` (defaults are
 
 ### What to actually verify
 
-- **Persistence.** Found a kingdom, quit to title, reload the world, `/kingdoms info`. Everything should still be there. This is the single most valuable thing to test, because it exercises every codec.
-- **Growth while away.** Queue a build, walk 500 blocks away so the chunk unloads, come back, `/kingdoms info`. Progress should have continued — that is the "records not entities" architecture working.
-- **Threat decay.** `/kingdoms threat 5`, then `/kingdoms step 5`, then check it is 0 and does not go negative.
+- **Persistence.** Found a kingdom, quit to title, reload the world, `/civ info`. Everything should still be there. This is the single most valuable thing to test, because it exercises every codec.
+- **Growth while away.** Queue a build, walk 500 blocks away so the chunk unloads, come back, `/civ info`. Progress should have continued — that is the "records not entities" architecture working.
+- **Threat decay.** `/civ threat 5`, then `/civ step 5`, then check it is 0 and does not go negative.
 
 ### Dev server instead of client
 
@@ -167,7 +167,7 @@ This will stop on first launch until you accept Minecraft's EULA by setting `eul
 - `bridge/NeoForgeWorldBridge` — translates `SimPos` ↔ `BlockPos`, answers "is anyone watching?"
 - `save/KingdomsSavedData` — durable kingdom storage, written with the level
 - `save/KingdomsCodecs` — codecs for every simulation type
-- `command/KingdomsCommand` — `/kingdoms` debug commands; the only window into the sim right now
+- `command/KingdomsCommand` — `/civ` debug commands; the only window into the sim right now
 
 ### A 26.2 API note that will bite you
 

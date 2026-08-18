@@ -7,6 +7,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.PopulationPlanner;
 import com.kingdoms.sim.settlement.RaidPlanner;
 import com.kingdoms.sim.settlement.Settlement;
@@ -123,6 +124,8 @@ public final class FoundingCharterItem extends Item {
                 .append(", ").append(nearest.households().size()).append(" families");
         sb.append("\nDefense ").append(RaidPlanner.defensePower(nearest))
                 .append(", threat ").append(nearest.threatLevel());
+        sb.append("\nGranary ").append(nearest.foodStock())
+                .append("/").append(FoodPlanner.granaryCapacity(nearest));
         sb.append("\nBuildings: ").append(nearest.buildings().size());
         if (!nearest.buildQueue().isEmpty()) {
             sb.append(" (building ").append(nearest.buildQueue().getFirst().blueprintId())

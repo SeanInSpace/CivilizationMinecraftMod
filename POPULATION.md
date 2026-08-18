@@ -106,6 +106,20 @@ If you retune those numbers, keep `capacity × (base + pop/perResidents) > pop` 
 
 ---
 
+## How the village feeds itself
+
+*(Added with the food economy — see [`FoodPlanner`](common/src/main/java/com/kingdoms/sim/settlement/FoodPlanner.java).)*
+
+Every step, working farmers put food into the granary and every resident takes one out:
+
+- Each **farm employs up to 2 farmers**; farmers beyond the fields' capacity contribute nothing — more mouths need more fields, not just more farmers.
+- A working farmer produces **6 food per step**; every resident eats **1**.
+- The **granary holds 200**, plus **400 per storehouse** — surplus beyond capacity is wasted, so big towns want storehouses.
+- **Births require banked food**: a family only has a child when the granary holds at least 5 steps of food for everyone including the newborn. The fields pace the village as much as the housing does.
+- **Nobody starves.** An empty granary halts growth and is written into the town's history ("The granary is empty — growth halts until the fields catch up"); a quaint village goes hungry, it does not collapse.
+
+New settlements begin with **100 provisions** — the founding party packs supplies to survive until the first field is tilled. With the default staffing (1 farmer per 5 residents) and build tables (1 farm per 5), a healthy village runs a ~20% food surplus; lose your farms or your farmers and growth stops until they are restored.
+
 ## The population ceiling
 
 Births stop at **48 people per settlement** (`population.max_per_settlement` in config). This is not a soft limit — it is load-bearing. Housing demand scales with population (`1 + pop ÷ 3` houses), so supply always keeps up with growth, and an uncapped town grows *exponentially forever*: live playtesting produced a thousand-person settlement drawing 131-zombie raids within sixteen minutes. Millénaire and MineColonies cap settlement size for exactly this reason.

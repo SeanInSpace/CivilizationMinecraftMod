@@ -60,6 +60,9 @@ public final class Settlement {
      */
     private int threatLevel;
 
+    /** Food banked in the granary. The founding party arrives provisioned. */
+    private int foodStock = FoodPlanner.STARTING_PROVISIONS;
+
     public Settlement(Id id, String name, SimPos centre, int claimRadius) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
@@ -89,6 +92,14 @@ public final class Settlement {
 
     public int threatLevel() {
         return threatLevel;
+    }
+
+    public int foodStock() {
+        return foodStock;
+    }
+
+    public void setFoodStock(int foodStock) {
+        this.foodStock = Math.max(0, foodStock);
     }
 
     public void setThreatLevel(int threatLevel) {
@@ -217,6 +228,7 @@ public final class Settlement {
         planNextBuild(ctx);
         advanceBuildQueue(ctx);
         materializePending(ctx);
+        FoodPlanner.advance(this, ctx);
         JobPlanner.retrainOne(this);
         PopulationPlanner.advance(this, ctx);
         decayThreat();

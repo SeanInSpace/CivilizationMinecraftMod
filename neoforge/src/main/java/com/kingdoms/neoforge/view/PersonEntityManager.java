@@ -12,6 +12,7 @@ import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimWorld;
@@ -51,8 +52,8 @@ public final class PersonEntityManager {
     /** Game ticks between manager passes (20 = once a second). */
     public static final int TICK_INTERVAL = 20;
 
-    /** How far a view may wander from their family's house before being walked back. */
-    private static final double HOME_LEASH = 24.0;
+    /** Close enough to a destination counts as arrived; the wander goal takes over. */
+    private static final double ARRIVE_RADIUS = 8.0;
 
     private static final double WALK_SPEED = 0.6;
 
@@ -94,7 +95,7 @@ public final class PersonEntityManager {
                     changed |= embody(person);
                 }
 
-                nudgeStragglersHome(settlement);
+                dailyRoutine(settlement);
                 guardCombat(settlement);
             }
         }
@@ -194,42 +195,87 @@ public final class PersonEntityManager {
     }
 
     /**
-     * Keeps people where they belong. In peace, strays beyond the leash are
-     * walked back at a stroll. While the settlement's threat is raised, every
-     * civilian runs for home and stays there — only guards hold the open ground.
-     * Threat mirrors nearby hostiles, so towns empty at nightfall and during
-     * raids, and refill on their own when the danger passes.
+     * The village day. Threatened civilians run home; at night everyone but the
+     * watch turns in; by day people head to their work — farmers to the fields,
+     * builders to the site, traders to the storehouse, guards to the tower,
+     * idlers about their homes. The wander goal mills them around whatever spot
+     * this chooses, so the town reads as lived-in rather than marched.
      */
-    private void nudgeStragglersHome(Settlement settlement) {
+    private void dailyRoutine(Settlement settlement) {
+        boolean night = level.isDarkOutside();
         boolean underThreat = settlement.threatLevel() > 0;
+
+        Map<UUID, SimPos> homes = new HashMap<>();
         for (Household household : settlement.households()) {
-            if (!household.isHoused()) {
-                continue;
-            }
-            SimPos home = household.home();
-            for (Person.Id memberId : household.members()) {
-                PersonEntity view = tracked.get(memberId.value());
-                if (view == null) {
-                    continue;
-                }
-                Person person = settlement.resident(memberId);
-                boolean guard = person != null && person.profession() == Profession.GUARD;
-
-                double dx = view.getX() - (home.x() + 0.5);
-                double dz = view.getZ() - (home.z() + 0.5);
-                double distSq = dx * dx + dz * dz;
-
-                if (underThreat && !guard) {
-                    if (distSq > 4.0) {   // close enough counts as sheltered
-                        int y = world.bridge().surfaceHeight(home);
-                        view.getNavigation().moveTo(home.x() + 0.5, y, home.z() + 0.5, SHELTER_SPEED);
-                    }
-                } else if (distSq > HOME_LEASH * HOME_LEASH) {
-                    int y = world.bridge().surfaceHeight(home);
-                    view.getNavigation().moveTo(home.x() + 0.5, y, home.z() + 0.5, WALK_SPEED);
+            if (household.isHoused()) {
+                for (Person.Id member : household.members()) {
+                    homes.put(member.value(), household.home());
                 }
             }
         }
+
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied()) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view == null || view.isRemoved()) {
+                continue;
+            }
+
+            boolean guard = person.profession() == Profession.GUARD;
+            SimPos home = homes.get(person.id().value());
+
+            SimPos target;
+            double speed;
+            if (underThreat && !guard) {
+                target = home != null ? home : settlement.centre();
+                speed = SHELTER_SPEED;
+            } else if (night && !guard) {
+                target = home != null ? home : settlement.centre();
+                speed = WALK_SPEED;
+            } else {
+                target = workplaceFor(settlement, person, home);
+                speed = WALK_SPEED;
+            }
+
+            double dx = view.getX() - (target.x() + 0.5);
+            double dz = view.getZ() - (target.z() + 0.5);
+            double arrive = underThreat && !guard ? 2.0 : ARRIVE_RADIUS;
+            if (dx * dx + dz * dz > arrive * arrive) {
+                int y = world.bridge().surfaceHeight(target);
+                view.getNavigation().moveTo(target.x() + 0.5, y, target.z() + 0.5, speed);
+            }
+        }
+    }
+
+    private SimPos workplaceFor(Settlement settlement, Person person, SimPos home) {
+        return switch (person.profession()) {
+            case FARMER -> nearestBuilding(settlement, "farm", person.position());
+            case BUILDER -> settlement.buildQueue().isEmpty()
+                    ? nearestBuilding(settlement, "hall", person.position())
+                    : settlement.buildQueue().getFirst().origin();
+            case TRADER -> nearestBuilding(settlement, "storehouse", person.position());
+            case GUARD -> nearestBuilding(settlement, "watchtower", person.position());
+            case IDLER -> home != null ? home : settlement.centre();
+        };
+    }
+
+    /** Nearest completed building whose blueprint path ends with the suffix, else the centre. */
+    private static SimPos nearestBuilding(Settlement settlement, String pathSuffix, SimPos from) {
+        SimPos best = null;
+        long bestDistance = Long.MAX_VALUE;
+        for (Building building : settlement.buildings()) {
+            if (!building.blueprintId().endsWith(pathSuffix)) {
+                continue;
+            }
+            long d = building.origin().horizontalDistanceSq(from);
+            if (d < bestDistance) {
+                bestDistance = d;
+                best = building.origin();
+            }
+        }
+        return best != null ? best : settlement.centre();
     }
 
     /** Whether this exact entity is the live view we spawned for this person. */

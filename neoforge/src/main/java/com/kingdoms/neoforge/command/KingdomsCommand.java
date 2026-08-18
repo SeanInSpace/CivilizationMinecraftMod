@@ -10,6 +10,7 @@ import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.JobPlanner;
 import com.kingdoms.sim.settlement.PopulationPlanner;
 import com.kingdoms.sim.settlement.RaidPlanner;
@@ -46,7 +47,7 @@ public final class KingdomsCommand {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("kingdoms")
+        dispatcher.register(Commands.literal("civ")
                 .requires(source -> KingdomsConfig.debugCommandsEnabled()
                         && Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(source))
 
@@ -149,6 +150,8 @@ public final class KingdomsCommand {
                 sb.append("(").append(embodied).append(" visible as villagers)");
                 sb.append("\n      defense ").append(RaidPlanner.defensePower(s))
                         .append(" (guards x").append(RaidPlanner.GUARD_POWER).append(" + structures)");
+                sb.append("\n      granary ").append(s.foodStock())
+                        .append("/").append(FoodPlanner.granaryCapacity(s));
                 List<SettlementEvent> events = s.events();
                 if (!events.isEmpty()) {
                     sb.append("\n      history:");

@@ -71,9 +71,9 @@ The original brief, delivered. Full spec: **[DEFENSE.md](DEFENSE.md)**.
 - **Threat detection** ✅ — threat mirrors real hostiles inside the claim each step, and raids raise it in both fidelities; decay reads as "how recently something happened".
 - **Observed combat** ✅ — raids spawn real zombies in a ring at the town edge; guards engage the nearest hostile once a second (charge, strike, vanilla retaliation — guards can lose). Every villager death kills its person through the existing death path.
 - **Unobserved combat** ✅ — deterministic arithmetic: guards ×2 + structure bonuses (watchtower +3) versus `1 + pop/8 + jitter`. Repelled cleanly, or the deficit is paid in lives — guards first. Casualties leave their families; emptied houses free up.
-- **Consequences & evidence** ✅ — every settlement keeps a persisted, bounded event log ("Raid of 4 repelled…", "Esa Cooper was killed"), shown in `/kingdoms info`. The done-when criterion — leave overnight, return, read what happened — is literally a feature.
+- **Consequences & evidence** ✅ — every settlement keeps a persisted, bounded event log ("Raid of 4 repelled…", "Esa Cooper was killed"), shown in `/civ info`. The done-when criterion — leave overnight, return, read what happened — is literally a feature.
 
-No randomness anywhere: raid clocks and strengths hash settlement id + step, preserving whole-sim determinism. `/kingdoms raid [strength]` forces one for testing; `defense.raids_enabled` config switch for peaceful mode. Deliberate MVP gaps (zombies-only, no building damage, threat is informational) are listed in DEFENSE.md.
+No randomness anywhere: raid clocks and strengths hash settlement id + step, preserving whole-sim determinism. `/civ raid [strength]` forces one for testing; `defense.raids_enabled` config switch for peaceful mode. Deliberate MVP gaps (zombies-only, no building damage, threat is informational) are listed in DEFENSE.md.
 
 ---
 
@@ -102,7 +102,7 @@ Scoping note: the report is chat text, not a GUI screen — a screen is client-s
 ### Phase 6 — Shippable · **S** · ✅ DONE
 
 - Mod icon (`icon.png`, wired via `logoFile`), version bumped to **0.5.0**, metadata complete. `pack.mcmeta` deliberately omitted — NeoForge synthesizes pack metadata for mod jars, and shipping one with a wrong format number only causes warnings.
-- `/kingdoms` debug commands gated behind `debug.commands_enabled` config.
+- `/civ` debug commands gated behind `debug.commands_enabled` config.
 - Stress benchmark runs in every build (still 640-exact, ~530 µs/step with defense in the loop).
 - **[PLAYING.md](PLAYING.md)** — the player-facing guide: installing, crafting the charter, what the town does on its own, config, custom building templates.
 

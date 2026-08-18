@@ -106,6 +106,12 @@ public final class PopulationPlanner {
                 continue;
             }
 
+            // And a hungry town does not grow: births wait for banked food, so
+            // the fields pace the village as much as the housing does.
+            if (!FoodPlanner.canFeedAnotherMouth(settlement)) {
+                continue;
+            }
+
             int capacity = capacityOfHome(settlement, household);
             if (household.size() < capacity) {
                 household.resetGrowthProgress();

@@ -8,6 +8,7 @@ import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementEvent;
 import com.mojang.serialization.Codec;
@@ -136,10 +137,12 @@ public final class KingdomsCodecs {
             BUILD_TASK.listOf().fieldOf("build_queue").forGetter(Settlement::buildQueue),
             BUILDING.listOf().optionalFieldOf("buildings", List.of()).forGetter(Settlement::buildings),
             HOUSEHOLD.listOf().optionalFieldOf("households", List.of()).forGetter(Settlement::households),
-            SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events)
-    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events) -> {
+            SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events),
+            Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Settlement::foodStock)
+    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, food) -> {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
+        settlement.setFoodStock(food);
         residents.forEach(settlement::addResident);
         buildQueue.forEach(settlement::enqueueBuild);
         buildings.forEach(settlement::addBuilding);

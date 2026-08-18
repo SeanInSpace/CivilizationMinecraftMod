@@ -77,16 +77,16 @@ Every settlement keeps a bounded history (last 20 events, persisted with the sav
 [step 265] Esa Cooper was killed
 ```
 
-`/kingdoms info` shows the last five. This is the roadmap's "done when": leave a town overnight, return, and tell from the state what happened.
+`/civ info` shows the last five. This is the roadmap's "done when": leave a town overnight, return, and tell from the state what happened.
 
 ---
 
 ## Testing levers
 
 ```
-/kingdoms raid            force a raid at natural strength
-/kingdoms raid 12         force a raid of strength 12
-/kingdoms threat 5        set the alarm level directly
+/civ raid            force a raid at natural strength
+/civ raid 12         force a raid of strength 12
+/civ threat 5        set the alarm level directly
 ```
 
 Force a raid while standing in town and zombies come over the hill. Force one via the server console with nobody logged in and it resolves statistically — same command, both fidelities.

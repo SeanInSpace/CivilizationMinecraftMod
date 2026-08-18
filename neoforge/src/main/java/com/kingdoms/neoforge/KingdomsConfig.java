@@ -47,7 +47,7 @@ public final class KingdomsConfig {
             .defineInRange("defense.raid_interval_steps", SimSettings.DEFAULT_RAID_INTERVAL_STEPS, 10, 100000);
 
     public static final ModConfigSpec.BooleanValue DEBUG_COMMANDS = BUILDER
-            .comment("Whether the /kingdoms debug commands are available to operators.")
+            .comment("Whether the /civ debug commands are available to operators.")
             .define("debug.commands_enabled", true);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
