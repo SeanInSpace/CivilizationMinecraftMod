@@ -7,6 +7,8 @@ import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
+import com.kingdoms.neoforge.world.BlueprintPlacer;
+import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.person.Household;
@@ -66,6 +68,9 @@ public final class PersonEntityManager {
     /** Hunger debuffs are reapplied every manager pass; this outlasts the gap. */
     private static final int EFFECT_REFRESH_TICKS = 40;
 
+    /** Most construction blocks laid per second — the visible pace of building. */
+    private static final int CONSTRUCTION_BLOCKS_PER_PASS = 6;
+
     /** Guards engage hostiles within this range, strike within melee reach. */
     private static final double GUARD_ENGAGE_RANGE = 20.0;
     private static final double GUARD_STRIKE_RANGE = 2.5;
@@ -104,12 +109,27 @@ public final class PersonEntityManager {
                 dailyRoutine(settlement);
                 applyHungerEffects(settlement);
                 guardCombat(settlement);
+                changed |= advanceConstructionSites(settlement);
             }
         }
         reapOrphans();
         if (changed) {
             KingdomsSavedData.get(level).setDirty();
         }
+    }
+
+    /**
+     * The visible half of construction: the active site rises toward the build
+     * task's progress a few blocks a second, laid in mason's order, while the
+     * builders stand over the work. The simulation still owns progress; this
+     * only draws it.
+     */
+    private boolean advanceConstructionSites(Settlement settlement) {
+        if (settlement.buildQueue().isEmpty()) {
+            return false;
+        }
+        return BlueprintPlacer.advanceConstruction(
+                level, settlement.buildQueue().getFirst(), CONSTRUCTION_BLOCKS_PER_PASS);
     }
 
     /**

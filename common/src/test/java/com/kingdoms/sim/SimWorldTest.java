@@ -155,6 +155,21 @@ class SimWorldTest {
     }
 
     @Test
+    void completedBuildingStandsAtTheSurveyedSite() {
+        FakeBridge bridge = new FakeBridge();
+        BuildTask bakery = new BuildTask("kingdoms:norman/bakery", new SimPos(10, 64, 10), 2);
+        // Construction surveyed the real terrain at y=71 while building visibly.
+        bakery.setSiteY(71);
+        Settlement settlement = settlementWithBuilders(2, bakery);
+        SimWorld world = worldWith(bridge, settlement);
+
+        world.step();
+
+        assertEquals(new SimPos(10, 71, 10), settlement.buildings().getFirst().origin(),
+                "the record must stand where the blocks actually went");
+    }
+
+    @Test
     void claimRadiusBoundsTerritory() {
         Settlement settlement = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);

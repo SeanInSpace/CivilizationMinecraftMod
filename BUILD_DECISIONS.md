@@ -55,6 +55,17 @@ Height is always the settlement centre's height. There is no terrain awareness a
 
 **Territory follows building.** If the chosen plot falls outside the current claim, the settlement expands its claim radius to reach it plus an 8-block margin. Towns grow their borders by building, rather than having a fixed boundary set at founding. The claim never shrinks.
 
+### How construction looks
+
+Buildings rise **visibly, block by block**, in a mason's order:
+
+1. When work begins, the site is surveyed once (terrain height locked in) and cleared.
+2. Blocks are laid **bottom layer first** — the cobble foundation is genuinely the first course.
+3. Within each layer, **full blocks go down before partial blocks** (lanterns, fences, crops, water).
+4. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out.
+
+The pace tracks the build task's real progress (a few blocks per second while builders work), the half-built wall survives restarts, and the builders stand over the site while it rises. The simulation still owns progress — if nobody is watching, no blocks are placed, and a finished building simply appears whole when its chunk next loads. Completion always ends with a full placement pass, so a structure is guaranteed whole no matter how construction went. Datapack `.nbt` templates still place whole on completion.
+
 ---
 
 ## The current catalogue

@@ -14,10 +14,23 @@ import java.util.Objects;
  */
 public final class BuildTask {
 
+    /** Sentinel: the construction site has not been surveyed yet. */
+    public static final int UNSET_SITE_Y = Integer.MIN_VALUE;
+
     private final String blueprintId;
     private final SimPos origin;
     private final int requiredWork;
     private int progress;
+
+    /**
+     * Visible-construction bookkeeping, persisted so a half-built wall survives a
+     * restart. The terrain height is surveyed once when building starts (so the
+     * block plan never shifts mid-build), the site is cleared once, and
+     * {@code blocksPlaced} tracks how far up the structure the builders have got.
+     */
+    private int siteY = UNSET_SITE_Y;
+    private boolean sitePrepared;
+    private int blocksPlaced;
 
     public BuildTask(String blueprintId, SimPos origin, int requiredWork) {
         this.blueprintId = Objects.requireNonNull(blueprintId, "blueprintId");
@@ -51,6 +64,35 @@ public final class BuildTask {
 
     public boolean isComplete() {
         return progress >= requiredWork;
+    }
+
+    public int siteY() {
+        return siteY;
+    }
+
+    public void setSiteY(int siteY) {
+        this.siteY = siteY;
+    }
+
+    public boolean isSitePrepared() {
+        return sitePrepared;
+    }
+
+    public void setSitePrepared(boolean sitePrepared) {
+        this.sitePrepared = sitePrepared;
+    }
+
+    public int blocksPlaced() {
+        return blocksPlaced;
+    }
+
+    public void setBlocksPlaced(int blocksPlaced) {
+        this.blocksPlaced = Math.max(0, blocksPlaced);
+    }
+
+    /** Where the structure actually stands once surveyed; the planning estimate before. */
+    public SimPos site() {
+        return siteY == UNSET_SITE_Y ? origin : new SimPos(origin.x(), siteY, origin.z());
     }
 
     public double completionFraction() {

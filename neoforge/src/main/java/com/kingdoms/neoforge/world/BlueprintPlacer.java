@@ -1,38 +1,61 @@
 package com.kingdoms.neoforge.world;
 
+import com.kingdoms.sim.settlement.BuildTask;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 
 /**
- * Turns a blueprint id into actual blocks.
+ * Turns a blueprint id into actual blocks — all at once, or brick by brick.
  *
- * <p>Two paths, checked in order:
- * <ol>
- *   <li><strong>A structure template</strong> — if a datapack provides
- *       {@code data/<ns>/structure/<path>.nbt} matching the blueprint id, it is
- *       placed verbatim. This is the route to hand-built, per-culture
- *       architecture: author a building in-game with structure blocks, drop the
- *       file in, and no code changes.</li>
- *   <li><strong>Procedural fallback</strong> — a small hand-coded structure per
- *       building type, so the mod reads as a village out of the box without any
- *       template authoring.</li>
- * </ol>
+ * <p>Every procedural structure is expressed as an ordered <em>plan</em>: a list
+ * of block placements sorted the way a mason would work — <strong>bottom layer
+ * first; within each layer, full blocks before partial blocks</strong> (lanterns,
+ * fences, crops, water); never more than one layer under way, and the next layer
+ * only once the one below is satisfied. Supplies are assumed for now — the sort
+ * order is exactly where a supply gate slots in later.
  *
- * <p>Every placement first lays a foundation (fill below) and clears headroom, so
- * buildings sit sanely on slopes.
+ * <p>Two ways to consume a plan:
+ * <ul>
+ *   <li>{@link #place} — the whole structure at once. Used when a finished
+ *       building materializes in a freshly loaded chunk ("it grew while you were
+ *       away"), and as the idempotent finishing pass that guarantees a completed
+ *       building is whole regardless of how construction went.</li>
+ *   <li>{@link #advanceConstruction} — the visible path: places the next few
+ *       blocks of the plan in proportion to the build task's progress, so
+ *       watchers see the structure rise course by course while the builders
+ *       stand at the site.</li>
+ * </ul>
+ *
+ * <p>Datapack structure templates ({@code data/<ns>/structure/<path>.nbt}) still
+ * take precedence and place whole — incremental construction applies to the
+ * procedural fallback.
  */
 public final class BlueprintPlacer {
 
+    /** One block placement in a plan. */
+    private record Placement(BlockPos pos, Block block) {
+    }
+
+    /** A structure as an ordered build sequence plus the site it needs cleared. */
+    private record StructurePlan(int width, int depth, int height, List<Placement> blocks) {
+    }
+
     private BlueprintPlacer() {
     }
+
+    // --- the instant path ---
 
     public static void place(ServerLevel level, String blueprintId, BlockPos base) {
         Identifier id = Identifier.parse(blueprintId);
@@ -40,151 +63,227 @@ public final class BlueprintPlacer {
         Optional<StructureTemplate> template = level.getStructureManager().get(id);
         if (template.isPresent()) {
             StructureTemplate t = template.get();
-            prepareSite(level, base, t.getSize().getX(), t.getSize().getZ(), t.getSize().getY());
-            // Seeded from position: repeat placements are identical.
-            long seed = base.asLong();
-            t.placeInWorld(level, base, base, new StructurePlaceSettings(), RandomSource.create(seed), 2);
+            clearSite(level, base, t.getSize().getX(), t.getSize().getZ(), t.getSize().getY());
+            t.placeInWorld(level, base, base, new StructurePlaceSettings(),
+                    RandomSource.create(base.asLong()), 2);
             return;
         }
 
-        switch (id.getPath()) {
-            case "town_hall" -> hall(level, base);
-            case "house" -> house(level, base);
-            case "granary" -> granary(level, base);
-            case "farm" -> farm(level, base);
-            case "market" -> market(level, base);
-            case "watchtower" -> watchtower(level, base);
-            case "storehouse" -> storehouse(level, base);
-            case "workshop" -> workshop(level, base);
-            default -> marker(level, base);
+        StructurePlan plan = planFor(level, id.getPath(), base);
+        clearSite(level, base, plan.width(), plan.depth(), plan.height());
+        for (Placement placement : plan.blocks()) {
+            level.setBlockAndUpdate(placement.pos(), placement.block().defaultBlockState());
         }
     }
 
-    // --- procedural buildings ---
+    // --- the visible path ---
 
-    private static void house(ServerLevel level, BlockPos base) {
-        cabin(level, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
+    /**
+     * Advances a construction site toward the task's current progress, placing at
+     * most {@code maxBlocks} this call. Surveys the terrain and clears the site on
+     * first contact; from then on the plan is anchored and blocks go down in
+     * mason's order. Safe to call every second — does nothing when there is
+     * nothing new to place, and never touches unloaded chunks.
+     *
+     * @return true if any block was placed or the site was prepared
+     */
+    public static boolean advanceConstruction(ServerLevel level, BuildTask task, int maxBlocks) {
+        Identifier id = Identifier.parse(task.blueprintId());
+        BlockPos approx = new BlockPos(task.origin().x(), task.origin().y(), task.origin().z());
+        if (!level.isLoaded(approx)) {
+            return false;
+        }
+        if (level.getStructureManager().get(id).isPresent()) {
+            return false;   // datapack templates place whole, on completion
+        }
+
+        boolean changed = false;
+        if (task.siteY() == BuildTask.UNSET_SITE_Y) {
+            int surface = level.getHeight(
+                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    task.origin().x(), task.origin().z());
+            task.setSiteY(surface);
+            changed = true;
+        }
+        BlockPos base = new BlockPos(task.origin().x(), task.siteY(), task.origin().z());
+        StructurePlan plan = planFor(level, id.getPath(), base);
+
+        if (!task.isSitePrepared()) {
+            clearSite(level, base, plan.width(), plan.depth(), plan.height());
+            task.setSitePrepared(true);
+            changed = true;
+        }
+
+        int target = (int) ((long) plan.blocks().size() * task.progress() / task.requiredWork());
+        target = Math.min(target, plan.blocks().size());
+        int next = task.blocksPlaced();
+        int placedThisCall = 0;
+        while (next < target && placedThisCall < maxBlocks) {
+            Placement placement = plan.blocks().get(next);
+            level.setBlockAndUpdate(placement.pos(), placement.block().defaultBlockState());
+            next++;
+            placedThisCall++;
+        }
+        if (placedThisCall > 0) {
+            task.setBlocksPlaced(next);
+            changed = true;
+        }
+        return changed;
     }
 
-    private static void hall(ServerLevel level, BlockPos base) {
-        cabin(level, base, 7, 7, 4, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
-        set(level, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);   // something to aspire to
+    // --- plans ---
+
+    private static StructurePlan planFor(ServerLevel level, String path, BlockPos base) {
+        List<Placement> blocks = new ArrayList<>();
+        int[] dims = switch (path) {
+            case "town_hall" -> cabin(level, blocks, base, 7, 7, 4, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
+            case "house" -> cabin(level, blocks, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
+            case "granary" -> granary(level, blocks, base);
+            case "farm" -> farm(level, blocks, base);
+            case "market" -> market(level, blocks, base);
+            case "watchtower" -> watchtower(level, blocks, base);
+            case "storehouse" -> storehouse(level, blocks, base);
+            case "workshop" -> workshop(level, blocks, base);
+            default -> marker(blocks, base);
+        };
+        if (path.equals("town_hall")) {
+            add(blocks, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);
+        }
+
+        // The mason's order: bottom layer up; full blocks before partial blocks
+        // within a layer; deterministic within that. This IS the construction
+        // sequence — a supply gate later simply stops the cursor mid-list.
+        blocks.sort(Comparator
+                .comparingInt((Placement p) -> p.pos().getY())
+                .thenComparing(p -> isFullBlock(level, p) ? 0 : 1)
+                .thenComparingInt(p -> p.pos().getX())
+                .thenComparingInt(p -> p.pos().getZ()));
+
+        return new StructurePlan(dims[0], dims[1], dims[2], blocks);
     }
 
-    /** Where the harvest is banked: a stout spruce store stacked with hay. */
-    private static void granary(ServerLevel level, BlockPos base) {
-        cabin(level, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
-        set(level, base.offset(-1, 1, -1), Blocks.HAY_BLOCK);
-        set(level, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
-        set(level, base.offset(-1, 2, -1), Blocks.HAY_BLOCK);
-        set(level, base.offset(1, 1, 0), Blocks.BARREL);
+    private static boolean isFullBlock(ServerLevel level, Placement placement) {
+        BlockState state = placement.block().defaultBlockState();
+        return state.isCollisionShapeFullBlock(level, placement.pos());
     }
 
-    /** An open-air stall: corner posts, a plank awning, goods on the counter. */
-    private static void market(ServerLevel level, BlockPos base) {
-        prepareSite(level, base, 5, 5, 4);
+    private static void add(List<Placement> blocks, BlockPos pos, Block block) {
+        blocks.add(new Placement(pos, block));
+    }
+
+    // --- structures, expressed as plans ---
+
+    private static int[] granary(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
+        add(blocks, base.offset(-1, 1, -1), Blocks.HAY_BLOCK);
+        add(blocks, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
+        add(blocks, base.offset(-1, 2, -1), Blocks.HAY_BLOCK);
+        add(blocks, base.offset(1, 1, 0), Blocks.BARREL);
+        return dims;
+    }
+
+    private static int[] storehouse(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
+        add(blocks, base.offset(-1, 1, -1), Blocks.BARREL);
+        add(blocks, base.offset(1, 1, -1), Blocks.BARREL);
+        add(blocks, base.offset(-1, 2, -1), Blocks.BARREL);
+        return dims;
+    }
+
+    private static int[] workshop(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        add(blocks, base.offset(-1, 1, -1), Blocks.CRAFTING_TABLE);
+        add(blocks, base.offset(1, 1, -1), Blocks.SMITHING_TABLE);
+        add(blocks, base.offset(0, 1, -1), Blocks.FURNACE);
+        return dims;
+    }
+
+    private static int[] market(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        foundation(level, blocks, base, 5, 5);
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
-                set(level, base.offset(dx, 0, dz), Blocks.OAK_PLANKS);        // deck
-                set(level, base.offset(dx, 3, dz), Blocks.SPRUCE_PLANKS);     // awning
+                add(blocks, base.offset(dx, 0, dz), Blocks.OAK_PLANKS);
+                add(blocks, base.offset(dx, 3, dz), Blocks.SPRUCE_PLANKS);
             }
         }
         for (int dx = -2; dx <= 2; dx += 4) {
             for (int dz = -2; dz <= 2; dz += 4) {
-                set(level, base.offset(dx, 1, dz), Blocks.STRIPPED_OAK_LOG);
-                set(level, base.offset(dx, 2, dz), Blocks.STRIPPED_OAK_LOG);
+                add(blocks, base.offset(dx, 1, dz), Blocks.STRIPPED_OAK_LOG);
+                add(blocks, base.offset(dx, 2, dz), Blocks.STRIPPED_OAK_LOG);
             }
         }
-        set(level, base.offset(-1, 1, 0), Blocks.HAY_BLOCK);                  // the counter
-        set(level, base.offset(0, 1, 0), Blocks.BARREL);
-        set(level, base.offset(1, 1, 0), Blocks.HAY_BLOCK);
-        set(level, base.offset(0, 2, 0), Blocks.LANTERN);
+        add(blocks, base.offset(-1, 1, 0), Blocks.HAY_BLOCK);
+        add(blocks, base.offset(0, 1, 0), Blocks.BARREL);
+        add(blocks, base.offset(1, 1, 0), Blocks.HAY_BLOCK);
+        add(blocks, base.offset(0, 2, 0), Blocks.LANTERN);
+        return new int[]{5, 5, 4};
     }
 
-    private static void storehouse(ServerLevel level, BlockPos base) {
-        cabin(level, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
-        set(level, base.offset(-1, 1, -1), Blocks.BARREL);
-        set(level, base.offset(1, 1, -1), Blocks.BARREL);
-        set(level, base.offset(-1, 2, -1), Blocks.BARREL);
-    }
-
-    private static void workshop(ServerLevel level, BlockPos base) {
-        cabin(level, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
-        set(level, base.offset(-1, 1, -1), Blocks.CRAFTING_TABLE);
-        set(level, base.offset(1, 1, -1), Blocks.SMITHING_TABLE);
-        set(level, base.offset(0, 1, -1), Blocks.FURNACE);
-    }
-
-    /** Fenced field: tilled rows around a water channel, first crops already in. */
-    private static void farm(ServerLevel level, BlockPos base) {
+    private static int[] farm(ServerLevel level, List<Placement> blocks, BlockPos base) {
         int r = 3;
-        prepareSite(level, base, 2 * r + 1, 2 * r + 1, 3);
+        foundation(level, blocks, base, 2 * r + 1, 2 * r + 1);
         for (int dx = -r; dx <= r; dx++) {
             for (int dz = -r; dz <= r; dz++) {
                 boolean edge = Math.abs(dx) == r || Math.abs(dz) == r;
-                BlockPos ground = base.offset(dx, -1, dz);
                 if (edge) {
-                    set(level, ground, Blocks.GRASS_BLOCK);
-                    set(level, base.offset(dx, 0, dz), Blocks.OAK_FENCE);
+                    add(blocks, base.offset(dx, -1, dz), Blocks.GRASS_BLOCK);
+                    add(blocks, base.offset(dx, 0, dz), Blocks.OAK_FENCE);
                 } else if (dz == 0) {
-                    set(level, ground, Blocks.WATER);
+                    add(blocks, base.offset(dx, -1, dz), Blocks.WATER);
                 } else {
-                    set(level, ground, Blocks.FARMLAND);
-                    set(level, base.offset(dx, 0, dz), Blocks.WHEAT);
+                    add(blocks, base.offset(dx, -1, dz), Blocks.FARMLAND);
+                    add(blocks, base.offset(dx, 0, dz), Blocks.WHEAT);
                 }
             }
         }
-        set(level, base.offset(0, 0, r), Blocks.OAK_FENCE_GATE);
+        add(blocks, base.offset(0, 0, r), Blocks.OAK_FENCE_GATE);
+        return new int[]{2 * r + 1, 2 * r + 1, 3};
     }
 
-    private static void watchtower(ServerLevel level, BlockPos base) {
-        prepareSite(level, base, 3, 3, 9);
+    private static int[] watchtower(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        foundation(level, blocks, base, 3, 3);
         for (int y = 0; y < 7; y++) {
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dz = -1; dz <= 1; dz++) {
                     boolean shell = Math.abs(dx) == 1 || Math.abs(dz) == 1;
                     if (y == 0 || y == 6) {
-                        set(level, base.offset(dx, y, dz), Blocks.COBBLESTONE);
-                    } else if (shell && !(dz == 1 && dx == 0 && y <= 2)) {   // door gap south
-                        set(level, base.offset(dx, y, dz), Blocks.COBBLESTONE);
+                        add(blocks, base.offset(dx, y, dz), Blocks.COBBLESTONE);
+                    } else if (shell && !(dz == 1 && dx == 0 && y <= 2)) {
+                        add(blocks, base.offset(dx, y, dz), Blocks.COBBLESTONE);
                     }
                 }
             }
         }
         for (int dx = -1; dx <= 1; dx += 2) {
             for (int dz = -1; dz <= 1; dz += 2) {
-                set(level, base.offset(dx, 7, dz), Blocks.COBBLESTONE_WALL);
+                add(blocks, base.offset(dx, 7, dz), Blocks.COBBLESTONE_WALL);
             }
         }
-        set(level, base.offset(0, 7, 0), Blocks.LANTERN);
+        add(blocks, base.offset(0, 7, 0), Blocks.LANTERN);
+        return new int[]{3, 3, 9};
     }
 
-    /** The old placeholder, kept for unknown blueprint ids. */
-    private static void marker(ServerLevel level, BlockPos base) {
+    private static int[] marker(List<Placement> blocks, BlockPos base) {
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
-                set(level, base.offset(dx, 0, dz), Blocks.STONE_BRICKS);
+                add(blocks, base.offset(dx, 0, dz), Blocks.STONE_BRICKS);
             }
         }
-        set(level, base.offset(0, 1, 0), Blocks.GOLD_BLOCK);
+        add(blocks, base.offset(0, 1, 0), Blocks.GOLD_BLOCK);
+        return new int[]{5, 5, 2};
     }
 
-    // --- shared construction ---
-
-    /**
-     * A rectangular building: plank floor, log corners, walled sides with a south
-     * door gap and a window per wall, flat roof with a log rim, and a lantern.
-     */
-    private static void cabin(ServerLevel level, BlockPos base, int width, int depth, int wallHeight,
-                              Block wall, Block frame) {
+    /** A rectangular building: floor, log corners, walls with door gap and windows, rimmed roof. */
+    private static int[] cabin(ServerLevel level, List<Placement> blocks, BlockPos base,
+                               int width, int depth, int wallHeight, Block wall, Block frame) {
         int rx = width / 2;
         int rz = depth / 2;
-        prepareSite(level, base, width, depth, wallHeight + 2);
+        foundation(level, blocks, base, width, depth);
 
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
-                set(level, base.offset(dx, 0, dz), wall);                    // floor
-                set(level, base.offset(dx, wallHeight + 1, dz), wall);       // roof
+                add(blocks, base.offset(dx, 0, dz), wall);
+                add(blocks, base.offset(dx, wallHeight + 1, dz), wall);
             }
         }
         for (int y = 1; y <= wallHeight; y++) {
@@ -197,26 +296,28 @@ public final class BlueprintPlacer {
                     }
                     BlockPos p = base.offset(dx, y, dz);
                     if (edgeX && edgeZ) {
-                        set(level, p, frame);                                // corners
+                        add(blocks, p, frame);
                     } else if (dz == rz && dx == 0 && y <= 2) {
                         // south door gap
                     } else if (y == 2 && (dx == 0 || dz == 0)) {
-                        set(level, p, Blocks.GLASS);                         // windows
+                        add(blocks, p, Blocks.GLASS);
                     } else {
-                        set(level, p, wall);
+                        add(blocks, p, wall);
                     }
                 }
             }
         }
-        for (int dx = -rx; dx <= rx; dx++) {                                 // roof rim
-            set(level, base.offset(dx, wallHeight + 1, -rz), frame);
-            set(level, base.offset(dx, wallHeight + 1, rz), frame);
+        for (int dx = -rx; dx <= rx; dx++) {
+            add(blocks, base.offset(dx, wallHeight + 1, -rz), frame);
+            add(blocks, base.offset(dx, wallHeight + 1, rz), frame);
         }
-        set(level, base.offset(0, 1, 0), Blocks.LANTERN);
+        add(blocks, base.offset(0, 1, 0), Blocks.LANTERN);
+        return new int[]{width, depth, wallHeight + 2};
     }
 
-    /** Foundation below the footprint, clear air above it. Buildings sit sanely on slopes. */
-    private static void prepareSite(ServerLevel level, BlockPos base, int width, int depth, int height) {
+    /** Cobble underpinning wherever the ground is missing — the true first course. */
+    private static void foundation(ServerLevel level, List<Placement> blocks, BlockPos base,
+                                   int width, int depth) {
         int rx = width / 2;
         int rz = depth / 2;
         for (int dx = -rx; dx <= rx; dx++) {
@@ -224,17 +325,23 @@ public final class BlueprintPlacer {
                 for (int dy = 1; dy <= 3; dy++) {
                     BlockPos below = base.offset(dx, -dy, dz);
                     if (level.getBlockState(below).isAir() || !level.getFluidState(below).isEmpty()) {
-                        set(level, below, Blocks.COBBLESTONE);
+                        add(blocks, below, Blocks.COBBLESTONE);
                     }
-                }
-                for (int dy = 0; dy <= height; dy++) {
-                    set(level, base.offset(dx, dy, dz), Blocks.AIR);
                 }
             }
         }
     }
 
-    private static void set(ServerLevel level, BlockPos pos, Block block) {
-        level.setBlockAndUpdate(pos, block.defaultBlockState());
+    /** Site preparation: the volume is cleared once, before the first course is laid. */
+    private static void clearSite(ServerLevel level, BlockPos base, int width, int depth, int height) {
+        int rx = width / 2;
+        int rz = depth / 2;
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                for (int dy = 0; dy <= height; dy++) {
+                    level.setBlockAndUpdate(base.offset(dx, dy, dz), Blocks.AIR.defaultBlockState());
+                }
+            }
+        }
     }
 }

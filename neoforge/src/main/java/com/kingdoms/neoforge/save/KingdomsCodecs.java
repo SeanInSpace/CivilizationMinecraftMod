@@ -99,10 +99,16 @@ public final class KingdomsCodecs {
             Codec.STRING.fieldOf("blueprint").forGetter(BuildTask::blueprintId),
             SIM_POS.fieldOf("origin").forGetter(BuildTask::origin),
             Codec.INT.fieldOf("required_work").forGetter(BuildTask::requiredWork),
-            Codec.INT.fieldOf("progress").forGetter(BuildTask::progress)
-    ).apply(i, (blueprint, origin, requiredWork, progress) -> {
+            Codec.INT.fieldOf("progress").forGetter(BuildTask::progress),
+            Codec.INT.optionalFieldOf("site_y", BuildTask.UNSET_SITE_Y).forGetter(BuildTask::siteY),
+            Codec.BOOL.optionalFieldOf("site_prepared", false).forGetter(BuildTask::isSitePrepared),
+            Codec.INT.optionalFieldOf("blocks_placed", 0).forGetter(BuildTask::blocksPlaced)
+    ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared, placed) -> {
         BuildTask task = new BuildTask(blueprint, origin, requiredWork);
         task.addProgress(progress);
+        task.setSiteY(siteY);
+        task.setSitePrepared(prepared);
+        task.setBlocksPlaced(placed);
         return task;
     }));
 
