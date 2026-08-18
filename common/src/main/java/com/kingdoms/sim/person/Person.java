@@ -49,6 +49,9 @@ public final class Person {
     /** Consecutive steps spent at maximum hunger. Death comes when it runs out. */
     private int starvingSteps;
 
+    /** The load they are fetching or delivering, or null when not hauling. */
+    private HaulTask haul;
+
     /**
      * Whether a real entity currently represents this person in the world.
      * Owned by the platform layer; the simulation only reads it to decide
@@ -118,6 +121,14 @@ public final class Person {
 
     public void setFoodCarried(int foodCarried) {
         this.foodCarried = Math.max(0, foodCarried);
+    }
+
+    public HaulTask haul() {
+        return haul;
+    }
+
+    public void setHaul(HaulTask haul) {
+        this.haul = haul;
     }
 
     public int starvingSteps() {

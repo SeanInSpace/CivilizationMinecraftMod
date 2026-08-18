@@ -11,6 +11,7 @@ import com.kingdoms.neoforge.world.BlueprintPlacer;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
+import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -30,7 +31,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.AABB;
 
@@ -299,13 +302,20 @@ public final class PersonEntityManager {
         return Integer.MIN_VALUE;
     }
 
-    /** Put the next building material in the builder's hand, if not already held. */
-    private static void carry(PersonEntity builder, Block block) {
+    /** What a hauled load looks like in somebody's hands. */
+    private static final Item CARGO_ITEM = Items.WHEAT;
+
+    private static void carry(PersonEntity person, Block block) {
+        carry(person, block.asItem());
+    }
+
+    /** Put something in the person's hand, if not already held. */
+    private static void carry(PersonEntity builder, Item item) {
         ItemStack held = builder.getMainHandItem();
-        if (held.is(block.asItem())) {
+        if (held.is(item)) {
             return;
         }
-        builder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(block.asItem()));
+        builder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(item));
         // Materials are scenery, not loot — a killed builder must not shower
         // the ground with the cobblestone they happened to be holding.
         builder.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
@@ -513,6 +523,14 @@ public final class PersonEntityManager {
                 // day is over, danger is near, or they are too hungry. Down tools.
                 clearHands(view);
             }
+            // Show the load: a hauler carrying grain is visibly carrying grain,
+            // and sets it down the moment it is delivered.
+            HaulTask carrying = person.haul();
+            if (carrying != null && carrying.isLoaded()) {
+                carry(view, CARGO_ITEM);
+            } else if (person.profession() != Profession.BUILDER) {
+                clearHands(view);
+            }
 
             SimPos target;
             double speed;
@@ -540,6 +558,12 @@ public final class PersonEntityManager {
     }
 
     private SimPos workplaceFor(Settlement settlement, Person person, SimPos home) {
+        // An errand outranks the day job: haulers walk to the store they are
+        // collecting from, then to the one they are delivering to.
+        HaulTask haul = person.haul();
+        if (haul != null) {
+            return haul.target();
+        }
         return switch (person.profession()) {
             case FARMER -> nearestBuilding(settlement, "farm", person.position());
             case BUILDER -> settlement.buildQueue().isEmpty()

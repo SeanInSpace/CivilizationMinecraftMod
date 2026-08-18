@@ -229,6 +229,7 @@ public final class Settlement {
         advanceBuildQueue(ctx);
         materializePending(ctx);
         FoodPlanner.advance(this, ctx);
+        HaulPlanner.advance(this, ctx);
         JobPlanner.retrainOne(this);
         PopulationPlanner.advance(this, ctx);
         decayThreat();

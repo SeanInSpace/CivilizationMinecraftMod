@@ -118,6 +118,10 @@ fields grow → FARMERS haul → granary → MARKET HANDS stock → market
    mouths ← personal inventory ← family pantry ← a family member fetches
 ```
 
+**Goods never teleport.** Every transfer is an errand somebody physically runs: they walk to the source empty-handed, pick the load up, carry it to the destination and set it down. While it is on their back it is *nowhere else* — so a carrier caught in a raid genuinely costs the town that food, and you can watch grain cross the village in someone's hands.
+
+Both fidelities share one arrival test, because a person's position is the same field either way: watched, it is synced from the walking entity; unwatched, the simulation advances it ~12 blocks per step. A delivery takes about as long whether or not anyone is looking.
+
 - **Fields grow harvest into their own stores** (up to 2 farmers worked per farm); **farmers carry it to the granary**, one load per step.
 - The **granary** is the town's bulk store — 200 base, +400 per granary or storehouse building. Towns build a granary early (population 4) and a market at 6.
 - **Market hands (traders) stock the market** from the granary; **one member per family fetches from the market** to keep the pantry at 3 food per member. Young towns without a market shop straight from the granary.

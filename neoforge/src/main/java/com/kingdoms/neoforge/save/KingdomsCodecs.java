@@ -3,6 +3,7 @@ package com.kingdoms.neoforge.save;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.kingdom.Standing;
+import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -79,6 +80,29 @@ public final class KingdomsCodecs {
     public static final Codec<Kingdom.Id> KINGDOM_ID =
             UUID_CODEC.xmap(Kingdom.Id::new, Kingdom.Id::value);
 
+    private static final Codec<HaulTask.Store> HAUL_STORE = Codec.STRING.xmap(
+            name -> {
+                try {
+                    return HaulTask.Store.valueOf(name);
+                } catch (IllegalArgumentException e) {
+                    return HaulTask.Store.GRANARY;
+                }
+            },
+            HaulTask.Store::name);
+
+    public static final Codec<HaulTask> HAUL_TASK = RecordCodecBuilder.create(i -> i.group(
+            HAUL_STORE.fieldOf("from_store").forGetter(HaulTask::fromStore),
+            SIM_POS.fieldOf("from_pos").forGetter(HaulTask::fromPos),
+            HAUL_STORE.fieldOf("to_store").forGetter(HaulTask::toStore),
+            SIM_POS.fieldOf("to_pos").forGetter(HaulTask::toPos),
+            Codec.INT.fieldOf("requested").forGetter(HaulTask::requested),
+            Codec.INT.optionalFieldOf("carried", 0).forGetter(HaulTask::carried)
+    ).apply(i, (fromStore, fromPos, toStore, toPos, requested, carried) -> {
+        HaulTask task = new HaulTask(fromStore, fromPos, toStore, toPos, requested);
+        task.setCarried(carried);
+        return task;
+    }));
+
     public static final Codec<Person> PERSON = RecordCodecBuilder.create(i -> i.group(
             PERSON_ID.fieldOf("id").forGetter(Person::id),
             Codec.STRING.fieldOf("name").forGetter(Person::name),
@@ -86,12 +110,14 @@ public final class KingdomsCodecs {
             SIM_POS.fieldOf("position").forGetter(Person::position),
             Codec.INT.optionalFieldOf("hunger", 0).forGetter(Person::hunger),
             Codec.INT.optionalFieldOf("food_carried", 0).forGetter(Person::foodCarried),
-            Codec.INT.optionalFieldOf("starving_steps", 0).forGetter(Person::starvingSteps)
-    ).apply(i, (id, name, profession, position, hunger, carried, starving) -> {
+            Codec.INT.optionalFieldOf("starving_steps", 0).forGetter(Person::starvingSteps),
+            HAUL_TASK.optionalFieldOf("haul").forGetter(p -> Optional.ofNullable(p.haul()))
+    ).apply(i, (id, name, profession, position, hunger, carried, starving, haul) -> {
         Person person = new Person(id, name, profession, position);
         person.setHunger(hunger);
         person.setFoodCarried(carried);
         person.setStarvingSteps(starving);
+        haul.ifPresent(person::setHaul);
         return person;
     }));
 

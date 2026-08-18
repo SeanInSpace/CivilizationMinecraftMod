@@ -1,5 +1,7 @@
 package com.kingdoms.sim.settlement;
 
+import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -74,15 +76,204 @@ public final class FoodPlanner {
         int poolBefore = settlement.foodStock();
 
         growHarvest(settlement);
-        haulHarvestToGranary(settlement);
-        stockMarkets(settlement);
-        fetchForFamilies(settlement);
+        assignHauls(settlement);
         eatAndHunger(settlement, ctx);
 
         if (poolBefore > 0 && settlement.foodStock() == 0) {
             settlement.logEvent(ctx.step(),
                     "The granary is empty — growth halts until the fields catch up");
         }
+    }
+
+    // --- who fetches what ---
+
+    /**
+     * Hands errands to anyone free to run them. Nothing moves here — the goods
+     * travel on the hauler's back in {@link HaulPlanner}.
+     */
+    private static void assignHauls(Settlement settlement) {
+        int granarySpace = granaryCapacity(settlement) - settlement.foodStock();
+        int granaryStock = settlement.foodStock();
+        SimPos granary = granaryPos(settlement);
+
+        for (Person person : settlement.residents()) {
+            if (person.haul() != null || person.isTooWeakToWork()) {
+                continue;
+            }
+            switch (person.profession()) {
+                case FARMER -> {
+                    if (granarySpace < FARMER_CARRY) {
+                        continue;
+                    }
+                    Building field = fullestWithStock(settlement, "farm", 1);
+                    if (field != null) {
+                        person.setHaul(new HaulTask(HaulTask.Store.FARM, field.origin(),
+                                HaulTask.Store.GRANARY, granary, FARMER_CARRY));
+                        granarySpace -= FARMER_CARRY;
+                    }
+                }
+                case TRADER -> {
+                    if (granaryStock < TRADER_CARRY) {
+                        continue;
+                    }
+                    Building stall = emptiestBelowCap(settlement, "market", MARKET_STOCK_CAP);
+                    if (stall != null) {
+                        person.setHaul(new HaulTask(HaulTask.Store.GRANARY, granary,
+                                HaulTask.Store.MARKET, stall.origin(), TRADER_CARRY));
+                        granaryStock -= TRADER_CARRY;
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+        assignPantryRuns(settlement, granary);
+    }
+
+    /** One member of each hungry household goes shopping — market first, granary otherwise. */
+    private static void assignPantryRuns(Settlement settlement, SimPos granary) {
+        for (Household household : settlement.households()) {
+            if (household.size() == 0 || !household.isHoused()) {
+                continue;
+            }
+            int target = household.size() * PANTRY_PER_MEMBER;
+            if (household.pantry() >= target) {
+                continue;
+            }
+            if (anyMemberHauling(settlement, household)) {
+                continue;
+            }
+            Person shopper = freeMember(settlement, household);
+            if (shopper == null) {
+                continue;
+            }
+            int want = Math.min(FETCH_MAX, target - household.pantry());
+
+            Building stall = fullestWithStock(settlement, "market", 1);
+            if (stall != null) {
+                shopper.setHaul(new HaulTask(HaulTask.Store.MARKET, stall.origin(),
+                        HaulTask.Store.HOME, household.home(), want));
+            } else if (settlement.foodStock() > 0) {
+                shopper.setHaul(new HaulTask(HaulTask.Store.GRANARY, granary,
+                        HaulTask.Store.HOME, household.home(), want));
+            }
+        }
+    }
+
+    private static boolean anyMemberHauling(Settlement settlement, Household household) {
+        for (Person.Id id : household.members()) {
+            Person member = settlement.resident(id);
+            if (member != null && member.haul() != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Somebody in the family with free hands — never a builder mid-course, never a guard. */
+    private static Person freeMember(Settlement settlement, Household household) {
+        Person fallback = null;
+        for (Person.Id id : household.members()) {
+            Person member = settlement.resident(id);
+            if (member == null || member.haul() != null || member.isTooWeakToWork()) {
+                continue;
+            }
+            if (member.profession() == Profession.IDLER) {
+                return member;   // idle hands first
+            }
+            if (member.profession() != Profession.GUARD && member.profession() != Profession.BUILDER) {
+                fallback = member;
+            }
+        }
+        return fallback;
+    }
+
+    // --- stores ---
+
+    /** Takes goods out of a store. Returns how much was actually there. */
+    static int withdraw(Settlement settlement, HaulTask.Store store, SimPos pos, int amount) {
+        switch (store) {
+            case GRANARY -> {
+                int take = Math.min(amount, settlement.foodStock());
+                settlement.setFoodStock(settlement.foodStock() - take);
+                return take;
+            }
+            case FARM, MARKET -> {
+                Building building = buildingAt(settlement, pos);
+                if (building == null) {
+                    return 0;
+                }
+                int take = Math.min(amount, building.foodStored());
+                building.setFoodStored(building.foodStored() - take);
+                return take;
+            }
+            default -> {
+                return 0;   // homes are never a source
+            }
+        }
+    }
+
+    /** Puts goods into a store. Anything that will not fit is spoiled rather than duplicated. */
+    static void deposit(Settlement settlement, HaulTask.Store store, SimPos pos, int amount) {
+        switch (store) {
+            case GRANARY -> settlement.setFoodStock(
+                    Math.min(granaryCapacity(settlement), settlement.foodStock() + amount));
+            case FARM, MARKET -> {
+                Building building = buildingAt(settlement, pos);
+                if (building != null) {
+                    building.setFoodStored(building.foodStored() + amount);
+                }
+            }
+            case HOME -> {
+                for (Household household : settlement.households()) {
+                    if (pos.equals(household.home())) {
+                        household.setPantry(household.pantry() + amount);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /** Where haulers meet the town's bulk store: a granary building, else the centre. */
+    public static SimPos granaryPos(Settlement settlement) {
+        List<Building> granaries = buildingsOf(settlement, "granary");
+        if (!granaries.isEmpty()) {
+            return granaries.getFirst().origin();
+        }
+        List<Building> stores = buildingsOf(settlement, "storehouse");
+        return stores.isEmpty() ? settlement.centre() : stores.getFirst().origin();
+    }
+
+    private static Building buildingAt(Settlement settlement, SimPos pos) {
+        for (Building building : settlement.buildings()) {
+            if (building.origin().equals(pos)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    private static Building fullestWithStock(Settlement settlement, String suffix, int minimum) {
+        Building best = null;
+        for (Building building : buildingsOf(settlement, suffix)) {
+            if (building.foodStored() >= minimum
+                    && (best == null || building.foodStored() > best.foodStored())) {
+                best = building;
+            }
+        }
+        return best;
+    }
+
+    private static Building emptiestBelowCap(Settlement settlement, String suffix, int cap) {
+        Building best = null;
+        for (Building building : buildingsOf(settlement, suffix)) {
+            if (building.foodStored() < cap
+                    && (best == null || building.foodStored() < best.foodStored())) {
+                best = building;
+            }
+        }
+        return best;
     }
 
     /** Fields produce into their own stores, worked by healthy farmers. */
@@ -103,88 +294,8 @@ public final class FoodPlanner {
         }
     }
 
-    /** Each healthy farmer carries a load from the fullest field to the granary. */
-    private static void haulHarvestToGranary(Settlement settlement) {
-        List<Building> farms = buildingsOf(settlement, "farm");
-        if (farms.isEmpty()) {
-            return;
-        }
-        int haulers = countHealthy(settlement, Profession.FARMER);
-        int space = granaryCapacity(settlement) - settlement.foodStock();
-        for (int i = 0; i < haulers && space > 0; i++) {
-            Building fullest = null;
-            for (Building farm : farms) {
-                if (fullest == null || farm.foodStored() > fullest.foodStored()) {
-                    fullest = farm;
-                }
-            }
-            if (fullest == null || fullest.foodStored() == 0) {
-                break;
-            }
-            int load = Math.min(FARMER_CARRY, Math.min(fullest.foodStored(), space));
-            fullest.setFoodStored(fullest.foodStored() - load);
-            settlement.setFoodStock(settlement.foodStock() + load);
-            space -= load;
-        }
-    }
 
-    /** Market hands (traders) carry granary stock to the emptiest market. */
-    private static void stockMarkets(Settlement settlement) {
-        List<Building> markets = buildingsOf(settlement, "market");
-        if (markets.isEmpty()) {
-            return;
-        }
-        int hands = countHealthy(settlement, Profession.TRADER);
-        for (int i = 0; i < hands && settlement.foodStock() > 0; i++) {
-            Building emptiest = null;
-            for (Building market : markets) {
-                if (market.foodStored() >= MARKET_STOCK_CAP) {
-                    continue;
-                }
-                if (emptiest == null || market.foodStored() < emptiest.foodStored()) {
-                    emptiest = market;
-                }
-            }
-            if (emptiest == null) {
-                break;
-            }
-            int load = Math.min(TRADER_CARRY,
-                    Math.min(settlement.foodStock(), MARKET_STOCK_CAP - emptiest.foodStored()));
-            settlement.setFoodStock(settlement.foodStock() - load);
-            emptiest.setFoodStored(emptiest.foodStored() + load);
-        }
-    }
 
-    /**
-     * One member per family keeps the pantry stocked — from the best-stocked
-     * market once one stands, straight from the granary before that.
-     */
-    private static void fetchForFamilies(Settlement settlement) {
-        List<Building> markets = buildingsOf(settlement, "market");
-        for (Household household : settlement.households()) {
-            int target = household.size() * PANTRY_PER_MEMBER;
-            if (household.size() == 0 || household.pantry() >= target) {
-                continue;
-            }
-            int want = Math.min(FETCH_MAX, target - household.pantry());
-
-            if (markets.isEmpty()) {
-                int take = Math.min(want, settlement.foodStock());
-                settlement.setFoodStock(settlement.foodStock() - take);
-                household.setPantry(household.pantry() + take);
-                continue;
-            }
-            Building fullest = null;
-            for (Building market : markets) {
-                if (fullest == null || market.foodStored() > fullest.foodStored()) {
-                    fullest = market;
-                }
-            }
-            int take = Math.min(want, fullest.foodStored());
-            fullest.setFoodStored(fullest.foodStored() - take);
-            household.setPantry(household.pantry() + take);
-        }
-    }
 
     /** Hunger rises; the hungry eat what they carry; the starving die. */
     private static void eatAndHunger(Settlement settlement, SimContext ctx) {
