@@ -17,12 +17,17 @@ public final class KingdomsItems {
             FoundingCharterItem::new,
             () -> new Item.Properties().stacksTo(1));
 
+    /** So the camp post can be placed by hand, and moved. */
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> LUMBER_CAMP =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.LUMBER_CAMP, () -> new Item.Properties());
+
     private KingdomsItems() {
     }
 
     public static void addToCreativeTabs(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
             event.accept(FOUNDING_CHARTER.get());
+            event.accept(LUMBER_CAMP.get());
         }
     }
 }

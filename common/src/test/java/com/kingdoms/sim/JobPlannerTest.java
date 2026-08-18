@@ -76,6 +76,10 @@ class JobPlannerTest {
         assertEquals(2, JobPlanner.count(s, Profession.FARMER));
         assertEquals(7, JobPlanner.count(s, Profession.BUILDER));
 
+        // A town of ten also wants one lumberjack, below farmers in priority.
+        assertTrue(JobPlanner.retrainOne(s));
+        assertEquals(1, JobPlanner.count(s, Profession.LUMBERJACK));
+
         assertFalse(JobPlanner.retrainOne(s), "fully staffed — nothing left to fix");
     }
 

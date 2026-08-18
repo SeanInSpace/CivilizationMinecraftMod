@@ -142,6 +142,7 @@ public final class PersonEntityManager {
                 }
 
                 dailyRoutine(settlement);
+                changed |= workLumberjacks(settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
                 guardCombat(settlement);
@@ -326,6 +327,31 @@ public final class PersonEntityManager {
         if (!builder.getMainHandItem().isEmpty()) {
             builder.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         }
+    }
+
+    /**
+     * Lumberjacks fell and replant inside the camp's work area. Like builders,
+     * they steer themselves while working, so the daily routine leaves them be.
+     */
+    private boolean workLumberjacks(Settlement settlement) {
+        if (settlement.lumberArea() == null || level.isDarkOutside()
+                || settlement.threatLevel() > 0) {
+            return false;
+        }
+        boolean changed = false;
+        for (Person person : settlement.residents()) {
+            if (person.profession() != Profession.LUMBERJACK
+                    || !person.isEmbodied()
+                    || person.isTooWeakToWork()
+                    || person.haul() != null) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view != null && !view.isRemoved()) {
+                changed |= LumberjackWorker.work(level, settlement, view);
+            }
+        }
+        return changed;
     }
 
     private List<PersonEntity> embodiedBuilders(Settlement settlement) {
@@ -518,6 +544,13 @@ public final class PersonEntityManager {
                     && !person.isTooWeakToWork()) {
                 continue;
             }
+            if (person.profession() == Profession.LUMBERJACK
+                    && !underThreat && !night
+                    && person.haul() == null
+                    && settlement.lumberArea() != null
+                    && !person.isTooWeakToWork()) {
+                continue;   // steered tree by tree in workLumberjacks
+            }
             if (person.profession() == Profession.BUILDER) {
                 // Reached only when not on an active site — work is finished, the
                 // day is over, danger is near, or they are too hungry. Down tools.
@@ -570,6 +603,9 @@ public final class PersonEntityManager {
                     ? nearestBuilding(settlement, "hall", person.position())
                     : settlement.buildQueue().getFirst().origin();
             case TRADER -> nearestBuilding(settlement, "market", person.position());
+            case LUMBERJACK -> settlement.lumberArea() != null
+                    ? settlement.lumberArea().centre()
+                    : nearestBuilding(settlement, "lumber_camp", person.position());
             case GUARD -> nearestBuilding(settlement, "watchtower", person.position());
             case IDLER -> home != null ? home : settlement.centre();
         };

@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.world;
 
+import com.kingdoms.neoforge.KingdomsBlocks;
 import com.kingdoms.sim.settlement.BuildTask;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -197,6 +198,7 @@ public final class BlueprintPlacer {
             case "granary" -> granary(level, blocks, base);
             case "farm" -> farm(level, blocks, base);
             case "market" -> market(level, blocks, base);
+            case "lumber_camp" -> lumberCamp(level, blocks, base);
             case "watchtower" -> watchtower(level, blocks, base);
             case "storehouse" -> storehouse(level, blocks, base);
             case "workshop" -> workshop(level, blocks, base);
@@ -235,6 +237,15 @@ public final class BlueprintPlacer {
         add(blocks, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
         add(blocks, base.offset(-1, 2, -1), Blocks.HAY_BLOCK);
         add(blocks, base.offset(1, 1, 0), Blocks.BARREL);
+        return dims;
+    }
+
+    /** A woodcutters hut: the control post stands on the floor, axe-side out. */
+    private static int[] lumberCamp(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.LUMBER_CAMP.get());
+        add(blocks, base.offset(1, 1, -1), Blocks.OAK_LOG);
+        add(blocks, base.offset(1, 2, -1), Blocks.OAK_LOG);
         return dims;
     }
 

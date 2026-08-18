@@ -63,6 +63,15 @@ public final class Settlement {
     /** Food banked in the granary. The founding party arrives provisioned. */
     private int foodStock = FoodPlanner.STARTING_PROVISIONS;
 
+    /** Timber in the town's stores, felled by lumberjacks. */
+    private int woodStock;
+
+    /** Saplings on hand for replanting what has been cut. */
+    private int saplingStock;
+
+    /** Where the lumber camp may work, or null until one is built. */
+    private WorkArea lumberArea;
+
     public Settlement(Id id, String name, SimPos centre, int claimRadius) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
@@ -100,6 +109,30 @@ public final class Settlement {
 
     public void setFoodStock(int foodStock) {
         this.foodStock = Math.max(0, foodStock);
+    }
+
+    public int woodStock() {
+        return woodStock;
+    }
+
+    public void setWoodStock(int woodStock) {
+        this.woodStock = Math.max(0, woodStock);
+    }
+
+    public int saplingStock() {
+        return saplingStock;
+    }
+
+    public void setSaplingStock(int saplingStock) {
+        this.saplingStock = Math.max(0, saplingStock);
+    }
+
+    public WorkArea lumberArea() {
+        return lumberArea;
+    }
+
+    public void setLumberArea(WorkArea lumberArea) {
+        this.lumberArea = lumberArea;
     }
 
     public void setThreatLevel(int threatLevel) {
@@ -230,6 +263,7 @@ public final class Settlement {
         materializePending(ctx);
         FoodPlanner.advance(this, ctx);
         HaulPlanner.advance(this, ctx);
+        LumberPlanner.advance(this, ctx);
         JobPlanner.retrainOne(this);
         PopulationPlanner.advance(this, ctx);
         decayThreat();

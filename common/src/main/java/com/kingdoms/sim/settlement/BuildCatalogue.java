@@ -23,6 +23,7 @@ public final class BuildCatalogue {
             new BuildingType("kingdoms:granary",        25,      4,     1,           20,       75,        0,       0),
             new BuildingType("kingdoms:farm",           30,      4,     0,            5,       70,        0,       0),
             new BuildingType("kingdoms:market",         30,      6,     1,           25,       65,        0,       0),
+            new BuildingType("kingdoms:lumber_camp",    30,      6,     1,           30,       58,        0,       0),
             new BuildingType("kingdoms:watchtower",     45,     12,     0,           12,       60,        0,       3),
             new BuildingType("kingdoms:storehouse",     30,      6,     1,           15,       55,        0,       0),
             new BuildingType("kingdoms:workshop",       35,      8,     0,            8,       50,        0,       0)

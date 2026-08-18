@@ -51,6 +51,7 @@ public final class KingdomsMod {
     public KingdomsMod(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, KingdomsConfig.SPEC);
         KingdomsAttachments.ATTACHMENTS.register(modBus);
+        KingdomsBlocks.BLOCKS.register(modBus);
         KingdomsItems.ITEMS.register(modBus);
         KingdomsEntities.ENTITY_TYPES.register(modBus);
         modBus.addListener(KingdomsItems::addToCreativeTabs);

@@ -12,6 +12,7 @@ import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.JobPlanner;
+import com.kingdoms.sim.settlement.LumberPlanner;
 import com.kingdoms.sim.settlement.PopulationPlanner;
 import com.kingdoms.sim.settlement.RaidPlanner;
 import com.kingdoms.sim.settlement.Settlement;
@@ -117,7 +118,7 @@ public final class KingdomsCommand {
                 === /civ ===
                   found <name>              found a settlement here
                   info                      full state of every settlement
-                  populate <n> <job>        add residents (BUILDER/FARMER/GUARD/TRADER/IDLER)
+                  populate <n> <job>        BUILDER/FARMER/GUARD/TRADER/LUMBERJACK/IDLER
                   build <blueprint> <work>  queue construction here
                   step [n]                  fast-forward the simulation
                   raid [strength]           attack the nearest settlement

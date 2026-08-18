@@ -27,6 +27,7 @@ You do not manage anything. The town runs itself, on these rules:
 
 - **It builds what it lacks** — town hall first, then houses, farms, a storehouse, workshops, watchtowers as it grows. Buildings go up whether you are there or not; if you are away, they appear when you return.
 - **It feeds itself — or fails to.** Food never teleports: harvest waits in the fields until a farmer walks out, shoulders it and carries it to the granary; market hands carry loads to the stall; one member of each family walks to market and back with the shopping. You can watch grain cross the village in their hands — and a carrier killed on the road takes the load with them. Every settler carries and eats their own food. Hunger is personal now: the underfed grow visibly weak (they stop working and slow down), and the starving die — permanently, with a line in the town's history. Watch the chain in the reports: granary, fields, market, pantries.
+- **It works the woodland.** Once a town builds a **Lumber Camp**, its lumberjacks fell trees inside the camp's claim, carry the timber to the town's stores, and replant saplings so the wood grows back. They stop when the stores are full rather than clear-cutting, and they never touch a tree outside the claim.
 - **It keeps village hours.** By day, farmers head to the fields, builders to the construction site, traders to the storehouse and guards to the watchtower; at dusk everyone but the watch walks home. When danger is near, civilians run indoors and only guards hold the ground.
 - **Families grow into the housing.** People pair into households, claim houses, and have children only when there is room. No houses, no growth — the builders set the pace of everything.
 - **Jobs staff themselves.** Children take up whatever the town is short of; idlers and surplus workers retrain. The name tag tells you who does what.
@@ -52,6 +53,17 @@ Recent history:
 ```
 
 Right-click villagers to trade — their offers follow their trade.
+
+## Directing the lumberjacks
+
+The lumber camp's **control post** — the crafting-bench-looking block inside the hut — is how you give woodland orders, the same way colony mods use hut blocks. You can also craft or place a Lumber Camp post yourself from the Tools tab.
+
+| Action | Effect |
+|---|---|
+| **Right-click the post** | Grow the working radius one step (8 → 64, then back to 8) |
+| **Sneak right-click** | Move the working area to where *you* are standing |
+
+Every click reports the resulting orders in chat, so you can point the camp at a particular wood and keep it off the trees you want left standing. The current claim also shows in the charter report and `/civ info`.
 
 ## Configuration
 

@@ -12,6 +12,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementEvent;
+import com.kingdoms.sim.settlement.WorkArea;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
@@ -159,6 +160,11 @@ public final class KingdomsCodecs {
         return household;
     }));
 
+    public static final Codec<WorkArea> WORK_AREA = RecordCodecBuilder.create(i -> i.group(
+            SIM_POS.fieldOf("centre").forGetter(WorkArea::centre),
+            Codec.INT.fieldOf("radius").forGetter(WorkArea::radius)
+    ).apply(i, WorkArea::new));
+
     public static final Codec<SettlementEvent> SETTLEMENT_EVENT = RecordCodecBuilder.create(i -> i.group(
             Codec.LONG.fieldOf("step").forGetter(SettlementEvent::step),
             Codec.STRING.fieldOf("message").forGetter(SettlementEvent::message)
@@ -188,11 +194,17 @@ public final class KingdomsCodecs {
             BUILDING.listOf().optionalFieldOf("buildings", List.of()).forGetter(Settlement::buildings),
             HOUSEHOLD.listOf().optionalFieldOf("households", List.of()).forGetter(Settlement::households),
             SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events),
-            Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Settlement::foodStock)
-    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, food) -> {
+            Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Settlement::foodStock),
+            Codec.INT.optionalFieldOf("wood", 0).forGetter(Settlement::woodStock),
+            Codec.INT.optionalFieldOf("saplings", 0).forGetter(Settlement::saplingStock),
+            WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea()))
+    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, food, wood, saplings, lumberArea) -> {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
         settlement.setFoodStock(food);
+        settlement.setWoodStock(wood);
+        settlement.setSaplingStock(saplings);
+        lumberArea.ifPresent(settlement::setLumberArea);
         residents.forEach(settlement::addResident);
         buildQueue.forEach(settlement::enqueueBuild);
         buildings.forEach(settlement::addBuilding);

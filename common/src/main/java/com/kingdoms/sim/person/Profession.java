@@ -13,5 +13,6 @@ public enum Profession {
     FARMER,
     BUILDER,
     GUARD,
-    TRADER
+    TRADER,
+    LUMBERJACK
 }
