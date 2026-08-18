@@ -50,6 +50,24 @@ public final class PersonEntity extends PathfinderMob {
                 .add(Attributes.FOLLOW_RANGE, 48.0);
     }
 
+    /**
+     * Advances the swing timer, which vanilla does not do for peaceful mobs.
+     *
+     * <p>In 26.2 only {@code Player}, {@code RemotePlayer}, {@code Mannequin} and
+     * {@code Monster} call {@code updateSwingTime()} — never {@code LivingEntity}
+     * or {@code Mob}. Vanilla has no passive mob that swings, so nothing advances
+     * {@code attackAnim} for one: {@code swing()} sets the flag and broadcasts the
+     * packet, the timer stays at zero, and the arm never moves. That is why
+     * zombies visibly swing and our builders did not.
+     *
+     * <p>Runs on both sides — the client renders from its own copy of the timer.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        updateSwingTime();
+    }
+
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
