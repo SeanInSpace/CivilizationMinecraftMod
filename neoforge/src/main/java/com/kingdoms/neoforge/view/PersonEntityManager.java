@@ -18,6 +18,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimWorld;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -26,10 +27,14 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.AABB;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -68,8 +73,17 @@ public final class PersonEntityManager {
     /** Hunger debuffs are reapplied every manager pass; this outlasts the gap. */
     private static final int EFFECT_REFRESH_TICKS = 40;
 
-    /** Most construction blocks laid per second — the visible pace of building. */
-    private static final int CONSTRUCTION_BLOCKS_PER_PASS = 6;
+    /** Game ticks between construction passes — brisk, so hands look busy. */
+    public static final int CONSTRUCTION_TICK_INTERVAL = 5;
+
+    /** How close a builder must be to lay a block. Generous: roofs have nowhere to stand. */
+    private static final double PLACE_REACH = 6.0;
+
+    /** Passes a site may make no progress before a block is placed regardless. */
+    private static final int STALL_PASSES_BEFORE_ASSIST = 20;
+
+    /** Sites that have made no progress recently, by settlement id. */
+    private final Map<UUID, Integer> constructionStalls = new HashMap<>();
 
     /** Guards engage hostiles within this range, strike within melee reach. */
     private static final double GUARD_ENGAGE_RANGE = 20.0;
@@ -109,7 +123,6 @@ public final class PersonEntityManager {
                 dailyRoutine(settlement);
                 applyHungerEffects(settlement);
                 guardCombat(settlement);
-                changed |= advanceConstructionSites(settlement);
             }
         }
         reapOrphans();
@@ -119,17 +132,105 @@ public final class PersonEntityManager {
     }
 
     /**
-     * The visible half of construction: the active site rises toward the build
-     * task's progress a few blocks a second, laid in mason's order, while the
-     * builders stand over the work. The simulation still owns progress; this
-     * only draws it.
+     * Builders lay the structure by hand, one block each per pass.
+     *
+     * <p>Each healthy embodied builder is given the next block in the plan: if it
+     * is within reach they look at it, swing, and place it; otherwise they walk
+     * toward it. So the wall genuinely rises under the hands of the people
+     * standing there, in mason's order, paced by the simulation's own progress.
+     *
+     * <p>If builders are present but boxed out of reach — a roof course with
+     * nowhere to stand — a stall counter places one anyway after a few seconds,
+     * so a site can never deadlock on pathfinding.
      */
-    private boolean advanceConstructionSites(Settlement settlement) {
-        if (settlement.buildQueue().isEmpty()) {
-            return false;
+    public void tickConstruction() {
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                if (settlement.buildQueue().isEmpty()) {
+                    continue;
+                }
+                BuildTask task = settlement.buildQueue().getFirst();
+                if (!BlueprintPlacer.isBuildableByHand(level, task)) {
+                    continue;
+                }
+                List<PersonEntity> builders = embodiedBuilders(settlement);
+                if (builders.isEmpty()) {
+                    continue;   // nobody here to build; it materializes on return
+                }
+                BlueprintPlacer.prepareSite(level, task);
+
+                boolean placedAny = false;
+                for (PersonEntity builder : builders) {
+                    BlueprintPlacer.NextBlock next = BlueprintPlacer.nextBlock(level, task);
+                    if (next == null) {
+                        clearHands(builder);
+                        continue;   // as far along as the current work allows
+                    }
+                    // Carry the material: the builder is holding the very block
+                    // they are about to lay, so placement reads as work rather
+                    // than staring blocks into existence.
+                    carry(builder, next.block());
+
+                    BlockPos pos = next.pos();
+                    if (builder.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5)
+                            <= PLACE_REACH * PLACE_REACH) {
+                        builder.getLookControl().setLookAt(
+                                pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+                        builder.swing(InteractionHand.MAIN_HAND);
+                        placedAny |= BlueprintPlacer.placeNextBlock(level, task);
+                    } else {
+                        builder.getNavigation().moveTo(
+                                pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, WALK_SPEED);
+                    }
+                }
+
+                UUID key = settlement.id().value();
+                if (placedAny) {
+                    constructionStalls.remove(key);
+                } else if (BlueprintPlacer.nextBlock(level, task) != null) {
+                    int stalled = constructionStalls.merge(key, 1, Integer::sum);
+                    if (stalled >= STALL_PASSES_BEFORE_ASSIST) {
+                        BlueprintPlacer.placeNextBlock(level, task);
+                        constructionStalls.remove(key);
+                    }
+                }
+            }
         }
-        return BlueprintPlacer.advanceConstruction(
-                level, settlement.buildQueue().getFirst(), CONSTRUCTION_BLOCKS_PER_PASS);
+    }
+
+    /** Put the next building material in the builder's hand, if not already held. */
+    private static void carry(PersonEntity builder, Block block) {
+        ItemStack held = builder.getMainHandItem();
+        if (held.is(block.asItem())) {
+            return;
+        }
+        builder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(block.asItem()));
+        // Materials are scenery, not loot — a killed builder must not shower
+        // the ground with the cobblestone they happened to be holding.
+        builder.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
+    }
+
+    /** Down tools — nothing left to lay, or the day is done. */
+    private static void clearHands(PersonEntity builder) {
+        if (!builder.getMainHandItem().isEmpty()) {
+            builder.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        }
+    }
+
+    private List<PersonEntity> embodiedBuilders(Settlement settlement) {
+        List<PersonEntity> builders = new ArrayList<>();
+        for (Person person : settlement.residents()) {
+            if (person.profession() != Profession.BUILDER
+                    || !person.isEmbodied()
+                    || person.isTooWeakToWork()) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view != null && !view.isRemoved()) {
+                builders.add(view);
+            }
+        }
+        return builders;
     }
 
     /**
@@ -297,6 +398,20 @@ public final class PersonEntityManager {
 
             boolean guard = person.profession() == Profession.GUARD;
             SimPos home = homes.get(person.id().value());
+
+            // Builders on an active site are steered block by block by
+            // tickConstruction; overriding them here would tug them off the wall.
+            if (person.profession() == Profession.BUILDER
+                    && !underThreat && !night
+                    && !settlement.buildQueue().isEmpty()
+                    && !person.isTooWeakToWork()) {
+                continue;
+            }
+            if (person.profession() == Profession.BUILDER) {
+                // Reached only when not on an active site — work is finished, the
+                // day is over, danger is near, or they are too hungry. Down tools.
+                clearHands(view);
+            }
 
             SimPos target;
             double speed;

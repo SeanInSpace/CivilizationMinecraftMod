@@ -32,6 +32,9 @@ public final class BuildTask {
     private boolean sitePrepared;
     private int blocksPlaced;
 
+    /** Blocks in this structure's plan, filled in by the view layer once surveyed. */
+    private int planSize;
+
     public BuildTask(String blueprintId, SimPos origin, int requiredWork) {
         this.blueprintId = Objects.requireNonNull(blueprintId, "blueprintId");
         this.origin = Objects.requireNonNull(origin, "origin");
@@ -88,6 +91,25 @@ public final class BuildTask {
 
     public void setBlocksPlaced(int blocksPlaced) {
         this.blocksPlaced = Math.max(0, blocksPlaced);
+    }
+
+    public int planSize() {
+        return planSize;
+    }
+
+    public void setPlanSize(int planSize) {
+        this.planSize = Math.max(0, planSize);
+    }
+
+    /**
+     * Whether builders have already laid every block of this structure by hand.
+     *
+     * <p>When true, the finished building needs no materialization pass — it is
+     * already standing. This is how visible construction avoids being followed by
+     * a redundant instant placement that would wipe and re-stamp the work.
+     */
+    public boolean isVisuallyComplete() {
+        return planSize > 0 && blocksPlaced >= planSize;
     }
 
     /** Where the structure actually stands once surveyed; the planning estimate before. */

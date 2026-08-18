@@ -170,6 +170,42 @@ class SimWorldTest {
     }
 
     @Test
+    void handBuiltStructuresAreNeverReStamped() {
+        FakeBridge bridge = new FakeBridge();
+        bridge.loaded = true;
+        BuildTask bakery = new BuildTask("kingdoms:norman/bakery", new SimPos(10, 64, 10), 2);
+        // The builders laid every block themselves while the player watched.
+        bakery.setPlanSize(120);
+        bakery.setBlocksPlaced(120);
+        Settlement settlement = settlementWithBuilders(2, bakery);
+        SimWorld world = worldWith(bridge, settlement);
+
+        world.step();
+        world.step();
+
+        assertTrue(settlement.buildings().getFirst().isMaterialized(),
+                "a hand-built structure already stands");
+        assertTrue(bridge.materialized.isEmpty(),
+                "and must never be wiped and stamped over by a placement pass");
+    }
+
+    @Test
+    void unwatchedConstructionStillGetsPlacedWhole() {
+        FakeBridge bridge = new FakeBridge();
+        bridge.loaded = true;
+        BuildTask bakery = new BuildTask("kingdoms:norman/bakery", new SimPos(10, 64, 10), 2);
+        // Nobody was watching: the plan was never surveyed, no blocks laid.
+        Settlement settlement = settlementWithBuilders(2, bakery);
+        SimWorld world = worldWith(bridge, settlement);
+
+        world.step();
+        world.step();
+
+        assertEquals(1, bridge.materialized.size(),
+                "construction nobody saw must still appear, whole");
+    }
+
+    @Test
     void claimRadiusBoundsTerritory() {
         Settlement settlement = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);

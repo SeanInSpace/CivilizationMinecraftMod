@@ -8,6 +8,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 
@@ -48,9 +49,16 @@ public final class BlueprintPlacer {
     private record Placement(BlockPos pos, Block block) {
     }
 
+    /** The next block a builder should be carrying, and where it goes. */
+    public record NextBlock(BlockPos pos, Block block) {
+    }
+
     /** A structure as an ordered build sequence plus the site it needs cleared. */
     private record StructurePlan(int width, int depth, int height, List<Placement> blocks) {
     }
+
+    /** Fraction of the work at which the last block is laid, leaving completion headroom. */
+    private static final double VISIBLE_BUILD_DONE_AT = 0.85;
 
     private BlueprintPlacer() {
     }
@@ -79,56 +87,104 @@ public final class BlueprintPlacer {
     // --- the visible path ---
 
     /**
-     * Advances a construction site toward the task's current progress, placing at
-     * most {@code maxBlocks} this call. Surveys the terrain and clears the site on
-     * first contact; from then on the plan is anchored and blocks go down in
-     * mason's order. Safe to call every second — does nothing when there is
-     * nothing new to place, and never touches unloaded chunks.
+     * Surveys the terrain and clears the volume, once, before the first course is
+     * laid. Also records the plan size on the task so the simulation can tell a
+     * hand-built structure from one that still needs materializing.
      *
-     * @return true if any block was placed or the site was prepared
+     * @return true if the site was surveyed or cleared by this call
      */
-    public static boolean advanceConstruction(ServerLevel level, BuildTask task, int maxBlocks) {
-        Identifier id = Identifier.parse(task.blueprintId());
-        BlockPos approx = new BlockPos(task.origin().x(), task.origin().y(), task.origin().z());
-        if (!level.isLoaded(approx)) {
+    public static boolean prepareSite(ServerLevel level, BuildTask task) {
+        if (!isBuildableByHand(level, task)) {
             return false;
         }
-        if (level.getStructureManager().get(id).isPresent()) {
-            return false;   // datapack templates place whole, on completion
-        }
-
         boolean changed = false;
         if (task.siteY() == BuildTask.UNSET_SITE_Y) {
-            int surface = level.getHeight(
-                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    task.origin().x(), task.origin().z());
-            task.setSiteY(surface);
+            task.setSiteY(level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    task.origin().x(), task.origin().z()));
             changed = true;
         }
-        BlockPos base = new BlockPos(task.origin().x(), task.siteY(), task.origin().z());
-        StructurePlan plan = planFor(level, id.getPath(), base);
-
+        StructurePlan plan = planOf(level, task);
+        if (plan == null) {
+            return changed;
+        }
+        if (task.planSize() != plan.blocks().size()) {
+            task.setPlanSize(plan.blocks().size());
+            changed = true;
+        }
         if (!task.isSitePrepared()) {
+            BlockPos base = baseOf(task);
             clearSite(level, base, plan.width(), plan.depth(), plan.height());
             task.setSitePrepared(true);
             changed = true;
         }
-
-        int target = (int) ((long) plan.blocks().size() * task.progress() / task.requiredWork());
-        target = Math.min(target, plan.blocks().size());
-        int next = task.blocksPlaced();
-        int placedThisCall = 0;
-        while (next < target && placedThisCall < maxBlocks) {
-            Placement placement = plan.blocks().get(next);
-            level.setBlockAndUpdate(placement.pos(), placement.block().defaultBlockState());
-            next++;
-            placedThisCall++;
-        }
-        if (placedThisCall > 0) {
-            task.setBlocksPlaced(next);
-            changed = true;
-        }
         return changed;
+    }
+
+    /**
+     * The next block the builders should lay, or null when the structure is as far
+     * along as the current work allows.
+     *
+     * <p>The cursor is deliberately ahead of the simulation: the last block is due
+     * at {@link #VISIBLE_BUILD_DONE_AT} of the work, so the structure is standing
+     * before the task completes. Otherwise the task leaves the build queue on the
+     * very step it finishes and the completion pass stamps in the remainder.
+     */
+    public static NextBlock nextBlock(ServerLevel level, BuildTask task) {
+        StructurePlan plan = planOf(level, task);
+        if (plan == null || task.blocksPlaced() >= plan.blocks().size()) {
+            return null;
+        }
+        double pace = Math.min(1.0, task.completionFraction() / VISIBLE_BUILD_DONE_AT);
+        int due = Math.min(plan.blocks().size(), (int) Math.round(plan.blocks().size() * pace));
+        if (task.blocksPlaced() >= due) {
+            return null;
+        }
+        Placement placement = plan.blocks().get(task.blocksPlaced());
+        return new NextBlock(placement.pos(), placement.block());
+    }
+
+    /** Lays the next block of the plan. Returns true if one went down. */
+    public static boolean placeNextBlock(ServerLevel level, BuildTask task) {
+        StructurePlan plan = planOf(level, task);
+        if (plan == null || task.blocksPlaced() >= plan.blocks().size()) {
+            return false;
+        }
+        Placement placement = plan.blocks().get(task.blocksPlaced());
+        level.setBlockAndUpdate(placement.pos(), placement.block().defaultBlockState());
+        task.setBlocksPlaced(task.blocksPlaced() + 1);
+        return true;
+    }
+
+    /** False for datapack templates, which are placed whole on completion. */
+    public static boolean isBuildableByHand(ServerLevel level, BuildTask task) {
+        BlockPos approx = new BlockPos(task.origin().x(), task.origin().y(), task.origin().z());
+        return level.isLoaded(approx)
+                && level.getStructureManager().get(Identifier.parse(task.blueprintId())).isEmpty();
+    }
+
+    private static BlockPos baseOf(BuildTask task) {
+        return new BlockPos(task.origin().x(), task.siteY(), task.origin().z());
+    }
+
+    // Single-entry memo: construction is consulted several times a second per
+    // builder, and recomputing a plan reads chunk state for the foundation.
+    // Server-thread only, so no synchronization; a miss merely recomputes.
+    private static BuildTask memoTask;
+    private static BlockPos memoBase;
+    private static StructurePlan memoPlan;
+
+    private static StructurePlan planOf(ServerLevel level, BuildTask task) {
+        if (task.siteY() == BuildTask.UNSET_SITE_Y) {
+            return null;
+        }
+        BlockPos base = baseOf(task);
+        if (memoTask == task && base.equals(memoBase) && memoPlan != null) {
+            return memoPlan;
+        }
+        memoPlan = planFor(level, Identifier.parse(task.blueprintId()).getPath(), base);
+        memoTask = task;
+        memoBase = base;
+        return memoPlan;
     }
 
     // --- plans ---

@@ -282,8 +282,11 @@ public final class Settlement {
             buildQueue.removeFirst();
             // The building now exists as far as the simulation is concerned, even
             // if nobody is around and no block has been placed. It stands at the
-            // surveyed site if construction got far enough to survey one.
-            buildings.add(new Building(current.blueprintId(), current.site(), ctx.step()));
+            // surveyed site if construction got far enough to survey one — and
+            // counts as already drawn if the builders laid every block by hand,
+            // so watched construction is never re-stamped by a placement pass.
+            buildings.add(new Building(
+                    current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete()));
         }
     }
 

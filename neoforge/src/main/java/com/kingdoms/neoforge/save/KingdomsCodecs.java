@@ -102,13 +102,15 @@ public final class KingdomsCodecs {
             Codec.INT.fieldOf("progress").forGetter(BuildTask::progress),
             Codec.INT.optionalFieldOf("site_y", BuildTask.UNSET_SITE_Y).forGetter(BuildTask::siteY),
             Codec.BOOL.optionalFieldOf("site_prepared", false).forGetter(BuildTask::isSitePrepared),
-            Codec.INT.optionalFieldOf("blocks_placed", 0).forGetter(BuildTask::blocksPlaced)
-    ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared, placed) -> {
+            Codec.INT.optionalFieldOf("blocks_placed", 0).forGetter(BuildTask::blocksPlaced),
+            Codec.INT.optionalFieldOf("plan_size", 0).forGetter(BuildTask::planSize)
+    ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared, placed, planSize) -> {
         BuildTask task = new BuildTask(blueprint, origin, requiredWork);
         task.addProgress(progress);
         task.setSiteY(siteY);
         task.setSitePrepared(prepared);
         task.setBlocksPlaced(placed);
+        task.setPlanSize(planSize);
         return task;
     }));
 

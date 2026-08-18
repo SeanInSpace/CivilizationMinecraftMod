@@ -48,6 +48,7 @@ public final class KingdomsCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("civ")
+                .executes(KingdomsCommand::help)
                 .requires(source -> KingdomsConfig.debugCommandsEnabled()
                         && Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(source))
 
@@ -109,6 +110,21 @@ public final class KingdomsCommand {
     }
 
     // --- subcommands ---
+
+    /** Bare {@code /civ} lists what is available, rather than a bare parse error. */
+    private static int help(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().sendSuccess(() -> Component.literal("""
+                === /civ ===
+                  found <name>              found a settlement here
+                  info                      full state of every settlement
+                  populate <n> <job>        add residents (BUILDER/FARMER/GUARD/TRADER/IDLER)
+                  build <blueprint> <work>  queue construction here
+                  step [n]                  fast-forward the simulation
+                  raid [strength]           attack the nearest settlement
+                  threat <level>            set the alarm level
+                  hunger <0-99>             set everyone's hunger"""), false);
+        return 1;
+    }
 
     private static int found(CommandContext<CommandSourceStack> ctx, String name) {
         CommandSourceStack source = ctx.getSource();

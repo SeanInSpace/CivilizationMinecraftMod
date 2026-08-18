@@ -108,6 +108,13 @@ public final class KingdomsMod {
                 manager.tick();
             }
         }
+        // Construction runs several times a second so builders visibly lay block
+        // after block, rather than a course appearing every full pass.
+        if (tickCounter % PersonEntityManager.CONSTRUCTION_TICK_INTERVAL == 0) {
+            for (PersonEntityManager manager : MANAGERS.values()) {
+                manager.tickConstruction();
+            }
+        }
     }
 
     private static void onRegisterCommands(RegisterCommandsEvent event) {
