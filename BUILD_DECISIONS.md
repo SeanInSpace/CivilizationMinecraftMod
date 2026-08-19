@@ -78,9 +78,13 @@ Buildings rise **visibly, block by block**, in a mason's order:
 1. When work begins, the site is surveyed once (terrain height locked in) and cleared.
 2. Blocks are laid **bottom layer first** — the cobble foundation is genuinely the first course.
 3. Within each layer, **full blocks go down before partial blocks** (lanterns, fences, crops, water).
-4. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out.
+4. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out. That list is `LoadedBlueprint.sequence()`, and its index is the build cursor.
 
-The pace tracks the build task's real progress (a few blocks per second while builders work), the half-built wall survives restarts, and the builders stand over the site while it rises. The simulation still owns progress — if nobody is watching, no blocks are placed, and a finished building simply appears whole when its chunk next loads. Completion always ends with a full placement pass, so a structure is guaranteed whole no matter how construction went. Datapack `.nbt` templates still place whole on completion.
+The pace tracks the build task's real progress (a few blocks per second while builders work), the half-built wall survives restarts, and the builders stand over the site while it rises. The simulation still owns progress — if nobody is watching, no blocks are placed, and a finished building simply appears whole when its chunk next loads. Completion always ends with a full placement pass, so a structure is guaranteed whole no matter how construction went.
+
+**Where the shape comes from.** Before falling back to its built-in shapes, a build asks [Keystone](KEYSTONE.md) for a blueprint — a file you scanned in-game or shipped in a datapack. Blueprints carry full block states, so an authored building arrives with its stairs, doors and fences facing the way they were drawn, and it is laid course by course exactly like a generated one. *(Earlier versions stamped datapack templates into the world whole, which quietly excluded the best-looking buildings from the best-looking part of the mod.)*
+
+Ids resolve most-specific-first, so `kingdoms:norman/house` falls back to `kingdoms:house` and then to the built-in house. That is the whole of how cultures get their own architecture.
 
 ---
 

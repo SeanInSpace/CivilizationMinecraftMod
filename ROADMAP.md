@@ -123,6 +123,7 @@ Recorded here so the roadmap stops lying about where the project is.
 | **Kingdom expansion** | A full town sends a founding party out to daughter a new settlement. |
 | **The timber trade** | Lumberjacks fell and replant inside a work area you direct with a hut block. |
 | **Self-repair** | A town that notices somebody cannot reach their own front door, and builds them steps. |
+| **Keystone** | A second mod: blueprints of any size, authored in-game, built course by course with real orientation. See [KEYSTONE.md](KEYSTONE.md). |
 
 Two of the MVP decision points were revisited in the process:
 
@@ -139,12 +140,12 @@ Two of the MVP decision points were revisited in the process:
 
 | Deferred | Standing |
 |---|---|
-| **Datapack-driven content** | **The one structural gap.** Deferred at "six building types and one culture"; it is now nine buildings, six professions, a nutrition table, a staffing table and a work-area system, all hardcoded. Still tractable — everything is numbers and string ids — but the argument for waiting weakens with every trade added. |
-| **Multiple cultures** | Blocked on datapacks. The reason to do them. |
+| **Datapack-driven content** | **Half done.** *Buildings* are now data — authored in-game or shipped in a datapack, at any size, with orientation. What remains hardcoded is the *tables*: the build catalogue, professions, nutrition, staffing, work areas. Still tractable, since all of it is numbers and string ids. |
+| **Multiple cultures** | **Unblocked, and half built.** Blueprint styles already resolve (`kingdoms:norman/house` falling back to `kingdoms:house`), and kingdoms already carry a culture. What is missing is a per-culture *catalogue* — `Settlement.setCatalogue` exists and is still called by nothing. |
 | **Natural worldgen** | Untouched. Towns are player-founded or daughtered from an existing one. |
 | **Age and mortality** | Untouched. People die of violence and starvation, never of years. |
 | **Kingdom diplomacy** | Still modelled, still persisted, still read by nothing. Now that kingdoms genuinely have several settlements, it finally has something to act on. |
-| **Materials for construction** | Buildings still cost only labour — but timber now accumulates, and the block plan is already ordered so a supply gate stops the cursor mid-list. Both halves are waiting. |
+| **Materials for construction** | Buildings still cost only labour — but timber accumulates, and `LoadedBlueprint.sequence()` is an ordered list whose cursor a supply gate simply stops part-way down. Both halves are waiting; this is the next piece of work. |
 | **Fabric port** | Cheap whenever wanted; `common/` has stayed clean of Minecraft imports throughout. |
 
 ---
@@ -153,11 +154,13 @@ Two of the MVP decision points were revisited in the process:
 
 In rough order of how much each unlocks:
 
-1. **Datapacks.** Everything above is shaped for it and nothing else can start until
-   it lands. It is what separates *Millénaire-shaped* from *Millénaire-like*.
-2. **Construction materials.** The two halves already exist — timber in the stores,
-   and an ordered block plan whose cursor can stop. Joining them makes the lumber
-   trade matter and gives hauling a second purpose.
+1. ~~**Datapacks.**~~ Buildings are data now. What remains is the *tables* — the
+   build catalogue first, since that is what lets cultures want different things.
+2. **Construction materials, and the builder's hut screen.** The two halves exist —
+   timber in the stores, and an ordered block sequence whose cursor can stop. This
+   is where the interactive supply GUI belongs: walk up, see what a build needs,
+   hand it over. Deferred deliberately so the bill of materials is computed from
+   real blueprints rather than from nine hardcoded shapes.
 3. **Tuning.** Deliberately postponed all along. Now that every loop is watchable,
    the numbers can be judged instead of guessed.
 4. **Age and mortality**, once there is enough economy for population pressure to
@@ -167,10 +170,16 @@ In rough order of how much each unlocks:
 
 ## Status
 
-**118 tests**, all green. Stress benchmark: 20 settlements, 640 people, 340
+**126 tests**, all green. Stress benchmark: 20 settlements, 640 people, 340
 buildings at roughly 0.6 ms per simulation step — about 0.01% of a tick budget.
 
-The standing caveat has not changed, only sharpened: everything is machine-verified,
-and the *feel* is not. The last three features — lumberjacks, real inventories and
-access repairs — pass their tests and load clean but have never been watched running
-in a world.
+Blueprints are verified differently, and more strictly: `BlockState` cannot exist in
+a plain JUnit test here (`SharedConstants` needs a live FML loader), so the whole
+path is checked against a running dedicated server over RCON, asserting real block
+states with `/execute if block` — 28 assertions covering orientation, rotation, a
+world→file→world round trip, and an 80-block axis that no structure block could hold.
+
+The standing caveat has narrowed but not gone: lumberjacks, real inventories and
+access repairs still pass their tests and load clean without ever having been
+watched running in a world. Added to that list: the wand's naming screen and the
+placement outline, which need a person at a client.

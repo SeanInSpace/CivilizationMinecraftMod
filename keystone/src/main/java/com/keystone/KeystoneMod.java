@@ -3,6 +3,7 @@ package com.keystone;
 import com.keystone.api.Blueprints;
 import com.keystone.command.KeystoneCommand;
 import com.keystone.net.KeystoneNetwork;
+import com.keystone.preview.PlacementPreview;
 import com.keystone.source.DatapackSource;
 import com.keystone.source.FolderSource;
 import net.neoforged.bus.api.IEventBus;
@@ -11,6 +12,8 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddServerReloadListenersEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +47,7 @@ public final class KeystoneMod {
         // Datapack blueprints are cached after first read, so a reload has to
         // drop them or /reload would quietly keep serving the old structure.
         NeoForge.EVENT_BUS.addListener(KeystoneMod::onReload);
+        NeoForge.EVENT_BUS.addListener(KeystoneMod::onPlayerTick);
 
         LOG.info("Keystone loaded — blueprint services available");
     }
@@ -57,6 +61,12 @@ public final class KeystoneMod {
      * a cached datapack blueprint may have gone stale. Clearing here rather than
      * registering a listener of our own keeps this to one line and one concept.
      */
+    private static void onPlayerTick(PlayerTickEvent.Post event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            PlacementPreview.tick(player);
+        }
+    }
+
     private static void onReload(AddServerReloadListenersEvent event) {
         Blueprints.clearCache();
     }

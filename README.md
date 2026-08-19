@@ -13,11 +13,12 @@ Design docs: [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what settlements build) �
 ```
 common/     Simulation core — plain Java, NO Minecraft, NO loader
 neoforge/   Platform layer — everything that touches Minecraft
+keystone/   A second, standalone mod: blueprints of any size (KEYSTONE.md)
 ```
 
 **The split is the whole architecture.** `common/` models kingdoms, settlements and people as data that ticks on a slow scheduler, and can be fully unit-tested in milliseconds without launching a game. `neoforge/` renders that simulation into the world: registration, events, persistence, networking, and the entity "view" layer.
 
-`neoforge/` depends on `common/`. `common/` depends on nothing.
+`neoforge/` depends on `common/` and on `keystone/`. `common/` depends on nothing, and `keystone/` depends on neither — it ships as its own jar and knows nothing about Kingdoms, the way Structurize does not know about MineColonies.
 
 The one seam between them is [`WorldBridge`](common/src/main/java/com/kingdoms/sim/platform/WorldBridge.java), implemented by [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java).
 

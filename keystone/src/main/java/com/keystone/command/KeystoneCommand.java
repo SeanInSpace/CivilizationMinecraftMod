@@ -1,10 +1,12 @@
 package com.keystone.command;
 
+import com.keystone.KeystoneComponents;
 import com.keystone.api.Blueprints;
 import com.keystone.api.LoadedBlueprint;
 import com.keystone.api.Placer;
 import com.keystone.blueprint.Blueprint;
 import com.keystone.net.SaveBlueprintPayload;
+import com.keystone.preview.PlacementPreview;
 import com.keystone.source.FolderSource;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -17,6 +19,8 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 
@@ -57,6 +61,11 @@ public final class KeystoneCommand {
                                                         StringArgumentType.getString(ctx, "name"),
                                                         BlockPosArgument.getLoadedBlockPos(ctx, "from"),
                                                         BlockPosArgument.getLoadedBlockPos(ctx, "to")))))))
+
+                .then(Commands.literal("select")
+                        .then(Commands.argument("blueprint", StringArgumentType.string())
+                                .executes(ctx -> select(ctx,
+                                        StringArgumentType.getString(ctx, "blueprint")))))
 
                 .then(Commands.literal("place")
                         .then(Commands.argument("blueprint", StringArgumentType.string())
@@ -138,6 +147,40 @@ public final class KeystoneCommand {
             ctx.getSource().sendFailure(Component.literal("Could not write: " + failed.getMessage()));
             return 0;
         }
+    }
+
+    /**
+     * Lines a blueprint up on the held wand, or clears it with "none".
+     *
+     * <p>A command rather than a picker screen: choosing from a list is a screen's
+     * worth of work for something an operator does once before placing a dozen
+     * copies, and the outline is the part that actually needed building.
+     */
+    private static int select(CommandContext<CommandSourceStack> ctx, String blueprint) {
+        if (!(ctx.getSource().getEntity() instanceof ServerPlayer player)) {
+            ctx.getSource().sendFailure(Component.literal("Only a player can hold a wand."));
+            return 0;
+        }
+        ItemStack wand = PlacementPreview.heldWand(player);
+        if (wand == null) {
+            ctx.getSource().sendFailure(Component.literal("Hold a blueprint wand first."));
+            return 0;
+        }
+        if (blueprint.equalsIgnoreCase("none")) {
+            wand.remove(KeystoneComponents.SELECTED.get());
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "Wand back to scanning mode."), false);
+            return 1;
+        }
+        Identifier id = Identifier.parse(blueprint);
+        if (Blueprints.load(ctx.getSource().getLevel(), BlockPos.ZERO, id).isEmpty()) {
+            ctx.getSource().sendFailure(Component.literal("No blueprint named " + blueprint));
+            return 0;
+        }
+        wand.set(KeystoneComponents.SELECTED.get(), id);
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "Lining up " + id + ". Click to place, sneak-click to rotate."), false);
+        return 1;
     }
 
     private static int place(CommandContext<CommandSourceStack> ctx, String blueprint,

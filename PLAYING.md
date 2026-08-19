@@ -91,7 +91,31 @@ Per-world settings in `<world>/serverconfig/kingdoms-server.toml`:
 
 ## Custom building styles
 
-Every building the mod places checks for a structure template first: put an `.nbt` file at `data/kingdoms/structure/<name>.nbt` in a datapack (e.g. `house.nbt`, `town_hall.nbt` — authored in-game with structure blocks) and towns will build *your* architecture instead of the built-in one. No code, no config.
+Kingdoms builds whatever you draw. Every building it places asks **Keystone** —
+the blueprint mod shipped alongside it — for a structure first, and only falls
+back to its built-in shapes when you have not supplied one.
+
+The fastest way in is the **Blueprint Wand** (Tools tab):
+
+1. Build something.
+2. Click one corner with the wand, sneak-click the opposite corner.
+3. Right-click the air, and name it `kingdoms:house`.
+
+From then on your town builds *your* house — course by course, with the stairs
+and doors facing the way you placed them. Name it `kingdoms:town_hall`,
+`kingdoms:granary`, `kingdoms:watchtower` and so on for the rest.
+
+There is **no size limit**. Vanilla's structure block stops at 48 blocks per
+axis; the wand does not, so a keep or a curtain wall is as easy as a cottage.
+
+Datapacks still work too: drop an `.nbt` at `data/kingdoms/structure/<name>.nbt`.
+Files you scan yourself take precedence over those.
+
+Cultures get their own architecture for free: a blueprint named
+`kingdoms:norman/house` is used by Norman settlements, and anything a culture has
+not drawn falls back to the common building.
+
+See **[KEYSTONE.md](KEYSTONE.md)** for the full tool.
 
 ## For operators
 

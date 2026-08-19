@@ -1,9 +1,15 @@
 package com.keystone.item;
 
 import com.keystone.KeystoneComponents;
+import com.keystone.api.LoadedBlueprint;
+import com.keystone.api.Placer;
 import com.keystone.blueprint.Scanner;
+import com.keystone.preview.PlacementPreview;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -11,18 +17,28 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Rotation;
 
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 /**
- * Marks out a region and saves it as a blueprint.
+ * Marks out a region and saves it as a blueprint — and lines one up to place.
  *
- * <p>Click a block for the first corner, sneak-click for the second, then click
- * the air to name and save what is between them. The selection lives on the item
- * itself, so it survives being put away and picked up again.
+ * <p>The wand has two modes, decided by whether a blueprint is selected:
  *
- * <p>No size limit — that is the point. Vanilla's structure block stops at 48
- * blocks per axis, which is what rules it out for anything the size of a keep.
+ * <ul>
+ *   <li><strong>Scanning</strong> (nothing selected) — click a block for the
+ *       first corner, sneak-click for the second, then click the air to name and
+ *       save what lies between them.</li>
+ *   <li><strong>Placing</strong> (after {@code /keystone select}) — an outline
+ *       follows your crosshair. Click to place; sneak-click to turn it a quarter
+ *       turn.</li>
+ * </ul>
+ *
+ * <p>No size limit on either — that is the point. Vanilla's structure block stops
+ * at 48 blocks per axis, which is what rules it out for anything the size of a
+ * keep.
  */
 public final class BlueprintWandItem extends Item {
 
@@ -52,6 +68,11 @@ public final class BlueprintWandItem extends Item {
         }
 
         ItemStack wand = context.getItemInHand();
+        if (wand.get(KeystoneComponents.SELECTED.get()) != null
+                && player instanceof ServerPlayer server) {
+            return placeSelection(server, wand);
+        }
+
         BlockPos clicked = context.getClickedPos();
         boolean second = context.isSecondaryUseActive();
         wand.set(second ? KeystoneComponents.CORNER_B.get()
@@ -64,9 +85,24 @@ public final class BlueprintWandItem extends Item {
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack wand = player.getItemInHand(hand);
+
+        if (wand.get(KeystoneComponents.SELECTED.get()) != null) {
+            if (level.isClientSide()) {
+                return InteractionResult.SUCCESS;
+            }
+            if (!(player instanceof ServerPlayer server)) {
+                return InteractionResult.PASS;
+            }
+            if (player.isShiftKeyDown()) {
+                Rotation now = PlacementPreview.rotate(wand);
+                player.sendSystemMessage(Component.literal("Rotation: " + now.name()));
+                return InteractionResult.SUCCESS;
+            }
+            return placeSelection(server, wand);
+        }
+
         BlockPos a = wand.get(KeystoneComponents.CORNER_A.get());
         BlockPos b = wand.get(KeystoneComponents.CORNER_B.get());
-
         if (a == null || b == null) {
             if (!level.isClientSide()) {
                 player.sendSystemMessage(Component.literal(
@@ -79,6 +115,31 @@ public final class BlueprintWandItem extends Item {
             // result when the save payload arrives.
             saveScreen.accept(a, b);
         }
+        return InteractionResult.SUCCESS;
+    }
+
+    /** Commits the lined-up blueprint wherever the outline currently sits. */
+    private static InteractionResult placeSelection(ServerPlayer player, ItemStack wand) {
+        Optional<BlockPos> target = PlacementPreview.targetOf(player);
+        if (target.isEmpty()) {
+            player.sendSystemMessage(Component.literal("Look at a block to place there."));
+            return InteractionResult.FAIL;
+        }
+        Optional<LoadedBlueprint> blueprint =
+                PlacementPreview.selectionOf(player, wand, target.get());
+        if (blueprint.isEmpty()) {
+            Identifier id = wand.get(KeystoneComponents.SELECTED.get());
+            player.sendSystemMessage(Component.literal("No blueprint named " + id));
+            return InteractionResult.FAIL;
+        }
+        if (!(player.level() instanceof ServerLevel level)) {
+            return InteractionResult.FAIL;
+        }
+
+        Placer.placeAll(level, blueprint.get(), target.get());
+        player.sendSystemMessage(Component.literal(
+                "Placed " + wand.get(KeystoneComponents.SELECTED.get())
+                        + " at " + target.get().toShortString()));
         return InteractionResult.SUCCESS;
     }
 
