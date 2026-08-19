@@ -17,3 +17,4 @@ rootProject.name = 'kingdoms'
 
 include 'common'
 include 'neoforge'
+include 'keystone'

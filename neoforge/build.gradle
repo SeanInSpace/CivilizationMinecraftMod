@@ -10,6 +10,10 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.144'
 }
 
+// Keystone is a separate mod living in the same build. Force its evaluation
+// first so its source set can be registered as a second mod in the runs below.
+evaluationDependsOn(':keystone')
+
 neoForge {
     version = project.neoforge_version
 
@@ -26,6 +30,11 @@ neoForge {
         register(project.mod_id) {
             sourceSet sourceSets.main
         }
+        // Registered here rather than in :keystone so that one runClient boots
+        // both mods, exactly as a player installing two jars would see them.
+        register(project.keystone_id) {
+            sourceSet project(':keystone').sourceSets.main
+        }
     }
 }
 
@@ -36,6 +45,9 @@ base {
 
 dependencies {
     implementation project(':common')
+    // Kingdoms consumes blueprints through Keystone's BlueprintSource seam.
+    // Keystone never depends on Kingdoms.
+    implementation project(':keystone')
 }
 
 // Bundle the loader-free simulation core into the mod jar.
@@ -54,7 +66,8 @@ tasks.named('processResources', ProcessResources) {
             mod_authors      : project.mod_authors,
             mod_description  : project.mod_description,
             minecraft_version: project.minecraft_version,
-            neoforge_version : project.neoforge_version
+            neoforge_version : project.neoforge_version,
+            keystone_version : project.keystone_version
     ]
     inputs.properties(props)
     filesMatching('META-INF/neoforge.mods.toml') {

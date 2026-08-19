@@ -1,0 +1,45 @@
+// Keystone — a standalone blueprint mod.
+//
+// Reads and writes vanilla structure NBT at any size, transforms it, and serves
+// it to other mods through a narrow BlueprintSource interface. It knows nothing
+// about Kingdoms; Kingdoms depends on it, never the reverse.
+//
+// This module hosts no run configurations. The :neoforge module owns the dev
+// launches and registers this mod's source set alongside its own, so one
+// runClient boots both mods.
+
+plugins {
+    id 'net.neoforged.moddev' version '2.0.144'
+}
+
+neoForge {
+    version = project.neoforge_version
+}
+
+// The root build stamps every subproject with mod_version (Kingdoms' version).
+// Keystone ships separately and versions independently.
+version = project.keystone_version
+
+// Otherwise the jar is named after the subproject ("keystone-0.1.0.jar" is fine,
+// but stay explicit so a version bump never renames the artifact).
+base {
+    archivesName = project.keystone_id
+}
+
+// Expand gradle.properties into neoforge.mods.toml so versions live in one place.
+tasks.named('processResources', ProcessResources) {
+    def props = [
+            keystone_id         : project.keystone_id,
+            keystone_name       : project.keystone_name,
+            keystone_version    : project.keystone_version,
+            keystone_description: project.keystone_description,
+            mod_license         : project.mod_license,
+            mod_authors         : project.mod_authors,
+            minecraft_version   : project.minecraft_version,
+            neoforge_version    : project.neoforge_version
+    ]
+    inputs.properties(props)
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand props
+    }
+}

@@ -3,32 +3,24 @@ loaderVersion = "[1,)"
 license = "${mod_license}"
 
 [[mods]]
-modId = "${mod_id}"
-version = "${mod_version}"
-displayName = "${mod_name}"
+modId = "${keystone_id}"
+version = "${keystone_version}"
+displayName = "${keystone_name}"
 authors = "${mod_authors}"
-bannerFile = "icon.png"
 description = '''
-${mod_description}
+${keystone_description}
 '''
 
-[[dependencies.${mod_id}]]
+[[dependencies.${keystone_id}]]
 modId = "neoforge"
 type = "required"
 versionRange = "[${neoforge_version},)"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.${mod_id}]]
+[[dependencies.${keystone_id}]]
 modId = "minecraft"
 type = "required"
 versionRange = "[${minecraft_version},)"
 ordering = "NONE"
-side = "BOTH"
-
-[[dependencies.${mod_id}]]
-modId = "keystone"
-type = "required"
-versionRange = "[${keystone_version},)"
-ordering = "AFTER"
 side = "BOTH"
