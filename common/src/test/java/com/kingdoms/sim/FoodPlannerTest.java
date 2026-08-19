@@ -1,6 +1,7 @@
 package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -188,8 +189,9 @@ class FoodPlannerTest {
         FoodPlanner.advance(s, CTX);
 
         assertTrue(person.hunger() < Person.HUNGER_HUNGRY, "eating pushed hunger back down");
-        assertEquals(FoodPlanner.CARRY_WHEN_EATING - 1, person.foodCarried(),
-                "took a couple from the pantry, ate one on the spot");
+        assertEquals(FoodPlanner.CARRY_WHEN_EATING - 1,
+                person.inventory().count(Foods.PROVISION),
+                "took a couple of loaves from the larder, ate one on the spot");
     }
 
     // --- when the chain breaks ---

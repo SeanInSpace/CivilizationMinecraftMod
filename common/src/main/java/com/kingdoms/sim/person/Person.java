@@ -43,8 +43,8 @@ public final class Person {
     /** 0 (fed) to {@link #HUNGER_MAX}. Held at the cap while starving. */
     private int hunger;
 
-    /** Food carried on the person — eaten first, refilled from the family pantry. */
-    private int foodCarried;
+    /** What they are actually carrying. Real items, eaten from directly. */
+    private final Inventory inventory = new Inventory();
 
     /** Consecutive steps spent at maximum hunger. Death comes when it runs out. */
     private int starvingSteps;
@@ -115,12 +115,8 @@ public final class Person {
         return hunger >= HUNGER_WEAK;
     }
 
-    public int foodCarried() {
-        return foodCarried;
-    }
-
-    public void setFoodCarried(int foodCarried) {
-        this.foodCarried = Math.max(0, foodCarried);
+    public Inventory inventory() {
+        return inventory;
     }
 
     public HaulTask haul() {

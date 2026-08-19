@@ -52,7 +52,15 @@ Recent history:
   Raid of 2 repelled by the garrison (defense 2), no losses
 ```
 
-Right-click villagers to trade — their offers follow their trade.
+## Talking to settlers
+
+| Action | Effect |
+|---|---|
+| **Right-click** | A word in passing |
+| **Right-click holding food** | Hand it over — they will eat it when hunger bites |
+| **Sneak right-click** | Read their pockets: what they carry, how hungry they are, what errand they are running |
+
+Settlers carry **real food** and eat the actual item they hold, best first — so a loaf you give a starving settler is the loaf that saves them. A founding party sets out with bread in hand, which is what carries a new town through its first minutes before there is a larder to fetch from.
 
 ## Directing the lumberjacks
 

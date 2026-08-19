@@ -5,6 +5,7 @@ import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.kingdom.Standing;
 import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Household;
+import com.kingdoms.sim.person.Inventory;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildTask;
@@ -104,19 +105,25 @@ public final class KingdomsCodecs {
         return task;
     }));
 
+    public static final Codec<Inventory.Slot> INVENTORY_SLOT = RecordCodecBuilder.create(i -> i.group(
+            Codec.STRING.fieldOf("item").forGetter(Inventory.Slot::itemId),
+            Codec.INT.fieldOf("count").forGetter(Inventory.Slot::count)
+    ).apply(i, Inventory.Slot::new));
+
     public static final Codec<Person> PERSON = RecordCodecBuilder.create(i -> i.group(
             PERSON_ID.fieldOf("id").forGetter(Person::id),
             Codec.STRING.fieldOf("name").forGetter(Person::name),
             PROFESSION.fieldOf("profession").forGetter(Person::profession),
             SIM_POS.fieldOf("position").forGetter(Person::position),
             Codec.INT.optionalFieldOf("hunger", 0).forGetter(Person::hunger),
-            Codec.INT.optionalFieldOf("food_carried", 0).forGetter(Person::foodCarried),
+            INVENTORY_SLOT.listOf().optionalFieldOf("inventory", List.of())
+                    .forGetter(p -> p.inventory().slots()),
             Codec.INT.optionalFieldOf("starving_steps", 0).forGetter(Person::starvingSteps),
             HAUL_TASK.optionalFieldOf("haul").forGetter(p -> Optional.ofNullable(p.haul()))
     ).apply(i, (id, name, profession, position, hunger, carried, starving, haul) -> {
         Person person = new Person(id, name, profession, position);
         person.setHunger(hunger);
-        person.setFoodCarried(carried);
+        carried.forEach(slot -> person.inventory().restore(slot.itemId(), slot.count()));
         person.setStarvingSteps(starving);
         haul.ifPresent(person::setHaul);
         return person;

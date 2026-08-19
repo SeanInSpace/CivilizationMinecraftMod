@@ -1,6 +1,7 @@
 package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
@@ -47,7 +48,6 @@ public final class FoodPlanner {
 
     // hunger pacing
     public static final int HUNGER_PER_STEP = 2;
-    public static final int NUTRITION_PER_FOOD = 30;
     public static final int STARVATION_GRACE_STEPS = 10;
 
     // the chain's carrying numbers
@@ -59,6 +59,7 @@ public final class FoodPlanner {
     public static final int MARKET_STOCK_CAP = 150;
     public static final int PANTRY_PER_MEMBER = 3;
     public static final int FETCH_MAX = 8;
+    /** How many provisions somebody takes from the family larder at a time. */
     public static final int CARRY_WHEN_EATING = 2;
 
     // granary pool capacity
@@ -311,17 +312,21 @@ public final class FoodPlanner {
             person.addHunger(HUNGER_PER_STEP);
 
             if (person.hunger() >= Person.HUNGER_HUNGRY) {
-                if (person.foodCarried() == 0) {
+                // Out of food? Take a couple of loaves from the family larder.
+                if (person.inventory().bestFood() == null) {
                     Household family = families.get(person.id());
                     if (family != null && family.pantry() > 0) {
                         int take = Math.min(CARRY_WHEN_EATING, family.pantry());
-                        family.setPantry(family.pantry() - take);
-                        person.setFoodCarried(take);
+                        int taken = person.inventory().add(Foods.PROVISION, take);
+                        family.setPantry(family.pantry() - taken);
                     }
                 }
-                if (person.foodCarried() > 0) {
-                    person.setFoodCarried(person.foodCarried() - 1);
-                    person.setHunger(person.hunger() - NUTRITION_PER_FOOD);
+                // Eat the best thing actually carried — including anything a
+                // player has handed over.
+                String meal = person.inventory().bestFood();
+                if (meal != null) {
+                    person.inventory().remove(meal, 1);
+                    person.setHunger(person.hunger() - Foods.nutrition(meal));
                 }
             }
 

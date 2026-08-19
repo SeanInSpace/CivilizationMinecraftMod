@@ -125,7 +125,7 @@ Both fidelities share one arrival test, because a person's position is the same 
 - **Fields grow harvest into their own stores** (up to 2 farmers worked per farm); **farmers carry it to the granary**, one load per step.
 - The **granary** is the town's bulk store — 200 base, +400 per granary or storehouse building. Towns build a granary early (population 4) and a market at 6.
 - **Market hands (traders) stock the market** from the granary; **one member per family fetches from the market** to keep the pantry at 3 food per member. Young towns without a market shop straight from the granary.
-- **Each person carries food** and eats from their own inventory when hunger bites, refilling from the family pantry.
+- **Each person carries real food** — actual items in actual pockets, six kinds at most — and eats the most nourishing thing they hold when hunger bites, refilling from the family pantry. Different foods go different distances: bread undoes 30 hunger, cooked beef 45, raw wheat only 10. Anything inedible is carried and never eaten, so a settler will starve holding a pickaxe. Players can hand food over directly, and sneak-right-click to read someone's pockets.
 - **Births require banked food** in the granary — the fields pace the village as much as the housing does.
 
 Break any link — no farmers, full granary, no market hands, an unhoused family — and hunger arrives downstream.

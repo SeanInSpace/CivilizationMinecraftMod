@@ -5,6 +5,7 @@ import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
+import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.FoodPlanner;
@@ -40,6 +41,9 @@ public final class FoundingCharterItem extends Item {
 
     /** Founding party: enough to build, few enough to stay under the raid gate. */
     private static final int SETTLERS = 4;
+
+    /** Loaves each settler sets out with. Bread is 30 hunger, appetite is 2 a step. */
+    private static final int PROVISIONS_EACH = 8;
 
     public FoundingCharterItem(Properties properties) {
         super(properties);
@@ -80,8 +84,11 @@ public final class FoundingCharterItem extends Item {
             // Half builders so construction starts immediately; the rest idle and
             // retrain into whatever the town turns out to need.
             Profession trade = i % 2 == 0 ? Profession.BUILDER : Profession.IDLER;
-            settlement.addResident(new Person(
-                    Person.Id.random(), "Settler " + (i + 1), trade, site));
+            Person settler = new Person(Person.Id.random(), "Settler " + (i + 1), trade, site);
+            // They pack food for the road. Until the first house stands there is
+            // no larder to fetch from, so what they carry is what they live on.
+            settler.inventory().add(Foods.PROVISION, PROVISIONS_EACH);
+            settlement.addResident(settler);
         }
         kingdom.addSettlement(settlement);
         settlement.logEvent(world.stepsElapsed(), name + " was founded");
