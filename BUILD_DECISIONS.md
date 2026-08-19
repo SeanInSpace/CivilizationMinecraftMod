@@ -90,7 +90,10 @@ The pace tracks the build task's real progress (a few blocks per second while bu
 |---|---|---|---|---|---|---|
 | Town hall | 40 | 1 | 1 | — | 100 | — |
 | House | 20 | 1 | 1 | 3 residents | 80 | 4 people |
+| Granary | 25 | 4 | 1 | 20 residents | 75 | — |
 | Farm | 30 | 4 | 0 | 5 residents | 70 | — |
+| Market | 30 | 6 | 1 | 25 residents | 65 | — |
+| Lumber camp | 30 | 6 | 1 | 30 residents | 58 | — |
 | Watchtower | 45 | 12 | 0 | 12 residents | 60 | — |
 | Storehouse | 30 | 6 | 1 | 15 residents | 55 | — |
 | Workshop | 35 | 8 | 0 | 8 residents | 50 | — |
@@ -111,20 +114,23 @@ A settlement with 10 residents, starting from nothing, wants:
 |---|---|---|
 | Town hall | flat 1 | 1 |
 | House | 1, plus 10 ÷ 3 = 3 | 4 |
+| Granary | flat 1, plus 10 ÷ 20 = 0 | 1 |
 | Farm | 10 ÷ 5 | 2 |
+| Market | flat 1, plus 10 ÷ 25 = 0 | 1 |
+| Lumber camp | flat 1, plus 10 ÷ 30 = 0 | 1 |
 | Watchtower | population 10 < minimum 12 | — not yet |
 | Storehouse | flat 1, plus 10 ÷ 15 = 0 | 1 |
 | Workshop | 10 ÷ 8 | 1 |
 
-Nine buildings total, constructed strictly in priority order:
+Twelve buildings total, constructed strictly in priority order:
 
 ```
-town hall  →  house ×4  →  farm ×2  →  storehouse  →  workshop  →  idle
+town hall → house ×4 → granary → farm ×2 → market → lumber camp → storehouse → workshop → idle
 ```
 
-Total cost: 40 + (4 × 20) + (2 × 30) + 30 + 35 = **245 builder-steps.**
+Total cost: 40 + (4 × 20) + 25 + (2 × 30) + 30 + 30 + 30 + 35 = **330 builder-steps.**
 
-With 3 builders that is 82 simulation steps — roughly **7 minutes** of real time at one step per 5 seconds.
+With 3 builders that is 110 simulation steps — roughly **9 minutes** of real time at one step per 5 seconds.
 
 Those 4 houses hold 16 people, which is why a town of 10 keeps growing rather than stalling. As births push the population to 12, the watchtower unlocks and a fifth house is wanted — so the town starts building again, which permits more growth, and so on.
 

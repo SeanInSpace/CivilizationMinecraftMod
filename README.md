@@ -40,7 +40,7 @@ You currently have **Java 17** installed. Gradle runs fine on 17, and `settings.
 
 As of Phase 0–2 completion, on this machine:
 
-- `:common:test` — 64/64 passing, including the hydration state machine, the raid system, and the stress benchmark
+- `:common:test` — 118/118 passing, covering every planner, the hydration state machine, and the stress benchmark
 - **Stress:** 20 settlements, 640 people, 340 buildings — 520 µs per sim step, amortized 5.2 µs per game tick
 - `:neoforge:build` — green; dedicated server boots the mod ("Initialised 3 dimension simulation(s)")
 
@@ -193,7 +193,10 @@ SimWorld.step()                          builds a SimContext(bridge, step, setti
             ├─ planNextBuild(ctx)            terrain-aware since Phase 0
             ├─ advanceBuildQueue(ctx)
             ├─ materializePending(ctx)
-            ├─ JobPlanner.retrainOneIdler()
+            ├─ FoodPlanner.advance(ctx)      fields, errands, hunger, starvation
+            ├─ HaulPlanner.advance(ctx)      loads walking across the village
+            ├─ LumberPlanner.advance(ctx)    the camp claims its woodland
+            ├─ JobPlanner.retrainOne()
             ├─ PopulationPlanner.advance(ctx)
             ├─ decayThreat()
             └─ RaidPlanner.advance(ctx)
@@ -263,12 +266,13 @@ Raising that interval is the cheapest performance lever you have. Reach for it b
 
 1. ~~**Persistence.**~~ Done — `KingdomsSavedData`, loaded on `ServerStartedEvent`, written with the level.
 2. **Datapack-driven cultures and blueprints.** The highest-leverage thing in the project, and the reason Millénaire could carry six cultures. Define blueprints and professions in JSON, not Java, before content volume makes it expensive to retrofit. `Profession` is a placeholder enum waiting to be replaced by exactly this.
-3. **Make professions do something.** Guards and farmers are now *staffed* by the job planner, but the jobs themselves are inert — guards do not fight, farms produce nothing. Guard behaviour is the heart of Phase 3.
+3. ~~**Make professions do something.**~~ Done — guards fight, farmers work fields, traders stock the market, lumberjacks fell and replant. Only the *workshop* remains decorative.
 4. ~~**Blueprint placement.**~~ Wired, with placeholder geometry. Replace with real datapack blueprints as part of step 2.
 5. ~~**Settlements that decide for themselves.**~~ Done — see [BUILD_DECISIONS.md](BUILD_DECISIONS.md).
 6. ~~**Population growth.**~~ Done — see [POPULATION.md](POPULATION.md), including Phase 2's needs-based job assignment.
 7. ~~**The entity view layer.**~~ Done — vanilla villagers as disposable views over `Person` records, with hysteresis and per-settlement caps. `EmbodimentPlanner` (common) decides; `PersonEntityManager` (neoforge) executes.
-8. **Two-fidelity defense.** Statistical combat resolution off-screen, real entity combat on-screen, both driven by `Settlement.threatLevel`. Nothing raises threat yet — this is Phase 3, and it is next.
+8. ~~**Two-fidelity defense.**~~ Done — see [DEFENSE.md](DEFENSE.md).
+9. **Datapack-driven content.** The one structural gap left: nine building types, six professions, a nutrition table and a staffing table, all hardcoded. See [ROADMAP.md](ROADMAP.md).
 
 ---
 

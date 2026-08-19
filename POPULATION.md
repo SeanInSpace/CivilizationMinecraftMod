@@ -67,6 +67,7 @@ Each settlement wants a staffing mix, using the same arithmetic as the build cat
 | Builder | 1 | 5 residents | 90 |
 | Guard | 0 | 8 residents | 80 |
 | Farmer | 0 | 5 residents | 70 |
+| Lumberjack | 0 | 10 residents | 60 |
 | Trader | 0 | 15 residents | 50 |
 
 Builders lead because construction gates housing and housing gates growth — a town short of builders is short of everything.

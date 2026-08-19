@@ -95,4 +95,4 @@ Every building the mod places checks for a structure template first: put an `.nb
 
 ## For operators
 
-`/civ` (permission level 2) offers `found`, `info`, `populate`, `build`, `threat`, `step`, and `raid` for inspecting and prodding the simulation. `info` is the full X-ray; `step 50` fast-forwards; `raid` starts trouble on demand.
+`/civ` on its own lists everything. At permission level 2 it offers `found`, `info`, `populate`, `build`, `threat`, `step`, `raid` and `hunger`. `info` is the full X-ray — population, families, jobs, food chain, timber, defense and history; `step 50` fast-forwards; `raid` starts trouble on demand; `hunger 85` makes a town stagger.
