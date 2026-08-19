@@ -1,32 +1,52 @@
 package com.kingdoms.neoforge.world;
 
+import com.keystone.api.Blueprints;
+import com.keystone.api.LoadedBlueprint;
+import com.keystone.api.PlannedBlock;
 import com.kingdoms.neoforge.KingdomsBlocks;
 import com.kingdoms.sim.settlement.BuildTask;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.RandomSource;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
-import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.level.storage.TagValueInput;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
  * Turns a blueprint id into actual blocks — all at once, or brick by brick.
  *
- * <p>Every procedural structure is expressed as an ordered <em>plan</em>: a list
- * of block placements sorted the way a mason would work — <strong>bottom layer
- * first; within each layer, full blocks before partial blocks</strong> (lanterns,
+ * <p>Every structure is expressed as an ordered <em>plan</em>: a list of block
+ * placements sorted the way a mason would work — <strong>bottom layer first;
+ * within each layer, full blocks before partial blocks</strong> (lanterns,
  * fences, crops, water); never more than one layer under way, and the next layer
  * only once the one below is satisfied. Supplies are assumed for now — the sort
  * order is exactly where a supply gate slots in later.
+ *
+ * <p>Plans come from one of two places, in this order:
+ * <ol>
+ *   <li><strong>Keystone blueprints</strong> — a file authored in-game or shipped
+ *       in a datapack. These carry real block states, so a blueprint's stairs,
+ *       doors and fences arrive facing the way they were drawn.</li>
+ *   <li><strong>Procedural shapes</strong> — the built-in fallback, so a fresh
+ *       install with no blueprint files still builds a whole village.</li>
+ * </ol>
+ *
+ * <p>Both paths produce the same ordered plan and both build course by course.
+ * That is the point: an authored building is no longer stamped into existence
+ * whole while only the generated ones get to be built by hand.
  *
  * <p>Two ways to consume a plan:
  * <ul>
@@ -34,24 +54,24 @@ import java.util.Optional;
  *       building materializes in a freshly loaded chunk ("it grew while you were
  *       away"), and as the idempotent finishing pass that guarantees a completed
  *       building is whole regardless of how construction went.</li>
- *   <li>{@link #advanceConstruction} — the visible path: places the next few
- *       blocks of the plan in proportion to the build task's progress, so
- *       watchers see the structure rise course by course while the builders
- *       stand at the site.</li>
+ *   <li>{@link #nextBlock} / {@link #placeNextBlock} — the visible path: lays the
+ *       plan in proportion to the build task's progress, so watchers see the
+ *       structure rise while the builders stand at the site.</li>
  * </ul>
- *
- * <p>Datapack structure templates ({@code data/<ns>/structure/<path>.nbt}) still
- * take precedence and place whole — incremental construction applies to the
- * procedural fallback.
  */
 public final class BlueprintPlacer {
 
     /** One block placement in a plan. */
-    private record Placement(BlockPos pos, Block block) {
+    private record Placement(BlockPos pos, BlockState state, CompoundTag nbt) {
     }
 
     /** The next block a builder should be carrying, and where it goes. */
-    public record NextBlock(BlockPos pos, Block block) {
+    public record NextBlock(BlockPos pos, BlockState state) {
+
+        /** What the builder holds — the item form of whatever is being laid. */
+        public Block block() {
+            return state.getBlock();
+        }
     }
 
     /** A structure as an ordered build sequence plus the site it needs cleared. */
@@ -67,21 +87,10 @@ public final class BlueprintPlacer {
     // --- the instant path ---
 
     public static void place(ServerLevel level, String blueprintId, BlockPos base) {
-        Identifier id = Identifier.parse(blueprintId);
-
-        Optional<StructureTemplate> template = level.getStructureManager().get(id);
-        if (template.isPresent()) {
-            StructureTemplate t = template.get();
-            clearSite(level, base, t.getSize().getX(), t.getSize().getZ(), t.getSize().getY());
-            t.placeInWorld(level, base, base, new StructurePlaceSettings(),
-                    RandomSource.create(base.asLong()), 2);
-            return;
-        }
-
-        StructurePlan plan = planFor(level, id.getPath(), base);
+        StructurePlan plan = planFor(level, blueprintId, base);
         clearSite(level, base, plan.width(), plan.depth(), plan.height());
         for (Placement placement : plan.blocks()) {
-            level.setBlockAndUpdate(placement.pos(), placement.block().defaultBlockState());
+            lay(level, placement);
         }
     }
 
@@ -141,7 +150,7 @@ public final class BlueprintPlacer {
             return null;
         }
         Placement placement = plan.blocks().get(task.blocksPlaced());
-        return new NextBlock(placement.pos(), placement.block());
+        return new NextBlock(placement.pos(), placement.state());
     }
 
     /** Lays the next block of the plan. Returns true if one went down. */
@@ -150,47 +159,133 @@ public final class BlueprintPlacer {
         if (plan == null || task.blocksPlaced() >= plan.blocks().size()) {
             return false;
         }
-        Placement placement = plan.blocks().get(task.blocksPlaced());
-        level.setBlockAndUpdate(placement.pos(), placement.block().defaultBlockState());
+        lay(level, plan.blocks().get(task.blocksPlaced()));
         task.setBlocksPlaced(task.blocksPlaced() + 1);
         return true;
     }
 
-    /** False for datapack templates, which are placed whole on completion. */
+    /**
+     * Puts one placement into the world.
+     *
+     * <p>Block states are written as authored, without neighbour updates: a
+     * blueprint already stores the connected form of every fence, wall and stair,
+     * so asking the world to recompute them could only spoil what was drawn — and
+     * a door's lower half, laid on its own, would pop straight back off.
+     */
+    private static void lay(ServerLevel level, Placement placement) {
+        level.setBlock(placement.pos(), placement.state(), Block.UPDATE_CLIENTS);
+        if (placement.nbt() == null) {
+            return;
+        }
+        BlockEntity entity = level.getBlockEntity(placement.pos());
+        if (entity != null) {
+            entity.loadWithComponents(TagValueInput.create(
+                    ProblemReporter.DISCARDING, level.registryAccess(), placement.nbt()));
+        }
+    }
+
+    /** Whether construction can proceed here at all — the chunk has to be loaded. */
     public static boolean isBuildableByHand(ServerLevel level, BuildTask task) {
         BlockPos approx = new BlockPos(task.origin().x(), task.origin().y(), task.origin().z());
-        return level.isLoaded(approx)
-                && level.getStructureManager().get(Identifier.parse(task.blueprintId())).isEmpty();
+        return level.isLoaded(approx);
     }
 
     private static BlockPos baseOf(BuildTask task) {
         return new BlockPos(task.origin().x(), task.siteY(), task.origin().z());
     }
 
-    // Single-entry memo: construction is consulted several times a second per
-    // builder, and recomputing a plan reads chunk state for the foundation.
-    // Server-thread only, so no synchronization; a miss merely recomputes.
-    private static BuildTask memoTask;
-    private static BlockPos memoBase;
-    private static StructurePlan memoPlan;
+    // Construction is consulted several times a second per builder, and building
+    // a plan reads chunk state for the foundation. Keyed by blueprint and site
+    // rather than by task, so two settlements building at once do not evict each
+    // other's plan on every pass. Server-thread only, so no synchronization.
+    private static final int PLAN_CACHE_LIMIT = 8;
+
+    private record PlanKey(String blueprintId, BlockPos base) {
+    }
+
+    private static final Map<PlanKey, StructurePlan> PLAN_CACHE =
+            new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<PlanKey, StructurePlan> eldest) {
+                    return size() > PLAN_CACHE_LIMIT;
+                }
+            };
 
     private static StructurePlan planOf(ServerLevel level, BuildTask task) {
         if (task.siteY() == BuildTask.UNSET_SITE_Y) {
             return null;
         }
         BlockPos base = baseOf(task);
-        if (memoTask == task && base.equals(memoBase) && memoPlan != null) {
-            return memoPlan;
+        PlanKey key = new PlanKey(task.blueprintId(), base);
+        StructurePlan cached = PLAN_CACHE.get(key);
+        if (cached != null) {
+            return cached;
         }
-        memoPlan = planFor(level, Identifier.parse(task.blueprintId()).getPath(), base);
-        memoTask = task;
-        memoBase = base;
-        return memoPlan;
+        StructurePlan plan = planFor(level, task.blueprintId(), base);
+        PLAN_CACHE.put(key, plan);
+        return plan;
+    }
+
+    /** Drops cached plans. Call when blueprint files or datapacks change. */
+    public static void clearPlanCache() {
+        PLAN_CACHE.clear();
     }
 
     // --- plans ---
 
-    private static StructurePlan planFor(ServerLevel level, String path, BlockPos base) {
+    private static StructurePlan planFor(ServerLevel level, String blueprintId, BlockPos base) {
+        Identifier id = Identifier.parse(blueprintId);
+
+        Optional<LoadedBlueprint> authored =
+                Blueprints.loadFirst(level, base, styleCandidates(id));
+        if (authored.isPresent()) {
+            return fromBlueprint(level, authored.get(), base);
+        }
+        // Styles degrade too: with no norman/house drawn, a norman town still
+        // gets the built-in house rather than an unknown-blueprint marker.
+        String path = id.getPath();
+        return procedural(level, path.substring(path.lastIndexOf('/') + 1), base);
+    }
+
+    /**
+     * The ids to try for a build, most specific first.
+     *
+     * <p>A styled id like {@code kingdoms:norman/house} falls back to plain
+     * {@code kingdoms:house}, so a culture only has to draw the buildings it
+     * wants to differ on and inherits the rest.
+     */
+    private static List<Identifier> styleCandidates(Identifier id) {
+        String path = id.getPath();
+        int slash = path.lastIndexOf('/');
+        if (slash < 0) {
+            return List.of(id);
+        }
+        return List.of(id, id.withPath(path.substring(slash + 1)));
+    }
+
+    /**
+     * Turns an authored blueprint into a plan on this site.
+     *
+     * <p>Blueprints are anchored from their minimum corner, while build plots are
+     * points, so the footprint is centred on the plot. The blueprint itself has no
+     * foundation — nobody draws one — so the same cobble underpinning the
+     * procedural shapes get is laid beneath it, which is what stops an authored
+     * building floating over a slope.
+     */
+    private static StructurePlan fromBlueprint(ServerLevel level, LoadedBlueprint blueprint,
+                                               BlockPos base) {
+        Vec3i size = blueprint.size();
+        BlockPos anchor = base.offset(-(size.getX() - 1) / 2, 0, -(size.getZ() - 1) / 2);
+
+        List<Placement> blocks = new ArrayList<>(blueprint.blockCount() + 32);
+        foundation(level, blocks, base, size.getX(), size.getZ());
+        for (PlannedBlock block : blueprint.sequence()) {
+            blocks.add(new Placement(block.at(anchor), block.state(), block.nbt()));
+        }
+        return finish(level, blocks, size.getX(), size.getZ(), size.getY());
+    }
+
+    private static StructurePlan procedural(ServerLevel level, String path, BlockPos base) {
         List<Placement> blocks = new ArrayList<>();
         int[] dims = switch (path) {
             case "town_hall" -> cabin(level, blocks, base, 7, 7, 4, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
@@ -208,26 +303,32 @@ public final class BlueprintPlacer {
         if (path.equals("town_hall")) {
             add(blocks, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);
         }
+        return finish(level, blocks, dims[0], dims[1], dims[2]);
+    }
 
-        // The mason's order: bottom layer up; full blocks before partial blocks
-        // within a layer; deterministic within that. This IS the construction
-        // sequence — a supply gate later simply stops the cursor mid-list.
+    /**
+     * Puts a gathered list of placements into build order.
+     *
+     * <p>The mason's order: bottom layer up; full blocks before partial blocks
+     * within a layer; deterministic within that. This IS the construction
+     * sequence — a supply gate later simply stops the cursor mid-list.
+     */
+    private static StructurePlan finish(ServerLevel level, List<Placement> blocks,
+                                        int width, int depth, int height) {
         blocks.sort(Comparator
                 .comparingInt((Placement p) -> p.pos().getY())
                 .thenComparing(p -> isFullBlock(level, p) ? 0 : 1)
                 .thenComparingInt(p -> p.pos().getX())
                 .thenComparingInt(p -> p.pos().getZ()));
-
-        return new StructurePlan(dims[0], dims[1], dims[2], blocks);
+        return new StructurePlan(width, depth, height, blocks);
     }
 
     private static boolean isFullBlock(ServerLevel level, Placement placement) {
-        BlockState state = placement.block().defaultBlockState();
-        return state.isCollisionShapeFullBlock(level, placement.pos());
+        return placement.state().isCollisionShapeFullBlock(level, placement.pos());
     }
 
     private static void add(List<Placement> blocks, BlockPos pos, Block block) {
-        blocks.add(new Placement(pos, block));
+        blocks.add(new Placement(pos, block.defaultBlockState(), null));
     }
 
     // --- structures, expressed as plans ---

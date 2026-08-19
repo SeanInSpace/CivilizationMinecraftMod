@@ -106,6 +106,11 @@ public final class Blueprints {
      * to the common one.
      */
     public static Optional<LoadedBlueprint> loadFirst(ServerLevel level, BlockPos base,
+                                                      List<Identifier> candidates) {
+        return loadFirst(level, base, candidates, Rotation.NONE, Mirror.NONE);
+    }
+
+    public static Optional<LoadedBlueprint> loadFirst(ServerLevel level, BlockPos base,
                                                       List<Identifier> candidates,
                                                       Rotation rotation, Mirror mirror) {
         for (Identifier id : candidates) {
