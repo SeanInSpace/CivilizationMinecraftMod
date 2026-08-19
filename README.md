@@ -295,3 +295,9 @@ Everything else reads from `gradle.properties`, including `neoforge.mods.toml`.
 - Data generation run config
 - Networking / UI
 - Any client-side code
+
+---
+
+## License
+
+GPL-3.0 — see [LICENSE](LICENSE).
