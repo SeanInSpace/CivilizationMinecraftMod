@@ -2,13 +2,18 @@ package com.keystone.api;
 
 import com.keystone.KeystoneMod;
 import com.keystone.blueprint.Blueprint;
+import com.keystone.blueprint.BlueprintNbt;
+import com.keystone.blueprint.Scanner;
 import com.keystone.blueprint.Transforms;
+import com.keystone.source.FolderSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -95,6 +100,25 @@ public final class Blueprints {
             return Optional.of(resolved);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Captures a region of the world and writes it to the blueprint folder.
+     *
+     * <p>Shared by the wand and the command so there is one definition of what
+     * saving means, including dropping the cache — a re-saved blueprint that kept
+     * serving its previous contents would be a maddening thing to debug.
+     *
+     * @return the blueprint that was written
+     */
+    public static Blueprint save(ServerLevel level, Identifier id, BlockPos a, BlockPos b)
+            throws IOException {
+        Path file = FolderSource.fileFor(id)
+                .orElseThrow(() -> new IOException("Blueprint id escapes the blueprint folder: " + id));
+        Blueprint blueprint = Scanner.scan(level, a, b);
+        BlueprintNbt.writeFile(blueprint, file);
+        clearCache();
+        return blueprint;
     }
 
     /**

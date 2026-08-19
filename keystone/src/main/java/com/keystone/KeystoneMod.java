@@ -2,6 +2,7 @@ package com.keystone;
 
 import com.keystone.api.Blueprints;
 import com.keystone.command.KeystoneCommand;
+import com.keystone.net.KeystoneNetwork;
 import com.keystone.source.DatapackSource;
 import com.keystone.source.FolderSource;
 import net.neoforged.bus.api.IEventBus;
@@ -33,6 +34,11 @@ public final class KeystoneMod {
         // beats one shipped in a datapack of the same name.
         Blueprints.register(new FolderSource());
         Blueprints.register(new DatapackSource());
+
+        KeystoneItems.ITEMS.register(modBus);
+        KeystoneComponents.COMPONENTS.register(modBus);
+        modBus.addListener(KeystoneItems::addToCreativeTabs);
+        modBus.addListener(KeystoneNetwork::register);
 
         NeoForge.EVENT_BUS.addListener(KeystoneMod::onRegisterCommands);
         // Datapack blueprints are cached after first read, so a reload has to

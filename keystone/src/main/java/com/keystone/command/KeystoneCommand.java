@@ -3,6 +3,8 @@ package com.keystone.command;
 import com.keystone.api.Blueprints;
 import com.keystone.api.LoadedBlueprint;
 import com.keystone.api.Placer;
+import com.keystone.blueprint.Blueprint;
+import com.keystone.net.SaveBlueprintPayload;
 import com.keystone.source.FolderSource;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -18,6 +20,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -45,6 +48,15 @@ public final class KeystoneCommand {
                         .then(Commands.argument("blueprint", StringArgumentType.string())
                                 .executes(ctx -> info(ctx,
                                         StringArgumentType.getString(ctx, "blueprint")))))
+
+                .then(Commands.literal("save")
+                        .then(Commands.argument("name", StringArgumentType.string())
+                                .then(Commands.argument("from", BlockPosArgument.blockPos())
+                                        .then(Commands.argument("to", BlockPosArgument.blockPos())
+                                                .executes(ctx -> save(ctx,
+                                                        StringArgumentType.getString(ctx, "name"),
+                                                        BlockPosArgument.getLoadedBlockPos(ctx, "from"),
+                                                        BlockPosArgument.getLoadedBlockPos(ctx, "to")))))))
 
                 .then(Commands.literal("place")
                         .then(Commands.argument("blueprint", StringArgumentType.string())
@@ -99,6 +111,33 @@ public final class KeystoneCommand {
                         + ", " + loaded.blockCount() + " blocks to lay"
                         + " (" + loaded.all().size() + " including air)"), false);
         return loaded.blockCount();
+    }
+
+    /**
+     * The command form of what the wand does, for operators and scripts.
+     *
+     * <p>Shares {@link Blueprints#save} with the wand, so a blueprint saved by
+     * either route is written identically.
+     */
+    private static int save(CommandContext<CommandSourceStack> ctx, String name,
+                            BlockPos from, BlockPos to) {
+        Optional<Identifier> id = SaveBlueprintPayload.sanitize(name);
+        if (id.isEmpty()) {
+            ctx.getSource().sendFailure(Component.literal(
+                    "Bad name. Use lower-case letters, numbers, underscores and /."));
+            return 0;
+        }
+        try {
+            Blueprint saved = Blueprints.save(ctx.getSource().getLevel(), id.get(), from, to);
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "Saved " + id.get() + " — " + saved.blocks().size() + " blocks, "
+                            + saved.size().getX() + "x" + saved.size().getY()
+                            + "x" + saved.size().getZ()), true);
+            return saved.blocks().size();
+        } catch (IOException failed) {
+            ctx.getSource().sendFailure(Component.literal("Could not write: " + failed.getMessage()));
+            return 0;
+        }
     }
 
     private static int place(CommandContext<CommandSourceStack> ctx, String blueprint,
