@@ -40,7 +40,45 @@ public final class BuildPlanner {
     /** Keeps the claim boundary a little beyond the outermost building. */
     static final int CLAIM_MARGIN = 8;
 
+    /** Blueprint for a run of steps up to a doorway nobody can reach. */
+    public static final String ACCESS_STAIRS = "kingdoms:stairs";
+
+    /** Builder-steps per block of climb, so a taller flight is a longer job. */
+    public static final int STAIR_WORK_PER_BLOCK = 3;
+
     private BuildPlanner() {
+    }
+
+    /**
+     * Orders steps up to a doorway a resident cannot reach.
+     *
+     * <p>Houses are planted by geometry, not by surveyors: on a slope, or where
+     * the foundation had to pillar up out of a dip, a door can end up above
+     * anything a person can climb. Rather than leaving somebody stranded outside
+     * their own home forever, the settlement notices and builds them a way up.
+     *
+     * <p>The job jumps the queue — a family locked out is more pressing than the
+     * next workshop — and is refused if a flight is already ordered or standing,
+     * so a stuck resident cannot flood the queue with duplicates.
+     *
+     * @return true if a new order was placed
+     */
+    public static boolean requestAccessStairs(Settlement settlement, SimPos doorway,
+                                              int climb, long step) {
+        for (BuildTask queued : settlement.buildQueue()) {
+            if (queued.blueprintId().equals(ACCESS_STAIRS) && queued.origin().equals(doorway)) {
+                return false;
+            }
+        }
+        for (Building standing : settlement.buildings()) {
+            if (standing.blueprintId().equals(ACCESS_STAIRS) && standing.origin().equals(doorway)) {
+                return false;
+            }
+        }
+        int work = Math.max(4, climb * STAIR_WORK_PER_BLOCK);
+        settlement.enqueueUrgent(new BuildTask(ACCESS_STAIRS, doorway, work));
+        settlement.logEvent(step, "Steps ordered up to a door nobody could reach, at " + doorway);
+        return true;
     }
 
     /**

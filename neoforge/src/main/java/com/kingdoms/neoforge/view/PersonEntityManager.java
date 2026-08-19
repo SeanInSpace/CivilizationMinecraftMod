@@ -15,6 +15,7 @@ import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.view.EmbodimentPlanner;
@@ -106,6 +107,24 @@ public final class PersonEntityManager {
     /** People going nowhere while stranded aloft, by person id. */
     private final Map<UUID, Integer> strandedPasses = new HashMap<>();
 
+    /** Houses are 5x5, so their door sits two blocks south of the origin. */
+    private static final int HOUSE_DOOR_OFFSET = 2;
+
+    /** Close enough, horizontally and vertically, to count as home. */
+    private static final double HOME_ARRIVED = 4.0;
+
+    /** Beyond this they are not locked out, they are simply elsewhere. */
+    private static final double STAIRS_WOULD_HELP_WITHIN = 24.0;
+
+    /** A door this far above them is a climb no settler can make unaided. */
+    private static final int STAIR_MIN_CLIMB = 2;
+
+    /** Passes failing to get in before the town is asked to build steps. */
+    private static final int ACCESS_FAIL_PASSES = 8;
+
+    /** People who cannot get into their own house, by person id. */
+    private final Map<UUID, Integer> homeAccessFailures = new HashMap<>();
+
     /** Guards engage hostiles within this range, strike within melee reach. */
     private static final double GUARD_ENGAGE_RANGE = 20.0;
     private static final double GUARD_STRIKE_RANGE = 2.5;
@@ -142,6 +161,7 @@ public final class PersonEntityManager {
                 }
 
                 dailyRoutine(settlement);
+                checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
@@ -326,6 +346,71 @@ public final class PersonEntityManager {
     private static void clearHands(PersonEntity builder) {
         if (!builder.getMainHandItem().isEmpty()) {
             builder.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        }
+    }
+
+    /**
+     * Notices residents who cannot get into their own homes, and has the town
+     * build them steps.
+     *
+     * <p>Only counted while they are actually trying to go home — at dusk, or
+     * sheltering from a raid — and only when the door stands above them and they
+     * are near enough that a flight of steps is the answer. Somebody merely out
+     * at the fields is not locked out.
+     *
+     * <p>Failures must persist for {@link #ACCESS_FAIL_PASSES} passes before an
+     * order goes in, so one unlucky bit of pathfinding does not commission
+     * masonry.
+     */
+    private void checkHouseAccess(Settlement settlement) {
+        boolean headingHome = level.isDarkOutside() || settlement.threatLevel() > 0;
+        if (!headingHome) {
+            homeAccessFailures.clear();
+            return;
+        }
+        for (Household household : settlement.households()) {
+            if (!household.isHoused()) {
+                continue;
+            }
+            SimPos home = household.home();
+            for (Person.Id memberId : household.members()) {
+                Person person = settlement.resident(memberId);
+                if (person == null || !person.isEmbodied()) {
+                    continue;
+                }
+                UUID key = memberId.value();
+                PersonEntity view = tracked.get(key);
+                if (view == null || view.isRemoved()) {
+                    homeAccessFailures.remove(key);
+                    continue;
+                }
+
+                double dx = view.getX() - (home.x() + 0.5);
+                double dz = view.getZ() - (home.z() + 0.5);
+                double horizontal = Math.sqrt(dx * dx + dz * dz);
+                int climb = home.y() - view.getBlockY();
+
+                boolean home_ = horizontal <= HOME_ARRIVED && Math.abs(climb) <= 1;
+                boolean lockedOut = !home_
+                        && climb >= STAIR_MIN_CLIMB
+                        && horizontal <= STAIRS_WOULD_HELP_WITHIN
+                        && view.getNavigation().isDone();
+                if (!lockedOut) {
+                    homeAccessFailures.remove(key);
+                    continue;
+                }
+                if (homeAccessFailures.merge(key, 1, Integer::sum) < ACCESS_FAIL_PASSES) {
+                    continue;
+                }
+                homeAccessFailures.remove(key);
+
+                SimPos doorway = new SimPos(home.x(), home.y() + 1, home.z() + HOUSE_DOOR_OFFSET);
+                if (BuildPlanner.requestAccessStairs(settlement, doorway, climb, world.stepsElapsed())) {
+                    KingdomsSavedData.get(level).setDirty();
+                    KingdomsMod.LOGGER.info("{} cannot reach home; steps ordered at {}",
+                            person.name(), doorway);
+                }
+            }
         }
     }
 

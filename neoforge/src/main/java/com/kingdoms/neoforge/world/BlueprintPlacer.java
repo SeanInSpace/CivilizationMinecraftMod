@@ -199,6 +199,7 @@ public final class BlueprintPlacer {
             case "farm" -> farm(level, blocks, base);
             case "market" -> market(level, blocks, base);
             case "lumber_camp" -> lumberCamp(level, blocks, base);
+            case "stairs" -> accessStairs(level, blocks, base);
             case "watchtower" -> watchtower(level, blocks, base);
             case "storehouse" -> storehouse(level, blocks, base);
             case "workshop" -> workshop(level, blocks, base);
@@ -328,6 +329,44 @@ public final class BlueprintPlacer {
         }
         add(blocks, base.offset(0, 7, 0), Blocks.LANTERN);
         return new int[]{3, 3, 9};
+    }
+
+    /** How far a repair flight may run before giving up on reaching the ground. */
+    private static final int MAX_STAIR_RUN = 16;
+
+    /**
+     * A flight of steps from a doorway down to whatever ground lies below it.
+     *
+     * <p>Steps march outward from the door, one block down and one block out at a
+     * time, until they meet the terrain — so the run is exactly as long as the
+     * drop demands. Each tread is underpinned so it is not a floating stair, and
+     * the two blocks above are cleared so somebody can actually walk up.
+     *
+     * <p>Reports a one-by-one footprint on purpose: the shared site-clearing pass
+     * squares off a box around the origin, and around a doorway that box would
+     * chew through the house it is meant to serve. The clearing this plan needs
+     * it does itself, tread by tread.
+     */
+    private static int[] accessStairs(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        for (int i = 1; i <= MAX_STAIR_RUN; i++) {
+            int x = base.getX();
+            int z = base.getZ() + i;
+            int treadY = base.getY() - i;
+            int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+            if (treadY <= ground) {
+                break;   // the steps have met the hillside
+            }
+            add(blocks, new BlockPos(x, treadY, z), Blocks.COBBLESTONE);
+            for (int under = 1; under <= 2; under++) {
+                int fillY = treadY - under;
+                if (fillY > ground) {
+                    add(blocks, new BlockPos(x, fillY, z), Blocks.COBBLESTONE);
+                }
+            }
+            add(blocks, new BlockPos(x, treadY + 1, z), Blocks.AIR);
+            add(blocks, new BlockPos(x, treadY + 2, z), Blocks.AIR);
+        }
+        return new int[]{1, 1, 2};
     }
 
     private static int[] marker(List<Placement> blocks, BlockPos base) {

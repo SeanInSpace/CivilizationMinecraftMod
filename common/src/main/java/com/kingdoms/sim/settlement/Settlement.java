@@ -182,6 +182,15 @@ public final class Settlement {
         buildQueue.add(Objects.requireNonNull(task, "task"));
     }
 
+    /**
+     * Puts a job at the head of the queue, pausing whatever was under way.
+     * For repairs that are stopping somebody living their life — a door they
+     * cannot reach — rather than the ordinary wants of a growing town.
+     */
+    public void enqueueUrgent(BuildTask task) {
+        buildQueue.add(0, Objects.requireNonNull(task, "task"));
+    }
+
     public List<BuildTask> buildQueue() {
         return Collections.unmodifiableList(buildQueue);
     }

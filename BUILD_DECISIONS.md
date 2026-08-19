@@ -55,6 +55,22 @@ Height is always the settlement centre's height. There is no terrain awareness a
 
 **Territory follows building.** If the chosen plot falls outside the current claim, the settlement expands its claim radius to reach it plus an 8-block margin. Towns grow their borders by building, rather than having a fixed boundary set at founding. The claim never shrinks.
 
+### Repairs jump the queue
+
+One kind of job is not chosen by the shortfall table at all. When a resident
+repeatedly fails to get home at dusk — the door standing above them, near enough
+that steps would help — the settlement orders a **flight of steps up to that
+door** and puts it at the *head* of the queue, pausing whatever was under way.
+
+The order is refused if a flight is already queued or already standing, so a
+stuck resident cannot flood the queue. Failures must persist for several seconds
+first, so one unlucky bit of pathfinding does not commission masonry. The steps
+march out from the door, one block down and one out, until they meet the ground,
+so the run is exactly as long as the drop demands.
+
+This is the first job the town gives itself in response to something being
+*wrong*, rather than something being wanted.
+
 ### How construction looks
 
 Buildings rise **visibly, block by block**, in a mason's order:
