@@ -110,6 +110,18 @@ public final class Settlement {
         return centre;
     }
 
+    /**
+     * Hands out the next building plot and advances the cursor.
+     *
+     * <p>For jobs ordered outside the normal planning path, which still need
+     * somewhere of their own to stand.
+     */
+    public SimPos takeNextPlot() {
+        SimPos flat = BuildPlanner.plotFor(centre, nextPlotIndex);
+        nextPlotIndex++;
+        return flat;
+    }
+
     public int nextPlotIndex() {
         return nextPlotIndex;
     }
@@ -443,6 +455,14 @@ public final class Settlement {
         } else {
             // Nobody watching. Nothing to look at, so the clock runs instead and
             // the finished building materializes whole when a chunk next loads.
+            String missing = payForProgress(current, able);
+            if (missing != null) {
+                // Same rule as the watched path: run dry, go build the thing
+                // that makes more. A town must not build for free merely
+                // because nobody happened to be looking.
+                BuildPlanner.requestProducer(this, missing, ctx.step());
+                return;
+            }
             current.addProgress(able);
             if (!current.isComplete()) {
                 return;
@@ -476,6 +496,28 @@ public final class Settlement {
      * where there is a hand there is no clock, and where there is no hand the
      * clock is all there is.
      */
+    /**
+     * Charges the stores for a step of unwatched building.
+     *
+     * @return the resource that ran out, or null if the town could pay
+     */
+    private String payForProgress(BuildTask task, int progress) {
+        if (BuildPlanner.PRODUCER_OF.containsValue(task.blueprintId())) {
+            return null;   // the bootstrap is always affordable; see requestProducer
+        }
+        int wood = BuildPlanner.WOOD_PER_WORK * progress;
+        int stone = BuildPlanner.STONE_PER_WORK * progress;
+        if (!stores.has(TownStores.WOOD, wood)) {
+            return TownStores.WOOD;
+        }
+        if (!stores.has(TownStores.STONE, stone)) {
+            return TownStores.STONE;
+        }
+        stores.take(TownStores.WOOD, wood);
+        stores.take(TownStores.STONE, stone);
+        return null;
+    }
+
     private boolean isBuiltByHand(SimContext ctx, BuildTask task, int embodiedBuilders) {
         return embodiedBuilders > 0 && ctx.bridge().isLoaded(task.site());
     }

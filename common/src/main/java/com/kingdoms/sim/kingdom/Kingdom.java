@@ -56,6 +56,8 @@ public final class Kingdom {
     }
 
     public void addSettlement(Settlement settlement) {
+        // A town belongs to its kingdom's people; nothing else sets this.
+        settlement.setCultureId(cultureId);
         settlements.put(settlement.id(), settlement);
     }
 

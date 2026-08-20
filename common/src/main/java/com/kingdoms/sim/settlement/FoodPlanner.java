@@ -321,6 +321,20 @@ public final class FoodPlanner {
                         family.setPantry(family.pantry() - taken);
                     }
                 }
+                // Last resort: go to the granary yourself.
+                //
+                // The chain above is how food is *meant* to move, and it is worth
+                // keeping — but it is a queue, and a queue can be slower than a
+                // stomach. Without this a settler starves to death standing next
+                // to a full granary because their family's shopper had not got
+                // back yet, which is a logistics bug wearing a famine costume.
+                if (person.inventory().bestFood() == null
+                        && person.hunger() >= Person.HUNGER_SEVERE
+                        && settlement.foodStock() > 0) {
+                    int take = Math.min(CARRY_WHEN_EATING, settlement.foodStock());
+                    int taken = person.inventory().add(Foods.PROVISION, take);
+                    settlement.stores().take(TownStores.FOOD, taken);
+                }
                 // Eat the best thing actually carried — including anything a
                 // player has handed over.
                 String meal = person.inventory().bestFood();

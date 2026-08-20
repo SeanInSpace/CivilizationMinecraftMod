@@ -38,6 +38,13 @@ neoForge {
     }
 }
 
+// Wire the console through to the dev runs. Without this, typing "stop" into a
+// running server does nothing — which server.bat has been telling people to do —
+// and a scripted playtest has no way to issue commands at all.
+tasks.matching { it.name in ['runServer', 'runClient'] }.configureEach {
+    standardInput = System.in
+}
+
 // Otherwise the jar is named after the subproject ("neoforge-0.1.0.jar").
 base {
     archivesName = project.mod_id

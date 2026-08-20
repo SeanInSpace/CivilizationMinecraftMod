@@ -33,7 +33,8 @@ public final class JobPlanner {
      * How many of a profession a settlement wants. Same arithmetic as
      * {@link BuildingType}: {@code base + population / perResidents}.
      */
-    public record ProfessionNeed(Profession profession, int base, int perResidents, int priority) {
+    public record ProfessionNeed(Profession profession, int base, int perResidents, int priority,
+                                 String requiresBuilding) {
 
         public ProfessionNeed {
             Objects.requireNonNull(profession, "profession");
@@ -42,9 +43,30 @@ public final class JobPlanner {
             }
         }
 
+        /** A need that applies to every settlement, whatever it has built. */
+        public ProfessionNeed(Profession profession, int base, int perResidents, int priority) {
+            this(profession, base, perResidents, priority, null);
+        }
+
         public int desiredCount(int population) {
             int scaled = perResidents > 0 ? population / perResidents : 0;
             return base + scaled;
+        }
+
+        /**
+         * Whether this trade is wanted here at all.
+         *
+         * <p>A lumberjack with no camp has nowhere to work, so a small town must
+         * not spend one of its four people on the job. Once the camp stands the
+         * need switches on — which is what makes a town staff its own production
+         * the moment it can, without starving its building crew before then.
+         */
+        public boolean appliesTo(Settlement settlement) {
+            if (requiresBuilding == null) {
+                return true;
+            }
+            return settlement.buildings().stream()
+                    .anyMatch(b -> b.blueprintId().endsWith(requiresBuilding));
         }
     }
 
@@ -57,10 +79,10 @@ public final class JobPlanner {
             new ProfessionNeed(Profession.BUILDER,     1,            5,       90),
             new ProfessionNeed(Profession.GUARD,       0,            8,       80),
             new ProfessionNeed(Profession.FARMER,      0,            5,       70),
-            new ProfessionNeed(Profession.LUMBERJACK,  0,           10,       60),
-            new ProfessionNeed(Profession.MINER,       0,           12,       55),
-            new ProfessionNeed(Profession.SMITH,       0,           14,       52),
-            new ProfessionNeed(Profession.SHEPHERD,    0,           16,       48),
+            new ProfessionNeed(Profession.LUMBERJACK,  1,           10,       60, "lumber_camp"),
+            new ProfessionNeed(Profession.MINER,       1,           12,       55, "mine"),
+            new ProfessionNeed(Profession.SMITH,       1,           14,       52, "smith"),
+            new ProfessionNeed(Profession.SHEPHERD,    1,           16,       48, "animal_farm"),
             new ProfessionNeed(Profession.TRADER,      0,           15,       50)
     );
 
@@ -74,6 +96,9 @@ public final class JobPlanner {
     }
 
     public static int shortfall(Settlement settlement, ProfessionNeed need) {
+        if (!need.appliesTo(settlement)) {
+            return 0;
+        }
         return need.desiredCount(settlement.population()) - count(settlement, need.profession());
     }
 

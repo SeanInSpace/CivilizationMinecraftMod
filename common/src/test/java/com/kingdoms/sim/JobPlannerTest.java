@@ -4,6 +4,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.JobPlanner;
+import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Settlement;
 import org.junit.jupiter.api.Test;
 
@@ -76,11 +77,21 @@ class JobPlannerTest {
         assertEquals(2, JobPlanner.count(s, Profession.FARMER));
         assertEquals(7, JobPlanner.count(s, Profession.BUILDER));
 
-        // A town of ten also wants one lumberjack, below farmers in priority.
+        assertFalse(JobPlanner.retrainOne(s),
+                "fully staffed — and with no lumber camp, no lumberjack is wanted");
+
+        // Build the camp and the need switches on: somewhere to work is what makes
+        // the job worth filling, which is why a four-person town does not spend one
+        // of its people on it before then.
+        s.addBuilding(new Building("kingdoms:lumber_camp", new SimPos(6, 64, 6), 1, true));
+
+        // One always, plus one per ten residents: a town of ten wants two.
         assertTrue(JobPlanner.retrainOne(s));
         assertEquals(1, JobPlanner.count(s, Profession.LUMBERJACK));
+        assertTrue(JobPlanner.retrainOne(s));
+        assertEquals(2, JobPlanner.count(s, Profession.LUMBERJACK));
 
-        assertFalse(JobPlanner.retrainOne(s), "fully staffed — nothing left to fix");
+        assertFalse(JobPlanner.retrainOne(s), "and now there is nothing left to fix");
     }
 
     @Test

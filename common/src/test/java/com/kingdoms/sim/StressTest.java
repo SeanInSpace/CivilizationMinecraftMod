@@ -56,6 +56,11 @@ class StressTest {
                     Settlement.Id.random(), "Town " + i, new SimPos(i * 1000, 64, 0), 64);
             s.setCatalogue(catalogue);
             s.setFoodStock(1_000_000);   // food never binds here; the benchmark isolates core cost
+            // Stocked far beyond anything they will spend. This benchmark measures
+            // what a busy town costs per step, so the towns have to stay busy —
+            // letting them stall on materials would quietly benchmark idling.
+            s.stores().set(com.kingdoms.sim.settlement.TownStores.WOOD, 1_000_000);
+            s.stores().set(com.kingdoms.sim.settlement.TownStores.STONE, 1_000_000);
             for (int r = 0; r < 20; r++) {
                 s.addResident(new Person(
                         Person.Id.random(), "Builder " + r, Profession.BUILDER, new SimPos(i * 1000, 64, 0)));

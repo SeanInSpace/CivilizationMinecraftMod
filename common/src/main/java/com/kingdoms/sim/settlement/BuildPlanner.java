@@ -41,6 +41,18 @@ public final class BuildPlanner {
     /** Keeps the claim boundary a little beyond the outermost building. */
     static final int CLAIM_MARGIN = 8;
 
+    /**
+     * Materials an unwatched build spends per builder-step.
+     *
+     * <p>The observed path charges per block laid, which it can do because it has
+     * the block plan. Away from a watcher there is no plan — the chunk is not even
+     * loaded — so the cost is estimated from the work instead. The numbers are set
+     * to land near what a cabin actually costs, so a town cannot out-build its
+     * stores simply by being unobserved.
+     */
+    public static final int WOOD_PER_WORK = 4;
+    public static final int STONE_PER_WORK = 2;
+
     /** Which building lets a town make a thing it has run out of. */
     public static final Map<String, String> PRODUCER_OF = Map.of(
             TownStores.WOOD, "kingdoms:lumber_camp",
@@ -86,7 +98,10 @@ public final class BuildPlanner {
                 .mapToInt(BuildingType::workCost)
                 .findFirst()
                 .orElse(PRODUCER_WORK);
-        settlement.enqueueUrgent(new BuildTask(producer, settlement.centre(), work));
+        // A real plot, not the centre. Two producers ordered this way both landed
+        // on the town square and were built on top of one another.
+        SimPos plot = settlement.takeNextPlot();
+        settlement.enqueueUrgent(new BuildTask(producer, plot, work));
         settlement.logEvent(step, "Out of " + resource + " — work starts on a "
                 + producer.substring(producer.indexOf(':') + 1).replace('_', ' '));
         return true;

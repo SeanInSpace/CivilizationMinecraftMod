@@ -1,6 +1,7 @@
 package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
 
 /**
@@ -26,6 +27,19 @@ public final class MinePlanner {
     public static final int MAX_RADIUS = 48;
     public static final int RADIUS_STEP = 8;
 
+    /** Stone one miner cuts per step when nobody is watching them do it. */
+    /**
+     * Stone one miner cuts per step when nobody is watching them do it.
+     *
+     * <p>A little above break-even against what building spends. At exactly
+     * break-even a town hovers near zero stone and stalls at random, which reads
+     * as a bug even though the arithmetic is working.
+     */
+    public static final int STONE_PER_STEP = 6;
+
+    /** Iron turned up per miner per step: ore is rarer than rock. */
+    public static final int IRON_PER_STEP = 1;
+
     /** Stone the town can stockpile before further cutting is pointless. */
     public static final int BASE_STONE_STORAGE = 512;
     public static final int STONE_PER_STOREHOUSE = 400;
@@ -34,14 +48,34 @@ public final class MinePlanner {
     }
 
     public static void advance(Settlement settlement, SimContext ctx) {
-        if (settlement.mineArea() == null) {
-            SimPos mine = minePos(settlement);
-            if (mine != null) {
-                settlement.setMineArea(new WorkArea(mine, DEFAULT_RADIUS));
-                settlement.logEvent(ctx.step(),
-                        "The mine claims the stone around " + mine);
-            }
+        SimPos mine = minePos(settlement);
+        if (settlement.mineArea() == null && mine != null) {
+            settlement.setMineArea(new WorkArea(mine, DEFAULT_RADIUS));
+            settlement.logEvent(ctx.step(), "The mine claims the stone around " + mine);
         }
+        cutUnwatched(settlement, ctx, mine);
+    }
+
+    /**
+     * Stone and iron won while nobody is looking. See
+     * {@code LumberPlanner.fellUnwatched} — same reasoning, one layer down.
+     */
+    private static void cutUnwatched(Settlement settlement, SimContext ctx, SimPos mine) {
+        if (mine == null || !wantsMoreStone(settlement)) {
+            return;
+        }
+        if (ctx.bridge().playerWithin(mine, ctx.settings().observedRadius())) {
+            return;
+        }
+        int miners = (int) settlement.residents().stream()
+                .filter(p -> p.profession() == Profession.MINER && !p.isTooWeakToWork())
+                .count();
+        if (miners <= 0) {
+            return;
+        }
+        settlement.stores().addCapped(TownStores.STONE,
+                miners * STONE_PER_STEP, stoneCapacity(settlement));
+        settlement.stores().add(TownStores.IRON, miners * IRON_PER_STEP);
     }
 
     /** Where the mine stands, or null if the town has not built one. */

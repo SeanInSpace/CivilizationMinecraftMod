@@ -1,6 +1,7 @@
 package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
 
 /**
@@ -22,6 +23,19 @@ public final class LumberPlanner {
     public static final int MAX_RADIUS = 64;
     public static final int RADIUS_STEP = 8;
 
+    /** Timber one lumberjack brings in per step when nobody is watching them do it. */
+    /**
+     * Timber one lumberjack brings in per step when nobody is watching them do it.
+     *
+     * <p>Twice the miner's rate, because building spends wood twice as fast as
+     * stone. A playtest with them equal left a town sitting on 900 stone and
+     * sixteen planks, unable to raise anything.
+     */
+    public static final int WOOD_PER_STEP = 8;
+
+    /** Saplings worth keeping on hand for replanting. */
+    public static final int MAX_SAPLINGS = 128;
+
     /**
      * Timber the town can stockpile before further felling is pointless.
      *
@@ -35,14 +49,42 @@ public final class LumberPlanner {
     }
 
     public static void advance(Settlement settlement, SimContext ctx) {
-        if (settlement.lumberArea() == null) {
-            SimPos camp = campPos(settlement);
-            if (camp != null) {
-                settlement.setLumberArea(new WorkArea(camp, DEFAULT_RADIUS));
-                settlement.logEvent(ctx.step(),
-                        "The lumber camp claims the woodland around " + camp);
-            }
+        SimPos camp = campPos(settlement);
+        if (settlement.lumberArea() == null && camp != null) {
+            settlement.setLumberArea(new WorkArea(camp, DEFAULT_RADIUS));
+            settlement.logEvent(ctx.step(),
+                    "The lumber camp claims the woodland around " + camp);
         }
+        fellUnwatched(settlement, ctx, camp);
+    }
+
+    /**
+     * Timber brought in while nobody is looking.
+     *
+     * <p>Felling is world work — {@code LumberjackWorker} swings the axe — but that
+     * only runs where a player is close enough to see it. Without this an unwatched
+     * town produces nothing, and since building now costs materials, that means it
+     * stops building forever the moment you walk away. Hauling already works at both
+     * fidelities for exactly the same reason; so does this.
+     */
+    private static void fellUnwatched(Settlement settlement, SimContext ctx, SimPos camp) {
+        if (camp == null || !wantsMoreTimber(settlement)) {
+            return;
+        }
+        if (ctx.bridge().playerWithin(camp, ctx.settings().observedRadius())) {
+            return;   // somebody is watching; the real axes are swinging
+        }
+        int jacks = (int) settlement.residents().stream()
+                .filter(p -> p.profession() == Profession.LUMBERJACK && !p.isTooWeakToWork())
+                .count();
+        if (jacks <= 0) {
+            return;
+        }
+        settlement.stores().addCapped(TownStores.WOOD,
+                jacks * WOOD_PER_STEP, woodCapacity(settlement));
+        // Capped: saplings are for replanting, not a stockpile. A playtest left a
+        // town holding a thousand of them, which is just noise in the ledger.
+        settlement.stores().addCapped(TownStores.SAPLINGS, jacks, MAX_SAPLINGS);
     }
 
     /** Where the camp stands, or null if the town has not built one. */
