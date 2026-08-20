@@ -75,10 +75,32 @@ This is the first job the town gives itself in response to something being
 
 Buildings rise **visibly, block by block**, in a mason's order:
 
-1. When work begins, the site is surveyed once (terrain height locked in) and cleared.
-2. Blocks are laid **bottom layer first** — the cobble foundation is genuinely the first course.
-3. Within each layer, **full blocks go down before partial blocks** (lanterns, fences, crops, water).
-4. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out. That list is `LoadedBlueprint.sequence()`, and its index is the build cursor.
+1. When work begins, the site is surveyed once and the terrain height is locked in.
+   The floor course sits at **grade** — on the last solid block, not on the first
+   air above it — so a building is set into the ground rather than standing a block
+   proud of it, and its doorway opens at walking height. *(It did not, once. You
+   had to step up into every house, which is no doorway at all.)*
+2. **The ground in the way is dug out first**, block by block, top down so nobody
+   undermines what they are standing on. Even on the flat this is real work: the
+   topsoil under the floor has to come out. On a slope it is most of the job.
+3. Blocks are laid **bottom layer first** — the cobble foundation is genuinely the first course.
+4. Within each layer, **full blocks go down before partial blocks** (lanterns, fences, crops, water).
+5. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out. That list is `LoadedBlueprint.sequence()`, and its index is the build cursor.
+
+**Digging is slower than laying, and needs the right tool.** Laying a block is one
+work unit; shifting one is two to eight, scaled by how hard it is — dirt 2, stone 4,
+deepslate 5. Builders hold the correct tool for what they are digging (shovel for
+soil, pickaxe for stone, axe for wood) and swing at a block several times before it
+gives, so excavation reads as effort rather than deletion. Spoil does not drop: there
+is nowhere to put it yet.
+
+Excavation is charged **on top of** the catalogue's cost rather than squeezed into it.
+A building is spread over `work` builder-steps of *laying*; the digging is extra. So
+the same house takes noticeably longer cut into a hillside than raised on the flat,
+which is the honest answer and makes flat ground worth choosing.
+
+Two things this does not yet do: the town does not have to **own** the tools (builders
+are handed them), and unbreakable blocks are skipped rather than built around.
 
 **Where there is a hand, there is no clock.** If builders exist in the world as entities, they are the only thing that raises a wall — nothing accrues beside them, so a site nobody has walked to does not progress at all, and "40% built" means 40% of the blocks are standing where you can count them. A build cannot finish while its walls are still going up, so nothing is ever stamped over work in progress.
 

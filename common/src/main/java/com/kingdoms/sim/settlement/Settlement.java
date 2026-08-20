@@ -332,8 +332,8 @@ public final class Settlement {
             // they actually get down. Nothing finishes until the last block does,
             // which is what stops a completed task being stamped over work that
             // is still visibly going up.
-            current.grantBlocks(current.blocksForStep(present));
-            current.syncProgressToBlocks();
+            current.grantWork(current.workForStep(present));
+            current.syncProgressToWork();
             if (!current.isVisuallyComplete()) {
                 return;
             }

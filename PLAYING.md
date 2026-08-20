@@ -25,6 +25,11 @@ You cannot found a town too close to an existing one; the overlay message will t
 
 You do not manage anything. The town runs itself, on these rules:
 
+- **It digs before it builds.** A site is cut out of the ground first — builders
+  swing shovels at soil and pickaxes at stone, and the ground gives way slowly.
+  Only then do the walls go up. Buildings sit *in* the ground rather than on it, so
+  you can walk straight in through the door instead of stepping up into it. A town
+  on a hillside takes visibly longer to build than one on the flat.
 - **It builds what it lacks** — town hall first, then houses, farms, a storehouse, workshops, watchtowers as it grows. Buildings go up whether you are there or not; if you are away, they appear when you return.
 - **It feeds itself — or fails to.** Food never teleports: harvest waits in the fields until a farmer walks out, shoulders it and carries it to the granary; market hands carry loads to the stall; one member of each family walks to market and back with the shopping. You can watch grain cross the village in their hands — and a carrier killed on the road takes the load with them. Every settler carries and eats their own food. Hunger is personal now: the underfed grow visibly weak (they stop working and slow down), and the starving die — permanently, with a line in the town's history. Watch the chain in the reports: granary, fields, market, pantries.
 - **It works the woodland.** Once a town builds a **Lumber Camp**, its lumberjacks fell trees inside the camp's claim, carry the timber to the town's stores, and replant saplings so the wood grows back. They stop when the stores are full rather than clear-cutting, and they never touch a tree outside the claim.

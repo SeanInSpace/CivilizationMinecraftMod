@@ -8,10 +8,13 @@ import com.kingdoms.sim.settlement.BuildTask;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -23,9 +26,11 @@ import net.minecraft.world.level.storage.TagValueInput;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Turns a blueprint id into actual blocks — all at once, or brick by brick.
@@ -67,21 +72,53 @@ public final class BlueprintPlacer {
     private record Placement(BlockPos pos, BlockState state, CompoundTag nbt) {
     }
 
-    /** The next block a builder should be carrying, and where it goes. */
-    public record NextBlock(BlockPos pos, BlockState state) {
-
-        /** What the builder holds — the item form of whatever is being laid. */
-        public Block block() {
-            return state.getBlock();
-        }
+    /**
+     * One thing a builder does: take a block out of the ground, or put one down.
+     *
+     * <p>{@code cost} is in work units. Laying is one; digging is more, scaled by
+     * how hard the block is, which is what makes cutting a site out of a hillside
+     * visibly slower than raising the walls afterwards.
+     */
+    private record Step(boolean digging, BlockPos pos, BlockState state, CompoundTag nbt, int cost) {
     }
 
-    /** A structure as an ordered build sequence plus the site it needs cleared. */
-    private record StructurePlan(int width, int depth, int height, List<Placement> blocks) {
+    /** What a builder should be doing right now, and what they need in hand for it. */
+    public record NextStep(boolean digging, BlockPos pos, int cost) {
+    }
+
+    /** A structure as an ordered sequence of digs and placements. */
+    private record StructurePlan(int width, int depth, int height, List<Step> steps) {
+
+        int placeWork() {
+            int total = 0;
+            for (Step step : steps) {
+                if (!step.digging()) {
+                    total += step.cost();
+                }
+            }
+            return total;
+        }
+
+        int totalWork() {
+            int total = 0;
+            for (Step step : steps) {
+                total += step.cost();
+            }
+            return total;
+        }
     }
 
     /** How far above a doomed block to look for somewhere its occupant can stand. */
     private static final int EVICT_SEARCH_HEIGHT = 8;
+
+    /** Work units to lay one block. Everything else is measured against this. */
+    private static final int PLACE_COST = 1;
+
+    /** Cheapest a dig can be, so even loose soil is slower to shift than a block is to set. */
+    private static final int MIN_DIG_COST = 2;
+
+    /** Hardest a dig can be, so an obsidian outcrop cannot stall a town forever. */
+    private static final int MAX_DIG_COST = 8;
 
     private BlueprintPlacer() {
     }
@@ -90,20 +127,28 @@ public final class BlueprintPlacer {
 
     public static void place(ServerLevel level, String blueprintId, BlockPos base) {
         StructurePlan plan = planFor(level, blueprintId, base);
-        clearSite(level, base, plan.width(), plan.depth(), plan.height());
-        for (Placement placement : plan.blocks()) {
-            lay(level, placement);
+        for (Step step : plan.steps()) {
+            execute(level, step);
         }
+    }
+
+    /** Where a structure floor sits, given the first air block in that column. */
+    public static int floorFor(int firstAirY) {
+        // One below, so the floor course replaces the top of the soil instead of
+        // sitting on it. Otherwise the building stands a block proud of the ground
+        // and its doorway opens at chest height, which is no doorway at all.
+        return firstAirY - 1;
     }
 
     // --- the visible path ---
 
     /**
-     * Surveys the terrain and clears the volume, once, before the first course is
-     * laid. Also records the plan size on the task so the simulation can tell a
-     * hand-built structure from one that still needs materializing.
+     * Surveys the terrain once and records what the job is worth.
      *
-     * @return true if the site was surveyed or cleared by this call
+     * <p>The site is no longer cleared here. Ground standing in the way is part of
+     * the plan now, dug out block by block by somebody holding the right tool.
+     *
+     * @return true if this call changed anything worth saving
      */
     public static boolean prepareSite(ServerLevel level, BuildTask task) {
         if (!isBuildableByHand(level, task)) {
@@ -111,21 +156,22 @@ public final class BlueprintPlacer {
         }
         boolean changed = false;
         if (task.siteY() == BuildTask.UNSET_SITE_Y) {
-            task.setSiteY(level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    task.origin().x(), task.origin().z()));
+            int firstAir = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    task.origin().x(), task.origin().z());
+            // A flight of steps has no floor to sit flush with, so it is not sunk.
+            // Everything else is, so you can walk in through the door.
+            task.setSiteY(isStairs(task) ? firstAir : floorFor(firstAir));
             changed = true;
         }
         StructurePlan plan = planOf(level, task);
         if (plan == null) {
             return changed;
         }
-        if (task.planSize() != plan.blocks().size()) {
-            task.setPlanSize(plan.blocks().size());
+        if (task.planWork() != plan.totalWork()) {
+            task.setPlan(plan.totalWork(), plan.placeWork());
             changed = true;
         }
         if (!task.isSitePrepared()) {
-            BlockPos base = baseOf(task);
-            clearSite(level, base, plan.width(), plan.depth(), plan.height());
             task.setSitePrepared(true);
             changed = true;
         }
@@ -133,38 +179,111 @@ public final class BlueprintPlacer {
     }
 
     /**
-     * The next block the builders should lay, or null when they have laid
+     * What the builders should be doing now, or null when they have done
      * everything this step cleared them for.
      *
-     * <p>The gate is the task's granted block budget, not a fraction of some
-     * separate work clock. Progress <em>is</em> the masonry, so there is no
-     * cursor to run ahead of the simulation and no remainder for a completion
-     * pass to stamp in afterwards.
+     * <p>The gate is the granted work budget, not a fraction of a separate clock.
+     * Progress IS the digging and the masonry, so no cursor runs ahead of the
+     * simulation and no remainder is left for a completion pass to stamp in.
      */
-    public static NextBlock nextBlock(ServerLevel level, BuildTask task) {
-        StructurePlan plan = planOf(level, task);
-        if (plan == null || task.blocksPlaced() >= plan.blocks().size()) {
+    public static NextStep nextStep(ServerLevel level, BuildTask task) {
+        Step step = currentStep(level, task);
+        if (step == null || !task.canAfford(step.cost())) {
             return null;
         }
-        if (task.pendingBlocks() <= 0) {
-            return null;   // this step's share is already standing
-        }
-        Placement placement = plan.blocks().get(task.blocksPlaced());
-        return new NextBlock(placement.pos(), placement.state());
+        return new NextStep(step.digging(), step.pos(), step.cost());
     }
 
-    /** Lays the next block of the plan, spending one granted block. Returns true if one went down. */
-    public static boolean placeNextBlock(ServerLevel level, BuildTask task) {
-        StructurePlan plan = planOf(level, task);
-        if (plan == null || task.blocksPlaced() >= plan.blocks().size()) {
+    /** What a builder needs in hand for the step in front of them. */
+    public static Item toolFor(ServerLevel level, BuildTask task) {
+        Step step = currentStep(level, task);
+        if (step == null) {
+            return null;
+        }
+        return step.digging()
+                ? diggingTool(level.getBlockState(step.pos()))
+                : step.state().getBlock().asItem();
+    }
+
+    /**
+     * One swing at the step in hand. Returns true when the step actually finished.
+     *
+     * <p>Laying takes a single swing. Digging takes as many as the block is worth,
+     * so a builder is visibly working at the ground rather than deleting it.
+     */
+    public static boolean swingAtStep(ServerLevel level, BuildTask task) {
+        Step step = currentStep(level, task);
+        if (step == null || !task.canAfford(step.cost())) {
             return false;
         }
-        if (task.pendingBlocks() <= 0) {
-            return false;
+        task.addStepProgress();
+        if (task.stepProgress() < step.cost()) {
+            return false;   // still working at it
         }
-        lay(level, plan.blocks().get(task.blocksPlaced()));
-        task.recordBlockPlaced();
+        execute(level, step);
+        task.recordStepDone(step.cost());
         return true;
+    }
+
+    /** Finishes the step in hand outright, for paths with no ticks to spend on it. */
+    public static boolean completeStep(ServerLevel level, BuildTask task) {
+        Step step = currentStep(level, task);
+        if (step == null || !task.canAfford(step.cost())) {
+            return false;
+        }
+        execute(level, step);
+        task.recordStepDone(step.cost());
+        return true;
+    }
+
+    private static Step currentStep(ServerLevel level, BuildTask task) {
+        StructurePlan plan = planOf(level, task);
+        if (plan == null || task.stepsDone() >= plan.steps().size()) {
+            return null;
+        }
+        return plan.steps().get(task.stepsDone());
+    }
+
+    /** Carries out one step: the ground comes out, or the block goes down. */
+    private static void execute(ServerLevel level, Step step) {
+        if (step.digging()) {
+            if (!level.getBlockState(step.pos()).isAir()) {
+                // No drops. There is nowhere for spoil to go yet, and a site
+                // knee-deep in dirt items is worse than no spoil at all.
+                level.destroyBlock(step.pos(), false, null, 512);
+            }
+            return;
+        }
+        lay(level, new Placement(step.pos(), step.state(), step.nbt()));
+    }
+
+    /**
+     * The right tool for shifting this block.
+     *
+     * <p>Builders are handed it rather than having to own it — there is no tool
+     * economy yet — but the tool in their hand is the correct one for what they
+     * are digging, and hardness sets the cost either way.
+     */
+    private static Item diggingTool(BlockState state) {
+        if (state.is(BlockTags.MINEABLE_WITH_SHOVEL)) {
+            return Items.IRON_SHOVEL;
+        }
+        if (state.is(BlockTags.MINEABLE_WITH_AXE)) {
+            return Items.IRON_AXE;
+        }
+        if (state.is(BlockTags.MINEABLE_WITH_HOE)) {
+            return Items.IRON_HOE;
+        }
+        return Items.IRON_PICKAXE;
+    }
+
+    /** What one block of ground is worth shifting, from how hard it is. */
+    private static int digCost(ServerLevel level, BlockPos pos, BlockState state) {
+        float hardness = state.getDestroySpeed(level, pos);
+        if (hardness < 0) {
+            return MAX_DIG_COST;   // unbreakable; excavation skips these entirely
+        }
+        return Math.clamp(MIN_DIG_COST + Math.round(hardness), MIN_DIG_COST, MAX_DIG_COST);
     }
 
     /**
@@ -192,6 +311,11 @@ public final class BlueprintPlacer {
     public static boolean isBuildableByHand(ServerLevel level, BuildTask task) {
         BlockPos approx = new BlockPos(task.origin().x(), task.origin().y(), task.origin().z());
         return level.isLoaded(approx);
+    }
+
+    /** Repair flights are the one plan that is a path, not a building. */
+    private static boolean isStairs(BuildTask task) {
+        return Identifier.parse(task.blueprintId()).getPath().endsWith("stairs");
     }
 
     private static BlockPos baseOf(BuildTask task) {
@@ -286,7 +410,7 @@ public final class BlueprintPlacer {
         for (PlannedBlock block : blueprint.sequence()) {
             blocks.add(new Placement(block.at(anchor), block.state(), block.nbt()));
         }
-        return finish(level, blocks, size.getX(), size.getZ(), size.getY());
+        return finish(level, base, blocks, size.getX(), size.getZ(), size.getY());
     }
 
     private static StructurePlan procedural(ServerLevel level, String path, BlockPos base) {
@@ -307,24 +431,76 @@ public final class BlueprintPlacer {
         if (path.equals("town_hall")) {
             add(blocks, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);
         }
-        return finish(level, blocks, dims[0], dims[1], dims[2]);
+        return finish(level, base, blocks, dims[0], dims[1], dims[2]);
     }
 
     /**
-     * Puts a gathered list of placements into build order.
+     * Puts a gathered list of placements into build order, with the digging first.
      *
-     * <p>The mason's order: bottom layer up; full blocks before partial blocks
-     * within a layer; deterministic within that. This IS the construction
-     * sequence — a supply gate later simply stops the cursor mid-list.
+     * <p>Two phases, in this order:
+     * <ol>
+     *   <li><strong>Excavation</strong> — every solid block standing inside the
+     *       footprint comes out, worked from the top down so nobody undermines
+     *       what they are standing on. Because the floor course sits at grade
+     *       rather than on top of it, this is real work even on flat ground: the
+     *       topsoil under the building has to go.</li>
+     *   <li><strong>Masonry</strong> — bottom layer up; full blocks before partial
+     *       blocks within a layer; deterministic within that.</li>
+     * </ol>
+     *
+     * <p>This IS the construction sequence — a supply gate later simply stops the
+     * cursor mid-list.
      */
-    private static StructurePlan finish(ServerLevel level, List<Placement> blocks,
+    private static StructurePlan finish(ServerLevel level, BlockPos base, List<Placement> blocks,
                                         int width, int depth, int height) {
-        blocks.sort(Comparator
-                .comparingInt((Placement p) -> p.pos().getY())
-                .thenComparing(p -> isFullBlock(level, p) ? 0 : 1)
-                .thenComparingInt(p -> p.pos().getX())
-                .thenComparingInt(p -> p.pos().getZ()));
-        return new StructurePlan(width, depth, height, blocks);
+        // A placement of air is not a placement at all; it is a hole somebody has
+        // to make. The stair repairs use them to clear headroom.
+        List<Placement> solid = new ArrayList<>(blocks.size());
+        Set<BlockPos> toDig = new LinkedHashSet<>();
+        for (Placement placement : blocks) {
+            if (placement.state().isAir()) {
+                toDig.add(placement.pos());
+            } else {
+                solid.add(placement);
+            }
+        }
+
+        int rx = width / 2;
+        int rz = depth / 2;
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                for (int dy = 0; dy <= height; dy++) {
+                    toDig.add(base.offset(dx, dy, dz));
+                }
+            }
+        }
+
+        List<Step> digs = new ArrayList<>();
+        for (BlockPos pos : toDig) {
+            BlockState standing = level.getBlockState(pos);
+            if (standing.isAir() || standing.getDestroySpeed(level, pos) < 0) {
+                continue;   // nothing there, or nothing anyone can shift
+            }
+            digs.add(new Step(true, pos, standing, null, digCost(level, pos, standing)));
+        }
+        // Top down: you cannot dig out the block you are standing on.
+        digs.sort(Comparator
+                .comparingInt((Step s) -> -s.pos().getY())
+                .thenComparingInt(s -> s.pos().getX())
+                .thenComparingInt(s -> s.pos().getZ()));
+
+        solid.sort(Comparator
+                .comparingInt((Placement q) -> q.pos().getY())
+                .thenComparing(q -> isFullBlock(level, q) ? 0 : 1)
+                .thenComparingInt(q -> q.pos().getX())
+                .thenComparingInt(q -> q.pos().getZ()));
+
+        List<Step> steps = new ArrayList<>(digs.size() + solid.size());
+        steps.addAll(digs);
+        for (Placement placement : solid) {
+            steps.add(new Step(false, placement.pos(), placement.state(), placement.nbt(), PLACE_COST));
+        }
+        return new StructurePlan(width, depth, height, steps);
     }
 
     private static boolean isFullBlock(ServerLevel level, Placement placement) {
@@ -543,18 +719,6 @@ public final class BlueprintPlacer {
         }
     }
 
-    /** Site preparation: the volume is cleared once, before the first course is laid. */
-    private static void clearSite(ServerLevel level, BlockPos base, int width, int depth, int height) {
-        int rx = width / 2;
-        int rz = depth / 2;
-        for (int dx = -rx; dx <= rx; dx++) {
-            for (int dz = -rz; dz <= rz; dz++) {
-                for (int dy = 0; dy <= height; dy++) {
-                    level.setBlockAndUpdate(base.offset(dx, dy, dz), Blocks.AIR.defaultBlockState());
-                }
-            }
-        }
-    }
 
     /**
      * Lifts anything standing where a block is about to appear.

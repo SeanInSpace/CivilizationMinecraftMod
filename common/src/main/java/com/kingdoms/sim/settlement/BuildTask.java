@@ -26,23 +26,46 @@ public final class BuildTask {
      * Visible-construction bookkeeping, persisted so a half-built wall survives a
      * restart. The terrain height is surveyed once when building starts (so the
      * block plan never shifts mid-build), the site is cleared once, and
-     * {@code blocksPlaced} tracks how far up the structure the builders have got.
+     * {@code stepsDone} tracks how far down the plan the builders have got.
      */
     private int siteY = UNSET_SITE_Y;
     private boolean sitePrepared;
-    private int blocksPlaced;
 
     /**
-     * Blocks the builders have been cleared to lay but have not laid yet.
+     * How far down the plan the builders have got: the index of the step they are
+     * working on now. A step is one block dug or one block laid.
+     */
+    private int stepsDone;
+
+    /**
+     * Passes spent on the current step. Digging a block is not instant — a builder
+     * swings at it several times before it gives, which is the whole visual
+     * difference between excavating a hillside and laying a course on top of it.
+     */
+    private int stepProgress;
+
+    /** Work units finished, and the plan's total. Digging costs more per step than laying. */
+    private int workDone;
+    private int planWork;
+
+    /**
+     * The placing half of {@link #planWork}, which sets the pace.
+     *
+     * <p>A building is spread over {@code requiredWork} builder-steps' worth of
+     * <em>laying</em>. Excavation is charged on top at the same rate, so a house
+     * cut into a hillside genuinely takes longer than the same house on the flat
+     * rather than being quietly compressed to fit the catalogue's number.
+     */
+    private int planPlaceWork;
+
+    /**
+     * Work the builders have been cleared to do but have not done yet.
      *
      * <p>Granted a step's worth at a time by the simulation and spent by the view
-     * layer one block per builder per pass, which is what makes a structure rise
+     * layer as builders actually swing, which is what makes a structure rise
      * smoothly between steps instead of a whole course appearing at once.
      */
-    private int pendingBlocks;
-
-    /** Blocks in this structure's plan, filled in by the view layer once surveyed. */
-    private int planSize;
+    private int pendingWork;
 
     public BuildTask(String blueprintId, SimPos origin, int requiredWork) {
         this.blueprintId = Objects.requireNonNull(blueprintId, "blueprintId");
@@ -94,80 +117,114 @@ public final class BuildTask {
         this.sitePrepared = sitePrepared;
     }
 
-    public int blocksPlaced() {
-        return blocksPlaced;
+    public int stepsDone() {
+        return stepsDone;
     }
 
-    public void setBlocksPlaced(int blocksPlaced) {
-        this.blocksPlaced = Math.max(0, blocksPlaced);
+    public void setStepsDone(int stepsDone) {
+        this.stepsDone = Math.max(0, stepsDone);
     }
 
-    public int pendingBlocks() {
-        return pendingBlocks;
+    public int stepProgress() {
+        return stepProgress;
     }
 
-    /** Restores the granted-but-unlaid count when a half-built task is read back. */
-    public void setPendingBlocks(int pendingBlocks) {
-        this.pendingBlocks = Math.max(0, pendingBlocks);
+    public void setStepProgress(int stepProgress) {
+        this.stepProgress = Math.max(0, stepProgress);
+    }
+
+    /** One more swing at the step in hand. */
+    public void addStepProgress() {
+        stepProgress++;
+    }
+
+    public int workDone() {
+        return workDone;
+    }
+
+    public void setWorkDone(int workDone) {
+        this.workDone = Math.max(0, workDone);
+    }
+
+    public int planWork() {
+        return planWork;
+    }
+
+    public int planPlaceWork() {
+        return planPlaceWork;
+    }
+
+    /** Recorded by the view layer once the site is surveyed and the plan built. */
+    public void setPlan(int planWork, int planPlaceWork) {
+        this.planWork = Math.max(0, planWork);
+        this.planPlaceWork = Math.max(0, planPlaceWork);
+    }
+
+    public int pendingWork() {
+        return pendingWork;
+    }
+
+    /** Restores the granted-but-unspent figure when a half-built task is read back. */
+    public void setPendingWork(int pendingWork) {
+        this.pendingWork = Math.max(0, pendingWork);
     }
 
     /**
-     * Clears the builders to lay up to {@code count} more blocks, never more than
-     * the plan has left. Without this ceiling a paused build would bank credit and
-     * then finish itself in one pass the moment somebody walked into view.
+     * Clears the builders for up to {@code amount} more work, never more than the
+     * plan has left. Without this ceiling a paused build would bank credit and then
+     * finish itself in one pass the moment somebody walked back into view.
      */
-    public void grantBlocks(int count) {
-        if (count <= 0 || planSize <= 0) {
+    public void grantWork(int amount) {
+        if (amount <= 0 || planWork <= 0) {
             return;
         }
-        int remaining = Math.max(0, planSize - blocksPlaced - pendingBlocks);
-        pendingBlocks += Math.min(count, remaining);
+        int remaining = Math.max(0, planWork - workDone - pendingWork);
+        pendingWork += Math.min(amount, remaining);
     }
 
-    /** Records one block actually laid, spending a granted one. */
-    public void recordBlockPlaced() {
-        blocksPlaced++;
-        if (pendingBlocks > 0) {
-            pendingBlocks--;
-        }
-        syncProgressToBlocks();
+    /** Records one step finished — a block dug or laid — and spends its cost. */
+    public void recordStepDone(int cost) {
+        int spent = Math.max(1, cost);
+        stepsDone++;
+        stepProgress = 0;
+        workDone += spent;
+        pendingWork = Math.max(0, pendingWork - spent);
+        syncProgressToWork();
+    }
+
+    /** Whether the builders have been cleared for enough work to finish this step. */
+    public boolean canAfford(int cost) {
+        return pendingWork >= Math.max(1, cost);
     }
 
     /**
-     * How many blocks this many builders lay in one simulation step.
+     * How much work this many builders get through in one simulation step.
      *
-     * <p>Scaled so a structure still takes {@code requiredWork} builder-steps to
-     * finish. Making blocks authoritative changes what is <em>true</em> about a
-     * build, not how long it takes — the catalogue's tuning still holds.
+     * <p>Paced off the <em>laying</em> half of the plan, so a building still takes
+     * {@code requiredWork} builder-steps to raise. Excavation is charged on top at
+     * the same rate rather than being folded into that budget — cutting a site out
+     * of a hillside is extra work, and should read as extra time.
      */
-    public int blocksForStep(int builders) {
-        if (planSize <= 0 || builders <= 0) {
+    public int workForStep(int builders) {
+        if (planPlaceWork <= 0 || builders <= 0) {
             return 0;
         }
-        return Math.max(1, (int) Math.ceil((double) planSize * builders / requiredWork));
+        return Math.max(1, (int) Math.ceil((double) planPlaceWork * builders / requiredWork));
     }
 
     /**
-     * Drags the abstract work figure onto whatever actually stands.
+     * Drags the abstract work figure onto whatever has actually been done.
      *
      * <p>The two numbers measure the same build in different units, and only this
-     * keeps them honest — so a task that switches fidelity mid-build (the player
-     * walks away) carries on from where the masonry really got to.
+     * keeps them honest — so a task that loses its builders mid-build carries on
+     * from where the work really got to.
      */
-    public void syncProgressToBlocks() {
-        if (planSize <= 0) {
+    public void syncProgressToWork() {
+        if (planWork <= 0) {
             return;
         }
-        double fraction = Math.min(1.0, (double) blocksPlaced / planSize);
+        double fraction = Math.min(1.0, (double) workDone / planWork);
         progress = (int) Math.round(requiredWork * fraction);
-    }
-
-    public int planSize() {
-        return planSize;
-    }
-
-    public void setPlanSize(int planSize) {
-        this.planSize = Math.max(0, planSize);
     }
 
     /**
@@ -178,7 +235,7 @@ public final class BuildTask {
      * a redundant instant placement that would wipe and re-stamp the work.
      */
     public boolean isVisuallyComplete() {
-        return planSize > 0 && blocksPlaced >= planSize;
+        return planWork > 0 && workDone >= planWork;
     }
 
     /** Where the structure actually stands once surveyed; the planning estimate before. */
@@ -189,14 +246,14 @@ public final class BuildTask {
     /**
      * How far along this build is, as a fraction.
      *
-     * <p>Once a plan exists this is the share of blocks actually standing — the
-     * number a player can verify by looking at the site. Only before the site is
-     * surveyed, when there is nothing to look at yet, does it fall back to the
-     * abstract work figure.
+     * <p>Once a plan exists this is the share of the work actually done — ground
+     * dug and blocks laid, both of which a player can watch happen. Only before
+     * the site is surveyed, when there is nothing to look at yet, does it fall
+     * back to the abstract work figure.
      */
     public double completionFraction() {
-        if (planSize > 0) {
-            return Math.min(1.0, (double) blocksPlaced / planSize);
+        if (planWork > 0) {
+            return Math.min(1.0, (double) workDone / planWork);
         }
         return (double) progress / requiredWork;
     }

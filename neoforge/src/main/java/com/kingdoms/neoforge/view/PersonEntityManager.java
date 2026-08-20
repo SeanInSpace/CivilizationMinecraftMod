@@ -224,10 +224,10 @@ public final class PersonEntityManager {
                 // The plan is a hard ceiling on the loop: placeNextBlock also
                 // stops on its own, but a build that cannot progress must not be
                 // able to spin here.
-                int guard = task.planSize() + 1;
-                while (task.pendingBlocks() > 0 && guard-- > 0) {
+                int guard = task.planWork() + 1;
+                while (BlueprintPlacer.nextStep(level, task) != null && guard-- > 0) {
                     builders.getFirst().swing(InteractionHand.MAIN_HAND);
-                    if (!BlueprintPlacer.placeNextBlock(level, task)) {
+                    if (!BlueprintPlacer.completeStep(level, task)) {
                         break;
                     }
                 }
@@ -251,17 +251,20 @@ public final class PersonEntityManager {
                 }
                 BlueprintPlacer.prepareSite(level, task);
 
-                boolean placedAny = false;
+                boolean workedAny = false;
                 for (PersonEntity builder : builders) {
-                    BlueprintPlacer.NextBlock next = BlueprintPlacer.nextBlock(level, task);
+                    BlueprintPlacer.NextStep next = BlueprintPlacer.nextStep(level, task);
                     if (next == null) {
                         clearHands(builder);
                         continue;   // as far along as the current work allows
                     }
-                    // Carry the material: the builder is holding the very block
-                    // they are about to lay, so placement reads as work rather
-                    // than staring blocks into existence.
-                    carry(builder, next.block());
+                    // Hold the right thing for the job: the block about to be laid,
+                    // or the tool for the ground about to come out. Either way the
+                    // work reads as work rather than blocks blinking in and out.
+                    Item held = BlueprintPlacer.toolFor(level, task);
+                    if (held != null) {
+                        carry(builder, held);
+                    }
 
                     BlockPos pos = next.pos();
                     if (builder.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5)
@@ -269,7 +272,11 @@ public final class PersonEntityManager {
                         builder.getLookControl().setLookAt(
                                 pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
                         builder.swing(InteractionHand.MAIN_HAND);
-                        placedAny |= BlueprintPlacer.placeNextBlock(level, task);
+                        // A swing at a stubborn block is progress even when the
+                        // block does not give yet, or a long dig would read as a
+                        // stall and get assisted out from under the builder.
+                        BlueprintPlacer.swingAtStep(level, task);
+                        workedAny = true;
                     } else {
                         builder.getNavigation().moveTo(
                                 pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, WALK_SPEED);
@@ -277,9 +284,9 @@ public final class PersonEntityManager {
                 }
 
                 UUID key = settlement.id().value();
-                if (placedAny) {
+                if (workedAny) {
                     constructionStalls.remove(key);
-                } else if (BlueprintPlacer.nextBlock(level, task) != null) {
+                } else if (BlueprintPlacer.nextStep(level, task) != null) {
                     int stalled = constructionStalls.merge(key, 1, Integer::sum);
                     if (stalled >= STALL_PASSES_BEFORE_ASSIST) {
                         // Only for a builder who is genuinely at the site and
@@ -288,7 +295,7 @@ public final class PersonEntityManager {
                         List<PersonEntity> present = buildersAtSite(settlement, task);
                         if (!present.isEmpty()) {
                             present.getFirst().swing(InteractionHand.MAIN_HAND);
-                            BlueprintPlacer.placeNextBlock(level, task);
+                            BlueprintPlacer.completeStep(level, task);
                         }
                         constructionStalls.remove(key);
                     }

@@ -53,11 +53,40 @@ class VisibleConstructionTest {
         return s;
     }
 
-    private static BuildTask surveyedTask(int planSize) {
+    /** A task the view layer has surveyed: all laying, no ground in the way. */
+    private static BuildTask surveyedTask(int placeWork) {
+        return surveyedTask(placeWork, 0);
+    }
+
+    /** A surveyed task with {@code digWork} of excavation charged on top. */
+    private static BuildTask surveyedTask(int placeWork, int digWork) {
         BuildTask task = new BuildTask("test:house", new SimPos(10, 64, 10), 20);
         task.setSiteY(64);
-        task.setPlanSize(planSize);   // what the view layer records once it surveys
+        task.setPlan(placeWork + digWork, placeWork);
         return task;
+    }
+
+    /** Stand in for the view layer: do whatever the builders have been cleared for. */
+    private static void work(BuildTask task, int steps, int costEach) {
+        for (int i = 0; i < steps && task.canAfford(costEach); i++) {
+            task.recordStepDone(costEach);
+        }
+    }
+
+    @Test
+    void diggingCostsMoreThanLaying() {
+        // 10 blocks to lay, plus ground worth 30 to shift: the same pace, but the
+        // job is four times the work, and the readout has to say so.
+        BuildTask task = surveyedTask(10, 30);
+        assertEquals(40, task.planWork());
+
+        task.grantWork(40);
+        task.recordStepDone(4);   // one stubborn block of ground
+        assertEquals(0.1, task.completionFraction(), 1e-9,
+                "one dig is worth four lays, and reads as four lays of progress");
+
+        task.recordStepDone(1);   // one block laid
+        assertEquals(0.125, task.completionFraction(), 1e-9);
     }
 
     @Test
@@ -68,20 +97,16 @@ class VisibleConstructionTest {
         assertEquals(0.0, task.completionFraction(), 1e-9,
                 "but nothing is standing, so it reads as nothing built");
 
-        task.grantBlocks(100);
-        for (int i = 0; i < 100; i++) {
-            task.recordBlockPlaced();
-        }
+        task.grantWork(100);
+        work(task, 100, 1);
         assertEquals(0.5, task.completionFraction(), 1e-9);
     }
 
     @Test
     void layingBlocksDragsTheWorkFigureAlong() {
         BuildTask task = surveyedTask(100);
-        task.grantBlocks(25);
-        for (int i = 0; i < 25; i++) {
-            task.recordBlockPlaced();
-        }
+        task.grantWork(25);
+        work(task, 25, 1);
         // A quarter of a 20-work job, so the abstract figure has to agree.
         assertEquals(5, task.progress(),
                 "so a build that loses its audience carries on from where the masonry got to");
@@ -90,23 +115,27 @@ class VisibleConstructionTest {
     @Test
     void abuildIsSpreadOverTheSameNumberOfStepsItAlwaysTook() {
         BuildTask task = surveyedTask(200);
-        // 200 blocks over 20 builder-steps: one builder lays ten a step.
-        assertEquals(10, task.blocksForStep(1));
-        assertEquals(20, task.blocksForStep(2));
-        assertEquals(0, task.blocksForStep(0));
+        // 200 blocks of laying over 20 builder-steps: one builder lays ten a step.
+        assertEquals(10, task.workForStep(1));
+        assertEquals(20, task.workForStep(2));
+        assertEquals(0, task.workForStep(0));
+
+        // Excavation does not change that rate, so it is charged on top rather
+        // than squeezed into the same budget: digging a site out takes longer.
+        BuildTask onAHill = surveyedTask(200, 300);
+        assertEquals(10, onAHill.workForStep(1), "same pace...");
+        assertEquals(500, onAHill.planWork(), "...over more work, so more steps");
     }
 
     @Test
     void buildersAreNeverClearedForMoreThanThePlanHasLeft() {
         BuildTask task = surveyedTask(10);
-        task.grantBlocks(1000);
-        assertEquals(10, task.pendingBlocks());
+        task.grantWork(1000);
+        assertEquals(10, task.pendingWork());
 
-        for (int i = 0; i < 10; i++) {
-            task.recordBlockPlaced();
-        }
-        task.grantBlocks(1000);
-        assertEquals(0, task.pendingBlocks(), "a finished plan grants nothing further");
+        work(task, 10, 1);
+        task.grantWork(1000);
+        assertEquals(0, task.pendingWork(), "a finished plan grants nothing further");
     }
 
     @Test
@@ -125,8 +154,8 @@ class VisibleConstructionTest {
         assertEquals(0.0, s.buildQueue().getFirst().completionFraction(), 1e-9,
                 "and it reads as untouched, however long the clock ran");
         assertTrue(s.buildings().isEmpty(), "and nothing was recorded as built");
-        assertTrue(s.buildQueue().getFirst().pendingBlocks() > 0,
-                "the builders are simply cleared to lay blocks nobody has laid yet");
+        assertTrue(s.buildQueue().getFirst().pendingWork() > 0,
+                "the builders are simply cleared for work nobody has done yet");
     }
 
     @Test
@@ -180,8 +209,8 @@ class VisibleConstructionTest {
         // Stand in for the view layer: whatever the step clears, gets laid.
         for (int step = 0; step < 40 && !s.buildQueue().isEmpty(); step++) {
             s.step(ctx);
-            while (task.pendingBlocks() > 0) {
-                task.recordBlockPlaced();
+            while (task.canAfford(1)) {
+                task.recordStepDone(1);
             }
         }
 

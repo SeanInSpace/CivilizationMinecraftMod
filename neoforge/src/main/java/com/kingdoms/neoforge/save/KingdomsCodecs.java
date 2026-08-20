@@ -136,17 +136,23 @@ public final class KingdomsCodecs {
             Codec.INT.fieldOf("progress").forGetter(BuildTask::progress),
             Codec.INT.optionalFieldOf("site_y", BuildTask.UNSET_SITE_Y).forGetter(BuildTask::siteY),
             Codec.BOOL.optionalFieldOf("site_prepared", false).forGetter(BuildTask::isSitePrepared),
-            Codec.INT.optionalFieldOf("blocks_placed", 0).forGetter(BuildTask::blocksPlaced),
-            Codec.INT.optionalFieldOf("plan_size", 0).forGetter(BuildTask::planSize),
-            Codec.INT.optionalFieldOf("pending_blocks", 0).forGetter(BuildTask::pendingBlocks)
-    ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared, placed, planSize, pending) -> {
+            Codec.INT.optionalFieldOf("steps_done", 0).forGetter(BuildTask::stepsDone),
+            Codec.INT.optionalFieldOf("step_progress", 0).forGetter(BuildTask::stepProgress),
+            Codec.INT.optionalFieldOf("work_done", 0).forGetter(BuildTask::workDone),
+            Codec.INT.optionalFieldOf("plan_work", 0).forGetter(BuildTask::planWork),
+            Codec.INT.optionalFieldOf("plan_place_work", 0).forGetter(BuildTask::planPlaceWork),
+            Codec.INT.optionalFieldOf("pending_work", 0).forGetter(BuildTask::pendingWork)
+    ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared,
+                stepsDone, stepProgress, workDone, planWork, planPlaceWork, pending) -> {
         BuildTask task = new BuildTask(blueprint, origin, requiredWork);
         task.addProgress(progress);
         task.setSiteY(siteY);
         task.setSitePrepared(prepared);
-        task.setBlocksPlaced(placed);
-        task.setPlanSize(planSize);
-        task.setPendingBlocks(pending);
+        task.setStepsDone(stepsDone);
+        task.setStepProgress(stepProgress);
+        task.setWorkDone(workDone);
+        task.setPlan(planWork, planPlaceWork);
+        task.setPendingWork(pending);
         return task;
     }));
 

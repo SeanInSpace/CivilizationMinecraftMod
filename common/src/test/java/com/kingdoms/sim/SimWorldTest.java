@@ -175,8 +175,8 @@ class SimWorldTest {
         bridge.loaded = true;
         BuildTask bakery = new BuildTask("kingdoms:norman/bakery", new SimPos(10, 64, 10), 2);
         // The builders laid every block themselves while the player watched.
-        bakery.setPlanSize(120);
-        bakery.setBlocksPlaced(120);
+        bakery.setPlan(120, 120);
+        bakery.setWorkDone(120);
         Settlement settlement = settlementWithBuilders(2, bakery);
         SimWorld world = worldWith(bridge, settlement);
 
