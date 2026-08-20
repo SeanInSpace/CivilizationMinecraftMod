@@ -134,11 +134,24 @@ Ids resolve most-specific-first, so `kingdoms:norman/house` falls back to `kingd
 | House | 20 | 1 | 1 | 3 residents | 80 | 4 people |
 | Granary | 25 | 4 | 1 | 20 residents | 75 | — |
 | Farm | 30 | 4 | 0 | 5 residents | 70 | — |
-| Market | 30 | 6 | 1 | 25 residents | 65 | — |
-| Lumber camp | 30 | 6 | 1 | 30 residents | 58 | — |
+| **Lumber camp** | 30 | 5 | 1 | 30 residents | **68** | — |
+| **Stone mine** | 35 | 8 | 1 | 30 residents | **66** | — |
+| Market | 30 | 6 | 1 | 25 residents | 62 | — |
 | Watchtower | 45 | 12 | 0 | 12 residents | 60 | — |
 | Storehouse | 30 | 6 | 1 | 15 residents | 55 | — |
 | Workshop | 35 | 8 | 0 | 8 residents | 50 | — |
+
+**Shelter, then food, then materials, then everything else.** The lumber camp and
+the mine sit above the market and the workshop on purpose: a town that cannot fell
+its own timber or cut its own stone has nothing to trade and nothing to build the
+next thing out of. *(The lumber camp used to sit at 58, below the watchtower — so a
+town bought and crafted before it could supply itself.)*
+
+**Every building carries its own post.** A block on the floor that names the
+building, says what it is for, and reports the town's running totals — the same
+idea colony mods use, where a building is a thing you walk up to and read rather
+than a name in a menu. The lumber camp's and the mine's posts take orders as well
+as give reports: click to resize the claim, sneak-click to move it.
 
 Read a row as a sentence. Houses: *"always want one, plus another per three people; each holds a family of four; priority 80; 20 builder-steps each."*
 

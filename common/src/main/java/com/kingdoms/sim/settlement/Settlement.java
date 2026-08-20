@@ -78,8 +78,14 @@ public final class Settlement {
     /** Saplings on hand for replanting what has been cut. */
     private int saplingStock;
 
+    /** Cut stone, the other half of what a town has to secure for itself. */
+    private int stoneStock;
+
     /** Where the lumber camp may work, or null until one is built. */
     private WorkArea lumberArea;
+
+    /** Where the mine may cut, set by the mine post. */
+    private WorkArea mineArea;
 
     public Settlement(Id id, String name, SimPos centre, int claimRadius) {
         this.id = Objects.requireNonNull(id, "id");
@@ -152,6 +158,14 @@ public final class Settlement {
         this.woodStock = Math.max(0, woodStock);
     }
 
+    public int stoneStock() {
+        return stoneStock;
+    }
+
+    public void setStoneStock(int stoneStock) {
+        this.stoneStock = Math.max(0, stoneStock);
+    }
+
     public int saplingStock() {
         return saplingStock;
     }
@@ -162,6 +176,14 @@ public final class Settlement {
 
     public WorkArea lumberArea() {
         return lumberArea;
+    }
+
+    public WorkArea mineArea() {
+        return mineArea;
+    }
+
+    public void setMineArea(WorkArea mineArea) {
+        this.mineArea = mineArea;
     }
 
     public void setLumberArea(WorkArea lumberArea) {
@@ -306,6 +328,7 @@ public final class Settlement {
         FoodPlanner.advance(this, ctx);
         HaulPlanner.advance(this, ctx);
         LumberPlanner.advance(this, ctx);
+        MinePlanner.advance(this, ctx);
         JobPlanner.retrainOne(this);
         PopulationPlanner.advance(this, ctx);
         decayThreat();

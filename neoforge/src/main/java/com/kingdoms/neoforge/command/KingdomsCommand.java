@@ -119,7 +119,7 @@ public final class KingdomsCommand {
                 === /civ ===
                   found <name>              found a settlement here
                   info                      full state of every settlement
-                  populate <n> <job>        BUILDER/FARMER/GUARD/TRADER/LUMBERJACK/IDLER
+                  populate <n> <job>        BUILDER/FARMER/GUARD/TRADER/LUMBERJACK/MINER/IDLER
                   build <blueprint> <work>  queue construction here
                   step [n]                  fast-forward the simulation
                   raid [strength]           attack the nearest settlement

@@ -1,6 +1,15 @@
 {
   "itemGroup.kingdoms": "Kingdoms",
-  "item.kingdoms.founding_charter": "Founding Charter",
+  "block.kingdoms.farm": "Farm",
+  "block.kingdoms.granary": "Granary",
+  "block.kingdoms.house": "Dwelling",
   "block.kingdoms.lumber_camp": "Lumber Camp",
-  "entity.kingdoms.person": "Settler"
+  "block.kingdoms.market": "Market",
+  "block.kingdoms.mine": "Stone Mine",
+  "block.kingdoms.storehouse": "Storehouse",
+  "block.kingdoms.town_hall": "Town Hall",
+  "block.kingdoms.watchtower": "Watchtower",
+  "block.kingdoms.workshop": "Workshop",
+  "entity.kingdoms.person": "Settler",
+  "item.kingdoms.founding_charter": "Founding Charter"
 }

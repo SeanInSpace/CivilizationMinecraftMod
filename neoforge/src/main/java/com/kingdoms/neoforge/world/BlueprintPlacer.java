@@ -441,6 +441,7 @@ public final class BlueprintPlacer {
             case "farm" -> farm(level, blocks, base);
             case "market" -> market(level, blocks, base);
             case "lumber_camp" -> lumberCamp(level, blocks, base);
+            case "mine" -> mine(level, blocks, base);
             case "stairs" -> accessStairs(level, blocks, base);
             case "watchtower" -> watchtower(level, blocks, base);
             case "storehouse" -> storehouse(level, blocks, base);
@@ -449,6 +450,10 @@ public final class BlueprintPlacer {
         };
         if (path.equals("town_hall")) {
             add(blocks, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);
+            add(blocks, base.offset(0, 1, -1), KingdomsBlocks.TOWN_HALL.get());
+        }
+        if (path.equals("house")) {
+            add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.HOUSE.get());
         }
         return finish(level, base, blocks, dims[0], dims[1], dims[2]);
     }
@@ -537,8 +542,23 @@ public final class BlueprintPlacer {
 
     // --- structures, expressed as plans ---
 
+    /**
+     * A mine head: a squat stone hut over the shaft, with the post inside.
+     *
+     * <p>No shaft is dug at build time — the miners cut where the mine post tells
+     * them to, which is the point of the post.
+     */
+    private static int[] mine(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.COBBLESTONE, Blocks.STONE_BRICKS);
+        add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.MINE.get());
+        add(blocks, base.offset(1, 1, -1), Blocks.FURNACE);
+        add(blocks, base.offset(1, 2, -1), Blocks.COBBLESTONE_SLAB);
+        return dims;
+    }
+
     private static int[] granary(ServerLevel level, List<Placement> blocks, BlockPos base) {
         int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.GRANARY.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.HAY_BLOCK);
         add(blocks, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
         add(blocks, base.offset(-1, 2, -1), Blocks.HAY_BLOCK);
@@ -557,6 +577,7 @@ public final class BlueprintPlacer {
 
     private static int[] storehouse(ServerLevel level, List<Placement> blocks, BlockPos base) {
         int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.STOREHOUSE.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.BARREL);
         add(blocks, base.offset(1, 1, -1), Blocks.BARREL);
         add(blocks, base.offset(-1, 2, -1), Blocks.BARREL);
@@ -565,6 +586,7 @@ public final class BlueprintPlacer {
 
     private static int[] workshop(ServerLevel level, List<Placement> blocks, BlockPos base) {
         int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.WORKSHOP.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.CRAFTING_TABLE);
         add(blocks, base.offset(1, 1, -1), Blocks.SMITHING_TABLE);
         add(blocks, base.offset(0, 1, -1), Blocks.FURNACE);
@@ -573,6 +595,7 @@ public final class BlueprintPlacer {
 
     private static int[] market(ServerLevel level, List<Placement> blocks, BlockPos base) {
         foundation(level, blocks, base, 5, 5);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.MARKET.get());
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 add(blocks, base.offset(dx, 0, dz), Blocks.OAK_PLANKS);
@@ -610,6 +633,7 @@ public final class BlueprintPlacer {
             }
         }
         add(blocks, base.offset(0, 0, r), Blocks.OAK_FENCE_GATE);
+        add(blocks, base.offset(r - 1, 0, r - 1), KingdomsBlocks.FARM.get());
         return new int[]{2 * r + 1, 2 * r + 1, 3};
     }
 
@@ -633,6 +657,7 @@ public final class BlueprintPlacer {
             }
         }
         add(blocks, base.offset(0, 7, 0), Blocks.LANTERN);
+        add(blocks, base.offset(0, 1, 0), KingdomsBlocks.WATCHTOWER.get());
         return new int[]{3, 3, 9};
     }
 

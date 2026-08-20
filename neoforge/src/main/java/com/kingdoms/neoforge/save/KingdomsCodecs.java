@@ -15,6 +15,7 @@ import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementEvent;
 import com.kingdoms.sim.settlement.WorkArea;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import java.util.List;
@@ -197,6 +198,24 @@ public final class KingdomsCodecs {
         return building;
     }));
 
+    /**
+     * The four running totals, gathered so the settlement codec stays inside
+     * {@code group()}'s sixteen-field ceiling.
+     *
+     * <p>A {@link MapCodec} rather than a nested object on purpose: its fields are
+     * written flat into the settlement, so this costs one slot instead of four and
+     * every save written before it existed still reads.
+     */
+    private record Stores(int food, int wood, int saplings, int stone) {
+    }
+
+    private static final MapCodec<Stores> STORES = RecordCodecBuilder.mapCodec(i -> i.group(
+            Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Stores::food),
+            Codec.INT.optionalFieldOf("wood", 0).forGetter(Stores::wood),
+            Codec.INT.optionalFieldOf("saplings", 0).forGetter(Stores::saplings),
+            Codec.INT.optionalFieldOf("stone", 0).forGetter(Stores::stone)
+    ).apply(i, Stores::new));
+
     // "buildings" is optional so saves written before it existed still load.
     public static final Codec<Settlement> SETTLEMENT = RecordCodecBuilder.create(i -> i.group(
             SETTLEMENT_ID.fieldOf("id").forGetter(Settlement::id),
@@ -209,18 +228,20 @@ public final class KingdomsCodecs {
             BUILDING.listOf().optionalFieldOf("buildings", List.of()).forGetter(Settlement::buildings),
             HOUSEHOLD.listOf().optionalFieldOf("households", List.of()).forGetter(Settlement::households),
             SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events),
-            Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Settlement::foodStock),
-            Codec.INT.optionalFieldOf("wood", 0).forGetter(Settlement::woodStock),
-            Codec.INT.optionalFieldOf("saplings", 0).forGetter(Settlement::saplingStock),
+            STORES.forGetter(s -> new Stores(s.foodStock(), s.woodStock(),
+                    s.saplingStock(), s.stoneStock())),
             WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea())),
+            WORK_AREA.optionalFieldOf("mine_area").forGetter(s -> Optional.ofNullable(s.mineArea())),
             Codec.INT.optionalFieldOf("next_plot", -1).forGetter(Settlement::nextPlotIndex)
-    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, food, wood, saplings, lumberArea, nextPlot) -> {
+    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, lumberArea, mineArea, nextPlot) -> {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
-        settlement.setFoodStock(food);
-        settlement.setWoodStock(wood);
-        settlement.setSaplingStock(saplings);
+        settlement.setFoodStock(stores.food());
+        settlement.setWoodStock(stores.wood());
+        settlement.setSaplingStock(stores.saplings());
+        settlement.setStoneStock(stores.stone());
         lumberArea.ifPresent(settlement::setLumberArea);
+        mineArea.ifPresent(settlement::setMineArea);
         residents.forEach(settlement::addResident);
         buildQueue.forEach(settlement::enqueueBuild);
         buildings.forEach(settlement::addBuilding);

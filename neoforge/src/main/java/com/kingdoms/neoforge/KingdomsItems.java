@@ -19,6 +19,26 @@ public final class KingdomsItems {
     public static final DeferredItem<net.minecraft.world.item.BlockItem> LUMBER_CAMP =
             ITEMS.registerSimpleBlockItem(KingdomsBlocks.LUMBER_CAMP, () -> new Item.Properties());
 
+
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> TOWN_HALL =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.TOWN_HALL, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> HOUSE =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.HOUSE, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> GRANARY =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.GRANARY, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> FARM =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.FARM, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> MARKET =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.MARKET, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> STOREHOUSE =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.STOREHOUSE, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> WORKSHOP =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.WORKSHOP, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> WATCHTOWER =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.WATCHTOWER, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> MINE =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.MINE, () -> new Item.Properties());
+
     private KingdomsItems() {
     }
 }

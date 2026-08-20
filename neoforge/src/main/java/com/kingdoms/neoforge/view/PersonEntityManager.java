@@ -114,8 +114,14 @@ public final class PersonEntityManager {
     /** Passes standing still up high before someone climbs down. */
     private static final int STRANDED_PASSES = 3;
 
+    /** How many times to ask somebody to walk down before carrying them. */
+    private static final int REPATH_ATTEMPTS = 3;
+
     /** People going nowhere while stranded aloft, by person id. */
     private final Map<UUID, Integer> strandedPasses = new HashMap<>();
+
+    /** Repath attempts spent per person before a teleport is allowed. */
+    private final Map<UUID, Integer> repathTries = new HashMap<>();
 
     /** Houses are 5x5, so their door sits two blocks south of the origin. */
     private static final int HOUSE_DOOR_OFFSET = 2;
@@ -173,6 +179,7 @@ public final class PersonEntityManager {
                 dailyRoutine(settlement);
                 checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
+                changed |= workMiners(settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
                 guardCombat(settlement);
@@ -369,6 +376,14 @@ public final class PersonEntityManager {
      * several seconds, climbs down to it — but only when the drop is survivable.
      * Stranded higher than that, they stay put, because falling would kill them.
      */
+    /**
+     * Gets somebody down off wherever they have got stuck.
+     *
+     * <p>Walking first, always. A teleport is a last resort that looks like a bug
+     * even when it is correct, so a stranded settler is asked to path down several
+     * times over before anybody moves them by hand — and only then if the drop is
+     * survivable.
+     */
     private void freeStrandedPeople(Settlement settlement) {
         for (Person person : settlement.residents()) {
             UUID key = person.id().value();
@@ -381,12 +396,26 @@ public final class PersonEntityManager {
             int floor = floorBelow(at);
             if (floor == Integer.MIN_VALUE) {
                 strandedPasses.remove(key);
+                repathTries.remove(key);   // not stuck; the patience resets with them
                 continue;
             }
             if (strandedPasses.merge(key, 1, Integer::sum) < STRANDED_PASSES) {
                 continue;
             }
+
+            int tried = repathTries.getOrDefault(key, 0);
+            if (tried < REPATH_ATTEMPTS
+                    && view.getNavigation().moveTo(
+                            at.getX() + 0.5, floor, at.getZ() + 0.5, WALK_SPEED)) {
+                // A route exists. Let them take it, and come back to this if the
+                // walk does not actually get them anywhere.
+                repathTries.put(key, tried + 1);
+                strandedPasses.remove(key);
+                continue;
+            }
+
             strandedPasses.remove(key);
+            repathTries.remove(key);
             if (at.getY() - floor <= SURVIVABLE_DROP) {
                 view.snapTo(at.getX() + 0.5, floor, at.getZ() + 0.5);
                 person.setPosition(NeoForgeWorldBridge.toSimPos(view.blockPosition()));
@@ -514,6 +543,27 @@ public final class PersonEntityManager {
      * Lumberjacks fell and replant inside the camp's work area. Like builders,
      * they steer themselves while working, so the daily routine leaves them be.
      */
+    /** Miners cut stone by daylight and under no threat, same terms as the woodland. */
+    private boolean workMiners(Settlement settlement) {
+        if (settlement.mineArea() == null || settlement.threatLevel() > 0) {
+            return false;
+        }
+        boolean changed = false;
+        for (Person person : settlement.residents()) {
+            if (person.profession() != Profession.MINER
+                    || !person.isEmbodied()
+                    || person.isTooWeakToWork()
+                    || person.haul() != null) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view != null && !view.isRemoved()) {
+                changed |= MinerWorker.work(level, settlement, view);
+            }
+        }
+        return changed;
+    }
+
     private boolean workLumberjacks(Settlement settlement) {
         if (settlement.lumberArea() == null || level.isDarkOutside()
                 || settlement.threatLevel() > 0) {
@@ -800,6 +850,9 @@ public final class PersonEntityManager {
             case LUMBERJACK -> settlement.lumberArea() != null
                     ? settlement.lumberArea().centre()
                     : nearestBuilding(settlement, "lumber_camp", person.position());
+            case MINER -> settlement.mineArea() != null
+                    ? settlement.mineArea().centre()
+                    : nearestBuilding(settlement, "mine", person.position());
             case GUARD -> nearestBuilding(settlement, "watchtower", person.position());
             case IDLER -> home != null ? home : settlement.centre();
         };

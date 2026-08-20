@@ -14,5 +14,6 @@ public enum Profession {
     BUILDER,
     GUARD,
     TRADER,
-    LUMBERJACK
+    LUMBERJACK,
+    MINER
 }

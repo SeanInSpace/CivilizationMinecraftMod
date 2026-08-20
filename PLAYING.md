@@ -32,6 +32,10 @@ You do not manage anything. The town runs itself, on these rules:
   on a hillside takes visibly longer to build than one on the flat.
 - **It builds what it lacks** — town hall first, then houses, farms, a storehouse, workshops, watchtowers as it grows. Buildings go up whether you are there or not; if you are away, they appear when you return.
 - **It feeds itself — or fails to.** Food never teleports: harvest waits in the fields until a farmer walks out, shoulders it and carries it to the granary; market hands carry loads to the stall; one member of each family walks to market and back with the shopping. You can watch grain cross the village in their hands — and a carrier killed on the road takes the load with them. Every settler carries and eats their own food. Hunger is personal now: the underfed grow visibly weak (they stop working and slow down), and the starving die — permanently, with a line in the town's history. Watch the chain in the reports: granary, fields, market, pantries.
+- **It secures its own materials.** Timber and stone come before market stalls and
+  workshops, because a town that cannot supply itself has nothing to trade. Miners
+  cut stone inside the mine's claim, deepening the workings rather than stripping
+  the surface, and stop when the stores are full.
 - **It works the woodland.** Once a town builds a **Lumber Camp**, its lumberjacks fell trees inside the camp's claim, carry the timber to the town's stores, and replant saplings so the wood grows back. They stop when the stores are full rather than clear-cutting, and they never touch a tree outside the claim.
 - **It repairs its own mistakes.** Houses are placed by geometry, so on a slope a door can end up above anything a settler can climb. If somebody keeps failing to get home at dusk, the town notices and orders a flight of steps up to that door — jumping the build queue, because a family locked out matters more than the next workshop.
 - **It keeps village hours.** By day, farmers head to the fields, builders to the construction site, traders to the storehouse and guards to the watchtower; at dusk everyone but the watch walks home. When danger is near, civilians run indoors and only guards hold the ground.
@@ -68,14 +72,25 @@ Recent history:
 
 Settlers carry **real food** and eat the actual item they hold, best first — so a loaf you give a starving settler is the loaf that saves them. A founding party sets out with bread in hand, which is what carries a new town through its first minutes before there is a larder to fetch from.
 
-## Directing the lumberjacks
+## Reading a building
+
+Every building has a **post** standing on its floor — a block naming what it is.
+Right-click one and it tells you the town it belongs to, what that building does,
+and the running totals: population, buildings, food, timber, stone. You never have
+to guess what you are looking at.
+
+## Directing the lumberjacks and miners
 
 The lumber camp's **control post** — the crafting-bench-looking block inside the hut — is how you give woodland orders, the same way colony mods use hut blocks. You can also craft or place a Lumber Camp post yourself from the Tools tab.
 
 | Action | Effect |
 |---|---|
-| **Right-click the post** | Grow the working radius one step (8 → 64, then back to 8) |
+| **Right-click the post** | Grow the working radius one step, then wrap back to the smallest |
 | **Sneak right-click** | Move the working area to where *you* are standing |
+
+The **mine post** works exactly the same way, so learning one teaches the other —
+click to resize the workings, sneak-click to point the miners at an outcrop. It
+also reports how much stone the town is holding against what it can store.
 
 Every click reports the resulting orders in chat, so you can point the camp at a particular wood and keep it off the trees you want left standing. The current claim also shows in the charter report and `/civ info`.
 
