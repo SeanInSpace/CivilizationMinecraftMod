@@ -8,7 +8,10 @@ import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
+import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.sim.settlement.BuildTask;
+import com.kingdoms.sim.settlement.TownStores;
+import com.kingdoms.sim.settlement.Tallies;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.person.HaulTask;
@@ -123,6 +126,9 @@ public final class PersonEntityManager {
     /** Repath attempts spent per person before a teleport is allowed. */
     private final Map<UUID, Integer> repathTries = new HashMap<>();
 
+    /** Buildings already joined to the hall, so a path is laid once per session. */
+    private final java.util.Set<String> pathsLaid = new java.util.HashSet<>();
+
     /** Houses are 5x5, so their door sits two blocks south of the origin. */
     private static final int HOUSE_DOOR_OFFSET = 2;
 
@@ -180,6 +186,8 @@ public final class PersonEntityManager {
                 checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
                 changed |= workMiners(settlement);
+                changed |= workShepherds(settlement);
+                layPaths(settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
                 guardCombat(settlement);
@@ -550,6 +558,67 @@ public final class PersonEntityManager {
      * they steer themselves while working, so the daily routine leaves them be.
      */
     /** Miners cut stone by daylight and under no threat, same terms as the woodland. */
+    /** Shepherds stock the pens, one beast at a time, by daylight. */
+    /**
+     * Joins the town's doors up with trodden ways.
+     *
+     * <p>One building a pass, and only ones not yet connected — laying a whole
+     * town's paths in a single tick would be a visible hitch, and there is no
+     * hurry. Paths run to the hall, which is what makes a settlement read as
+     * having a centre rather than being a scatter of huts.
+     */
+    private boolean layPaths(Settlement settlement) {
+        if (settlement.buildings().size() < 2) {
+            return false;
+        }
+        SimPos hall = null;
+        for (Building building : settlement.buildings()) {
+            if (building.blueprintId().endsWith("town_hall")) {
+                hall = building.origin();
+                break;
+            }
+        }
+        if (hall == null) {
+            return false;   // no centre to join up to yet
+        }
+        for (Building building : settlement.buildings()) {
+            if (building.origin().equals(hall) || !building.isMaterialized()) {
+                continue;
+            }
+            String key = settlement.id().value() + "@" + building.origin();
+            if (!pathsLaid.add(key)) {
+                continue;
+            }
+            // Doors face south, so aim a block out from the doorway rather than
+            // at the middle of the building, and the track meets the entrance.
+            SimPos door = new SimPos(building.origin().x(),
+                    building.origin().y(), building.origin().z() + HOUSE_DOOR_OFFSET + 1);
+            PathLayer.connect(level, door, hall);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean workShepherds(Settlement settlement) {
+        if (settlement.threatLevel() > 0) {
+            return false;
+        }
+        boolean changed = false;
+        for (Person person : settlement.residents()) {
+            if (person.profession() != Profession.SHEPHERD
+                    || !person.isEmbodied()
+                    || person.isTooWeakToWork()
+                    || person.haul() != null) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view != null && !view.isRemoved()) {
+                changed |= ShepherdWorker.work(level, settlement, view);
+            }
+        }
+        return changed;
+    }
+
     private boolean workMiners(Settlement settlement) {
         if (settlement.mineArea() == null || settlement.threatLevel() > 0) {
             return false;
@@ -673,6 +742,29 @@ public final class PersonEntityManager {
      * brain-driven mob makes two AIs wrestle over the navigator. The hostiles
      * retaliate through normal vanilla anger, so guards genuinely can lose.
      */
+    /**
+     * Draws a guard whatever the forge has made for them.
+     *
+     * <p>Taken from the rack once and kept: the stores pay for the kit, the guard
+     * wears it, and a town that never built a smithy sends its watch out with
+     * bare hands. That is the whole reason to build one.
+     */
+    private void arm(Settlement settlement, PersonEntity guard) {
+        if (guard.getMainHandItem().isEmpty()
+                && settlement.stores().take(TownStores.WEAPONS, 1)) {
+            guard.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+        }
+        if (guard.getItemBySlot(EquipmentSlot.CHEST).isEmpty()
+                && settlement.stores().take(TownStores.ARMOUR, 1)) {
+            guard.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+        }
+    }
+
+    /** A sword hits harder than a fist. */
+    private static float armedBonus(PersonEntity guard) {
+        return guard.getMainHandItem().is(Items.IRON_SWORD) ? 3.0F : 0.0F;
+    }
+
     private void guardCombat(Settlement settlement) {
         for (Person person : settlement.residents()) {
             if (person.profession() != Profession.GUARD || !person.isEmbodied()) {
@@ -686,9 +778,15 @@ public final class PersonEntityManager {
             if (target == null) {
                 continue;
             }
+            arm(settlement, guard);
             if (guard.distanceTo(target) <= GUARD_STRIKE_RANGE) {
                 guard.swing(InteractionHand.MAIN_HAND);
-                target.hurtServer(level, level.damageSources().mobAttack(guard), GUARD_DAMAGE);
+                boolean wasAlive = target.isAlive();
+                target.hurtServer(level, level.damageSources().mobAttack(guard),
+                        GUARD_DAMAGE + armedBonus(guard));
+                if (wasAlive && !target.isAlive()) {
+                    settlement.tallies().record(Tallies.MOBS_SLAIN);
+                }
             } else {
                 guard.getNavigation().moveTo(target, GUARD_CHARGE_SPEED);
             }
@@ -859,6 +957,8 @@ public final class PersonEntityManager {
             case MINER -> settlement.mineArea() != null
                     ? settlement.mineArea().centre()
                     : nearestBuilding(settlement, "mine", person.position());
+            case SMITH -> nearestBuilding(settlement, "smith", person.position());
+            case SHEPHERD -> nearestBuilding(settlement, "animal_farm", person.position());
             case GUARD -> nearestBuilding(settlement, "watchtower", person.position());
             case IDLER -> home != null ? home : settlement.centre();
         };

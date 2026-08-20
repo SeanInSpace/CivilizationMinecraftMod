@@ -59,6 +59,8 @@ public final class JobPlanner {
             new ProfessionNeed(Profession.FARMER,      0,            5,       70),
             new ProfessionNeed(Profession.LUMBERJACK,  0,           10,       60),
             new ProfessionNeed(Profession.MINER,       0,           12,       55),
+            new ProfessionNeed(Profession.SMITH,       0,           14,       52),
+            new ProfessionNeed(Profession.SHEPHERD,    0,           16,       48),
             new ProfessionNeed(Profession.TRADER,      0,           15,       50)
     );
 

@@ -1,5 +1,6 @@
 package com.kingdoms.sim.settlement;
 
+import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
@@ -77,6 +78,11 @@ public final class Settlement {
     /** Saplings on hand for replanting what has been cut. */
 
     /** Where the lumber camp may work, or null until one is built. */
+    /** Named counters of what the town has seen done. See {@link Tallies}. */
+    private String cultureId = Culture.DEFAULT.id();
+
+    private final Tallies tallies = new Tallies();
+
     /** Everything the town owns, by name. See {@link TownStores}. */
     private final TownStores stores = TownStores.founding(FoodPlanner.STARTING_PROVISIONS);
 
@@ -138,6 +144,24 @@ public final class Settlement {
 
     public int threatLevel() {
         return threatLevel;
+    }
+
+    /**
+     * Which culture this town belongs to.
+     *
+     * <p>Set from the kingdom when the settlement is founded, and held here so a
+     * settlement can be reasoned about without walking back up to its kingdom.
+     */
+    public String cultureId() {
+        return cultureId;
+    }
+
+    public void setCultureId(String cultureId) {
+        this.cultureId = cultureId == null ? Culture.DEFAULT.id() : cultureId;
+    }
+
+    public Tallies tallies() {
+        return tallies;
     }
 
     public TownStores stores() {
@@ -331,6 +355,8 @@ public final class Settlement {
         HaulPlanner.advance(this, ctx);
         LumberPlanner.advance(this, ctx);
         MinePlanner.advance(this, ctx);
+        SmithPlanner.advance(this, ctx);
+        equipWorkers();
         JobPlanner.retrainOne(this);
         PopulationPlanner.advance(this, ctx);
         decayThreat();
@@ -347,6 +373,24 @@ public final class Settlement {
      * finishes what it started — and means {@link #countBuildings} can ignore work
      * in progress without double-counting.
      */
+    /**
+     * Hands out tools to whoever is working without one.
+     *
+     * <p>One a step, so a full rack empties into the workforce gradually rather
+     * than all at once, and so a town that is only just keeping up still gets
+     * its newest worker equipped eventually.
+     */
+    private void equipWorkers() {
+        for (Person person : residents.values()) {
+            if (person.profession() == Profession.IDLER || person.hasTool()) {
+                continue;
+            }
+            if (SmithPlanner.issueTool(this, person)) {
+                return;
+            }
+        }
+    }
+
     private void planNextBuild(SimContext ctx) {
         if (!buildQueue.isEmpty()) {
             return;
@@ -412,6 +456,7 @@ public final class Settlement {
         // watched construction is never re-stamped by a placement pass.
         buildings.add(new Building(
                 current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete()));
+        tallies.record(Tallies.BUILDINGS_RAISED);
     }
 
     /**

@@ -119,6 +119,7 @@ public final class RaidPlanner {
         if (defense >= strength) {
             settlement.logEvent(ctx.step(),
                     "Raid of " + strength + " repelled by the garrison (defense " + defense + "), no losses");
+            settlement.tallies().record(Tallies.RAIDS_REPELLED);
             return;
         }
 

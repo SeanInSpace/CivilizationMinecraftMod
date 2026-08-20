@@ -216,6 +216,22 @@ public final class KingdomsCommand {
                                         : "NO HOME (cannot grow)");
                     }
                 }
+                sb.append("\n      stores:");
+                if (s.stores().all().isEmpty()) {
+                    sb.append(" empty");
+                } else {
+                    s.stores().all().forEach((resource, amount) ->
+                            sb.append(" ").append(resource).append("=").append(amount));
+                }
+                if (!s.tallies().all().isEmpty()) {
+                    sb.append("\n      deeds:");
+                    s.tallies().all().forEach((stat, count) ->
+                            sb.append(" ").append(stat).append("=").append(count));
+                }
+                sb.append("\n      culture ").append(s.cultureId())
+                        .append(", equipped ")
+                        .append(s.residents().stream().filter(Person::hasTool).count())
+                        .append("/").append(s.population());
                 for (BuildTask task : s.buildQueue()) {
                     sb.append("\n      building ").append(task.blueprintId())
                             .append(" ").append(task.progress()).append("/").append(task.requiredWork())

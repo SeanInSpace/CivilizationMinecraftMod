@@ -11,6 +11,7 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
+import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.SettlementEvent;
@@ -121,13 +122,15 @@ public final class KingdomsCodecs {
             INVENTORY_SLOT.listOf().optionalFieldOf("inventory", List.of())
                     .forGetter(p -> p.inventory().slots()),
             Codec.INT.optionalFieldOf("starving_steps", 0).forGetter(Person::starvingSteps),
-            HAUL_TASK.optionalFieldOf("haul").forGetter(p -> Optional.ofNullable(p.haul()))
-    ).apply(i, (id, name, profession, position, hunger, carried, starving, haul) -> {
+            HAUL_TASK.optionalFieldOf("haul").forGetter(p -> Optional.ofNullable(p.haul())),
+            Codec.BOOL.optionalFieldOf("has_tool", false).forGetter(Person::hasTool)
+    ).apply(i, (id, name, profession, position, hunger, carried, starving, haul, hasTool) -> {
         Person person = new Person(id, name, profession, position);
         person.setHunger(hunger);
         carried.forEach(slot -> person.inventory().restore(slot.itemId(), slot.count()));
         person.setStarvingSteps(starving);
         haul.ifPresent(person::setHaul);
+        person.setHasTool(hasTool);
         return person;
     }));
 
@@ -264,13 +267,18 @@ public final class KingdomsCodecs {
             HOUSEHOLD.listOf().optionalFieldOf("households", List.of()).forGetter(Settlement::households),
             SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events),
             STORES.forGetter(Stores::of),
+            Codec.unboundedMap(Codec.STRING, Codec.INT)
+                    .optionalFieldOf("tallies", Map.of()).forGetter(s -> s.tallies().all()),
+            Codec.STRING.optionalFieldOf("culture", Culture.DEFAULT.id()).forGetter(Settlement::cultureId),
             WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea())),
             WORK_AREA.optionalFieldOf("mine_area").forGetter(s -> Optional.ofNullable(s.mineArea())),
             Codec.INT.optionalFieldOf("next_plot", -1).forGetter(Settlement::nextPlotIndex)
-    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, lumberArea, mineArea, nextPlot) -> {
+    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, culture, lumberArea, mineArea, nextPlot) -> {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
         settlement.stores().restore(stores.toTownStores().all());
+        settlement.tallies().restore(tallies);
+        settlement.setCultureId(culture);
         lumberArea.ifPresent(settlement::setLumberArea);
         mineArea.ifPresent(settlement::setMineArea);
         residents.forEach(settlement::addResident);

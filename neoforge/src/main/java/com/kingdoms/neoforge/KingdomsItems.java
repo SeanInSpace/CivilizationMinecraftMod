@@ -39,6 +39,15 @@ public final class KingdomsItems {
     public static final DeferredItem<net.minecraft.world.item.BlockItem> MINE =
             ITEMS.registerSimpleBlockItem(KingdomsBlocks.MINE, () -> new Item.Properties());
 
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> WAREHOUSE =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.WAREHOUSE, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> SMITH =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.SMITH, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> ANIMAL_FARM =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.ANIMAL_FARM, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> QUEST_BOARD =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.QUEST_BOARD, () -> new Item.Properties());
+
     private KingdomsItems() {
     }
 }

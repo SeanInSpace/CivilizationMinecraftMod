@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "minecraft:block/hay_block_top",
+    "side": "minecraft:block/oak_fence",
+    "bottom": "minecraft:block/coarse_dirt"
+  }
+}

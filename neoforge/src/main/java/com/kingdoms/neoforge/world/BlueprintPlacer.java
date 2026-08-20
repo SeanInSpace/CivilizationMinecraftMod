@@ -7,6 +7,7 @@ import com.kingdoms.neoforge.KingdomsBlocks;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
@@ -531,6 +532,9 @@ public final class BlueprintPlacer {
             case "market" -> market(level, blocks, base);
             case "lumber_camp" -> lumberCamp(level, blocks, base);
             case "mine" -> mine(level, blocks, base);
+            case "warehouse" -> warehouse(level, blocks, base);
+            case "smith" -> smith(level, blocks, base);
+            case "animal_farm" -> animalFarm(level, blocks, base);
             case "stairs" -> accessStairs(level, blocks, base);
             case "watchtower" -> watchtower(level, blocks, base);
             case "storehouse" -> storehouse(level, blocks, base);
@@ -540,6 +544,8 @@ public final class BlueprintPlacer {
         if (path.equals("town_hall")) {
             add(blocks, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);
             add(blocks, base.offset(0, 1, -1), KingdomsBlocks.TOWN_HALL.get());
+            // The board hangs in the hall: one place to read what the town wants.
+            add(blocks, base.offset(-2, 1, -2), KingdomsBlocks.QUEST_BOARD.get());
         }
         if (path.equals("house")) {
             add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.HOUSE.get());
@@ -674,6 +680,65 @@ public final class BlueprintPlacer {
         return dims;
     }
 
+    /** A long store shed: the town's ledger made of barrels. */
+    private static int[] warehouse(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 7, 7, 4, Blocks.DARK_OAK_PLANKS, Blocks.DARK_OAK_LOG);
+        add(blocks, base.offset(0, 1, -2), KingdomsBlocks.WAREHOUSE.get());
+        for (int dx = -2; dx <= 2; dx += 2) {
+            add(blocks, base.offset(dx, 1, 2), Blocks.BARREL);
+            add(blocks, base.offset(dx, 2, 2), Blocks.BARREL);
+            add(blocks, base.offset(dx, 1, -1), Blocks.BARREL);
+        }
+        return dims;
+    }
+
+    /** A smithy: forge, anvil, bench. */
+    private static int[] smith(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.STONE_BRICKS, Blocks.DEEPSLATE_BRICKS);
+        add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.SMITH.get());
+        add(blocks, base.offset(0, 1, -1), Blocks.FURNACE);
+        add(blocks, base.offset(1, 1, -1), Blocks.ANVIL);
+        add(blocks, base.offset(1, 1, 1), Blocks.SMITHING_TABLE);
+        add(blocks, base.offset(-1, 1, 1), Blocks.GRINDSTONE);
+        return dims;
+    }
+
+    /**
+     * A fenced compound split into pens, one per beast the culture keeps.
+     *
+     * <p>Pens are strips rather than a grid: a strip is trivially separated by a
+     * single run of fence, and separation is the whole requirement — cows must
+     * not end up in with the chickens.
+     */
+    private static int[] animalFarm(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int pens = Math.max(1, Culture.DEFAULT.penCount());
+        int penDepth = 3;
+        int width = 9;
+        int depth = pens * penDepth + pens + 1;
+        int rx = width / 2;
+        int rz = depth / 2;
+
+        foundation(level, blocks, base, width, depth);
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                add(blocks, base.offset(dx, 0, dz), Blocks.GRASS_BLOCK);
+                boolean edge = Math.abs(dx) == rx || Math.abs(dz) == rz;
+                // A divider every penDepth+1 rows walls one pen off from the next.
+                boolean divider = Math.floorMod(dz + rz, penDepth + 1) == 0;
+                if (edge || divider) {
+                    add(blocks, base.offset(dx, 1, dz), Blocks.OAK_FENCE);
+                }
+            }
+        }
+        // One gate per pen, all down the same side, so every pen can be walked into.
+        for (int pen = 0; pen < pens; pen++) {
+            int dz = -rz + 1 + pen * (penDepth + 1);
+            add(blocks, base.offset(-rx, 1, dz), Blocks.OAK_FENCE_GATE);
+        }
+        add(blocks, base.offset(0, 1, -rz + 1), KingdomsBlocks.ANIMAL_FARM.get());
+        return new int[]{width, depth, 3};
+    }
+
     private static int[] granary(ServerLevel level, List<Placement> blocks, BlockPos base) {
         int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.GRANARY.get());
@@ -734,7 +799,7 @@ public final class BlueprintPlacer {
     }
 
     private static int[] farm(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int r = 3;
+        int r = 5;
         foundation(level, blocks, base, 2 * r + 1, 2 * r + 1);
         for (int dx = -r; dx <= r; dx++) {
             for (int dz = -r; dz <= r; dz++) {

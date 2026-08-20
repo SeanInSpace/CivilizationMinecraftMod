@@ -82,6 +82,7 @@ public final class LumberjackWorker {
         worker.swing(InteractionHand.MAIN_HAND);
 
         level.destroyBlock(log, false);
+        settlement.tallies().record(com.kingdoms.sim.settlement.Tallies.TREES_FELLED);
         settlement.setWoodStock(Math.min(
                 LumberPlanner.woodCapacity(settlement), settlement.woodStock() + WOOD_PER_LOG));
         if (Math.floorMod(log.asLong(), SAPLING_EVERY) == 0) {

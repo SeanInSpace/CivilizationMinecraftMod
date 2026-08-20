@@ -68,6 +68,7 @@ public class BuildingPostBlock extends Block {
         player.sendSystemMessage(Component.literal(
                 role + " of " + settlement.name() + " — " + explains));
         player.sendSystemMessage(Component.literal(report(settlement)));
+        extraReport(player, settlement);
         return InteractionResult.SUCCESS;
     }
 
@@ -78,6 +79,10 @@ public class BuildingPostBlock extends Block {
                 + ", food " + settlement.foodStock()
                 + ", timber " + settlement.woodStock()
                 + ", stone " + settlement.stoneStock();
+    }
+
+    /** Anything this post wants to say beyond the one-line summary. */
+    protected void extraReport(Player player, Settlement settlement) {
     }
 
     /**

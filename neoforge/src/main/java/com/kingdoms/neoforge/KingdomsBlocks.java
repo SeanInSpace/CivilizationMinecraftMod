@@ -2,7 +2,9 @@ package com.kingdoms.neoforge;
 
 import com.kingdoms.neoforge.block.BuildingPostBlock;
 import com.kingdoms.neoforge.block.LumberCampBlock;
+import com.kingdoms.neoforge.block.MarketBlock;
 import com.kingdoms.neoforge.block.MineBlock;
+import com.kingdoms.neoforge.block.QuestBoardBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -50,9 +52,10 @@ public final class KingdomsBlocks {
             properties -> new BuildingPostBlock("Farm", "wheat is grown here, the first link in the food chain.", properties),
             KingdomsBlocks::postProperties);
     /** Market: families shop here; stock is carried in from the granary. */
-    public static final DeferredBlock<BuildingPostBlock> MARKET = BLOCKS.registerBlock(
+    public static final DeferredBlock<MarketBlock> MARKET = BLOCKS.registerBlock(
             "market",
-            properties -> new BuildingPostBlock("Market", "families shop here; stock is carried in from the granary.", properties),
+            properties -> new MarketBlock("Market",
+                    "families shop here; stock is carried in from the granary.", properties),
             KingdomsBlocks::postProperties);
     /** Storehouse: the town's general stores, and where timber and stone pile up. */
     public static final DeferredBlock<BuildingPostBlock> STOREHOUSE = BLOCKS.registerBlock(
@@ -76,6 +79,27 @@ public final class KingdomsBlocks {
                     "stone is cut here, and a town that digs needs it.", properties),
             KingdomsBlocks::postProperties);
 
+    /** Warehouse: the town's stores; every resource it owns is counted here. */
+    public static final DeferredBlock<BuildingPostBlock> WAREHOUSE = BLOCKS.registerBlock(
+            "warehouse",
+            properties -> new BuildingPostBlock("Warehouse", "the town's stores; every resource it owns is counted here.", properties),
+            KingdomsBlocks::postProperties);
+    /** Smithy: tools, weapons and armour are made here and issued to the town. */
+    public static final DeferredBlock<BuildingPostBlock> SMITH = BLOCKS.registerBlock(
+            "smith",
+            properties -> new BuildingPostBlock("Smithy", "tools, weapons and armour are made here and issued to the town.", properties),
+            KingdomsBlocks::postProperties);
+    /** Animal Farm: livestock is kept here, a pen to each kind. */
+    public static final DeferredBlock<BuildingPostBlock> ANIMAL_FARM = BLOCKS.registerBlock(
+            "animal_farm",
+            properties -> new BuildingPostBlock("Animal Farm", "livestock is kept here, a pen to each kind.", properties),
+            KingdomsBlocks::postProperties);
+    /** Quest Board: what the town is asking for, and what it has seen done. */
+    public static final DeferredBlock<QuestBoardBlock> QUEST_BOARD = BLOCKS.registerBlock(
+            "quest_board",
+            properties -> new QuestBoardBlock("Quest Board", "what the town is asking for, and what it has seen done.", properties),
+            KingdomsBlocks::postProperties);
+
     /**
      * Shared footing for every post: sturdy enough not to be knocked out by
      * accident, cheap enough to break if you want the building gone.
@@ -89,7 +113,7 @@ public final class KingdomsBlocks {
 
     /** Every post the mod registers, in build order. */
     public static List<DeferredBlock<? extends BuildingPostBlock>> posts() {
-        return List.of(TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE);
+        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE);
     }
 
     private KingdomsBlocks() {

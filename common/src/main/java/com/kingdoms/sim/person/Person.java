@@ -59,6 +59,9 @@ public final class Person {
      */
     private boolean embodied;
 
+    /** Issued a tool by the smith; see {@code SmithPlanner}. */
+    private boolean hasTool;
+
     public Person(Id id, String name, Profession profession, SimPos position) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
@@ -88,6 +91,21 @@ public final class Person {
 
     public void setPosition(SimPos position) {
         this.position = Objects.requireNonNull(position, "position");
+    }
+
+    /**
+     * Whether this person has been issued a tool from the town's rack.
+     *
+     * <p>A worker without one still works — an unequipped town should be poorer,
+     * not paralysed — but the forge exists to change that, and the quest board
+     * counts the shortfall.
+     */
+    public boolean hasTool() {
+        return hasTool;
+    }
+
+    public void setHasTool(boolean hasTool) {
+        this.hasTool = hasTool;
     }
 
     public boolean isEmbodied() {

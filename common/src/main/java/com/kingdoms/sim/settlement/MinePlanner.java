@@ -56,7 +56,8 @@ public final class MinePlanner {
 
     public static int stoneCapacity(Settlement settlement) {
         int stores = (int) settlement.buildings().stream()
-                .filter(b -> b.blueprintId().endsWith("storehouse"))
+                .filter(b -> b.blueprintId().endsWith("storehouse")
+                        || b.blueprintId().endsWith("warehouse"))
                 .count();
         return BASE_STONE_STORAGE + stores * STONE_PER_STOREHOUSE;
     }

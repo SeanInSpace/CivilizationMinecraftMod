@@ -57,7 +57,8 @@ public final class LumberPlanner {
 
     public static int woodCapacity(Settlement settlement) {
         int stores = (int) settlement.buildings().stream()
-                .filter(b -> b.blueprintId().endsWith("storehouse"))
+                .filter(b -> b.blueprintId().endsWith("storehouse")
+                        || b.blueprintId().endsWith("warehouse"))
                 .count();
         return BASE_WOOD_STORAGE + stores * WOOD_PER_STOREHOUSE;
     }

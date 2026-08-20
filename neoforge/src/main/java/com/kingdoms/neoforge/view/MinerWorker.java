@@ -4,6 +4,8 @@ import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.MinePlanner;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.Tallies;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.WorkArea;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -32,6 +34,9 @@ public final class MinerWorker {
 
     /** Stone credited per block cut. */
     private static final int STONE_PER_BLOCK = 1;
+
+    /** Iron credited per vein cut through. */
+    private static final int IRON_PER_ORE = 2;
 
     /** Never cut below this, so nobody digs into the void or strips bedrock. */
     private static final int FLOOR_MARGIN = 6;
@@ -63,9 +68,18 @@ public final class MinerWorker {
         worker.getLookControl().setLookAt(face.getX() + 0.5, face.getY() + 0.5, face.getZ() + 0.5);
         worker.swing(InteractionHand.MAIN_HAND);
 
+        boolean ore = level.getBlockState(face).is(BlockTags.IRON_ORES);
         level.destroyBlock(face, false);
-        settlement.setStoneStock(Math.min(
-                MinePlanner.stoneCapacity(settlement), settlement.stoneStock() + STONE_PER_BLOCK));
+        if (ore) {
+            // Iron is the one thing a town cannot cut out of a hillside, and the
+            // forge runs on it. Ore found while cutting is where it all comes from.
+            settlement.stores().add(TownStores.IRON, IRON_PER_ORE);
+            settlement.tallies().record(Tallies.STONE_CUT);
+        } else {
+            settlement.stores().addCapped(TownStores.STONE, STONE_PER_BLOCK,
+                    MinePlanner.stoneCapacity(settlement));
+            settlement.tallies().record(Tallies.STONE_CUT);
+        }
         return true;
     }
 
@@ -117,7 +131,9 @@ public final class MinerWorker {
         if (state.isAir() || state.getDestroySpeed(level, pos) < 0) {
             return false;
         }
-        return state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(BlockTags.STONE_BRICKS);
+        return state.is(BlockTags.BASE_STONE_OVERWORLD)
+                || state.is(BlockTags.STONE_BRICKS)
+                || state.is(BlockTags.IRON_ORES);
     }
 
     /** Whether at least one side of this block is open, so it can be reached. */
