@@ -192,13 +192,18 @@ class SimWorldTest {
     @Test
     void unwatchedConstructionStillGetsPlacedWhole() {
         FakeBridge bridge = new FakeBridge();
-        bridge.loaded = true;
         BuildTask bakery = new BuildTask("kingdoms:norman/bakery", new SimPos(10, 64, 10), 2);
         // Nobody was watching: the plan was never surveyed, no blocks laid.
         Settlement settlement = settlementWithBuilders(2, bakery);
         SimWorld world = worldWith(bridge, settlement);
 
         world.step();
+        world.step();
+        assertEquals(1, settlement.buildings().size(), "it finished while nobody was there");
+        assertEquals(0, bridge.materialized.size(), "with nowhere yet to put it");
+
+        // The player comes back and the chunk loads.
+        bridge.loaded = true;
         world.step();
 
         assertEquals(1, bridge.materialized.size(),
@@ -219,7 +224,8 @@ class SimWorldTest {
     @Test
     void completedBuildingIsRecordedInSettlement() {
         FakeBridge bridge = new FakeBridge();
-        bridge.loaded = true;
+        // Unloaded, so the work runs on the clock. Where the world is real the
+        // only thing that finishes a building is a builder laying its last block.
         SimPos origin = new SimPos(10, 64, 10);
         Settlement settlement = settlementWithBuilders(2, new BuildTask("kingdoms:norman/bakery", origin, 2));
         SimWorld world = worldWith(bridge, settlement);
@@ -271,11 +277,13 @@ class SimWorldTest {
     @Test
     void buildingIsNeverDrawnTwice() {
         FakeBridge bridge = new FakeBridge();
-        bridge.loaded = true;
         Settlement settlement = settlementWithBuilders(
                 2, new BuildTask("kingdoms:norman/bakery", new SimPos(10, 64, 10), 2));
         SimWorld world = worldWith(bridge, settlement);
 
+        world.step();
+        world.step();
+        bridge.loaded = true;   // the player arrives; it is drawn once
         world.step();
         world.step();
         world.step();

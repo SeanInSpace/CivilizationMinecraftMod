@@ -322,7 +322,7 @@ public final class Settlement {
         }
         BuildTask current = buildQueue.getFirst();
 
-        if (isWatchedBuild(ctx, current)) {
+        if (isBuiltByHand(ctx, current)) {
             // Somebody is here to watch, so the masonry is the truth: this step
             // clears the builders to lay their share, and progress is whatever
             // they actually get down. Nothing finishes until the last block does,
@@ -352,18 +352,18 @@ public final class Settlement {
     }
 
     /**
-     * Whether this build is being watched closely enough to be built for real.
+     * Whether this site is real enough that the building has to be built, not counted.
      *
-     * <p>All three conditions matter. The plan size is only known once the site is
-     * surveyed; the chunk has to be loaded for blocks to go anywhere; and a player
-     * has to be near enough that the view layer is actually running builders —
-     * otherwise blocks would be granted that nobody is ever going to lay, and the
-     * build would stall forever instead of quietly finishing on the clock.
+     * <p>A loaded chunk is the whole test. Where the world actually exists, the
+     * only thing that raises a wall is a builder laying a block — no clock runs
+     * alongside them, and a site nobody has walked to simply does not progress.
+     *
+     * <p>Deliberately <em>not</em> conditioned on a player being nearby. Doing so
+     * meant a loaded chunk with the player just out of range still ran the clock,
+     * and buildings finished with not one block laid.
      */
-    private boolean isWatchedBuild(SimContext ctx, BuildTask task) {
-        return task.planSize() > 0
-                && ctx.bridge().isLoaded(task.site())
-                && ctx.bridge().playerWithin(task.site(), ctx.settings().observedRadius());
+    private boolean isBuiltByHand(SimContext ctx, BuildTask task) {
+        return ctx.bridge().isLoaded(task.site());
     }
 
     /**

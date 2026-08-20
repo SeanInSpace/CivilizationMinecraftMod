@@ -24,9 +24,10 @@ class AccessRepairTest {
 
     private static final BuildingType HOUSE = new BuildingType("test:house", 20, 9999, 0, 0, 80, 4);
 
+    /** Nobody present, so the repair flight is built on the clock. */
     private static final class QuietBridge implements WorldBridge {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
-        @Override public boolean isLoaded(SimPos pos) { return true; }
+        @Override public boolean isLoaded(SimPos pos) { return false; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
         @Override public void materializeBlueprint(String blueprintId, SimPos origin) { }
         @Override public void log(String message) { }

@@ -86,6 +86,16 @@ public final class PersonEntityManager {
     /** Passes a site may make no progress before a block is placed regardless. */
     private static final int STALL_PASSES_BEFORE_ASSIST = 20;
 
+    /**
+     * How close a builder must be to the site to count as working on it.
+     *
+     * <p>Wider than {@link #PLACE_REACH}, because a builder standing on a finished
+     * course is genuinely present even when the next block is across the footprint
+     * — but far short of "somewhere in town", which is what let buildings finish
+     * with nobody there.
+     */
+    private static final double SITE_RADIUS = 16.0;
+
     /** Sites that have made no progress recently, by settlement id. */
     private final Map<UUID, Integer> constructionStalls = new HashMap<>();
 
@@ -207,15 +217,16 @@ public final class PersonEntityManager {
                 }
                 BlueprintPlacer.prepareSite(level, task);
 
-                List<PersonEntity> builders = embodiedBuilders(settlement);
+                List<PersonEntity> builders = buildersAtSite(settlement, task);
+                if (builders.isEmpty()) {
+                    continue;   // nobody is at the site, so stepping builds nothing
+                }
                 // The plan is a hard ceiling on the loop: placeNextBlock also
                 // stops on its own, but a build that cannot progress must not be
                 // able to spin here.
                 int guard = task.planSize() + 1;
                 while (task.pendingBlocks() > 0 && guard-- > 0) {
-                    if (!builders.isEmpty()) {
-                        builders.getFirst().swing(InteractionHand.MAIN_HAND);
-                    }
+                    builders.getFirst().swing(InteractionHand.MAIN_HAND);
                     if (!BlueprintPlacer.placeNextBlock(level, task)) {
                         break;
                     }
@@ -271,10 +282,14 @@ public final class PersonEntityManager {
                 } else if (BlueprintPlacer.nextBlock(level, task) != null) {
                     int stalled = constructionStalls.merge(key, 1, Integer::sum);
                     if (stalled >= STALL_PASSES_BEFORE_ASSIST) {
-                        // Still credited to a builder, so no block is ever laid
-                        // without a visible hand behind it.
-                        builders.getFirst().swing(InteractionHand.MAIN_HAND);
-                        BlueprintPlacer.placeNextBlock(level, task);
+                        // Only for a builder who is genuinely at the site and
+                        // simply cannot path to this one block. No hand present,
+                        // no block — a stall is not a licence to build remotely.
+                        List<PersonEntity> present = buildersAtSite(settlement, task);
+                        if (!present.isEmpty()) {
+                            present.getFirst().swing(InteractionHand.MAIN_HAND);
+                            BlueprintPlacer.placeNextBlock(level, task);
+                        }
                         constructionStalls.remove(key);
                     }
                 }
@@ -475,6 +490,19 @@ public final class PersonEntityManager {
             }
         }
         return changed;
+    }
+
+    /** Embodied builders standing close enough to the site to be working on it. */
+    private List<PersonEntity> buildersAtSite(Settlement settlement, BuildTask task) {
+        SimPos site = task.site();
+        List<PersonEntity> present = new ArrayList<>();
+        for (PersonEntity builder : embodiedBuilders(settlement)) {
+            if (builder.distanceToSqr(site.x() + 0.5, site.y(), site.z() + 0.5)
+                    <= SITE_RADIUS * SITE_RADIUS) {
+                present.add(builder);
+            }
+        }
+        return present;
     }
 
     private List<PersonEntity> embodiedBuilders(Settlement settlement) {

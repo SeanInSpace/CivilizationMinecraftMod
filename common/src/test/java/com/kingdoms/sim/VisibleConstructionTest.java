@@ -26,17 +26,17 @@ class VisibleConstructionTest {
     private static final BuildingType HOUSE =
             new BuildingType("test:house", 20, 1, 1, 0, 80, 4);
 
-    /** A bridge with the watcher switchable, since that is the whole subject here. */
-    private static final class WatchedBridge implements WorldBridge {
-        final boolean watched;
+    /** A bridge with chunk load switchable, since that is the whole subject here. */
+    private static final class SiteBridge implements WorldBridge {
+        boolean loaded;
         int stamped;
 
-        WatchedBridge(boolean watched) {
-            this.watched = watched;
+        SiteBridge(boolean loaded) {
+            this.loaded = loaded;
         }
 
-        @Override public boolean playerWithin(SimPos pos, double radius) { return watched; }
-        @Override public boolean isLoaded(SimPos pos) { return true; }
+        @Override public boolean playerWithin(SimPos pos, double radius) { return loaded; }
+        @Override public boolean isLoaded(SimPos pos) { return loaded; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
         @Override public void materializeBlueprint(String blueprintId, SimPos origin) { stamped++; }
         @Override public void log(String message) { }
@@ -109,10 +109,10 @@ class VisibleConstructionTest {
     }
 
     @Test
-    void awatchedBuildDoesNotFinishWhileItsWallsAreStillGoingUp() {
+    void aloadedSiteDoesNotFinishWhileItsWallsAreStillGoingUp() {
         Settlement s = townWithBuilders(1);
         s.enqueueBuild(surveyedTask(200));
-        SimContext ctx = new SimContext(new WatchedBridge(true), 0, SimSettings.SANDBOX);
+        SimContext ctx = new SimContext(new SiteBridge(true), 0, SimSettings.SANDBOX);
 
         // Far more steps than the 20 builder-steps the job costs.
         for (int step = 0; step < 60; step++) {
@@ -121,6 +121,8 @@ class VisibleConstructionTest {
 
         assertEquals(1, s.buildQueue().size(),
                 "the task is still queued, because no block has actually been laid");
+        assertEquals(0.0, s.buildQueue().getFirst().completionFraction(), 1e-9,
+                "and it reads as untouched, however long the clock ran");
         assertTrue(s.buildings().isEmpty(), "and nothing was recorded as built");
         assertTrue(s.buildQueue().getFirst().pendingBlocks() > 0,
                 "the builders are simply cleared to lay blocks nobody has laid yet");
@@ -130,15 +132,19 @@ class VisibleConstructionTest {
     void anunwatchedBuildStillFinishesOnTheClock() {
         Settlement s = townWithBuilders(1);
         s.enqueueBuild(surveyedTask(200));
-        WatchedBridge bridge = new WatchedBridge(false);
+        SiteBridge bridge = new SiteBridge(false);
         SimContext ctx = new SimContext(bridge, 0, SimSettings.SANDBOX);
 
         for (int step = 0; step < 25; step++) {
             s.step(ctx);
         }
 
-        assertTrue(s.buildQueue().isEmpty(), "nobody is looking, so the clock is allowed to run");
+        assertTrue(s.buildQueue().isEmpty(), "the chunk is not loaded, so the clock is allowed to run");
         assertEquals(1, s.buildings().size());
+        assertEquals(0, bridge.stamped, "with nowhere to put it yet");
+
+        bridge.loaded = true;   // the player arrives
+        s.step(ctx);
         assertEquals(1, bridge.stamped,
                 "and it is stamped into the world whole, since no hand laid it");
     }
@@ -148,7 +154,7 @@ class VisibleConstructionTest {
         Settlement s = townWithBuilders(1);
         BuildTask task = surveyedTask(50);
         s.enqueueBuild(task);
-        WatchedBridge bridge = new WatchedBridge(true);
+        SiteBridge bridge = new SiteBridge(true);
         SimContext ctx = new SimContext(bridge, 0, SimSettings.SANDBOX);
 
         // Stand in for the view layer: whatever the step clears, gets laid.

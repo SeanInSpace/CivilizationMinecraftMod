@@ -27,9 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class StressTest {
 
+    /** Twenty towns nobody is standing in — all of them run abstractly. */
     private static final class LoadedBridge implements WorldBridge {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
-        @Override public boolean isLoaded(SimPos pos) { return true; }
+        @Override public boolean isLoaded(SimPos pos) { return false; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
         @Override public void materializeBlueprint(String blueprintId, SimPos origin) { }
         @Override public void log(String message) { }

@@ -30,11 +30,11 @@ class BuildPlannerTest {
 
     private static final List<BuildingType> CATALOGUE = List.of(HALL, HOUSE, TOWER);
 
-    /** Bridge that reports everything loaded, so buildings materialize immediately. */
+    /** An unwatched town: the chunk is not loaded, so building runs on the clock. */
     private static final class LoadedBridge implements WorldBridge {
         Integer surfaceOverride = null;
         @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
-        @Override public boolean isLoaded(SimPos pos) { return true; }
+        @Override public boolean isLoaded(SimPos pos) { return false; }
         @Override public int surfaceHeight(SimPos pos) { return surfaceOverride != null ? surfaceOverride : pos.y(); }
         @Override public void materializeBlueprint(String blueprintId, SimPos origin) { }
         @Override public void log(String message) { }
