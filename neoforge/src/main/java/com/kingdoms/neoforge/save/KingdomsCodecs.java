@@ -195,10 +195,12 @@ public final class KingdomsCodecs {
             SIM_POS.fieldOf("origin").forGetter(Building::origin),
             Codec.LONG.fieldOf("completed_on_step").forGetter(Building::completedOnStep),
             Codec.BOOL.fieldOf("materialized").forGetter(Building::isMaterialized),
-            Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored)
-    ).apply(i, (blueprint, origin, step, materialized, food) -> {
+            Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored),
+            Codec.BOOL.optionalFieldOf("surveyed", false).forGetter(Building::isSurveyed)
+    ).apply(i, (blueprint, origin, step, materialized, food, surveyed) -> {
         Building building = new Building(blueprint, origin, step, materialized);
         building.setFoodStored(food);
+        building.setSurveyed(surveyed);
         return building;
     }));
 

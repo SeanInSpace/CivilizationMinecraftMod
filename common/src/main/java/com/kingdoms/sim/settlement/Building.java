@@ -19,9 +19,11 @@ import java.util.Objects;
 public final class Building {
 
     private final String blueprintId;
-    private final SimPos origin;
+    private SimPos origin;
     private final long completedOnStep;
     private boolean materialized;
+
+    private boolean surveyed;
 
     /** Food held at this building — harvest waiting at a farm, stock at a market. */
     private int foodStored;
@@ -51,6 +53,31 @@ public final class Building {
     }
 
     /** Whether this has been drawn into the world as blocks yet. */
+    /**
+     * Whether this building's height was measured against real terrain.
+     *
+     * <p>False for one planned and finished while its chunk was never loaded —
+     * its origin carries an estimate, and placement has to snap to the ground.
+     */
+    /**
+     * Corrects the recorded height to where the building actually stands.
+     *
+     * <p>A building planned while its chunk was unloaded carries an estimated
+     * height. Placement finds the real ground; without writing that back, every
+     * worker who walks to this building aims at the estimate instead.
+     */
+    public void setOriginY(int y) {
+        this.origin = new SimPos(origin.x(), y, origin.z());
+    }
+
+    public boolean isSurveyed() {
+        return surveyed;
+    }
+
+    public void setSurveyed(boolean surveyed) {
+        this.surveyed = surveyed;
+    }
+
     public boolean isMaterialized() {
         return materialized;
     }

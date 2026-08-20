@@ -14,6 +14,9 @@ import com.kingdoms.sim.geom.SimPos;
  */
 public interface WorldBridge {
 
+    /** Returned by {@link #materializeBlueprint} when nothing could be placed. */
+    int NOT_PLACED = Integer.MIN_VALUE;
+
     /**
      * Whether any living player is within {@code radius} blocks of this position.
      *
@@ -42,8 +45,20 @@ public interface WorldBridge {
      * <p>Safe to call when unobserved: implementations should record the change
      * and apply it when the chunk next loads, so that settlements which grew
      * while the player was away appear already built.
+     *
+     * <p>Returns the height it was actually placed at, or {@link #NOT_PLACED} if
+     * nothing was placed. An unsurveyed origin carries a guess, and the caller
+     * needs the real answer back — otherwise workers keep walking to a height the
+     * building is not at.
+     *
+     * <p>{@code surveyed} says whether the origin's height was measured against
+     * real terrain. When it was, the implementation must place at exactly that
+     * height and not re-measure — otherwise a structure the builders had already
+     * started gets stamped in a second time at a different level, and you get two
+     * of it. When it was not, the height is a guess and re-measuring is the whole
+     * point.
      */
-    void materializeBlueprint(String blueprintId, SimPos origin);
+    int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed);
 
     /** Structured logging that does not depend on a specific logging backend. */
     void log(String message);

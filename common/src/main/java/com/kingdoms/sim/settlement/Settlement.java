@@ -2,6 +2,7 @@ package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -474,8 +475,12 @@ public final class Settlement {
         // at the surveyed site if construction got far enough to survey one — and
         // counts as already drawn if the builders laid every block by hand, so
         // watched construction is never re-stamped by a placement pass.
-        buildings.add(new Building(
-                current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete()));
+        Building raised = new Building(
+                current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete());
+        // Surveyed sites keep the height the builders actually worked to; only an
+        // unsurveyed one may be snapped to the ground at placement time.
+        raised.setSurveyed(current.siteY() != BuildTask.UNSET_SITE_Y);
+        buildings.add(raised);
         tallies.record(Tallies.BUILDINGS_RAISED);
     }
 
@@ -536,7 +541,13 @@ public final class Settlement {
                 continue;
             }
             if (ctx.bridge().isLoaded(building.origin())) {
-                ctx.bridge().materializeBlueprint(building.blueprintId(), building.origin());
+                int placedAt = ctx.bridge().materializeBlueprint(
+                        building.blueprintId(), building.origin(), building.isSurveyed());
+                if (placedAt != WorldBridge.NOT_PLACED) {
+                    // Where it really stands, so everyone who walks here arrives.
+                    building.setOriginY(placedAt);
+                    building.setSurveyed(true);
+                }
                 building.setMaterialized(true);
             }
         }

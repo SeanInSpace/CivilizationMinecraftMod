@@ -57,14 +57,14 @@ public final class LumberjackWorker {
         BlockPos standing = worker.blockPosition();
 
         if (LumberPlanner.wantsMoreTimber(settlement)) {
-            BlockPos log = findLog(level, area, standing);
+            BlockPos log = findLog(level, settlement, area, standing);
             if (log != null) {
                 return approachAndFell(level, settlement, worker, log);
             }
         }
         // No trunks left standing, or the stores are full: give the wood back.
         if (settlement.saplingStock() > 0) {
-            BlockPos spot = findPlantingSpot(level, area, standing);
+            BlockPos spot = findPlantingSpot(level, settlement, area, standing);
             if (spot != null) {
                 return approachAndPlant(level, settlement, worker, spot);
             }
@@ -108,18 +108,39 @@ public final class LumberjackWorker {
     // --- finding work ---
 
     /** Nearest standing trunk in the area, or null when the wood is clear. */
-    private static BlockPos findLog(ServerLevel level, WorkArea area, BlockPos from) {
+    /**
+     * Whether this column is inside the village proper.
+     *
+     * <p>Trees growing between the houses block every path the town lays and every
+     * door its people are trying to reach, so they are fair game whether or not
+     * the woodland claim happens to cover them — and they are never replanted.
+     */
+    private static boolean insideVillage(Settlement settlement, int x, int z) {
+        SimPos centre = settlement.centre();
+        long dx = x - centre.x();
+        long dz = z - centre.z();
+        long reach = settlement.claimRadius();
+        return dx * dx + dz * dz <= reach * reach;
+    }
+
+    private static BlockPos findLog(ServerLevel level, Settlement settlement,
+                                    WorkArea area, BlockPos from) {
         BlockPos best = null;
         double bestDistance = Double.MAX_VALUE;
         int examined = 0;
 
+        // Search whichever is wider: the woodland claim, or the village itself.
+        // Both are worked — the claim for timber, the village to keep it clear.
         SimPos centre = area.centre();
-        int r = area.radius();
+        SimPos town = settlement.centre();
+        int r = Math.max(area.radius(), settlement.claimRadius());
+        boolean villageFirst = true;
         for (int dx = -r; dx <= r && examined < MAX_COLUMNS_PER_SCAN; dx++) {
             for (int dz = -r; dz <= r && examined < MAX_COLUMNS_PER_SCAN; dz++) {
-                int x = centre.x() + dx;
-                int z = centre.z() + dz;
-                if (!area.contains(new SimPos(x, centre.y(), z))) {
+                int x = town.x() + dx;
+                int z = town.z() + dz;
+                boolean inVillage = insideVillage(settlement, x, z);
+                if (!inVillage && !area.contains(new SimPos(x, centre.y(), z))) {
                     continue;
                 }
                 double distance = from.distSqr(new BlockPos(x, from.getY(), z));
@@ -134,8 +155,16 @@ public final class LumberjackWorker {
                 BlockPos candidate = new BlockPos(x, top, z);
                 BlockState state = level.getBlockState(candidate);
                 if (state.is(BlockTags.LOGS)) {
-                    best = candidate;
-                    bestDistance = distance;
+                    // A trunk standing in the village outranks one in the wood,
+                    // however far away it is: that is the one in somebody's way.
+                    if (inVillage && villageFirst) {
+                        villageFirst = false;
+                        bestDistance = Double.MAX_VALUE;
+                    }
+                    if (inVillage || villageFirst) {
+                        best = candidate;
+                        bestDistance = distance;
+                    }
                 }
             }
         }
@@ -143,7 +172,13 @@ public final class LumberjackWorker {
     }
 
     /** Bare ground in the area with headroom, for putting a sapling back. */
-    private static BlockPos findPlantingSpot(ServerLevel level, WorkArea area, BlockPos from) {
+    /**
+     * Somewhere to put a sapling — inside the woodland claim, and never in the
+     * village. Replanting where the town walks is how the paths got blocked in
+     * the first place.
+     */
+    private static BlockPos findPlantingSpot(ServerLevel level, Settlement settlement,
+                                             WorkArea area, BlockPos from) {
         SimPos centre = area.centre();
         int r = area.radius();
         BlockPos best = null;
@@ -154,7 +189,8 @@ public final class LumberjackWorker {
             for (int dz = -r; dz <= r && examined < MAX_COLUMNS_PER_SCAN; dz++) {
                 int x = centre.x() + dx;
                 int z = centre.z() + dz;
-                if (!area.contains(new SimPos(x, centre.y(), z))) {
+                if (!area.contains(new SimPos(x, centre.y(), z))
+                        || insideVillage(settlement, x, z)) {
                     continue;
                 }
                 double distance = from.distSqr(new BlockPos(x, from.getY(), z));

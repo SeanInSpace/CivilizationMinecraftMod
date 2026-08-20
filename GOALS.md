@@ -16,7 +16,7 @@ Everything below runs without throwing and produces the right numbers. What no
 automated check can confirm is whether it *looks* right:
 
 - [ ] Are the animal pens actually separated, and do the beasts stay in them?
-- [ ] Do paths land on the ground and reach the doors, rather than stopping short?
+- [ ] Do the wider paths reach the doors, and stay clear of trees now?
 - [ ] Do guards visibly carry swords once a smithy stands?
 - [ ] Is a hillside build's material cost bearable in real time, or a grind?
 - [ ] Does the quest board read well, or is it a wall of numbers?
@@ -29,6 +29,12 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **Three faults from live play.** Trees inside the village blocked every path
+  (lumberjacks only worked the woodland claim, and replanted anywhere in it);
+  paths were a single block wide; and buildings were placed twice — the hand-built
+  and stamped paths used different floor conventions, so a build watched partway
+  and then abandoned produced two copies a course apart.
 
 - **Endurance run.** 700 steps from five settlers: three settlements, 55 / 32 / 5
   buildings, both mature towns fully equipped (48/48 and 35/35), twelve raids

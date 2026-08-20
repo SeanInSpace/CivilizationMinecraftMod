@@ -48,8 +48,9 @@ class SimWorldTest {
         }
 
         @Override
-        public void materializeBlueprint(String blueprintId, SimPos origin) {
+        public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
             materialized.add(blueprintId + "@" + origin);
+            return origin.y();
         }
 
         @Override

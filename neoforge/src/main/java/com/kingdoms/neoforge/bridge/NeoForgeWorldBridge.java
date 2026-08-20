@@ -66,15 +66,25 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      * the building stays pending until a later step finds it available.
      */
     @Override
-    public void materializeBlueprint(String blueprintId, SimPos origin) {
+    public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
         if (!level.isLoaded(toBlockPos(origin))) {
-            return;
+            return NOT_PLACED;
         }
-        // Snap to the terrain at placement time — the recorded origin may carry an
-        // estimated height if it was planned while the chunk was unloaded.
-        BlockPos base = new BlockPos(origin.x(), surfaceHeight(origin), origin.z());
+        // A surveyed site keeps its measured height. Re-measuring here is what put
+        // a stamped building one course above the same building the builders had
+        // begun by hand — two copies of it, a block apart.
+        //
+        // An unsurveyed origin carries a planning estimate, so it does get snapped
+        // — through the same floorFor the builders would have used, not the raw
+        // surface, or the two paths disagree again.
+        int y = surveyed ? origin.y() : BlueprintPlacer.floorFor(surfaceHeight(origin));
+        BlockPos base = new BlockPos(origin.x(), y, origin.z());
         BlueprintPlacer.place(level, blueprintId, base);
-        KingdomsMod.LOGGER.info("Materialized {} at {}", blueprintId, origin);
+        // Logs the base actually used, not the requested origin. A mismatch
+        // between the two is precisely the double-placement bug.
+        KingdomsMod.LOGGER.info("Materialized {} at {} (origin {}, surveyed {})",
+                blueprintId, base, origin, surveyed);
+        return base.getY();
     }
 
     @Override

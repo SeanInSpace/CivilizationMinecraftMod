@@ -30,6 +30,7 @@ class VisibleConstructionTest {
     private static final class SiteBridge implements WorldBridge {
         boolean loaded;
         int stamped;
+        Boolean lastSurveyed;
 
         SiteBridge(boolean loaded) {
             this.loaded = loaded;
@@ -38,7 +39,11 @@ class VisibleConstructionTest {
         @Override public boolean playerWithin(SimPos pos, double radius) { return loaded; }
         @Override public boolean isLoaded(SimPos pos) { return loaded; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
-        @Override public void materializeBlueprint(String blueprintId, SimPos origin) { stamped++; }
+        @Override public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+            stamped++;
+            lastSurveyed = surveyed;
+            return origin.y();
+        }
         @Override public void log(String message) { }
     }
 
@@ -87,6 +92,44 @@ class VisibleConstructionTest {
 
         task.recordStepDone(1);   // one block laid
         assertEquals(0.125, task.completionFraction(), 1e-9);
+    }
+
+    @Test
+    void aSurveyedSiteKeepsTheHeightTheBuildersWorkedTo() {
+        Settlement s = townWithBuilders(1, false);
+        BuildTask task = surveyedTask(200);       // siteY measured against real ground
+        s.enqueueBuild(task);
+        SiteBridge bridge = new SiteBridge(false);
+        SimContext ctx = new SimContext(bridge, 0, SimSettings.SANDBOX);
+
+        for (int step = 0; step < 30 && !s.buildQueue().isEmpty(); step++) {
+            s.step(ctx);
+        }
+        bridge.loaded = true;
+        s.step(ctx);
+
+        assertEquals(Boolean.TRUE, bridge.lastSurveyed,
+                "placement must not re-measure a site the builders already worked to — "
+                        + "that is what put a stamped building a course above a started one");
+    }
+
+    @Test
+    void anUnsurveyedSiteIsSnappedToTheGround() {
+        Settlement s = townWithBuilders(1, false);
+        // No siteY: planned and finished while its chunk was never loaded, so the
+        // recorded height is a guess and placement has to find the real ground.
+        BuildTask task = new BuildTask("test:house", new SimPos(10, 64, 10), 20);
+        s.enqueueBuild(task);
+        SiteBridge bridge = new SiteBridge(false);
+        SimContext ctx = new SimContext(bridge, 0, SimSettings.SANDBOX);
+
+        for (int step = 0; step < 30 && !s.buildQueue().isEmpty(); step++) {
+            s.step(ctx);
+        }
+        bridge.loaded = true;
+        s.step(ctx);
+
+        assertEquals(Boolean.FALSE, bridge.lastSurveyed);
     }
 
     @Test

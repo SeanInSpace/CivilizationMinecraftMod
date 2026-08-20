@@ -28,6 +28,14 @@ public final class PathLayer {
     /** Blocks of clearance kept above the track. */
     private static final int HEADROOM = 2;
 
+    /**
+     * Half-width of the track, so a path is {@code 2 * HALF_WIDTH + 1} across.
+     *
+     * <p>One block wide read as a trail of crumbs between buildings rather than a
+     * street, and two people could not pass on it.
+     */
+    private static final int HALF_WIDTH = 1;
+
     private PathLayer() {
     }
 
@@ -55,7 +63,13 @@ public final class PathLayer {
         int x = x0;
         int z = z0;
         for (int guard = 0; guard <= MAX_LENGTH; guard++) {
-            laid += pave(level, x, z);
+            // Paved as a swathe rather than a line. Cross-hatching both axes
+            // keeps corners from pinching to a single block on a diagonal run.
+            for (int ox = -HALF_WIDTH; ox <= HALF_WIDTH; ox++) {
+                for (int oz = -HALF_WIDTH; oz <= HALF_WIDTH; oz++) {
+                    laid += pave(level, x + ox, z + oz);
+                }
+            }
             if (x == x1 && z == z1) {
                 break;
             }

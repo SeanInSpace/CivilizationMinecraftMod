@@ -29,7 +29,9 @@ class AccessRepairTest {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
         @Override public boolean isLoaded(SimPos pos) { return false; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
-        @Override public void materializeBlueprint(String blueprintId, SimPos origin) { }
+        @Override public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+            return origin.y();
+        }
         @Override public void log(String message) { }
     }
 

@@ -34,7 +34,9 @@ class RaidPlannerTest {
         @Override public boolean playerWithin(SimPos pos, double radius) { return playerNearby; }
         @Override public boolean isLoaded(SimPos pos) { return true; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
-        @Override public void materializeBlueprint(String blueprintId, SimPos origin) { }
+        @Override public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+            return origin.y();
+        }
         @Override public void log(String message) { }
         @Override public int hostilesNear(SimPos centre, double radius) { return hostiles; }
         @Override public void spawnHostiles(int count, SimPos around) { spawnedRaids.add(count); }
