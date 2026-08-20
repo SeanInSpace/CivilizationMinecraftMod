@@ -22,8 +22,13 @@ public final class LumberPlanner {
     public static final int MAX_RADIUS = 64;
     public static final int RADIUS_STEP = 8;
 
-    /** Timber the town can stockpile before further felling is pointless. */
-    public static final int BASE_WOOD_STORAGE = 200;
+    /**
+     * Timber the town can stockpile before further felling is pointless.
+     *
+     * <p>Sized above what a founding party carries in, and well above it since
+     * construction started spending timber rather than merely accruing it.
+     */
+    public static final int BASE_WOOD_STORAGE = 512;
     public static final int WOOD_PER_STOREHOUSE = 400;
 
     private LumberPlanner() {

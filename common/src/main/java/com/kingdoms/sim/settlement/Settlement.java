@@ -73,15 +73,13 @@ public final class Settlement {
     private int foodStock = FoodPlanner.STARTING_PROVISIONS;
 
     /** Timber in the town's stores, felled by lumberjacks. */
-    private int woodStock;
 
     /** Saplings on hand for replanting what has been cut. */
-    private int saplingStock;
-
-    /** Cut stone, the other half of what a town has to secure for itself. */
-    private int stoneStock;
 
     /** Where the lumber camp may work, or null until one is built. */
+    /** Everything the town owns, by name. See {@link TownStores}. */
+    private final TownStores stores = TownStores.founding(FoodPlanner.STARTING_PROVISIONS);
+
     private WorkArea lumberArea;
 
     /** Where the mine may cut, set by the mine post. */
@@ -142,36 +140,40 @@ public final class Settlement {
         return threatLevel;
     }
 
-    public int foodStock() {
-        return foodStock;
+    public TownStores stores() {
+        return stores;
     }
 
-    public void setFoodStock(int foodStock) {
-        this.foodStock = Math.max(0, foodStock);
+    public int foodStock() {
+        return stores.get(TownStores.FOOD);
+    }
+
+    public void setFoodStock(int amount) {
+        stores.set(TownStores.FOOD, amount);
     }
 
     public int woodStock() {
-        return woodStock;
+        return stores.get(TownStores.WOOD);
     }
 
-    public void setWoodStock(int woodStock) {
-        this.woodStock = Math.max(0, woodStock);
+    public void setWoodStock(int amount) {
+        stores.set(TownStores.WOOD, amount);
     }
 
     public int stoneStock() {
-        return stoneStock;
+        return stores.get(TownStores.STONE);
     }
 
-    public void setStoneStock(int stoneStock) {
-        this.stoneStock = Math.max(0, stoneStock);
+    public void setStoneStock(int amount) {
+        stores.set(TownStores.STONE, amount);
     }
 
     public int saplingStock() {
-        return saplingStock;
+        return stores.get(TownStores.SAPLINGS);
     }
 
-    public void setSaplingStock(int saplingStock) {
-        this.saplingStock = Math.max(0, saplingStock);
+    public void setSaplingStock(int amount) {
+        stores.set(TownStores.SAPLINGS, amount);
     }
 
     public WorkArea lumberArea() {

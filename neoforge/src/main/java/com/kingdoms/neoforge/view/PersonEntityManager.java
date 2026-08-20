@@ -236,9 +236,9 @@ public final class PersonEntityManager {
                 // stops on its own, but a build that cannot progress must not be
                 // able to spin here.
                 int guard = task.planWork() + 1;
-                while (BlueprintPlacer.nextStep(level, task) != null && guard-- > 0) {
+                while (BlueprintPlacer.nextStep(level, settlement, task) != null && guard-- > 0) {
                     builders.getFirst().swing(InteractionHand.MAIN_HAND);
-                    if (!BlueprintPlacer.completeStep(level, task)) {
+                    if (!BlueprintPlacer.completeStep(level, settlement, task)) {
                         break;
                     }
                 }
@@ -265,10 +265,16 @@ public final class PersonEntityManager {
                     settlement.abandonBuild(world.stepsElapsed(), "the ground will not give");
                     continue;
                 }
+                // Out of something? Go and build whatever makes it.
+                BlueprintPlacer.Shortage shortage =
+                        BlueprintPlacer.shortageFor(level, settlement, task);
+                if (shortage != null) {
+                    BuildPlanner.requestProducer(settlement, shortage.resource(), world.stepsElapsed());
+                }
 
                 boolean workedAny = false;
                 for (PersonEntity builder : builders) {
-                    BlueprintPlacer.NextStep next = BlueprintPlacer.nextStep(level, task);
+                    BlueprintPlacer.NextStep next = BlueprintPlacer.nextStep(level, settlement, task);
                     if (next == null) {
                         clearHands(builder);
                         continue;   // as far along as the current work allows
@@ -290,7 +296,7 @@ public final class PersonEntityManager {
                         // A swing at a stubborn block is progress even when the
                         // block does not give yet, or a long dig would read as a
                         // stall and get assisted out from under the builder.
-                        BlueprintPlacer.swingAtStep(level, task);
+                        BlueprintPlacer.swingAtStep(level, settlement, task);
                         workedAny = true;
                     } else {
                         builder.getNavigation().moveTo(
@@ -301,7 +307,7 @@ public final class PersonEntityManager {
                 UUID key = settlement.id().value();
                 if (workedAny) {
                     constructionStalls.remove(key);
-                } else if (BlueprintPlacer.nextStep(level, task) != null) {
+                } else if (BlueprintPlacer.nextStep(level, settlement, task) != null) {
                     int stalled = constructionStalls.merge(key, 1, Integer::sum);
                     if (stalled >= STALL_PASSES_BEFORE_ASSIST) {
                         // Only for a builder who is genuinely at the site and
@@ -310,7 +316,7 @@ public final class PersonEntityManager {
                         List<PersonEntity> present = buildersAtSite(settlement, task);
                         if (!present.isEmpty()) {
                             present.getFirst().swing(InteractionHand.MAIN_HAND);
-                            BlueprintPlacer.completeStep(level, task);
+                            BlueprintPlacer.completeStep(level, settlement, task);
                         }
                         constructionStalls.remove(key);
                     }

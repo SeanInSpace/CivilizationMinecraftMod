@@ -12,6 +12,7 @@ import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.SettlementEvent;
 import com.kingdoms.sim.settlement.WorkArea;
 import com.mojang.serialization.Codec;
@@ -206,10 +207,44 @@ public final class KingdomsCodecs {
      * written flat into the settlement, so this costs one slot instead of four and
      * every save written before it existed still reads.
      */
-    private record Stores(int food, int wood, int saplings, int stone) {
+    /**
+     * The town ledger, plus the four flat fields it grew out of.
+     *
+     * <p>Written as a single {@code stores} map so a new resource never needs a
+     * codec change. The legacy keys are still read — a save written before the
+     * ledger existed carries its food, timber and stone across — and written back
+     * out as zero-defaulted duplicates only when the map is absent, which it never
+     * is once a world has been saved again.
+     */
+    private record Stores(Map<String, Integer> amounts, int food, int wood, int saplings, int stone) {
+
+        TownStores toTownStores() {
+            TownStores out = new TownStores();
+            out.restore(amounts);
+            // Legacy fields fill in only what the map did not carry.
+            if (!amounts.containsKey(TownStores.FOOD)) {
+                out.set(TownStores.FOOD, food);
+            }
+            if (!amounts.containsKey(TownStores.WOOD)) {
+                out.set(TownStores.WOOD, wood);
+            }
+            if (!amounts.containsKey(TownStores.SAPLINGS)) {
+                out.set(TownStores.SAPLINGS, saplings);
+            }
+            if (!amounts.containsKey(TownStores.STONE)) {
+                out.set(TownStores.STONE, stone);
+            }
+            return out;
+        }
+
+        static Stores of(Settlement settlement) {
+            return new Stores(settlement.stores().all(), 0, 0, 0, 0);
+        }
     }
 
     private static final MapCodec<Stores> STORES = RecordCodecBuilder.mapCodec(i -> i.group(
+            Codec.unboundedMap(Codec.STRING, Codec.INT)
+                    .optionalFieldOf("stores", Map.of()).forGetter(Stores::amounts),
             Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Stores::food),
             Codec.INT.optionalFieldOf("wood", 0).forGetter(Stores::wood),
             Codec.INT.optionalFieldOf("saplings", 0).forGetter(Stores::saplings),
@@ -228,18 +263,14 @@ public final class KingdomsCodecs {
             BUILDING.listOf().optionalFieldOf("buildings", List.of()).forGetter(Settlement::buildings),
             HOUSEHOLD.listOf().optionalFieldOf("households", List.of()).forGetter(Settlement::households),
             SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events),
-            STORES.forGetter(s -> new Stores(s.foodStock(), s.woodStock(),
-                    s.saplingStock(), s.stoneStock())),
+            STORES.forGetter(Stores::of),
             WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea())),
             WORK_AREA.optionalFieldOf("mine_area").forGetter(s -> Optional.ofNullable(s.mineArea())),
             Codec.INT.optionalFieldOf("next_plot", -1).forGetter(Settlement::nextPlotIndex)
     ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, lumberArea, mineArea, nextPlot) -> {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
-        settlement.setFoodStock(stores.food());
-        settlement.setWoodStock(stores.wood());
-        settlement.setSaplingStock(stores.saplings());
-        settlement.setStoneStock(stores.stone());
+        settlement.stores().restore(stores.toTownStores().all());
         lumberArea.ifPresent(settlement::setLumberArea);
         mineArea.ifPresent(settlement::setMineArea);
         residents.forEach(settlement::addResident);

@@ -5,6 +5,9 @@ import com.keystone.api.LoadedBlueprint;
 import com.keystone.api.PlannedBlock;
 import com.kingdoms.neoforge.KingdomsBlocks;
 import com.kingdoms.sim.settlement.BuildTask;
+import com.kingdoms.sim.settlement.TownStores;
+import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.BuildPlanner;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.entity.Entity;
@@ -79,11 +82,16 @@ public final class BlueprintPlacer {
      * how hard the block is, which is what makes cutting a site out of a hillside
      * visibly slower than raising the walls afterwards.
      */
-    private record Step(boolean digging, BlockPos pos, BlockState state, CompoundTag nbt, int cost) {
+    private record Step(boolean digging, BlockPos pos, BlockState state, CompoundTag nbt,
+                        int cost, String material) {
     }
 
     /** What a builder should be doing right now, and what they need in hand for it. */
     public record NextStep(boolean digging, BlockPos pos, int cost) {
+    }
+
+    /** A build that cannot go on because the town has run out of something. */
+    public record Shortage(String resource, int needed) {
     }
 
     /**
@@ -200,12 +208,73 @@ public final class BlueprintPlacer {
      * Progress IS the digging and the masonry, so no cursor runs ahead of the
      * simulation and no remainder is left for a completion pass to stamp in.
      */
-    public static NextStep nextStep(ServerLevel level, BuildTask task) {
+    public static NextStep nextStep(ServerLevel level, Settlement settlement, BuildTask task) {
         Step step = currentStep(level, task);
-        if (step == null || !task.canAfford(step.cost())) {
+        if (step == null || !task.canAfford(step.cost()) || !canPayFor(settlement, task, step)) {
             return null;
         }
         return new NextStep(step.digging(), step.pos(), step.cost());
+    }
+
+    /**
+     * What the town has run out of, if that is what has stopped this build.
+     *
+     * <p>Null when the build is simply not due more work yet — only a genuine
+     * shortage is reported, so the caller can tell "waiting" from "stuck".
+     */
+    public static Shortage shortageFor(ServerLevel level, Settlement settlement, BuildTask task) {
+        Step step = currentStep(level, task);
+        if (step == null || !task.canAfford(step.cost()) || canPayFor(settlement, task, step)) {
+            return null;
+        }
+        return new Shortage(step.material(), 1);
+    }
+
+    /**
+     * Whether the town can pay for this step.
+     *
+     * <p>Digging is free — it costs sweat, not stores. Laying costs one of
+     * whatever the block is made of.
+     *
+     * <p>The two producers are exempt on purpose. A lumber camp that needed
+     * timber, or a mine that needed stone, is a town that can never dig itself
+     * out of an empty larder. They are the bootstrap, so they are always payable.
+     */
+    private static boolean canPayFor(Settlement settlement, BuildTask task, Step step) {
+        if (step.digging() || step.material() == null || isProducer(task)) {
+            return true;
+        }
+        return settlement.stores().has(step.material(), 1);
+    }
+
+    private static boolean isProducer(BuildTask task) {
+        return BuildPlanner.PRODUCER_OF.containsValue(task.blueprintId());
+    }
+
+    /** Charges the town for a step that has just been finished. */
+    private static void payFor(Settlement settlement, BuildTask task, Step step) {
+        if (step.digging() || step.material() == null || isProducer(task)) {
+            return;
+        }
+        settlement.stores().take(step.material(), 1);
+    }
+
+    /**
+     * What a block is made of, as far as the town's ledger is concerned.
+     *
+     * <p>Coarse on purpose, and deliberately keyed off the same tags that decide
+     * which tool digs a block — if a pickaxe takes it out, stone puts it back.
+     * Glass, crops, soil and lanterns cost nothing: a town does not make those,
+     * so charging for them would only stall builds for no gain.
+     */
+    private static String materialFor(BlockState state) {
+        if (state.is(BlockTags.MINEABLE_WITH_AXE)) {
+            return TownStores.WOOD;
+        }
+        if (state.is(BlockTags.MINEABLE_WITH_PICKAXE)) {
+            return TownStores.STONE;
+        }
+        return null;
     }
 
     /** What a builder needs in hand for the step in front of them. */
@@ -225,9 +294,9 @@ public final class BlueprintPlacer {
      * <p>Laying takes a single swing. Digging takes as many as the block is worth,
      * so a builder is visibly working at the ground rather than deleting it.
      */
-    public static boolean swingAtStep(ServerLevel level, BuildTask task) {
+    public static boolean swingAtStep(ServerLevel level, Settlement settlement, BuildTask task) {
         Step step = currentStep(level, task);
-        if (step == null || !task.canAfford(step.cost())) {
+        if (step == null || !task.canAfford(step.cost()) || !canPayFor(settlement, task, step)) {
             return false;
         }
         task.addStepProgress();
@@ -235,17 +304,19 @@ public final class BlueprintPlacer {
             return false;   // still working at it
         }
         execute(level, step);
+        payFor(settlement, task, step);
         task.recordStepDone(step.cost());
         return true;
     }
 
     /** Finishes the step in hand outright, for paths with no ticks to spend on it. */
-    public static boolean completeStep(ServerLevel level, BuildTask task) {
+    public static boolean completeStep(ServerLevel level, Settlement settlement, BuildTask task) {
         Step step = currentStep(level, task);
-        if (step == null || !task.canAfford(step.cost())) {
+        if (step == null || !task.canAfford(step.cost()) || !canPayFor(settlement, task, step)) {
             return false;
         }
         execute(level, step);
+        payFor(settlement, task, step);
         task.recordStepDone(step.cost());
         return true;
     }
@@ -556,7 +627,7 @@ public final class BlueprintPlacer {
                 blocked = true;   // bedrock: no amount of digging clears this site
                 continue;
             }
-            digs.add(new Step(true, pos, standing, null, digCost(level, pos, standing)));
+            digs.add(new Step(true, pos, standing, null, digCost(level, pos, standing), null));
         }
         // Top down: you cannot dig out the block you are standing on.
         digs.sort(Comparator
@@ -573,7 +644,8 @@ public final class BlueprintPlacer {
         List<Step> steps = new ArrayList<>(digs.size() + solid.size());
         steps.addAll(digs);
         for (Placement placement : solid) {
-            steps.add(new Step(false, placement.pos(), placement.state(), placement.nbt(), PLACE_COST));
+            steps.add(new Step(false, placement.pos(), placement.state(), placement.nbt(),
+                    PLACE_COST, materialFor(placement.state())));
         }
         return new StructurePlan(width, depth, height, steps, blocked);
     }

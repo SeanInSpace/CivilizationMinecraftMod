@@ -89,7 +89,8 @@ class LumberPlannerTest {
     @Test
     void fullStoresStopTheFelling() {
         Settlement s = settlement();
-        assertTrue(LumberPlanner.wantsMoreTimber(s), "an empty town wants timber");
+        assertTrue(LumberPlanner.wantsMoreTimber(s),
+                "a new town wants timber — its founding stock is well under capacity");
 
         s.setWoodStock(LumberPlanner.woodCapacity(s));
 

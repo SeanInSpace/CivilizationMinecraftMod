@@ -27,7 +27,7 @@ public final class MinePlanner {
     public static final int RADIUS_STEP = 8;
 
     /** Stone the town can stockpile before further cutting is pointless. */
-    public static final int BASE_STONE_STORAGE = 200;
+    public static final int BASE_STONE_STORAGE = 512;
     public static final int STONE_PER_STOREHOUSE = 400;
 
     private MinePlanner() {

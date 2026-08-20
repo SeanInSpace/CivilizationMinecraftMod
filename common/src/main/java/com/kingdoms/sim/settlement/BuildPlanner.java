@@ -4,6 +4,7 @@ import com.kingdoms.sim.geom.SimPos;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -40,11 +41,56 @@ public final class BuildPlanner {
     /** Keeps the claim boundary a little beyond the outermost building. */
     static final int CLAIM_MARGIN = 8;
 
+    /** Which building lets a town make a thing it has run out of. */
+    public static final Map<String, String> PRODUCER_OF = Map.of(
+            TownStores.WOOD, "kingdoms:lumber_camp",
+            TownStores.STONE, "kingdoms:mine");
+
+    /** Builder-steps for a producer ordered out of turn; the catalogue cost is used when known. */
+    public static final int PRODUCER_WORK = 30;
+
     /** Blueprint for a run of steps up to a doorway nobody can reach. */
     public static final String ACCESS_STAIRS = "kingdoms:stairs";
 
     /** Builder-steps per block of climb, so a taller flight is a longer job. */
     public static final int STAIR_WORK_PER_BLOCK = 3;
+
+    /**
+     * Orders the building that would fix a shortage, ahead of everything else.
+     *
+     * <p>This is what stops limited supply becoming a deadlock. A town short of
+     * timber wants a house it cannot pay for; the house is the highest-priority
+     * thing it lacks, so it would sit on that job forever. Noticing the shortage
+     * and going to build a lumber camp instead is both the way out and the
+     * obviously sensible thing for a town to do.
+     *
+     * @return true if a producer was ordered by this call
+     */
+    public static boolean requestProducer(Settlement settlement, String resource, long step) {
+        String producer = PRODUCER_OF.get(resource);
+        if (producer == null) {
+            return false;
+        }
+        for (Building standing : settlement.buildings()) {
+            if (standing.blueprintId().equals(producer)) {
+                return false;   // already have one; the shortage is a real shortage
+            }
+        }
+        for (BuildTask queued : settlement.buildQueue()) {
+            if (queued.blueprintId().equals(producer)) {
+                return false;
+            }
+        }
+        int work = settlement.catalogue().stream()
+                .filter(type -> type.id().equals(producer))
+                .mapToInt(BuildingType::workCost)
+                .findFirst()
+                .orElse(PRODUCER_WORK);
+        settlement.enqueueUrgent(new BuildTask(producer, settlement.centre(), work));
+        settlement.logEvent(step, "Out of " + resource + " — work starts on a "
+                + producer.substring(producer.indexOf(':') + 1).replace('_', ' '));
+        return true;
+    }
 
     private BuildPlanner() {
     }
