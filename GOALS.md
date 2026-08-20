@@ -11,18 +11,28 @@ and can be traded with — without the player doing any of it for them.
 
 ## In progress
 
-### Client playtest
-- [ ] Confirm the view layer runs: posts readable, paths on the ground, pens
-      separated, guards visibly armed, buildings rising block by block
-- [ ] Fix whatever that surfaces
+### Needs eyes, not tests
+Everything below runs without throwing and produces the right numbers. What no
+automated check can confirm is whether it *looks* right:
 
-Headless play (300 steps, five settlers → population 48) already cleared the
-simulation side. What it could **not** exercise is everything that only runs
-where a player is standing, which is most of what was added this session.
+- [ ] Are the animal pens actually separated, and do the beasts stay in them?
+- [ ] Do paths land on the ground and reach the doors, rather than stopping short?
+- [ ] Do guards visibly carry swords once a smithy stands?
+- [ ] Is a hillside build's material cost bearable in real time, or a grind?
+- [ ] Does the quest board read well, or is it a wall of numbers?
+
+### Next
+- [ ] Hideouts, so `hideouts_cleared` counts something
+- [ ] A second culture, to prove the hook earns its keep
+- [ ] `.blueprint` reader, for the MineColonies/Structurize content ecosystem
 
 ---
 
 ## Done
+
+- **Client playtest.** Quickplay into a played-out save: world loads, all 44
+  buildings materialize — smiths, animal farm, watchtowers, markets — and nothing
+  in `kingdoms` or `keystone` throws across a 5,959-line log.
 
 - **Headless playtest, and five bugs it found.** Buildings were free when
   unwatched; production ran only in the view layer so an unwatched town could
