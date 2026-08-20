@@ -38,6 +38,15 @@ public final class Settlement {
     private final SimPos centre;
     private int claimRadius;
 
+    /**
+     * Which plot the next building takes.
+     *
+     * <p>Tracked rather than derived from the building count, because a site can
+     * now be refused — bedrock in the footprint — and the town has to move on to
+     * the next plot instead of proposing the same unbuildable one forever.
+     */
+    private int nextPlotIndex;
+
     private final Map<Person.Id, Person> residents = new LinkedHashMap<>();
     private final List<BuildTask> buildQueue = new ArrayList<>();
 
@@ -89,6 +98,30 @@ public final class Settlement {
 
     public SimPos centre() {
         return centre;
+    }
+
+    public int nextPlotIndex() {
+        return nextPlotIndex;
+    }
+
+    public void setNextPlotIndex(int nextPlotIndex) {
+        this.nextPlotIndex = Math.max(0, nextPlotIndex);
+    }
+
+    /**
+     * Gives up on the job in hand and moves to the next plot.
+     *
+     * <p>For a site that cannot be built at all. The plot is burned rather than
+     * reconsidered, so the town does not propose the same impossible spot on the
+     * very next step.
+     */
+    public void abandonBuild(long step, String reason) {
+        if (buildQueue.isEmpty()) {
+            return;
+        }
+        BuildTask given = buildQueue.removeFirst();
+        nextPlotIndex++;
+        logEvent(step, "Abandoned " + given.blueprintId() + " at " + given.site() + " — " + reason);
     }
 
     public int claimRadius() {
@@ -294,7 +327,7 @@ public final class Settlement {
             return;
         }
         BuildPlanner.chooseNext(this, catalogue).ifPresent(type -> {
-            SimPos flat = BuildPlanner.plotFor(centre, buildings.size());
+            SimPos flat = BuildPlanner.plotFor(centre, nextPlotIndex);
 
             // Snap to the terrain when the chunk is available; otherwise the
             // centre's height stands in and the world snaps again at placement.
@@ -307,6 +340,7 @@ public final class Settlement {
             }
 
             buildQueue.add(new BuildTask(type.id(), plot, type.workCost()));
+            nextPlotIndex++;
         });
     }
 

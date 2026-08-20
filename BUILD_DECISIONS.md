@@ -62,6 +62,11 @@ repeatedly fails to get home at dusk — the door standing above them, near enou
 that steps would help — the settlement orders a **flight of steps up to that
 door** and puts it at the *head* of the queue, pausing whatever was under way.
 
+The flight starts **at the doorway it serves**, not at whatever the heightmap
+reports for that column — which is the roof of the very house the door is set into.
+*(It did once. The steps were built across the roof, useless, and buried the door on
+the way.)*
+
 The order is refused if a flight is already queued or already standing, so a
 stuck resident cannot flood the queue. Failures must persist for several seconds
 first, so one unlucky bit of pathfinding does not commission masonry. The steps
@@ -99,8 +104,13 @@ A building is spread over `work` builder-steps of *laying*; the digging is extra
 the same house takes noticeably longer cut into a hillside than raised on the flat,
 which is the honest answer and makes flat ground worth choosing.
 
-Two things this does not yet do: the town does not have to **own** the tools (builders
-are handed them), and unbreakable blocks are skipped rather than built around.
+**Bedrock refuses the site outright.** Anything that cannot be shifted at all means
+the plot is unbuildable: the town abandons the job, says so in its history, and takes
+the next plot rather than proposing the same impossible spot forever. Obsidian is not
+bedrock — it is merely slow, and a town is welcome to spend the time.
+
+One thing this does not yet do: the town does not have to **own** the tools; builders
+are handed them.
 
 **Where there is a hand, there is no clock.** If builders exist in the world as entities, they are the only thing that raises a wall — nothing accrues beside them, so a site nobody has walked to does not progress at all, and "40% built" means 40% of the blocks are standing where you can count them. A build cannot finish while its walls are still going up, so nothing is ever stamped over work in progress.
 

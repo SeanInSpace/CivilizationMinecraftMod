@@ -86,8 +86,14 @@ public final class BlueprintPlacer {
     public record NextStep(boolean digging, BlockPos pos, int cost) {
     }
 
-    /** A structure as an ordered sequence of digs and placements. */
-    private record StructurePlan(int width, int depth, int height, List<Step> steps) {
+    /**
+     * A structure as an ordered sequence of digs and placements.
+     *
+     * <p>{@code blocked} means something in the footprint cannot be shifted at all
+     * — bedrock, in practice. Obsidian is merely slow and does not count.
+     */
+    private record StructurePlan(int width, int depth, int height, List<Step> steps,
+                                 boolean blocked) {
 
         int placeWork() {
             int total = 0;
@@ -158,9 +164,11 @@ public final class BlueprintPlacer {
         if (task.siteY() == BuildTask.UNSET_SITE_Y) {
             int firstAir = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                     task.origin().x(), task.origin().z());
-            // A flight of steps has no floor to sit flush with, so it is not sunk.
-            // Everything else is, so you can walk in through the door.
-            task.setSiteY(isStairs(task) ? firstAir : floorFor(firstAir));
+            // A flight of steps starts at the doorway it serves, full stop. Surveying
+            // the column instead returns the top of the house that doorway is set
+            // into, so the steps got built across the roof and buried the door.
+            // Everything else is sunk to grade, so you can walk in through it.
+            task.setSiteY(isStairs(task) ? task.origin().y() : floorFor(firstAir));
             changed = true;
         }
         StructurePlan plan = planOf(level, task);
@@ -305,6 +313,17 @@ public final class BlueprintPlacer {
             entity.loadWithComponents(TagValueInput.create(
                     ProblemReporter.DISCARDING, level.registryAccess(), placement.nbt()));
         }
+    }
+
+    /**
+     * Whether this site has something in it that no builder can shift.
+     *
+     * <p>Bedrock only. Obsidian is breakable — slowly — and a town is welcome to
+     * spend the time on it.
+     */
+    public static boolean isSiteBlocked(ServerLevel level, BuildTask task) {
+        StructurePlan plan = planOf(level, task);
+        return plan != null && plan.blocked();
     }
 
     /** Whether construction can proceed here at all — the chunk has to be loaded. */
@@ -476,10 +495,15 @@ public final class BlueprintPlacer {
         }
 
         List<Step> digs = new ArrayList<>();
+        boolean blocked = false;
         for (BlockPos pos : toDig) {
             BlockState standing = level.getBlockState(pos);
-            if (standing.isAir() || standing.getDestroySpeed(level, pos) < 0) {
-                continue;   // nothing there, or nothing anyone can shift
+            if (standing.isAir()) {
+                continue;
+            }
+            if (standing.getDestroySpeed(level, pos) < 0) {
+                blocked = true;   // bedrock: no amount of digging clears this site
+                continue;
             }
             digs.add(new Step(true, pos, standing, null, digCost(level, pos, standing)));
         }
@@ -500,7 +524,7 @@ public final class BlueprintPlacer {
         for (Placement placement : solid) {
             steps.add(new Step(false, placement.pos(), placement.state(), placement.nbt(), PLACE_COST));
         }
-        return new StructurePlan(width, depth, height, steps);
+        return new StructurePlan(width, depth, height, steps, blocked);
     }
 
     private static boolean isFullBlock(ServerLevel level, Placement placement) {

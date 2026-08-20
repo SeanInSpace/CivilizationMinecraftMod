@@ -216,6 +216,10 @@ public final class PersonEntityManager {
                     continue;
                 }
                 BlueprintPlacer.prepareSite(level, task);
+                if (BlueprintPlacer.isSiteBlocked(level, task)) {
+                    settlement.abandonBuild(world.stepsElapsed(), "the ground will not give");
+                    continue;
+                }
 
                 List<PersonEntity> builders = buildersAtSite(settlement, task);
                 if (builders.isEmpty()) {
@@ -250,6 +254,10 @@ public final class PersonEntityManager {
                     continue;   // nobody here to build; it materializes on return
                 }
                 BlueprintPlacer.prepareSite(level, task);
+                if (BlueprintPlacer.isSiteBlocked(level, task)) {
+                    settlement.abandonBuild(world.stepsElapsed(), "the ground will not give");
+                    continue;
+                }
 
                 boolean workedAny = false;
                 for (PersonEntity builder : builders) {
@@ -314,17 +322,31 @@ public final class PersonEntityManager {
      * Searches down first (the usual case — the record points at a floor under a
      * roof), then up, then gives up and uses the surface.
      */
+    /**
+     * Somewhere at this column a body actually fits.
+     *
+     * <p>Looks up before it looks down, and never searches past solid ground on
+     * the way down. Preferring the first fit in either direction put settlers in
+     * caves under the village; being stuck on a roof is a nuisance, being sealed
+     * underground is not recoverable.
+     */
     private int standableY(SimPos pos) {
         BlockPos start = new BlockPos(pos.x(), pos.y(), pos.z());
         if (fitsBody(start)) {
             return start.getY();
         }
         for (int d = 1; d <= FOOTING_SEARCH; d++) {
-            if (fitsBody(start.below(d))) {
-                return start.getY() - d;
-            }
             if (fitsBody(start.above(d))) {
                 return start.getY() + d;
+            }
+        }
+        for (int d = 1; d <= FOOTING_SEARCH; d++) {
+            BlockPos candidate = start.below(d);
+            if (fitsBody(candidate)) {
+                return candidate.getY();
+            }
+            if (level.getBlockState(candidate).blocksMotion()) {
+                break;   // the ground: whatever is under it is not ours to stand on
             }
         }
         return world.bridge().surfaceHeight(pos);
@@ -373,12 +395,26 @@ public final class PersonEntityManager {
     }
 
     /** First standable floor meaningfully below this spot, or MIN_VALUE if none. */
+    /**
+     * Where a straight drop from here would actually land, or nothing.
+     *
+     * <p>Stops at the first thing in the way. Scanning on past it used to find the
+     * floor of whatever cave happened to run under the village and treat that as a
+     * fine place to put somebody standing on the grass above it — the whole town
+     * relocated underground one block at a time.
+     */
     private int floorBelow(BlockPos from) {
-        for (int dy = MIN_STRANDED_DROP; dy <= DESCENT_SEARCH; dy++) {
+        for (int dy = 1; dy <= DESCENT_SEARCH; dy++) {
             BlockPos candidate = from.below(dy);
-            if (fitsBody(candidate)) {
-                return candidate.getY();
+            if (!level.getBlockState(candidate).blocksMotion()) {
+                continue;   // still falling
             }
+            BlockPos feet = candidate.above();
+            int drop = from.getY() - feet.getY();
+            if (drop < MIN_STRANDED_DROP || !fitsBody(feet)) {
+                return Integer.MIN_VALUE;
+            }
+            return feet.getY();
         }
         return Integer.MIN_VALUE;
     }

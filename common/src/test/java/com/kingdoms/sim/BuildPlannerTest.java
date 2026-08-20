@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -238,5 +239,54 @@ class BuildPlannerTest {
 
         assertTrue(s.buildQueue().isEmpty(), "no residents means no population gate is met");
         assertFalse(s.buildings().size() > 0);
+    }
+
+    @Test
+    void arefusedSiteIsBurnedRatherThanProposedAgain() {
+        Settlement s = settlement(6);
+        SimContext ctx = new SimContext(new LoadedBridge(), 0);
+
+        s.step(ctx);
+        assertEquals(1, s.buildQueue().size(), "something was planned");
+        SimPos refused = s.buildQueue().getFirst().origin();
+
+        // The view layer finds bedrock in the footprint and gives up on the site.
+        s.abandonBuild(1, "the ground will not give");
+        assertTrue(s.buildQueue().isEmpty());
+
+        s.step(ctx);
+        assertEquals(1, s.buildQueue().size(), "the town tries again...");
+        assertNotEquals(refused, s.buildQueue().getFirst().origin(),
+                "...somewhere else, rather than at the spot it just gave up on");
+    }
+
+    @Test
+    void abandoningLeavesAnExplanationInTheHistory() {
+        Settlement s = settlement(6);
+        s.step(new SimContext(new LoadedBridge(), 0));
+
+        s.abandonBuild(4, "the ground will not give");
+
+        assertTrue(s.events().stream().anyMatch(e -> e.message().contains("Abandoned")
+                        && e.message().contains("the ground will not give")),
+                "a town that gives up on a site says why");
+    }
+
+    @Test
+    void plotsAreNotRecycledWhenABuildIsAbandoned() {
+        Settlement s = settlement(6);
+        SimContext ctx = new SimContext(new LoadedBridge(), 0);
+
+        Set<SimPos> seen = new HashSet<>();
+        for (int i = 0; i < 6; i++) {
+            s.step(ctx);
+            if (s.buildQueue().isEmpty()) {
+                continue;
+            }
+            assertTrue(seen.add(s.buildQueue().getFirst().origin()),
+                    "every attempt takes a fresh plot, abandoned or not");
+            s.abandonBuild(i, "the ground will not give");
+        }
+        assertEquals(6, seen.size());
     }
 }

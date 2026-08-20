@@ -212,8 +212,9 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Settlement::foodStock),
             Codec.INT.optionalFieldOf("wood", 0).forGetter(Settlement::woodStock),
             Codec.INT.optionalFieldOf("saplings", 0).forGetter(Settlement::saplingStock),
-            WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea()))
-    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, food, wood, saplings, lumberArea) -> {
+            WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea())),
+            Codec.INT.optionalFieldOf("next_plot", -1).forGetter(Settlement::nextPlotIndex)
+    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, food, wood, saplings, lumberArea, nextPlot) -> {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
         settlement.setFoodStock(food);
@@ -225,6 +226,8 @@ public final class KingdomsCodecs {
         buildings.forEach(settlement::addBuilding);
         households.forEach(settlement::addHousehold);
         events.forEach(e -> settlement.logEvent(e.step(), e.message()));
+        // Saves written before the cursor existed carry on from their building count.
+        settlement.setNextPlotIndex(nextPlot >= 0 ? nextPlot : buildings.size());
         return settlement;
     }));
 
