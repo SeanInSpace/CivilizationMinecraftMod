@@ -11,23 +11,28 @@ and can be traded with — without the player doing any of it for them.
 
 ## In progress
 
-### Playtest and fix
-- [ ] Push to `main`
-- [ ] Branch, run through quickplay, fix what the play surfaces
+### Client playtest
+- [ ] Confirm the view layer runs: posts readable, paths on the ground, pens
+      separated, guards visibly armed, buildings rising block by block
+- [ ] Fix whatever that surfaces
 
-Things to watch for specifically, since none of the below has been seen running:
-
-- Does a town actually reach self-sufficiency, or does it stall short?
-  The chain is: founding stock → build → run dry → order a lumber camp / mine →
-  fell and cut → build again. Every link is tested in isolation; the loop is not.
-- Are the animal pens actually separated, and do beasts stay in them?
-- Do paths land on the ground rather than through buildings?
-- Do guards visibly draw swords once a smithy stands?
-- Is the material cost of a hillside build survivable, or does it grind?
+Headless play (300 steps, five settlers → population 48) already cleared the
+simulation side. What it could **not** exercise is everything that only runs
+where a player is standing, which is most of what was added this session.
 
 ---
 
 ## Done
+
+- **Headless playtest, and five bugs it found.** Buildings were free when
+  unwatched; production ran only in the view layer so an unwatched town could
+  never make anything; staffing wanted no lumberjack below ten residents; two
+  producers ordered out of turn shared one plot; and settlers starved beside a
+  full granary because food could only reach them through the family pantry.
+  All fixed — a town now goes from five settlers to 48 people, 44 buildings,
+  every trade staffed and two thirds equipped, with nobody starving.
+- **Opt-in quickplay** (`-Pquickplay=<world>`), so a missing world can no longer
+  break every launch.
 
 - **Generic town ledger.** `TownStores`: resource id → amount, all-or-nothing
   spending. Replaced four hardcoded ints; codec writes one map and still reads the

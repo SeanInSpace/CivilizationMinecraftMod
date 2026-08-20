@@ -20,6 +20,15 @@ neoForge {
     runs {
         client {
             client()
+            // Opt-in quickplay: ./gradlew :neoforge:runClient -Pquickplay=<world>
+            //
+            // Deliberately not on by default. A hardcoded world name breaks every
+            // launch the moment that world is deleted, which is exactly what it
+            // did the last time it was wired in unconditionally.
+            if (project.hasProperty('quickplay')) {
+                programArguments.addAll('--quickPlaySingleplayer',
+                        project.property('quickplay').toString())
+            }
         }
         server {
             server()
