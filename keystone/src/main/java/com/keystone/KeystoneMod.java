@@ -40,7 +40,7 @@ public final class KeystoneMod {
 
         KeystoneItems.ITEMS.register(modBus);
         KeystoneComponents.COMPONENTS.register(modBus);
-        modBus.addListener(KeystoneItems::addToCreativeTabs);
+        KeystoneTabs.TABS.register(modBus);
         modBus.addListener(KeystoneNetwork::register);
 
         NeoForge.EVENT_BUS.addListener(KeystoneMod::onRegisterCommands);

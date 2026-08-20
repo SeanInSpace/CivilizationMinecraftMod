@@ -54,7 +54,7 @@ public final class KingdomsMod {
         KingdomsBlocks.BLOCKS.register(modBus);
         KingdomsItems.ITEMS.register(modBus);
         KingdomsEntities.ENTITY_TYPES.register(modBus);
-        modBus.addListener(KingdomsItems::addToCreativeTabs);
+        KingdomsTabs.TABS.register(modBus);
         modBus.addListener(KingdomsEntities::createAttributes);
         if (FMLEnvironment.getDist() == Dist.CLIENT) {
             modBus.addListener(KingdomsClient::registerRenderers);

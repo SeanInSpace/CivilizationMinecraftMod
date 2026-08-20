@@ -1,12 +1,11 @@
 package com.keystone;
 
 import com.keystone.item.BlueprintWandItem;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
+/** Item registration. Everything here lands in the mod's own tab; see {@link KeystoneTabs}. */
 public final class KeystoneItems {
 
     public static final DeferredRegister.Items ITEMS =
@@ -18,11 +17,5 @@ public final class KeystoneItems {
             () -> new Item.Properties().stacksTo(1));
 
     private KeystoneItems() {
-    }
-
-    public static void addToCreativeTabs(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
-            event.accept(BLUEPRINT_WAND.get());
-        }
     }
 }
