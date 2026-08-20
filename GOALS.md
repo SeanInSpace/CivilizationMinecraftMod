@@ -30,6 +30,10 @@ automated check can confirm is whether it *looks* right:
 
 ## Done
 
+- **Endurance run.** 700 steps from five settlers: three settlements, 55 / 32 / 5
+  buildings, both mature towns fully equipped (48/48 and 35/35), twelve raids
+  repelled, zero exceptions, zero starvation. Iron capped afterwards — the forge
+  stops at its ceilings and the ore was piling up unspent.
 - **Client playtest.** Quickplay into a played-out save: world loads, all 44
   buildings materialize — smiths, animal farm, watchtowers, markets — and nothing
   in `kingdoms` or `keystone` throws across a 5,959-line log.

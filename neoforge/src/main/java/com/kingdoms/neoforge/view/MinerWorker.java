@@ -73,7 +73,7 @@ public final class MinerWorker {
         if (ore) {
             // Iron is the one thing a town cannot cut out of a hillside, and the
             // forge runs on it. Ore found while cutting is where it all comes from.
-            settlement.stores().add(TownStores.IRON, IRON_PER_ORE);
+            settlement.stores().addCapped(TownStores.IRON, IRON_PER_ORE, MinePlanner.MAX_IRON);
             settlement.tallies().record(Tallies.STONE_CUT);
         } else {
             settlement.stores().addCapped(TownStores.STONE, STONE_PER_BLOCK,

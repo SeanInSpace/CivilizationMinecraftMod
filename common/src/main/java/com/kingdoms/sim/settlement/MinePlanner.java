@@ -40,6 +40,15 @@ public final class MinePlanner {
     /** Iron turned up per miner per step: ore is rarer than rock. */
     public static final int IRON_PER_STEP = 1;
 
+    /**
+     * Iron worth keeping on hand.
+     *
+     * <p>The forge stops once tools, weapons and armour are all stocked, so
+     * without a ceiling the ore just piles up — a 700-step run ended holding
+     * eleven hundred of it, which is noise in the ledger rather than wealth.
+     */
+    public static final int MAX_IRON = 256;
+
     /** Stone the town can stockpile before further cutting is pointless. */
     public static final int BASE_STONE_STORAGE = 512;
     public static final int STONE_PER_STOREHOUSE = 400;
@@ -75,7 +84,7 @@ public final class MinePlanner {
         }
         settlement.stores().addCapped(TownStores.STONE,
                 miners * STONE_PER_STEP, stoneCapacity(settlement));
-        settlement.stores().add(TownStores.IRON, miners * IRON_PER_STEP);
+        settlement.stores().addCapped(TownStores.IRON, miners * IRON_PER_STEP, MAX_IRON);
     }
 
     /** Where the mine stands, or null if the town has not built one. */
