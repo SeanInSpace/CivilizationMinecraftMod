@@ -126,6 +126,12 @@ public final class BlueprintPlacer {
     /** Hardest a dig can be, so an obsidian outcrop cannot stall a town forever. */
     private static final int MAX_DIG_COST = 8;
 
+    /** How far past the walls the ground is cut back, so there is somewhere to stand. */
+    private static final int APRON_MARGIN = 2;
+
+    /** Headroom cleared over the apron — enough to walk the whole way round. */
+    private static final int APRON_HEADROOM = 3;
+
     private BlueprintPlacer() {
     }
 
@@ -283,6 +289,18 @@ public final class BlueprintPlacer {
             return Items.IRON_HOE;
         }
         return Items.IRON_PICKAXE;
+    }
+
+    /**
+     * Whether this is terrain rather than something somebody built.
+     *
+     * <p>Soil and living rock only. Deliberately excludes wood and worked stone,
+     * so cutting a shelf for one building can never take a bite out of the one
+     * beside it — and leaves trees standing for the lumberjacks.
+     */
+    private static boolean isNaturalGround(BlockState state) {
+        return state.is(BlockTags.MINEABLE_WITH_SHOVEL)
+                || state.is(BlockTags.BASE_STONE_OVERWORLD);
     }
 
     /** What one block of ground is worth shifting, from how hard it is. */
@@ -495,6 +513,34 @@ public final class BlueprintPlacer {
             for (int dz = -rz; dz <= rz; dz++) {
                 for (int dy = 0; dy <= height; dy++) {
                     toDig.add(base.offset(dx, dy, dz));
+                }
+            }
+        }
+
+        // Cut the ground back past the walls as well. Setting the floor at grade
+        // is only half of being able to walk in: on anything steeper than a
+        // gentle slope the hillside still comes up over the doorway, and the
+        // building ends up at the bottom of a hole with its door buried. This
+        // levels a shelf around it instead.
+        //
+        // Only natural ground is taken. Aprons of neighbouring plots can meet,
+        // and a rule that ate anything in reach would quietly chew a hole in the
+        // house next door.
+        int ax = rx + APRON_MARGIN;
+        int az = rz + APRON_MARGIN;
+        for (int dx = -ax; dx <= ax; dx++) {
+            for (int dz = -az; dz <= az; dz++) {
+                if (Math.abs(dx) <= rx && Math.abs(dz) <= rz) {
+                    continue;   // the footprint proper, already accounted for
+                }
+                for (int dy = 1; dy <= APRON_HEADROOM; dy++) {
+                    BlockPos pos = base.offset(dx, dy, dz);
+                    // The apron reaches past the footprint, so it can cross into
+                    // a chunk nobody has loaded. Ask before reading, rather than
+                    // dragging chunks in from a plan pass.
+                    if (level.isLoaded(pos) && isNaturalGround(level.getBlockState(pos))) {
+                        toDig.add(pos);
+                    }
                 }
             }
         }

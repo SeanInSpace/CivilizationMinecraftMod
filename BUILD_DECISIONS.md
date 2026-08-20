@@ -88,9 +88,16 @@ Buildings rise **visibly, block by block**, in a mason's order:
 2. **The ground in the way is dug out first**, block by block, top down so nobody
    undermines what they are standing on. Even on the flat this is real work: the
    topsoil under the floor has to come out. On a slope it is most of the job.
-3. Blocks are laid **bottom layer first** — the cobble foundation is genuinely the first course.
-4. Within each layer, **full blocks go down before partial blocks** (lanterns, fences, crops, water).
-5. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out. That list is `LoadedBlueprint.sequence()`, and its index is the build cursor.
+3. **The cut runs two blocks past the walls**, levelling a shelf around the
+   building. A floor at grade is only half of being able to walk in — on anything
+   steeper than a gentle slope the hillside still stands over the doorway, and the
+   building ends up at the bottom of a hole with its door buried. Only soil and
+   living rock are taken, never wood or worked stone, so a shelf cut for one
+   building can never take a bite out of the one next door. On flat ground it
+   costs nothing: there is nothing above grade to remove.
+4. Blocks are laid **bottom layer first** — the cobble foundation is genuinely the first course.
+5. Within each layer, **full blocks go down before partial blocks** (lanterns, fences, crops, water).
+6. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out. That list is `LoadedBlueprint.sequence()`, and its index is the build cursor.
 
 **Digging is slower than laying, and needs the right tool.** Laying a block is one
 work unit; shifting one is two to eight, scaled by how hard it is — dirt 2, stone 4,

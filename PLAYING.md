@@ -28,8 +28,10 @@ You do not manage anything. The town runs itself, on these rules:
 - **It digs before it builds.** A site is cut out of the ground first — builders
   swing shovels at soil and pickaxes at stone, and the ground gives way slowly.
   Only then do the walls go up. Buildings sit *in* the ground rather than on it, so
-  you can walk straight in through the door instead of stepping up into it. A town
-  on a hillside takes visibly longer to build than one on the flat.
+  you can walk straight in through the door instead of stepping up into it, and the
+  cut runs a couple of blocks past the walls to leave a shelf you can walk round.
+  A town on a hillside takes visibly longer to build than one on the flat — cutting
+  a terrace out of a slope is most of the work.
 - **It builds what it lacks** — town hall first, then houses, farms, a storehouse, workshops, watchtowers as it grows. Buildings go up whether you are there or not; if you are away, they appear when you return.
 - **It feeds itself — or fails to.** Food never teleports: harvest waits in the fields until a farmer walks out, shoulders it and carries it to the granary; market hands carry loads to the stall; one member of each family walks to market and back with the shopping. You can watch grain cross the village in their hands — and a carrier killed on the road takes the load with them. Every settler carries and eats their own food. Hunger is personal now: the underfed grow visibly weak (they stop working and slow down), and the starving die — permanently, with a line in the town's history. Watch the chain in the reports: granary, fields, market, pantries.
 - **It secures its own materials.** Timber and stone come before market stalls and
