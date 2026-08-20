@@ -3,7 +3,6 @@ package com.kingdoms.neoforge;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -23,7 +22,12 @@ public final class KingdomsTabs {
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.kingdoms"))
                     .icon(() -> new ItemStack(KingdomsItems.FOUNDING_CHARTER.get()))
-                    .withTabsAfter(CreativeModeTabs.SPAWN_EGGS)
+                    // No withTabsBefore/withTabsAfter here on purpose. NeoForge already
+                    // chains any tab that declares no ordering to sit after the last
+                    // vanilla tab, which is exactly where these belong. Asking for it
+                    // explicitly contradicts that chain and deadlocks the toposort:
+                    // withTabsAfter(X) means "X comes after me", so naming a late vanilla
+                    // tab creates a cycle rather than moving this one to the end.
                     .displayItems((parameters, output) -> {
                         // Driven off the registry rather than a hand-written list, so
                         // anything registered later shows up here without this class
