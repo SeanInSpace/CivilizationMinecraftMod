@@ -314,21 +314,25 @@ public final class Settlement {
         if (buildQueue.isEmpty()) {
             return;
         }
-        int builders = (int) residents.values().stream()
+        int able = (int) residents.values().stream()
                 .filter(p -> p.profession() == Profession.BUILDER && !p.isTooWeakToWork())
                 .count();
-        if (builders == 0) {
+        if (able == 0) {
             return;
         }
+        int present = (int) residents.values().stream()
+                .filter(p -> p.profession() == Profession.BUILDER && !p.isTooWeakToWork()
+                        && p.isEmbodied())
+                .count();
         BuildTask current = buildQueue.getFirst();
 
-        if (isBuiltByHand(ctx, current)) {
+        if (isBuiltByHand(ctx, current, present)) {
             // Somebody is here to watch, so the masonry is the truth: this step
             // clears the builders to lay their share, and progress is whatever
             // they actually get down. Nothing finishes until the last block does,
             // which is what stops a completed task being stamped over work that
             // is still visibly going up.
-            current.grantBlocks(current.blocksForStep(builders));
+            current.grantBlocks(current.blocksForStep(present));
             current.syncProgressToBlocks();
             if (!current.isVisuallyComplete()) {
                 return;
@@ -336,7 +340,7 @@ public final class Settlement {
         } else {
             // Nobody watching. Nothing to look at, so the clock runs instead and
             // the finished building materializes whole when a chunk next loads.
-            current.addProgress(builders);
+            current.addProgress(able);
             if (!current.isComplete()) {
                 return;
             }
@@ -352,18 +356,24 @@ public final class Settlement {
     }
 
     /**
-     * Whether this site is real enough that the building has to be built, not counted.
+     * Whether this building has to be built rather than counted.
      *
-     * <p>A loaded chunk is the whole test. Where the world actually exists, the
-     * only thing that raises a wall is a builder laying a block — no clock runs
-     * alongside them, and a site nobody has walked to simply does not progress.
+     * <p>The test is whether builders exist in the world as entities right now. If
+     * they do, they are the only thing that can raise a wall — no clock runs
+     * alongside them, so a site nobody has walked to does not progress at all.
      *
-     * <p>Deliberately <em>not</em> conditioned on a player being nearby. Doing so
-     * meant a loaded chunk with the player just out of range still ran the clock,
-     * and buildings finished with not one block laid.
+     * <p>Asking about the builders rather than about the chunk matters, because
+     * the two do not coincide. People are embodied within the observed radius
+     * (96, released at 128), while chunks stay loaded out to simulation distance
+     * (160 by default) and forever in spawn or force-loaded chunks. Keying on the
+     * chunk left a band roughly 128–160 blocks out where the site was loaded but
+     * every settler had been released — nobody to lay a block and no clock
+     * either, so construction simply stopped. Keying on the builders closes it:
+     * where there is a hand there is no clock, and where there is no hand the
+     * clock is all there is.
      */
-    private boolean isBuiltByHand(SimContext ctx, BuildTask task) {
-        return ctx.bridge().isLoaded(task.site());
+    private boolean isBuiltByHand(SimContext ctx, BuildTask task, int embodiedBuilders) {
+        return embodiedBuilders > 0 && ctx.bridge().isLoaded(task.site());
     }
 
     /**

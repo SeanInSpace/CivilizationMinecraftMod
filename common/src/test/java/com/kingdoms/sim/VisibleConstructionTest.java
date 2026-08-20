@@ -42,12 +42,13 @@ class VisibleConstructionTest {
         @Override public void log(String message) { }
     }
 
-    private static Settlement townWithBuilders(int builders) {
+    private static Settlement townWithBuilders(int builders, boolean embodied) {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
         s.setCatalogue(List.of(HOUSE));
         for (int i = 0; i < builders; i++) {
-            s.addResident(new Person(
-                    Person.Id.random(), "Builder " + i, Profession.BUILDER, s.centre()));
+            Person p = new Person(Person.Id.random(), "Builder " + i, Profession.BUILDER, s.centre());
+            p.setEmbodied(embodied);   // standing in the world, or only on the roster
+            s.addResident(p);
         }
         return s;
     }
@@ -109,8 +110,8 @@ class VisibleConstructionTest {
     }
 
     @Test
-    void aloadedSiteDoesNotFinishWhileItsWallsAreStillGoingUp() {
-        Settlement s = townWithBuilders(1);
+    void abuilderInTheWorldMeansNoClockRunsBesideThem() {
+        Settlement s = townWithBuilders(1, true);
         s.enqueueBuild(surveyedTask(200));
         SimContext ctx = new SimContext(new SiteBridge(true), 0, SimSettings.SANDBOX);
 
@@ -129,8 +130,27 @@ class VisibleConstructionTest {
     }
 
     @Test
+    void aloadedChunkWithEveryoneReleasedDoesNotFreeze() {
+        // Roughly 128-160 blocks out: chunks still loaded, but every settler has
+        // been released. Nobody can lay a block, so the clock has to be what runs
+        // — otherwise construction stops dead in a band you walk through often.
+        Settlement s = townWithBuilders(1, false);
+        s.enqueueBuild(surveyedTask(200));
+        SiteBridge bridge = new SiteBridge(true);   // loaded...
+        SimContext ctx = new SimContext(bridge, 0, SimSettings.SANDBOX);
+
+        for (int step = 0; step < 25; step++) {
+            s.step(ctx);
+        }
+
+        assertTrue(s.buildQueue().isEmpty(), "...but with nobody embodied, it must still progress");
+        assertEquals(1, s.buildings().size());
+        assertEquals(1, bridge.stamped, "and it is stamped in, since no hand laid it");
+    }
+
+    @Test
     void anunwatchedBuildStillFinishesOnTheClock() {
-        Settlement s = townWithBuilders(1);
+        Settlement s = townWithBuilders(1, false);
         s.enqueueBuild(surveyedTask(200));
         SiteBridge bridge = new SiteBridge(false);
         SimContext ctx = new SimContext(bridge, 0, SimSettings.SANDBOX);
@@ -151,7 +171,7 @@ class VisibleConstructionTest {
 
     @Test
     void ahandBuiltStructureIsNeverStampedOverOnCompletion() {
-        Settlement s = townWithBuilders(1);
+        Settlement s = townWithBuilders(1, true);
         BuildTask task = surveyedTask(50);
         s.enqueueBuild(task);
         SiteBridge bridge = new SiteBridge(true);
