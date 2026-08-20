@@ -137,14 +137,16 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("site_y", BuildTask.UNSET_SITE_Y).forGetter(BuildTask::siteY),
             Codec.BOOL.optionalFieldOf("site_prepared", false).forGetter(BuildTask::isSitePrepared),
             Codec.INT.optionalFieldOf("blocks_placed", 0).forGetter(BuildTask::blocksPlaced),
-            Codec.INT.optionalFieldOf("plan_size", 0).forGetter(BuildTask::planSize)
-    ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared, placed, planSize) -> {
+            Codec.INT.optionalFieldOf("plan_size", 0).forGetter(BuildTask::planSize),
+            Codec.INT.optionalFieldOf("pending_blocks", 0).forGetter(BuildTask::pendingBlocks)
+    ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared, placed, planSize, pending) -> {
         BuildTask task = new BuildTask(blueprint, origin, requiredWork);
         task.addProgress(progress);
         task.setSiteY(siteY);
         task.setSitePrepared(prepared);
         task.setBlocksPlaced(placed);
         task.setPlanSize(planSize);
+        task.setPendingBlocks(pending);
         return task;
     }));
 

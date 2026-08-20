@@ -186,6 +186,44 @@ public final class PersonEntityManager {
      * nowhere to stand — a stall counter places one anyway after a few seconds,
      * so a site can never deadlock on pathfinding.
      */
+    /**
+     * Lay every block the builders have been cleared for, immediately.
+     *
+     * <p>For {@code /civ step}, which advances the simulation without any game
+     * ticks passing — so builders never get a chance to walk anywhere and the
+     * normal reach-gated path would place nothing at all. Stepping should move
+     * the masonry forward by exactly what it granted, not bank an allowance for
+     * the completion pass to stamp in later.
+     */
+    public void flushConstruction() {
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                if (settlement.buildQueue().isEmpty()) {
+                    continue;
+                }
+                BuildTask task = settlement.buildQueue().getFirst();
+                if (!BlueprintPlacer.isBuildableByHand(level, task)) {
+                    continue;
+                }
+                BlueprintPlacer.prepareSite(level, task);
+
+                List<PersonEntity> builders = embodiedBuilders(settlement);
+                // The plan is a hard ceiling on the loop: placeNextBlock also
+                // stops on its own, but a build that cannot progress must not be
+                // able to spin here.
+                int guard = task.planSize() + 1;
+                while (task.pendingBlocks() > 0 && guard-- > 0) {
+                    if (!builders.isEmpty()) {
+                        builders.getFirst().swing(InteractionHand.MAIN_HAND);
+                    }
+                    if (!BlueprintPlacer.placeNextBlock(level, task)) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     public void tickConstruction() {
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {

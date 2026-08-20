@@ -176,6 +176,11 @@ public final class KingdomsMod {
     }
 
     /** Access the simulation for a given dimension, or null if the server is not running. */
+    /** The view layer for a dimension, or null before the server has started. */
+    public static PersonEntityManager managerFor(ServerLevel level) {
+        return MANAGERS.get(level);
+    }
+
     public static SimWorld simulationFor(ServerLevel level) {
         return SIMULATIONS.get(level);
     }

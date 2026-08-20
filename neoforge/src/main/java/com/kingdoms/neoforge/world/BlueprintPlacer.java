@@ -7,6 +7,8 @@ import com.kingdoms.neoforge.KingdomsBlocks;
 import com.kingdoms.sim.settlement.BuildTask;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -78,8 +80,8 @@ public final class BlueprintPlacer {
     private record StructurePlan(int width, int depth, int height, List<Placement> blocks) {
     }
 
-    /** Fraction of the work at which the last block is laid, leaving completion headroom. */
-    private static final double VISIBLE_BUILD_DONE_AT = 0.85;
+    /** How far above a doomed block to look for somewhere its occupant can stand. */
+    private static final int EVICT_SEARCH_HEIGHT = 8;
 
     private BlueprintPlacer() {
     }
@@ -131,36 +133,37 @@ public final class BlueprintPlacer {
     }
 
     /**
-     * The next block the builders should lay, or null when the structure is as far
-     * along as the current work allows.
+     * The next block the builders should lay, or null when they have laid
+     * everything this step cleared them for.
      *
-     * <p>The cursor is deliberately ahead of the simulation: the last block is due
-     * at {@link #VISIBLE_BUILD_DONE_AT} of the work, so the structure is standing
-     * before the task completes. Otherwise the task leaves the build queue on the
-     * very step it finishes and the completion pass stamps in the remainder.
+     * <p>The gate is the task's granted block budget, not a fraction of some
+     * separate work clock. Progress <em>is</em> the masonry, so there is no
+     * cursor to run ahead of the simulation and no remainder for a completion
+     * pass to stamp in afterwards.
      */
     public static NextBlock nextBlock(ServerLevel level, BuildTask task) {
         StructurePlan plan = planOf(level, task);
         if (plan == null || task.blocksPlaced() >= plan.blocks().size()) {
             return null;
         }
-        double pace = Math.min(1.0, task.completionFraction() / VISIBLE_BUILD_DONE_AT);
-        int due = Math.min(plan.blocks().size(), (int) Math.round(plan.blocks().size() * pace));
-        if (task.blocksPlaced() >= due) {
-            return null;
+        if (task.pendingBlocks() <= 0) {
+            return null;   // this step's share is already standing
         }
         Placement placement = plan.blocks().get(task.blocksPlaced());
         return new NextBlock(placement.pos(), placement.state());
     }
 
-    /** Lays the next block of the plan. Returns true if one went down. */
+    /** Lays the next block of the plan, spending one granted block. Returns true if one went down. */
     public static boolean placeNextBlock(ServerLevel level, BuildTask task) {
         StructurePlan plan = planOf(level, task);
         if (plan == null || task.blocksPlaced() >= plan.blocks().size()) {
             return false;
         }
+        if (task.pendingBlocks() <= 0) {
+            return false;
+        }
         lay(level, plan.blocks().get(task.blocksPlaced()));
-        task.setBlocksPlaced(task.blocksPlaced() + 1);
+        task.recordBlockPlaced();
         return true;
     }
 
@@ -173,6 +176,7 @@ public final class BlueprintPlacer {
      * a door's lower half, laid on its own, would pop straight back off.
      */
     private static void lay(ServerLevel level, Placement placement) {
+        evict(level, placement.pos(), placement.state());
         level.setBlock(placement.pos(), placement.state(), Block.UPDATE_CLIENTS);
         if (placement.nbt() == null) {
             return;
@@ -550,5 +554,42 @@ public final class BlueprintPlacer {
                 }
             }
         }
+    }
+
+    /**
+     * Lifts anything standing where a block is about to appear.
+     *
+     * <p>Builders lay blocks around their own feet, and a fast-forwarded build
+     * can put a wall through someone mid-stride. Without this they are simply
+     * entombed and suffocate — so whoever is caught gets moved to the first gap
+     * above that actually fits them.
+     */
+    private static void evict(ServerLevel level, BlockPos pos, BlockState state) {
+        if (state.isAir() || state.getCollisionShape(level, pos).isEmpty()) {
+            return;   // nothing solid arriving, nothing to be trapped by
+        }
+        List<Entity> caught = level.getEntities((Entity) null, new AABB(pos), Entity::isAlive);
+        if (caught.isEmpty()) {
+            return;
+        }
+        BlockPos refuge = refugeAbove(level, pos);
+        for (Entity entity : caught) {
+            entity.teleportTo(refuge.getX() + 0.5, refuge.getY(), refuge.getZ() + 0.5);
+        }
+    }
+
+    /** The lowest spot above {@code pos} with room for something to stand. */
+    private static BlockPos refugeAbove(ServerLevel level, BlockPos pos) {
+        for (int dy = 1; dy <= EVICT_SEARCH_HEIGHT; dy++) {
+            BlockPos feet = pos.above(dy);
+            if (isClear(level, feet) && isClear(level, feet.above())) {
+                return feet;
+            }
+        }
+        return pos.above(EVICT_SEARCH_HEIGHT);
+    }
+
+    private static boolean isClear(ServerLevel level, BlockPos pos) {
+        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
     }
 }

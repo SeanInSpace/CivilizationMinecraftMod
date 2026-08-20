@@ -321,17 +321,49 @@ public final class Settlement {
             return;
         }
         BuildTask current = buildQueue.getFirst();
-        current.addProgress(builders);
-        if (current.isComplete()) {
-            buildQueue.removeFirst();
-            // The building now exists as far as the simulation is concerned, even
-            // if nobody is around and no block has been placed. It stands at the
-            // surveyed site if construction got far enough to survey one — and
-            // counts as already drawn if the builders laid every block by hand,
-            // so watched construction is never re-stamped by a placement pass.
-            buildings.add(new Building(
-                    current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete()));
+
+        if (isWatchedBuild(ctx, current)) {
+            // Somebody is here to watch, so the masonry is the truth: this step
+            // clears the builders to lay their share, and progress is whatever
+            // they actually get down. Nothing finishes until the last block does,
+            // which is what stops a completed task being stamped over work that
+            // is still visibly going up.
+            current.grantBlocks(current.blocksForStep(builders));
+            current.syncProgressToBlocks();
+            if (!current.isVisuallyComplete()) {
+                return;
+            }
+        } else {
+            // Nobody watching. Nothing to look at, so the clock runs instead and
+            // the finished building materializes whole when a chunk next loads.
+            current.addProgress(builders);
+            if (!current.isComplete()) {
+                return;
+            }
         }
+
+        buildQueue.removeFirst();
+        // The building now exists as far as the simulation is concerned. It stands
+        // at the surveyed site if construction got far enough to survey one — and
+        // counts as already drawn if the builders laid every block by hand, so
+        // watched construction is never re-stamped by a placement pass.
+        buildings.add(new Building(
+                current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete()));
+    }
+
+    /**
+     * Whether this build is being watched closely enough to be built for real.
+     *
+     * <p>All three conditions matter. The plan size is only known once the site is
+     * surveyed; the chunk has to be loaded for blocks to go anywhere; and a player
+     * has to be near enough that the view layer is actually running builders —
+     * otherwise blocks would be granted that nobody is ever going to lay, and the
+     * build would stall forever instead of quietly finishing on the clock.
+     */
+    private boolean isWatchedBuild(SimContext ctx, BuildTask task) {
+        return task.planSize() > 0
+                && ctx.bridge().isLoaded(task.site())
+                && ctx.bridge().playerWithin(task.site(), ctx.settings().observedRadius());
     }
 
     /**

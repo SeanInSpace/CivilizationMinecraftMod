@@ -2,6 +2,7 @@ package com.kingdoms.neoforge.command;
 
 import com.kingdoms.neoforge.KingdomsConfig;
 import com.kingdoms.neoforge.KingdomsMod;
+import com.kingdoms.neoforge.view.PersonEntityManager;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
@@ -319,8 +320,16 @@ public final class KingdomsCommand {
             source.sendFailure(Component.literal("No simulation for this dimension."));
             return 0;
         }
+        // Stepping passes no game ticks, so the view layer never runs on its own.
+        // Pump it after each step or the builders would be granted blocks they
+        // never lay, and the finished building would be stamped in whole on top
+        // of the half-built one standing at the site.
+        PersonEntityManager manager = KingdomsMod.managerFor(source.getLevel());
         for (int i = 0; i < count; i++) {
             world.step();
+            if (manager != null) {
+                manager.flushConstruction();
+            }
         }
         markDirty(source);
 

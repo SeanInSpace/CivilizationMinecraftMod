@@ -80,7 +80,11 @@ Buildings rise **visibly, block by block**, in a mason's order:
 3. Within each layer, **full blocks go down before partial blocks** (lanterns, fences, crops, water).
 4. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out. That list is `LoadedBlueprint.sequence()`, and its index is the build cursor.
 
-The pace tracks the build task's real progress (a few blocks per second while builders work), the half-built wall survives restarts, and the builders stand over the site while it rises. The simulation still owns progress — if nobody is watching, no blocks are placed, and a finished building simply appears whole when its chunk next loads. Completion always ends with a full placement pass, so a structure is guaranteed whole no matter how construction went.
+**When somebody is watching, the blocks are the truth.** Progress is not a clock running alongside the masonry — it *is* the masonry. Each simulation step clears the builders to lay a share of the plan, and "40% built" means 40% of the blocks are standing where you can count them. A build cannot finish while its walls are still going up, so nothing is ever stamped over work in progress.
+
+Away from a watcher the abstract clock still runs, because there is nothing to look at: the building materializes whole when its chunk next loads. The two figures are kept in step, so a build that loses its audience part-way carries on from where the masonry actually got to rather than jumping.
+
+`/civ step` drives the real construction too. Stepping passes no game ticks, so the builders would otherwise be granted blocks they never lay — and the finished building would appear on top of the half-built one. Anything standing where a block is about to go is lifted clear rather than entombed.
 
 **Where the shape comes from.** Before falling back to its built-in shapes, a build asks [Keystone](KEYSTONE.md) for a blueprint — a file you scanned in-game or shipped in a datapack. Blueprints carry full block states, so an authored building arrives with its stairs, doors and fences facing the way they were drawn, and it is laid course by course exactly like a generated one. *(Earlier versions stamped datapack templates into the world whole, which quietly excluded the best-looking buildings from the best-looking part of the mod.)*
 
