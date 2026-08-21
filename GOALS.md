@@ -22,6 +22,7 @@ automated check can confirm is whether it *looks* right:
 - [ ] Does the quest board read well, or is it a wall of numbers?
 - [ ] Does the town overview screen look the part, and are the icons legible?
 - [ ] Do the lamp's building outlines read clearly, or is a dense town a blur?
+- [ ] Does the town map read as a plan, and is the fixed claim scale right?
 
 ### Next
 - [ ] Hideouts, so `hideouts_cleared` counts something
@@ -31,6 +32,10 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **Town Map.** A drawn plan of the nearest settlement: blank ground, buildings
+  in green at their real footprints, north up, player marked. Scale follows the
+  town's claim so any size town fills the square.
 
 - **Building dimensions are tracked.** `Footprint` (floor height, width, depth,
   height) recorded when a plan is built — from the survey on the hand-built path,

@@ -24,6 +24,10 @@ public final class KingdomsNetwork {
                 TownOverviewPayload.TYPE,
                 TownOverviewPayload.STREAM_CODEC,
                 TownOverviewPayload::handle);
+        registrar.playToClient(
+                TownMapPayload.TYPE,
+                TownMapPayload.STREAM_CODEC,
+                TownMapPayload::handle);
         KingdomsMod.LOGGER.debug("Kingdoms network channel registered");
     }
 }

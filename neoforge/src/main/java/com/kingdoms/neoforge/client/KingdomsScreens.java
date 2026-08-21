@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.client;
 
+import com.kingdoms.neoforge.net.TownMapPayload;
 import com.kingdoms.neoforge.net.TownOverviewPayload;
 import net.minecraft.client.Minecraft;
 
@@ -18,5 +19,9 @@ public final class KingdomsScreens {
     public static void openTownOverview(TownOverviewPayload town) {
         // 26.2 renamed this from setScreen; Keystone's wand screen uses the same call.
         Minecraft.getInstance().setScreenAndShow(new TownOverviewScreen(town));
+    }
+
+    public static void openTownMap(TownMapPayload town) {
+        Minecraft.getInstance().setScreenAndShow(new TownMapScreen(town));
     }
 }

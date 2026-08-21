@@ -76,6 +76,15 @@ Settlers carry **real food** and eat the actual item they hold, best first — s
 
 ## Seeing what stands where
 
+**Use a Town Map** and the nearest settlement opens as a plan: blank ground with
+every building picked out in green, north up, your own position marked. It is
+deliberately not a Minecraft map — a map draws terrain, and terrain is exactly
+what this strips away so the shape of the town is readable. The scale follows the
+town's claim, so a hamlet and a city fill the same square.
+
+Buildings only appear once their size is known, which happens when they are
+actually built.
+
 Craft or grab a **Surveyor's Lamp** from the Kingdoms creative tab and hold it.
 Every building within about 48 blocks draws its own outline in sparks — the floor
 and roof rectangles and the four corner posts, so you can read a building's real

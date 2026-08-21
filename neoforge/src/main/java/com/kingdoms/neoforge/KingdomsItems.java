@@ -1,6 +1,7 @@
 package com.kingdoms.neoforge;
 
 import com.kingdoms.neoforge.item.FoundingCharterItem;
+import com.kingdoms.neoforge.item.TownMapItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -25,6 +26,12 @@ public final class KingdomsItems {
     public static final DeferredItem<Item> SURVEYORS_LAMP = ITEMS.registerItem(
             "surveyors_lamp",
             Item::new,
+            () -> new Item.Properties().stacksTo(1));
+
+    /** A plan of the nearest town: blank ground, buildings in green. */
+    public static final DeferredItem<Item> TOWN_MAP = ITEMS.registerItem(
+            "town_map",
+            TownMapItem::new,
             () -> new Item.Properties().stacksTo(1));
 
     /** So the camp post can be placed by hand, and moved. */
