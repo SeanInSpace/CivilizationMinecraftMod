@@ -58,7 +58,8 @@ public interface WorldBridge {
      * of it. When it was not, the height is a guess and re-measuring is the whole
      * point.
      */
-    Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed);
+    Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed,
+                                   int facing);
 
     /**
      * Whether a plot is fit to build on.

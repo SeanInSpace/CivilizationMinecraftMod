@@ -147,9 +147,10 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("work_done", 0).forGetter(BuildTask::workDone),
             Codec.INT.optionalFieldOf("plan_work", 0).forGetter(BuildTask::planWork),
             Codec.INT.optionalFieldOf("plan_place_work", 0).forGetter(BuildTask::planPlaceWork),
-            Codec.INT.optionalFieldOf("pending_work", 0).forGetter(BuildTask::pendingWork)
+            Codec.INT.optionalFieldOf("pending_work", 0).forGetter(BuildTask::pendingWork),
+            Codec.INT.optionalFieldOf("facing", 0).forGetter(BuildTask::facing)
     ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared,
-                stepsDone, stepProgress, workDone, planWork, planPlaceWork, pending) -> {
+                stepsDone, stepProgress, workDone, planWork, planPlaceWork, pending, facing) -> {
         BuildTask task = new BuildTask(blueprint, origin, requiredWork);
         task.addProgress(progress);
         task.setSiteY(siteY);
@@ -159,6 +160,7 @@ public final class KingdomsCodecs {
         task.setWorkDone(workDone);
         task.setPlan(planWork, planPlaceWork);
         task.setPendingWork(pending);
+        task.setFacing(facing);
         return task;
     }));
 
@@ -205,12 +207,14 @@ public final class KingdomsCodecs {
             Codec.BOOL.fieldOf("materialized").forGetter(Building::isMaterialized),
             Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored),
             Codec.BOOL.optionalFieldOf("surveyed", false).forGetter(Building::isSurveyed),
-            FOOTPRINT.optionalFieldOf("footprint", Footprint.UNKNOWN).forGetter(Building::footprint)
-    ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint) -> {
+            FOOTPRINT.optionalFieldOf("footprint", Footprint.UNKNOWN).forGetter(Building::footprint),
+            Codec.INT.optionalFieldOf("facing", 0).forGetter(Building::facing)
+    ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing) -> {
         Building building = new Building(blueprint, origin, step, materialized);
         building.setFoodStored(food);
         building.setSurveyed(surveyed);
         building.setFootprint(footprint);
+        building.setFacing(facing);
         return building;
     }));
 

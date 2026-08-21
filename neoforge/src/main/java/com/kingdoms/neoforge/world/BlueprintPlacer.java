@@ -25,6 +25,8 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -150,8 +152,9 @@ public final class BlueprintPlacer {
     // --- the instant path ---
 
     /** Places a whole structure and reports where it went and how big it is. */
-    public static Footprint place(ServerLevel level, String blueprintId, BlockPos base) {
-        StructurePlan plan = planFor(level, blueprintId, base);
+    public static Footprint place(ServerLevel level, String blueprintId, BlockPos base,
+                                 int facing) {
+        StructurePlan plan = planFor(level, blueprintId, base, facing);
         for (Step step : plan.steps()) {
             execute(level, step);
         }
@@ -169,7 +172,7 @@ public final class BlueprintPlacer {
         if (!level.isLoaded(base)) {
             return Footprint.UNKNOWN;
         }
-        StructurePlan plan = planFor(level, blueprintId, base);
+        StructurePlan plan = planFor(level, blueprintId, base, 0);
         return plotOf(base.getY(), plan);
     }
 
@@ -498,6 +501,46 @@ public final class BlueprintPlacer {
         return level.isLoaded(approx);
     }
 
+    /** Quarter turns clockwise into Minecraft's own rotation. */
+    private static Rotation rotationOf(int facing) {
+        return switch (Math.floorMod(facing, 4)) {
+            case 1 -> Rotation.CLOCKWISE_90;
+            case 2 -> Rotation.CLOCKWISE_180;
+            case 3 -> Rotation.COUNTERCLOCKWISE_90;
+            default -> Rotation.NONE;
+        };
+    }
+
+    /**
+     * Turns a gathered plan about its own base.
+     *
+     * <p>Both halves matter: the positions swing round the origin, and every block
+     * state turns with them. Rotating positions alone would leave a house with its
+     * stairs and its door facing the way they were drawn while the walls moved.
+     */
+    private static void turn(List<Placement> blocks, BlockPos base, Rotation rotation) {
+        if (rotation == Rotation.NONE) {
+            return;
+        }
+        for (int i = 0; i < blocks.size(); i++) {
+            Placement placement = blocks.get(i);
+            BlockPos local = placement.pos().subtract(base);
+            BlockPos turned = base.offset(rotate(local, rotation));
+            blocks.set(i, new Placement(turned,
+                    placement.state().rotate(rotation), placement.nbt()));
+        }
+    }
+
+    /** A position about the origin. Clockwise sends (x, z) to (-z, x). */
+    private static BlockPos rotate(BlockPos local, Rotation rotation) {
+        return switch (rotation) {
+            case CLOCKWISE_90 -> new BlockPos(-local.getZ(), local.getY(), local.getX());
+            case CLOCKWISE_180 -> new BlockPos(-local.getX(), local.getY(), -local.getZ());
+            case COUNTERCLOCKWISE_90 -> new BlockPos(local.getZ(), local.getY(), -local.getX());
+            default -> local;
+        };
+    }
+
     /** Repair flights are the one plan that is a path, not a building. */
     private static boolean isStairs(BuildTask task) {
         return Identifier.parse(task.blueprintId()).getPath().endsWith("stairs");
@@ -547,17 +590,30 @@ public final class BlueprintPlacer {
     // --- plans ---
 
     private static StructurePlan planFor(ServerLevel level, String blueprintId, BlockPos base) {
+        return planFor(level, blueprintId, base, 0);
+    }
+
+    /**
+     * Builds the plan for a structure, turned to face the way it was told to.
+     *
+     * <p>Authored blueprints are rotated by Keystone as they load, which already
+     * handles every block state properly. The built-in shapes are drawn facing
+     * south and turned here, which comes to the same thing.
+     */
+    private static StructurePlan planFor(ServerLevel level, String blueprintId, BlockPos base,
+                                         int facing) {
         Identifier id = Identifier.parse(blueprintId);
+        Rotation rotation = rotationOf(facing);
 
         Optional<LoadedBlueprint> authored =
-                Blueprints.loadFirst(level, base, styleCandidates(id));
+                Blueprints.loadFirst(level, base, styleCandidates(id), rotation, Mirror.NONE);
         if (authored.isPresent()) {
             return fromBlueprint(level, authored.get(), base);
         }
         // Styles degrade too: with no norman/house drawn, a norman town still
         // gets the built-in house rather than an unknown-blueprint marker.
         String path = id.getPath();
-        return procedural(level, path.substring(path.lastIndexOf('/') + 1), base);
+        return procedural(level, path.substring(path.lastIndexOf('/') + 1), base, rotation);
     }
 
     /**
@@ -598,7 +654,8 @@ public final class BlueprintPlacer {
         return finish(level, base, blocks, size.getX(), size.getZ(), size.getY());
     }
 
-    private static StructurePlan procedural(ServerLevel level, String path, BlockPos base) {
+    private static StructurePlan procedural(ServerLevel level, String path, BlockPos base,
+                                            Rotation rotation) {
         List<Placement> blocks = new ArrayList<>();
         int[] dims = switch (path) {
             case "town_hall" -> cabin(level, blocks, base, 7, 7, 4, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
@@ -626,7 +683,12 @@ public final class BlueprintPlacer {
         if (path.equals("house")) {
             add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.HOUSE.get());
         }
-        return finish(level, base, blocks, dims[0], dims[1], dims[2]);
+        turn(blocks, base, rotation);
+        // A quarter turn swaps the footprint's axes along with it.
+        boolean quarter = rotation == Rotation.CLOCKWISE_90
+                || rotation == Rotation.COUNTERCLOCKWISE_90;
+        return finish(level, base, blocks,
+                quarter ? dims[1] : dims[0], quarter ? dims[0] : dims[1], dims[2]);
     }
 
     /**

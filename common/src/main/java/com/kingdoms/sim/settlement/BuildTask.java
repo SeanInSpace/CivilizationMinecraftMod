@@ -73,6 +73,9 @@ public final class BuildTask {
      */
     private Footprint footprint = Footprint.UNKNOWN;
 
+    /** Quarter turns clockwise from the drawn orientation; see {@code BuildPlanner.facingToward}. */
+    private int facing;
+
     public BuildTask(String blueprintId, SimPos origin, int requiredWork) {
         this.blueprintId = Objects.requireNonNull(blueprintId, "blueprintId");
         this.origin = Objects.requireNonNull(origin, "origin");
@@ -164,6 +167,14 @@ public final class BuildTask {
     public void setPlan(int planWork, int planPlaceWork) {
         this.planWork = Math.max(0, planWork);
         this.planPlaceWork = Math.max(0, planPlaceWork);
+    }
+
+    public int facing() {
+        return facing;
+    }
+
+    public void setFacing(int facing) {
+        this.facing = Math.floorMod(facing, 4);
     }
 
     public Footprint footprint() {

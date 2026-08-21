@@ -65,6 +65,27 @@ public final class BuildPlanner {
     /** Half-span probed when judging a plot, before the real building is chosen. */
     public static final int PLOT_PROBE_RADIUS = 6;
 
+    /**
+     * Which way a building on this plot should face, in quarter turns clockwise.
+     *
+     * <p>Structures are drawn with their door to the south, so zero means "as
+     * drawn". Everything turns to put its door toward the town centre, which is
+     * the difference between a village and a field of identical sheds all facing
+     * the same way.
+     *
+     * <p>The dominant axis wins. A building on a diagonal faces whichever of the
+     * two directions it is more squarely off, which is what a builder standing
+     * there would choose.
+     */
+    public static int facingToward(SimPos plot, SimPos centre) {
+        int dx = centre.x() - plot.x();
+        int dz = centre.z() - plot.z();
+        if (Math.abs(dz) >= Math.abs(dx)) {
+            return dz >= 0 ? 0 : 2;   // centre to the south: as drawn; north: half turn
+        }
+        return dx < 0 ? 1 : 3;        // centre west: a quarter clockwise; east: three
+    }
+
     /** Which building lets a town make a thing it has run out of. */
     public static final Map<String, String> PRODUCER_OF = Map.of(
             TownStores.WOOD, "kingdoms:lumber_camp",
@@ -113,7 +134,9 @@ public final class BuildPlanner {
         // A real plot, not the centre. Two producers ordered this way both landed
         // on the town square and were built on top of one another.
         SimPos plot = settlement.takeNextPlot();
-        settlement.enqueueUrgent(new BuildTask(producer, plot, work));
+        BuildTask ordered = new BuildTask(producer, plot, work);
+        ordered.setFacing(facingToward(plot, settlement.centre()));
+        settlement.enqueueUrgent(ordered);
         settlement.logEvent(step, "Out of " + resource + " — work starts on a "
                 + producer.substring(producer.indexOf(':') + 1).replace('_', ' '));
         return true;

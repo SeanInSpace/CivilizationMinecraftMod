@@ -28,6 +28,9 @@ public final class Building {
     /** How much room it takes up; unknown until its plan has been built. */
     private Footprint footprint = Footprint.UNKNOWN;
 
+    /** Quarter turns clockwise from the drawn orientation. */
+    private int facing;
+
     /** Food held at this building — harvest waiting at a farm, stock at a market. */
     private int foodStored;
 
@@ -71,6 +74,14 @@ public final class Building {
      */
     public void setOriginY(int y) {
         this.origin = new SimPos(origin.x(), y, origin.z());
+    }
+
+    public int facing() {
+        return facing;
+    }
+
+    public void setFacing(int facing) {
+        this.facing = Math.floorMod(facing, 4);
     }
 
     public Footprint footprint() {

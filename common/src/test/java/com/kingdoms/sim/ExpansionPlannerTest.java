@@ -30,7 +30,7 @@ class ExpansionPlannerTest {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
         @Override public boolean isLoaded(SimPos pos) { return true; }
         @Override public int surfaceHeight(SimPos pos) { return 70; }
-        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed, int facing) {
             return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }

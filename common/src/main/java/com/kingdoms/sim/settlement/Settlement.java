@@ -443,7 +443,9 @@ public final class Settlement {
                 claimRadius = BuildPlanner.claimRadiusFor(centre, plot);
             }
 
-            buildQueue.add(new BuildTask(type.id(), plot, type.workCost()));
+            BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
+            ordered.setFacing(BuildPlanner.facingToward(plot, centre));
+            buildQueue.add(ordered);
             nextPlotIndex++;
         });
     }
@@ -505,6 +507,7 @@ public final class Settlement {
         // A hand-built structure already knows its size from the survey; one built
         // out of sight learns it when it is finally placed.
         raised.setFootprint(current.footprint());
+        raised.setFacing(current.facing());
         buildings.add(raised);
         tallies.record(Tallies.BUILDINGS_RAISED);
     }
@@ -567,7 +570,8 @@ public final class Settlement {
             }
             if (ctx.bridge().isLoaded(building.origin())) {
                 Footprint placed = ctx.bridge().materializeBlueprint(
-                        building.blueprintId(), building.origin(), building.isSurveyed());
+                        building.blueprintId(), building.origin(), building.isSurveyed(),
+                        building.facing());
                 if (placed.isKnown()) {
                     // Where it really stands and how big it is, so everyone who
                     // walks here arrives and anything drawing it has its bounds.
