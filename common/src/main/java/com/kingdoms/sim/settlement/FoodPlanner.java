@@ -338,11 +338,23 @@ public final class FoodPlanner {
                 // to a full granary because their family's shopper had not got
                 // back yet, which is a logistics bug wearing a famine costume.
                 if (person.inventory().bestFood() == null
-                        && person.hunger() >= Person.HUNGER_SEVERE
-                        && settlement.foodStock() > 0) {
-                    int take = Math.min(CARRY_WHEN_EATING, settlement.foodStock());
-                    int taken = person.inventory().add(Foods.PROVISION, take);
-                    settlement.stores().take(TownStores.FOOD, taken);
+                        && person.hunger() >= Person.HUNGER_SEVERE) {
+                    if (settlement.foodStock() > 0) {
+                        int take = Math.min(CARRY_WHEN_EATING, settlement.foodStock());
+                        int taken = person.inventory().add(Foods.PROVISION, take);
+                        settlement.stores().take(TownStores.FOOD, taken);
+                    } else {
+                        // The granary is not the only place food sits. A town can be
+                        // empty at the granary and have a hundred and fifty loaves on
+                        // the market stall it just stocked, and somebody was starving
+                        // to death in the square in front of it.
+                        Building stall = fullestWithStock(settlement, "market", 1);
+                        if (stall != null) {
+                            int take = Math.min(CARRY_WHEN_EATING, stall.foodStored());
+                            int taken = person.inventory().add(Foods.PROVISION, take);
+                            stall.setFoodStored(stall.foodStored() - taken);
+                        }
+                    }
                 }
                 // Eat the best thing actually carried — including anything a
                 // player has handed over.

@@ -24,6 +24,7 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -196,6 +197,44 @@ public final class BlueprintPlacer {
                 plan.height());
     }
 
+    /** How far down a column may be stripped of growth before we call it ground. */
+    private static final int OVERBURDEN_SEARCH = 32;
+
+    /**
+     * The first free block above actual ground in this column.
+     *
+     * <p>Not the raw heightmap. {@code MOTION_BLOCKING_NO_LEAVES} counts a tree
+     * trunk as the surface, so a plot with an oak standing on it surveyed its
+     * floor at the top of the tree — the building was pitched into the branches
+     * and the excavation started somewhere no one could stand, in mid-air, with
+     * the real ground six blocks below and never touched.
+     *
+     * <p>Growth is walked through instead: logs, leaves, and anything a block can
+     * simply be placed into. What is left underneath is what the town builds on.
+     */
+    public static int groundLevel(ServerLevel level, int x, int z) {
+        int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        int floor = level.getMinY() + 1;
+        for (int stripped = 0; stripped < OVERBURDEN_SEARCH && y > floor; stripped++) {
+            BlockState below = level.getBlockState(new BlockPos(x, y - 1, z));
+            if (!isOverburden(below)) {
+                break;
+            }
+            y--;
+        }
+        return y;
+    }
+
+    /** Growth and loose cover, as opposed to the ground a building sits on. */
+    private static boolean isOverburden(BlockState state) {
+        // Growth and loose cover only. Air is deliberately not on this list: the
+        // heightmap has already put us on the first free block, so anything air
+        // below that is a cave or an overhang, and walking down into one sinks the
+        // building into the hillside for no reason at all.
+        return state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES)
+                || state.canBeReplaced();
+    }
+
     /** Where a structure floor sits, given the first air block in that column. */
     public static int floorFor(int firstAirY) {
         // One below, so the floor course replaces the top of the soil instead of
@@ -220,13 +259,24 @@ public final class BlueprintPlacer {
         }
         boolean changed = false;
         if (task.siteY() == BuildTask.UNSET_SITE_Y) {
-            int firstAir = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    task.origin().x(), task.origin().z());
-            // A flight of steps starts at the doorway it serves, full stop. Surveying
-            // the column instead returns the top of the house that doorway is set
-            // into, so the steps got built across the roof and buried the door.
+            int firstAir = groundLevel(level, task.origin().x(), task.origin().z());
+            // Two jobs already know the height they belong at and must not go
+            // looking for another.
+            //
+            // A flight of steps starts at the doorway it serves, full stop.
+            // Surveying the column instead returns the top of the house that
+            // doorway is set into, so the steps got built across the roof and
+            // buried the door.
+            //
+            // An improvement is raised in place, on the floor the old building
+            // already stands on. Surveying that column finds the roof of the very
+            // building being replaced, so the new one was pitched a storey up and
+            // built on top of the old — and the excavation, measured from up there,
+            // was digging air.
+            //
             // Everything else is sunk to grade, so you can walk in through it.
-            task.setSiteY(isStairs(task) ? task.origin().y() : floorFor(firstAir));
+            boolean inPlace = isStairs(task) || task.isUpgrade();
+            task.setSiteY(inPlace ? task.origin().y() : floorFor(firstAir));
             changed = true;
         }
         StructurePlan plan = planOf(level, task);
@@ -832,6 +882,11 @@ public final class BlueprintPlacer {
         blocks.add(new Placement(pos, block.defaultBlockState(), null));
     }
 
+    /** As above, for a block that has to be placed in a particular state. */
+    private static void add(List<Placement> blocks, BlockPos pos, BlockState state) {
+        blocks.add(new Placement(pos, state, null));
+    }
+
     // --- structures, expressed as plans ---
 
     /**
@@ -983,7 +1038,12 @@ public final class BlueprintPlacer {
                 }
             }
         }
-        add(blocks, base.offset(0, 0, r), Blocks.OAK_FENCE_GATE);
+        // Hung open, and it stays open. Nothing in this mod can work a gate: a
+        // closed one is solid to pathfinding, so a fence with a gate in it is a
+        // pen, and the farmer who walked in at planting was still in there at
+        // harvest wondering how to get out.
+        add(blocks, base.offset(0, 0, r),
+                Blocks.OAK_FENCE_GATE.defaultBlockState().setValue(FenceGateBlock.OPEN, true));
         add(blocks, base.offset(r - 1, 0, r - 1), KingdomsBlocks.FARM.get());
         return new int[]{2 * r + 1, 2 * r + 1, 3};
     }
@@ -1033,7 +1093,7 @@ public final class BlueprintPlacer {
             int x = base.getX();
             int z = base.getZ() + i;
             int treadY = base.getY() - i;
-            int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+            int ground = groundLevel(level, x, z) - 1;
             if (treadY <= ground) {
                 break;   // the steps have met the hillside
             }

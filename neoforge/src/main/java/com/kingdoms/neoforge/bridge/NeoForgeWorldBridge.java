@@ -56,7 +56,9 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         if (!level.isLoaded(toBlockPos(pos))) {
             return pos.y();
         }
-        return level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.x(), pos.z());
+        // Real ground, not the top of whatever is growing on it. The plot height
+        // chosen here is what the survey later builds the whole excavation around.
+        return BlueprintPlacer.groundLevel(level, pos.x(), pos.z());
     }
 
     /**

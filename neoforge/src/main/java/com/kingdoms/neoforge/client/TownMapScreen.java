@@ -19,10 +19,25 @@ import net.minecraft.network.chat.Component;
  */
 public final class TownMapScreen extends Screen {
 
-    private static final int PANEL_WIDTH = 256;
     private static final int HEADER = 30;
-    private static final int MAP_SIZE = 216;
     private static final int PADDING = 20;
+
+    /** Blank border between the panel and the edge of the screen. */
+    private static final int MARGIN = 16;
+
+    /** Gutter down each side of the map inside the panel. */
+    private static final int GUTTER = 20;
+
+    /**
+     * Bounds on how big the plan is drawn.
+     *
+     * <p>The map used to be a fixed 216 pixels, which is a different thing
+     * entirely depending on the GUI scale: at 3x it filled the screen nicely and
+     * at 1x it was a postage stamp in the middle of a very large window. Both
+     * bounds are generous — this is a screen whose whole job is the drawing on it.
+     */
+    private static final int MIN_MAP = 128;
+    private static final int MAX_MAP = 640;
 
     private static final int PANEL = 0xF0181818;
     private static final int BORDER = 0xFF6A6A6A;
@@ -44,12 +59,29 @@ public final class TownMapScreen extends Screen {
         this.town = town;
     }
 
+    /**
+     * How big the plan is drawn, for the window it has been given.
+     *
+     * <p>Measured off the screen rather than fixed, so the map is the same size
+     * relative to the window at every GUI scale instead of shrinking to a stamp
+     * as the scale goes down.
+     */
+    private int mapSize() {
+        int across = width - 2 * (MARGIN + GUTTER);
+        int down = height - 2 * MARGIN - HEADER - PADDING;
+        return Math.clamp(Math.min(across, down), MIN_MAP, MAX_MAP);
+    }
+
+    private int panelWidth() {
+        return mapSize() + 2 * GUTTER;
+    }
+
     private int panelHeight() {
-        return HEADER + MAP_SIZE + PADDING;
+        return HEADER + mapSize() + PADDING;
     }
 
     private int left() {
-        return (width - PANEL_WIDTH) / 2;
+        return (width - panelWidth()) / 2;
     }
 
     private int top() {
@@ -59,24 +91,26 @@ public final class TownMapScreen extends Screen {
     /** Blocks per pixel. The claim fills the square, whatever size the town is. */
     private double scale() {
         int span = Math.max(16, town.claimRadius() * 2);
-        return (double) MAP_SIZE / span;
+        return (double) mapSize() / span;
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+        int size = mapSize();
+        int panelWidth = panelWidth();
         int x = left();
         int y = top();
         int h = panelHeight();
 
-        graphics.fill(x, y, x + PANEL_WIDTH, y + h, PANEL);
-        graphics.outline(x, y, PANEL_WIDTH, h, BORDER);
+        graphics.fill(x, y, x + panelWidth, y + h, PANEL);
+        graphics.outline(x, y, panelWidth, h, BORDER);
 
-        graphics.centeredText(font, title, x + PANEL_WIDTH / 2, y + 10, TITLE);
+        graphics.centeredText(font, title, x + panelWidth / 2, y + 10, TITLE);
 
-        int mapX = x + (PANEL_WIDTH - MAP_SIZE) / 2;
+        int mapX = x + (panelWidth - size) / 2;
         int mapY = y + HEADER;
-        graphics.fill(mapX, mapY, mapX + MAP_SIZE, mapY + MAP_SIZE, GROUND);
-        graphics.outline(mapX, mapY, MAP_SIZE, MAP_SIZE, BORDER);
+        graphics.fill(mapX, mapY, mapX + size, mapY + size, GROUND);
+        graphics.outline(mapX, mapY, size, size, BORDER);
 
         drawClaim(graphics, mapX, mapY);
         drawBuildings(graphics, mapX, mapY);
@@ -84,27 +118,28 @@ public final class TownMapScreen extends Screen {
 
         graphics.centeredText(font,
                 Component.literal(town.marks().size() + " buildings   ·   north is up"),
-                x + PANEL_WIDTH / 2, y + h - 14, SUBTLE);
+                x + panelWidth / 2, y + h - 14, SUBTLE);
 
         super.extractRenderState(graphics, mouseX, mouseY, a);
     }
 
     /** A faint square for the town's borders, so the plan has an edge to read against. */
     private void drawClaim(GuiGraphicsExtractor graphics, int mapX, int mapY) {
-        graphics.outline(mapX + 1, mapY + 1, MAP_SIZE - 2, MAP_SIZE - 2, CLAIM);
+        graphics.outline(mapX + 1, mapY + 1, mapSize() - 2, mapSize() - 2, CLAIM);
     }
 
     private void drawBuildings(GuiGraphicsExtractor graphics, int mapX, int mapY) {
         double scale = scale();
+        int size = mapSize();
         for (TownMapPayload.Mark mark : town.marks()) {
             // Centred on its origin, exactly as the placer builds it.
             double halfW = mark.width() / 2.0;
             double halfD = mark.depth() / 2.0;
 
-            int x0 = mapX + toPixel(mark.x() - halfW - town.centreX(), scale);
-            int x1 = mapX + toPixel(mark.x() + halfW - town.centreX(), scale);
-            int z0 = mapY + toPixel(mark.z() - halfD - town.centreZ(), scale);
-            int z1 = mapY + toPixel(mark.z() + halfD - town.centreZ(), scale);
+            int x0 = mapX + toPixel(mark.x() - halfW - town.centreX(), scale, size);
+            int x1 = mapX + toPixel(mark.x() + halfW - town.centreX(), scale, size);
+            int z0 = mapY + toPixel(mark.z() - halfD - town.centreZ(), scale, size);
+            int z1 = mapY + toPixel(mark.z() + halfD - town.centreZ(), scale, size);
 
             // A small building at city scale rounds to nothing; give it a floor.
             if (x1 - x0 < MIN_MARK) {
@@ -113,7 +148,7 @@ public final class TownMapScreen extends Screen {
             if (z1 - z0 < MIN_MARK) {
                 z1 = z0 + MIN_MARK;
             }
-            if (x1 <= mapX || z1 <= mapY || x0 >= mapX + MAP_SIZE || z0 >= mapY + MAP_SIZE) {
+            if (x1 <= mapX || z1 <= mapY || x0 >= mapX + size || z0 >= mapY + size) {
                 continue;   // built outside the claim it started with
             }
 
@@ -130,17 +165,18 @@ public final class TownMapScreen extends Screen {
             return;
         }
         double scale = scale();
-        int px = mapX + toPixel(player.getX() - town.centreX(), scale);
-        int pz = mapY + toPixel(player.getZ() - town.centreZ(), scale);
-        if (px < mapX || pz < mapY || px >= mapX + MAP_SIZE || pz >= mapY + MAP_SIZE) {
+        int size = mapSize();
+        int px = mapX + toPixel(player.getX() - town.centreX(), scale, size);
+        int pz = mapY + toPixel(player.getZ() - town.centreZ(), scale, size);
+        if (px < mapX || pz < mapY || px >= mapX + size || pz >= mapY + size) {
             return;   // off the plan entirely
         }
         graphics.fill(px - 1, pz - 1, px + 2, pz + 2, PLAYER);
     }
 
     /** World offset from the town centre to a pixel offset from the map's middle. */
-    private static int toPixel(double offsetBlocks, double scale) {
-        return (int) Math.round(MAP_SIZE / 2.0 + offsetBlocks * scale);
+    private static int toPixel(double offsetBlocks, double scale, int size) {
+        return (int) Math.round(size / 2.0 + offsetBlocks * scale);
     }
 
     @Override

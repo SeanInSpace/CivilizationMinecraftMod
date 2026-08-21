@@ -28,6 +28,7 @@ automated check can confirm is whether it *looks* right:
 - [ ] Is builders walking to the warehouse for every load too slow to watch?
 - [ ] Does a crew of six digging a hillside read as a crew, or as a scrum?
 - [ ] Does the excavation stake feel like a usable tool for marking out ground?
+- [ ] Does the town read as spaced-out now, or has it become sprawling?
 
 ### Next
 - [ ] Hideouts, so `hideouts_cleared` counts something
@@ -37,6 +38,30 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **Buildings were being built through each other.** Ring slots were only ever
+  candidate points and nothing knew how broad a farm is, so plots overlapped —
+  and since raising a building excavates its plot first, a plot laid over a
+  standing granary did not squeeze in beside it, it demolished it. Every building
+  type now declares the ground it takes, two plots may never touch, and rings are
+  spaced for the buildings that actually go on them. The urgent-producer path had
+  its own copy of the bug: it took the next ring slot unchecked. Steps are exempt,
+  being a path to a door rather than a plot.
+
+- **Trees are felled, not written off.** A crown ten blocks up has nowhere anybody
+  can stand, so top-down digging could only ever set it aside and build around a
+  trunk left standing in the floor. A tree in a site is now one job at its stump,
+  priced at what every log in it would take, and comes down in one stroke. And a
+  site whose top is out of reach starts lower: unreachable blocks are set aside
+  rather than destroyed, which lifts them off the column beneath so the dig can
+  get on at the highest layer somebody can actually get to. Only a block that
+  fails three separate times is given up on.
+
+- **A plot with a tree on it surveyed its floor at the top of the tree.** The
+  heightmap counts a trunk as the surface, so the building was pitched into the
+  branches. Ground level now walks down through growth, and the plot heights, the
+  stair flights and the paths all use it.
+
 
 - **Digging rebuilt.** A block now takes exactly the ticks vanilla says it takes
   for the tool in hand, spent one at a time off the server tick rather than

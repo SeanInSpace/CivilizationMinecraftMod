@@ -17,6 +17,11 @@ import java.util.Objects;
  * @param priority      higher wins when the settlement is short of several things
  * @param capacity      how many people can live here; 0 means it is not housing
  * @param defenseBonus  added to the settlement's defense power while this stands
+ * @param plotSpan      full width of ground this needs, walls plus the cleared
+ *                      shelf around them, and with room for the levels it may be
+ *                      raised to later. Square and rotation-proof on purpose: a
+ *                      building turned a quarter turn swaps its width and depth,
+ *                      and a plot that only fitted one way round is not a plot.
  */
 public record BuildingType(
         String id,
@@ -26,7 +31,8 @@ public record BuildingType(
         int perResidents,
         int priority,
         int capacity,
-        int defenseBonus
+        int defenseBonus,
+        int plotSpan
 ) {
 
     public BuildingType {
@@ -43,12 +49,27 @@ public record BuildingType(
         if (defenseBonus < 0) {
             throw new IllegalArgumentException("defenseBonus must not be negative");
         }
+        if (plotSpan <= 0) {
+            throw new IllegalArgumentException("plotSpan must be positive");
+        }
+    }
+
+    /** Half the plot, for the overlap arithmetic that keeps two of these apart. */
+    public int plotRadius() {
+        return plotSpan / 2;
     }
 
     /** Convenience for buildings that contribute nothing to defense. */
     public BuildingType(String id, int workCost, int minPopulation, int baseCount,
                         int perResidents, int priority, int capacity) {
-        this(id, workCost, minPopulation, baseCount, perResidents, priority, capacity, 0);
+        this(id, workCost, minPopulation, baseCount, perResidents, priority, capacity, 0,
+                BuildPlanner.DEFAULT_PLOT_SPAN);
+    }
+
+    public BuildingType(String id, int workCost, int minPopulation, int baseCount,
+                        int perResidents, int priority, int capacity, int defenseBonus) {
+        this(id, workCost, minPopulation, baseCount, perResidents, priority, capacity,
+                defenseBonus, BuildPlanner.DEFAULT_PLOT_SPAN);
     }
 
     /** Whether families can live here. */

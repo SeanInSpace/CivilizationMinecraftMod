@@ -350,8 +350,9 @@ public final class PersonEntityManager {
                 }
                 if (dig.opened == Long.MIN_VALUE) {
                     dig.opened = tick;
-                    KingdomsMod.LOGGER.info("{} opens a {}-block excavation for {}",
-                            settlement.name(), dig.yard.total(), dig.blueprint);
+                    KingdomsMod.LOGGER.info("{} opens a {}-block excavation ({} trees) for {}",
+                            settlement.name(), dig.yard.total(), dig.yard.treeCount(),
+                            dig.blueprint);
                 }
                 dig.workedTicks++;
                 workDig(settlement, dig.yard, tick);
@@ -369,9 +370,10 @@ public final class PersonEntityManager {
                 }
                 if (!dig.reported && dig.yard.isComplete()) {
                     dig.reported = true;
-                    KingdomsMod.LOGGER.info("{} cleared {} blocks for {} in {} ticks",
+                    KingdomsMod.LOGGER.info(
+                            "{} cleared {} blocks for {} in {} ticks ({} out of reach)",
                             settlement.name(), dig.yard.cleared(), dig.blueprint,
-                            dig.workedTicks);
+                            dig.workedTicks, dig.yard.abandonedCount());
                 }
             }
         }
@@ -441,7 +443,7 @@ public final class PersonEntityManager {
         // Only keep holes for jobs still in the queue. Without this, a town that
         // abandons a build leaves its excavation behind forever.
         pruneDigs(settlement);
-        SiteDig fresh = new SiteDig(task.blueprintId(), site, new Excavation(
+        SiteDig fresh = new SiteDig(task.blueprintId(), site, new Excavation(level,
                 BlueprintPlacer.excavationTargets(level, task), task.blueprintId()));
         siteDigs.put(key, fresh);
         return fresh;
@@ -515,7 +517,7 @@ public final class PersonEntityManager {
         if (targets.isEmpty()) {
             return 0;
         }
-        clearOrders.put(settlement.id().value(), new Excavation(targets, "clearance"));
+        clearOrders.put(settlement.id().value(), new Excavation(level, targets, "clearance"));
         return targets.size();
     }
 

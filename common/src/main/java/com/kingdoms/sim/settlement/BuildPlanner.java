@@ -29,14 +29,26 @@ public final class BuildPlanner {
     /** Minimum plots per ring. */
     static final int MIN_SLOTS_PER_RING = 8;
 
+    /** Plot width assumed for anything that does not declare one. */
+    public static final int DEFAULT_PLOT_SPAN = 11;
+
+    /** Bare ground left between two plots, so buildings do not share a wall. */
+    public static final int PLOT_GAP = 1;
+
     /** Distance from the centre to the first ring of plots. */
     static final int FIRST_RING_RADIUS = 12;
 
-    /** Added to the radius for each subsequent ring. */
-    static final int RING_SPACING = 10;
+    /**
+     * Added to the radius for each subsequent ring.
+     *
+     * <p>Wide enough for the buildings that actually go on them. At ten a ring sat
+     * closer together than a house is broad, so every plot proposed overlapped its
+     * neighbours and the town was built through itself.
+     */
+    static final int RING_SPACING = 16;
 
     /** Aim for roughly this many blocks between neighbouring plots in a ring. */
-    public static final int TARGET_PLOT_SPACING = 10;
+    public static final int TARGET_PLOT_SPACING = 16;
 
     /** Keeps the claim boundary a little beyond the outermost building. */
     static final int CLAIM_MARGIN = 8;
@@ -60,10 +72,50 @@ public final class BuildPlanner {
      * something rather than searching forever. Past this it takes what it can get,
      * and the excavation deals with whatever that turns out to be.
      */
-    public static final int PLOT_ATTEMPTS = 12;
+    public static final int PLOT_ATTEMPTS = 96;
 
     /** Half-span probed when judging a plot, before the real building is chosen. */
     public static final int PLOT_PROBE_RADIUS = 6;
+
+    /**
+     * How much ground a building of this id takes, walls and cleared shelf both.
+     *
+     * <p>Falls back through the level suffix, so {@code house_l2} is sized as a
+     * house — the catalogue span already allows for the levels a building may be
+     * raised to, precisely so that improving one never has to find new ground.
+     */
+    public static int plotSpanOf(String blueprintId, List<BuildingType> catalogue) {
+        String base = baseIdOf(blueprintId);
+        if (base.equals(ACCESS_STAIRS)) {
+            // Steps are a path to a door, not a plot. They are built hard against
+            // the building they serve, on purpose, and must neither be pushed away
+            // from it nor push anything else away from themselves.
+            return 1;
+        }
+        for (BuildingType type : catalogue) {
+            if (type.id().equals(base)) {
+                return type.plotSpan();
+            }
+        }
+        return DEFAULT_PLOT_SPAN;
+    }
+
+    /** Whether this is a plot that must be kept clear of other plots at all. */
+    public static boolean holdsGround(String blueprintId) {
+        return !baseIdOf(blueprintId).equals(ACCESS_STAIRS);
+    }
+
+    /**
+     * Whether two plots, each a square about its own origin, foul one another.
+     *
+     * <p>Squares rather than the true rectangles because buildings are turned to
+     * face the centre, and a turned building swaps its width and depth. A plot
+     * that only fitted at one rotation is not a plot.
+     */
+    public static boolean plotsOverlap(SimPos a, int spanA, SimPos b, int spanB) {
+        int reach = spanA / 2 + spanB / 2 + PLOT_GAP;
+        return Math.abs(a.x() - b.x()) <= reach && Math.abs(a.z() - b.z()) <= reach;
+    }
 
     /**
      * Which way a building on this plot should face, in quarter turns clockwise.
@@ -226,9 +278,12 @@ public final class BuildPlanner {
                 .mapToInt(BuildingType::workCost)
                 .findFirst()
                 .orElse(PRODUCER_WORK);
-        // A real plot, not the centre. Two producers ordered this way both landed
-        // on the town square and were built on top of one another.
-        SimPos plot = settlement.takeNextPlot();
+        // A real plot, and one nobody else is standing on. This used to take the
+        // next ring slot unchecked, which is how a lumber camp came to be ordered
+        // through the side of the town hall — an urgent build is still a build,
+        // and gets the same ground rules as any other.
+        int span = plotSpanOf(producer, settlement.catalogue());
+        SimPos plot = settlement.takeNextPlot(span);
         BuildTask ordered = new BuildTask(producer, plot, work);
         ordered.setFacing(facingToward(plot, settlement.centre()));
         settlement.enqueueUrgent(ordered);

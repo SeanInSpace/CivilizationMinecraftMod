@@ -17,6 +17,8 @@ import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.tags.BlockTags;
 
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -97,17 +99,21 @@ public final class Excavation {
     private static final int CELL_ATTEMPTS = 8;
 
     /**
-     * Failed attempts before a block is written off as out of anyone's reach.
+     * Failed attempts before a block is set aside as out of anyone's reach.
      *
-     * <p>Some blocks have nowhere legal to stand: the top of a tree trunk with
-     * ten blocks of air round it, a spur of rock over a drop. Standing in mid-air
-     * is not an option and neither is flying, so the honest answer is that the
-     * town leaves it — and the excavation has to be able to say so, because a
-     * cell that can never be finished otherwise holds up the whole job forever.
-     * A written-off block inside the walls is covered by the masonry anyway; one
-     * out on the apron is a stump somebody can fell later.
+     * <p>Some blocks have nowhere legal to stand: a spur of rock out over a drop,
+     * an overhang. Standing in mid-air is not an option and neither is flying, so
+     * the block is put down rather than destroyed — and, crucially, taken off the
+     * column beneath it, so the dig carries on at the highest layer somebody can
+     * actually get to instead of stopping dead underneath one it cannot.
      */
-    private static final int STRIKES_BEFORE_WRITE_OFF = 20;
+    private static final int STRIKES_BEFORE_DEFER = 12;
+
+    /** How long a block nobody could reach waits before it is tried again. */
+    private static final int DEFER_TICKS = 100;
+
+    /** Most blocks one stroke of felling may bring down, so a forest is not one tree. */
+    private static final int MAX_TREE_BLOCKS = 512;
 
     /**
      * How long a digger may hold a cell without landing a single tick of work.
@@ -130,8 +136,25 @@ public final class Excavation {
      */
     private static final int STAND_SEARCH = 2;
 
+    /**
+     * How far below a block a digger may stand and still work it.
+     *
+     * <p>The rule used to be that you only ever dug at or below your own feet,
+     * which is sound for cutting into ground and hopeless for pulling a building
+     * down: the roof of a hall is five courses up, so the only squares level with
+     * it are on the roof itself, and no crew is going to path up there. Somebody
+     * standing on the ground beside the hall can plainly reach its eaves — a
+     * player does it without thinking — so the search now works downward too, and
+     * reach is what decides it.
+     *
+     * <p>The dig order is untouched: blocks still come away top down, which is
+     * what stops anybody undermining themselves. This only widens where you may
+     * stand to take one.
+     */
+    private static final int STAND_REACH_DOWN = 4;
+
     /** Stand candidates worth paying an A* for. Ordered, so the best go first. */
-    private static final int PATH_ATTEMPTS = 3;
+    private static final int PATH_ATTEMPTS = 4;
 
     /**
      * Ticks a digger waits before hunting for work again after finding none.
@@ -157,6 +180,8 @@ public final class Excavation {
          */
         long lastPath;
         long startedAt;
+        /** Whether finishing this brings a whole tree down rather than one block. */
+        boolean tree;
         /** Kept so the crack overlay can be cleared for a digger who is already gone. */
         int entityId;
     }
@@ -193,13 +218,135 @@ public final class Excavation {
 
     /** Blocks nobody could find a footing for, and how many times each has failed. */
     private final Map<BlockPos, Integer> strikes = new HashMap<>();
-    private int writtenOff;
+    private int setAside;
+
+    /**
+     * Stumps standing in the way, and what the whole tree above each is worth.
+     *
+     * <p>A tree is not ground and is not excavated block by block. Its crown is
+     * out of reach from anywhere a person can stand, so a top-down dig could only
+     * ever set the whole thing aside and build around a trunk left standing in the
+     * middle of the floor. It is felled instead: one job at the stump, priced at
+     * the time every log in it would take, and the tree comes down when the last
+     * of that time is spent.
+     */
+    private final Map<BlockPos, Integer> stumps = new HashMap<>();
 
 
-    public Excavation(List<SimPos> targets, String label) {
-        this.yard = new DigYard(targets);
+    public Excavation(ServerLevel level, List<SimPos> targets, String label) {
+        List<SimPos> reduced = reduceTrees(level, targets);
+        this.yard = new DigYard(reduced);
         this.label = label;
-        this.centre = middleOf(targets);
+        // Middle of the job, but at its floor. Averaging the height too aimed the
+        // approach at the middle of a column of blocks, which on a deep dig is a
+        // point in mid-air that nobody can walk to.
+        BlockPos middle = middleOf(reduced);
+        this.centre = new BlockPos(middle.getX(), yard.floorY(), middle.getZ());
+    }
+
+    /**
+     * Swaps every tree in the target list for the stump it stands on.
+     *
+     * <p>The rest of the tree stops being the excavation's business: felling the
+     * stump takes it. This is what stops a crown ten blocks up being set aside as
+     * unreachable — which it genuinely is, from anywhere a person can stand.
+     */
+    private List<SimPos> reduceTrees(ServerLevel level, List<SimPos> targets) {
+        Set<BlockPos> handled = new HashSet<>();
+        List<SimPos> reduced = new ArrayList<>(targets.size());
+        for (SimPos target : targets) {
+            BlockPos pos = new BlockPos(target.x(), target.y(), target.z());
+            if (handled.contains(pos)) {
+                continue;   // already coming down with a tree we have seen
+            }
+            if (!isTree(level.getBlockState(pos))) {
+                reduced.add(target);
+                continue;
+            }
+            BlockPos stump = stumpUnder(level, pos);
+            Set<BlockPos> tree = gatherTree(level, stump);
+            handled.addAll(tree);
+
+            int ticks = 0;
+            for (BlockPos part : tree) {
+                BlockState state = level.getBlockState(part);
+                if (state.is(BlockTags.LOGS)) {
+                    ticks += digTicks(level, part, state);
+                }
+            }
+            stumps.put(stump, Math.max(1, ticks));
+            reduced.add(new SimPos(stump.getX(), stump.getY(), stump.getZ()));
+        }
+        return reduced;
+    }
+
+    private static boolean isTree(BlockState state) {
+        return state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES);
+    }
+
+    /** The bottom of the trunk this block belongs to, which is where an axe goes. */
+    private static BlockPos stumpUnder(ServerLevel level, BlockPos pos) {
+        BlockPos stump = pos;
+        // Down through the leaves first, if that is where we came in, then down
+        // the trunk itself until there is ground under it.
+        while (!level.getBlockState(stump).is(BlockTags.LOGS)
+                && level.getBlockState(stump.below()).is(BlockTags.LOGS)) {
+            stump = stump.below();
+        }
+        while (level.getBlockState(stump.below()).is(BlockTags.LOGS)) {
+            stump = stump.below();
+        }
+        return stump;
+    }
+
+    /**
+     * Everything that comes down with one tree.
+     *
+     * <p>Logs and leaves together, out from the stump. Leaves bridge to a
+     * neighbour in a close-grown wood, so this is capped: felling two trees at
+     * once is a fair outcome, felling the forest is not.
+     */
+    private static Set<BlockPos> gatherTree(ServerLevel level, BlockPos stump) {
+        Set<BlockPos> found = new HashSet<>();
+        Deque<BlockPos> queue = new ArrayDeque<>();
+        found.add(stump);
+        queue.add(stump);
+        while (!queue.isEmpty() && found.size() < MAX_TREE_BLOCKS) {
+            BlockPos at = queue.removeFirst();
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        if (dx == 0 && dy == 0 && dz == 0) {
+                            continue;
+                        }
+                        BlockPos next = at.offset(dx, dy, dz);
+                        if (found.contains(next) || !level.isLoaded(next)
+                                || !isTree(level.getBlockState(next))) {
+                            continue;
+                        }
+                        found.add(next);
+                        queue.add(next);
+                        if (found.size() >= MAX_TREE_BLOCKS) {
+                            return found;
+                        }
+                    }
+                }
+            }
+        }
+        return found;
+    }
+
+    /** Brings a whole tree down at the stump. */
+    private void fell(ServerLevel level, BlockPos stump) {
+        for (BlockPos part : gatherTree(level, stump)) {
+            if (part.equals(stump)) {
+                continue;   // the stump itself is retired by the caller
+            }
+            if (!level.getBlockState(part).isAir()) {
+                level.destroyBlock(part, false, null, 512);
+            }
+            yard.remove(toSim(part));   // harmless if it was never wanted
+        }
     }
 
     private static BlockPos middleOf(List<SimPos> targets) {
@@ -216,6 +363,11 @@ public final class Excavation {
         }
         int count = targets.size();
         return new BlockPos((int) (x / count), (int) (y / count), (int) (z / count));
+    }
+
+    /** How many trees stand in the way, each felled by one stroke at its stump. */
+    public int treeCount() {
+        return stumps.size();
     }
 
     /** What this dig is for, for status lines and logs. */
@@ -240,7 +392,8 @@ public final class Excavation {
                 + active.size() + " at the face, " + ready + " exposed"
                 + " (walking " + walking + ", no cell " + noCell
                 + ", no stand " + noStand + ", gave up " + gaveUp
-                + ", written off " + writtenOff + ")";
+                + ", set aside " + yard.deferredCount()
+                + ", abandoned " + yard.abandonedCount() + ")";
         walking = 0;
         noCell = 0;
         noStand = 0;
@@ -260,6 +413,11 @@ public final class Excavation {
         return yard.remaining();
     }
 
+    /** Blocks the job gave up on because nobody could ever stand to work them. */
+    public int abandonedCount() {
+        return yard.abandonedCount();
+    }
+
     public boolean isComplete() {
         return yard.isComplete();
     }
@@ -272,6 +430,7 @@ public final class Excavation {
      * @return true if they are engaged with this dig, walking to it included
      */
     public boolean serve(ServerLevel level, PersonEntity digger, long tick) {
+        yard.reconsider(tick);
         UUID id = digger.getUUID();
         Digging job = active.get(id);
 
@@ -368,6 +527,10 @@ public final class Excavation {
         showProgress(level, digger, job, -1);
         // No drops. There is nowhere for spoil to go yet, and a site knee-deep in
         // dirt items is worse than no spoil at all.
+        if (job.tree) {
+            fell(level, job.block);
+            stumps.remove(job.block);
+        }
         level.destroyBlock(job.block, false, digger, 512);
         harvest(level, digger, job);
         return true;
@@ -455,12 +618,13 @@ public final class Excavation {
             BlockPos stand = standFor(level, digger, block);
             if (stand == null) {
                 noStand++;
-                if (strikes.merge(block, 1, Integer::sum) >= STRIKES_BEFORE_WRITE_OFF) {
-                    // Out of reach of anybody, from anywhere. Stop wanting it, or
-                    // it holds its cell — and through the cell, the excavation.
-                    yard.remove(toSim(block));
+                if (strikes.merge(block, 1, Integer::sum) >= STRIKES_BEFORE_DEFER) {
+                    // Out of reach of anybody, from anywhere. Put it down for a
+                    // while: that frees its cell, and lifts it off the column
+                    // underneath so the dig can get on at a layer people can reach.
+                    yard.defer(toSim(block), tick + DEFER_TICKS);
                     strikes.remove(block);
-                    writtenOff++;
+                    setAside++;
                 }
                 continue;
             }
@@ -470,7 +634,9 @@ public final class Excavation {
             job.entityId = digger.getId();
             job.startedAt = tick;
             job.lastPath = tick - REPATH_INTERVAL;   // due immediately
-            job.ticksNeeded = digTicks(level, block, state);
+            Integer treeTicks = stumps.get(block);
+            job.ticksNeeded = treeTicks != null ? treeTicks : digTicks(level, block, state);
+            job.tree = treeTicks != null;
             reserved.add(stand);
             active.put(digger.getUUID(), job);
             return job;
@@ -491,12 +657,12 @@ public final class Excavation {
      * the digging does.
      */
     private BlockPos standFor(ServerLevel level, PersonEntity digger, BlockPos block) {
-        List<BlockPos> candidates = new ArrayList<>(16);
-        for (int feetY : new int[]{block.getY() + 1, block.getY()}) {
+        List<BlockPos> candidates = new ArrayList<>(32);
+        for (int feetY = block.getY() + 1; feetY >= block.getY() - STAND_REACH_DOWN; feetY--) {
             for (int dx = -STAND_SEARCH; dx <= STAND_SEARCH; dx++) {
                 for (int dz = -STAND_SEARCH; dz <= STAND_SEARCH; dz++) {
-                    if (dx == 0 && dz == 0) {
-                        continue;   // never inside the block itself
+                    if (dx == 0 && dz == 0 && feetY <= block.getY()) {
+                        continue;   // never inside the block itself, nor under it
                     }
                     BlockPos feet = new BlockPos(block.getX() + dx, feetY, block.getZ() + dz);
                     if (reserved.contains(feet) || !reaches(feet, block)
@@ -507,12 +673,14 @@ public final class Excavation {
                 }
             }
         }
-        // Adjacent squares first, and within those the one nearest the digger.
+        // Level with the block first, then a course lower, and so on down; within
+        // a level, the adjacent square, and within that the one nearest the digger.
         // Sorting purely on closeness to the block sent people round the far side
         // of a mound to a square a foot nearer the target, and a walk like that
         // outlasts the patience that hands the cell to somebody else.
         candidates.sort(Comparator
-                .comparingInt((BlockPos feet) -> Math.max(
+                .comparingInt((BlockPos feet) -> Math.abs(feet.getY() - (block.getY() + 1)))
+                .thenComparingInt(feet -> Math.max(
                         Math.abs(feet.getX() - block.getX()),
                         Math.abs(feet.getZ() - block.getZ())))
                 .thenComparingDouble(feet -> digger.distanceToSqr(

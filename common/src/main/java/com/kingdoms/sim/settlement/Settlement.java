@@ -159,21 +159,92 @@ public final class Settlement {
         });
     }
 
-    private SimPos chooseSite(SimContext ctx) {
+    /**
+     * Ground for a new building: suitable terrain, and nobody else's.
+     *
+     * <p>The second half is the one that matters. Ring slots are only candidate
+     * points; nothing about the geometry knows how broad a farm is, so without an
+     * overlap test the town cheerfully proposed a plot inside a building it had
+     * already raised and the excavation demolished it to make room. Plots are
+     * squares about their origin and are never allowed to touch.
+     */
+    private SimPos chooseSite(SimContext ctx, BuildingType type) {
+        return chooseSite(ctx, type.plotSpan());
+    }
+
+    private SimPos chooseSite(SimContext ctx, int span) {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             SimPos candidate = BuildPlanner.plotFor(centre, nextPlotIndex);
-            if (ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+            if (ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
+                    && isPlotFree(candidate, span, null)) {
                 return candidate;
             }
             nextPlotIndex++;
         }
+        // Every slot examined and every one taken. Take the next one anyway rather
+        // than stop building altogether, and say so, because a town that has run
+        // out of room is worth knowing about.
         return BuildPlanner.plotFor(centre, nextPlotIndex);
     }
 
-    public SimPos takeNextPlot() {
-        SimPos flat = BuildPlanner.plotFor(centre, nextPlotIndex);
-        nextPlotIndex++;
-        return flat;
+    /**
+     * Whether a plot of this width fouls any building, or any build already ordered.
+     *
+     * @param ignore a building origin to skip, for an improvement raised in place
+     */
+    public boolean isPlotFree(SimPos candidate, int span, SimPos ignore) {
+        for (Building standing : buildings) {
+            if (!BuildPlanner.holdsGround(standing.blueprintId())
+                    || (ignore != null && standing.origin().equals(ignore))) {
+                continue;
+            }
+            if (BuildPlanner.plotsOverlap(candidate, span, standing.origin(),
+                    plotSpanOf(standing))) {
+                return false;
+            }
+        }
+        for (BuildTask queued : buildQueue) {
+            if (!BuildPlanner.holdsGround(queued.blueprintId())
+                    || (ignore != null && ignore.equals(queued.upgradeOf()))) {
+                continue;
+            }
+            if (BuildPlanner.plotsOverlap(candidate, span, queued.origin(),
+                    BuildPlanner.plotSpanOf(queued.blueprintId(), catalogue))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * How much ground a standing building takes.
+     *
+     * <p>Its measured footprint once it has one — that is the real cleared plot,
+     * apron and all — and the catalogue's figure before then.
+     */
+    private int plotSpanOf(Building standing) {
+        Footprint measured = standing.footprint();
+        if (measured.isKnown()) {
+            return Math.max(measured.width(), measured.depth());
+        }
+        return BuildPlanner.plotSpanOf(standing.blueprintId(), catalogue);
+    }
+
+    /**
+     * Claims the next ring slot broad enough for a building of this span.
+     *
+     * <p>For work ordered outside the ordinary planning path — a producer the town
+     * urgently needs — which still has to land on ground nothing else holds.
+     */
+    public SimPos takeNextPlot(int span) {
+        for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
+            SimPos candidate = BuildPlanner.plotFor(centre, nextPlotIndex);
+            nextPlotIndex++;
+            if (isPlotFree(candidate, span, null)) {
+                return candidate;
+            }
+        }
+        return BuildPlanner.plotFor(centre, nextPlotIndex);
     }
 
     public int nextPlotIndex() {
@@ -479,7 +550,7 @@ public final class Settlement {
         }
 
         wanted.ifPresent(type -> {
-            SimPos flat = chooseSite(ctx);
+            SimPos flat = chooseSite(ctx, type);
 
             // Snap to the terrain when the chunk is available; otherwise the
             // centre's height stands in and the world snaps again at placement.
@@ -513,6 +584,9 @@ public final class Settlement {
                         && p.isEmbodied())
                 .count();
         BuildTask current = buildQueue.getFirst();
+        if (relocateIfUnsuitable(ctx, current)) {
+            return;   // it moved; start on the new ground next step
+        }
 
         if (isBuiltByHand(ctx, current, present)) {
             // Somebody is here to watch, so the masonry is the truth: this step
@@ -613,6 +687,50 @@ public final class Settlement {
         stores.take(TownStores.WOOD, wood);
         stores.take(TownStores.STONE, stone);
         return null;
+    }
+
+    /**
+     * Moves a build off ground that turns out to be unfit for it.
+     *
+     * <p>Plots are chosen long before anybody can see them. The terrain test needs
+     * loaded chunks and a growing town almost never has any, so the bridge answers
+     * "suitable" to everything and the settlement lays out its whole village
+     * blind. That was fine while nothing checked afterwards — and it is exactly
+     * how farms ended up in lakes and huts ended up buried in hillsides, because
+     * the first time the ground was ever actually looked at was when the building
+     * was stamped into it.
+     *
+     * <p>So the question is asked again the moment the chunk is real, and before
+     * a single block is moved. A site that fails now is swapped for a fresh plot
+     * rather than built on.
+     *
+     * @return true if the task was moved
+     */
+    private boolean relocateIfUnsuitable(SimContext ctx, BuildTask task) {
+        if (task.isUpgrade() || BuildPlanner.ACCESS_STAIRS.equals(task.blueprintId())) {
+            return false;   // both belong exactly where they are
+        }
+        if (task.siteY() != BuildTask.UNSET_SITE_Y || task.workDone() > 0) {
+            return false;   // already surveyed and under way; moving it now loses work
+        }
+        if (!ctx.bridge().isLoaded(task.origin())
+                || ctx.bridge().isSiteSuitable(task.origin(), BuildPlanner.PLOT_PROBE_RADIUS)) {
+            return false;
+        }
+
+        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalogue);
+        SimPos moved = chooseSite(ctx, span);
+        if (moved.equals(task.origin())) {
+            return false;   // nowhere better; build it here and make the best of it
+        }
+        BuildTask replacement = new BuildTask(
+                task.blueprintId(), moved, task.requiredWork());
+        replacement.setFacing(BuildPlanner.facingToward(moved, centre));
+        buildQueue.set(0, replacement);
+        nextPlotIndex++;
+        logEvent(ctx.step(), "The ground at " + task.origin()
+                + " will not do; the site moves to " + moved);
+        return true;
     }
 
     private boolean isBuiltByHand(SimContext ctx, BuildTask task, int embodiedBuilders) {

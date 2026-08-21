@@ -64,6 +64,17 @@ public final class DigYard {
     /** A claim whose holder has not touched it in this long is considered dropped. */
     public static final long CLAIM_TIMEOUT_TICKS = 100L;
 
+    /**
+     * How many times a block may be set aside before the job gives up on it.
+     *
+     * <p>Most blocks that look unreachable are only unreachable for the moment —
+     * somebody is standing on the one square you could have worked from, or the
+     * ledge you need has not been cut yet. So a block goes back in the pile and is
+     * tried again. Only a block that fails this many separate times is genuinely
+     * beyond anybody, and only then is it abandoned.
+     */
+    public static final int MAX_DEFERRALS = 3;
+
     /** One claimable unit: a {@value #MICRO}x{@value #MICRO} square on a single layer. */
     public record Cell(int cx, int y, int cz) {
 
@@ -92,6 +103,24 @@ public final class DigYard {
 
     private final Map<Cell, Claim> claims = new HashMap<>();
     private final Map<UUID, Cell> owned = new HashMap<>();
+
+    /**
+     * Blocks nobody can get at, and when to look at them again.
+     *
+     * <p>Set aside rather than destroyed. A block with nowhere legal to stand — an
+     * overhang, a ledge out over a drop — is not the excavation's to delete just
+     * because it is inconvenient; it is simply not diggable from anywhere a person
+     * can stand. Setting it aside also lifts it off the column beneath, which is
+     * what lets the dig carry on at the highest layer somebody <em>can</em> reach
+     * instead of stopping dead under an unreachable top.
+     */
+    private final Map<SimPos, Long> deferred = new HashMap<>();
+
+    /** How many times each block has been set aside, so a hopeless one can be dropped. */
+    private final Map<SimPos, Integer> deferrals = new HashMap<>();
+
+    /** Blocks given up on entirely: wanted, never reachable, never dug. */
+    private int abandoned;
 
     private final int total;
     private final int floorY;
@@ -132,12 +161,26 @@ public final class DigYard {
         return cleared;
     }
 
+    /** Blocks still wanted and still worth trying. */
     public int remaining() {
-        return total - cleared;
+        return total - cleared - abandoned;
     }
 
+    /** Blocks the job gave up on because nobody could ever stand to work them. */
+    public int abandonedCount() {
+        return abandoned;
+    }
+
+    /**
+     * Whether there is any work left that anybody could do.
+     *
+     * <p>Blocks set aside still count as work: they are retried, and only once
+     * one has failed {@value #MAX_DEFERRALS} separate times is it abandoned and
+     * the job allowed to finish without it. Treating a single deferral as done
+     * ended digs with a third of the ground still standing.
+     */
     public boolean isComplete() {
-        return cells.isEmpty();
+        return cells.isEmpty() && deferred.isEmpty();
     }
 
     /** The lowest layer this job reaches: the floor being cut to. */
@@ -313,6 +356,60 @@ public final class DigYard {
      *         block that had already gone
      */
     public boolean remove(SimPos pos) {
+        if (deferred.remove(pos) != null) {
+            deferrals.remove(pos);
+            cleared++;
+            return true;   // set aside earlier, dug anyway
+        }
+        if (!detach(pos)) {
+            return false;
+        }
+        cleared++;
+        return true;
+    }
+
+    /**
+     * Sets a block aside until {@code untilTick}, without counting it as dug.
+     *
+     * @return true if it was actually in the job
+     */
+    public boolean defer(SimPos pos, long untilTick) {
+        if (!detach(pos)) {
+            return false;
+        }
+        deferred.put(pos, untilTick);
+        deferrals.merge(pos, 1, Integer::sum);
+        return true;
+    }
+
+    /** Puts deferred blocks back in the job once their wait is up. */
+    public void reconsider(long tick) {
+        if (deferred.isEmpty()) {
+            return;
+        }
+        List<SimPos> due = new ArrayList<>();
+        for (Map.Entry<SimPos, Long> waiting : deferred.entrySet()) {
+            if (tick >= waiting.getValue()) {
+                due.add(waiting.getKey());
+            }
+        }
+        for (SimPos pos : due) {
+            deferred.remove(pos);
+            if (deferrals.getOrDefault(pos, 0) >= MAX_DEFERRALS) {
+                deferrals.remove(pos);
+                abandoned++;   // nobody was ever going to reach this one
+                continue;
+            }
+            add(pos);
+        }
+    }
+
+    public int deferredCount() {
+        return deferred.size();
+    }
+
+    /** Takes a block out of the working set. Says nothing about why. */
+    private boolean detach(SimPos pos) {
         long key = columnKey(pos.x(), pos.z());
         NavigableSet<Integer> column = columns.get(key);
         if (column == null || !column.remove(pos.y())) {
@@ -333,7 +430,6 @@ public final class DigYard {
                 }
             }
         }
-        cleared++;
         topDirty = true;
         return true;
     }

@@ -93,8 +93,8 @@ public final class PathLayer {
      * @return 1 if anything was laid
      */
     private static int pave(ServerLevel level, int x, int z) {
-        BlockPos surface = new BlockPos(x, level.getHeight(
-                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1, z);
+        // Ground, not canopy: a track through a wood must follow the floor of it.
+        BlockPos surface = new BlockPos(x, BlueprintPlacer.groundLevel(level, x, z) - 1, z);
         if (!level.isLoaded(surface)) {
             return 0;
         }

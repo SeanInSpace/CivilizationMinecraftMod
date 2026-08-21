@@ -173,6 +173,63 @@ class DigYardTest {
     }
 
     @Test
+    void anUnreachableTopLetsTheLayerBelowItBeWorked() {
+        // A pillar with nothing to stand on beside it. Until it is set aside, the
+        // block under it is buried and the whole column is stuck behind something
+        // no one can get to.
+        DigYard yard = box(3, 3);
+        SimPos overhang = new SimPos(1, 66, 1);
+
+        assertFalse(yard.isExposed(new SimPos(1, 65, 1)), "buried while the top stands");
+
+        assertTrue(yard.defer(overhang, 500L));
+        assertTrue(yard.isExposed(new SimPos(1, 65, 1)),
+                "setting the top aside is what lets the dig start lower");
+        assertEquals(0, yard.cleared(), "deferring is not digging");
+        assertEquals(1, yard.deferredCount());
+    }
+
+    @Test
+    void adeferredBlockComesBackWhenItsWaitIsUp() {
+        DigYard yard = box(3, 1);
+        SimPos block = new SimPos(1, 64, 1);
+        yard.defer(block, 500L);
+        assertFalse(yard.contains(block));
+
+        yard.reconsider(499L);
+        assertFalse(yard.contains(block), "not yet");
+
+        yard.reconsider(500L);
+        assertTrue(yard.contains(block), "back in the job to be tried again");
+        assertEquals(0, yard.deferredCount());
+    }
+
+    @Test
+    void ajobOfNothingButUnreachableBlocksEndsOnlyAfterRetrying() {
+        // A block that looks unreachable usually is not: somebody is standing on
+        // the one square you could work from. So it goes back in the pile. Only
+        // after it has failed on its own several times is it given up on -- and it
+        // must be given up on, or the building this hole was dug for never gets
+        // built.
+        DigYard yard = box(3, 1);
+        long tick = 0;
+        for (int round = 0; round < DigYard.MAX_DEFERRALS; round++) {
+            List<SimPos> left = List.copyOf(yard.remainingBlocks());
+            assertFalse(left.isEmpty(), "round " + round + " should still have work");
+            for (SimPos block : left) {
+                yard.defer(block, tick + 10);
+            }
+            assertFalse(yard.isComplete(), "not done while blocks are waiting to be retried");
+            tick += 10;
+            yard.reconsider(tick);
+        }
+
+        assertTrue(yard.isComplete(), "a hole nobody can dig anywhere is eventually done");
+        assertEquals(0, yard.cleared(), "and none of it counts as dug");
+        assertEquals(9, yard.abandonedCount(), "it is counted as beyond reach instead");
+    }
+
+    @Test
     void everyBlockComesOutAndTheJobEnds() {
         // The whole point, driven end to end: three diggers, no coordination
         // beyond the claim rules, and a hill that is not flat anywhere.
