@@ -20,6 +20,7 @@ import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimWorld;
@@ -167,6 +168,7 @@ public final class PersonEntityManager {
     /** One pass: sync positions, release the unwatched, embody the watched, herd stragglers. */
     public void tick() {
         renderClaimBorders();
+        renderBuildingBorders();
         boolean changed = false;
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
@@ -1076,5 +1078,100 @@ public final class PersonEntityManager {
         }
     }
 
-}
+    // --- building outlines ---
 
+    /** How far a building's outline is drawn from the player. */
+    private static final double OUTLINE_VIEW_RANGE = 48.0;
+
+    /** Blocks between sparkles along an outline edge. */
+    private static final int OUTLINE_SPACING = 2;
+
+    /** Tallest outline drawn, so a watchtower does not become a pillar of light. */
+    private static final int OUTLINE_MAX_HEIGHT = 12;
+
+    /**
+     * Players holding a Surveyor's Lamp see every nearby building's bounds as a
+     * wireframe of sparks.
+     *
+     * <p>Server-side particles, like the charter's claim ring — no client render
+     * code, so a vanilla client sees it too. Only the floor and roof rectangles
+     * and the four corner posts are drawn: filling the volume would hide the
+     * building it is meant to describe.
+     *
+     * <p>Buildings whose plan has never been built have no recorded size and are
+     * skipped rather than guessed at.
+     */
+    private void renderBuildingBorders() {
+        for (ServerPlayer player : level.players()) {
+            if (!holdingLamp(player)) {
+                continue;
+            }
+            for (Kingdom kingdom : world.kingdoms()) {
+                for (Settlement settlement : kingdom.settlements()) {
+                    for (Building building : settlement.buildings()) {
+                        outline(player, building);
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean holdingLamp(ServerPlayer player) {
+        return player.getMainHandItem().is(KingdomsItems.SURVEYORS_LAMP.get())
+                || player.getOffhandItem().is(KingdomsItems.SURVEYORS_LAMP.get());
+    }
+
+    private void outline(ServerPlayer player, Building building) {
+        Footprint footprint = building.footprint();
+        if (!footprint.isKnown()) {
+            // Raised before sizes were recorded. Measure it once, now that
+            // somebody is here to look at it, so worlds that predate this
+            // feature light up too rather than staying dark forever.
+            footprint = BlueprintPlacer.measure(level, building.blueprintId(),
+                    new BlockPos(building.origin().x(), building.origin().y(),
+                            building.origin().z()));
+            if (!footprint.isKnown()) {
+                return;
+            }
+            building.setFootprint(footprint);
+            KingdomsSavedData.get(level).setDirty();
+        }
+        SimPos origin = building.origin();
+        double dx = player.getX() - origin.x();
+        double dz = player.getZ() - origin.z();
+        if (dx * dx + dz * dz > OUTLINE_VIEW_RANGE * OUTLINE_VIEW_RANGE) {
+            return;
+        }
+
+        int rx = footprint.width() / 2;
+        int rz = footprint.depth() / 2;
+        int floor = origin.y();
+        int roof = floor + Math.min(footprint.height(), OUTLINE_MAX_HEIGHT);
+
+        // The two rectangles, floor and roof.
+        for (int x = -rx; x <= rx; x += OUTLINE_SPACING) {
+            spark(origin.x() + x, floor, origin.z() - rz);
+            spark(origin.x() + x, floor, origin.z() + rz);
+            spark(origin.x() + x, roof, origin.z() - rz);
+            spark(origin.x() + x, roof, origin.z() + rz);
+        }
+        for (int z = -rz; z <= rz; z += OUTLINE_SPACING) {
+            spark(origin.x() - rx, floor, origin.z() + z);
+            spark(origin.x() + rx, floor, origin.z() + z);
+            spark(origin.x() - rx, roof, origin.z() + z);
+            spark(origin.x() + rx, roof, origin.z() + z);
+        }
+        // And the four posts joining them, so the box reads as a volume.
+        for (int y = floor; y <= roof; y += OUTLINE_SPACING) {
+            spark(origin.x() - rx, y, origin.z() - rz);
+            spark(origin.x() - rx, y, origin.z() + rz);
+            spark(origin.x() + rx, y, origin.z() - rz);
+            spark(origin.x() + rx, y, origin.z() + rz);
+        }
+    }
+
+    private void spark(int x, int y, int z) {
+        level.sendParticles(ParticleTypes.END_ROD,
+                x + 0.5, y + 0.5, z + 0.5, 1, 0.0, 0.0, 0.0, 0.0);
+    }
+}

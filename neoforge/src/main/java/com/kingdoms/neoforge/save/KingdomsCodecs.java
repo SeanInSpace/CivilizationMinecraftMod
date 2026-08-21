@@ -10,6 +10,7 @@ import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.settlement.Settlement;
@@ -190,17 +191,26 @@ public final class KingdomsCodecs {
             Codec.STRING.fieldOf("message").forGetter(SettlementEvent::message)
     ).apply(i, SettlementEvent::new));
 
+    public static final Codec<Footprint> FOOTPRINT = RecordCodecBuilder.create(i -> i.group(
+            Codec.INT.fieldOf("y").forGetter(Footprint::y),
+            Codec.INT.fieldOf("w").forGetter(Footprint::width),
+            Codec.INT.fieldOf("d").forGetter(Footprint::depth),
+            Codec.INT.fieldOf("h").forGetter(Footprint::height)
+    ).apply(i, Footprint::new));
+
     public static final Codec<Building> BUILDING = RecordCodecBuilder.create(i -> i.group(
             Codec.STRING.fieldOf("blueprint").forGetter(Building::blueprintId),
             SIM_POS.fieldOf("origin").forGetter(Building::origin),
             Codec.LONG.fieldOf("completed_on_step").forGetter(Building::completedOnStep),
             Codec.BOOL.fieldOf("materialized").forGetter(Building::isMaterialized),
             Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored),
-            Codec.BOOL.optionalFieldOf("surveyed", false).forGetter(Building::isSurveyed)
-    ).apply(i, (blueprint, origin, step, materialized, food, surveyed) -> {
+            Codec.BOOL.optionalFieldOf("surveyed", false).forGetter(Building::isSurveyed),
+            FOOTPRINT.optionalFieldOf("footprint", Footprint.UNKNOWN).forGetter(Building::footprint)
+    ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint) -> {
         Building building = new Building(blueprint, origin, step, materialized);
         building.setFoodStored(food);
         building.setSurveyed(surveyed);
+        building.setFootprint(footprint);
         return building;
     }));
 

@@ -7,6 +7,7 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.MarketPlanner;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SmithPlanner;
 import com.kingdoms.sim.settlement.Tallies;
@@ -26,8 +27,8 @@ class TownEconomyTest {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
         @Override public boolean isLoaded(SimPos pos) { return false; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
-        @Override public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
-            return origin.y();
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+            return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }
     }

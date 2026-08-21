@@ -67,6 +67,12 @@ public final class BuildTask {
      */
     private int pendingWork;
 
+    /**
+     * The size the plan turned out to be, recorded when the site is surveyed so
+     * the finished building can keep it.
+     */
+    private Footprint footprint = Footprint.UNKNOWN;
+
     public BuildTask(String blueprintId, SimPos origin, int requiredWork) {
         this.blueprintId = Objects.requireNonNull(blueprintId, "blueprintId");
         this.origin = Objects.requireNonNull(origin, "origin");
@@ -158,6 +164,14 @@ public final class BuildTask {
     public void setPlan(int planWork, int planPlaceWork) {
         this.planWork = Math.max(0, planWork);
         this.planPlaceWork = Math.max(0, planPlaceWork);
+    }
+
+    public Footprint footprint() {
+        return footprint;
+    }
+
+    public void setFootprint(Footprint footprint) {
+        this.footprint = footprint == null ? Footprint.UNKNOWN : footprint;
     }
 
     public int pendingWork() {

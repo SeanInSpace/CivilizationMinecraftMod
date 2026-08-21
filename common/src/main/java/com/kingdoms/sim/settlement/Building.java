@@ -25,6 +25,9 @@ public final class Building {
 
     private boolean surveyed;
 
+    /** How much room it takes up; unknown until its plan has been built. */
+    private Footprint footprint = Footprint.UNKNOWN;
+
     /** Food held at this building — harvest waiting at a farm, stock at a market. */
     private int foodStored;
 
@@ -68,6 +71,14 @@ public final class Building {
      */
     public void setOriginY(int y) {
         this.origin = new SimPos(origin.x(), y, origin.z());
+    }
+
+    public Footprint footprint() {
+        return footprint;
+    }
+
+    public void setFootprint(Footprint footprint) {
+        this.footprint = footprint == null ? Footprint.UNKNOWN : footprint;
     }
 
     public boolean isSurveyed() {

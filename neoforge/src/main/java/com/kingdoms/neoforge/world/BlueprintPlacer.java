@@ -5,6 +5,7 @@ import com.keystone.api.LoadedBlueprint;
 import com.keystone.api.PlannedBlock;
 import com.kingdoms.neoforge.KingdomsBlocks;
 import com.kingdoms.sim.settlement.BuildTask;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.culture.Culture;
@@ -146,11 +147,28 @@ public final class BlueprintPlacer {
 
     // --- the instant path ---
 
-    public static void place(ServerLevel level, String blueprintId, BlockPos base) {
+    /** Places a whole structure and reports where it went and how big it is. */
+    public static Footprint place(ServerLevel level, String blueprintId, BlockPos base) {
         StructurePlan plan = planFor(level, blueprintId, base);
         for (Step step : plan.steps()) {
             execute(level, step);
         }
+        return new Footprint(base.getY(), plan.width(), plan.depth(), plan.height());
+    }
+
+    /**
+     * Measures a structure without placing anything.
+     *
+     * <p>For buildings that were raised before their size was recorded: the plan
+     * is rebuilt from the same blueprint at the same spot, and only its bounds
+     * are taken. Nothing is written to the world.
+     */
+    public static Footprint measure(ServerLevel level, String blueprintId, BlockPos base) {
+        if (!level.isLoaded(base)) {
+            return Footprint.UNKNOWN;
+        }
+        StructurePlan plan = planFor(level, blueprintId, base);
+        return new Footprint(base.getY(), plan.width(), plan.depth(), plan.height());
     }
 
     /** Where a structure floor sits, given the first air block in that column. */
@@ -192,6 +210,14 @@ public final class BlueprintPlacer {
         }
         if (task.planWork() != plan.totalWork()) {
             task.setPlan(plan.totalWork(), plan.placeWork());
+            changed = true;
+        }
+        // The size is known the moment the plan is, and the finished building
+        // keeps it — that is what lets anything draw a building's bounds.
+        Footprint measured = new Footprint(
+                task.siteY(), plan.width(), plan.depth(), plan.height());
+        if (!measured.equals(task.footprint())) {
+            task.setFootprint(measured);
             changed = true;
         }
         if (!task.isSitePrepared()) {

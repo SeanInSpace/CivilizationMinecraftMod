@@ -3,6 +3,7 @@ package com.kingdoms.neoforge.bridge;
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.platform.WorldBridge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -66,9 +67,9 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      * the building stays pending until a later step finds it available.
      */
     @Override
-    public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+    public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
         if (!level.isLoaded(toBlockPos(origin))) {
-            return NOT_PLACED;
+            return Footprint.UNKNOWN;
         }
         // A surveyed site keeps its measured height. Re-measuring here is what put
         // a stamped building one course above the same building the builders had
@@ -79,12 +80,12 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         // surface, or the two paths disagree again.
         int y = surveyed ? origin.y() : BlueprintPlacer.floorFor(surfaceHeight(origin));
         BlockPos base = new BlockPos(origin.x(), y, origin.z());
-        BlueprintPlacer.place(level, blueprintId, base);
+        Footprint placed = BlueprintPlacer.place(level, blueprintId, base);
         // Logs the base actually used, not the requested origin. A mismatch
         // between the two is precisely the double-placement bug.
         KingdomsMod.LOGGER.info("Materialized {} at {} (origin {}, surveyed {})",
                 blueprintId, base, origin, surveyed);
-        return base.getY();
+        return placed;
     }
 
     @Override

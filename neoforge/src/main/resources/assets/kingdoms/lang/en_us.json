@@ -15,5 +15,6 @@
   "block.kingdoms.watchtower": "Watchtower",
   "block.kingdoms.workshop": "Workshop",
   "entity.kingdoms.person": "Settler",
-  "item.kingdoms.founding_charter": "Founding Charter"
+  "item.kingdoms.founding_charter": "Founding Charter",
+  "item.kingdoms.surveyors_lamp": "Surveyor's Lamp"
 }

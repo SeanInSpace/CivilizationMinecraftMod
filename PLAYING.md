@@ -74,6 +74,18 @@ Recent history:
 
 Settlers carry **real food** and eat the actual item they hold, best first — so a loaf you give a starving settler is the loaf that saves them. A founding party sets out with bread in hand, which is what carries a new town through its first minutes before there is a larder to fetch from.
 
+## Seeing what stands where
+
+Craft or grab a **Surveyor's Lamp** from the Kingdoms creative tab and hold it.
+Every building within about 48 blocks draws its own outline in sparks — the floor
+and roof rectangles and the four corner posts, so you can read a building's real
+footprint without counting blocks. It places nothing and changes nothing; it is
+purely a lens.
+
+It pairs with the Founding Charter, which shows the town's *claim* as a ring of
+green sparkles. One tells you where the town ends, the other where each building
+begins.
+
 ## The town overview
 
 **Right-click the Town Hall post** and the town's books open on screen: its name,

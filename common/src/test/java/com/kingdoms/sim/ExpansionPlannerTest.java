@@ -9,6 +9,7 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
@@ -29,8 +30,8 @@ class ExpansionPlannerTest {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
         @Override public boolean isLoaded(SimPos pos) { return true; }
         @Override public int surfaceHeight(SimPos pos) { return 70; }
-        @Override public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
-            return origin.y();
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+            return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }
     }

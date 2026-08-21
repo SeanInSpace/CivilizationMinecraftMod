@@ -7,6 +7,7 @@ import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimContext;
 import org.junit.jupiter.api.Test;
@@ -37,8 +38,8 @@ class BuildPlannerTest {
         @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
         @Override public boolean isLoaded(SimPos pos) { return false; }
         @Override public int surfaceHeight(SimPos pos) { return surfaceOverride != null ? surfaceOverride : pos.y(); }
-        @Override public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
-            return origin.y();
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+            return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }
     }

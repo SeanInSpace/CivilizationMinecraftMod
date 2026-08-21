@@ -1,6 +1,7 @@
 package com.kingdoms.sim.platform;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Footprint;
 
 /**
  * The one seam between the simulation and the game.
@@ -14,8 +15,7 @@ import com.kingdoms.sim.geom.SimPos;
  */
 public interface WorldBridge {
 
-    /** Returned by {@link #materializeBlueprint} when nothing could be placed. */
-    int NOT_PLACED = Integer.MIN_VALUE;
+
 
     /**
      * Whether any living player is within {@code radius} blocks of this position.
@@ -46,8 +46,8 @@ public interface WorldBridge {
      * and apply it when the chunk next loads, so that settlements which grew
      * while the player was away appear already built.
      *
-     * <p>Returns the height it was actually placed at, or {@link #NOT_PLACED} if
-     * nothing was placed. An unsurveyed origin carries a guess, and the caller
+     * <p>Returns where it was actually placed and how big it turned out, or
+     * {@link Footprint#UNKNOWN} if nothing was placed. An unsurveyed origin carries a guess, and the caller
      * needs the real answer back — otherwise workers keep walking to a height the
      * building is not at.
      *
@@ -58,7 +58,7 @@ public interface WorldBridge {
      * of it. When it was not, the height is a guess and re-measuring is the whole
      * point.
      */
-    int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed);
+    Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed);
 
     /** Structured logging that does not depend on a specific logging backend. */
     void log(String message);

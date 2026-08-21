@@ -6,6 +6,7 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.BuildingType;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
@@ -39,10 +40,10 @@ class VisibleConstructionTest {
         @Override public boolean playerWithin(SimPos pos, double radius) { return loaded; }
         @Override public boolean isLoaded(SimPos pos) { return loaded; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
-        @Override public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
             stamped++;
             lastSurveyed = surveyed;
-            return origin.y();
+            return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }
     }

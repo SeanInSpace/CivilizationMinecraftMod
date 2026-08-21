@@ -480,6 +480,9 @@ public final class Settlement {
         // Surveyed sites keep the height the builders actually worked to; only an
         // unsurveyed one may be snapped to the ground at placement time.
         raised.setSurveyed(current.siteY() != BuildTask.UNSET_SITE_Y);
+        // A hand-built structure already knows its size from the survey; one built
+        // out of sight learns it when it is finally placed.
+        raised.setFootprint(current.footprint());
         buildings.add(raised);
         tallies.record(Tallies.BUILDINGS_RAISED);
     }
@@ -541,11 +544,13 @@ public final class Settlement {
                 continue;
             }
             if (ctx.bridge().isLoaded(building.origin())) {
-                int placedAt = ctx.bridge().materializeBlueprint(
+                Footprint placed = ctx.bridge().materializeBlueprint(
                         building.blueprintId(), building.origin(), building.isSurveyed());
-                if (placedAt != WorldBridge.NOT_PLACED) {
-                    // Where it really stands, so everyone who walks here arrives.
-                    building.setOriginY(placedAt);
+                if (placed.isKnown()) {
+                    // Where it really stands and how big it is, so everyone who
+                    // walks here arrives and anything drawing it has its bounds.
+                    building.setOriginY(placed.y());
+                    building.setFootprint(placed);
                     building.setSurveyed(true);
                 }
                 building.setMaterialized(true);

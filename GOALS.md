@@ -21,6 +21,7 @@ automated check can confirm is whether it *looks* right:
 - [ ] Is a hillside build's material cost bearable in real time, or a grind?
 - [ ] Does the quest board read well, or is it a wall of numbers?
 - [ ] Does the town overview screen look the part, and are the icons legible?
+- [ ] Do the lamp's building outlines read clearly, or is a dense town a blur?
 
 ### Next
 - [ ] Hideouts, so `hideouts_cleared` counts something
@@ -30,6 +31,14 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **Building dimensions are tracked.** `Footprint` (floor height, width, depth,
+  height) recorded when a plan is built — from the survey on the hand-built path,
+  reported back by the bridge on the stamped one — persisted, and backfilled by
+  measurement for worlds that predate it.
+- **Surveyor's Lamp.** Hold it and every nearby building draws its bounds in
+  sparks. Server-side particles like the charter's claim ring, so a vanilla
+  client sees it too.
 
 - **Town overview screen.** Right-click the Town Hall post: name, population and
   the whole ledger, a row per resource with its own icon. First real GUI in

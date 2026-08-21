@@ -15,6 +15,18 @@ public final class KingdomsItems {
             FoundingCharterItem::new,
             () -> new Item.Properties().stacksTo(1));
 
+    /**
+     * Hold it and every building's bounds light up.
+     *
+     * <p>Purely a lens — it places nothing and changes nothing, which is why it
+     * needs no use behaviour at all. The drawing is done server-side from the
+     * footprints the settlement already records.
+     */
+    public static final DeferredItem<Item> SURVEYORS_LAMP = ITEMS.registerItem(
+            "surveyors_lamp",
+            Item::new,
+            () -> new Item.Properties().stacksTo(1));
+
     /** So the camp post can be placed by hand, and moved. */
     public static final DeferredItem<net.minecraft.world.item.BlockItem> LUMBER_CAMP =
             ITEMS.registerSimpleBlockItem(KingdomsBlocks.LUMBER_CAMP, () -> new Item.Properties());

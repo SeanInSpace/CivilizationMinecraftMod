@@ -4,6 +4,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimSettings;
@@ -30,8 +31,8 @@ class EmbodimentPlannerTest {
 
         @Override public boolean isLoaded(SimPos pos) { return true; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
-        @Override public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
-            return origin.y();
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+            return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }
     }

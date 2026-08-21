@@ -7,6 +7,7 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimWorld;
@@ -48,9 +49,9 @@ class SimWorldTest {
         }
 
         @Override
-        public int materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
+        public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed) {
             materialized.add(blueprintId + "@" + origin);
-            return origin.y();
+            return new Footprint(origin.y(), 3, 3, 3);
         }
 
         @Override
