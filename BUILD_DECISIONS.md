@@ -100,8 +100,9 @@ Buildings rise **visibly, block by block**, in a mason's order:
 6. Strictly **one layer at a time**: the next layer starts only when the one below is satisfied. Supplies are assumed satisfied for now — this ordering is exactly where a future supply gate slots in: the cursor simply stops mid-list when materials run out. That list is `LoadedBlueprint.sequence()`, and its index is the build cursor.
 
 **Digging is slower than laying, and needs the right tool.** Laying a block is one
-work unit; shifting one is two to eight, scaled by how hard it is — dirt 2, stone 4,
-deepslate 5. Builders hold the correct tool for what they are digging (shovel for
+work unit; shifting one costs whatever vanilla says it takes to break, with the
+right tool in hand — soil in a single pass, stone two, deepslate three, capped so
+an obsidian outcrop cannot be watched for four hundred ticks. Builders hold the correct tool for what they are digging (shovel for
 soil, pickaxe for stone, axe for wood) and swing at a block several times before it
 gives, so excavation reads as effort rather than deletion. Spoil does not drop: there
 is nowhere to put it yet.

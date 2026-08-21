@@ -4,6 +4,8 @@ import com.keystone.api.Blueprints;
 import com.keystone.api.LoadedBlueprint;
 import com.keystone.api.PlannedBlock;
 import com.kingdoms.neoforge.KingdomsBlocks;
+import com.kingdoms.neoforge.view.PersonEntityManager;
+import net.minecraft.world.item.ItemStack;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.TownStores;
@@ -130,8 +132,8 @@ public final class BlueprintPlacer {
     /** Work units to lay one block. Everything else is measured against this. */
     private static final int PLACE_COST = 1;
 
-    /** Cheapest a dig can be, so even loose soil is slower to shift than a block is to set. */
-    private static final int MIN_DIG_COST = 2;
+    /** Cheapest a dig can be: one builder pass, however soft the ground. */
+    private static final int MIN_DIG_COST = 1;
 
     /** Hardest a dig can be, so an obsidian outcrop cannot stall a town forever. */
     private static final int MAX_DIG_COST = 8;
@@ -401,13 +403,43 @@ public final class BlueprintPlacer {
                 || state.is(BlockTags.BASE_STONE_OVERWORLD);
     }
 
-    /** What one block of ground is worth shifting, from how hard it is. */
+    /**
+     * How long a block actually takes to break, in builder passes.
+     *
+     * <p>Vanilla's own arithmetic — tool speed against hardness — rather than a
+     * flat figure per block. A flat cost made clearing soft ground look like the
+     * builders were taking a break in the middle of it; dirt now goes in one pass
+     * and deepslate in three, which is what a player with the same tool would
+     * feel.
+     *
+     * <p>Still capped: an obsidian outcrop is genuinely hundreds of ticks with an
+     * iron pickaxe, and nobody wants to watch that.
+     */
     private static int digCost(ServerLevel level, BlockPos pos, BlockState state) {
         float hardness = state.getDestroySpeed(level, pos);
         if (hardness < 0) {
             return MAX_DIG_COST;   // unbreakable; excavation skips these entirely
         }
-        return Math.clamp(MIN_DIG_COST + Math.round(hardness), MIN_DIG_COST, MAX_DIG_COST);
+        ItemStack tool = new ItemStack(diggingTool(state));
+        float speed = tool.getDestroySpeed(state);
+        boolean harvests = !state.requiresCorrectToolForDrops() || tool.isCorrectToolForDrops(state);
+        float perTick = speed / Math.max(hardness, 0.05F) / (harvests ? 30.0F : 100.0F);
+        int ticks = perTick >= 1.0F ? 1 : (int) Math.ceil(1.0F / perTick);
+
+        int passes = (int) Math.ceil((double) ticks / PersonEntityManager.CONSTRUCTION_TICK_INTERVAL);
+        return Math.clamp(passes, MIN_DIG_COST, MAX_DIG_COST);
+    }
+
+    /**
+     * Whether this block needs taking out at all.
+     *
+     * <p>Anything a block can simply be placed into does not: snow, grass, flowers
+     * and the like are overwritten by the course that lands on them, so scheduling
+     * a dig for one is pure delay. This is why a builder no longer spends time
+     * clearing ground that was never in the way.
+     */
+    private static boolean needsDigging(BlockState state) {
+        return !state.isAir() && !state.canBeReplaced();
     }
 
     /**
@@ -641,7 +673,14 @@ public final class BlueprintPlacer {
                     // The apron reaches past the footprint, so it can cross into
                     // a chunk nobody has loaded. Ask before reading, rather than
                     // dragging chunks in from a plan pass.
-                    if (level.isLoaded(pos) && isNaturalGround(level.getBlockState(pos))) {
+                    if (!level.isLoaded(pos)) {
+                        continue;
+                    }
+                    BlockState standing = level.getBlockState(pos);
+                    // Only ground that genuinely stands over the floor line. Snow,
+                    // grass and flowers are left exactly where they are — nothing
+                    // is gained by clearing what was never blocking anything.
+                    if (needsDigging(standing) && isNaturalGround(standing)) {
                         toDig.add(pos);
                     }
                 }
@@ -652,8 +691,8 @@ public final class BlueprintPlacer {
         boolean blocked = false;
         for (BlockPos pos : toDig) {
             BlockState standing = level.getBlockState(pos);
-            if (standing.isAir()) {
-                continue;
+            if (!needsDigging(standing)) {
+                continue;   // air, or something a block simply covers over
             }
             if (standing.getDestroySpeed(level, pos) < 0) {
                 blocked = true;   // bedrock: no amount of digging clears this site
@@ -661,9 +700,13 @@ public final class BlueprintPlacer {
             }
             digs.add(new Step(true, pos, standing, null, digCost(level, pos, standing), null));
         }
-        // Top down: you cannot dig out the block you are standing on.
+        // Top down, so nobody digs out the block they are standing on — but leaves
+        // go last whatever their height. A canopy is not what is in the way; the
+        // trunk holding it up is, and clearing leaves first means picking a tree
+        // apart from the outside in before touching the thing that matters.
         digs.sort(Comparator
-                .comparingInt((Step s) -> -s.pos().getY())
+                .comparingInt((Step s) -> s.state().is(BlockTags.LEAVES) ? 1 : 0)
+                .thenComparingInt(s -> -s.pos().getY())
                 .thenComparingInt(s -> s.pos().getX())
                 .thenComparingInt(s -> s.pos().getZ()));
 

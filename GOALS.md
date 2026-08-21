@@ -33,6 +33,13 @@ automated check can confirm is whether it *looks* right:
 
 ## Done
 
+- **Clearing only clears what is in the way.** Anything a block can be placed into
+  — snow, grass, flowers — is never dug; the course landing on it covers it over.
+  Dig cost is vanilla's own break time with the right tool rather than a flat
+  figure, so soil goes in one pass instead of three. Leaves are held to the end of
+  the excavation, and lumberjacks now fell from the stump rather than the crown,
+  so they stop trying to reach a trunk from inside its own canopy.
+
 - **Town Map.** A drawn plan of the nearest settlement: blank ground, buildings
   in green at their real footprints, north up, player marked. Scale follows the
   town's claim so any size town fills the square.

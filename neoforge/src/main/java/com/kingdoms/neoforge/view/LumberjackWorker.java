@@ -155,6 +155,15 @@ public final class LumberjackWorker {
                 BlockPos candidate = new BlockPos(x, top, z);
                 BlockState state = level.getBlockState(candidate);
                 if (state.is(BlockTags.LOGS)) {
+                    // Aim at the stump, not the crown. The heightmap gives the top
+                    // of the trunk, which sits inside the canopy where a lumberjack
+                    // cannot get at it — so walk down the trunk to the lowest log
+                    // and fell it from the ground, the way the tree comes down.
+                    BlockPos stump = candidate;
+                    while (level.getBlockState(stump.below()).is(BlockTags.LOGS)) {
+                        stump = stump.below();
+                    }
+
                     // A trunk standing in the village outranks one in the wood,
                     // however far away it is: that is the one in somebody's way.
                     if (inVillage && villageFirst) {
@@ -162,7 +171,7 @@ public final class LumberjackWorker {
                         bestDistance = Double.MAX_VALUE;
                     }
                     if (inVillage || villageFirst) {
-                        best = candidate;
+                        best = stump;
                         bestDistance = distance;
                     }
                 }
