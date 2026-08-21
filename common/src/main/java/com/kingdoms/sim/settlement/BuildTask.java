@@ -44,9 +44,21 @@ public final class BuildTask {
      */
     private int stepProgress;
 
-    /** Work units finished, and the plan's total. Digging costs more per step than laying. */
+    /** Work units finished, and the plan's total. One unit is one block, either way. */
     private int workDone;
     private int planWork;
+
+    /**
+     * The excavation half of {@link #workDone}.
+     *
+     * <p>Tracked apart from the rest because the two are paced by completely
+     * different clocks. Masonry is rationed a step at a time by
+     * {@link #grantWork}; digging is not rationed at all, because a block takes
+     * as long as its hardness says it takes and no budget should be able to
+     * hurry it or hold it up. Keeping the figures separate is what lets progress
+     * count both while only one of them draws on the budget.
+     */
+    private int digDone;
 
     /**
      * The placing half of {@link #planWork}, which sets the pace.
@@ -221,11 +233,53 @@ public final class BuildTask {
      * finish itself in one pass the moment somebody walked back into view.
      */
     public void grantWork(int amount) {
-        if (amount <= 0 || planWork <= 0) {
+        if (amount <= 0 || planPlaceWork <= 0) {
             return;
         }
-        int remaining = Math.max(0, planWork - workDone - pendingWork);
+        // Against the masonry only. Capping against the whole plan meant every
+        // block of ground taken out shrank the allowance for the walls, so a
+        // building on a hillside ran out of budget with courses still to lay.
+        int remaining = Math.max(0, planPlaceWork - placeWorkDone() - pendingWork);
         pendingWork += Math.min(amount, remaining);
+    }
+
+    /** Work units of actual masonry done, as opposed to ground shifted. */
+    public int placeWorkDone() {
+        return Math.max(0, workDone - digDone);
+    }
+
+    public int digDone() {
+        return digDone;
+    }
+
+    public void setDigDone(int digDone) {
+        this.digDone = Math.max(0, digDone);
+    }
+
+    /** Records blocks taken out of the ground. Costs nothing but time. */
+    public void recordDigDone(int blocks) {
+        int dug = Math.max(0, blocks);
+        digDone += dug;
+        workDone += dug;
+        syncProgressToWork();
+    }
+
+    /**
+     * Squares the books when the hole is finished.
+     *
+     * <p>The plan counts the blocks that stood in the way when the site was
+     * surveyed. Fewer may actually be dug — a player clears part of it, a tree
+     * burns down, gravel slides away — and without this the difference would sit
+     * in {@code workDone} forever and the building would never read as finished.
+     */
+    public void creditExcavation() {
+        int digTotal = Math.max(0, planWork - planPlaceWork);
+        if (digDone >= digTotal) {
+            return;
+        }
+        workDone += digTotal - digDone;
+        digDone = digTotal;
+        syncProgressToWork();
     }
 
     /** Records one step finished — a block dug or laid — and spends its cost. */
@@ -247,9 +301,10 @@ public final class BuildTask {
      * How much work this many builders get through in one simulation step.
      *
      * <p>Paced off the <em>laying</em> half of the plan, so a building still takes
-     * {@code requiredWork} builder-steps to raise. Excavation is charged on top at
-     * the same rate rather than being folded into that budget — cutting a site out
-     * of a hillside is extra work, and should read as extra time.
+     * {@code requiredWork} builder-steps to raise. Excavation is not in this
+     * budget at all: it runs on real block-break times, so cutting a site out of
+     * a hillside costs whatever the hillside costs and the masonry allowance is
+     * untouched by it.
      */
     public int workForStep(int builders) {
         if (planPlaceWork <= 0 || builders <= 0) {

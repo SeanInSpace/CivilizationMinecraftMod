@@ -26,6 +26,8 @@ automated check can confirm is whether it *looks* right:
 - [ ] Do turned buildings actually face the centre, doors and stairs included?
 - [ ] Does a level-2 building read as an upgrade, and does the old one clear cleanly?
 - [ ] Is builders walking to the warehouse for every load too slow to watch?
+- [ ] Does a crew of six digging a hillside read as a crew, or as a scrum?
+- [ ] Does the excavation stake feel like a usable tool for marking out ground?
 
 ### Next
 - [ ] Hideouts, so `hideouts_cleared` counts something
@@ -35,6 +37,18 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **Digging rebuilt.** A block now takes exactly the ticks vanilla says it takes
+  for the tool in hand, spent one at a time off the server tick rather than
+  sampled every fifth tick against a work budget, and it visibly cracks while it
+  happens. Diggers stand beside the block, never in it, on a square checked for a
+  body-sized gap, footing and a real A* path. The job itself is sliced top down —
+  a block is only offered when nothing above it in its column is still wanted — cut
+  into 3x3 cells that diggers claim one at a time from a shared pool, so the crowd
+  spreads along the face instead of converging on one block, and load balances
+  itself over broken ground whatever the headcount. Comes with the excavation
+  stake: mark two corners, and the nearest town clears the box.
+
 
 - **Playtest of the five additions, and two bugs it found.** Levels broke every
   remaining `endsWith` id match — the food chain, the workplace lookup, the path

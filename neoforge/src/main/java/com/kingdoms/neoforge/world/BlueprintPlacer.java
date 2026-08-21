@@ -4,8 +4,7 @@ import com.keystone.api.Blueprints;
 import com.keystone.api.LoadedBlueprint;
 import com.keystone.api.PlannedBlock;
 import com.kingdoms.neoforge.KingdomsBlocks;
-import com.kingdoms.neoforge.view.PersonEntityManager;
-import net.minecraft.world.item.ItemStack;
+import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.TownStores;
@@ -82,18 +81,18 @@ public final class BlueprintPlacer {
     }
 
     /**
-     * One thing a builder does: take a block out of the ground, or put one down.
+     * One block a builder puts down.
      *
-     * <p>{@code cost} is in work units. Laying is one; digging is more, scaled by
-     * how hard the block is, which is what makes cutting a site out of a hillside
-     * visibly slower than raising the walls afterwards.
+     * <p>Masonry only. Excavation is no longer part of this list: taking ground
+     * out is a job several people do at once, in parallel, at real break speed,
+     * and a single ordered queue could express none of that. See {@link Excavation}.
      */
-    private record Step(boolean digging, BlockPos pos, BlockState state, CompoundTag nbt,
+    private record Step(BlockPos pos, BlockState state, CompoundTag nbt,
                         int cost, String material) {
     }
 
     /** What a builder should be doing right now, and what they need in hand for it. */
-    public record NextStep(boolean digging, BlockPos pos, int cost) {
+    public record NextStep(BlockPos pos, int cost) {
     }
 
     /** A build that cannot go on because the town has run out of something. */
@@ -107,24 +106,27 @@ public final class BlueprintPlacer {
      * — bedrock, in practice. Obsidian is merely slow and does not count.
      */
     private record StructurePlan(int width, int depth, int height, List<Step> steps,
-                                 boolean blocked) {
+                                 List<BlockPos> digTargets, boolean blocked) {
 
         int placeWork() {
-            int total = 0;
-            for (Step step : steps) {
-                if (!step.digging()) {
-                    total += step.cost();
-                }
-            }
-            return total;
-        }
-
-        int totalWork() {
             int total = 0;
             for (Step step : steps) {
                 total += step.cost();
             }
             return total;
+        }
+
+        /**
+         * Ground and masonry together, for reporting how far along a build is.
+         *
+         * <p>One unit per block either way. Digging used to be weighted by how
+         * hard the block was, which double-charged it: a stone block both took
+         * longer to break and ate more of the build budget. Time is now measured
+         * in ticks by {@link Excavation} and progress is measured in blocks here,
+         * and neither pretends to be the other.
+         */
+        int totalWork() {
+            return digTargets.size() + placeWork();
         }
     }
 
@@ -133,12 +135,6 @@ public final class BlueprintPlacer {
 
     /** Work units to lay one block. Everything else is measured against this. */
     private static final int PLACE_COST = 1;
-
-    /** Cheapest a dig can be: one builder pass, however soft the ground. */
-    private static final int MIN_DIG_COST = 1;
-
-    /** Hardest a dig can be, so an obsidian outcrop cannot stall a town forever. */
-    private static final int MAX_DIG_COST = 8;
 
     /** How far past the walls the ground is cut back, so there is somewhere to stand. */
     private static final int APRON_MARGIN = 2;
@@ -155,8 +151,13 @@ public final class BlueprintPlacer {
     public static Footprint place(ServerLevel level, String blueprintId, BlockPos base,
                                  int facing) {
         StructurePlan plan = planFor(level, blueprintId, base, facing);
+        for (BlockPos dig : plan.digTargets()) {
+            if (!level.getBlockState(dig).isAir()) {
+                level.destroyBlock(dig, false, null, 512);
+            }
+        }
         for (Step step : plan.steps()) {
-            execute(level, step);
+            lay(level, new Placement(step.pos(), step.state(), step.nbt()));
         }
         return plotOf(base.getY(), plan);
     }
@@ -263,7 +264,7 @@ public final class BlueprintPlacer {
         if (step == null || !task.canAfford(step.cost()) || !canPayFor(settlement, task, step)) {
             return null;
         }
-        return new NextStep(step.digging(), step.pos(), step.cost());
+        return new NextStep(step.pos(), step.cost());
     }
 
     /**
@@ -291,7 +292,7 @@ public final class BlueprintPlacer {
      * out of an empty larder. They are the bootstrap, so they are always payable.
      */
     private static boolean canPayFor(Settlement settlement, BuildTask task, Step step) {
-        if (step.digging() || step.material() == null || isProducer(task)) {
+        if (step.material() == null || isProducer(task)) {
             return true;
         }
         return settlement.stores().has(step.material(), 1);
@@ -303,7 +304,7 @@ public final class BlueprintPlacer {
 
     /** Charges the town for a step that has just been finished. */
     private static void payFor(Settlement settlement, BuildTask task, Step step) {
-        if (step.digging() || step.material() == null || isProducer(task)) {
+        if (step.material() == null || isProducer(task)) {
             return;
         }
         settlement.stores().take(step.material(), 1);
@@ -330,25 +331,21 @@ public final class BlueprintPlacer {
     /** What the step in front of the builders is made of, or null if it costs nothing. */
     public static String materialOfStep(ServerLevel level, BuildTask task) {
         Step step = currentStep(level, task);
-        return step == null || step.digging() ? null : step.material();
+        return step == null ? null : step.material();
     }
 
-    /** What a builder needs in hand for the step in front of them. */
+    /** The block a builder should be holding for the course in front of them. */
     public static Item toolFor(ServerLevel level, BuildTask task) {
         Step step = currentStep(level, task);
-        if (step == null) {
-            return null;
-        }
-        return step.digging()
-                ? diggingTool(level.getBlockState(step.pos()))
-                : step.state().getBlock().asItem();
+        return step == null ? null : step.state().getBlock().asItem();
     }
 
     /**
      * One swing at the step in hand. Returns true when the step actually finished.
      *
-     * <p>Laying takes a single swing. Digging takes as many as the block is worth,
-     * so a builder is visibly working at the ground rather than deleting it.
+     * <p>Laying takes a single swing. Excavation does not come through here at
+     * all — see {@link Excavation}, which spends real ticks against real block
+     * hardness rather than swings against a budget.
      */
     public static boolean swingAtStep(ServerLevel level, Settlement settlement, BuildTask task) {
         return swingAtStep(level, settlement, task, false);
@@ -400,37 +397,9 @@ public final class BlueprintPlacer {
         return plan.steps().get(task.stepsDone());
     }
 
-    /** Carries out one step: the ground comes out, or the block goes down. */
+    /** Carries out one step: the block goes down. */
     private static void execute(ServerLevel level, Step step) {
-        if (step.digging()) {
-            if (!level.getBlockState(step.pos()).isAir()) {
-                // No drops. There is nowhere for spoil to go yet, and a site
-                // knee-deep in dirt items is worse than no spoil at all.
-                level.destroyBlock(step.pos(), false, null, 512);
-            }
-            return;
-        }
         lay(level, new Placement(step.pos(), step.state(), step.nbt()));
-    }
-
-    /**
-     * The right tool for shifting this block.
-     *
-     * <p>Builders are handed it rather than having to own it — there is no tool
-     * economy yet — but the tool in their hand is the correct one for what they
-     * are digging, and hardness sets the cost either way.
-     */
-    private static Item diggingTool(BlockState state) {
-        if (state.is(BlockTags.MINEABLE_WITH_SHOVEL)) {
-            return Items.IRON_SHOVEL;
-        }
-        if (state.is(BlockTags.MINEABLE_WITH_AXE)) {
-            return Items.IRON_AXE;
-        }
-        if (state.is(BlockTags.MINEABLE_WITH_HOE)) {
-            return Items.IRON_HOE;
-        }
-        return Items.IRON_PICKAXE;
     }
 
     /**
@@ -443,33 +412,6 @@ public final class BlueprintPlacer {
     private static boolean isNaturalGround(BlockState state) {
         return state.is(BlockTags.MINEABLE_WITH_SHOVEL)
                 || state.is(BlockTags.BASE_STONE_OVERWORLD);
-    }
-
-    /**
-     * How long a block actually takes to break, in builder passes.
-     *
-     * <p>Vanilla's own arithmetic — tool speed against hardness — rather than a
-     * flat figure per block. A flat cost made clearing soft ground look like the
-     * builders were taking a break in the middle of it; dirt now goes in one pass
-     * and deepslate in three, which is what a player with the same tool would
-     * feel.
-     *
-     * <p>Still capped: an obsidian outcrop is genuinely hundreds of ticks with an
-     * iron pickaxe, and nobody wants to watch that.
-     */
-    private static int digCost(ServerLevel level, BlockPos pos, BlockState state) {
-        float hardness = state.getDestroySpeed(level, pos);
-        if (hardness < 0) {
-            return MAX_DIG_COST;   // unbreakable; excavation skips these entirely
-        }
-        ItemStack tool = new ItemStack(diggingTool(state));
-        float speed = tool.getDestroySpeed(state);
-        boolean harvests = !state.requiresCorrectToolForDrops() || tool.isCorrectToolForDrops(state);
-        float perTick = speed / Math.max(hardness, 0.05F) / (harvests ? 30.0F : 100.0F);
-        int ticks = perTick >= 1.0F ? 1 : (int) Math.ceil(1.0F / perTick);
-
-        int passes = (int) Math.ceil((double) ticks / PersonEntityManager.CONSTRUCTION_TICK_INTERVAL);
-        return Math.clamp(passes, MIN_DIG_COST, MAX_DIG_COST);
     }
 
     /**
@@ -506,6 +448,26 @@ public final class BlueprintPlacer {
     }
 
     /**
+     * Every block that has to come out before the first course can be laid.
+     *
+     * <p>Handed to {@link Excavation}, which owns the order, the timing and the
+     * sharing-out. Read once when a site opens: the yard keeps itself in step with
+     * the world after that, and blocks that vanish by other means are noticed when
+     * somebody is next sent to one.
+     */
+    public static List<SimPos> excavationTargets(ServerLevel level, BuildTask task) {
+        StructurePlan plan = planOf(level, task);
+        if (plan == null) {
+            return List.of();
+        }
+        List<SimPos> targets = new ArrayList<>(plan.digTargets().size());
+        for (BlockPos pos : plan.digTargets()) {
+            targets.add(new SimPos(pos.getX(), pos.getY(), pos.getZ()));
+        }
+        return targets;
+    }
+
+    /**
      * Whether this site has something in it that no builder can shift.
      *
      * <p>Bedrock only. Obsidian is breakable — slowly — and a town is welcome to
@@ -520,7 +482,7 @@ public final class BlueprintPlacer {
      * What is still needed to finish this build, block by block.
      *
      * <p>Counted from the steps not yet done, so it shrinks as the walls go up
-     * rather than reciting the whole plan forever. Digging is not in it: taking
+     * rather than reciting the whole plan forever. Excavation is not in it: taking
      * ground out costs sweat, not stock.
      *
      * <p>Per item rather than per resource on purpose. The town's own economy runs
@@ -536,11 +498,7 @@ public final class BlueprintPlacer {
         Map<Item, Integer> bill = new LinkedHashMap<>();
         List<Step> steps = plan.steps();
         for (int i = Math.min(task.stepsDone(), steps.size()); i < steps.size(); i++) {
-            Step step = steps.get(i);
-            if (step.digging()) {
-                continue;
-            }
-            Item item = step.state().getBlock().asItem();
+            Item item = steps.get(i).state().getBlock().asItem();
             if (item == Items.AIR) {
                 continue;
             }
@@ -763,16 +721,16 @@ public final class BlueprintPlacer {
      * <p>Two phases, in this order:
      * <ol>
      *   <li><strong>Excavation</strong> — every solid block standing inside the
-     *       footprint comes out, worked from the top down so nobody undermines
-     *       what they are standing on. Because the floor course sits at grade
-     *       rather than on top of it, this is real work even on flat ground: the
-     *       topsoil under the building has to go.</li>
+     *       footprint comes out. Because the floor course sits at grade rather
+     *       than on top of it, this is real work even on flat ground: the topsoil
+     *       under the building has to go. Handed off unordered; see
+     *       {@link Excavation} for how a crew shares it out.</li>
      *   <li><strong>Masonry</strong> — bottom layer up; full blocks before partial
      *       blocks within a layer; deterministic within that.</li>
      * </ol>
      *
-     * <p>This IS the construction sequence — a supply gate later simply stops the
-     * cursor mid-list.
+     * <p>The masonry list IS the construction sequence — a supply gate later
+     * simply stops the cursor mid-list.
      */
     private static StructurePlan finish(ServerLevel level, BlockPos base, List<Placement> blocks,
                                         int width, int depth, int height) {
@@ -833,7 +791,12 @@ public final class BlueprintPlacer {
             }
         }
 
-        List<Step> digs = new ArrayList<>();
+        // Excavation is handed over as a bare set of blocks. No order is imposed
+        // here at all: the order is a property of the terrain, recomputed as the
+        // ground comes away, and it is Excavation that works it out. Ordering the
+        // list here is exactly what forced a whole crew through one block at a
+        // time and had them digging out from under each other.
+        List<BlockPos> digTargets = new ArrayList<>();
         boolean blocked = false;
         for (BlockPos pos : toDig) {
             BlockState standing = level.getBlockState(pos);
@@ -844,17 +807,8 @@ public final class BlueprintPlacer {
                 blocked = true;   // bedrock: no amount of digging clears this site
                 continue;
             }
-            digs.add(new Step(true, pos, standing, null, digCost(level, pos, standing), null));
+            digTargets.add(pos);
         }
-        // Top down, so nobody digs out the block they are standing on — but leaves
-        // go last whatever their height. A canopy is not what is in the way; the
-        // trunk holding it up is, and clearing leaves first means picking a tree
-        // apart from the outside in before touching the thing that matters.
-        digs.sort(Comparator
-                .comparingInt((Step s) -> s.state().is(BlockTags.LEAVES) ? 1 : 0)
-                .thenComparingInt(s -> -s.pos().getY())
-                .thenComparingInt(s -> s.pos().getX())
-                .thenComparingInt(s -> s.pos().getZ()));
 
         solid.sort(Comparator
                 .comparingInt((Placement q) -> q.pos().getY())
@@ -862,13 +816,12 @@ public final class BlueprintPlacer {
                 .thenComparingInt(q -> q.pos().getX())
                 .thenComparingInt(q -> q.pos().getZ()));
 
-        List<Step> steps = new ArrayList<>(digs.size() + solid.size());
-        steps.addAll(digs);
+        List<Step> steps = new ArrayList<>(solid.size());
         for (Placement placement : solid) {
-            steps.add(new Step(false, placement.pos(), placement.state(), placement.nbt(),
+            steps.add(new Step(placement.pos(), placement.state(), placement.nbt(),
                     PLACE_COST, materialFor(placement.state())));
         }
-        return new StructurePlan(width, depth, height, steps, blocked);
+        return new StructurePlan(width, depth, height, steps, digTargets, blocked);
     }
 
     private static boolean isFullBlock(ServerLevel level, Placement placement) {

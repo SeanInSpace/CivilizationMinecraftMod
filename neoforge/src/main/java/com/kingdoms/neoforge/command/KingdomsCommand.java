@@ -161,6 +161,7 @@ public final class KingdomsCommand {
     private static int info(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         SimWorld world = KingdomsMod.simulationFor(source.getLevel());
+        PersonEntityManager digger = KingdomsMod.managerFor(source.getLevel());
         if (world == null) {
             source.sendFailure(Component.literal("No simulation for this dimension."));
             return 0;
@@ -246,6 +247,13 @@ public final class KingdomsCommand {
                 }
                 if (s.buildQueue().isEmpty()) {
                     sb.append("\n      build queue empty");
+                }
+                // A town stalled at four per cent is usually not stalled at all;
+                // it is thirty blocks into a hillside. Say so, rather than leaving
+                // it to be guessed at from a percentage that will not move for a while.
+                String digging = digger == null ? null : digger.digStatus(s);
+                if (digging != null) {
+                    sb.append("\n      digging ").append(digging);
                 }
                 if (s.buildings().isEmpty()) {
                     sb.append("\n      no buildings yet");

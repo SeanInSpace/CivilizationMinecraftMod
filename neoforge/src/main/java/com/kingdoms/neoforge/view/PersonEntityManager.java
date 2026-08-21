@@ -8,6 +8,8 @@ import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
+import net.minecraft.world.level.block.state.BlockState;
+import com.kingdoms.neoforge.world.Excavation;
 import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.TownStores;
@@ -45,6 +47,8 @@ import net.minecraft.world.phys.AABB;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -102,6 +106,49 @@ public final class PersonEntityManager {
 
     /** Sites that have made no progress recently, by settlement id. */
     private final Map<UUID, Integer> constructionStalls = new HashMap<>();
+
+    /**
+     * The hole being dug for a settlement's current build.
+     *
+     * <p>Keyed by settlement and stamped with what it belongs to, so moving on to
+     * the next building opens a new one rather than inheriting a half-finished
+     * job that was measured somewhere else.
+     */
+    private static final class SiteDig {
+        final String blueprint;
+        final BlockPos site;
+        final Excavation yard;
+        int credited;
+        long opened = Long.MIN_VALUE;
+        boolean reported;
+        /** Ticks this hole was actually the job in hand, as opposed to elapsed. */
+        int workedTicks;
+
+        SiteDig(String blueprint, BlockPos site, Excavation yard) {
+            this.blueprint = blueprint;
+            this.site = site;
+            this.yard = yard;
+        }
+    }
+
+    /**
+     * Holes by the exact job they belong to, not merely by town.
+     *
+     * <p>A settlement can be pulled off a build and back onto it: a flight of
+     * access steps jumps the queue the moment somebody cannot get home, and the
+     * town hall it interrupted has to be waiting where it was left. Keyed by the
+     * whole job so the interrupted hole is still there afterwards, half dug.
+     */
+    private record DigKey(UUID settlement, String blueprint, BlockPos site) {
+    }
+
+    private final Map<DigKey, SiteDig> siteDigs = new HashMap<>();
+
+    /** How long a hole may stay open before it is worth complaining about. */
+    private static final int STALLED_DIG_TICKS = 1200;
+
+    /** Clearances a player asked for by hand, which outrank the build queue. */
+    private final Map<UUID, Excavation> clearOrders = new HashMap<>();
 
     /** How far to hunt for a spot a body fits when spawning someone in. */
     private static final int FOOTING_SEARCH = 8;
@@ -242,6 +289,14 @@ public final class PersonEntityManager {
                 if (builders.isEmpty()) {
                     continue;   // nobody is at the site, so stepping builds nothing
                 }
+                // No game ticks pass during a step, so nothing can be dug a tick
+                // at a time. Take the whole hole out at once instead.
+                Excavation hole = siteDig(settlement);
+                if (hole != null && !hole.isComplete()) {
+                    builders.getFirst().swing(InteractionHand.MAIN_HAND);
+                    hole.flush(level);
+                }
+                task.creditExcavation();
                 // The plan is a hard ceiling on the loop: placeNextBlock also
                 // stops on its own, but a build that cannot progress must not be
                 // able to spin here.
@@ -253,6 +308,269 @@ public final class PersonEntityManager {
                     }
                 }
             }
+        }
+    }
+
+    // --- excavation ---
+
+    /**
+     * One tick of digging, for every crew with ground in their way.
+     *
+     * <p>Runs on <em>every</em> server tick, unlike the rest of construction, and
+     * that is the entire point. A block is worth what vanilla says it is worth in
+     * ticks, so the only way for a digger to take as long over it as a player
+     * would is to be asked the same question at the same rate. Sampling every
+     * fifth tick and rounding up is what used to make soft ground look like the
+     * builders were pausing for breath halfway through it.
+     *
+     * <p>The work itself is shared out by {@link Excavation}: top layers first,
+     * one three-by-three cell to a digger, claimed from a common pool. There is
+     * no standing per-builder assignment to go stale, and no single block for a
+     * crowd to fight over.
+     */
+    public void tickDigging(long tick) {
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                // No hands, no hole. Opening one for an unwatched town would both
+                // log a dig nobody is doing and leave the build waiting on it,
+                // when what should happen out of sight is the abstract clock.
+                if (embodiedBuilders(settlement).isEmpty()) {
+                    continue;
+                }
+                Excavation ordered = clearOrders.get(settlement.id().value());
+                if (ordered != null) {
+                    if (workDig(settlement, ordered, tick)) {
+                        continue;   // a hand-issued clearance comes before the queue
+                    }
+                    finishClearOrder(settlement, ordered);
+                }
+                SiteDig dig = currentDig(settlement);
+                if (dig == null || dig.yard.isComplete()) {
+                    continue;
+                }
+                if (dig.opened == Long.MIN_VALUE) {
+                    dig.opened = tick;
+                    KingdomsMod.LOGGER.info("{} opens a {}-block excavation for {}",
+                            settlement.name(), dig.yard.total(), dig.blueprint);
+                }
+                dig.workedTicks++;
+                workDig(settlement, dig.yard, tick);
+                creditDig(settlement, dig);
+                // A hole that will not close is invisible from outside: the build
+                // sits at the same percentage and nothing says why. Say it once.
+                // Worked ticks, not elapsed. A hole put down while its town runs
+                // off to cut somebody a flight of steps is not a stalled hole, and
+                // measuring wall-clock reported it as one.
+                if (!dig.yard.isComplete() && dig.workedTicks > STALLED_DIG_TICKS
+                        && dig.workedTicks % STALLED_DIG_TICKS == 0) {
+                    KingdomsMod.LOGGER.warn("{} has spent {} ticks digging {}: {}",
+                            settlement.name(), dig.workedTicks, dig.blueprint,
+                            dig.yard.describe());
+                }
+                if (!dig.reported && dig.yard.isComplete()) {
+                    dig.reported = true;
+                    KingdomsMod.LOGGER.info("{} cleared {} blocks for {} in {} ticks",
+                            settlement.name(), dig.yard.cleared(), dig.blueprint,
+                            dig.workedTicks);
+                }
+            }
+        }
+    }
+
+    /**
+     * Puts every embodied builder to work on a hole.
+     *
+     * @return false once there is nothing left in it
+     */
+    private boolean workDig(Settlement settlement, Excavation yard, long tick) {
+        if (yard.isComplete()) {
+            return false;
+        }
+        for (PersonEntity digger : embodiedBuilders(settlement)) {
+            yard.serve(level, digger, tick);
+        }
+        return !yard.isComplete();
+    }
+
+    /** Moves blocks already out of the ground onto the build task's progress. */
+    private void creditDig(Settlement settlement, SiteDig dig) {
+        if (dig == null || settlement.buildQueue().isEmpty()) {
+            return;
+        }
+        BuildTask task = settlement.buildQueue().getFirst();
+        int delta = dig.yard.cleared() - dig.credited;
+        if (delta > 0) {
+            task.recordDigDone(delta);
+            dig.credited = dig.yard.cleared();
+        }
+        if (dig.yard.isComplete()) {
+            // The plan counted what stood in the way at survey time. Square the
+            // books, so a site partly cleared by other means still reads as done.
+            task.creditExcavation();
+        }
+    }
+
+    /**
+     * The hole for this settlement's current build, opened if the site is ready.
+     *
+     * <p>Null when there is nothing to dig for: no build queued, the site not yet
+     * surveyed, or nobody near enough for any of it to be real.
+     */
+    private Excavation siteDig(Settlement settlement) {
+        SiteDig held = currentDig(settlement);
+        return held == null ? null : held.yard;
+    }
+
+    /** The dig record for whatever this settlement is building now, opening one if needed. */
+    private SiteDig currentDig(Settlement settlement) {
+        if (settlement.buildQueue().isEmpty()) {
+            forgetDigsOf(settlement);
+            return null;
+        }
+        BuildTask task = settlement.buildQueue().getFirst();
+        if (task.siteY() == BuildTask.UNSET_SITE_Y
+                || !BlueprintPlacer.isBuildableByHand(level, task)) {
+            return null;
+        }
+        BlockPos site = new BlockPos(task.origin().x(), task.siteY(), task.origin().z());
+        DigKey key = new DigKey(settlement.id().value(), task.blueprintId(), site);
+        SiteDig held = siteDigs.get(key);
+        if (held != null) {
+            return held;
+        }
+        // Only keep holes for jobs still in the queue. Without this, a town that
+        // abandons a build leaves its excavation behind forever.
+        pruneDigs(settlement);
+        SiteDig fresh = new SiteDig(task.blueprintId(), site, new Excavation(
+                BlueprintPlacer.excavationTargets(level, task), task.blueprintId()));
+        siteDigs.put(key, fresh);
+        return fresh;
+    }
+
+    /** Drops holes for jobs this settlement is no longer queued to build. */
+    private void pruneDigs(Settlement settlement) {
+        Set<BlockPos> wanted = new HashSet<>();
+        for (BuildTask queued : settlement.buildQueue()) {
+            if (queued.siteY() != BuildTask.UNSET_SITE_Y) {
+                wanted.add(new BlockPos(
+                        queued.origin().x(), queued.siteY(), queued.origin().z()));
+            }
+        }
+        siteDigs.entrySet().removeIf(entry ->
+                entry.getKey().settlement().equals(settlement.id().value())
+                        && !wanted.contains(entry.getKey().site()));
+    }
+
+    private void forgetDigsOf(Settlement settlement) {
+        siteDigs.entrySet().removeIf(
+                entry -> entry.getKey().settlement().equals(settlement.id().value()));
+    }
+
+    /** Whether this settlement is working a clearance somebody asked for by hand. */
+    private boolean isClearing(Settlement settlement) {
+        Excavation ordered = clearOrders.get(settlement.id().value());
+        return ordered != null && !ordered.isComplete();
+    }
+
+    /**
+     * Sets a settlement's builders to clearing a box.
+     *
+     * <p>The test harness for the digging, and useful in its own right. Only
+     * blocks that genuinely stand in the way are taken: anything a block can be
+     * placed into is skipped, and bedrock is left alone rather than stalling the
+     * job forever.
+     *
+     * <p>Held in memory only. A clearance is a thing you stand and watch, so
+     * surviving a restart buys nothing worth the save-format churn; the order is
+     * simply forgotten if the server stops mid-dig.
+     *
+     * @return how many blocks the crew were set to remove
+     */
+    public int orderClear(Settlement settlement, BlockPos from, BlockPos to) {
+        BlockPos min = new BlockPos(Math.min(from.getX(), to.getX()),
+                Math.min(from.getY(), to.getY()), Math.min(from.getZ(), to.getZ()));
+        BlockPos max = new BlockPos(Math.max(from.getX(), to.getX()),
+                Math.max(from.getY(), to.getY()), Math.max(from.getZ(), to.getZ()));
+
+        List<SimPos> targets = new ArrayList<>();
+        for (int x = min.getX(); x <= max.getX(); x++) {
+            for (int y = min.getY(); y <= max.getY(); y++) {
+                for (int z = min.getZ(); z <= max.getZ(); z++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    if (!level.isLoaded(pos)) {
+                        continue;
+                    }
+                    BlockState state = level.getBlockState(pos);
+                    if (state.isAir() || state.canBeReplaced()) {
+                        continue;   // nothing there, or nothing in the way
+                    }
+                    if (state.getDestroySpeed(level, pos) < 0) {
+                        continue;   // bedrock; no crew is getting through that
+                    }
+                    targets.add(new SimPos(x, y, z));
+                }
+            }
+        }
+        cancelClear(settlement);
+        if (targets.isEmpty()) {
+            return 0;
+        }
+        clearOrders.put(settlement.id().value(), new Excavation(targets, "clearance"));
+        return targets.size();
+    }
+
+    /** Calls the crew off a clearance. */
+    public boolean cancelClear(Settlement settlement) {
+        Excavation dropped = clearOrders.remove(settlement.id().value());
+        if (dropped == null) {
+            return false;
+        }
+        for (PersonEntity digger : embodiedBuilders(settlement)) {
+            dropped.forget(level, digger);
+        }
+        return true;
+    }
+
+    /** How a standing clearance is getting on, or null if there is not one. */
+    public Excavation clearOrder(Settlement settlement) {
+        return clearOrders.get(settlement.id().value());
+    }
+
+    /**
+     * What this settlement is digging, if anything, for {@code /civ info}.
+     *
+     * <p>Worth reporting separately from build progress: a town that looks stuck
+     * at four per cent is usually not stuck at all, it is thirty blocks into a
+     * hillside, and one line here is the difference between reading that and
+     * guessing at it.
+     */
+    public String digStatus(Settlement settlement) {
+        Excavation ordered = clearOrders.get(settlement.id().value());
+        if (ordered != null && !ordered.isComplete()) {
+            return ordered.describe();
+        }
+        SiteDig dig = currentDig(settlement);
+        if (dig != null && !dig.yard.isComplete()) {
+            return dig.yard.describe();
+        }
+        return null;
+    }
+
+    private void finishClearOrder(Settlement settlement, Excavation done) {
+        clearOrders.remove(settlement.id().value());
+        settlement.logEvent(world.stepsElapsed(),
+                "cleared " + done.cleared() + " blocks of ground");
+        KingdomsMod.LOGGER.info("{} finished a clearance of {} blocks",
+                settlement.name(), done.cleared());
+    }
+
+    /** Drops any cell and any half-dug block this person was holding. */
+    private void forgetDigger(UUID personId) {
+        for (SiteDig dig : siteDigs.values()) {
+            dig.yard.forget(level, personId);
+        }
+        for (Excavation ordered : clearOrders.values()) {
+            ordered.forget(level, personId);
         }
     }
 
@@ -273,6 +591,12 @@ public final class PersonEntityManager {
                 BlueprintPlacer.prepareSite(level, task);
                 if (BlueprintPlacer.isSiteBlocked(level, task)) {
                     settlement.abandonBuild(world.stepsElapsed(), "the ground will not give");
+                    continue;
+                }
+                // Nothing is laid until the ground is out of the way. Excavation
+                // runs on its own clock in tickDigging; this simply waits for it.
+                Excavation hole = siteDig(settlement);
+                if ((hole != null && !hole.isComplete()) || isClearing(settlement)) {
                     continue;
                 }
                 // Out of something? Go and build whatever makes it.
@@ -919,6 +1243,7 @@ public final class PersonEntityManager {
     }
 
     private void release(Person person) {
+        forgetDigger(person.id().value());
         PersonEntity view = tracked.remove(person.id().value());
         if (view != null && !view.isRemoved()) {
             person.setPosition(NeoForgeWorldBridge.toSimPos(view.blockPosition()));
@@ -963,7 +1288,7 @@ public final class PersonEntityManager {
             // tickConstruction; overriding them here would tug them off the wall.
             if (person.profession() == Profession.BUILDER
                     && !underThreat && !night
-                    && !settlement.buildQueue().isEmpty()
+                    && (!settlement.buildQueue().isEmpty() || isClearing(settlement))
                     && !person.isTooWeakToWork()) {
                 continue;
             }
@@ -1068,6 +1393,7 @@ public final class PersonEntityManager {
      */
     public void onViewEntityDeath(LivingEntity view) {
         UUID personId = view.getData(KingdomsAttachments.PERSON_ID.get());
+        forgetDigger(personId);
         tracked.remove(personId);
 
         Person.Id id = new Person.Id(personId);

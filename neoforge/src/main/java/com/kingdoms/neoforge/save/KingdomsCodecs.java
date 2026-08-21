@@ -153,19 +153,36 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("plan_work", 0).forGetter(BuildTask::planWork),
             Codec.INT.optionalFieldOf("plan_place_work", 0).forGetter(BuildTask::planPlaceWork),
             Codec.INT.optionalFieldOf("pending_work", 0).forGetter(BuildTask::pendingWork),
-            Codec.INT.optionalFieldOf("facing", 0).forGetter(BuildTask::facing)
+            Codec.INT.optionalFieldOf("facing", 0).forGetter(BuildTask::facing),
+            // Absent means a save from before excavation was split out of the step
+            // list. See the rewind below.
+            Codec.INT.optionalFieldOf("dig_done", -1).forGetter(BuildTask::digDone)
     ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared,
-                stepsDone, stepProgress, workDone, planWork, planPlaceWork, pending, facing) -> {
+                stepsDone, stepProgress, workDone, planWork, planPlaceWork, pending, facing,
+                digDone) -> {
         BuildTask task = new BuildTask(blueprint, origin, requiredWork);
         task.addProgress(progress);
         task.setSiteY(siteY);
         task.setSitePrepared(prepared);
-        task.setStepsDone(stepsDone);
-        task.setStepProgress(stepProgress);
-        task.setWorkDone(workDone);
         task.setPlan(planWork, planPlaceWork);
-        task.setPendingWork(pending);
         task.setFacing(facing);
+        if (digDone < 0) {
+            // An older save. Its step cursor indexed a combined dig-and-lay list;
+            // the same number now indexes masonry alone, so resuming from it would
+            // skip straight past however many courses the digging used to account
+            // for. Rewind the visible half instead: laying over blocks that already
+            // stand is harmless, and a building with a wall missing is not.
+            task.setStepsDone(0);
+            task.setStepProgress(0);
+            task.setWorkDone(0);
+            task.setPendingWork(0);
+        } else {
+            task.setStepsDone(stepsDone);
+            task.setStepProgress(stepProgress);
+            task.setWorkDone(workDone);
+            task.setPendingWork(pending);
+            task.setDigDone(digDone);
+        }
         return task;
     }));
 

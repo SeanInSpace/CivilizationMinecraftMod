@@ -1,5 +1,4 @@
 {
-  "itemGroup.kingdoms": "Kingdoms",
   "block.kingdoms.animal_farm": "Animal Farm",
   "block.kingdoms.farm": "Farm",
   "block.kingdoms.granary": "Granary",
@@ -15,7 +14,9 @@
   "block.kingdoms.watchtower": "Watchtower",
   "block.kingdoms.workshop": "Workshop",
   "entity.kingdoms.person": "Settler",
+  "item.kingdoms.excavation_stake": "Excavation Stake",
   "item.kingdoms.founding_charter": "Founding Charter",
   "item.kingdoms.surveyors_lamp": "Surveyor's Lamp",
-  "item.kingdoms.town_map": "Town Map"
+  "item.kingdoms.town_map": "Town Map",
+  "itemGroup.kingdoms": "Kingdoms"
 }

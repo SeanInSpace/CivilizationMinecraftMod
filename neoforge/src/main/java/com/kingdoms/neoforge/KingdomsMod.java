@@ -54,6 +54,7 @@ public final class KingdomsMod {
         KingdomsAttachments.ATTACHMENTS.register(modBus);
         KingdomsBlocks.BLOCKS.register(modBus);
         KingdomsItems.ITEMS.register(modBus);
+        KingdomsComponents.COMPONENTS.register(modBus);
         KingdomsEntities.ENTITY_TYPES.register(modBus);
         KingdomsTabs.TABS.register(modBus);
         modBus.addListener(KingdomsNetwork::register);
@@ -117,6 +118,12 @@ public final class KingdomsMod {
             for (PersonEntityManager manager : MANAGERS.values()) {
                 manager.tickConstruction();
             }
+        }
+        // Digging is the one thing that runs every single tick. Block hardness is
+        // measured in ticks, so anything coarser than this cannot reproduce the
+        // time a player would spend on the same block with the same tool.
+        for (PersonEntityManager manager : MANAGERS.values()) {
+            manager.tickDigging(tickCounter);
         }
     }
 

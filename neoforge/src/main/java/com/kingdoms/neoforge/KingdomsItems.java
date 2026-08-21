@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge;
 
+import com.kingdoms.neoforge.item.ExcavationStakeItem;
 import com.kingdoms.neoforge.item.FoundingCharterItem;
 import com.kingdoms.neoforge.item.TownMapItem;
 import net.minecraft.world.item.Item;
@@ -26,6 +27,14 @@ public final class KingdomsItems {
     public static final DeferredItem<Item> SURVEYORS_LAMP = ITEMS.registerItem(
             "surveyors_lamp",
             Item::new,
+            () -> new Item.Properties().stacksTo(1));
+
+    /**
+     * Marks a box and sets a town clearing it. The excavation, on demand.
+     */
+    public static final DeferredItem<Item> EXCAVATION_STAKE = ITEMS.registerItem(
+            "excavation_stake",
+            ExcavationStakeItem::new,
             () -> new Item.Properties().stacksTo(1));
 
     /** A plan of the nearest town: blank ground, buildings in green. */

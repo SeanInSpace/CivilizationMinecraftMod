@@ -54,6 +54,9 @@ public final class PersonEntity extends PathfinderMob {
         setPersistenceRequired();
     }
 
+    /** Roughly where a settler's eyes sit above their feet, for reach arithmetic. */
+    public static final double EYE_ABOVE_FEET = 1.62;
+
     public static AttributeSupplier.Builder createAttributes() {
         return Mob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0)
