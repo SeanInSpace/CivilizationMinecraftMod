@@ -124,14 +124,19 @@ public final class KingdomsCodecs {
                     .forGetter(p -> p.inventory().slots()),
             Codec.INT.optionalFieldOf("starving_steps", 0).forGetter(Person::starvingSteps),
             HAUL_TASK.optionalFieldOf("haul").forGetter(p -> Optional.ofNullable(p.haul())),
-            Codec.BOOL.optionalFieldOf("has_tool", false).forGetter(Person::hasTool)
-    ).apply(i, (id, name, profession, position, hunger, carried, starving, haul, hasTool) -> {
+            Codec.BOOL.optionalFieldOf("has_tool", false).forGetter(Person::hasTool),
+            Codec.STRING.optionalFieldOf("carry_material", "").forGetter(
+                    person -> person.carriedMaterial() == null ? "" : person.carriedMaterial()),
+            Codec.INT.optionalFieldOf("carry_load", 0).forGetter(Person::carriedLoad)
+    ).apply(i, (id, name, profession, position, hunger, carried, starving, haul, hasTool,
+                carryMaterial, carryLoad) -> {
         Person person = new Person(id, name, profession, position);
         person.setHunger(hunger);
         carried.forEach(slot -> person.inventory().restore(slot.itemId(), slot.count()));
         person.setStarvingSteps(starving);
         haul.ifPresent(person::setHaul);
         person.setHasTool(hasTool);
+        person.setCarry(carryMaterial.isEmpty() ? null : carryMaterial, carryLoad);
         return person;
     }));
 

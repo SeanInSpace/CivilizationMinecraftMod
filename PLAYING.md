@@ -96,6 +96,22 @@ It pairs with the Founding Charter, which shows the town's *claim* as a ring of
 green sparkles. One tells you where the town ends, the other where each building
 begins.
 
+## Supplying a build
+
+**Right-click the Warehouse post empty-handed** and you get the bill for whatever
+is being built: every block still to be laid, how many, and whether the town has
+the stock to pay for it. Lines the town is short of are picked out in amber —
+those are the ones you can do something about.
+
+**Right-click it holding a stack** and it goes into the stores. Planks and logs
+count as timber, stone and cobble as stone, iron ingots as iron, food as food.
+Anything the town cannot use is refused rather than swallowed.
+
+Builders draw their materials from those stores in person: a load is picked up at
+the warehouse and carried to the site, and the stock leaves the ledger the moment
+it is shouldered. A town with no warehouse falls back to a storehouse, then to the
+hall.
+
 ## The town overview
 
 **Right-click the Town Hall post** and the town's books open on screen: its name,

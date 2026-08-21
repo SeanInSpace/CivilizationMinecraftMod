@@ -23,6 +23,9 @@ automated check can confirm is whether it *looks* right:
 - [ ] Does the town overview screen look the part, and are the icons legible?
 - [ ] Do the lamp's building outlines read clearly, or is a dense town a blur?
 - [ ] Does the town map read as a plan, and is the fixed claim scale right?
+- [ ] Do turned buildings actually face the centre, doors and stairs included?
+- [ ] Does a level-2 building read as an upgrade, and does the old one clear cleanly?
+- [ ] Is builders walking to the warehouse for every load too slow to watch?
 
 ### Next
 - [ ] Hideouts, so `hideouts_cleared` counts something
@@ -32,6 +35,13 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **Five things Millénaire and MineColonies do better, added.** Site validation
+  (no more building in lakes or across ravines), orientation (doors face the town
+  centre instead of all facing south), building levels 1–3 raised in place with
+  the old walls coming down as part of the excavation, a real per-item bill of
+  materials with player supply at the warehouse post, and builders who fetch a
+  load from the stores in person rather than conjuring materials at the wall.
 
 - **Clearing only clears what is in the way.** Anything a block can be placed into
   — snow, grass, flowers — is never dug; the course landing on it covers it over.

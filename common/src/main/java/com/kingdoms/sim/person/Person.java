@@ -62,6 +62,9 @@ public final class Person {
     /** Issued a tool by the smith; see {@code SmithPlanner}. */
     private boolean hasTool;
 
+    private String carriedMaterial;
+    private int carriedLoad;
+
     public Person(Id id, String name, Profession profession, SimPos position) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
@@ -100,6 +103,41 @@ public final class Person {
      * not paralysed — but the forge exists to change that, and the quest board
      * counts the shortfall.
      */
+    /**
+     * What this person is carrying to a build site, and how much of it.
+     *
+     * <p>Building materials do not appear in a builder's hands out of nothing any
+     * more: a load is drawn from the town's stores at the warehouse and spent
+     * block by block. The stock leaves the ledger when it is picked up, so a load
+     * in transit is genuinely out of the stores and a carrier killed on the road
+     * takes it with them.
+     */
+    public String carriedMaterial() {
+        return carriedMaterial;
+    }
+
+    public int carriedLoad() {
+        return carriedLoad;
+    }
+
+    public void setCarry(String material, int load) {
+        this.carriedMaterial = load > 0 ? material : null;
+        this.carriedLoad = Math.max(0, load);
+    }
+
+    /** Whether this load can pay for one of the given material. */
+    public boolean carries(String material) {
+        return carriedLoad > 0 && material != null && material.equals(carriedMaterial);
+    }
+
+    /** Spends one from the load. */
+    public void spendCarry() {
+        carriedLoad = Math.max(0, carriedLoad - 1);
+        if (carriedLoad == 0) {
+            carriedMaterial = null;
+        }
+    }
+
     public boolean hasTool() {
         return hasTool;
     }

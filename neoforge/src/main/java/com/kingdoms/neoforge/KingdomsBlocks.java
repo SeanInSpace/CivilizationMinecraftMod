@@ -4,6 +4,7 @@ import com.kingdoms.neoforge.block.BuildingPostBlock;
 import com.kingdoms.neoforge.block.LumberCampBlock;
 import com.kingdoms.neoforge.block.MarketBlock;
 import com.kingdoms.neoforge.block.TownHallBlock;
+import com.kingdoms.neoforge.block.WarehouseBlock;
 import com.kingdoms.neoforge.block.MineBlock;
 import com.kingdoms.neoforge.block.QuestBoardBlock;
 import net.minecraft.world.level.block.Block;
@@ -82,9 +83,10 @@ public final class KingdomsBlocks {
             KingdomsBlocks::postProperties);
 
     /** Warehouse: the town's stores; every resource it owns is counted here. */
-    public static final DeferredBlock<BuildingPostBlock> WAREHOUSE = BLOCKS.registerBlock(
+    public static final DeferredBlock<WarehouseBlock> WAREHOUSE = BLOCKS.registerBlock(
             "warehouse",
-            properties -> new BuildingPostBlock("Warehouse", "the town's stores; every resource it owns is counted here.", properties),
+            properties -> new WarehouseBlock("Warehouse",
+                    "the town's stores; every resource it owns is counted here.", properties),
             KingdomsBlocks::postProperties);
     /** Smithy: tools, weapons and armour are made here and issued to the town. */
     public static final DeferredBlock<BuildingPostBlock> SMITH = BLOCKS.registerBlock(

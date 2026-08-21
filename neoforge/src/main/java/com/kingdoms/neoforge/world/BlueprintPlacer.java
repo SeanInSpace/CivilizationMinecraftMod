@@ -327,6 +327,12 @@ public final class BlueprintPlacer {
         return null;
     }
 
+    /** What the step in front of the builders is made of, or null if it costs nothing. */
+    public static String materialOfStep(ServerLevel level, BuildTask task) {
+        Step step = currentStep(level, task);
+        return step == null || step.digging() ? null : step.material();
+    }
+
     /** What a builder needs in hand for the step in front of them. */
     public static Item toolFor(ServerLevel level, BuildTask task) {
         Step step = currentStep(level, task);
@@ -345,8 +351,21 @@ public final class BlueprintPlacer {
      * so a builder is visibly working at the ground rather than deleting it.
      */
     public static boolean swingAtStep(ServerLevel level, Settlement settlement, BuildTask task) {
+        return swingAtStep(level, settlement, task, false);
+    }
+
+    /**
+     * @param carried whether the builder is paying from a load they fetched, in
+     *                which case the stores were already debited at the warehouse
+     *                and must not be charged a second time here
+     */
+    public static boolean swingAtStep(ServerLevel level, Settlement settlement, BuildTask task,
+                                      boolean carried) {
         Step step = currentStep(level, task);
-        if (step == null || !task.canAfford(step.cost()) || !canPayFor(settlement, task, step)) {
+        if (step == null || !task.canAfford(step.cost())) {
+            return false;
+        }
+        if (!carried && !canPayFor(settlement, task, step)) {
             return false;
         }
         task.addStepProgress();
@@ -354,7 +373,9 @@ public final class BlueprintPlacer {
             return false;   // still working at it
         }
         execute(level, step);
-        payFor(settlement, task, step);
+        if (!carried) {
+            payFor(settlement, task, step);
+        }
         task.recordStepDone(step.cost());
         return true;
     }
@@ -493,6 +514,39 @@ public final class BlueprintPlacer {
     public static boolean isSiteBlocked(ServerLevel level, BuildTask task) {
         StructurePlan plan = planOf(level, task);
         return plan != null && plan.blocked();
+    }
+
+    /**
+     * What is still needed to finish this build, block by block.
+     *
+     * <p>Counted from the steps not yet done, so it shrinks as the walls go up
+     * rather than reciting the whole plan forever. Digging is not in it: taking
+     * ground out costs sweat, not stock.
+     *
+     * <p>Per item rather than per resource on purpose. The town's own economy runs
+     * on coarse timber and stone, but a player looking at a bill wants to know it
+     * needs forty oak planks and eight panes of glass — and glass is exactly the
+     * sort of thing a town cannot make for itself.
+     */
+    public static Map<Item, Integer> billOfMaterials(ServerLevel level, BuildTask task) {
+        StructurePlan plan = planOf(level, task);
+        if (plan == null) {
+            return Map.of();
+        }
+        Map<Item, Integer> bill = new LinkedHashMap<>();
+        List<Step> steps = plan.steps();
+        for (int i = Math.min(task.stepsDone(), steps.size()); i < steps.size(); i++) {
+            Step step = steps.get(i);
+            if (step.digging()) {
+                continue;
+            }
+            Item item = step.state().getBlock().asItem();
+            if (item == Items.AIR) {
+                continue;
+            }
+            bill.merge(item, 1, Integer::sum);
+        }
+        return bill;
     }
 
     /** Whether construction can proceed here at all — the chunk has to be loaded. */

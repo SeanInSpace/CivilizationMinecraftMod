@@ -297,6 +297,18 @@ public final class PersonEntityManager {
                         carry(builder, held);
                     }
 
+                    // Materials do not appear in a builder's hands. If this step
+                    // needs stock they are not carrying, they go and fetch a load
+                    // from the stores first — which is what makes the warehouse a
+                    // building rather than a number.
+                    String material = BlueprintPlacer.materialOfStep(level, task);
+                    Person carrier = personOf(settlement, builder);
+                    boolean paying = material != null && carrier != null;
+                    if (paying && !carrier.carries(material)
+                            && !fetchLoad(settlement, carrier, builder, material)) {
+                        continue;   // on the road to the stores
+                    }
+
                     BlockPos pos = next.pos();
                     if (builder.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5)
                             <= PLACE_REACH * PLACE_REACH) {
@@ -306,7 +318,11 @@ public final class PersonEntityManager {
                         // A swing at a stubborn block is progress even when the
                         // block does not give yet, or a long dig would read as a
                         // stall and get assisted out from under the builder.
-                        BlueprintPlacer.swingAtStep(level, settlement, task);
+                        boolean laid = BlueprintPlacer.swingAtStep(
+                                level, settlement, task, paying);
+                        if (laid && paying) {
+                            carrier.spendCarry();
+                        }
                         workedAny = true;
                     } else {
                         builder.getNavigation().moveTo(
@@ -660,6 +676,63 @@ public final class PersonEntityManager {
             }
         }
         return changed;
+    }
+
+    /** How much a builder shoulders in one trip to the stores. */
+    private static final int LOAD_SIZE = 16;
+
+    /** How close a builder has to be to the stores to load up. */
+    private static final double LOAD_REACH = 4.0;
+
+    /**
+     * Sends a builder for materials, and loads them up once they arrive.
+     *
+     * <p>The stock leaves the ledger at the moment it is picked up, not when it is
+     * laid — so a load in transit is genuinely out of the stores, and a builder
+     * killed carrying one takes it with them.
+     *
+     * @return true if they are loaded and can get on with it
+     */
+    private boolean fetchLoad(Settlement settlement, Person carrier, PersonEntity builder,
+                              String material) {
+        SimPos stores = storesPos(settlement);
+        double dx = builder.getX() - (stores.x() + 0.5);
+        double dz = builder.getZ() - (stores.z() + 0.5);
+        if (dx * dx + dz * dz > LOAD_REACH * LOAD_REACH) {
+            builder.getNavigation().moveTo(stores.x() + 0.5, stores.y(), stores.z() + 0.5, WALK_SPEED);
+            return false;
+        }
+        int drawn = settlement.stores().takeUpTo(material, LOAD_SIZE);
+        if (drawn <= 0) {
+            return false;   // the stores are empty; the shortage is reported elsewhere
+        }
+        carrier.setCarry(material, drawn);
+        builder.swing(InteractionHand.MAIN_HAND);
+        return true;
+    }
+
+    /** Where a builder goes to load up: the warehouse, else a storehouse, else the hall. */
+    private static SimPos storesPos(Settlement settlement) {
+        SimPos fallback = settlement.centre();
+        for (Building building : settlement.buildings()) {
+            if (building.blueprintId().contains("warehouse")) {
+                return building.origin();
+            }
+            if (building.blueprintId().contains("storehouse")) {
+                fallback = building.origin();
+            }
+        }
+        return fallback;
+    }
+
+    /** The record behind an embodied builder, or null if they are not tracked. */
+    private Person personOf(Settlement settlement, PersonEntity view) {
+        for (Person person : settlement.residents()) {
+            if (view == tracked.get(person.id().value())) {
+                return person;
+            }
+        }
+        return null;
     }
 
     /** Embodied builders standing close enough to the site to be working on it. */

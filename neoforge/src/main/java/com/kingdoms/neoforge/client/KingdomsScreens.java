@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.client;
 
+import com.kingdoms.neoforge.net.SupplyPayload;
 import com.kingdoms.neoforge.net.TownMapPayload;
 import com.kingdoms.neoforge.net.TownOverviewPayload;
 import net.minecraft.client.Minecraft;
@@ -23,5 +24,9 @@ public final class KingdomsScreens {
 
     public static void openTownMap(TownMapPayload town) {
         Minecraft.getInstance().setScreenAndShow(new TownMapScreen(town));
+    }
+
+    public static void openSupply(SupplyPayload supply) {
+        Minecraft.getInstance().setScreenAndShow(new SupplyScreen(supply));
     }
 }
