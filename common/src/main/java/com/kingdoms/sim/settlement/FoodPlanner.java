@@ -54,8 +54,17 @@ public final class FoodPlanner {
     public static final int FOOD_PER_FARMER_PER_STEP = 1;
     public static final int FARMERS_PER_FARM = 2;
     public static final int FARM_STORE_CAP = 40;
-    public static final int FARMER_CARRY = 4;
-    public static final int TRADER_CARRY = 6;
+    /**
+     * What a farmer shoulders in one trip from the fields.
+     *
+     * <p>Was four, which could not keep up: a playtest ended with a hundred and
+     * fifty-six of harvest banked in the fields, the granary at four, and somebody
+     * starving in the middle of it. The food was there — four at a time simply
+     * could not move it. A builder carries sixteen; a sack of grain is no heavier.
+     */
+    public static final int FARMER_CARRY = 12;
+    /** What a market hand shoulders from the granary. Matched to the farmer's load. */
+    public static final int TRADER_CARRY = 12;
     public static final int MARKET_STOCK_CAP = 150;
     public static final int PANTRY_PER_MEMBER = 3;
     public static final int FETCH_MAX = 8;
@@ -398,7 +407,10 @@ public final class FoodPlanner {
     private static List<Building> buildingsOf(Settlement settlement, String pathSuffix) {
         List<Building> result = new ArrayList<>();
         for (Building building : settlement.buildings()) {
-            if (building.blueprintId().endsWith(pathSuffix)) {
+            // Strip the level first. An improved farm is still a farm — missing that
+            // drops every levelled building out of the food chain, out of the
+            // workplace lookup, and off the end of a path.
+            if (BuildPlanner.baseIdOf(building.blueprintId()).endsWith(pathSuffix)) {
                 result.add(building);
             }
         }

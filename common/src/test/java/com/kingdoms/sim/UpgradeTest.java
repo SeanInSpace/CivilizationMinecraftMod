@@ -85,6 +85,18 @@ class UpgradeTest {
     }
 
     @Test
+    void alevelledBuildingIsStillFoundByItsRole() {
+        // Everything that looks a building up does it by name suffix — the food
+        // chain, the workplace lookup, the path layer. An improved farm that
+        // stopped answering to "farm" would quietly drop out of all three, and a
+        // town whose granary got better would starve beside it.
+        assertEquals("kingdoms:farm", BuildPlanner.baseIdOf("kingdoms:farm_l2"));
+        assertTrue(BuildPlanner.baseIdOf("kingdoms:farm_l3").endsWith("farm"));
+        assertTrue(BuildPlanner.baseIdOf("kingdoms:animal_farm_l2").endsWith("animal_farm"));
+        assertTrue(BuildPlanner.baseIdOf("kingdoms:town_hall_l3").endsWith("town_hall"));
+    }
+
+    @Test
     void improvingCostsMoreEachTime() {
         assertTrue(BuildPlanner.upgradeWork(HOUSE, 3) > BuildPlanner.upgradeWork(HOUSE, 2));
         assertTrue(BuildPlanner.upgradeWork(HOUSE, 2) > HOUSE.workCost());

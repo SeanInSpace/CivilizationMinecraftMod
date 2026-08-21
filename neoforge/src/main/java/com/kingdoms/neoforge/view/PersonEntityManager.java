@@ -591,7 +591,7 @@ public final class PersonEntityManager {
         }
         SimPos hall = null;
         for (Building building : settlement.buildings()) {
-            if (building.blueprintId().endsWith("town_hall")) {
+            if (BuildPlanner.baseIdOf(building.blueprintId()).endsWith("town_hall")) {
                 hall = building.origin();
                 break;
             }
@@ -1044,7 +1044,7 @@ public final class PersonEntityManager {
         SimPos best = null;
         long bestDistance = Long.MAX_VALUE;
         for (Building building : settlement.buildings()) {
-            if (!building.blueprintId().endsWith(pathSuffix)) {
+            if (!BuildPlanner.baseIdOf(building.blueprintId()).endsWith(pathSuffix)) {
                 continue;
             }
             long d = building.origin().horizontalDistanceSq(from);

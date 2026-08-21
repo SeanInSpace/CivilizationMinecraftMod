@@ -36,6 +36,14 @@ automated check can confirm is whether it *looks* right:
 
 ## Done
 
+- **Playtest of the five additions, and two bugs it found.** Levels broke every
+  remaining `endsWith` id match — the food chain, the workplace lookup, the path
+  layer and the animal farm all stopped recognising a building the moment it was
+  improved. And the farm-to-granary link could not keep up: a run ended with 156
+  of harvest banked in the fields, the granary at four, and somebody starving in
+  the middle of it. Both fixed; a 500-step run now reaches 48 people and 67
+  buildings with the fields clear and nobody hungry enough to matter.
+
 - **Five things Millénaire and MineColonies do better, added.** Site validation
   (no more building in lakes or across ravines), orientation (doors face the town
   centre instead of all facing south), building levels 1–3 raised in place with

@@ -3,6 +3,7 @@ package com.kingdoms.neoforge.view;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Settlement;
 import net.minecraft.core.BlockPos;
@@ -109,7 +110,7 @@ public final class ShepherdWorker {
     /** Where the animal farm stands, or null if the town has not built one. */
     public static SimPos farmPos(Settlement settlement) {
         for (Building building : settlement.buildings()) {
-            if (building.blueprintId().endsWith("animal_farm")) {
+            if (BuildPlanner.baseIdOf(building.blueprintId()).endsWith("animal_farm")) {
                 return building.origin();
             }
         }
