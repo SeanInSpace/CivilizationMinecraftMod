@@ -155,7 +155,7 @@ public final class BlueprintPlacer {
         for (Step step : plan.steps()) {
             execute(level, step);
         }
-        return new Footprint(base.getY(), plan.width(), plan.depth(), plan.height());
+        return plotOf(base.getY(), plan);
     }
 
     /**
@@ -170,7 +170,26 @@ public final class BlueprintPlacer {
             return Footprint.UNKNOWN;
         }
         StructurePlan plan = planFor(level, blueprintId, base);
-        return new Footprint(base.getY(), plan.width(), plan.depth(), plan.height());
+        return plotOf(base.getY(), plan);
+    }
+
+    /**
+     * The plot a structure occupies: the building plus the ground cleared around it.
+     *
+     * <p>Wider than the walls on purpose. The cleared shelf is part of what the
+     * town has taken for this building — it is where its door opens onto and where
+     * nothing else may be planted — so the map and the lamp draw the plot, not
+     * just the roof.
+     *
+     * <p>Deliberately not the same as the excavation box: that stays the building's
+     * own size, because the margin is only cleared where something is actually in
+     * the way. Reporting a wider plot must not widen what gets dug.
+     */
+    private static Footprint plotOf(int y, StructurePlan plan) {
+        return new Footprint(y,
+                plan.width() + 2 * APRON_MARGIN,
+                plan.depth() + 2 * APRON_MARGIN,
+                plan.height());
     }
 
     /** Where a structure floor sits, given the first air block in that column. */
@@ -216,8 +235,7 @@ public final class BlueprintPlacer {
         }
         // The size is known the moment the plan is, and the finished building
         // keeps it — that is what lets anything draw a building's bounds.
-        Footprint measured = new Footprint(
-                task.siteY(), plan.width(), plan.depth(), plan.height());
+        Footprint measured = plotOf(task.siteY(), plan);
         if (!measured.equals(task.footprint())) {
             task.setFootprint(measured);
             changed = true;

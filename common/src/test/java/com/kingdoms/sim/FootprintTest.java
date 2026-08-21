@@ -26,6 +26,17 @@ class FootprintTest {
     }
 
     @Test
+    void aplotIsWiderThanTheBuildingItHolds() {
+        // A 7x7 hall on a plot cleared two blocks past its walls is an 11x11 plot.
+        // The recorded size is the plot, because the cleared shelf is part of what
+        // the town has taken for that building — the map and the lamp draw it.
+        Footprint plot = new Footprint(64, 7 + 4, 7 + 4, 5);
+
+        assertTrue(plot.covers(100, 100, 105, 100), "five east is still the hall's ground");
+        assertFalse(plot.covers(100, 100, 106, 100), "six east belongs to nobody");
+    }
+
+    @Test
     void widthAndDepthAreTheFullSpanNotARadius() {
         // A 7x7 hall centred on its origin reaches three blocks each way.
         Footprint hall = new Footprint(64, 7, 7, 5);

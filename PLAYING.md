@@ -87,8 +87,9 @@ actually built.
 
 Craft or grab a **Surveyor's Lamp** from the Kingdoms creative tab and hold it.
 Every building within about 48 blocks draws its own outline in sparks — the floor
-and roof rectangles and the four corner posts, so you can read a building's real
-footprint without counting blocks. It places nothing and changes nothing; it is
+and roof rectangles and the four corner posts. The outline is the building's whole
+**plot**: the walls plus the ground cleared around them, which is the land the town
+has taken for it. It places nothing and changes nothing; it is
 purely a lens.
 
 It pairs with the Founding Charter, which shows the town's *claim* as a ring of
