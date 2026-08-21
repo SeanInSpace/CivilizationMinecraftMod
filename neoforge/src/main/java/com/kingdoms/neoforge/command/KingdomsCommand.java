@@ -2,6 +2,9 @@ package com.kingdoms.neoforge.command;
 
 import com.kingdoms.neoforge.KingdomsConfig;
 import com.kingdoms.neoforge.KingdomsMod;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
+import com.kingdoms.neoforge.net.TownOverviewPayload;
 import com.kingdoms.neoforge.view.PersonEntityManager;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.sim.geom.SimPos;
@@ -61,6 +64,9 @@ public final class KingdomsCommand {
                 .then(Commands.literal("info")
                         .executes(KingdomsCommand::info))
 
+                .then(Commands.literal("overview")
+                        .executes(KingdomsCommand::overview))
+
                 .then(Commands.literal("populate")
                         .then(Commands.argument("count", IntegerArgumentType.integer(1, 200))
                                 .then(Commands.argument("profession", StringArgumentType.word())
@@ -119,6 +125,7 @@ public final class KingdomsCommand {
                 === /civ ===
                   found <name>              found a settlement here
                   info                      full state of every settlement
+                  overview                  open the town overview screen
                   populate <n> <job>        BUILDER/FARMER/GUARD/TRADER/LUMBERJACK/MINER/IDLER
                   build <blueprint> <work>  queue construction here
                   step [n]                  fast-forward the simulation
@@ -329,6 +336,38 @@ public final class KingdomsCommand {
      * A settlement that would take five real minutes to build something can be
      * fast-forwarded here in one command.
      */
+    /** Opens the town overview for the nearest settlement, without walking to a hall. */
+    private static int overview(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("Only a player can be shown a screen."));
+            return 0;
+        }
+        SimWorld world = KingdomsMod.simulationFor(source.getLevel());
+        if (world == null) {
+            source.sendFailure(Component.literal("No simulation for this dimension."));
+            return 0;
+        }
+        Settlement nearest = null;
+        long best = Long.MAX_VALUE;
+        SimPos here = toSimPos(source.getPosition());
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                long distance = settlement.centre().horizontalDistanceSq(here);
+                if (distance < best) {
+                    best = distance;
+                    nearest = settlement;
+                }
+            }
+        }
+        if (nearest == null) {
+            source.sendFailure(Component.literal("No settlements exist yet."));
+            return 0;
+        }
+        PacketDistributor.sendToPlayer(player, TownOverviewPayload.of(nearest));
+        return 1;
+    }
+
     private static int step(CommandContext<CommandSourceStack> ctx, int count) {
         CommandSourceStack source = ctx.getSource();
         SimWorld world = KingdomsMod.simulationFor(source.getLevel());

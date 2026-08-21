@@ -3,6 +3,7 @@ package com.kingdoms.neoforge;
 import com.kingdoms.neoforge.block.BuildingPostBlock;
 import com.kingdoms.neoforge.block.LumberCampBlock;
 import com.kingdoms.neoforge.block.MarketBlock;
+import com.kingdoms.neoforge.block.TownHallBlock;
 import com.kingdoms.neoforge.block.MineBlock;
 import com.kingdoms.neoforge.block.QuestBoardBlock;
 import net.minecraft.world.level.block.Block;
@@ -32,9 +33,10 @@ public final class KingdomsBlocks {
 
 
     /** Town Hall: the seat of the settlement, and the first thing it builds. */
-    public static final DeferredBlock<BuildingPostBlock> TOWN_HALL = BLOCKS.registerBlock(
+    public static final DeferredBlock<TownHallBlock> TOWN_HALL = BLOCKS.registerBlock(
             "town_hall",
-            properties -> new BuildingPostBlock("Town Hall", "the seat of the settlement, and the first thing it builds.", properties),
+            properties -> new TownHallBlock("Town Hall",
+                    "the seat of the settlement, and the first thing it builds.", properties),
             KingdomsBlocks::postProperties);
     /** Dwelling: a family lives here; housing is what lets the town grow. */
     public static final DeferredBlock<BuildingPostBlock> HOUSE = BLOCKS.registerBlock(

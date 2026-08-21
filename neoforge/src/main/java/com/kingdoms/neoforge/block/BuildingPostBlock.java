@@ -65,9 +65,15 @@ public class BuildingPostBlock extends Block {
             return InteractionResult.SUCCESS;
         }
 
-        player.sendSystemMessage(Component.literal(
-                role + " of " + settlement.name() + " — " + explains));
-        player.sendSystemMessage(Component.literal(report(settlement)));
+        // A post whose report is blank speaks for itself some other way — the
+        // town hall opens a screen — so it gets no chat line at all rather than
+        // an empty one underneath its own window.
+        String summary = report(settlement);
+        if (!summary.isBlank()) {
+            player.sendSystemMessage(Component.literal(
+                    role + " of " + settlement.name() + " — " + explains));
+            player.sendSystemMessage(Component.literal(summary));
+        }
         extraReport(player, settlement);
         return InteractionResult.SUCCESS;
     }

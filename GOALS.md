@@ -20,6 +20,7 @@ automated check can confirm is whether it *looks* right:
 - [ ] Do guards visibly carry swords once a smithy stands?
 - [ ] Is a hillside build's material cost bearable in real time, or a grind?
 - [ ] Does the quest board read well, or is it a wall of numbers?
+- [ ] Does the town overview screen look the part, and are the icons legible?
 
 ### Next
 - [ ] Hideouts, so `hideouts_cleared` counts something
@@ -29,6 +30,12 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **Town overview screen.** Right-click the Town Hall post: name, population and
+  the whole ledger, a row per resource with its own icon. First real GUI in
+  Kingdoms — a server-to-client payload and a drawn panel, built on the same
+  extract-render-state shape Keystone's wand screen uses. `/civ overview` opens
+  it without walking to a hall.
 
 - **Three faults from live play.** Trees inside the village blocked every path
   (lumberjacks only worked the woodland claim, and replanted anywhere in it);

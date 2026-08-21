@@ -4,6 +4,7 @@ import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.client.KingdomsClient;
 import com.kingdoms.neoforge.command.KingdomsCommand;
 import com.kingdoms.neoforge.entity.PersonEntity;
+import com.kingdoms.neoforge.net.KingdomsNetwork;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.view.PersonEntityManager;
 import com.kingdoms.sim.world.SimSettings;
@@ -55,6 +56,7 @@ public final class KingdomsMod {
         KingdomsItems.ITEMS.register(modBus);
         KingdomsEntities.ENTITY_TYPES.register(modBus);
         KingdomsTabs.TABS.register(modBus);
+        modBus.addListener(KingdomsNetwork::register);
         modBus.addListener(KingdomsEntities::createAttributes);
         if (FMLEnvironment.getDist() == Dist.CLIENT) {
             modBus.addListener(KingdomsClient::registerRenderers);

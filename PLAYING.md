@@ -74,6 +74,15 @@ Recent history:
 
 Settlers carry **real food** and eat the actual item they hold, best first — so a loaf you give a starving settler is the loaf that saves them. A founding party sets out with bread in hand, which is what carries a new town through its first minutes before there is a larder to fetch from.
 
+## The town overview
+
+**Right-click the Town Hall post** and the town's books open on screen: its name,
+how many live there, and every resource it owns — food, timber, stone, iron,
+tools, weapons, armour — each with its own icon and count.
+
+`/civ overview` opens the same screen for the nearest settlement, if walking to
+the hall is inconvenient.
+
 ## Reading a building
 
 Every building has a **post** standing on its floor — a block naming what it is.
