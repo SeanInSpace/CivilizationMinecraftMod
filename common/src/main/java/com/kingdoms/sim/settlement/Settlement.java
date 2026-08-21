@@ -117,6 +117,28 @@ public final class Settlement {
      * <p>For jobs ordered outside the normal planning path, which still need
      * somewhere of their own to stand.
      */
+    /**
+     * Picks somewhere worth building, skipping ground that plainly is not.
+     *
+     * <p>Plots come from geometry alone, so some of them land in a lake or on the
+     * side of a ravine. Each is put to the world before it is taken; a refused one
+     * is burned rather than reconsidered, so the town does not offer itself the
+     * same puddle every step.
+     *
+     * <p>After {@link BuildPlanner#PLOT_ATTEMPTS} it takes whatever comes next. A
+     * town on an island must still be able to build.
+     */
+    private SimPos chooseSite(SimContext ctx) {
+        for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
+            SimPos candidate = BuildPlanner.plotFor(centre, nextPlotIndex);
+            if (ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                return candidate;
+            }
+            nextPlotIndex++;
+        }
+        return BuildPlanner.plotFor(centre, nextPlotIndex);
+    }
+
     public SimPos takeNextPlot() {
         SimPos flat = BuildPlanner.plotFor(centre, nextPlotIndex);
         nextPlotIndex++;
@@ -409,7 +431,7 @@ public final class Settlement {
             return;
         }
         BuildPlanner.chooseNext(this, catalogue).ifPresent(type -> {
-            SimPos flat = BuildPlanner.plotFor(centre, nextPlotIndex);
+            SimPos flat = chooseSite(ctx);
 
             // Snap to the terrain when the chunk is available; otherwise the
             // centre's height stands in and the world snaps again at placement.

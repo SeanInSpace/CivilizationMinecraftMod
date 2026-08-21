@@ -88,6 +88,53 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         return placed;
     }
 
+    /**
+     * How much the ground may rise and fall across a plot before it is refused.
+     *
+     * <p>Four courses. The builders will cut a shelf for anything up to that; past
+     * it the building ends up either buried or on stilts, and the excavation alone
+     * costs more than the building.
+     */
+    private static final int MAX_SLOPE = 4;
+
+    /** Columns sampled across a plot. The corners and centre catch what matters. */
+    private static final int SAMPLE_STEP = 2;
+
+    @Override
+    public boolean isSiteSuitable(SimPos plot, int radius) {
+        BlockPos centre = toBlockPos(plot);
+        if (!level.isLoaded(centre)) {
+            return true;   // nothing to judge on; the real survey happens later
+        }
+
+        int lowest = Integer.MAX_VALUE;
+        int highest = Integer.MIN_VALUE;
+        for (int dx = -radius; dx <= radius; dx += SAMPLE_STEP) {
+            for (int dz = -radius; dz <= radius; dz += SAMPLE_STEP) {
+                int x = plot.x() + dx;
+                int z = plot.z() + dz;
+                BlockPos column = new BlockPos(x, plot.y(), z);
+                if (!level.isLoaded(column)) {
+                    continue;
+                }
+                int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                lowest = Math.min(lowest, surface);
+                highest = Math.max(highest, surface);
+
+                // Standing water or lava anywhere under the footprint. A town that
+                // builds in a lake looks like a bug even when it is working.
+                BlockPos ground = new BlockPos(x, surface - 1, z);
+                if (!level.getFluidState(ground).isEmpty()) {
+                    return false;
+                }
+            }
+        }
+        if (lowest == Integer.MAX_VALUE) {
+            return true;   // the whole plot was unloaded
+        }
+        return highest - lowest <= MAX_SLOPE;
+    }
+
     @Override
     public void log(String message) {
         KingdomsMod.LOGGER.info(message);

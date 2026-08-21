@@ -53,6 +53,18 @@ public final class BuildPlanner {
     public static final int WOOD_PER_WORK = 4;
     public static final int STONE_PER_WORK = 2;
 
+    /**
+     * How many plots a settlement will look at before it settles for one.
+     *
+     * <p>Bounded on purpose: a town ringed by water or cliffs must still build
+     * something rather than searching forever. Past this it takes what it can get,
+     * and the excavation deals with whatever that turns out to be.
+     */
+    public static final int PLOT_ATTEMPTS = 12;
+
+    /** Half-span probed when judging a plot, before the real building is chosen. */
+    public static final int PLOT_PROBE_RADIUS = 6;
+
     /** Which building lets a town make a thing it has run out of. */
     public static final Map<String, String> PRODUCER_OF = Map.of(
             TownStores.WOOD, "kingdoms:lumber_camp",

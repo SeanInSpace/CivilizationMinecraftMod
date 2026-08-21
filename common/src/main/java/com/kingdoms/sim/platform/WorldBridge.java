@@ -60,6 +60,24 @@ public interface WorldBridge {
      */
     Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed);
 
+    /**
+     * Whether a plot is fit to build on.
+     *
+     * <p>Plots are handed out by geometry alone — rings around the centre — which
+     * is why a settlement will otherwise cheerfully put a house in a lake or across
+     * a ravine. This is the veto: too much slope, standing water, or a drop, and
+     * the town takes the next plot instead.
+     *
+     * <p>Answers {@code true} when the chunk is not loaded and nothing can be
+     * judged. A guess would be worse than deferring: the site is surveyed again for
+     * real before a single block is laid.
+     *
+     * <p>Default {@code true} so test doubles stay small.
+     */
+    default boolean isSiteSuitable(SimPos plot, int radius) {
+        return true;
+    }
+
     /** Structured logging that does not depend on a specific logging backend. */
     void log(String message);
 
