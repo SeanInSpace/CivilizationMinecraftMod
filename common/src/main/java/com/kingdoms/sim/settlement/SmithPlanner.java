@@ -89,7 +89,7 @@ public final class SmithPlanner {
 
     public static boolean hasSmithy(Settlement settlement) {
         return settlement.buildings().stream()
-                .anyMatch(b -> b.blueprintId().endsWith("smith"));
+                .anyMatch(b -> b.blueprintId().contains("smith"));
     }
 
     /**

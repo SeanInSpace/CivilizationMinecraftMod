@@ -216,8 +216,11 @@ class VisibleConstructionTest {
             s.step(ctx);
         }
 
-        assertTrue(s.buildQueue().isEmpty(), "...but with nobody embodied, it must still progress");
-        assertEquals(1, s.buildings().size());
+        // Not "the queue is empty" — a town with everything it wants starts
+        // improving what it has, so there is always something queued. What matters
+        // is that this build finished.
+        assertEquals(1, s.buildings().size(),
+                "...but with nobody embodied, it must still progress");
         assertEquals(1, bridge.stamped, "and it is stamped in, since no hand laid it");
     }
 
@@ -232,8 +235,8 @@ class VisibleConstructionTest {
             s.step(ctx);
         }
 
-        assertTrue(s.buildQueue().isEmpty(), "the chunk is not loaded, so the clock is allowed to run");
-        assertEquals(1, s.buildings().size());
+        assertEquals(1, s.buildings().size(),
+                "the chunk is not loaded, so the clock is allowed to run");
         assertEquals(0, bridge.stamped, "with nowhere to put it yet");
 
         bridge.loaded = true;   // the player arrives

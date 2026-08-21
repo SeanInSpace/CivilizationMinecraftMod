@@ -92,7 +92,7 @@ public final class RaidPlanner {
 
     public static int defenseBonusOf(Settlement settlement, String blueprintId) {
         return settlement.catalogue().stream()
-                .filter(type -> type.id().equals(blueprintId))
+                .filter(type -> type.id().equals(BuildPlanner.baseIdOf(blueprintId)))
                 .mapToInt(BuildingType::defenseBonus)
                 .findFirst()
                 .orElse(0);

@@ -45,7 +45,7 @@ public final class MarketPlanner {
 
     public static boolean hasMarket(Settlement settlement) {
         return settlement.buildings().stream()
-                .anyMatch(b -> b.blueprintId().endsWith("market"));
+                .anyMatch(b -> b.blueprintId().contains("market"));
     }
 
     /** What the town is willing to part with right now. */

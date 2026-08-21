@@ -170,7 +170,7 @@ public final class PopulationPlanner {
 
     public static int capacityOf(Settlement settlement, String blueprintId) {
         return settlement.catalogue().stream()
-                .filter(type -> type.id().equals(blueprintId))
+                .filter(type -> type.id().equals(BuildPlanner.baseIdOf(blueprintId)))
                 .mapToInt(BuildingType::capacity)
                 .findFirst()
                 .orElse(0);

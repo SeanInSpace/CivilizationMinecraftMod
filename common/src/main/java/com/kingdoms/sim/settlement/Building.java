@@ -18,7 +18,7 @@ import java.util.Objects;
  */
 public final class Building {
 
-    private final String blueprintId;
+    private String blueprintId;
     private SimPos origin;
     private final long completedOnStep;
     private boolean materialized;
@@ -30,6 +30,9 @@ public final class Building {
 
     /** Quarter turns clockwise from the drawn orientation. */
     private int facing;
+
+    /** One is the plain version; higher is an improvement raised on the same spot. */
+    private int level = 1;
 
     /** Food held at this building — harvest waiting at a farm, stock at a market. */
     private int foodStored;
@@ -74,6 +77,19 @@ public final class Building {
      */
     public void setOriginY(int y) {
         this.origin = new SimPos(origin.x(), y, origin.z());
+    }
+
+    /** Changed only when a building is improved in place; see {@code planUpgrade}. */
+    public void setBlueprintId(String blueprintId) {
+        this.blueprintId = blueprintId;
+    }
+
+    public int level() {
+        return level;
+    }
+
+    public void setLevel(int level) {
+        this.level = Math.max(1, level);
     }
 
     public int facing() {

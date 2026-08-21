@@ -86,6 +86,101 @@ public final class BuildPlanner {
         return dx < 0 ? 1 : 3;        // centre west: a quarter clockwise; east: three
     }
 
+    /**
+     * How far an improvement is outranked by building something new.
+     *
+     * <p>Improvements compete for the same builders rather than waiting for a town
+     * to run out of things it wants — which never happens, because housing and
+     * farms scale with a population that keeps growing. Waiting for idleness meant
+     * no building was ever improved at all.
+     *
+     * <p>Set so a house improvement sits about level with a workshop: new housing
+     * still beats it while anyone is homeless, but comforts do not.
+     */
+    public static final int UPGRADE_PENALTY = 30;
+
+    /** How far a building can be improved. Level one is the plain version. */
+    public static final int MAX_LEVEL = 3;
+
+    /**
+     * The blueprint id for a given level of a building.
+     *
+     * <p>Level one is the plain id; above that the level is a suffix. Putting it in
+     * the id rather than in a parameter means a datapack can supply
+     * {@code house_l2.nbt} and have it used, with no code involved.
+     */
+    public static String levelledId(String baseId, int level) {
+        return level <= 1 ? baseId : baseId + "_l" + level;
+    }
+
+    /** The level an id names, and the id without it. */
+    public static int levelOf(String blueprintId) {
+        int mark = blueprintId.lastIndexOf("_l");
+        if (mark < 0) {
+            return 1;
+        }
+        try {
+            return Math.max(1, Integer.parseInt(blueprintId.substring(mark + 2)));
+        } catch (NumberFormatException notLevelled) {
+            return 1;
+        }
+    }
+
+    public static String baseIdOf(String blueprintId) {
+        int mark = blueprintId.lastIndexOf("_l");
+        if (mark < 0 || levelOf(blueprintId) == 1) {
+            return blueprintId;
+        }
+        return blueprintId.substring(0, mark);
+    }
+
+    /**
+     * The building most worth improving, or empty when nothing is.
+     *
+     * <p>Only ever consulted once a town has everything it wants — a second house
+     * beats a grander town hall while anybody is still homeless. Among the rest the
+     * lowest level goes first, so a town improves evenly rather than raising one
+     * showpiece and leaving the rest as huts.
+     */
+    public static Optional<Building> chooseUpgrade(Settlement settlement,
+                                                   List<BuildingType> catalogue) {
+        Building best = null;
+        for (Building standing : settlement.buildings()) {
+            // Not gated on being materialized: a finished building is real to the
+            // simulation whether or not its blocks exist yet, and an unwatched town
+            // never materializes anything — so that test meant no town out of sight
+            // ever improved a single building.
+            if (standing.level() >= MAX_LEVEL) {
+                continue;
+            }
+            boolean known = catalogue.stream()
+                    .anyMatch(type -> type.id().equals(baseIdOf(standing.blueprintId())));
+            if (!known) {
+                continue;   // repair flights and the like are not improved
+            }
+            if (best == null || standing.level() < best.level()) {
+                best = standing;
+            }
+        }
+        return Optional.ofNullable(best);
+    }
+
+    /** How urgent improving this building is, against the priority of new work. */
+    public static int upgradePriority(Settlement settlement, List<BuildingType> catalogue,
+                                      Building standing) {
+        String baseId = baseIdOf(standing.blueprintId());
+        return catalogue.stream()
+                .filter(type -> type.id().equals(baseId))
+                .mapToInt(BuildingType::priority)
+                .findFirst()
+                .orElse(0) - UPGRADE_PENALTY;
+    }
+
+    /** What improving to this level costs, over the plain build. */
+    public static int upgradeWork(BuildingType type, int toLevel) {
+        return type.workCost() * toLevel;
+    }
+
     /** Which building lets a town make a thing it has run out of. */
     public static final Map<String, String> PRODUCER_OF = Map.of(
             TownStores.WOOD, "kingdoms:lumber_camp",

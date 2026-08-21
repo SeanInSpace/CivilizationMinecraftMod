@@ -76,6 +76,15 @@ public final class BuildTask {
     /** Quarter turns clockwise from the drawn orientation; see {@code BuildPlanner.facingToward}. */
     private int facing;
 
+    /**
+     * The building this replaces, if it is an improvement rather than a new one.
+     *
+     * <p>Null for ordinary construction. When set, finishing raises that building's
+     * level in place instead of recording another one — and the excavation clears
+     * the old walls on the way, because they stand inside the new plan's footprint.
+     */
+    private SimPos upgradeOf;
+
     public BuildTask(String blueprintId, SimPos origin, int requiredWork) {
         this.blueprintId = Objects.requireNonNull(blueprintId, "blueprintId");
         this.origin = Objects.requireNonNull(origin, "origin");
@@ -167,6 +176,18 @@ public final class BuildTask {
     public void setPlan(int planWork, int planPlaceWork) {
         this.planWork = Math.max(0, planWork);
         this.planPlaceWork = Math.max(0, planPlaceWork);
+    }
+
+    public SimPos upgradeOf() {
+        return upgradeOf;
+    }
+
+    public void setUpgradeOf(SimPos upgradeOf) {
+        this.upgradeOf = upgradeOf;
+    }
+
+    public boolean isUpgrade() {
+        return upgradeOf != null;
     }
 
     public int facing() {

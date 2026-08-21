@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -128,6 +129,36 @@ public final class Settlement {
      * <p>After {@link BuildPlanner#PLOT_ATTEMPTS} it takes whatever comes next. A
      * town on an island must still be able to build.
      */
+    /**
+     * Improves something, once there is nothing left to build.
+     *
+     * <p>A town that has everything it wants is not finished — it starts making
+     * what it has better. The improvement is raised on the same spot facing the
+     * same way, and the old walls come down as part of the excavation, because they
+     * stand inside the new plan's footprint.
+     */
+    private void planUpgrade(SimContext ctx) {
+        BuildPlanner.chooseUpgrade(this, catalogue).ifPresent(standing -> {
+            String baseId = BuildPlanner.baseIdOf(standing.blueprintId());
+            int toLevel = standing.level() + 1;
+            BuildingType type = catalogue.stream()
+                    .filter(candidate -> candidate.id().equals(baseId))
+                    .findFirst()
+                    .orElse(null);
+            if (type == null) {
+                return;
+            }
+            BuildTask work = new BuildTask(BuildPlanner.levelledId(baseId, toLevel),
+                    standing.origin(), BuildPlanner.upgradeWork(type, toLevel));
+            work.setFacing(standing.facing());
+            work.setUpgradeOf(standing.origin());
+            buildQueue.add(work);
+            logEvent(ctx.step(), "Work begins improving the "
+                    + baseId.substring(baseId.indexOf(':') + 1).replace('_', ' ')
+                    + " at " + standing.origin() + " to level " + toLevel);
+        });
+    }
+
     private SimPos chooseSite(SimContext ctx) {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             SimPos candidate = BuildPlanner.plotFor(centre, nextPlotIndex);
@@ -325,7 +356,11 @@ public final class Settlement {
      * progress — safe only because the settlement queues one project at a time.
      */
     public int countBuildings(String blueprintId) {
-        return (int) buildings.stream().filter(b -> b.blueprintId().equals(blueprintId)).count();
+        // A levelled building is still one of these. Counting by the plain id is
+        // what stops an improved house reading as a house the town no longer has.
+        return (int) buildings.stream()
+                .filter(b -> BuildPlanner.baseIdOf(b.blueprintId()).equals(blueprintId))
+                .count();
     }
 
     public void addHousehold(Household household) {
@@ -430,7 +465,20 @@ public final class Settlement {
         if (!buildQueue.isEmpty()) {
             return;
         }
-        BuildPlanner.chooseNext(this, catalogue).ifPresent(type -> {
+        // Improvements compete with new work rather than waiting for a town to run
+        // out of things it wants — which never happens while it is still growing.
+        Optional<BuildingType> wanted = BuildPlanner.chooseNext(this, catalogue);
+        Optional<Building> improvable = BuildPlanner.chooseUpgrade(this, catalogue);
+        int newRank = wanted.map(BuildingType::priority).orElse(Integer.MIN_VALUE);
+        int upgradeRank = improvable
+                .map(standing -> BuildPlanner.upgradePriority(this, catalogue, standing))
+                .orElse(Integer.MIN_VALUE);
+        if (upgradeRank > newRank) {
+            planUpgrade(ctx);
+            return;
+        }
+
+        wanted.ifPresent(type -> {
             SimPos flat = chooseSite(ctx);
 
             // Snap to the terrain when the chunk is available; otherwise the
@@ -499,6 +547,22 @@ public final class Settlement {
         // at the surveyed site if construction got far enough to survey one — and
         // counts as already drawn if the builders laid every block by hand, so
         // watched construction is never re-stamped by a placement pass.
+        if (current.isUpgrade()) {
+            // Raised in place: the same building, one level better. Recording a
+            // second one here would leave the town believing it owns two.
+            for (Building standing : buildings) {
+                if (standing.origin().equals(current.upgradeOf())) {
+                    standing.setLevel(BuildPlanner.levelOf(current.blueprintId()));
+                    standing.setBlueprintId(current.blueprintId());
+                    standing.setFootprint(current.footprint());
+                    standing.setMaterialized(current.isVisuallyComplete());
+                    tallies.record(Tallies.BUILDINGS_RAISED);
+                    return;
+                }
+            }
+            return;   // it was pulled down while the work was under way
+        }
+
         Building raised = new Building(
                 current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete());
         // Surveyed sites keep the height the builders actually worked to; only an

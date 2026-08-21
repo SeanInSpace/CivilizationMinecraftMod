@@ -66,7 +66,7 @@ public final class JobPlanner {
                 return true;
             }
             return settlement.buildings().stream()
-                    .anyMatch(b -> b.blueprintId().endsWith(requiresBuilding));
+                    .anyMatch(b -> b.blueprintId().contains(requiresBuilding));
         }
     }
 

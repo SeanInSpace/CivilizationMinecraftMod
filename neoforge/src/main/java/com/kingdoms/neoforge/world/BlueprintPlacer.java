@@ -612,8 +612,12 @@ public final class BlueprintPlacer {
         }
         // Styles degrade too: with no norman/house drawn, a norman town still
         // gets the built-in house rather than an unknown-blueprint marker.
-        String path = id.getPath();
-        return procedural(level, path.substring(path.lastIndexOf('/') + 1), base, rotation);
+        // Styles degrade too: with no norman/house drawn, a norman town still
+        // gets the built-in house rather than an unknown-blueprint marker. So does
+        // a level nobody has drawn — it falls back to the plain shape, grown.
+        String path = BuildPlanner.baseIdOf(id.getPath());
+        int tier = BuildPlanner.levelOf(id.getPath());
+        return procedural(level, path.substring(path.lastIndexOf('/') + 1), base, rotation, tier);
     }
 
     /**
@@ -654,12 +658,20 @@ public final class BlueprintPlacer {
         return finish(level, base, blocks, size.getX(), size.getZ(), size.getY());
     }
 
+    /**
+     * The built-in shapes, grown by level.
+     *
+     * <p>An improved building is the same shape with more room and another course
+     * of wall — which is enough to read as an upgrade, and means every level of
+     * every building does not have to be drawn by hand before levels work at all.
+     */
     private static StructurePlan procedural(ServerLevel level, String path, BlockPos base,
-                                            Rotation rotation) {
+                                            Rotation rotation, int tier) {
+        int grow = 2 * (Math.max(1, tier) - 1);
         List<Placement> blocks = new ArrayList<>();
         int[] dims = switch (path) {
-            case "town_hall" -> cabin(level, blocks, base, 7, 7, 4, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
-            case "house" -> cabin(level, blocks, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
+            case "town_hall" -> cabin(level, blocks, base, 7 + grow, 7 + grow, 4 + grow / 2, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
+            case "house" -> cabin(level, blocks, base, 5 + grow, 5 + grow, 3 + grow / 2, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
             case "granary" -> granary(level, blocks, base);
             case "farm" -> farm(level, blocks, base);
             case "market" -> market(level, blocks, base);
