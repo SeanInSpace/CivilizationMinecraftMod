@@ -36,6 +36,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.TagValueInput;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -140,11 +141,35 @@ public final class BlueprintPlacer {
     /** Work units to lay one block. Everything else is measured against this. */
     private static final int PLACE_COST = 1;
 
-    /** How far past the walls the ground is cut back, so there is somewhere to stand. */
-    public static final int APRON_MARGIN = 2;
+    /**
+     * How far past the walls a building's plot reaches: one block of doorstep.
+     *
+     * <p>It was two, and two blocks of ground taken on every side of every
+     * building is what a player called unnatural — a village of huts each
+     * standing in the middle of its own scraped pad, held that far apart from
+     * each other because the recorded plot is what keeps the next building off.
+     *
+     * <p>One is the least that still works. The doorway wants somewhere to stand
+     * immediately outside the wall, and that ring is met from both sides now:
+     * {@link #foundation} packs it up to the floor line where the ground falls
+     * short, and the apron cut below takes it back down where it stands proud.
+     * Zero would leave the door opening onto whatever the hillside happened to be.
+     */
+    public static final int APRON_MARGIN = 1;
 
     /** Headroom cleared over the apron — enough to walk the whole way round. */
     private static final int APRON_HEADROOM = 3;
+
+    /**
+     * How many courses of cobble may be laid under a floor to reach the ground.
+     *
+     * <p>A real cost rather than free levelling: each course is masonry somebody
+     * lays and stone the town pays for, which is what keeps "build it up" from
+     * being the cheap answer to every slope. It also bounds the survey — a floor
+     * is never chosen higher than this above the lowest column of its own plot,
+     * because a floor the fill cannot reach is a floor with a hole under it.
+     */
+    private static final int FOUNDATION_DEPTH = 3;
 
     private BlueprintPlacer() {
     }
@@ -200,6 +225,12 @@ public final class BlueprintPlacer {
      * <p>Deliberately not the same as the excavation box: that stays the building's
      * own size, because the margin is only cleared where something is actually in
      * the way. Reporting a wider plot must not widen what gets dug.
+     *
+     * <p>Footprints are saved as they were measured and never migrated, so a town
+     * from before the margin shrank keeps its old wider plots. Nothing reads them
+     * wrongly — everything that wants the walls back takes {@link #APRON_MARGIN}
+     * off the recorded span — an old town simply stays as spread out as it was
+     * built, and only new buildings are packed at the new spacing.
      */
     private static Footprint plotOf(int y, StructurePlan plan) {
         return new Footprint(y,
@@ -222,6 +253,13 @@ public final class BlueprintPlacer {
      *
      * <p>Growth is walked through instead: logs, leaves, and anything a block can
      * simply be placed into. What is left underneath is what the town builds on.
+     *
+     * <p>Water is the one thing the walk stops at rather than passes through. It
+     * is replaceable, so the descent used to carry on down to the bed of the pond
+     * — and a plot with its toe in the water surveyed its floor several blocks
+     * under the surface, dug a bathtub, and filled it with the lake. The grade of
+     * a flooded column is the surface, because that is where a builder would put
+     * the fill in; {@link #foundation} then displaces the water with it.
      */
     public static int groundLevel(ServerLevel level, int x, int z) {
         int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
@@ -238,6 +276,12 @@ public final class BlueprintPlacer {
 
     /** Growth and loose cover, as opposed to the ground a building sits on. */
     private static boolean isOverburden(BlockState state) {
+        if (!state.getFluidState().isEmpty()) {
+            // Water and lava are replaceable and would otherwise be walked
+            // straight through. They are not cover over the ground, they are the
+            // level the ground has to be brought up to.
+            return false;
+        }
         // Growth and loose cover only. Air is deliberately not on this list: the
         // heightmap has already put us on the first free block, so anything air
         // below that is a cave or an overhang, and walking down into one sinks the
@@ -280,6 +324,32 @@ public final class BlueprintPlacer {
         return firstAirY - 1;
     }
 
+    /**
+     * The floor height for a plot, from the first free block in each of its columns.
+     *
+     * <p>Pure arithmetic, and deliberately the whole of the decision: everything
+     * about how a building meets sloping ground is these three lines, so they can
+     * be read and argued with without a world to run them in. There is no test
+     * source set on this side to pin them with — hence the arithmetic being
+     * separated out where it can at least be checked by eye.
+     *
+     * <p>The median rather than the lowest. Taking the lowest — which is what
+     * surveying one arbitrary column amounted to, whenever that column happened to
+     * be the low one — meant the entire plot was cut down to meet it, and every
+     * building on anything but a billiard table ended up sitting in a squared-off
+     * pit of its own making. The median cuts half the plot down and packs the other
+     * half up, which is how a real building sits on a slope. The median rather than
+     * the mean because one boulder or one rabbit hole must not drag the floor with it.
+     *
+     * <p>Then held down to what the underpinning can reach: see {@link #FOUNDATION_DEPTH}.
+     */
+    private static int baseAcross(String blueprintId, int[] firstAir) {
+        int[] sorted = firstAir.clone();
+        Arrays.sort(sorted);
+        return Math.min(baseFor(blueprintId, sorted[sorted.length / 2]),
+                sorted[0] + FOUNDATION_DEPTH);
+    }
+
     // --- the visible path ---
 
     /**
@@ -296,7 +366,6 @@ public final class BlueprintPlacer {
         }
         boolean changed = false;
         if (task.siteY() == BuildTask.UNSET_SITE_Y) {
-            int firstAir = groundLevel(level, task.origin().x(), task.origin().z());
             // Two jobs already know the height they belong at and must not go
             // looking for another.
             //
@@ -311,10 +380,10 @@ public final class BlueprintPlacer {
             // built on top of the old — and the excavation, measured from up there,
             // was digging air.
             //
-            // Everything else is sunk to grade, so you can walk in through it.
+            // Everything else is set to the grade of its own plot, so you can walk
+            // in through it.
             boolean inPlace = isStairs(task) || task.isUpgrade();
-            task.setSiteY(inPlace ? task.origin().y()
-                    : baseFor(task.blueprintId(), firstAir));
+            task.setSiteY(inPlace ? task.origin().y() : surveyBase(level, task));
             changed = true;
         }
         StructurePlan plan = planOf(level, task);
@@ -340,6 +409,52 @@ public final class BlueprintPlacer {
             changed = true;
         }
         return changed;
+    }
+
+    /**
+     * Reads the lie of the land across a whole plot and picks the floor for it.
+     *
+     * <p>Only the origin column used to be looked at, and the site height is
+     * write-once, so whatever that one column happened to be became the floor for
+     * the whole building — and everything else in the footprint was then cut down
+     * to meet it. That is the two-tile shelf of scraped ground, seen side on.
+     *
+     * <p>The plot is laid out once here purely to learn how wide the building is,
+     * and thrown away. Nothing knows a blueprint's size until it has been laid
+     * out, and the survey has to know before it can choose a height — so this is
+     * one extra layout per building, at the moment its site opens, and never again.
+     * The dimensions do not depend on the base, so a provisional one will do.
+     */
+    private static int surveyBase(ServerLevel level, BuildTask task) {
+        int x = task.origin().x();
+        int z = task.origin().z();
+        StructurePlan shape = planFor(level, task.blueprintId(),
+                new BlockPos(x, groundLevel(level, x, z), z));
+        // A square of the wider half-span. Buildings are turned to face the town
+        // centre, which swaps width and depth, and a survey that sampled the
+        // rectangle as drawn would read different ground on opposite sides of town.
+        int half = Math.max(shape.width(), shape.depth()) / 2;
+
+        int[] columns = new int[(2 * half + 1) * (2 * half + 1)];
+        // The origin is the one column known to be loaded — that is what
+        // isBuildableByHand asked — so it is read outright and the survey can
+        // never come back with nothing to take a median of.
+        columns[0] = groundLevel(level, x, z);
+        int read = 1;
+        for (int dx = -half; dx <= half; dx++) {
+            for (int dz = -half; dz <= half; dz++) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                // A plot may straddle a chunk nobody has loaded. Ask first:
+                // reading the heightmap of an absent chunk is what drags one in.
+                if (!level.isLoaded(new BlockPos(x + dx, task.origin().y(), z + dz))) {
+                    continue;
+                }
+                columns[read++] = groundLevel(level, x + dx, z + dz);
+            }
+        }
+        return baseAcross(task.blueprintId(), Arrays.copyOf(columns, read));
     }
 
     /**
@@ -868,12 +983,18 @@ public final class BlueprintPlacer {
         // Cut the ground back past the walls as well. Setting the floor at grade
         // is only half of being able to walk in: on anything steeper than a
         // gentle slope the hillside still comes up over the doorway, and the
-        // building ends up at the bottom of a hole with its door buried. This
-        // levels a shelf around it instead.
+        // building ends up at the bottom of a hole with its door buried.
+        //
+        // One ring wide, and only the courses ABOVE the floor line — note dy
+        // starting at 1. The block at the floor line is the doorstep itself and
+        // is never taken; where the ground falls short of it instead, the
+        // doorstep course in foundation() packs it back up. Cut above, fill
+        // below, one block out: that is the whole of the shelf now, in place of
+        // the two-block pad that used to be scraped flat round everything.
         //
         // Only natural ground is taken. Aprons of neighbouring plots can meet,
         // and a rule that ate anything in reach would quietly chew a hole in the
-        // house next door.
+        // house next door — or eat the doorstep the neighbour just laid.
         int ax = rx + APRON_MARGIN;
         int az = rz + APRON_MARGIN;
         for (int dx = -ax; dx <= ax; dx++) {
@@ -1117,7 +1238,8 @@ public final class BlueprintPlacer {
 
     private static int[] farm(ServerLevel level, List<Placement> blocks, BlockPos base) {
         int r = 5;
-        foundation(level, blocks, base, 2 * r + 1, 2 * r + 1);
+        // A field's soil is its floor, and that is drawn one below the base.
+        foundation(level, blocks, base, 2 * r + 1, 2 * r + 1, -1);
         for (int dx = -r; dx <= r; dx++) {
             for (int dz = -r; dz <= r; dz++) {
                 boolean edge = Math.abs(dx) == r || Math.abs(dz) == r;
@@ -1267,20 +1389,90 @@ public final class BlueprintPlacer {
         return new int[]{width, depth, wallHeight + 2};
     }
 
-    /** Cobble underpinning wherever the ground is missing — the true first course. */
+    /**
+     * Cobble underpinning wherever the ground is missing — the true first course.
+     *
+     * <p>Two rings, and the difference between them is the whole of building up
+     * rather than only digging down:
+     *
+     * <ul>
+     *   <li><strong>Under the walls</strong>, from one below the floor. Filled as
+     *       far as it will reach and no further: a stump of cobble under one
+     *       corner is still better than the hole it is standing over.</li>
+     *   <li><strong>The doorstep</strong> — the apron ring — starting AT the floor
+     *       line rather than below it, because out here there is no floor course
+     *       to stand on and the top of the fill IS the step. It is the exact
+     *       complement of the apron cut in {@link #finish}, which starts one
+     *       course higher and takes the hillside back where it stands proud.</li>
+     * </ul>
+     *
+     * <p>A doorstep column goes in whole or not at all. Fill that runs out of
+     * courses before it finds the ground is not a step, it is a cobble shelf
+     * hanging in mid-air, and one of those outside a door looks far worse than
+     * the drop it was trying to hide.
+     *
+     * <p>On level ground none of this places anything: every cell it would fill
+     * already has ground in it. The cost is paid only by the buildings that are
+     * actually on a slope, which is the point.
+     */
     private static void foundation(ServerLevel level, List<Placement> blocks, BlockPos base,
                                    int width, int depth) {
+        foundation(level, blocks, base, width, depth, 0);
+    }
+
+    /**
+     * @param floorCourse where this structure lays its own walkable surface,
+     *                    relative to the base. Zero for everything that has a
+     *                    floor. A crop field draws its soil one BELOW its base —
+     *                    see {@link #baseFor} — so its doorstep belongs one lower
+     *                    too, or every field on flat ground gets a cobble kerb
+     *                    standing a block proud of the grass all the way round.
+     */
+    private static void foundation(ServerLevel level, List<Placement> blocks, BlockPos base,
+                                   int width, int depth, int floorCourse) {
         int rx = width / 2;
         int rz = depth / 2;
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
-                for (int dy = 1; dy <= 3; dy++) {
-                    BlockPos below = base.offset(dx, -dy, dz);
-                    if (level.getBlockState(below).isAir() || !level.getFluidState(below).isEmpty()) {
+                for (int dy = 1; dy <= FOUNDATION_DEPTH; dy++) {
+                    BlockPos below = base.offset(dx, floorCourse - dy, dz);
+                    if (isUnsupported(level, below)) {
                         add(blocks, below, Blocks.COBBLESTONE);
                     }
                 }
             }
+        }
+        for (int dx = -rx - APRON_MARGIN; dx <= rx + APRON_MARGIN; dx++) {
+            for (int dz = -rz - APRON_MARGIN; dz <= rz + APRON_MARGIN; dz++) {
+                if (Math.abs(dx) <= rx && Math.abs(dz) <= rz) {
+                    continue;   // the building's own box, underpinned above
+                }
+                doorstep(level, blocks, base.offset(dx, floorCourse, dz));
+            }
+        }
+    }
+
+    /** Whether nothing is holding this cell up: open air, or water to displace. */
+    private static boolean isUnsupported(ServerLevel level, BlockPos pos) {
+        return level.getBlockState(pos).isAir() || !level.getFluidState(pos).isEmpty();
+    }
+
+    /** Packs one apron column up to the floor line, if it can reach the ground. */
+    private static void doorstep(ServerLevel level, List<Placement> blocks, BlockPos top) {
+        // The apron reaches past the footprint and can cross into a chunk nobody
+        // has loaded, exactly as the apron cut can.
+        if (!level.isLoaded(top)) {
+            return;
+        }
+        int drop = 0;
+        while (drop < FOUNDATION_DEPTH && isUnsupported(level, top.below(drop))) {
+            drop++;
+        }
+        if (drop == 0 || isUnsupported(level, top.below(drop))) {
+            return;   // already at grade, or the ground is further down than a step
+        }
+        for (int dy = 0; dy < drop; dy++) {
+            add(blocks, top.below(dy), Blocks.COBBLESTONE);
         }
     }
 
