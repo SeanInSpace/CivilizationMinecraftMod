@@ -2,12 +2,14 @@ package com.kingdoms.neoforge.block;
 
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
+import com.kingdoms.neoforge.net.TownOverviewPayload.Distress;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimWorld;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -67,6 +69,13 @@ public class BuildingPostBlock extends Block {
             return InteractionResult.SUCCESS;
         }
 
+        // Crisis leads, whatever this post is for, and it has to lead from here.
+        // The under-construction branch below returns outright, and a blank report
+        // suppresses its own header — so anything said further down would be
+        // missing from an unfinished site and from every post that opens a screen
+        // instead of talking, which between them is most of a young town.
+        announceDistress(player, settlement);
+
         // A post standing on an unfinished site answers for the site, not for
         // the town: what is going up here, and how far along it is. This is why
         // the post is the first block laid — from the very start of the job
@@ -92,6 +101,49 @@ public class BuildingPostBlock extends Block {
         }
         extraReport(player, settlement);
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * The town's condition, said before this post says anything of its own.
+     *
+     * <p>The spiral that motivated this was silent: a town starved to death while
+     * every post it owned went on reporting population and stock, and the player
+     * only worked out what had happened afterwards. A town in trouble now says so
+     * on whatever the player happens to walk up to.
+     *
+     * <p>Reaches every post that inherits {@link #useWithoutItem}. It does not
+     * reach {@link MineBlock} or {@link LumberCampBlock}, which replace that
+     * method wholesale because they are controls rather than reports — a knob
+     * that shouts before turning reads as a malfunction. This is
+     * {@code protected static} so both can add the one line if that judgement
+     * turns out to be wrong in play.
+     *
+     * <p>The hall does hear it twice, in chat here and again on the band of the
+     * screen it opens. That is deliberate: the screen is momentary and the chat
+     * line is not, so closing the window does not close the warning with it.
+     */
+    protected static void announceDistress(Player player, Settlement settlement) {
+        Distress distress = Distress.of(settlement);
+        if (distress.silent()) {
+            return;
+        }
+        player.sendSystemMessage(Component.literal(settlement.name() + " is "
+                        + distress.word() + " — " + distress.fact() + ".")
+                .withStyle(alarmStyle(distress.alarm())));
+        if (distress.showsRemedy()) {
+            player.sendSystemMessage(Component.literal("  " + distress.remedy())
+                    .withStyle(ChatFormatting.YELLOW));
+        }
+    }
+
+    /** Loud in proportion to the trouble; red and bold is reserved for deaths coming. */
+    private static ChatFormatting[] alarmStyle(int alarm) {
+        return switch (alarm) {
+            case Distress.ALARM_DYING ->
+                    new ChatFormatting[] {ChatFormatting.RED, ChatFormatting.BOLD};
+            case Distress.ALARM_FAILING -> new ChatFormatting[] {ChatFormatting.GOLD};
+            default -> new ChatFormatting[] {ChatFormatting.YELLOW};
+        };
     }
 
     /** The build this post stands on, if its site is still under construction. */

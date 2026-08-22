@@ -13,7 +13,13 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  */
 public final class KingdomsNetwork {
 
-    private static final String VERSION = "1";
+    /**
+     * Bumped whenever a payload's shape changes — "2" when the town overview
+     * gained its distress reading. An optional channel that silently mismatches
+     * does not refuse; it decodes the new bytes with the old codec and shows
+     * nonsense, which is worse than not having the screen at all.
+     */
+    private static final String VERSION = "2";
 
     private KingdomsNetwork() {
     }
