@@ -2,6 +2,7 @@ package com.kingdoms.neoforge;
 
 import com.kingdoms.neoforge.block.BuildingPostBlock;
 import com.kingdoms.neoforge.block.CampPostBlock;
+import com.kingdoms.neoforge.block.StorehouseBlock;
 import com.kingdoms.neoforge.block.LumberCampBlock;
 import com.kingdoms.neoforge.block.MarketBlock;
 import com.kingdoms.neoforge.block.TownHallBlock;
@@ -82,9 +83,9 @@ public final class KingdomsBlocks {
                     "families shop here; stock is carried in from the granary.", properties),
             KingdomsBlocks::postProperties);
     /** Storehouse: the town's general stores, and where timber and stone pile up. */
-    public static final DeferredBlock<BuildingPostBlock> STOREHOUSE = BLOCKS.registerBlock(
+    public static final DeferredBlock<StorehouseBlock> STOREHOUSE = BLOCKS.registerBlock(
             "storehouse",
-            properties -> new BuildingPostBlock("Storehouse", "the town's general stores, and where timber and stone pile up.", properties),
+            properties -> new StorehouseBlock("Storehouse", "the town's stores — donations taken, timber sold; see the post itself.", properties),
             KingdomsBlocks::postProperties);
     /** Workshop: craft work, and the reason a town wants a surplus at all. */
     public static final DeferredBlock<BuildingPostBlock> WORKSHOP = BLOCKS.registerBlock(
