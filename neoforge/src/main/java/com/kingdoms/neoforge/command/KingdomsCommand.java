@@ -21,6 +21,7 @@ import com.kingdoms.sim.settlement.LumberPlanner;
 import com.kingdoms.sim.settlement.PopulationPlanner;
 import com.kingdoms.sim.settlement.RaidPlanner;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.settlement.SettlementEvent;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimWorld;
@@ -202,6 +203,8 @@ public final class KingdomsCommand {
         SimPos centre = toSimPos(source.getPosition());
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, "kingdoms:norman");
         Settlement settlement = new Settlement(Settlement.Id.random(), name + " Town", centre, 64);
+        // Fresh foundings live the ladder; only loaded saves default to TOWN.
+        settlement.setStage(SettlementStage.CAMP);
         kingdom.addSettlement(settlement);
 
         // Both, deliberately: the saved data is what persists, the sim world is what ticks.
@@ -236,6 +239,7 @@ public final class KingdomsCommand {
                     .append(kingdom.totalPopulation());
             for (Settlement s : kingdom.settlements()) {
                 sb.append("\n  - ").append(s.name())
+                        .append(" [").append(s.stage().pretty()).append("]")
                         .append(": pop ").append(s.population())
                         .append("/").append(PopulationPlanner.totalHousingCapacity(s)).append(" housed")
                         .append(", threat ").append(s.threatLevel())

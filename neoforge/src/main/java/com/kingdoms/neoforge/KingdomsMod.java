@@ -223,10 +223,11 @@ public final class KingdomsMod {
                     int reserve = TownAuditor.reserveSteps(total, settlement.population());
                     TownAuditor.Distress distress =
                             TownAuditor.distress(worstHunger, total, settlement.population());
-                    LOGGER.info("AUDIT {} vitals pop={} hunger={} total={} granary={} "
+                    LOGGER.info("AUDIT {} vitals stage={} pop={} hunger={} total={} granary={} "
                                     + "fields={} market={} pantries={} hauls={} "
                                     + "reserve={} distress={} seen={}",
-                            settlement.name(), settlement.population(), worstHunger,
+                            settlement.name(), settlement.stage().pretty(),
+                            settlement.population(), worstHunger,
                             total, settlement.foodStock(), fields, stalls, pantries, hauls,
                             reserve, distress.token(), seen);
 

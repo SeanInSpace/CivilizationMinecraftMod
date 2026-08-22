@@ -199,6 +199,13 @@ public final class StagePlanner {
         settlement.residents().stream()
                 .filter(p -> p.profession() == Profession.PIONEER)
                 .findFirst()
+                .or(() -> settlement.residents().stream()
+                        // Not every camp is charter-born: a command-founded
+                        // party may hold no pioneers at all, and a stage that
+                        // cannot name its sentry is a stage nobody graduates.
+                        // Idlers are the next-sparest hands.
+                        .filter(p -> p.profession() == Profession.IDLER)
+                        .findFirst())
                 .ifPresent(p -> p.setProfession(trade));
     }
 
