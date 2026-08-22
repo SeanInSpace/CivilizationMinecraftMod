@@ -26,6 +26,19 @@ public final class HaulPlanner {
     /** Close enough to load or unload. */
     public static final double ARRIVAL_RADIUS = 3.0;
 
+    /**
+     * Steps an embodied hauler may take over one leg before the clock delivers.
+     *
+     * <p>Being watched must never starve a town. An embodied hauler has to
+     * genuinely walk — that is the show — but mob navigation cannot climb every
+     * cliff a town builds on, and an errand that cannot arrive used to simply
+     * never complete. With hunger on its own clock, a player who stood and
+     * watched a steep town for half an hour watched all twenty-five of its
+     * people starve with the fields full. Now the walk gets a fair spell, and
+     * then the goods arrive the way they would have if nobody had been looking.
+     */
+    public static final int EMBODIED_STALL_STEPS = 12;
+
     private HaulPlanner() {
     }
 
@@ -43,12 +56,16 @@ public final class HaulPlanner {
             }
 
             SimPos target = haul.target();
+            boolean overdue = false;
             if (!person.isEmbodied()) {
                 person.setPosition(stepToward(person.position(), target, ABSTRACT_TRAVEL_BLOCKS));
+            } else {
+                overdue = haul.addStalledStep() >= EMBODIED_STALL_STEPS;
             }
-            if (person.position().horizontalDistance(target) > ARRIVAL_RADIUS) {
+            if (person.position().horizontalDistance(target) > ARRIVAL_RADIUS && !overdue) {
                 continue;
             }
+            haul.resetStalled();
 
             if (!haul.isLoaded()) {
                 int taken = FoodPlanner.withdraw(settlement, haul.fromStore(), haul.fromPos(), haul.requested());

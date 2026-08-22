@@ -171,6 +171,35 @@ public final class KingdomsMod {
                         continue;
                     }
                     var faults = TownAuditor.audit(entry.getKey(), settlement);
+                    // Vitals every sweep, faults only on change. A town dies of
+                    // hunger in a handful of minutes, which is longer than any
+                    // watched playtest and shorter than a player's attention —
+                    // this line is what lets a scripted run see it coming.
+                    int worstHunger = settlement.residents().stream()
+                            .mapToInt(p -> p.hunger()).max().orElse(0);
+                    long hauls = settlement.residents().stream()
+                            .filter(p -> p.haul() != null).count();
+                    // Every shelf of the larder, or the numbers lie. A draining
+                    // granary once read as a dying town when the traders were
+                    // simply moving the food onto market stalls, as designed.
+                    int fields = 0;
+                    int stalls = 0;
+                    for (var building : settlement.buildings()) {
+                        String base = com.kingdoms.sim.settlement.BuildPlanner
+                                .baseIdOf(building.blueprintId());
+                        if (base.endsWith("farm") && !base.endsWith("animal_farm")) {
+                            fields += building.foodStored();
+                        } else if (base.endsWith("market")) {
+                            stalls += building.foodStored();
+                        }
+                    }
+                    int pantries = settlement.households().stream()
+                            .mapToInt(h -> h.pantry()).sum();
+                    int total = settlement.foodStock() + fields + stalls + pantries;
+                    LOGGER.info("AUDIT {} vitals pop={} hunger={} total={} granary={} "
+                                    + "fields={} market={} pantries={} hauls={}",
+                            settlement.name(), settlement.population(), worstHunger,
+                            total, settlement.foodStock(), fields, stalls, pantries, hauls);
                     int fingerprint = faults.stream().map(TownAuditor.Fault::describe)
                             .sorted().toList().hashCode();
                     Integer before = AUDIT_SEEN.put(settlement.id().value(), fingerprint);

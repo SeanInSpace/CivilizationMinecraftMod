@@ -157,6 +157,14 @@ public final class BlueprintPlacer {
         StructurePlan plan = planFor(level, blueprintId, base, facing);
         for (BlockPos dig : plan.digTargets()) {
             if (!level.getBlockState(dig).isAir()) {
+                // The plant on top goes first, silently, or it pops off as an
+                // item the moment its support vanishes under it.
+                BlockPos above = dig.above();
+                BlockState overhead = level.getBlockState(above);
+                if (!overhead.isAir() && overhead.canBeReplaced()) {
+                    level.setBlock(above, Blocks.AIR.defaultBlockState(),
+                            Block.UPDATE_CLIENTS);
+                }
                 level.destroyBlock(dig, false, null, 512);
             }
         }

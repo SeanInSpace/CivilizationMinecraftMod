@@ -69,6 +69,25 @@ public final class HaulTask {
         this.carried = Math.max(0, carried);
     }
 
+    /**
+     * Steps this errand has dragged on while its carrier was embodied.
+     *
+     * <p>The stall detector. An embodied hauler must genuinely walk, and mob
+     * navigation cannot climb everything a town gets built on — so an errand
+     * that has taken far longer than the clock would have is completed by the
+     * clock instead. Not persisted: after a reload the walk just gets another
+     * fair chance first.
+     */
+    private int stalledSteps;
+
+    public int addStalledStep() {
+        return ++stalledSteps;
+    }
+
+    public void resetStalled() {
+        stalledSteps = 0;
+    }
+
     public boolean isLoaded() {
         return carried > 0;
     }

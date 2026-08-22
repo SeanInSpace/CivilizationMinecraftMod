@@ -52,6 +52,40 @@ class HaulPlannerTest {
     }
 
     @Test
+    void beingWatchedMustNeverStarveATown() {
+        // An embodied hauler has real legs, and real legs cannot climb every
+        // cliff a town builds on. The errand gets a fair spell of walking and is
+        // then completed by the clock, exactly as it would have been had nobody
+        // been looking -- because the alternative, observed in play, was a
+        // parked player watching all twenty-five residents starve to death
+        // beside full fields.
+        Settlement settlement = new Settlement(
+                Settlement.Id.random(), "Cliffside", new SimPos(0, 64, 0), 128);
+        Building farm = new Building("kingdoms:farm", new SimPos(40, 96, 0), 1, true);
+        settlement.addBuilding(farm);
+        farm.setFoodStored(30);
+
+        Person hauler = new Person(Person.Id.random(), "Mab", Profession.FARMER,
+                new SimPos(0, 64, 0));
+        hauler.setEmbodied(true);   // somebody is watching, so the legs are real
+        settlement.addResident(hauler);
+        hauler.setHaul(new HaulTask(HaulTask.Store.FARM, farm.origin(),
+                HaulTask.Store.GRANARY, new SimPos(0, 64, 4), 10));
+        int granaryBefore = settlement.foodStock();
+
+        for (int step = 0; step < HaulPlanner.EMBODIED_STALL_STEPS * 2 + 2; step++) {
+            HaulPlanner.advance(settlement, CTX);
+            // The entity never gets anywhere: position stays where it is, which
+            // is what an impossible path looks like from the record's side.
+        }
+
+        assertNull(hauler.haul(), "the errand must finish, walk or no walk");
+        assertEquals(20, farm.foodStored(), "the load genuinely left the field");
+        assertEquals(granaryBefore + 10, settlement.foodStock(),
+                "and genuinely reached the granary");
+    }
+
+    @Test
     void travelCoversGroundOneStepAtATime() {
         SimPos from = new SimPos(0, 64, 0);
         SimPos to = new SimPos(100, 64, 0);

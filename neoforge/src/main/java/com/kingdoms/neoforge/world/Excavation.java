@@ -526,7 +526,12 @@ public final class Excavation {
         }
         showProgress(level, digger, job, -1);
         // No drops. There is nowhere for spoil to go yet, and a site knee-deep in
-        // dirt items is worse than no spoil at all.
+        // dirt items is worse than no spoil at all. That includes the plant
+        // standing ON the block: destroyBlock keeps the dug block quiet but
+        // still updates its neighbours, so the grass above popped off as a seed
+        // item every time — the source of a mysterious drizzle of leaf
+        // litter, kelp and wheat seeds over every worksite in town.
+        clearPlantAbove(level, job.block);
         if (job.tree) {
             fell(level, job.block);
             stumps.remove(job.block);
@@ -831,12 +836,23 @@ public final class Excavation {
         for (SimPos block : yard.remainingBlocks()) {
             BlockPos pos = new BlockPos(block.x(), block.y(), block.z());
             if (!level.getBlockState(pos).isAir()) {
+                clearPlantAbove(level, pos);
                 level.destroyBlock(pos, false, null, 512);
             }
             yard.remove(block);
         }
         active.clear();
         reserved.clear();
+    }
+
+    /** Removes a supported plant before its support, so it cannot drop. */
+    private static void clearPlantAbove(ServerLevel level, BlockPos pos) {
+        BlockPos above = pos.above();
+        BlockState overhead = level.getBlockState(above);
+        if (!overhead.isAir() && overhead.canBeReplaced()) {
+            level.setBlock(above, net.minecraft.world.level.block.Blocks.AIR
+                    .defaultBlockState(), 2);
+        }
     }
 
     private static SimPos toSim(BlockPos pos) {

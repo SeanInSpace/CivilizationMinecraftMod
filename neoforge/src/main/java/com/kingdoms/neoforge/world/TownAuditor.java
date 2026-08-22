@@ -212,13 +212,24 @@ public final class TownAuditor {
     }
 
     /**
-     * Somewhere along the walls there must be a way in at ground level.
+     * Somewhere along the walls there must be a way in a person can use.
      *
      * <p>A doorway is a two-high gap in the wall ring with standable ground just
-     * outside it. A fence gate counts whether open or shut — it is an intended
-     * access point even where it is kept closed to pen animals. No gap on any
-     * side is the town hall with its door a storey up, or a doorway the terrain
-     * has swallowed.
+     * outside it — where "standable" means anything with collision to stand on,
+     * and "just outside" allows one block up or down. Both clauses were paid
+     * for. The first version demanded a sturdy full top face at exactly floor
+     * level, and was corrected by a player who walked straight through a door it
+     * had reported as no way in, across even ground: the block outside that door
+     * was the town's own path, and a dirt path is a fifteen-sixteenths block
+     * whose top face is not "sturdy" — so the houses with a track laid to their
+     * doorstep, the best-connected houses in town, were precisely the ones
+     * flagged as unenterable. The step tolerance covers doors at the head of
+     * their own stair flight, whose top tread sits one below the floor.
+     *
+     * <p>A fence gate counts whether open or shut — it is an intended access
+     * point even where it is kept closed to pen animals. No gap on any side is
+     * the town hall with its door a storey up, or a doorway the terrain has
+     * swallowed.
      */
     private static void checkDoorway(ServerLevel level, Building building, BlockPos origin,
                                      int floor, int wallHalfW, int wallHalfD,
@@ -235,13 +246,18 @@ public final class TownAuditor {
             if (!passable(level, feet) || !passable(level, feet.above())) {
                 continue;   // solid wall here
             }
-            // A gap. Is there ground to stand on just outside it?
+            // A gap. Is there ground to stand on just outside it — level with
+            // the floor, one step down (a stair tread), or one hop up (a shelf
+            // the terrain left a block proud)?
             Direction out = outward(origin, wall);
             BlockPos outside = feet.relative(out);
-            BlockPos footing = outside.below();
-            if (level.getBlockState(footing).isFaceSturdy(level, footing, Direction.UP)
-                    && passable(level, outside) && passable(level, outside.above())) {
-                return;
+            for (int dy = -1; dy <= 1; dy++) {
+                BlockPos ground = new BlockPos(outside.getX(), floor + dy, outside.getZ());
+                if (standable(level, ground)
+                        && passable(level, ground.above())
+                        && passable(level, ground.above(2))) {
+                    return;
+                }
             }
         }
         faults.add(new Fault(building.blueprintId(), origin,
@@ -300,15 +316,21 @@ public final class TownAuditor {
                             + planted + " planted"));
         }
 
-        AABB box = new AABB(
-                origin.getX() - wallHalfW, floor - 1, origin.getZ() - wallHalfD,
-                origin.getX() + wallHalfW + 1, floor + 3, origin.getZ() + wallHalfD + 1);
-        int loose = level.getEntities((Entity) null, box,
-                entity -> entity instanceof ItemEntity && entity.isAlive()).size();
-        if (loose >= LOOSE_ITEM_THRESHOLD) {
-            faults.add(new Fault(building.blueprintId(), origin,
-                    "items scattered over the field (" + loose
-                            + ") — something is popping the crops"));
+        // Loose items alone convict nobody: nearby excavation showers a plot
+        // with leaf litter and grass seeds from support-loss drops, which is
+        // untidy but harmless. Items only testify when the field is ALSO losing
+        // its planting — that pairing is what a genuine crop-killer looks like.
+        if (farmland >= MIN_FIELD_TO_JUDGE && planted * 2 < farmland) {
+            AABB box = new AABB(
+                    origin.getX() - wallHalfW, floor - 1, origin.getZ() - wallHalfD,
+                    origin.getX() + wallHalfW + 1, floor + 3, origin.getZ() + wallHalfD + 1);
+            int loose = level.getEntities((Entity) null, box,
+                    entity -> entity instanceof ItemEntity && entity.isAlive()).size();
+            if (loose >= LOOSE_ITEM_THRESHOLD) {
+                faults.add(new Fault(building.blueprintId(), origin,
+                        "bare AND strewn with " + loose
+                                + " items — something is destroying the crops"));
+            }
         }
     }
 
@@ -347,6 +369,15 @@ public final class TownAuditor {
 
     private static boolean passable(ServerLevel level, BlockPos pos) {
         return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
+    }
+
+    /**
+     * Whether feet can rest on this block: any collision at all. Deliberately
+     * not {@code isFaceSturdy} — paths, farmland and slabs all fail that while
+     * being exactly what people walk on all day.
+     */
+    private static boolean standable(ServerLevel level, BlockPos pos) {
+        return !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
     }
 
     /** Which way is out, from a spot on a building's wall ring. */
