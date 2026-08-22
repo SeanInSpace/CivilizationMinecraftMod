@@ -41,6 +41,26 @@ automated check can confirm is whether it *looks* right:
 
 ## Done
 
+- **Being watched must never starve a town.** A parked client beside a steep town
+  killed all 25 residents: embodied haulers must genuinely walk, mob navigation
+  cannot climb everything a town builds on, and being watched is what embodies
+  them — so the player's presence was the famine. Errands now get a fair spell of
+  real walking, then the clock delivers. Economy itself proven sound headless:
+  total food 302→911 over 750 steps while population grew 36→46.
+
+- **Two audit false positives, both caught by the player from inside the world.**
+  A dirt-path doorstep fails vanilla's sturdy-face test, so the houses with a
+  track laid to their door were the ones flagged "no way in" — doorsteps are now
+  judged standable, with a one-step tolerance. And the "items popping crops"
+  drizzle was support-loss drops from ordinary excavation (grass and leaf litter
+  popping off dug blocks); diggers clear the plant first now, and loose items
+  only testify beside a field that is also losing its planting.
+
+- **The clients truly close now.** From the sandboxed shell the drivers run in,
+  taskkill cannot even see the game processes, so every sweep was a silent no-op.
+  Sweeps run through PowerShell, verify the count, retry, and print the outcome.
+
+
 - **The crop mystery, solved by instruments.** Fields kept churning into seed
   items through three plausible-and-wrong theories (trampling, light, placement
   order — the last ruled out by a probe that never fired). The auditor now
