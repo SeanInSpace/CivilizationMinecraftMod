@@ -55,14 +55,6 @@ than papered over.
       allowed to reach. Animals and building styles alone is a day's work;
       catalogue, professions, staffing and names is a different project.
 
-- [ ] **A `.blueprint` reader, for the MineColonies/Structurize content
-      ecosystem.** Structurize's format is extended structure NBT and Keystone
-      already has the seam: implement `BlueprintSource`, call
-      `Blueprints.register`, no call sites touched. Best after the culture
-      work: the reader's whole value is content that varies, and whatever the
-      culture work settles about styled ids is the shelf an imported pack of
-      huts would be filed on.
-
 ---
 
 ## Needs eyes, not tests
@@ -97,6 +89,18 @@ ground.
 ---
 
 ## Done
+
+- [x] **A `.blueprint` reader, for the MineColonies/Structurize content
+      ecosystem.** `StructurizeNbt` decodes the dense `y → z → x` cell array
+      (two palette indices per `int`, padding short on an odd cell count) and
+      `BlockSubstitutions` answers for the foreign blocks a modpack-authored
+      file is full of — Structurize's instruction blocks semantically, the
+      common pack fixtures by name, everything else by suffix, properties kept
+      throughout so roofs still slope. Registered as a source at priority 90;
+      no call site anywhere was touched, which is what the seam was for. Drop a
+      `.blueprint` in the same folder as the `.nbt` files and ask for it the
+      same way. Pinned by `StructurizeNbtTest` and proven in-world on a real
+      MineColonies schematic.
 
 - [x] **The paths are remembered.** `PathNetwork` holds the roads as
       axis-aligned segments plus the buildings already joined, both persisted;

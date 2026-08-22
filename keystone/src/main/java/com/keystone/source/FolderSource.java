@@ -30,7 +30,7 @@ public final class FolderSource implements BlueprintSource {
 
     public static final String DIRECTORY = "keystone";
 
-    private static final String EXTENSION = ".nbt";
+    static final String EXTENSION = ".nbt";
 
     public static Path root() {
         return FMLPaths.GAMEDIR.get().resolve(DIRECTORY).resolve("blueprints");
@@ -43,10 +43,19 @@ public final class FolderSource implements BlueprintSource {
      * Everything is normalised and re-checked against the root before use.
      */
     public static Optional<Path> fileFor(Identifier id) {
+        return fileFor(id, EXTENSION);
+    }
+
+    /**
+     * The same resolution for any extension, so a second format shares this
+     * check rather than copying it. Copying it is exactly how one of the two
+     * copies would later stop being right.
+     */
+    static Optional<Path> fileFor(Identifier id, String extension) {
         Path root = root().normalize();
         Path candidate = root
                 .resolve(id.getNamespace())
-                .resolve(id.getPath() + EXTENSION)
+                .resolve(id.getPath() + extension)
                 .normalize();
         return candidate.startsWith(root) ? Optional.of(candidate) : Optional.empty();
     }
@@ -69,8 +78,18 @@ public final class FolderSource implements BlueprintSource {
         }
     }
 
-    /** Every blueprint on disk, for pickers and commands. */
+    /** Every blueprint on disk, whatever format, for pickers and commands. */
     public static List<Identifier> list() {
+        List<Identifier> all = new ArrayList<>(list(EXTENSION));
+        for (Identifier id : list(StructurizeSource.EXTENSION)) {
+            if (!all.contains(id)) {
+                all.add(id);
+            }
+        }
+        return all;
+    }
+
+    static List<Identifier> list(String extension) {
         Path root = root();
         if (!Files.isDirectory(root)) {
             return List.of();
@@ -80,12 +99,12 @@ public final class FolderSource implements BlueprintSource {
             for (Path namespace : namespaces.filter(Files::isDirectory).toList()) {
                 try (Stream<Path> files = Files.walk(namespace)) {
                     files.filter(Files::isRegularFile)
-                            .filter(p -> p.getFileName().toString().endsWith(EXTENSION))
+                            .filter(p -> p.getFileName().toString().endsWith(extension))
                             .forEach(p -> {
                                 String relative = namespace.relativize(p).toString()
                                         .replace('\\', '/');
                                 String path = relative.substring(
-                                        0, relative.length() - EXTENSION.length());
+                                        0, relative.length() - extension.length());
                                 Identifier id = Identifier.fromNamespaceAndPath(
                                         namespace.getFileName().toString(), path);
                                 found.add(id);

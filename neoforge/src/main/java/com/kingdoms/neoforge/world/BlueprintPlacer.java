@@ -36,6 +36,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.TagValueInput;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -847,7 +848,8 @@ public final class BlueprintPlacer {
         Optional<LoadedBlueprint> authored =
                 Blueprints.loadFirst(level, base, styleCandidates(id), rotation, Mirror.NONE);
         if (authored.isPresent()) {
-            return fromBlueprint(level, authored.get(), base);
+            return fromBlueprint(level, authored.get(), base,
+                    BuildPlanner.baseIdOf(id.getPath()));
         }
         // Styles degrade too: with no norman/house drawn, a norman town still
         // gets the built-in house rather than an unknown-blueprint marker.
@@ -885,16 +887,92 @@ public final class BlueprintPlacer {
      * building floating over a slope.
      */
     private static StructurePlan fromBlueprint(ServerLevel level, LoadedBlueprint blueprint,
-                                               BlockPos base) {
+                                               BlockPos base, String path) {
         Vec3i size = blueprint.size();
         BlockPos anchor = base.offset(-(size.getX() - 1) / 2, 0, -(size.getZ() - 1) / 2);
 
         List<Placement> blocks = new ArrayList<>(blueprint.blockCount() + 32);
         foundation(level, blocks, base, size.getX(), size.getZ());
+        Set<BlockPos> filled = new HashSet<>();
+        boolean hasPost = false;
         for (PlannedBlock block : blueprint.sequence()) {
             blocks.add(new Placement(block.at(anchor), block.state(), block.nbt()));
+            filled.add(block.offset());
+            hasPost |= block.state().getBlock() instanceof BuildingPostBlock;
+        }
+        if (!hasPost) {
+            addPost(blocks, anchor, size, filled, path);
         }
         return finish(level, base, blocks, size.getX(), size.getZ(), size.getY());
+    }
+
+    /**
+     * Gives an authored building the post that names it.
+     *
+     * <p>Every procedural shape draws its own post, because a building you cannot
+     * walk up to and read is a building the player has to guess at. A blueprint
+     * drawn by somebody else has no idea our posts exist — and an imported
+     * MineColonies hut arrived mute for exactly that reason — so one is added
+     * here unless the author already placed theirs.
+     *
+     * <p>It goes in the first empty cell a course above the floor, searched
+     * outward from the middle, so it lands in the room rather than inside a wall.
+     * A structure with no interior at all gets it at the centre regardless:
+     * better a post in a wall than a building that answers to nobody.
+     */
+    private static void addPost(List<Placement> blocks, BlockPos anchor, Vec3i size,
+                                Set<BlockPos> filled, String path) {
+        Block post = postFor(path);
+        if (post == null) {
+            return;
+        }
+        int cx = (size.getX() - 1) / 2;
+        int cz = (size.getZ() - 1) / 2;
+        BlockPos best = new BlockPos(cx, 1, cz);
+        long bestDistance = Long.MAX_VALUE;
+        for (int x = 0; x < size.getX(); x++) {
+            for (int z = 0; z < size.getZ(); z++) {
+                BlockPos candidate = new BlockPos(x, 1, z);
+                if (filled.contains(candidate)) {
+                    continue;
+                }
+                long distance = (long) (x - cx) * (x - cx) + (long) (z - cz) * (z - cz);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+        }
+        add(blocks, anchor.offset(best), post);
+    }
+
+    /** The post that belongs to a building, by its blueprint path. */
+    private static Block postFor(String path) {
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        return switch (name) {
+            case "town_hall" -> KingdomsBlocks.TOWN_HALL.get();
+            case "house" -> KingdomsBlocks.HOUSE.get();
+            case "granary" -> KingdomsBlocks.GRANARY.get();
+            case "farm" -> KingdomsBlocks.FARM.get();
+            case "market" -> KingdomsBlocks.MARKET.get();
+            case "lumber_camp" -> KingdomsBlocks.LUMBER_CAMP.get();
+            case "mine" -> KingdomsBlocks.MINE.get();
+            case "warehouse" -> KingdomsBlocks.WAREHOUSE.get();
+            case "smith" -> KingdomsBlocks.SMITH.get();
+            case "animal_farm" -> KingdomsBlocks.ANIMAL_FARM.get();
+            case "watchtower" -> KingdomsBlocks.WATCHTOWER.get();
+            case "storehouse" -> KingdomsBlocks.STOREHOUSE.get();
+            case "workshop" -> KingdomsBlocks.WORKSHOP.get();
+            case "camp_post" -> KingdomsBlocks.CAMP_POST.get();
+            case "cache" -> KingdomsBlocks.CACHE.get();
+            case "bunkhouse" -> KingdomsBlocks.BUNKHOUSE.get();
+            case "hearth" -> KingdomsBlocks.HEARTH.get();
+            case "cottage" -> KingdomsBlocks.COTTAGE.get();
+            case "mill" -> KingdomsBlocks.MILL.get();
+            case "carpentry" -> KingdomsBlocks.CARPENTRY.get();
+            case "inn" -> KingdomsBlocks.INN.get();
+            default -> null;   // stairs and anything else that is not a building
+        };
     }
 
     /**

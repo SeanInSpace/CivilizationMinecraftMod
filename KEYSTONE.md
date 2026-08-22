@@ -47,6 +47,41 @@ Damaged content degrades rather than crashes: an unreadable palette entry become
 air, a block with an out-of-range palette index is skipped. One bad file in a
 community pack must not take the loader down with it.
 
+### Structurize `.blueprint`
+
+Keystone also reads **Structurize's `.blueprint` format**, which is what
+MineColonies and its schematic packs are authored in. That is a few hundred
+hand-built, styled buildings a consuming mod can raise without anybody drawing
+them again.
+
+It is not vanilla structure NBT, and the differences are the whole of the reader:
+
+| | Vanilla `.nbt` | Structurize `.blueprint` |
+|---|---|---|
+| Blocks | sparse list, each with a position | dense array over the whole box, position implied |
+| Order | as listed | `y → z → x` |
+| Cells | one entry each | two palette indices packed per `int`, high half first |
+| Size | `size` list | `size_x` / `size_y` / `size_z` shorts |
+| Block entities | attached to the block entry | one flat list, each carrying its own `x`/`y`/`z` |
+
+An odd cell count leaves a padding short at the end of the array that must not be
+read as a block — a one-block blueprint really does store two cells.
+
+**Foreign blocks.** A `.blueprint` is authored against a modpack. Measured across
+a 240-file MineColonies set: `domum_ornamentum:shingle` appears in 977 palettes,
+`structurize:blocksubstitution` fills fifteen thousand cells, and Biomes O'
+Plenty, Quark and others turn up throughout. `BlockSubstitutions` answers for
+them in three layers — Structurize's own instruction blocks (which are not blocks
+at all: "leave this alone", "put ground here"), named answers for the fixtures
+that survey proved common, and a suffix heuristic that handles
+`biomesoplenty:hellbark_stairs` and its like without ever naming them.
+Substitution **keeps the original block state's properties**, so a substituted
+stair keeps its facing and an imported roof still slopes the right way.
+
+Block-entity data is kept only for blocks that resolved natively: once a block
+has been substituted it is a different block, and another mod's payload on it
+means nothing.
+
 ---
 
 ## Where blueprints come from
@@ -56,11 +91,19 @@ Sources are consulted in priority order, first hit wins:
 | Source | Priority | Location |
 |---|---|---|
 | **Folder** | 100 | `<gamedir>/keystone/blueprints/<namespace>/<path>.nbt` |
+| **Structurize** | 90 | `<gamedir>/keystone/blueprints/<namespace>/<path>.blueprint` |
 | **Datapack** | 50 | `data/<namespace>/structure/<path>.nbt` |
 | *(Kingdoms' procedural shapes)* | — | fallback inside Kingdoms, when no file matches |
 
 The folder is **global, not per-world**, so a building laid out in a creative
 world is usable in the survival world you actually play.
+
+Both file formats live in the same folder and answer to the same kind of id: drop
+`baker1.blueprint` in beside `house.nbt` and ask for either the same way. A
+building you drew yourself outranks an imported one of the same name.
+
+Adding the format touched no call site anywhere — a consuming mod never names a
+source, which is what the seam is for.
 
 Identifier paths permit dots, so `../../secrets` parses happily as an id — every
 resolved path is normalised and re-checked against the blueprint root before use.
@@ -169,9 +212,14 @@ and one registration line, with no call sites touched.
 - **Entities are not captured.** Blocks and block entities only.
 - **No datafixing.** A blueprint from a much older version may lose blocks to the
   degrade-to-air path rather than being upgraded.
-- **No `.blueprint` reader yet.** Structurize's format is extended structure NBT,
-  so a reader would be small and additive — and would buy its whole content
-  ecosystem without depending on the mod.
+- **Imported blueprints are approximations.** A pack authored against six mods
+  cannot arrive intact in a game that has none of them. Substitution keeps the
+  shape and the block states; it cannot keep somebody else's textures, and an
+  unrecognised block that matches no rule becomes plain planks. The log names
+  every swap a file needed, so what was lost is never a mystery.
+- **Structurize entities and its `optional_data` are ignored**, including the
+  primary offset a MineColonies hut is anchored by. Imported buildings are
+  anchored the same way every other blueprint is.
 
 ---
 
