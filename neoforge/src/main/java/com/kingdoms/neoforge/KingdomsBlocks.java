@@ -1,6 +1,7 @@
 package com.kingdoms.neoforge;
 
 import com.kingdoms.neoforge.block.BuildingPostBlock;
+import com.kingdoms.neoforge.block.CampPostBlock;
 import com.kingdoms.neoforge.block.LumberCampBlock;
 import com.kingdoms.neoforge.block.MarketBlock;
 import com.kingdoms.neoforge.block.TownHallBlock;
@@ -38,6 +39,26 @@ public final class KingdomsBlocks {
             "town_hall",
             properties -> new TownHallBlock("Town Hall",
                     "the seat of the settlement, and the first thing it builds.", properties),
+            KingdomsBlocks::postProperties);
+    /** Camp Post: the staked claim; see {@link CampPostBlock}. */
+    public static final DeferredBlock<CampPostBlock> CAMP_POST = BLOCKS.registerBlock(
+            "camp_post",
+            CampPostBlock::new,
+            KingdomsBlocks::postProperties);
+    /** Supply Cache: the party's pooled provisions and tools, out in the open. */
+    public static final DeferredBlock<BuildingPostBlock> CACHE = BLOCKS.registerBlock(
+            "cache",
+            properties -> new BuildingPostBlock("Supply Cache", "the party's pooled provisions and tools, out in the open.", properties),
+            KingdomsBlocks::postProperties);
+    /** Bunkhouse: one room the whole party sleeps in, until families raise cottages. */
+    public static final DeferredBlock<BuildingPostBlock> BUNKHOUSE = BLOCKS.registerBlock(
+            "bunkhouse",
+            properties -> new BuildingPostBlock("Bunkhouse", "one room the whole party sleeps in, until families raise cottages.", properties),
+            KingdomsBlocks::postProperties);
+    /** Hearth: the open fire the camp cooks on and gathers around. */
+    public static final DeferredBlock<BuildingPostBlock> HEARTH = BLOCKS.registerBlock(
+            "hearth",
+            properties -> new BuildingPostBlock("Hearth", "the open fire the camp cooks on and gathers around.", properties),
             KingdomsBlocks::postProperties);
     /** Dwelling: a family lives here; housing is what lets the town grow. */
     public static final DeferredBlock<BuildingPostBlock> HOUSE = BLOCKS.registerBlock(
@@ -117,7 +138,7 @@ public final class KingdomsBlocks {
 
     /** Every post the mod registers, in build order. */
     public static List<DeferredBlock<? extends BuildingPostBlock>> posts() {
-        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE);
+        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, CAMP_POST, CACHE, BUNKHOUSE, HEARTH);
     }
 
     private KingdomsBlocks() {

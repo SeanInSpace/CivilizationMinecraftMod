@@ -92,6 +92,14 @@ public final class PopulationPlanner {
                 continue;
             }
 
+            // The bunkhouse shelters everyone and breeds no one — communal
+            // bunks are a stage, not a destination. Gating births on a family
+            // home is what makes the cottage unlock at VILLAGE a real unlock,
+            // and it is why a founding party stays a founding party.
+            if (!settlement.isFamilyHome(household.home())) {
+                continue;
+            }
+
             if (household.growthProgress() < stepsPerBirth) {
                 household.addGrowthProgress(1);
             }

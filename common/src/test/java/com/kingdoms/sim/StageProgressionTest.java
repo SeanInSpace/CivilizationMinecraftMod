@@ -7,6 +7,7 @@ import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.BuildCatalogue;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.JobPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
@@ -45,6 +46,7 @@ class StageProgressionTest {
         Settlement s = new Settlement(Settlement.Id.random(), "Newholt", new SimPos(0, 64, 0), 128);
         s.setCatalogue(BuildCatalogue.DEFAULT);
         s.setStage(SettlementStage.CAMP);
+        s.setFoodStock(FoodPlanner.STARTING_PROVISIONS);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov"}) {
             s.addResident(new Person(Person.Id.random(), name, Profession.PIONEER,
                     new SimPos(0, 64, 0)));
@@ -57,20 +59,68 @@ class StageProgressionTest {
     }
 
     @Test
-    void aFreshCampOrdersFoodBeforeGovernment() {
+    void aFreshCampStakesItsClaimBeforeGovernment() {
         Settlement camp = foundingParty();
 
         camp.step(CTX);
 
-        // The camp-stage content lands in step 2; until the catalogue knows it,
-        // the machine skips to the homestead program, whose first known want is
-        // the farm. What matters here is the negative: the full catalogue is on
-        // the table and the hall — priority 100, the old first act — is not what
-        // four settlers reach for.
+        // The full catalogue is on the table and the hall — priority 100, the
+        // old first act — is not what four settlers reach for: the program is,
+        // and the program starts by staking the claim.
         assertFalse(camp.buildQueue().isEmpty(),
                 "a founding party should start building something on day one");
-        assertEquals("kingdoms:farm", camp.buildQueue().getFirst().blueprintId(),
-                "the first thing a founding party raises should feed it, not govern it");
+        assertEquals("kingdoms:camp_post", camp.buildQueue().getFirst().blueprintId(),
+                "the first thing a founding party raises is its own camp post");
+    }
+
+    @Test
+    void aCampThatCanBuildNothingLivesOnBerriesAndNeverGraduates() {
+        Settlement camp = foundingParty();
+        // An empty catalogue so nothing can ever rise — with the DEFAULT one a
+        // camp bootstraps its own timber economy through requestProducer and
+        // honestly farms its way out, which the next test pins. Here the party
+        // has only its hands, and foraging is the whole of the food supply.
+        camp.setCatalogue(java.util.List.of());
+        camp.setFoodStock(10);
+
+        for (int i = 0; i < 60; i++) {
+            camp.step(CTX);
+        }
+
+        assertEquals(4, camp.population(),
+                "foraging pioneers keep a buildingless camp alive");
+        assertTrue(FoodPlanner.totalFood(camp)
+                        <= 4 * FoodPlanner.FORAGE_CEILING_PER_MOUTH + 2,
+                "foraging is hand-to-mouth: it stops at the ceiling instead of filling the larder");
+        assertEquals(0, camp.fedStreak(),
+                "no settlement graduates on berries — the fed streak needs a farm behind it");
+        assertEquals(SettlementStage.HOMESTEAD, camp.stage(),
+                "an empty program advances CAMP, and the hunger wall stops everything after");
+    }
+
+    @Test
+    void aCampLeftAloneBuildsItsWayToTheFortification() {
+        Settlement camp = foundingParty();
+
+        for (int i = 0; i < 300; i++) {
+            camp.step(CTX);
+        }
+
+        // The whole founding, on the unwatched clock alone: the party stakes
+        // the camp, requestProducer bootstraps timber when the first bill goes
+        // unpaid, the homestead farms itself over the fed streak, and the
+        // fortification crystallizes its first specialists. It stops exactly
+        // where the perimeter subsystem picks up.
+        assertEquals(4, camp.population(),
+                "the founding party survives its own founding");
+        assertEquals(SettlementStage.FORTIFIED, camp.stage(),
+                "a healthy camp climbs to FORTIFIED and waits on its perimeter");
+        assertTrue(camp.countBuildings("kingdoms:farm") >= 1,
+                "the homestead fed itself from a real farm, not from berries");
+        assertEquals(1, JobPlanner.count(camp, Profession.GUARD),
+                "the fortification named its sentry");
+        assertTrue(JobPlanner.count(camp, Profession.LUMBERJACK) >= 1,
+                "and its woodcutter — the palisade will need the axe");
     }
 
     @Test
@@ -104,6 +154,8 @@ class StageProgressionTest {
     void aHomesteadGraduatesOnlyOnceItFeedsItself() {
         Settlement s = foundingParty();
         s.setStage(SettlementStage.HOMESTEAD);
+        raise(s, "kingdoms:bunkhouse");
+        raise(s, "kingdoms:hearth");
         raise(s, "kingdoms:farm");
         raise(s, "kingdoms:granary");
 
@@ -119,6 +171,7 @@ class StageProgressionTest {
     void fortificationNeedsAPerimeterAndSomeoneToWalkIt() {
         Settlement s = foundingParty();
         s.setStage(SettlementStage.FORTIFIED);
+        raise(s, "kingdoms:lumber_camp");
         raise(s, "kingdoms:storehouse");
 
         assertFalse(StagePlanner.readyToAdvance(s, CTX),
@@ -134,14 +187,16 @@ class StageProgressionTest {
     }
 
     @Test
-    void reachingFortifiedNamesExactlyOneSentry() {
+    void reachingFortifiedNamesTheSentryAndTheWoodcutter() {
         Settlement s = foundingParty();
 
         StagePlanner.crystallize(s, SettlementStage.FORTIFIED);
 
         assertEquals(1, JobPlanner.count(s, Profession.GUARD),
-                "the fortification converts one pioneer to the watch, no more");
-        assertEquals(3, JobPlanner.count(s, Profession.PIONEER),
+                "the fortification converts one pioneer to the watch");
+        assertEquals(1, JobPlanner.count(s, Profession.LUMBERJACK),
+                "and one to the axe — the palisade drinks more timber than the kit holds");
+        assertEquals(2, JobPlanner.count(s, Profession.PIONEER),
                 "the rest of the party keeps labouring as pioneers");
     }
 
@@ -154,10 +209,12 @@ class StageProgressionTest {
 
         assertEquals(0, JobPlanner.count(s, Profession.PIONEER),
                 "at VILLAGE the generalists are gone");
-        assertEquals(3, JobPlanner.count(s, Profession.IDLER),
+        assertEquals(2, JobPlanner.count(s, Profession.IDLER),
                 "dissolved pioneers idle until the staffing table places them");
         assertEquals(1, JobPlanner.count(s, Profession.GUARD),
                 "crystallized professions are kept, not reshuffled");
+        assertEquals(1, JobPlanner.count(s, Profession.LUMBERJACK),
+                "the woodcutter keeps the axe too");
     }
 
     @Test

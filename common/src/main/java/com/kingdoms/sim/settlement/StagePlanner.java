@@ -47,6 +47,10 @@ public final class StagePlanner {
                     new Want("kingdoms:farm", 1),
                     new Want("kingdoms:granary", 1)),
             SettlementStage.FORTIFIED, List.of(
+                    // The lumber camp comes first: the palisade this stage
+                    // exists for drinks more timber than any founding kit
+                    // carries, and until one stands the town fells nothing.
+                    new Want("kingdoms:lumber_camp", 1),
                     new Want("kingdoms:storehouse", 1)),
             SettlementStage.VILLAGE, List.of(
                     new Want("kingdoms:cottage", 2),
@@ -170,10 +174,11 @@ public final class StagePlanner {
      */
     public static void crystallize(Settlement settlement, SettlementStage reached) {
         if (reached == SettlementStage.FORTIFIED) {
-            settlement.residents().stream()
-                    .filter(p -> p.profession() == Profession.PIONEER)
-                    .findFirst()
-                    .ifPresent(p -> p.setProfession(Profession.GUARD));
+            // The sentry first, then the woodcutter: the palisade needs an axe
+            // as much as a spear, and every timber path in the mod — watched
+            // and unwatched alike — counts real lumberjacks, not stand-ins.
+            crystallizeOne(settlement, Profession.GUARD);
+            crystallizeOne(settlement, Profession.LUMBERJACK);
         }
         if (reached == SettlementStage.VILLAGE) {
             for (Person person : settlement.residents()) {
@@ -182,6 +187,19 @@ public final class StagePlanner {
                 }
             }
         }
+    }
+
+    private static void crystallizeOne(Settlement settlement, Profession trade) {
+        // A shortage may have crystallized this trade years early — a camp that
+        // ran out of timber already named its woodcutter. The stage fills the
+        // gap, never doubles the post.
+        if (JobPlanner.count(settlement, trade) > 0) {
+            return;
+        }
+        settlement.residents().stream()
+                .filter(p -> p.profession() == Profession.PIONEER)
+                .findFirst()
+                .ifPresent(p -> p.setProfession(trade));
     }
 
     private static int familyHoused(Settlement settlement) {

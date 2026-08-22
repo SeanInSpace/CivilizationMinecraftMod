@@ -28,6 +28,13 @@ public final class BuildCatalogue {
             // them wide would have kept the town as spread out as before while
             // the buildings themselves stopped taking that much ground — the
             // footprint change would have been real and entirely invisible.
+            // The founding program's own content (FOUNDING.md). Base 0 keeps the
+            // catalogue scan from ever wanting these on its own: only a stage's
+            // program orders them, so an established town never retrofits a camp.
+            new BuildingType("kingdoms:camp_post",       6,      1,     0,            0,        0,        0,       0, 7),
+            new BuildingType("kingdoms:cache",          10,      1,     0,            0,        0,        0,       0, 7),
+            new BuildingType("kingdoms:bunkhouse",      22,      1,     0,            0,        0,        6,       0, 11),
+            new BuildingType("kingdoms:hearth",         12,      1,     0,            0,        0,        0,       0, 9),
             new BuildingType("kingdoms:town_hall",      40,      1,     1,            0,      100,        0,       0, 13),
             new BuildingType("kingdoms:house",          20,      1,     1,            3,       80,        4,       0, 11),
             new BuildingType("kingdoms:granary",        25,      4,     1,           20,       75,        0,       0, 9),

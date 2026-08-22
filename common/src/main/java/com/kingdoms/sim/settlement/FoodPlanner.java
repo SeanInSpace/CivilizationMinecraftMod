@@ -105,6 +105,19 @@ public final class FoodPlanner {
     /** What a starving town raises ahead of everything else, in the order it wants them. */
     public static final List<String> SURVIVAL_ROLES = List.of("farm", "granary");
 
+    /**
+     * Pioneers per meal turned up by foraging each step, rounded up — a
+     * decimated party of one still eats, which is exactly when it matters.
+     */
+    public static final int FORAGERS_PER_MEAL = 3;
+
+    /**
+     * Foraging downs tools once the larder holds this much per mouth. It is
+     * deliberately half of what {@link StagePlanner#FED_WINDOW_STEPS} demands:
+     * berries keep a camp alive, and only a farm ever graduates it.
+     */
+    public static final int FORAGE_CEILING_PER_MOUTH = 5;
+
     private FoodPlanner() {
     }
 
@@ -143,8 +156,15 @@ public final class FoodPlanner {
 
     /** Everything edible the town owns, wherever it happens to be sitting. */
     public static int totalFood(Settlement settlement) {
+        // Carried food counts. Without it, everything on a hauler's back is
+        // invisible between pickup and delivery, and every planner keyed to
+        // this figure -- foraging's ceiling first among them -- overshoots by
+        // exactly one basket every trip.
+        int carried = settlement.residents().stream()
+                .mapToInt(p -> p.inventory().foodCount())
+                .sum();
         return settlement.foodStock() + farmStock(settlement) + marketStock(settlement)
-                + pantryTotal(settlement);
+                + pantryTotal(settlement) + carried;
     }
 
     /**
@@ -189,6 +209,7 @@ public final class FoodPlanner {
         // fields reading one answer and the haulers behind them reading another.
         boolean starving = settlement.isStarving();
 
+        forage(settlement);
         growHarvest(settlement, ctx, starving);
         assignHauls(settlement, starving);
         eatAndHunger(settlement, ctx);
@@ -406,6 +427,33 @@ public final class FoodPlanner {
      * have not managed a real harvest in {@link #WATCHED_HARVEST_GRACE_STEPS},
      * because being watched must never starve a town.
      */
+    /**
+     * Wild food, gathered by hand — the camp's food source before the fields.
+     *
+     * <p>Two deliberate limits. A handful of foragers turn up one meal a step,
+     * so a party survives on it without prospering; and foraging stops at a
+     * hand-to-mouth ceiling well below what the fed streak asks for, so no
+     * settlement graduates HOMESTEAD on berries. There is no weakness gate:
+     * the weak foraging anyway is precisely what stops the starvation spiral
+     * the founding rework exists to prevent.
+     */
+    private static void forage(Settlement settlement) {
+        if (!StagePlanner.pioneersLabour(settlement.stage())) {
+            return;
+        }
+        if (totalFood(settlement)
+                >= settlement.population() * FORAGE_CEILING_PER_MOUTH) {
+            return;
+        }
+        int hands = (int) settlement.residents().stream()
+                .filter(p -> settlement.laboursAs(p, Profession.FARMER))
+                .count();
+        int gathered = (hands + FORAGERS_PER_MEAL - 1) / FORAGERS_PER_MEAL;
+        if (gathered > 0) {
+            settlement.setFoodStock(settlement.foodStock() + gathered);
+        }
+    }
+
     private static void growHarvest(Settlement settlement, SimContext ctx, boolean starving) {
         List<Building> farms = buildingsOf(settlement, "farm");
         if (farms.isEmpty()) {

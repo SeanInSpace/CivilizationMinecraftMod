@@ -922,6 +922,10 @@ public final class BlueprintPlacer {
             case "stairs" -> accessStairs(level, blocks, base);
             case "watchtower" -> watchtower(level, blocks, base);
             case "storehouse" -> storehouse(level, blocks, base);
+            case "camp_post" -> campPost(level, blocks, base);
+            case "cache" -> cache(level, blocks, base);
+            case "bunkhouse" -> bunkhouse(level, blocks, base);
+            case "hearth" -> hearth(level, blocks, base);
             case "workshop" -> workshop(level, blocks, base);
             default -> marker(blocks, base);
         };
@@ -1197,6 +1201,73 @@ public final class BlueprintPlacer {
         add(blocks, base.offset(1, 1, -1), Blocks.OAK_LOG);
         add(blocks, base.offset(1, 2, -1), Blocks.OAK_LOG);
         return dims;
+    }
+
+    /** The staked claim: a flag of a building, the first thing a founding party raises. */
+    private static int[] campPost(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        foundation(level, blocks, base, 3, 3);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                // Coarse dirt under the post itself: a path block converts to
+                // plain dirt the moment anything solid stands on it.
+                boolean centre = dx == 0 && dz == 0;
+                add(blocks, base.offset(dx, 0, dz),
+                        centre ? Blocks.COARSE_DIRT : Blocks.DIRT_PATH);
+            }
+        }
+        add(blocks, base.offset(0, 1, 0), KingdomsBlocks.CAMP_POST.get());
+        add(blocks, base.offset(1, 1, 1), Blocks.OAK_FENCE);
+        add(blocks, base.offset(1, 2, 1), Blocks.LANTERN);
+        return new int[]{3, 3, 3};
+    }
+
+    /** The pooled supplies: barrels on boards, out in the weather. */
+    private static int[] cache(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        foundation(level, blocks, base, 3, 3);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                add(blocks, base.offset(dx, 0, dz), Blocks.SPRUCE_PLANKS);
+            }
+        }
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.CACHE.get());
+        add(blocks, base.offset(-1, 1, -1), Blocks.BARREL);
+        add(blocks, base.offset(1, 1, -1), Blocks.BARREL);
+        add(blocks, base.offset(-1, 1, 1), Blocks.COMPOSTER);
+        return new int[]{3, 3, 2};
+    }
+
+    /** One room the whole party sleeps in — housing before there are families. */
+    private static int[] bunkhouse(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 7, 5, 3, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.BUNKHOUSE.get());
+        // Bedrolls in a row along the north wall; the mod cannot place real
+        // beds, whose two halves need paired states.
+        add(blocks, base.offset(-2, 1, -1), Blocks.WOOL.white());
+        add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
+        add(blocks, base.offset(1, 1, -1), Blocks.WOOL.white());
+        add(blocks, base.offset(2, 1, -1), Blocks.WOOL.white());
+        add(blocks, base.offset(2, 1, 1), Blocks.BARREL);
+        return dims;
+    }
+
+    /** The open fire the camp cooks on: a cobble pad, log seats, nothing overhead. */
+    private static int[] hearth(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        foundation(level, blocks, base, 5, 5);
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                boolean pad = Math.abs(dx) <= 1 && Math.abs(dz) <= 1;
+                add(blocks, base.offset(dx, 0, dz),
+                        pad ? Blocks.COBBLESTONE : Blocks.DIRT_PATH);
+            }
+        }
+        add(blocks, base.offset(0, 1, 0), Blocks.CAMPFIRE);
+        for (int dx = -2; dx <= 2; dx += 4) {
+            for (int dz = -2; dz <= 2; dz += 4) {
+                add(blocks, base.offset(dx, 1, dz), Blocks.STRIPPED_OAK_LOG);
+            }
+        }
+        add(blocks, base.offset(0, 1, -2), KingdomsBlocks.HEARTH.get());
+        return new int[]{5, 5, 2};
     }
 
     private static int[] storehouse(ServerLevel level, List<Placement> blocks, BlockPos base) {

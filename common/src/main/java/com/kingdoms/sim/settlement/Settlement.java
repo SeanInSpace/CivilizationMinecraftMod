@@ -562,10 +562,13 @@ public final class Settlement {
         if (person.profession() == trade) {
             return true;
         }
+        // Builder and farmer only. Timber and stone stay with the real trades:
+        // FORTIFIED crystallizes a lumberjack the moment the town can fell at
+        // all, so pretending pioneers swing axes would only split the work
+        // between a planner that counts professions and a seam that lies.
         return person.profession() == Profession.PIONEER
                 && StagePlanner.pioneersLabour(stage)
-                && (trade == Profession.BUILDER || trade == Profession.FARMER
-                        || trade == Profession.LUMBERJACK || trade == Profession.MINER);
+                && (trade == Profession.BUILDER || trade == Profession.FARMER);
     }
 
     public List<BuildingType> catalogue() {

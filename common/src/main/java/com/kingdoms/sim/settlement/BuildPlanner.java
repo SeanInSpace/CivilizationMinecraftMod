@@ -411,7 +411,16 @@ public final class BuildPlanner {
             }
         }
         if (give == null) {
-            return null;
+            // Below VILLAGE there are no donor trades to raid: the party is
+            // pioneers. One of them takes the post — a producer shortage is a
+            // shortage event, and reassignment on shortage is exactly what the
+            // founding design permits. Without this a camp refuses to order the
+            // lumber camp forever and stalls at HOMESTEAD with a granary it
+            // cannot pay for.
+            return settlement.residents().stream()
+                    .filter(resident -> resident.profession() == Profession.PIONEER)
+                    .findFirst()
+                    .orElse(null);
         }
         Profession chosen = give;
         return settlement.residents().stream()

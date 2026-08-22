@@ -129,6 +129,14 @@ public final class Inventory {
         return best;
     }
 
+    /** Portions of anything edible carried, for the town's larder arithmetic. */
+    public int foodCount() {
+        return slots.stream()
+                .filter(s -> Foods.isFood(s.itemId()))
+                .mapToInt(Slot::count)
+                .sum();
+    }
+
     /** How much hunger everything carried could undo, for reports. */
     public int totalNutrition() {
         return slots.stream().mapToInt(s -> Foods.nutrition(s.itemId()) * s.count()).sum();
