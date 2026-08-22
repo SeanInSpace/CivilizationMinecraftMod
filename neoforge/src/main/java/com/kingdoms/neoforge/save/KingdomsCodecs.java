@@ -13,6 +13,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.settlement.Perimeter;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.settlement.TownStores;
@@ -195,16 +196,26 @@ public final class KingdomsCodecs {
      * parent map without spending another slot or changing the wire format --
      * "culture" reads and writes exactly as it always did.
      */
-    private record Flavor(String culture, String stage, int fedStreak) {
+    private record Flavor(String culture, String stage, int fedStreak,
+                          boolean perimeterClosed, Optional<Perimeter> perimeter) {
         static Flavor of(Settlement s) {
-            return new Flavor(s.cultureId(), s.stage().pretty(), s.fedStreak());
+            return new Flavor(s.cultureId(), s.stage().pretty(), s.fedStreak(),
+                    s.perimeterClosed(), Optional.ofNullable(s.perimeter()));
         }
     }
+
+    private static final Codec<Perimeter> PERIMETER = RecordCodecBuilder.create(i -> i.group(
+            SIM_POS.listOf().fieldOf("vertices").forGetter(Perimeter::vertices),
+            SIM_POS.listOf().fieldOf("gates").forGetter(Perimeter::gates),
+            Codec.INT.optionalFieldOf("laid", 0).forGetter(Perimeter::laid)
+    ).apply(i, Perimeter::new));
 
     private static final MapCodec<Flavor> FLAVOR = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.STRING.optionalFieldOf("culture", Culture.DEFAULT.id()).forGetter(Flavor::culture),
             Codec.STRING.optionalFieldOf("stage", "").forGetter(Flavor::stage),
-            Codec.INT.optionalFieldOf("fed_streak", 0).forGetter(Flavor::fedStreak)
+            Codec.INT.optionalFieldOf("fed_streak", 0).forGetter(Flavor::fedStreak),
+            Codec.BOOL.optionalFieldOf("perimeter_closed", false).forGetter(Flavor::perimeterClosed),
+            PERIMETER.optionalFieldOf("perimeter").forGetter(Flavor::perimeter)
     ).apply(i, Flavor::new));
 
     public static final Codec<Household.Id> HOUSEHOLD_ID =
@@ -342,6 +353,8 @@ public final class KingdomsCodecs {
         // which is the behaviour they were built under. Only fresh charters camp.
         settlement.setStage(SettlementStage.parse(flavor.stage(), SettlementStage.TOWN));
         settlement.setFedStreak(flavor.fedStreak());
+        settlement.setPerimeterClosed(flavor.perimeterClosed());
+        flavor.perimeter().ifPresent(settlement::setPerimeter);
         lumberArea.ifPresent(settlement::setLumberArea);
         mineArea.ifPresent(settlement::setMineArea);
         residents.forEach(settlement::addResident);

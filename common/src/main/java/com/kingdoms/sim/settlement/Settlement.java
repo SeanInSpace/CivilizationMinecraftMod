@@ -103,6 +103,9 @@ public final class Settlement {
     /** Set by the perimeter work once a palisade rings the settlement. */
     private boolean perimeterClosed;
 
+    /** The defensive ring, staked at FORTIFIED; null until then. */
+    private Perimeter perimeter;
+
     /**
      * How threatened this settlement currently is, driving guard behaviour and
      * off-screen combat resolution. Rises when hostiles are detected, decays over time.
@@ -206,7 +209,49 @@ public final class Settlement {
      * squares about their origin and are never allowed to touch.
      */
     private SimPos chooseSite(SimContext ctx, BuildingType type) {
+        // Behind the wall when there is a wall. The spiral cursor only ever
+        // moves outward, so by the time a village orders its market the cursor
+        // is past the palisade and every forward candidate is outside it --
+        // the first market this town ever built landed beyond its own gates.
+        // Civic buildings rescan from the centre instead: slots the spiral
+        // skipped on its way out are still empty ground, and the ring was
+        // staked around exactly that ground. Producers stay ring-blind;
+        // extraction stands where the resource is.
+        if (perimeter != null && !BuildPlanner.PRODUCER_OF.containsValue(type.id())) {
+            int frontier = nextPlotIndex + BuildPlanner.PLOT_ATTEMPTS;
+            for (int index = 0; index < frontier; index++) {
+                SimPos candidate = BuildPlanner.plotFor(centre, index);
+                if (!insideRing(candidate, type.plotSpan())
+                        || !ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
+                        || !isPlotFree(candidate, type.plotSpan(), null)) {
+                    continue;
+                }
+                if (index >= nextPlotIndex) {
+                    nextPlotIndex = index + 1;
+                }
+                return candidate;
+            }
+            // Nothing fits inside: the town has outgrown its wall and builds
+            // beyond it, which is the alpha-wall's cue to re-stake, not ours.
+        }
         return chooseSite(ctx, type.plotSpan());
+    }
+
+    /** Whether a plot of this span fits wholly inside the staked ring. */
+    private boolean insideRing(SimPos candidate, int span) {
+        int west = Integer.MAX_VALUE;
+        int east = Integer.MIN_VALUE;
+        int north = Integer.MAX_VALUE;
+        int south = Integer.MIN_VALUE;
+        for (SimPos vertex : perimeter.vertices()) {
+            west = Math.min(west, vertex.x());
+            east = Math.max(east, vertex.x());
+            north = Math.min(north, vertex.z());
+            south = Math.max(south, vertex.z());
+        }
+        int half = span / 2 + 1;
+        return candidate.x() - half > west && candidate.x() + half < east
+                && candidate.z() - half > north && candidate.z() + half < south;
     }
 
     /**
@@ -549,6 +594,14 @@ public final class Settlement {
         this.perimeterClosed = perimeterClosed;
     }
 
+    public Perimeter perimeter() {
+        return perimeter;
+    }
+
+    public void setPerimeter(Perimeter perimeter) {
+        this.perimeter = perimeter;
+    }
+
     /**
      * Whether this person does this kind of labour here, today.
      *
@@ -617,6 +670,7 @@ public final class Settlement {
     public void step(SimContext ctx) {
         advanceStage(ctx);
         planNextBuild(ctx);
+        PerimeterPlanner.advance(this, ctx);
         advanceBuildQueue(ctx);
         materializePending(ctx);
         FoodPlanner.advance(this, ctx);

@@ -9,6 +9,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.JobPlanner;
+import com.kingdoms.sim.settlement.Perimeter;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.settlement.StagePlanner;
@@ -99,7 +100,7 @@ class StageProgressionTest {
     }
 
     @Test
-    void aCampLeftAloneBuildsItsWayToTheFortification() {
+    void aCampLeftAloneRaisesItsPalisadeAndBecomesAVillage() {
         Settlement camp = foundingParty();
 
         for (int i = 0; i < 300; i++) {
@@ -108,19 +109,59 @@ class StageProgressionTest {
 
         // The whole founding, on the unwatched clock alone: the party stakes
         // the camp, requestProducer bootstraps timber when the first bill goes
-        // unpaid, the homestead farms itself over the fed streak, and the
-        // fortification crystallizes its first specialists. It stops exactly
-        // where the perimeter subsystem picks up.
+        // unpaid, the homestead farms itself over the fed streak, the
+        // fortification names its specialists and closes its ring, and the
+        // village dissolves the pioneers into the ordinary staffing table. It
+        // stops exactly where step 5's cottages pick up: no family homes, so
+        // no VILLAGE graduation and no growth.
         assertEquals(4, camp.population(),
                 "the founding party survives its own founding");
-        assertEquals(SettlementStage.FORTIFIED, camp.stage(),
-                "a healthy camp climbs to FORTIFIED and waits on its perimeter");
+        assertEquals(SettlementStage.VILLAGE, camp.stage(),
+                "a healthy camp climbs to VILLAGE and waits on family housing");
         assertTrue(camp.countBuildings("kingdoms:farm") >= 1,
                 "the homestead fed itself from a real farm, not from berries");
+        assertTrue(camp.perimeterClosed(),
+                "the palisade closed on its own timber");
+        assertTrue(camp.perimeter() != null && camp.perimeter().closed(),
+                "and the ring geometry agrees with the flag");
         assertEquals(1, JobPlanner.count(camp, Profession.GUARD),
                 "the fortification named its sentry");
         assertTrue(JobPlanner.count(camp, Profession.LUMBERJACK) >= 1,
-                "and its woodcutter — the palisade will need the axe");
+                "and its woodcutter — the palisade drank real timber");
+        assertEquals(0, JobPlanner.count(camp, Profession.PIONEER),
+                "VILLAGE dissolved the generalists");
+    }
+
+    @Test
+    void theRingEnclosesEveryBuildingWithRoomToWalk() {
+        Settlement camp = foundingParty();
+
+        for (int i = 0; i < 300; i++) {
+            camp.step(CTX);
+        }
+
+        Perimeter ring = camp.perimeter();
+        assertTrue(ring != null, "three hundred steps is plenty to stake the ring");
+        int west = ring.vertices().stream().mapToInt(v -> v.x()).min().orElseThrow();
+        int east = ring.vertices().stream().mapToInt(v -> v.x()).max().orElseThrow();
+        int north = ring.vertices().stream().mapToInt(v -> v.z()).min().orElseThrow();
+        int south = ring.vertices().stream().mapToInt(v -> v.z()).max().orElseThrow();
+        for (Building building : camp.buildings()) {
+            // Extraction stands where the resource is: mines and lumber camps
+            // are worked outside the walls in any real settlement, and both can
+            // be ordered after the ring is staked. The palisade's promise is
+            // narrower and firmer -- everyone sleeps and everything is stored
+            // behind it.
+            if (building.blueprintId().contains("mine")
+                    || building.blueprintId().contains("lumber_camp")) {
+                continue;
+            }
+            assertTrue(building.origin().x() > west && building.origin().x() < east
+                            && building.origin().z() > north && building.origin().z() < south,
+                    building.blueprintId() + " must stand inside the palisade");
+        }
+        assertEquals(4, ring.gates().size(),
+                "v1 cuts a gate into each side, midpoints standing in for paths");
     }
 
     @Test

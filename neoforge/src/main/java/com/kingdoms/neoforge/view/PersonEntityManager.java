@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import com.kingdoms.neoforge.world.Excavation;
 import com.kingdoms.neoforge.world.PathLayer;
+import com.kingdoms.neoforge.world.PerimeterLayer;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Tallies;
@@ -251,6 +252,7 @@ public final class PersonEntityManager {
                 changed |= workMiners(settlement);
                 changed |= workShepherds(settlement);
                 layPaths(settlement);
+                PerimeterLayer.draw(level, settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
                 guardCombat(settlement);
@@ -1461,7 +1463,7 @@ public final class PersonEntityManager {
                     : nearestBuilding(settlement, "mine", person.position());
             case SMITH -> nearestBuilding(settlement, "smith", person.position());
             case SHEPHERD -> nearestBuilding(settlement, "animal_farm", person.position());
-            case GUARD -> nearestBuilding(settlement, "watchtower", person.position());
+            case GUARD -> patrolPost(settlement, person);
             // A pioneer's workplace is whatever the camp is doing: the build
             // site while anything is queued, the fields otherwise, and
             // nearestBuilding already falls back to the camp centre before
@@ -1471,6 +1473,33 @@ public final class PersonEntityManager {
                     : settlement.buildQueue().getFirst().origin();
             case IDLER -> home != null ? home : settlement.centre();
         };
+    }
+
+    /**
+     * Where the sentry should be: the next node of the perimeter walk.
+     *
+     * <p>The ring's vertices double as patrol nodes, exactly as FOUNDING.md
+     * promises. Stateless on purpose — near a corner the sentry heads for the
+     * next one along, otherwise for the nearest, which resolves to a steady
+     * clockwise round without any patrol state to persist.
+     */
+    private static SimPos patrolPost(Settlement settlement, Person person) {
+        var perimeter = settlement.perimeter();
+        if (perimeter == null || perimeter.laid() <= 0) {
+            return nearestBuilding(settlement, "watchtower", person.position());
+        }
+        var nodes = perimeter.vertices();
+        int nearest = 0;
+        long best = Long.MAX_VALUE;
+        for (int i = 0; i < nodes.size(); i++) {
+            long d = nodes.get(i).horizontalDistanceSq(person.position());
+            if (d < best) {
+                best = d;
+                nearest = i;
+            }
+        }
+        boolean atCorner = best <= 3 * 3;
+        return nodes.get(atCorner ? (nearest + 1) % nodes.size() : nearest);
     }
 
     /** Nearest completed building whose blueprint path ends with the suffix, else the centre. */
