@@ -2,38 +2,27 @@
 
 Working list for the self-sufficiency milestone. Items move to **Done** with a
 one-line summary, and are dropped entirely once they have been played and hold up
-— this file is a worklist, not a changelog. The changelog is the git history.
+— this file is a worklist, not a changelog. The changelog is the git history; the
+long history is `ROADMAP.md`.
 
 **Milestone:** a town that secures its own materials, feeds itself, equips itself,
 and can be traded with — without the player doing any of it for them.
 
+The open work is ordered below. Each phase says what it is for and what it waits
+on. A boundary between two of them is a point where the work changes character,
+or where the later thing genuinely needs the earlier one to have landed. Where an
+item is not properly specified, the open question is written down rather than
+papered over.
+
 ---
 
-## In progress
+## In flight
 
-### Needs eyes, not tests
-Everything below runs without throwing and produces the right numbers. What no
-automated check can confirm is whether it *looks* right:
+Being built right now, in parallel, by separate hands. Two of the phases below
+wait on this section outright, and several of the visual questions at the bottom
+will need asking again once it lands.
 
-- [ ] Are the animal pens actually separated, and do the beasts stay in them?
-- [ ] Do the wider paths reach the doors, and stay clear of trees now?
-- [ ] Do guards visibly carry swords once a smithy stands?
-- [ ] Is a hillside build's material cost bearable in real time, or a grind?
-- [ ] Does the quest board read well, or is it a wall of numbers?
-- [ ] Does the town overview screen look the part, and are the icons legible?
-- [ ] Do the lamp's building outlines read clearly, or is a dense town a blur?
-- [ ] Does the town map read as a plan, and is the fixed claim scale right?
-- [ ] Do turned buildings actually face the centre, doors and stairs included?
-- [ ] Does a level-2 building read as an upgrade, and does the old one clear cleanly?
-- [ ] Is builders walking to the warehouse for every load too slow to watch?
-- [ ] Does a crew of six digging a hillside read as a crew, or as a scrum?
-- [ ] Does the excavation stake feel like a usable tool for marking out ground?
-- [ ] Does the town read as spaced-out now, or has it become sprawling?
-- [ ] Does the post-then-hole-then-walls sequence read as construction, or as clutter?
-- [ ] Do the hollow planned plots on the map read as plans, or as bugs?
-- [ ] Does a farmer working the rows read as farming — harvest, tend, replant?
-
-### The founding death spiral — observed live, none of it previously here
+### The founding death spiral
 
 A fresh town built its hall, ran out of materials, bootstrapped a mine, staffed
 it with nobody, and starved to death idle. Six distinct faults, each sufficient
@@ -60,33 +49,202 @@ to have killed them, in the order the ratchet turned:
    first hall, so the day-one bootstrap detour is guaranteed, not chosen — and
    no test pins what the kit must afford.
 
-**The plan, one phase per link that kills:**
+Under way, one part per link that kills:
 
-- [ ] **Phase 1 — survival reflexes.** A settlement crisis state (starving
-      residents, or total food under a floor). In crisis: retraining ignores the
-      idler-only rule, the weakness gate, and population thresholds — somebody
-      farms NOW; farm and granary preempt the queue head; a head task stalled
-      unaffordable for N steps is parked behind them instead of blocking.
-- [ ] **Phase 2 — the bootstrap comes with hands.** Ordering a producer
-      force-retrains one resident to its trade in the same breath, or refuses
-      and says why. A pinned test: the founding kit affords the hall and first
-      house; provisions outlast the road to the first harvest.
-- [ ] **Phase 3 — distress is audible.** Crisis leads every post report and the
-      hall screen, escalates in the event log, flags the vitals line, and the
-      auditor gains a town-level fault: starving with a frozen build queue.
+- [ ] **Survival reflexes.** A settlement crisis state (starving residents, or
+      total food under a floor). In crisis: retraining ignores the idler-only
+      rule, the weakness gate, and population thresholds — somebody farms NOW;
+      farm and granary preempt the queue head; a head task stalled unaffordable
+      for N steps is parked behind them instead of blocking.
+- [ ] **The bootstrap comes with hands.** Ordering a producer force-retrains one
+      resident to its trade in the same breath, or refuses and says why. A pinned
+      test: the founding kit affords the hall and first house; provisions outlast
+      the road to the first harvest.
+- [ ] **Distress is audible.** Crisis leads every post report and the hall
+      screen, escalates in the event log, flags the vitals line, and the auditor
+      gains a town-level fault: starving with a frozen build queue.
 
-### Next
-- [ ] Fix the paths. The door-to-hall tracks were a first cut: routes ignore each
-      other (no shared trunks or junctions), climb terrain a person cannot, and
-      thread through plots. A path network pass — reuse, grading, keeping to the
-      gaps between plots — is due.
-- [ ] Hideouts, so `hideouts_cleared` counts something
-- [ ] A second culture, to prove the hook earns its keep
-- [ ] `.blueprint` reader, for the MineColonies/Structurize content ecosystem
+### The ground a town takes
+
+Three changes with one subject — what a building does to the land under it.
+Between them they move every plot boundary and every doorway height in town,
+which is why the walking work waits for them.
+
+- [ ] **A smaller footprint.** The two-block skirt of flattened land round every
+      building goes. `BlueprintPlacer.APRON_MARGIN` is currently 2, and
+      `plotOf` reports the walls plus that margin on each side — so the skirt is
+      simultaneously what the map draws, what the lamp outlines, and what keeps
+      one plot off the next.
+- [ ] **Build up, not only down.** A site is presently made flat by digging.
+      A building whose ground falls away should be given foundations to stand on
+      instead of having the hill removed from under it.
+- [ ] **Never build in water.** Building in water is forbidden outright rather
+      than discouraged.
+
+---
+
+## Phase 1 — the food chain holds while somebody is watching
+
+**For:** a town that reliably feeds itself with a player standing in it, not only
+headless. Everything after this is judged by long runs that assume food works.
+
+**Waits on:** the survival-reflex work above, which rewrites who holds which job
+and when. Changing job assignment underneath it would be two hands on the same
+wheel.
+
+- [ ] Farmers are handed a haul every step they are free, so hauling monopolises
+      them: the fields fill, the granary and the stalls drain, and the market
+      runs dry while somebody is watching. `FoodPlanner.assignHauls` gives an
+      errand to any farmer without one, and nothing holds any of them back for
+      the rows. **What to decide:** whether to reserve a share of farmers from
+      hauling, to rest a farmer after a delivery, or to demote hauling below
+      tending until the farm's own store is near its cap. The last is the one
+      that matches how the shortage actually reads — food produced but sitting
+      in the wrong store.
+
+---
+
+## Phase 2 — ground a person can walk
+
+**For:** getting people from grade to a door. Both items are the same problem
+looked at from two ends, and neither is worth doing twice.
+
+**Waits on:** the whole of *the ground a town takes*. Route planning through the
+gaps between plots is planning against boundaries that are about to move, and
+what a steep site even looks like changes once buildings stand on foundations
+rather than in a hole.
+
+- [ ] **A path network, rather than a bundle of separate tracks.** `PathLayer`
+      draws one Bresenham line from a door to the hall, paved three wide,
+      knowing nothing about any other path or any plot. So routes never share a
+      trunk or meet at a junction; they follow the ground up whatever gradient
+      the terrain has, including faces nobody can climb; and they cross plots
+      instead of threading the gaps between them. **What to decide:** whether
+      the network is planned for the whole town and re-planned as it grows, or
+      grown a route at a time by reusing what is already laid — and whether a
+      grade too steep to walk is stepped (which makes it the same job as the
+      item below) or routed around.
+- [ ] **Steps to a workplace, not only to a home.** `BuildPlanner.requestAccessStairs`
+      works, but the only caller is the cannot-reach-home check in
+      `PersonEntityManager`. A farm or a mine cut into a hillside gets no such
+      repair, which is why `/civ audit` can report a workplace with no doorway
+      at grade and nothing ever comes to fix it. Re-run the audit on a hillside
+      town after the foundation work before deciding what the flights have to
+      reach — the answer may be somewhere else entirely by then.
+
+---
+
+## Phase 3 — somewhere to go
+
+**For:** the first thing outside the town's own walls, and the counter the quest
+board already advertises. `Tallies.HIDEOUTS_CLEARED` exists, is shown the moment
+anything raises it, and nothing raises it.
+
+**Waits on:** Phase 1, because a town that cannot spare anyone is a poor place to
+test an expedition. Not strictly on Phase 2, though a patrol that cannot get out
+of its own town would prove very little.
+
+- [ ] Hideouts, so `hideouts_cleared` counts something. **Genuinely
+      under-specified — four things to settle first:**
+      *Who clears one?* If the player does and the nearest town credits it, this
+      is a worldgen-and-loot job. If the town sends guards, it is a new kind of
+      errand: people leaving the claim, which nothing does today.
+      *Where do they come from?* Adopting vanilla structures (pillager outposts
+      are already out there) or placed deliberately by the kingdom planner at a
+      distance from a town.
+      *What is a cleared one worth?* Loot, standing, a fall in threat level, or
+      only the tally.
+      *Should raids come from them?* `RaidPlanner` currently schedules raids by
+      hashing the settlement id against the step number — they come from
+      nowhere. Sourcing them from a nearby hideout would make clearing one mean
+      something mechanical instead of decorative. That is the decision with the
+      most consequence attached, so make it first.
+
+---
+
+## Phase 4 — the seams prove themselves
+
+**For:** two extension points that are asserted to work and have never been
+loaded. Both are claims in comments; this phase turns them into facts or finds
+out otherwise.
+
+**Waits on:** nothing structural — but it comes last because it buys no play
+until the town beneath it survives, feeds itself and can be walked through.
+
+- [ ] **A second culture, to prove the hook earns its keep.** The claim is that
+      a second culture is a table entry rather than new code. Known to be false
+      in at least these places:
+      - `BlueprintPlacer.animalFarm` sizes the compound from
+        `Culture.DEFAULT.penCount()` while `ShepherdWorker` stocks the pens from
+        the *settlement's* culture. Two cultures with different beasts would
+        build one shape and stock another; the shepherd would go looking for
+        pens that were never laid.
+      - `BuildCatalogue` reserves a fixed 21-block plot for
+        `kingdoms:animal_farm`. A culture with more animals wants a deeper
+        compound than the town set aside for it.
+      - Every settlement starts on `BuildCatalogue.DEFAULT`, one hardcoded list,
+        and the only `setCatalogue` call in the mod hands a daughter town its
+        parent's copy. Nothing picks a catalogue by culture.
+      - Settlement names hash the position (`SettlementNames`); given names and
+        surnames are hardcoded lists in `PopulationPlanner`. Neither reads a
+        culture.
+
+      The blueprint side, by contrast, is ready and untouched:
+      `BlueprintPlacer.styleCandidates` already resolves `kingdoms:norman/house`
+      and falls back to plain `kingdoms:house`, so a culture only draws what it
+      wants to differ on. Nothing yet *produces* a styled id — the catalogue
+      emits plain ones and `Culture` carries a layout, not a style.
+      **What to decide:** how far a culture is allowed to reach. Animals and
+      building styles alone is a day's work; catalogue, professions, staffing
+      and names is a different project.
+
+- [ ] **A `.blueprint` reader, for the MineColonies/Structurize content
+      ecosystem.** Structurize's format is extended structure NBT and Keystone
+      already has the seam: implement `BlueprintSource`, call
+      `Blueprints.register`, no call sites touched. `KEYSTONE.md` puts the
+      adapter at roughly 150 lines.
+      **After the culture work**, softly: the reader's whole value is content
+      that varies, and a second culture is what creates the appetite for it —
+      and whatever the culture work settles about styled ids is the shelf an
+      imported pack of huts would have to be filed on.
+
+---
+
+## Needs eyes, not tests
+
+Deliberately outside the phases. Everything here runs without throwing and
+produces the right numbers; what no automated check can confirm is whether it
+*looks* right, and no agent can answer any of it. This list is worked through by
+playing, not by scheduling. Several of these will want asking again after the
+in-flight footprint and foundation work, which changes what a town looks like on
+sloping ground.
+
+- [ ] Are the animal pens actually separated, and do the beasts stay in them?
+- [ ] Do the wider paths reach the doors, and stay clear of trees now?
+- [ ] Do guards visibly carry swords once a smithy stands?
+- [ ] Is a hillside build's material cost bearable in real time, or a grind?
+- [ ] Does the quest board read well, or is it a wall of numbers?
+- [ ] Does the town overview screen look the part, and are the icons legible?
+- [ ] Do the lamp's building outlines read clearly, or is a dense town a blur?
+- [ ] Does the town map read as a plan, and is the fixed claim scale right?
+- [ ] Do turned buildings actually face the centre, doors and stairs included?
+- [ ] Does a level-2 building read as an upgrade, and does the old one clear cleanly?
+- [ ] Is builders walking to the warehouse for every load too slow to watch?
+- [ ] Does a crew of six digging a hillside read as a crew, or as a scrum?
+- [ ] Does the excavation stake feel like a usable tool for marking out ground?
+- [ ] Does the town read as spaced-out now, or has it become sprawling?
+- [ ] Does the post-then-hole-then-walls sequence read as construction, or as clutter?
+- [ ] Do the hollow planned plots on the map read as plans, or as bugs?
+- [ ] Does a farmer working the rows read as farming — harvest, tend, replant?
 
 ---
 
 ## Done
+
+*Short on purpose. Everything from the milestone-complete era has been dropped —
+it was proven by the endurance and client playtests and it lives in the git
+history and in `ROADMAP.md`. What is left is the recent work, kept until a run
+has been watched over it.*
 
 - **Gates yield to citizens.** A closed fence gate is a wall to vanilla mobs —
   which kept animals penned and shepherds penned in with them. Gates now work
@@ -95,17 +253,13 @@ to have killed them, in the order the ratchet turned:
   somebody is passing through. Real wooden doors from authored blueprints open
   for citizens too, the vanilla way.
 
-
 - **The wheat is the food now.** Generation was the last fully abstract producer;
   it follows the lumber camp's rule at last. Watched farms produce through real
   hands — harvest mature wheat into the farm's stores and replant in one swing,
   tend growth forward, plant bare soil — while the clock works unwatched farms,
   stands aside where real harvests are fresh, and floors a watched farm nobody
   can reach. The starving eat from the rows as a last resort, because a watched
-  town jams with food capped at the farms while hauling lags. Next tuning knob
-  if it matters: farmers are assigned hauls every step, so hauling monopolizes
-  them and the market runs dry while watched.
-
+  town jams with food capped at the farms while hauling lags.
 
 - **Being watched must never starve a town.** A parked client beside a steep town
   killed all 25 residents: embodied haulers must genuinely walk, mob navigation
@@ -121,11 +275,6 @@ to have killed them, in the order the ratchet turned:
   drizzle was support-loss drops from ordinary excavation (grass and leaf litter
   popping off dug blocks); diggers clear the plant first now, and loose items
   only testify beside a field that is also losing its planting.
-
-- **The clients truly close now.** From the sandboxed shell the drivers run in,
-  taskkill cannot even see the game processes, so every sweep was a silent no-op.
-  Sweeps run through PowerShell, verify the count, retry, and print the outcome.
-
 
 - **The crop mystery, solved by instruments.** Fields kept churning into seed
   items through three plausible-and-wrong theories (trampling, light, placement
@@ -143,12 +292,6 @@ to have killed them, in the order the ratchet turned:
   without building anything and planned farms 260 blocks out. Indices are now
   spent only when a plot is actually taken.
 
-- **Playtest clients close themselves.** Every driver exit path — time up, early
-  exit, boot failure, crash — sweeps the game processes, which are children of
-  the gradle daemon and never died with the wrapper. A playtest can no longer
-  end with more clients open than it started with.
-
-
 - **A building announces itself from the first day.** The post block is the first
   thing laid at a new site — standing at its final spot from the moment the
   ground is surveyed, its cell withheld from the excavation so no digger levels
@@ -156,7 +299,6 @@ to have killed them, in the order the ratchet turned:
   how far along it is. Planned buildings show on the surveyor's lamp and on the
   town map too, drawn hollow, so the town's intentions are as visible as its
   walls.
-
 
 - **The town audits itself.** `/civ audit` walks every loaded building and
   reports what live play kept finding and logs never showed: standing water in
@@ -167,7 +309,6 @@ to have killed them, in the order the ratchet turned:
   and writes `AUDIT` lines to the log only when a town's fault list changes — so
   the scripted playtests now catch world-geometry regressions that used to need
   a person walking through the town.
-
 
 - **Buildings were being built through each other.** Ring slots were only ever
   candidate points and nothing knew how broad a farm is, so plots overlapped —
@@ -192,7 +333,6 @@ to have killed them, in the order the ratchet turned:
   branches. Ground level now walks down through growth, and the plot heights, the
   stair flights and the paths all use it.
 
-
 - **Digging rebuilt.** A block now takes exactly the ticks vanilla says it takes
   for the tool in hand, spent one at a time off the server tick rather than
   sampled every fifth tick against a work budget, and it visibly cracks while it
@@ -203,101 +343,3 @@ to have killed them, in the order the ratchet turned:
   spreads along the face instead of converging on one block, and load balances
   itself over broken ground whatever the headcount. Comes with the excavation
   stake: mark two corners, and the nearest town clears the box.
-
-
-- **Playtest of the five additions, and two bugs it found.** Levels broke every
-  remaining `endsWith` id match — the food chain, the workplace lookup, the path
-  layer and the animal farm all stopped recognising a building the moment it was
-  improved. And the farm-to-granary link could not keep up: a run ended with 156
-  of harvest banked in the fields, the granary at four, and somebody starving in
-  the middle of it. Both fixed; a 500-step run now reaches 48 people and 67
-  buildings with the fields clear and nobody hungry enough to matter.
-
-- **Five things Millénaire and MineColonies do better, added.** Site validation
-  (no more building in lakes or across ravines), orientation (doors face the town
-  centre instead of all facing south), building levels 1–3 raised in place with
-  the old walls coming down as part of the excavation, a real per-item bill of
-  materials with player supply at the warehouse post, and builders who fetch a
-  load from the stores in person rather than conjuring materials at the wall.
-
-- **Clearing only clears what is in the way.** Anything a block can be placed into
-  — snow, grass, flowers — is never dug; the course landing on it covers it over.
-  Dig cost is vanilla's own break time with the right tool rather than a flat
-  figure, so soil goes in one pass instead of three. Leaves are held to the end of
-  the excavation, and lumberjacks now fell from the stump rather than the crown,
-  so they stop trying to reach a trunk from inside its own canopy.
-
-- **Town Map.** A drawn plan of the nearest settlement: blank ground, buildings
-  in green at their real footprints, north up, player marked. Scale follows the
-  town's claim so any size town fills the square.
-
-- **Building dimensions are tracked.** `Footprint` (floor height, width, depth,
-  height) recorded when a plan is built — from the survey on the hand-built path,
-  reported back by the bridge on the stamped one — persisted, and backfilled by
-  measurement for worlds that predate it.
-- **Surveyor's Lamp.** Hold it and every nearby building draws its bounds in
-  sparks. Server-side particles like the charter's claim ring, so a vanilla
-  client sees it too.
-
-- **Town overview screen.** Right-click the Town Hall post: name, population and
-  the whole ledger, a row per resource with its own icon. First real GUI in
-  Kingdoms — a server-to-client payload and a drawn panel, built on the same
-  extract-render-state shape Keystone's wand screen uses. `/civ overview` opens
-  it without walking to a hall.
-
-- **Three faults from live play.** Trees inside the village blocked every path
-  (lumberjacks only worked the woodland claim, and replanted anywhere in it);
-  paths were a single block wide; and buildings were placed twice — the hand-built
-  and stamped paths used different floor conventions, so a build watched partway
-  and then abandoned produced two copies a course apart.
-
-- **Endurance run.** 700 steps from five settlers: three settlements, 55 / 32 / 5
-  buildings, both mature towns fully equipped (48/48 and 35/35), twelve raids
-  repelled, zero exceptions, zero starvation. Iron capped afterwards — the forge
-  stops at its ceilings and the ore was piling up unspent.
-- **Client playtest.** Quickplay into a played-out save: world loads, all 44
-  buildings materialize — smiths, animal farm, watchtowers, markets — and nothing
-  in `kingdoms` or `keystone` throws across a 5,959-line log.
-
-- **Headless playtest, and five bugs it found.** Buildings were free when
-  unwatched; production ran only in the view layer so an unwatched town could
-  never make anything; staffing wanted no lumberjack below ten residents; two
-  producers ordered out of turn shared one plot; and settlers starved beside a
-  full granary because food could only reach them through the family pantry.
-  All fixed — a town now goes from five settlers to 48 people, 44 buildings,
-  every trade staffed and two thirds equipped, with nobody starving.
-- **Opt-in quickplay** (`-Pquickplay=<world>`), so a missing world can no longer
-  break every launch.
-
-- **Generic town ledger.** `TownStores`: resource id → amount, all-or-nothing
-  spending. Replaced four hardcoded ints; codec writes one map and still reads the
-  old flat keys, so existing worlds migrate.
-- **Supply is limited.** Laying a block spends wood or stone, keyed off the same
-  tags that pick the digging tool. Digging costs only sweat.
-- **Self-sufficiency loop.** A founding party arrives stocked; when a build cannot
-  be paid for, `requestProducer` orders the lumber camp or mine that fixes it,
-  ahead of the thing nobody can afford. Producers are exempt from material cost so
-  the bootstrap can always run.
-- **Warehouse.** Building, post, and it raises the storage ceiling like a storehouse.
-- **Smith.** Iron (from ore the miners cut through) plus timber as fuel becomes
-  tools, then weapons, then armour. Tools are issued to workers one a step; guards
-  draw a sword and chestplate from the rack and hit harder for it.
-- **Larger farms.** 7×7 → 11×11, work 30 → 45, one per 6 residents rather than 5.
-- **Animal farm.** Fenced compound split into strip pens, one species per pen, list
-  taken from the culture. Shepherds stock them a beast at a time and leave vanilla
-  to do the breeding.
-- **Market hours.** Stalls open 1000–11000. The post reports hours and stock, and
-  sells bread for emeralds during them — keeping a food reserve back so a town can
-  never be bought into starvation.
-- **Paths.** Tracks laid from each building's door to the hall, following the
-  terrain. Only grass and dirt are paved and only foliage is cleared, so a path
-  can never eat a wall.
-- **Quest board.** Reads whatever counters a settlement happens to keep rather than
-  a fixed list — so a stat can be tallied by a datapack or an addon and appear
-  without the board being told. Seeded with mobs slain, raids repelled, buildings
-  raised, trees felled, stone cut, goods traded. "Hideouts cleared" is a name the
-  board will show the moment anything raises it.
-- **Culture hook.** `Culture` carries the penned-animal list and a layout id, with
-  one default — so a second culture is a table entry, not new code.
-- **A post on every building**, and `/civ info` reads the ledger, the deeds, the
-  culture and how much of the workforce is equipped.
