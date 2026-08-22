@@ -55,7 +55,27 @@ class StarvationTest {
         @Override public void log(String message) { }
     }
 
+    /**
+     * Somebody is standing in the camp and the ground is real, which is what
+     * hands construction to the builders instead of the clock. Nothing here lays
+     * a block, because nothing in the simulation ever does — that is the view
+     * layer's job, and a site it never gets to is a site that never moves.
+     */
+    private static final class WatchedBridge implements WorldBridge {
+        @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
+        @Override public boolean isLoaded(SimPos pos) { return true; }
+        @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin,
+                boolean surveyed, int facing) {
+            return new Footprint(origin.y(), 3, 3, 3);
+        }
+        @Override public void log(String message) { }
+    }
+
     private static final SimContext CTX = new SimContext(new QuietBridge(), 0, SimSettings.SANDBOX);
+
+    private static final SimContext WATCHED =
+            new SimContext(new WatchedBridge(), 0, SimSettings.SANDBOX);
 
     /**
      * A town with nothing in any store, and both producers already standing with
@@ -101,6 +121,81 @@ class StarvationTest {
                 "and the hall is parked behind the field, not given up on");
         assertEquals(12, s.buildQueue().get(1).progress(),
                 "with every hour already spent on it still counted");
+    }
+
+    @Test
+    void afreeQueueHeadNobodyWorksStopsBlockingTheFieldBehindIt() {
+        // The founding party's own death, in two rules that cancel each other out.
+        // It ran out of stone, shoved a mine to the front of the queue, and parked
+        // the farm it had already ordered one place behind it. A producer costs no
+        // materials, so the till was never asked and the head never looked stuck;
+        // and a farm in the queue reads as a farm on its way, so the town never
+        // wanted another. Nobody laid a block on the mine, and everybody starved.
+        Settlement s = destituteTown();
+        s.residents().forEach(person -> person.setEmbodied(true));
+        s.enqueueBuild(new BuildTask(FARM.id(), new SimPos(20, 64, 0), FARM.workCost()));
+        s.enqueueUrgent(new BuildTask("kingdoms:mine", new SimPos(-20, 64, 0), 30));
+
+        assertTrue(s.isStarving(), "the town this test is about is in a famine from the start");
+
+        for (int i = 0; i < Settlement.STALLED_HEAD_STEPS; i++) {
+            s.step(WATCHED);
+            assertEquals("kingdoms:mine", s.buildQueue().getFirst().blueprintId(),
+                    "the mine keeps its turn while there is any chance somebody works it");
+        }
+
+        s.step(WATCHED);
+
+        assertEquals(FARM.id(), s.buildQueue().getFirst().blueprintId(),
+                "a head going nowhere must not outlast the town merely because it is free");
+        assertTrue(s.buildQueue().stream().anyMatch(t -> t.blueprintId().equals("kingdoms:mine")),
+                "and the mine is parked behind the field, not given up on");
+        assertEquals(1, s.buildQueue().stream()
+                        .filter(t -> t.blueprintId().equals(FARM.id())).count(),
+                "the field it already ordered is the one it builds; a second is a wasted plot");
+    }
+
+    @Test
+    void agranaryAlreadyInTheQueueIsNotAllowedToStandInForTheField() {
+        // Bringing a queued food building forward must respect the order a town
+        // wants them in. A granary is a food building and an empty granary feeds
+        // nobody, so a town with neither must still get the field first — pulling
+        // the granary up instead would spend its whole build before the town was
+        // even allowed to want a farm again.
+        Settlement s = destituteTown();
+        s.residents().forEach(person -> person.setEmbodied(true));
+        s.enqueueBuild(new BuildTask(GRANARY.id(), new SimPos(0, 64, 20), GRANARY.workCost()));
+        s.enqueueUrgent(new BuildTask("kingdoms:mine", new SimPos(-20, 64, 0), 30));
+
+        for (int i = 0; i <= Settlement.STALLED_HEAD_STEPS; i++) {
+            s.step(WATCHED);
+        }
+
+        assertEquals(FARM.id(), s.buildQueue().getFirst().blueprintId(),
+                "a town with no field and no granary wants the field, whatever is already queued");
+    }
+
+    @Test
+    void atownShortOfBothMaterialsStillAsksForTheOneItCannotMake() {
+        // The other half of the founding failure. Running out of stone is what
+        // stopped the work, but the shortage was reported wood-first and refused
+        // — the lumber camp was already standing — and the town went back to
+        // waiting without ever asking for the mine that would have freed it.
+        Settlement s = new Settlement(Settlement.Id.random(), "Twoshort", new SimPos(0, 64, 0), 128);
+        s.setCatalogue(List.of(HALL, FARM, GRANARY));
+        s.setFoodStock(500);
+        s.setWoodStock(0);
+        s.setStoneStock(0);
+        s.addBuilding(new Building("kingdoms:lumber_camp", new SimPos(60, 64, 60), 1, true));
+        s.addResident(new Person(Person.Id.random(), "Alder", Profession.BUILDER, s.centre()));
+        s.addResident(new Person(Person.Id.random(), "Bryn", Profession.IDLER, s.centre()));
+        s.enqueueBuild(new BuildTask(HALL.id(), new SimPos(20, 64, 0), HALL.workCost()));
+
+        s.step(CTX);
+
+        assertFalse(s.isStarving(), "this town is short of materials, not of food");
+        assertEquals("kingdoms:mine", s.buildQueue().getFirst().blueprintId(),
+                "a refusal over timber it can already fell must not bury the stone it cannot");
     }
 
     @Test

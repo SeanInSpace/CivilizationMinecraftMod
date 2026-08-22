@@ -64,8 +64,8 @@ public final class Settlement {
     private final ArrayDeque<SettlementEvent> events = new ArrayDeque<>();
 
     /**
-     * Steps the job at the head of the queue may sit unpayable before a starving
-     * town builds around it.
+     * Steps the job at the head of the queue may sit without moving before a
+     * starving town builds around it.
      *
      * <p>Long enough that a load of stone still on somebody's back is not a
      * stall, short enough that a town does not spend a tenth of its remaining
@@ -74,13 +74,15 @@ public final class Settlement {
     public static final int STALLED_HEAD_STEPS = 8;
 
     /**
-     * The job being timed, and how long it has gone unpayable.
+     * The job being timed, how far along it was when it was last looked at, and
+     * how many steps it has failed to get any further.
      *
      * <p>Not saved. A reloaded town simply starts its patience over, which costs
      * it a handful of steps and no correctness — and a stall is only interesting
      * while it is still happening.
      */
     private BuildTask stalledTask;
+    private int stalledProgress;
     private int stalledSteps;
 
     /** Content, not save state — not serialized. */
@@ -758,7 +760,18 @@ public final class Settlement {
         if (!buildQueue.isEmpty() && stalledSteps < STALLED_HEAD_STEPS) {
             return;   // still making progress on something; let it finish
         }
-        BuildingType wanted = survivalWant();
+        // One role settles the whole lane, so the rescue and the thing it rescues
+        // can never disagree: a town that needs a farm does not get its granary
+        // pushed to the front instead, and then wait out the granary's whole
+        // build before it is allowed to want the field again.
+        String role = survivalRoleWanted();
+        if (role == null) {
+            return;   // both stand already; this famine is not a building problem
+        }
+        if (promoteQueuedSurvivalBuild(ctx, role)) {
+            return;   // the town already ordered its dinner; it just could not reach it
+        }
+        BuildingType wanted = survivalWant(role);
         if (wanted == null) {
             return;
         }
@@ -770,34 +783,103 @@ public final class Settlement {
         BuildTask ordered = new BuildTask(wanted.id(), plot, wanted.workCost());
         ordered.setFacing(BuildPlanner.facingToward(plot, centre));
         enqueueUrgent(ordered);
-        logEvent(ctx.step(), "Starving — work on a "
-                + wanted.id().substring(wanted.id().indexOf(':') + 1).replace('_', ' ')
+        logEvent(ctx.step(), "Starving — work on a " + readableName(wanted.id())
                 + " goes ahead of everything else");
     }
 
     /**
-     * The food building a starving town most needs and does not have.
+     * Brings a food building the town has already ordered to the front.
+     *
+     * <p>This exists because {@link #survivalWant(String)} treats a queued farm
+     * as a farm on its way, and behind a stalled head that is simply not true.
+     * The founding party had it exactly so: the program ordered the farm, the
+     * stone ran out, a mine was shoved in front of it, and from then on every
+     * step the town asked itself whether it needed a farm and answered "one is
+     * coming" about a job that could not start until the mine finished — which it
+     * never did. The net was held shut by the very task it was meant to rescue.
+     *
+     * <p>Promoting rather than ordering a second one is the deliberate choice.
+     * The town does not need two farms, it needs the one it has already sited and
+     * paid a plot for to be the thing the builders are standing at; ordering
+     * another would spend a fresh plot and leave a duplicate in the queue behind
+     * it forever. With this running first, {@link #survivalWant(String)}'s
+     * "already on the way" test becomes true rather than merely hopeful —
+     * anything it finds in the queue is at the head by the time it looks.
+     *
+     * @param role the one role the town is short of, from {@link #survivalRoleWanted}
+     * @return true if a queued building of that role was moved to the head
+     */
+    private boolean promoteQueuedSurvivalBuild(SimContext ctx, String role) {
+        if (!buildQueue.isEmpty()
+                && FoodPlanner.namesRole(buildQueue.getFirst().blueprintId(), role)) {
+            // It is already first and still going nowhere, so the trouble is not
+            // the order of the queue. Shuffling one farm in front of another every
+            // eight steps would fill the event log with a town changing its mind
+            // and feed nobody.
+            return false;
+        }
+        for (int i = 1; i < buildQueue.size(); i++) {
+            BuildTask queued = buildQueue.get(i);
+            if (!FoodPlanner.namesRole(queued.blueprintId(), role)) {
+                continue;
+            }
+            buildQueue.remove(i);
+            buildQueue.addFirst(queued);
+            logEvent(ctx.step(), "Starving — the "
+                    + readableName(queued.blueprintId())
+                    + " already ordered goes ahead of everything else");
+            return true;
+        }
+        return false;
+    }
+
+    /** The half of a blueprint id worth showing a player. */
+    private static String readableName(String blueprintId) {
+        return blueprintId.substring(blueprintId.indexOf(':') + 1).replace('_', ' ');
+    }
+
+    /**
+     * The one food building a starving town most needs and does not have.
      *
      * <p>Neither the population thresholds nor the per-resident scaling apply
      * here. A four-person charter wants no farms at all by those rules — nought
      * plus four-sixths — which is a perfectly sensible thing to want right up to
      * the moment the provisions run out.
      *
-     * @return the type to raise, or null if the fields are covered or already
-     *         on the way
+     * @return the role from {@link FoodPlanner#SURVIVAL_ROLES}, or null if every
+     *         one of them already stands
      */
-    private BuildingType survivalWant() {
+    private String survivalRoleWanted() {
         for (String role : FoodPlanner.SURVIVAL_ROLES) {
-            if (buildings.stream().anyMatch(b -> FoodPlanner.namesRole(b.blueprintId(), role))) {
-                continue;
+            if (buildings.stream().noneMatch(b -> FoodPlanner.namesRole(b.blueprintId(), role))) {
+                return role;
             }
-            if (buildQueue.stream().anyMatch(t -> FoodPlanner.namesRole(t.blueprintId(), role))) {
-                return null;   // already ordered; ordering the next one too would only queue-jump itself
-            }
-            for (BuildingType type : catalogue) {
-                if (FoodPlanner.namesRole(type.id(), role)) {
-                    return type;
-                }
+        }
+        return null;
+    }
+
+    /**
+     * The catalogue's answer to a role, or null if the town is already raising it.
+     *
+     * <p>The "already ordered, so want nothing" rule is only honest because
+     * {@link #promoteQueuedSurvivalBuild} has run first. A farm parked behind a
+     * blocked head is not a farm on its way, and answering this question with one
+     * is exactly how a settlement starved with its own farm second in the queue:
+     * the program ordered the field, the stone ran out, a mine was shoved in
+     * front of it, and every step afterwards the town asked whether it needed a
+     * farm and told itself one was coming. With the promotion ahead of it,
+     * anything found in the queue here is at the head and genuinely under way.
+     *
+     * @return the type to raise, or null if it is already ordered or the
+     *         catalogue has nothing for the role
+     */
+    private BuildingType survivalWant(String role) {
+        if (buildQueue.stream().anyMatch(t -> FoodPlanner.namesRole(t.blueprintId(), role))) {
+            return null;   // already ordered; ordering the next one too would only queue-jump itself
+        }
+        for (BuildingType type : catalogue) {
+            if (FoodPlanner.namesRole(type.id(), role)) {
+                return type;
             }
         }
         return null;
@@ -924,12 +1006,23 @@ public final class Settlement {
         } else {
             // Nobody watching. Nothing to look at, so the clock runs instead and
             // the finished building materializes whole when a chunk next loads.
-            String missing = payForProgress(current, able);
-            if (missing != null) {
+            List<String> missing = payForProgress(current, able);
+            if (!missing.isEmpty()) {
                 // Same rule as the watched path: run dry, go build the thing
                 // that makes more. A town must not build for free merely
                 // because nobody happened to be looking.
-                BuildPlanner.requestProducer(this, missing, ctx.step());
+                //
+                // Every shortage is offered, not just the first, because
+                // requestProducer refuses a producer that already stands. A town
+                // out of both timber and stone with a lumber camp in the square
+                // used to name wood, be told it already has a lumber camp, and go
+                // back to waiting — the stone that had actually stopped the work
+                // was never once asked about, so no mine was ever ordered.
+                for (String resource : missing) {
+                    if (BuildPlanner.requestProducer(this, resource, ctx.step())) {
+                        break;
+                    }
+                }
                 return;
             }
             current.addProgress(able);
@@ -1027,23 +1120,35 @@ public final class Settlement {
     /**
      * Charges the stores for a step of unwatched building.
      *
-     * @return the resource that ran out, or null if the town could pay
+     * <p>Both shortages are reported, not the first one found. Returning on the
+     * wood check meant a town short of both never mentioned stone at all, and the
+     * caller has only one thing it can do with the answer — ask for the producer
+     * that fixes it — so a shortage the town never names is a shortage it never
+     * fixes. See the loop in {@link #advanceBuildQueue}.
+     *
+     * @return the resources that ran out, in the order they are worth asking
+     *         about, or empty if the town could pay
      */
-    private String payForProgress(BuildTask task, int progress) {
+    private List<String> payForProgress(BuildTask task, int progress) {
         if (isFreeToBuild(task)) {
-            return null;
+            return List.of();
         }
         int wood = BuildPlanner.WOOD_PER_WORK * progress;
         int stone = BuildPlanner.STONE_PER_WORK * progress;
-        if (!stores.has(TownStores.WOOD, wood)) {
-            return TownStores.WOOD;
+        boolean shortOfWood = !stores.has(TownStores.WOOD, wood);
+        boolean shortOfStone = !stores.has(TownStores.STONE, stone);
+        if (shortOfWood && shortOfStone) {
+            return List.of(TownStores.WOOD, TownStores.STONE);
         }
-        if (!stores.has(TownStores.STONE, stone)) {
-            return TownStores.STONE;
+        if (shortOfWood) {
+            return List.of(TownStores.WOOD);
+        }
+        if (shortOfStone) {
+            return List.of(TownStores.STONE);
         }
         stores.take(TownStores.WOOD, wood);
         stores.take(TownStores.STONE, stone);
-        return null;
+        return List.of();
     }
 
     /**
@@ -1062,39 +1167,50 @@ public final class Settlement {
     }
 
     /**
-     * Times how long the queue head has gone unpayable, so a starving town can
-     * tell a job that is merely slow from one that has stopped.
+     * Times how long the queue head has gone nowhere, so a starving town can tell
+     * a job that is merely slow from one that has stopped.
      *
-     * <p>Asked of the stores rather than read off {@link #payForProgress},
-     * because the head that kills a town is the one nobody is even well enough to
-     * work on: {@link #advanceBuildQueue} gives up before it reaches the till
-     * when every builder is too weak to lift a stone, and a head that is never
-     * priced is a head that never looks stalled.
+     * <p>The question used to be whether the stores could pay for another step,
+     * and that let exactly one job kill a town: a producer. Everything in
+     * {@link BuildPlanner#PRODUCER_OF} is exempt from materials — see
+     * {@link #isFreeToBuild} — so a bootstrapped mine was always "payable" and
+     * the counter sat at zero however long it stood untouched. A founding party
+     * ran out of stone, shoved a mine to the front, never got a single block laid
+     * on it, and starved behind it with the farm it had already ordered parked
+     * one place back.
+     *
+     * <p>So the measure is progress. Nothing is exempt from having to move: a
+     * head is stalled when it is no further along than it was last step, whatever
+     * it costs and whoever is or is not working it. That covers the unpayable
+     * head the old rule caught, the free head it did not, and the head with no
+     * able builder at all — {@link #advanceBuildQueue} gives up before it reaches
+     * the till when everyone is too weak to lift a stone, and a head that is
+     * never priced is a head that never looked stalled either.
+     *
+     * <p>The cost of measuring it this way is that a crew still walking to a
+     * distant plot looks identical to a crew that is never coming: nothing in the
+     * model moves until the view layer has surveyed the site and laid a block, so
+     * a long walk can burn most of the patience. That is the trade, taken
+     * deliberately — a town in a famine cannot spend forty seconds waiting on
+     * faith, and a head it builds around keeps its plot and every unit of work it
+     * had, so the worst case is a farm going up first.
      */
     private void countHeadStall() {
         BuildTask head = buildQueue.isEmpty() ? null : buildQueue.getFirst();
         if (head != stalledTask) {
             stalledTask = head;
+            stalledProgress = head == null ? 0 : head.progress();
             stalledSteps = 0;
         }
-        if (head == null || canPayAStepOf(head)) {
+        if (head == null) {
+            return;
+        }
+        if (head.progress() > stalledProgress) {
+            stalledProgress = head.progress();
             stalledSteps = 0;
             return;
         }
         stalledSteps++;
-    }
-
-    /** Whether the stores could cover one more step of work on this job. */
-    private boolean canPayAStepOf(BuildTask task) {
-        if (isFreeToBuild(task)) {
-            return true;
-        }
-        // A step's worth for the crew that would work it, and never less than one
-        // hand's worth — a town with no able builders is measured as though it
-        // had one, so the question stays about the stores rather than the crew.
-        int builders = Math.max(1, ableBuilders());
-        return stores.has(TownStores.WOOD, BuildPlanner.WOOD_PER_WORK * builders)
-                && stores.has(TownStores.STONE, BuildPlanner.STONE_PER_WORK * builders);
     }
 
     private int ableBuilders() {
