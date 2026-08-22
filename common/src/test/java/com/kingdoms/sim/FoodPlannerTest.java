@@ -86,6 +86,55 @@ class FoodPlannerTest {
 
     // --- the chain, link by link ---
 
+    /** Watching: every farm is observed, so real hands are expected to work it. */
+    private static final class WatchingBridge implements WorldBridge {
+        @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
+        @Override public boolean isLoaded(SimPos pos) { return true; }
+        @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin,
+                boolean surveyed, int facing) {
+            return new Footprint(origin.y(), 3, 3, 3);
+        }
+        @Override public void log(String message) { }
+    }
+
+    @Test
+    void theClockStandsAsideWhereRealHandsAreFarming() {
+        // A watched farm with fresh real harvests must NOT also be credited by
+        // the clock. The wheat is not scenery any more, and double-crediting
+        // would make watched towns richer than unwatched ones.
+        Settlement s = settlement();
+        Building farm = new Building("kingdoms:farm", new SimPos(10, 64, 0), 1, true);
+        s.addBuilding(farm);
+        add(s, Profession.FARMER);
+
+        SimContext watched = new SimContext(new WatchingBridge(), 5, SimSettings.SANDBOX);
+        farm.touchRealHarvest(4);   // a farmer cut wheat here one step ago
+        int before = farm.foodStored();
+        FoodPlanner.advance(s, watched);
+        assertEquals(before, farm.foodStored(),
+                "fresh real harvests suppress the clock entirely");
+    }
+
+    @Test
+    void theClockFloorsAWatchedFarmNobodyCanReach() {
+        // Watched, but no real harvest for a long while: the farmers cannot get
+        // to the field. Being watched must never starve a town, so the clock
+        // takes over exactly as it would for an unwatched farm.
+        Settlement s = settlement();
+        Building farm = new Building("kingdoms:farm", new SimPos(10, 64, 0), 1, true);
+        s.addBuilding(farm);
+        add(s, Profession.FARMER);
+
+        long step = FoodPlanner.WATCHED_HARVEST_GRACE_STEPS + 10;
+        SimContext watched = new SimContext(new WatchingBridge(), step, SimSettings.SANDBOX);
+        farm.touchRealHarvest(1);   // stale
+        int before = farm.foodStored();
+        FoodPlanner.advance(s, watched);
+        assertTrue(farm.foodStored() > before,
+                "a stale watched farm is fed by the clock, not left to starve the town");
+    }
+
     @Test
     void harvestWaitsAtTheFarmUntilSomebodyCarriesIt() {
         Settlement s = settlement();

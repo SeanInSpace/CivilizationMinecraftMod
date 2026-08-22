@@ -37,6 +37,18 @@ public final class Building {
     /** Food held at this building — harvest waiting at a farm, stock at a market. */
     private int foodStored;
 
+    /**
+     * The step a farmer last harvested this farm's actual crops.
+     *
+     * <p>What lets the two fidelities share one field without double-crediting:
+     * while real harvests are fresh, the clock stands aside; when they go stale
+     * — the farm is unwatched, or its farmers cannot reach the field — the clock
+     * takes over, because being watched must never starve a town. Deliberately
+     * not persisted: after a reload the clock simply runs until a farmer proves
+     * the field is workable again.
+     */
+    private long lastRealHarvestStep = Long.MIN_VALUE;
+
     public Building(String blueprintId, SimPos origin, long completedOnStep) {
         this(blueprintId, origin, completedOnStep, false);
     }
@@ -134,6 +146,15 @@ public final class Building {
 
     public int foodStored() {
         return foodStored;
+    }
+
+    public void touchRealHarvest(long step) {
+        lastRealHarvestStep = step;
+    }
+
+    /** Whether real hands have worked this farm recently enough to trust them. */
+    public boolean harvestedWithin(long step, int grace) {
+        return lastRealHarvestStep != Long.MIN_VALUE && step - lastRealHarvestStep <= grace;
     }
 
     public void setFoodStored(int foodStored) {

@@ -52,6 +52,19 @@ public final class FoodPlanner {
 
     // the chain's carrying numbers
     public static final int FOOD_PER_FARMER_PER_STEP = 1;
+
+    /**
+     * Steps a watched farm may go without a real harvest before the clock
+     * resumes crediting it.
+     *
+     * <p>The floor under real farming, in the same spirit as the haul floor: a
+     * watched farm produces through actual hands on actual wheat, but if those
+     * hands cannot reach the field — a cliff, a fence, a pathing failure — the
+     * town must not starve for being looked at. Generous enough that a working
+     * farmer always suppresses it, short enough that a stuck one costs at most
+     * a minute of production.
+     */
+    public static final int WATCHED_HARVEST_GRACE_STEPS = 12;
     public static final int FARMERS_PER_FARM = 2;
     public static final int FARM_STORE_CAP = 40;
     /**
@@ -85,7 +98,7 @@ public final class FoodPlanner {
     public static void advance(Settlement settlement, SimContext ctx) {
         int poolBefore = settlement.foodStock();
 
-        growHarvest(settlement);
+        growHarvest(settlement, ctx);
         assignHauls(settlement);
         eatAndHunger(settlement, ctx);
 
@@ -286,8 +299,17 @@ public final class FoodPlanner {
         return best;
     }
 
-    /** Fields produce into their own stores, worked by healthy farmers. */
-    private static void growHarvest(Settlement settlement) {
+    /**
+     * Fields produce into their own stores, worked by healthy farmers.
+     *
+     * <p>Two fidelities, one field, following the lumber camp's rule exactly:
+     * where somebody is watching, the real hands are the harvest — a farmer
+     * cutting actual wheat credits the farm and the clock stands aside. The
+     * clock works every unwatched farm, and floors a watched one whose farmers
+     * have not managed a real harvest in {@link #WATCHED_HARVEST_GRACE_STEPS},
+     * because being watched must never starve a town.
+     */
+    private static void growHarvest(Settlement settlement, SimContext ctx) {
         List<Building> farms = buildingsOf(settlement, "farm");
         if (farms.isEmpty()) {
             return;
@@ -297,10 +319,17 @@ public final class FoodPlanner {
         int harvest = working * FOOD_PER_FARMER_PER_STEP;
         for (int i = 0; harvest > 0 && i < farms.size() * FARM_STORE_CAP; i++) {
             Building farm = farms.get(i % farms.size());
-            if (farm.foodStored() < FARM_STORE_CAP) {
-                farm.setFoodStored(farm.foodStored() + 1);
-                harvest--;
+            if (farm.foodStored() >= FARM_STORE_CAP) {
+                continue;
             }
+            boolean watched = ctx.bridge().playerWithin(
+                    farm.origin(), ctx.settings().observedRadius());
+            if (watched && farm.harvestedWithin(ctx.step(), WATCHED_HARVEST_GRACE_STEPS)) {
+                harvest--;   // real hands are working this one; their share is theirs
+                continue;
+            }
+            farm.setFoodStored(farm.foodStored() + 1);
+            harvest--;
         }
     }
 
@@ -349,6 +378,14 @@ public final class FoodPlanner {
                         // the market stall it just stocked, and somebody was starving
                         // to death in the square in front of it.
                         Building stall = fullestWithStock(settlement, "market", 1);
+                        if (stall == null) {
+                            // And past the stalls, the fields themselves. Watched
+                            // towns can jam with every store empty and hundreds of
+                            // food capped at the farms — hauling is the bottleneck,
+                            // not growing — and nobody starves in sight of a full
+                            // field. The desperate eat straight from the rows.
+                            stall = fullestWithStock(settlement, "farm", 1);
+                        }
                         if (stall != null) {
                             int take = Math.min(CARRY_WHEN_EATING, stall.foodStored());
                             int taken = person.inventory().add(Foods.PROVISION, take);

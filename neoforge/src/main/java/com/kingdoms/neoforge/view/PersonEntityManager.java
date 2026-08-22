@@ -235,6 +235,7 @@ public final class PersonEntityManager {
                 dailyRoutine(settlement);
                 checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
+                workFarmers(settlement);
                 changed |= workMiners(settlement);
                 changed |= workShepherds(settlement);
                 layPaths(settlement);
@@ -678,36 +679,6 @@ public final class PersonEntityManager {
         }
     }
 
-    /** How far around themselves a farmer looks for bare soil. */
-    private static final int REPLANT_REACH = 4;
-
-    /**
-     * Puts one crop back on the nearest bare, tilled soil.
-     *
-     * <p>One per pass, so a stripped field visibly comes back row by row under a
-     * working farmer rather than snapping whole. Farmland belonging to a player
-     * inside the claim gets replanted too; that is a gift, not a fault.
-     */
-    private void replantAround(PersonEntity farmer) {
-        BlockPos feet = farmer.blockPosition();
-        for (int dy = -2; dy <= 0; dy++) {
-            for (int dx = -REPLANT_REACH; dx <= REPLANT_REACH; dx++) {
-                for (int dz = -REPLANT_REACH; dz <= REPLANT_REACH; dz++) {
-                    BlockPos soil = feet.offset(dx, dy, dz);
-                    if (!level.isLoaded(soil)
-                            || !level.getBlockState(soil).is(Blocks.FARMLAND)
-                            || !level.getBlockState(soil.above()).isAir()) {
-                        continue;
-                    }
-                    farmer.swing(InteractionHand.MAIN_HAND);
-                    level.setBlock(soil.above(), Blocks.WHEAT.defaultBlockState(),
-                            Block.UPDATE_CLIENTS);
-                    return;
-                }
-            }
-        }
-    }
-
     // --- footing ---
 
     /**
@@ -1012,6 +983,20 @@ public final class PersonEntityManager {
             }
         }
         return changed;
+    }
+
+    /** Every embodied farmer works their field: harvest, tend, plant. */
+    private void workFarmers(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            if (person.profession() != Profession.FARMER || !person.isEmbodied()
+                    || person.isTooWeakToWork() || person.haul() != null) {
+                continue;   // a hauling farmer is on the road, not in the rows
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view != null && !view.isRemoved()) {
+                FarmWorker.work(level, settlement, world.stepsElapsed(), view);
+            }
+        }
     }
 
     private boolean workLumberjacks(Settlement settlement) {
@@ -1333,11 +1318,10 @@ public final class PersonEntityManager {
                 continue;   // steered tree by tree in workLumberjacks
             }
             if (person.profession() == Profession.FARMER
-                    && !underThreat && !night && !person.isTooWeakToWork()) {
-                // Fields lose crops — trampled by a player, flooded, griefed —
-                // and nothing used to put them back, so every loss was forever.
-                // A farmer standing in the field replants it as part of the day.
-                replantAround(view);
+                    && !underThreat && !night
+                    && person.haul() == null
+                    && !person.isTooWeakToWork()) {
+                continue;   // steered row by row in workFarmers
             }
             if (person.profession() == Profession.BUILDER) {
                 // Reached only when not on an active site — work is finished, the
