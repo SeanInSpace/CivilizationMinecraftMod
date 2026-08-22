@@ -31,6 +31,7 @@ automated check can confirm is whether it *looks* right:
 - [ ] Does the town read as spaced-out now, or has it become sprawling?
 - [ ] Does the post-then-hole-then-walls sequence read as construction, or as clutter?
 - [ ] Do the hollow planned plots on the map read as plans, or as bugs?
+- [ ] Does a farmer working the rows read as farming — harvest, tend, replant?
 
 ### Next
 - [ ] Hideouts, so `hideouts_cleared` counts something
@@ -40,6 +41,17 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **The wheat is the food now.** Generation was the last fully abstract producer;
+  it follows the lumber camp's rule at last. Watched farms produce through real
+  hands — harvest mature wheat into the farm's stores and replant in one swing,
+  tend growth forward, plant bare soil — while the clock works unwatched farms,
+  stands aside where real harvests are fresh, and floors a watched farm nobody
+  can reach. The starving eat from the rows as a last resort, because a watched
+  town jams with food capped at the farms while hauling lags. Next tuning knob
+  if it matters: farmers are assigned hauls every step, so hauling monopolizes
+  them and the market runs dry while watched.
+
 
 - **Being watched must never starve a town.** A parked client beside a steep town
   killed all 25 residents: embodied haulers must genuinely walk, mob navigation
