@@ -41,6 +41,7 @@ public final class PopulationPlanner {
     public static void advance(Settlement settlement, SimContext ctx) {
         groupUnassignedResidents(settlement);
         assignHomes(settlement);
+        rehouseIntoFamilyHomes(settlement);
         growFamilies(settlement, ctx.settings().stepsPerBirth(),
                 ctx.settings().maxSettlementPopulation());
     }
@@ -81,6 +82,86 @@ public final class PopulationPlanner {
             }
             household.setHome(vacant);
         }
+    }
+
+    /**
+     * Couples move out of communal housing the moment a family home stands.
+     *
+     * <p>The bunkhouse shelters the whole party and breeds nobody; cottages are
+     * where families begin. Without this the founding household sat in its
+     * bunks forever — {@link #assignHomes} only houses the homeless — and the
+     * cottages the VILLAGE program raised stood empty while the stage waited
+     * on the families they were for.
+     */
+    private static void rehouseIntoFamilyHomes(Settlement settlement) {
+        for (Household household : List.copyOf(settlement.households())) {
+            if (!household.isHoused()
+                    || settlement.isFamilyHome(household.home())) {
+                continue;
+            }
+            SimPos vacant = firstVacantFamilyHome(settlement);
+            if (vacant == null) {
+                return;
+            }
+            if (household.size() <= capacityOf(settlement,
+                    homeBlueprint(settlement, vacant))) {
+                household.setHome(vacant);
+                for (Person.Id member : household.members()) {
+                    Person person = settlement.resident(member);
+                    if (person != null) {
+                        person.setPosition(vacant);
+                    }
+                }
+            } else {
+                moveCoupleInto(settlement, household, vacant);
+            }
+            return;   // one move a step keeps the town legible
+        }
+    }
+
+    /** Two members found a new household in the vacant family home. */
+    private static void moveCoupleInto(Settlement settlement, Household parent, SimPos vacant) {
+        Household founded = new Household(Household.Id.random(), nextFamilyName(settlement));
+        for (int i = 0; i < 2 && parent.members().size() > 1; i++) {
+            Person.Id leaver = parent.members().getLast();
+            parent.removeMember(leaver);
+            founded.addMember(leaver);
+            Person person = settlement.resident(leaver);
+            if (person != null) {
+                person.setPosition(vacant);
+            }
+        }
+        founded.setHome(vacant);
+        settlement.addHousehold(founded);
+    }
+
+    /** First unclaimed home a family may grow in, or null. */
+    private static SimPos firstVacantFamilyHome(Settlement settlement) {
+        Set<SimPos> taken = new HashSet<>();
+        for (Household household : settlement.households()) {
+            if (household.isHoused()) {
+                taken.add(household.home());
+            }
+        }
+        for (Building building : settlement.buildings()) {
+            if (capacityOf(settlement, building.blueprintId()) <= 0
+                    || !settlement.isFamilyHome(building.origin())
+                    || taken.contains(building.origin())) {
+                continue;
+            }
+            return building.origin();
+        }
+        return null;
+    }
+
+    /** The blueprint standing at this home, or an empty id. */
+    private static String homeBlueprint(Settlement settlement, SimPos home) {
+        for (Building building : settlement.buildings()) {
+            if (building.origin().equals(home)) {
+                return building.blueprintId();
+            }
+        }
+        return "";
     }
 
     // --- 3. growth ---

@@ -461,6 +461,12 @@ public final class FoodPlanner {
         }
         int working = Math.min(countFarmHands(settlement, starving), farms.size() * FARMERS_PER_FARM);
         int harvest = working * FOOD_PER_FARMER_PER_STEP;
+        // A working mill grinds the same harvest into half again as much bread.
+        // One number, deliberately: the full grain-and-bread economy stays a
+        // GOALS entry, but the mill has to be worth building the day it stands.
+        if (millRuns(settlement)) {
+            harvest += working / 2;
+        }
         for (int i = 0; harvest > 0 && i < farms.size() * FARM_STORE_CAP; i++) {
             Building farm = farms.get(i % farms.size());
             if (farm.foodStored() >= FARM_STORE_CAP) {
@@ -595,6 +601,12 @@ public final class FoodPlanner {
      * starving town gets its farmers back, because nobody else is going to feed
      * them.
      */
+    /** Whether a mill stands and a miller works it. */
+    public static boolean millRuns(Settlement settlement) {
+        return settlement.countBuildings("kingdoms:mill") > 0
+                && JobPlanner.count(settlement, Profession.MILLER) > 0;
+    }
+
     private static int countFarmHands(Settlement settlement, boolean starving) {
         // laboursAs, not the raw profession: below VILLAGE the pioneers ARE the
         // farmers, and a camp that counted only crystallized ones would harvest

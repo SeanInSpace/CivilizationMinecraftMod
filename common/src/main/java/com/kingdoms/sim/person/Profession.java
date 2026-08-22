@@ -25,5 +25,11 @@ public enum Profession {
     LUMBERJACK,
     MINER,
     SMITH,
+
+    /** Works the mill: grinding the harvest gets more bread out of the grain. */
+    MILLER,
+
+    /** Works the carpentry: pre-cut components speed every build crew. */
+    CARPENTER,
     SHEPHERD
 }

@@ -67,6 +67,14 @@ public final class KingdomsItems {
     public static final DeferredItem<net.minecraft.world.item.BlockItem> MINE =
             ITEMS.registerSimpleBlockItem(KingdomsBlocks.MINE, () -> new Item.Properties());
 
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> COTTAGE =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.COTTAGE, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> MILL =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.MILL, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> CARPENTRY =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.CARPENTRY, () -> new Item.Properties());
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> INN =
+            ITEMS.registerSimpleBlockItem(KingdomsBlocks.INN, () -> new Item.Properties());
     public static final DeferredItem<net.minecraft.world.item.BlockItem> CAMP_POST =
             ITEMS.registerSimpleBlockItem(KingdomsBlocks.CAMP_POST, () -> new Item.Properties());
     public static final DeferredItem<net.minecraft.world.item.BlockItem> CACHE =

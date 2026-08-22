@@ -41,6 +41,26 @@ public final class KingdomsBlocks {
             properties -> new TownHallBlock("Town Hall",
                     "the seat of the settlement, and the first thing it builds.", properties),
             KingdomsBlocks::postProperties);
+    /** Cottage: a family home; where the next generation comes from. */
+    public static final DeferredBlock<BuildingPostBlock> COTTAGE = BLOCKS.registerBlock(
+            "cottage",
+            properties -> new BuildingPostBlock("Cottage", "a family's own home — households grow here, as they never could in the bunks.", properties),
+            KingdomsBlocks::postProperties);
+    /** Mill: grinding the harvest gets more bread out of the grain. */
+    public static final DeferredBlock<BuildingPostBlock> MILL = BLOCKS.registerBlock(
+            "mill",
+            properties -> new BuildingPostBlock("Mill", "the harvest is ground here; a working mill gets more bread from the same grain.", properties),
+            KingdomsBlocks::postProperties);
+    /** Carpentry: pre-cut components that speed every build crew. */
+    public static final DeferredBlock<BuildingPostBlock> CARPENTRY = BLOCKS.registerBlock(
+            "carpentry",
+            properties -> new BuildingPostBlock("Carpentry", "components are cut here ahead of need; every site raises faster for it.", properties),
+            KingdomsBlocks::postProperties);
+    /** Inn: where the caravans call. */
+    public static final DeferredBlock<BuildingPostBlock> INN = BLOCKS.registerBlock(
+            "inn",
+            properties -> new BuildingPostBlock("Inn", "beds for travellers and a yard for the caravans that trade the town's surplus.", properties),
+            KingdomsBlocks::postProperties);
     /** Camp Post: the staked claim; see {@link CampPostBlock}. */
     public static final DeferredBlock<CampPostBlock> CAMP_POST = BLOCKS.registerBlock(
             "camp_post",
@@ -139,7 +159,7 @@ public final class KingdomsBlocks {
 
     /** Every post the mod registers, in build order. */
     public static List<DeferredBlock<? extends BuildingPostBlock>> posts() {
-        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, CAMP_POST, CACHE, BUNKHOUSE, HEARTH);
+        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, CAMP_POST, CACHE, BUNKHOUSE, HEARTH, COTTAGE, MILL, CARPENTRY, INN);
     }
 
     private KingdomsBlocks() {

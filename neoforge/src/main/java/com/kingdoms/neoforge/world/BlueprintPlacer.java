@@ -926,6 +926,10 @@ public final class BlueprintPlacer {
             case "cache" -> cache(level, blocks, base);
             case "bunkhouse" -> bunkhouse(level, blocks, base);
             case "hearth" -> hearth(level, blocks, base);
+            case "cottage" -> cottage(level, blocks, base);
+            case "mill" -> mill(level, blocks, base);
+            case "carpentry" -> carpentry(level, blocks, base);
+            case "inn" -> inn(level, blocks, base);
             case "workshop" -> workshop(level, blocks, base);
             default -> marker(blocks, base);
         };
@@ -1200,6 +1204,50 @@ public final class BlueprintPlacer {
         add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.LUMBER_CAMP.get());
         add(blocks, base.offset(1, 1, -1), Blocks.OAK_LOG);
         add(blocks, base.offset(1, 2, -1), Blocks.OAK_LOG);
+        return dims;
+    }
+
+    /** A family's own house: the smallest roof a household can grow under. */
+    private static int[] cottage(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.COTTAGE.get());
+        add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
+        add(blocks, base.offset(1, 1, -1), Blocks.WOOL.white());
+        add(blocks, base.offset(-1, 1, 1), Blocks.BARREL);
+        return dims;
+    }
+
+    /** The mill: a grindstone under a spruce roof, hay in every corner. */
+    private static int[] mill(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.MILL.get());
+        add(blocks, base.offset(-1, 1, -1), Blocks.GRINDSTONE);
+        add(blocks, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
+        add(blocks, base.offset(1, 2, -1), Blocks.HAY_BLOCK);
+        add(blocks, base.offset(-1, 1, 1), Blocks.BARREL);
+        return dims;
+    }
+
+    /** The carpentry: benches, a saw pit's worth of planks, stacked stock. */
+    private static int[] carpentry(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 5, 5, 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.CARPENTRY.get());
+        add(blocks, base.offset(-1, 1, -1), Blocks.CRAFTING_TABLE);
+        add(blocks, base.offset(1, 1, -1), Blocks.STRIPPED_OAK_LOG);
+        add(blocks, base.offset(1, 2, -1), Blocks.STRIPPED_OAK_LOG);
+        add(blocks, base.offset(-1, 1, 1), Blocks.OAK_PLANKS);
+        return dims;
+    }
+
+    /** The inn: the village's biggest roof, lanterns lit for the road. */
+    private static int[] inn(ServerLevel level, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(level, blocks, base, 7, 5, 3, Blocks.SPRUCE_PLANKS, Blocks.OAK_LOG);
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.INN.get());
+        add(blocks, base.offset(-2, 1, -1), Blocks.WOOL.white());
+        add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
+        add(blocks, base.offset(1, 1, -1), Blocks.BARREL);
+        add(blocks, base.offset(2, 1, -1), Blocks.BARREL);
+        add(blocks, base.offset(2, 1, 1), Blocks.CRAFTING_TABLE);
         return dims;
     }
 

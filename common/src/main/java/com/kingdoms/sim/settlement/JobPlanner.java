@@ -84,6 +84,8 @@ public final class JobPlanner {
             new ProfessionNeed(Profession.MINER,       1,           12,       55, "mine"),
             new ProfessionNeed(Profession.SMITH,       1,           14,       52, "smith"),
             new ProfessionNeed(Profession.SHEPHERD,    1,           16,       48, "animal_farm"),
+            new ProfessionNeed(Profession.MILLER,      1,           20,       46, "mill"),
+            new ProfessionNeed(Profession.CARPENTER,   1,           20,       44, "carpentry"),
             new ProfessionNeed(Profession.TRADER,      0,           15,       50)
     );
 

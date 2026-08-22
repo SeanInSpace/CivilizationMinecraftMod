@@ -671,6 +671,7 @@ public final class Settlement {
         advanceStage(ctx);
         planNextBuild(ctx);
         PerimeterPlanner.advance(this, ctx);
+        InnPlanner.advance(this, ctx);
         advanceBuildQueue(ctx);
         materializePending(ctx);
         FoodPlanner.advance(this, ctx);
@@ -875,6 +876,13 @@ public final class Settlement {
             return;
         }
         int able = ableBuilders();
+        // Pre-cut components from a working carpentry count as one more pair of
+        // hands on every site -- the discount FOUNDING.md promises, applied to
+        // the crew rather than the bill so one lever covers both fidelities.
+        if (able > 0 && countBuildings("kingdoms:carpentry") > 0
+                && JobPlanner.count(this, Profession.CARPENTER) > 0) {
+            able++;
+        }
         if (able == 0) {
             return;
         }

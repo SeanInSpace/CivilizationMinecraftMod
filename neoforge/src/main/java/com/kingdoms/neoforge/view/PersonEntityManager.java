@@ -1462,6 +1462,8 @@ public final class PersonEntityManager {
                     ? settlement.mineArea().centre()
                     : nearestBuilding(settlement, "mine", person.position());
             case SMITH -> nearestBuilding(settlement, "smith", person.position());
+            case MILLER -> nearestBuilding(settlement, "mill", person.position());
+            case CARPENTER -> nearestBuilding(settlement, "carpentry", person.position());
             case SHEPHERD -> nearestBuilding(settlement, "animal_farm", person.position());
             case GUARD -> patrolPost(settlement, person);
             // A pioneer's workplace is whatever the camp is doing: the build
