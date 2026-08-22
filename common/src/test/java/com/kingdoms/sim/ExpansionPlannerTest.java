@@ -11,6 +11,8 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.SettlementStage;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
@@ -48,6 +50,12 @@ class ExpansionPlannerTest {
         Settlement s = new Settlement(
                 new Settlement.Id(new UUID(42L, 43L)), "Parent", new SimPos(0, 64, 0), 64);
         s.setCatalogue(List.of(HOUSE));
+        // A chartered town: the hall stands and the dowry is banked, because
+        // expansion gates on both.
+        s.addBuilding(new Building("kingdoms:town_hall", new SimPos(0, 64, 5), 0, true));
+        s.stores().set(TownStores.WOOD, TownStores.FOUNDING_WOOD * 2);
+        s.stores().set(TownStores.STONE, TownStores.FOUNDING_STONE * 2);
+        s.stores().set(TownStores.FOOD, 400);
         for (int f = 0; f < 2; f++) {
             Household household = new Household(Household.Id.random(), "Family " + f);
             SimPos home = new SimPos(10 + f * 8, 64, 0);
@@ -63,6 +71,58 @@ class ExpansionPlannerTest {
         }
         kingdom.addSettlement(s);
         return s;
+    }
+
+    @Test
+    void noExpansionWithoutAStandingHall() {
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        // The same full town, but the hall never rose: no hall, no daughters.
+        Settlement parent = new Settlement(
+                Settlement.Id.random(), "Hall-less", new SimPos(0, 64, 0), 64);
+        parent.setCatalogue(List.of(HOUSE));
+        parent.stores().set(TownStores.WOOD, TownStores.FOUNDING_WOOD * 2);
+        parent.stores().set(TownStores.STONE, TownStores.FOUNDING_STONE * 2);
+        parent.stores().set(TownStores.FOOD, 400);
+        for (int f = 0; f < 2; f++) {
+            Household household = new Household(Household.Id.random(), "Family " + f);
+            SimPos home = new SimPos(10 + f * 8, 64, 0);
+            parent.addBuilding(new Building(HOUSE.id(), home, 0, true));
+            household.setHome(home);
+            for (int m = 0; m < 4; m++) {
+                Person person = new Person(
+                        Person.Id.random(), "P" + f + m, Profession.FARMER, home);
+                parent.addResident(person);
+                household.addMember(person.id());
+            }
+            parent.addHousehold(household);
+        }
+        kingdom.addSettlement(parent);
+
+        ExpansionPlanner.advance(kingdom, ctx());
+
+        assertEquals(1, kingdom.settlements().size(),
+                "a full town with no hall pours its people into the climb, not outward");
+    }
+
+    @Test
+    void aDaughterIsBornACampOfPioneersWithADowry() {
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        Settlement parent = fullSettlement(kingdom);
+        int parentWood = parent.woodStock();
+
+        ExpansionPlanner.advance(kingdom, ctx());
+
+        Settlement daughter = kingdom.settlements().stream()
+                .filter(s -> s != parent).findFirst().orElseThrow();
+        assertEquals(SettlementStage.CAMP, daughter.stage(),
+                "daughters live the founding ladder from the bottom");
+        assertTrue(daughter.residents().stream()
+                        .allMatch(r -> r.profession() == Profession.PIONEER),
+                "emigrants arrive as pioneers whatever their old papers said");
+        assertEquals(TownStores.FOUNDING_WOOD, daughter.woodStock(),
+                "the dowry timber arrives with them");
+        assertEquals(parentWood - TownStores.FOUNDING_WOOD, parent.woodStock(),
+                "and the parent actually paid it");
     }
 
     @Test

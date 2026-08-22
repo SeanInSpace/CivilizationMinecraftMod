@@ -191,15 +191,48 @@ and the progression is what should make them rarely fire.
 
 ## Order of work
 
-1. **Stage machine + programs** — the priority structure itself, hall moved to
-   TOWN, charter lands a CAMP of pioneers. This alone ends hall-first founding.
-2. **Camp content** — bunkhouse, hearth, cache; pioneer labour; foraging.
-3. **Perimeter v1 + sentry** — palisade, gates at path crossings, patrols.
-4. **Storehouse + player trade.**
-5. **Cottages + birth gating; the mill; carpentry; the inn.**
-6. **Hall as capstone; expansion gated; wall interface handed to the α-shape
-   work.**
+All six steps are built. What each one landed:
 
-Each step is playtestable on its own: the sim tests drive a founding through
-its stages headless and assert the day-range targets at default pacing, and
-the audit gains a stage line so a scripted run can watch a camp become a town.
+1. **Stage machine + programs** — DONE. `SettlementStage` + `StagePlanner`:
+   condition-gated advancement, per-stage programs, the hall gated to TOWN,
+   the charter lands a CAMP of pioneers, `laboursAs` carries generalists,
+   crystallization fills posts and never doubles them. Old saves load as TOWN.
+2. **Camp content** — DONE. Camp post (stage report on right-click), cache,
+   bunkhouse, hearth; foraging with the hand-to-mouth ceiling (half the fed
+   window, so berries never graduate a homestead); births gated on family
+   homes; `requestProducer` can retrain a pioneer, which is what lets a camp
+   bootstrap its own timber.
+3. **Perimeter v1 + sentry** — DONE. `Perimeter` (vertices/gates/laid) +
+   `PerimeterPlanner` (rectangle staking, paid raising) + `PerimeterLayer`
+   (posts, torches, fence gates in-world) + vertex patrols. Ring-aware siting
+   keeps civic buildings behind the wall; producers stay outriders.
+4. **Storehouse + player trade** — DONE. Donations in (logs, stone, bread, to
+   capacity), timber out (emeralds, above a reserve), full ledger on the post.
+5. **Cottages + birth gating; the mill; carpentry; the inn** — DONE. Couples
+   move out of the bunks as cottages rise; the mill grinds +50% from the same
+   harvest; carpentry adds a pair of hands to every crew; the inn's caravan
+   trades surplus bread for iron on a 48-step rhythm.
+6. **Hall as capstone; expansion gated** — DONE. TOWN's program is the hall;
+   expansion requires the hall standing AND the parent affording the founding
+   kit, which the parent now actually pays for (daughters no longer conjure
+   their stores). Daughters land as CAMPs of pioneers and climb the same
+   ladder.
+
+The 300-step pin (`StageProgressionTest.aCampLeftAloneClimbsTheWholeLadderToTown`)
+drives a charter party camp-to-TOWN headless: timber bootstrapped, streak fed,
+palisade closed and walked, cottages filled, hall standing.
+
+## The wall interface, for the α-shape work
+
+The concave wall in GOALS replaces exactly one method:
+`PerimeterPlanner.stake(Settlement)`. Everything downstream reads the
+`Perimeter` it returns — an ordered vertex loop (`vertices()`, which are also
+the patrol nodes), gate positions (`gates()`), and the ring walk
+(`ringPositions()`, the positions the layer stamps and the laying cursor
+counts). Persistence, paid raising, the closed flag, gate drawing, sentry
+patrol and ring-aware siting all work through that surface and need no
+changes. Two care points: keep vertices in walk order (the ring is drawn
+corner to corner), and keep gates ON the loop (gateways are recognised by
+proximity to ring positions). The α-wall is for settlements that can afford
+it — small villages keep the palisade, which is why the tiers share the
+interface instead of replacing it.

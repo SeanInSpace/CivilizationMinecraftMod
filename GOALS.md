@@ -15,16 +15,6 @@ than papered over.
 
 ## Open
 
-- [ ] **Fix the founding party — the staged progression.** Designed in full in
-      `FOUNDING.md`: camp → homestead → fortified → village → town, each stage
-      with its own build program and staffing program, advancing on conditions
-      rather than day counts. The hall moves to the last stage — no realistic
-      settlement starts by building a government — and the general
-      job-reassignment rework lives here as the pioneer: early settlers are
-      generalists, and professions crystallize as the stages demand them.
-      Order of work is in the doc; step 1 alone (the stage machine, hall to
-      TOWN, charter lands a camp of pioneers) ends hall-first founding.
-
 - [ ] **Fix digging time — it is currently too fast.** A block takes exactly the
       ticks vanilla gives a player with the right iron tool
       (`Excavation.digTicks`), and a whole crew digs in parallel, so a site
@@ -65,6 +55,11 @@ than papered over.
       final segmented curve to the wall-construction pipeline. A wall blueprint
       builds the defensive perimeter. **Advanced settlements only** — small
       villages and towns that cannot afford one do not get one.
+      **The seam is ready:** the founding work landed `Perimeter` (vertex loop,
+      gates, laying cursor) and everything downstream of it — persistence, paid
+      raising, gate drawing, sentry patrol, ring-aware siting. This wall
+      replaces exactly one method, `PerimeterPlanner.stake`; the handoff notes
+      live in `FOUNDING.md` under "The wall interface".
 
 - [ ] **A second culture, to prove the hook earns its keep.** The claim is that
       a second culture is a table entry rather than new code. Known to be false
@@ -122,6 +117,20 @@ ground.
 ---
 
 ## Done
+
+- [x] **The founding party — the staged progression.** All six steps of
+      `FOUNDING.md` are built: camp → homestead → fortified → village → town,
+      condition-gated, hall last. Pioneers labour as generalists below VILLAGE
+      and crystallize as the stages demand them; the camp forages under a
+      hand-to-mouth ceiling; the palisade closes and a sentry walks its
+      vertices; the storehouse trades with the player; cottages unlock births;
+      mill, carpentry and inn each earn their keep; expansion gates on the
+      hall and the parent pays the daughter's founding kit — daughters land as
+      camps of pioneers and climb the same ladder. Pinned end to end by
+      `StageProgressionTest.aCampLeftAloneClimbsTheWholeLadderToTown`. The
+      perimeter's α-wall handoff is documented in `FOUNDING.md` ("The wall
+      interface"): the concave wall replaces `PerimeterPlanner.stake` and
+      nothing else.
 
 *Short on purpose. Everything from the milestone-complete era has been dropped —
 it was proven by the endurance and client playtests and it lives in the git

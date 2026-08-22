@@ -3,7 +3,11 @@ package com.kingdoms.sim.kingdom;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
+import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.FoodPlanner;
+import com.kingdoms.sim.settlement.SettlementStage;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.world.SettlementNames;
 import com.kingdoms.sim.world.SimContext;
 
@@ -55,6 +59,13 @@ public final class ExpansionPlanner {
             if (settlement.population() < ctx.settings().maxSettlementPopulation()) {
                 continue;
             }
+            // The hall is the expansion gate: only a chartered TOWN with its
+            // hall actually standing sends people out. A settlement still
+            // climbing the founding ladder pours its people into the climb.
+            if (!settlement.stage().atLeast(SettlementStage.TOWN)
+                    || settlement.countBuildings("kingdoms:town_hall") < 1) {
+                continue;
+            }
             if (!allOthersEstablished(kingdom, settlement)) {
                 continue;
             }
@@ -77,6 +88,16 @@ public final class ExpansionPlanner {
         if (party.isEmpty()) {
             return;
         }
+        // The dowry: the same kit a player's charter grants, paid by the
+        // parent. A town that cannot outfit its emigrants keeps them until it
+        // can -- nobody is sent into the wilderness with empty hands, which is
+        // how the very first founding party nearly died.
+        int provisions = FoodPlanner.STARTING_PROVISIONS;
+        if (!parent.stores().has(TownStores.WOOD, TownStores.FOUNDING_WOOD)
+                || !parent.stores().has(TownStores.STONE, TownStores.FOUNDING_STONE)
+                || !parent.stores().has(TownStores.FOOD, provisions)) {
+            return;
+        }
 
         SimPos flat = siteFor(kingdom, parent);
         int y = ctx.bridge().surfaceHeight(flat);
@@ -85,11 +106,27 @@ public final class ExpansionPlanner {
         Settlement daughter = new Settlement(
                 Settlement.Id.random(), SettlementNames.forPosition(centre), centre, INITIAL_CLAIM);
         daughter.setCatalogue(parent.catalogue());
+        // Daughters live the same founding the charter does: they arrive as a
+        // camp of pioneers and earn their stages, hall last. Their old trades
+        // are re-earned as the camp crystallizes them -- a smith on a bare
+        // hillside is a pioneer whatever their papers say.
+        daughter.setStage(SettlementStage.CAMP);
+
+        // The Settlement constructor already banked the daughter's kit -- every
+        // settlement bootstraps with one. What changes here is who pays for
+        // it: the parent's ledger loses exactly what the daughter's gained,
+        // so expansion stops conjuring resources out of the founding itself.
+        parent.stores().take(TownStores.WOOD, TownStores.FOUNDING_WOOD);
+        parent.stores().take(TownStores.STONE, TownStores.FOUNDING_STONE);
+        parent.stores().take(TownStores.FOOD, provisions);
 
         int emigrants = 0;
         for (Household household : party) {
             emigrants += household.size();
             moveHousehold(parent, daughter, household, centre);
+        }
+        for (Person emigrant : daughter.residents()) {
+            emigrant.setProfession(Profession.PIONEER);
         }
         kingdom.addSettlement(daughter);
 
