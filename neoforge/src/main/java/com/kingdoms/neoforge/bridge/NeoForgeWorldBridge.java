@@ -3,6 +3,9 @@ package com.kingdoms.neoforge.bridge;
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildPlanner;
+import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.platform.WorldBridge;
 import net.minecraft.core.BlockPos;
@@ -101,8 +104,61 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      */
     private static final int MAX_SLOPE = 4;
 
-    /** Columns sampled across a plot. The corners and centre catch what matters. */
+    /** Columns sampled for slope across a plot. The corners and centre catch what matters. */
     private static final int SAMPLE_STEP = 2;
+
+    /** Half the widest plot the catalogue asks for, which is the animal farm's. */
+    private static final int WIDEST_PLOT_HALF = BuildCatalogue.DEFAULT.stream()
+            .mapToInt(BuildingType::plotSpan)
+            .max()
+            .orElse(BuildPlanner.DEFAULT_PLOT_SPAN) / 2;
+
+    /**
+     * One block further out again, for the bank a plot does not stand on.
+     *
+     * <p>A shore column can be perfectly dry and still flood the room, because the
+     * floor course is cut one BELOW the grade it was measured at. Cut level with a
+     * lake that starts just outside the walls and the lake is now above the floor
+     * with nothing in between.
+     */
+    private static final int SHORE_MARGIN = 1;
+
+    /**
+     * Half-width of ground actually read for standing water.
+     *
+     * <p>Callers only ever ask for {@link BuildPlanner#PLOT_PROBE_RADIUS} — six —
+     * because a plot is judged before the building that goes on it has been
+     * chosen, and the signature carries no blueprint id to look a real span up
+     * with. So the widest span any of them could turn out to be is assumed here
+     * instead, plus the {@link BlueprintPlacer#APRON_MARGIN} cleared beyond the
+     * walls. A farm was passed on a thirteen-wide window and then built seventeen
+     * wide into the lake beside it: 363 blocks of standing water in the field.
+     *
+     * <p>Deliberately NOT applied to the slope test, which keeps the radius it was
+     * given. Natural ground climbs more than four courses across twenty-seven
+     * blocks as a matter of course, so widening that would refuse very nearly
+     * every site — and a settlement that can find no site at all gives up looking
+     * and takes the next ring slot unexamined, which is how it got into the lake
+     * to begin with.
+     *
+     * <p>Reaching this far does occasionally see a standing farm's own irrigation
+     * channel from the plot next door and refuse ground that is perfectly dry.
+     * That costs the settlement one of its {@link BuildPlanner#PLOT_ATTEMPTS}
+     * tries and no more — a refused candidate does not consume a ring slot — and
+     * is the side to err on: a plot wrongly refused is invisible, a building
+     * standing in a lake is the first thing a player sees.
+     */
+    private static final int WATER_REACH =
+            WIDEST_PLOT_HALF + BlueprintPlacer.APRON_MARGIN + SHORE_MARGIN;
+
+    /**
+     * How far under the measured ground a column is still read for fluid.
+     *
+     * <p>The floor course replaces the topsoil and the foundation goes in beneath
+     * it, so water lying a course or two under a dry-looking bank is inside the
+     * building the moment the site is dug.
+     */
+    private static final int WATER_UNDERCUT = 2;
 
     @Override
     public boolean isSiteSuitable(SimPos plot, int radius) {
@@ -110,7 +166,72 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         if (!level.isLoaded(centre)) {
             return true;   // nothing to judge on; the real survey happens later
         }
+        // Water first and on its own terms: it is judged across the whole span a
+        // building could occupy, where slope is only judged across the plot the
+        // caller named. A town that builds in a lake looks like a bug even when
+        // it is working.
+        if (holdsStandingFluid(plot, Math.max(radius, WATER_REACH))) {
+            return false;
+        }
+        return slopeWithin(plot, radius);
+    }
 
+    /**
+     * Whether any fluid stands in the ground a building here would take up.
+     *
+     * <p>Every column, not every second one. Height is a smooth field and samples
+     * honestly; water does not, and a step of two stepped clean over inlets a
+     * block wide and reported the plot dry.
+     *
+     * <p>Unloaded columns are still passed over rather than refused. That optimism
+     * is load-bearing — an unwatched town has to be able to lay itself out at all
+     * — and it is safe because {@code Settlement} asks again the moment the chunk
+     * is real and moves the building before a block of it is drawn.
+     */
+    private boolean holdsStandingFluid(SimPos plot, int reach) {
+        for (int dx = -reach; dx <= reach; dx++) {
+            for (int dz = -reach; dz <= reach; dz++) {
+                int x = plot.x() + dx;
+                int z = plot.z() + dz;
+                if (!level.isLoaded(new BlockPos(x, plot.y(), z))) {
+                    continue;
+                }
+                if (columnHoldsFluid(x, z)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Fluid anywhere between the top of a column and the ground under it.
+     *
+     * <p>One probe at the surface is not enough by itself.
+     * {@link BlueprintPlacer#groundLevel} walks down through water to the bed, so a
+     * plot in a lake surveys its floor at the bottom of the lake and every block
+     * of water above that ends up indoors. A swamp is worse still: the heightmap
+     * stops on the tree trunk, which is dry, with the water two blocks beneath it.
+     */
+    private boolean columnHoldsFluid(int x, int z) {
+        int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        // Open water is settled in a single read, which is worth having: this runs
+        // for every column of every candidate plot a settlement considers.
+        if (!level.getFluidState(new BlockPos(x, surface - 1, z)).isEmpty()) {
+            return true;
+        }
+        int deepest = Math.max(level.getMinY(),
+                BlueprintPlacer.groundLevel(level, x, z) - 1 - WATER_UNDERCUT);
+        for (int y = surface - 2; y >= deepest; y--) {
+            if (!level.getFluidState(new BlockPos(x, y, z)).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether the plot is level enough that a shelf can be cut into it. */
+    private boolean slopeWithin(SimPos plot, int radius) {
         int lowest = Integer.MAX_VALUE;
         int highest = Integer.MIN_VALUE;
         for (int dx = -radius; dx <= radius; dx += SAMPLE_STEP) {
@@ -124,13 +245,6 @@ public final class NeoForgeWorldBridge implements WorldBridge {
                 int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 lowest = Math.min(lowest, surface);
                 highest = Math.max(highest, surface);
-
-                // Standing water or lava anywhere under the footprint. A town that
-                // builds in a lake looks like a bug even when it is working.
-                BlockPos ground = new BlockPos(x, surface - 1, z);
-                if (!level.getFluidState(ground).isEmpty()) {
-                    return false;
-                }
             }
         }
         if (lowest == Integer.MAX_VALUE) {
