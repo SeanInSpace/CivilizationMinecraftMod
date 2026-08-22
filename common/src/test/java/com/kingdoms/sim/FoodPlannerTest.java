@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -262,17 +263,60 @@ class FoodPlannerTest {
     }
 
     @Test
-    void theWeakStopWorking() {
+    void theWeakStopWorkingWhileTheTownCanStillFeedThem() {
+        // A full granary, so this is one hungry person and not a starving town.
+        // Under those conditions the weakness gate stands: somebody who has not
+        // eaten is in no state to work a field.
+        Settlement s = settlement();
+        s.setFoodStock(100);
+        addBuilding(s, FARM, 0);
+        Person farmer = add(s, Profession.FARMER);
+        farmer.setHunger(Person.HUNGER_WEAK);
+
+        assertFalse(s.isStarving(), "a town with a hundred loaves is not starving");
+
+        FoodPlanner.advance(s, CTX);
+
+        assertEquals(0, FoodPlanner.farmStock(s),
+                "a farmer too weak to work brings in nothing while there is food to be had");
+    }
+
+    @Test
+    void theWeakKeepFarmingOnceTheTownIsStarving() {
+        // The same weak farmer, in a town with nothing left. The gate above is
+        // exactly how a settlement dies — weak hands bring in no food, so more
+        // hands go weak — so starvation lifts it and the hungry go and grow
+        // their own dinner.
         Settlement s = settlement();
         s.setFoodStock(0);
         addBuilding(s, FARM, 0);
         Person farmer = add(s, Profession.FARMER);
         farmer.setHunger(Person.HUNGER_WEAK);
 
+        assertTrue(s.isStarving(), "no food anywhere in town is what starving means");
+
         FoodPlanner.advance(s, CTX);
 
-        assertEquals(0, s.foodStock() + FoodPlanner.farmStock(s),
-                "a farmer too weak to work brings in nothing — hunger compounds itself");
+        assertTrue(FoodPlanner.farmStock(s) > 0,
+                "the hungry must be allowed to feed themselves, or hunger feeds on itself");
+    }
+
+    @Test
+    void aTownIsOnlyStarvingWhenTheFoodIsGoneFromEverywhere() {
+        // The predicate has to be rare enough to mean something. An empty
+        // granary is an ordinary afternoon if the stalls and the larders are
+        // full — the town is starving only when there is nothing left anywhere.
+        Settlement s = settlement();
+        s.setFoodStock(0);
+        Building market = addBuilding(s, MARKET, 0);
+        add(s, Profession.IDLER);
+        add(s, Profession.IDLER);
+
+        market.setFoodStored(40);
+        assertFalse(s.isStarving(), "a stocked market is food the town still has");
+
+        market.setFoodStored(0);
+        assertTrue(s.isStarving(), "and when the stall empties too, it does not");
     }
 
     @Test

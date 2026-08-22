@@ -23,9 +23,10 @@ import java.util.Optional;
  *       trade. One per step keeps changes legible, like one build at a time.</li>
  * </ul>
  *
- * <p>Only {@link Profession#IDLER} is ever retrained. A farmer is never yanked
- * into guard duty — settlements correct their mix through newborns and idlers,
- * not by upending existing lives.
+ * <p>{@link Profession#IDLER} goes first, and a trade at its desired count is
+ * never drained — settlements correct their mix through newborns, idlers and
+ * genuine surplus, not by upending existing lives. A starving town is allowed to
+ * upend one: see {@link #retrainOne}.
  */
 public final class JobPlanner {
 
@@ -86,6 +87,18 @@ public final class JobPlanner {
             new ProfessionNeed(Profession.TRADER,      0,           15,       50)
     );
 
+    /**
+     * Farmers a starving town insists on, whatever the staffing table says.
+     *
+     * <p>One, because one is the whole difference. A single field hand brings in
+     * a loaf a step and a loaf feeds somebody for fifteen, so one farmer carries
+     * a founding party comfortably — and the party that died in the playtest had
+     * none, because the table wants no farmers at all below five residents and
+     * the charter lands four. Everything past the first is still the table's
+     * business.
+     */
+    public static final int FARMERS_WHILE_STARVING = 1;
+
     private JobPlanner() {
     }
 
@@ -129,9 +142,22 @@ public final class JobPlanner {
      * no idlers, and idler-only retraining left it permanently defenseless (found
      * in the first live playtest). Now its surplus farmers take up the sword.
      *
+     * <p>A starving town is the exception to all of it. The table's shortfall is
+     * the wrong question when the answer takes five residents to become yes, so
+     * the crisis lane below asks a different one — is anybody farming? — and
+     * makes somebody a farmer if the answer is no.
+     *
      * @return true if somebody changed jobs
      */
     public static boolean retrainOne(Settlement settlement) {
+        if (settlement.isStarving()
+                && count(settlement, Profession.FARMER) < FARMERS_WHILE_STARVING) {
+            Person hand = spareHandsForTheFields(settlement);
+            if (hand != null) {
+                hand.setProfession(Profession.FARMER);
+                return true;
+            }
+        }
         Optional<Profession> needed = mostNeeded(settlement);
         if (needed.isEmpty()) {
             return false;
@@ -145,6 +171,47 @@ public final class JobPlanner {
         }
         donor.setProfession(needed.get());
         return true;
+    }
+
+    /**
+     * Whoever can be spared to farm right now.
+     *
+     * <p>Idle hands first, then the trade with the most people in it. Nobody is
+     * asked whether they are too weak, because the hungry are exactly who has to
+     * feed themselves here — and the last builder is left where they are, since
+     * they are the only person who can raise the farm this is all for.
+     */
+    private static Person spareHandsForTheFields(Settlement settlement) {
+        Person idler = settlement.residents().stream()
+                .filter(p -> p.profession() == Profession.IDLER)
+                .findFirst()
+                .orElse(null);
+        if (idler != null) {
+            return idler;
+        }
+        Profession fullest = null;
+        int most = 0;
+        for (Profession trade : Profession.values()) {
+            if (trade == Profession.FARMER || trade == Profession.IDLER) {
+                continue;
+            }
+            int heads = count(settlement, trade);
+            if (trade == Profession.BUILDER && heads <= 1) {
+                continue;
+            }
+            if (heads > most) {
+                most = heads;
+                fullest = trade;
+            }
+        }
+        if (fullest == null) {
+            return null;
+        }
+        Profession chosen = fullest;
+        return settlement.residents().stream()
+                .filter(p -> p.profession() == chosen)
+                .findFirst()
+                .orElse(null);
     }
 
     private static Person biggestSurplusDonor(Settlement settlement) {

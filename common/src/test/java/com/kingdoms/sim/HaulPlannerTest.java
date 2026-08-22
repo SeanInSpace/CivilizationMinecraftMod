@@ -154,7 +154,9 @@ class HaulPlannerTest {
     }
 
     @Test
-    void aStarvingCarrierPutsTheLoadBack() {
+    void aWeakCarrierPutsTheLoadBackWhileTheTownHasFood() {
+        // The town's granary is full: this is one hungry carrier, not a famine,
+        // and somebody who cannot stand up has no business on the road.
         Settlement s = settlement();
         Building stall = new Building(MARKET.id(), new SimPos(20, 64, 0), 0, true);
         stall.setFoodStored(30);
@@ -172,6 +174,32 @@ class HaulPlannerTest {
 
         assertNull(carrier.haul(), "too weak to finish the errand");
         assertEquals(30, stall.foodStored(), "and the food is returned, never conjured away");
+    }
+
+    @Test
+    void aLoadOfGrainIsNotPutBackDownInTheMiddleOfAFamine() {
+        // Hunger rises on everybody at once, so in a starving town every carrier
+        // crosses the weakness line within a step or two of every other. Each of
+        // them setting their load back down at the source is how a town with food
+        // in its fields starves anyway.
+        Settlement s = settlement();
+        s.setFoodStock(0);
+        Building stall = new Building(MARKET.id(), new SimPos(20, 64, 0), 0, true);
+        stall.setFoodStored(4);
+        s.addBuilding(stall);
+        Person carrier = person(s, new SimPos(20, 64, 0));
+        carrier.setHaul(new HaulTask(HaulTask.Store.MARKET, stall.origin(),
+                HaulTask.Store.GRANARY, new SimPos(0, 64, 0), 4));
+
+        HaulPlanner.advance(s, CTX);
+        assertTrue(carrier.haul().isLoaded(), "the last of the town's food is on their back");
+        assertTrue(s.isStarving());
+
+        carrier.setHunger(Person.HUNGER_WEAK);
+        HaulPlanner.advance(s, CTX);
+
+        assertNotNull(carrier.haul(), "the errand carries on; somebody has to move the food");
+        assertEquals(0, stall.foodStored(), "and it stays on their back rather than going back");
     }
 
     @Test

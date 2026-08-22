@@ -91,15 +91,106 @@ public final class FoodPlanner {
     /** Births need this many steps of food banked per resident (including the newborn). */
     public static final int BIRTH_FOOD_BUFFER_STEPS = 5;
 
+    /**
+     * Loaves per resident, counted everywhere in town, below which the place is
+     * starving.
+     *
+     * <p>Two is about thirty steps of eating with nothing coming in — late
+     * enough that an ordinary lean spell is not a crisis, early enough that the
+     * fields can still be got going before anybody is on the death clock. A town
+     * under this is not economising, it is running out.
+     */
+    public static final int CRISIS_FOOD_PER_RESIDENT = 2;
+
+    /** What a starving town raises ahead of everything else, in the order it wants them. */
+    public static final List<String> SURVIVAL_ROLES = List.of("farm", "granary");
+
     private FoodPlanner() {
+    }
+
+    // --- the crisis ---
+
+    /**
+     * Whether this town is starving: the state in which its ordinary rules stop
+     * serving it.
+     *
+     * <p>Worked out from hunger and the larder each time it is asked, and
+     * deliberately not a saved field — a crisis is a fact about the town right
+     * now, and one that outlived a reload without still being true would be
+     * worse than having none at all.
+     *
+     * <p>The town that died in a playtest is the specification. It had nobody
+     * farming, a build queue frozen on a hall it could not pay for, and
+     * thirty-two loaves; every rule that produced that was individually
+     * sensible. This is the flag that suspends them.
+     */
+    public static boolean isStarving(Settlement settlement) {
+        int mouths = settlement.population();
+        if (mouths == 0) {
+            return false;
+        }
+        for (Person person : settlement.residents()) {
+            if (person.starvingSteps() > 0) {
+                return true;   // somebody is already on the death clock
+            }
+        }
+        int floor = mouths * CRISIS_FOOD_PER_RESIDENT;
+        // The granary settles it on its own for any town with stock in it, which
+        // keeps the fields, the stalls and every family's larder out of the
+        // answer for every town that is not in trouble.
+        return settlement.foodStock() < floor && totalFood(settlement) < floor;
+    }
+
+    /** Everything edible the town owns, wherever it happens to be sitting. */
+    public static int totalFood(Settlement settlement) {
+        return settlement.foodStock() + farmStock(settlement) + marketStock(settlement)
+                + pantryTotal(settlement);
+    }
+
+    /**
+     * Whether hunger keeps this person from working.
+     *
+     * <p>It normally does, and should — the weak stop farming, hauling and
+     * building. That rule is also precisely how a town dies: weak hands bring in
+     * no food, so more hands go weak. While the town is starving it is suspended,
+     * and the hungry are allowed to go and fetch their own dinner.
+     */
+    static boolean heldBackByHunger(Person person, boolean starving) {
+        return person.isTooWeakToWork() && !starving;
+    }
+
+    /**
+     * Whether a blueprint id names this role.
+     *
+     * <p>Compares the last segment rather than the whole tail, so an animal farm
+     * is not mistaken for the thing that grows the town's bread.
+     */
+    public static boolean namesRole(String blueprintId, String role) {
+        String base = BuildPlanner.baseIdOf(blueprintId);
+        int cut = Math.max(base.lastIndexOf(':'), base.lastIndexOf('/'));
+        return base.substring(cut + 1).equals(role);
+    }
+
+    /** Whether this is one of the buildings a starving town puts before all others. */
+    public static boolean isSurvivalBuilding(String blueprintId) {
+        for (String role : SURVIVAL_ROLES) {
+            if (namesRole(blueprintId, role)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** One step of the chain, source to mouth, then hunger and its consequences. */
     public static void advance(Settlement settlement, SimContext ctx) {
         int poolBefore = settlement.foodStock();
+        // Asked once, so the whole step agrees about what sort of day the town is
+        // having. A harvest that lifts it back over the floor must not leave the
+        // fields reading one answer and the haulers behind them reading another.
+        boolean starving = settlement.isStarving();
 
-        growHarvest(settlement, ctx);
-        assignHauls(settlement);
+        growHarvest(settlement, ctx, starving);
+        assignHauls(settlement, starving);
         eatAndHunger(settlement, ctx);
 
         if (poolBefore > 0 && settlement.foodStock() == 0) {
@@ -114,13 +205,13 @@ public final class FoodPlanner {
      * Hands errands to anyone free to run them. Nothing moves here — the goods
      * travel on the hauler's back in {@link HaulPlanner}.
      */
-    private static void assignHauls(Settlement settlement) {
+    private static void assignHauls(Settlement settlement, boolean starving) {
         int granarySpace = granaryCapacity(settlement) - settlement.foodStock();
         int granaryStock = settlement.foodStock();
         SimPos granary = granaryPos(settlement);
 
         for (Person person : settlement.residents()) {
-            if (person.haul() != null || person.isTooWeakToWork()) {
+            if (person.haul() != null || heldBackByHunger(person, starving)) {
                 continue;
             }
             switch (person.profession()) {
@@ -150,11 +241,11 @@ public final class FoodPlanner {
                 }
             }
         }
-        assignPantryRuns(settlement, granary);
+        assignPantryRuns(settlement, granary, starving);
     }
 
     /** One member of each hungry household goes shopping — market first, granary otherwise. */
-    private static void assignPantryRuns(Settlement settlement, SimPos granary) {
+    private static void assignPantryRuns(Settlement settlement, SimPos granary, boolean starving) {
         for (Household household : settlement.households()) {
             if (household.size() == 0 || !household.isHoused()) {
                 continue;
@@ -166,7 +257,7 @@ public final class FoodPlanner {
             if (anyMemberHauling(settlement, household)) {
                 continue;
             }
-            Person shopper = freeMember(settlement, household);
+            Person shopper = freeMember(settlement, household, starving);
             if (shopper == null) {
                 continue;
             }
@@ -194,11 +285,12 @@ public final class FoodPlanner {
     }
 
     /** Somebody in the family with free hands — never a builder mid-course, never a guard. */
-    private static Person freeMember(Settlement settlement, Household household) {
+    private static Person freeMember(Settlement settlement, Household household, boolean starving) {
         Person fallback = null;
         for (Person.Id id : household.members()) {
             Person member = settlement.resident(id);
-            if (member == null || member.haul() != null || member.isTooWeakToWork()) {
+            if (member == null || member.haul() != null
+                    || heldBackByHunger(member, starving)) {
                 continue;
             }
             if (member.profession() == Profession.IDLER) {
@@ -309,13 +401,12 @@ public final class FoodPlanner {
      * have not managed a real harvest in {@link #WATCHED_HARVEST_GRACE_STEPS},
      * because being watched must never starve a town.
      */
-    private static void growHarvest(Settlement settlement, SimContext ctx) {
+    private static void growHarvest(Settlement settlement, SimContext ctx, boolean starving) {
         List<Building> farms = buildingsOf(settlement, "farm");
         if (farms.isEmpty()) {
             return;
         }
-        int healthyFarmers = countHealthy(settlement, Profession.FARMER);
-        int working = Math.min(healthyFarmers, farms.size() * FARMERS_PER_FARM);
+        int working = Math.min(countFarmHands(settlement, starving), farms.size() * FARMERS_PER_FARM);
         int harvest = working * FOOD_PER_FARMER_PER_STEP;
         for (int i = 0; harvest > 0 && i < farms.size() * FARM_STORE_CAP; i++) {
             Building farm = farms.get(i % farms.size());
@@ -443,9 +534,18 @@ public final class FoodPlanner {
         return settlement.households().stream().mapToInt(Household::pantry).sum();
     }
 
-    private static int countHealthy(Settlement settlement, Profession profession) {
+    /**
+     * Farmers who will actually go out to the rows.
+     *
+     * <p>Hunger takes people off the fields, which is the rule that turns a bad
+     * season into a death spiral: fewer hands, less food, more weak hands. A
+     * starving town gets its farmers back, because nobody else is going to feed
+     * them.
+     */
+    private static int countFarmHands(Settlement settlement, boolean starving) {
         return (int) settlement.residents().stream()
-                .filter(p -> p.profession() == profession && !p.isTooWeakToWork())
+                .filter(p -> p.profession() == Profession.FARMER
+                        && !heldBackByHunger(p, starving))
                 .count();
     }
 

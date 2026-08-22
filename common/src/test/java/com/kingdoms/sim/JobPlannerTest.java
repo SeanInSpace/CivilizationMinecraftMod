@@ -53,6 +53,7 @@ class JobPlannerTest {
         add(s, Profession.FARMER, 1);   // wants 5/5 = 1
         add(s, Profession.GUARD, 2);    // wants 5/8 = 0 — surplus is fine
 
+        assertFalse(s.isStarving(), "provisioned, so the staffing table has the last word");
         assertEquals(Optional.empty(), JobPlanner.mostNeeded(s));
     }
 
@@ -63,6 +64,9 @@ class JobPlannerTest {
         add(s, Profession.IDLER, 2);
         // Population 10: builders in surplus, one guard wanted (priority 80),
         // two farmers wanted (priority 70). Idlers go first.
+        // A founding party's provisions are still in the granary, so nothing
+        // here is the crisis lane speaking.
+        assertFalse(s.isStarving(), "a provisioned town retrains by the table alone");
 
         assertTrue(JobPlanner.retrainOne(s));
         assertEquals(1, JobPlanner.count(s, Profession.GUARD), "guard outranks farmer");
@@ -105,6 +109,66 @@ class JobPlannerTest {
         assertTrue(JobPlanner.retrainOne(s));
         assertEquals(15, JobPlanner.count(s, Profession.FARMER));
         assertEquals(1, JobPlanner.count(s, Profession.BUILDER), "builders are the top shortfall");
+    }
+
+    // --- when the town is starving ---
+
+    @Test
+    void afoundingPartyPutsSomebodyInTheFieldsRatherThanStarve() {
+        // The charter that died: four settlers, two of them idle, and a staffing
+        // table that wants no farmers at all below five residents. Nought plus
+        // four-fifths is nought, so the shortfall is nought, so a farmer was
+        // unreachable at any priority and the idlers stayed idle until everyone
+        // was dead.
+        Settlement s = settlement();
+        add(s, Profession.BUILDER, 2);
+        add(s, Profession.IDLER, 2);
+        s.setFoodStock(0);
+
+        assertEquals(Optional.empty(), JobPlanner.mostNeeded(s),
+                "the table itself still wants nobody — that is the whole problem");
+        assertTrue(s.isStarving());
+
+        assertTrue(JobPlanner.retrainOne(s), "and the town staffs its fields anyway");
+        assertEquals(1, JobPlanner.count(s, Profession.FARMER));
+        assertEquals(1, JobPlanner.count(s, Profession.IDLER), "an idler went, not a builder");
+    }
+
+    @Test
+    void hungerIsNoBarToTakingUpTheHoe() {
+        // Everyone is past the point where they would normally stop working.
+        // Somebody still has to farm, because nobody else is coming.
+        Settlement s = settlement();
+        add(s, Profession.GUARD, 3);
+        s.setFoodStock(0);
+        s.residents().forEach(p -> p.setHunger(Person.HUNGER_SEVERE));
+
+        assertTrue(JobPlanner.retrainOne(s));
+        assertEquals(1, JobPlanner.count(s, Profession.FARMER),
+                "the weakness gate is exactly what has to give here");
+    }
+
+    @Test
+    void theLastBuilderIsLeftToBuildTheFarm() {
+        Settlement s = settlement();
+        add(s, Profession.BUILDER, 1);
+        s.setFoodStock(0);
+
+        assertFalse(JobPlanner.retrainOne(s),
+                "taking the only builder would leave nobody to raise the field they need");
+        assertEquals(1, JobPlanner.count(s, Profession.BUILDER));
+    }
+
+    @Test
+    void onceSomebodyFarmsTheCrisisLaneStandsDown() {
+        Settlement s = settlement();
+        add(s, Profession.FARMER, 1);
+        add(s, Profession.BUILDER, 3);
+        s.setFoodStock(0);
+
+        assertFalse(JobPlanner.retrainOne(s),
+                "one field hand is the whole ask; the table decides the rest");
+        assertEquals(1, JobPlanner.count(s, Profession.FARMER));
     }
 
     @Test

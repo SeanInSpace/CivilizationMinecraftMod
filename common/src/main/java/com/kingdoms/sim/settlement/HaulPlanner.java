@@ -43,6 +43,7 @@ public final class HaulPlanner {
     }
 
     public static void advance(Settlement settlement, SimContext ctx) {
+        boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             HaulTask haul = person.haul();
             if (haul == null) {
@@ -50,7 +51,12 @@ public final class HaulPlanner {
             }
             // Too hungry to carry: drop the errand, keeping whatever is on their
             // back so the food is not conjured away.
-            if (person.isTooWeakToWork()) {
+            //
+            // Not while the town is starving, though. Hunger rises on everybody
+            // at once, so every hauler crosses the weakness line within a step or
+            // two of every other — and a town whose carriers all put their grain
+            // back down at the farm gate on the same afternoon never eats again.
+            if (FoodPlanner.heldBackByHunger(person, starving)) {
                 abandon(settlement, person, haul);
                 continue;
             }
