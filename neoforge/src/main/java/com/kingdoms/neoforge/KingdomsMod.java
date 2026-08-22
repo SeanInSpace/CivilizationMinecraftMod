@@ -31,7 +31,9 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -96,6 +98,12 @@ public final class KingdomsMod {
         MANAGERS.values().forEach(PersonEntityManager::releaseAll);
         MANAGERS.clear();
         SIMULATIONS.clear();
+        // The audit's memories outlive the world they describe. Kept across a
+        // quit to the title screen, a stale fingerprint swallows the next
+        // session's first report of a fault that was already standing — which
+        // is the one report a scripted run reads.
+        AUDIT_SEEN.clear();
+        TownAuditor.forget();
     }
 
     /** Our own tick count — the level clock is not trusted for cadence (it can freeze). */
@@ -129,7 +137,7 @@ public final class KingdomsMod {
             manager.tickDigging(tickCounter);
         }
         if (tickCounter % AUDIT_INTERVAL_TICKS == 0 && KingdomsConfig.debugCommandsEnabled()) {
-            auditLoadedTowns();
+            auditTowns();
         }
     }
 
@@ -151,30 +159,41 @@ public final class KingdomsMod {
     /** A minute between sweeps; the audit reads a lot of chunk state. */
     private static final int AUDIT_INTERVAL_TICKS = 1200;
 
-    /** What each settlement's faults looked like last sweep, to keep the log quiet. */
+    /** What each settlement's building faults looked like last sweep, to keep the log quiet. */
     private static final Map<UUID, Integer> AUDIT_SEEN = new HashMap<>();
 
     /**
-     * Sweeps every loaded town for geometry faults and logs what changed.
+     * Sweeps every town for distress and geometry faults, and logs what it finds.
      *
      * <p>This is the harness's eyes. Every fault the auditor knows was found by a
      * person walking through a town, because nothing in a log betrayed it; this
      * sweep writes those same observations into the log, where a scripted run can
-     * grep them. Debug-gated, and a settlement is only reported when its fault
-     * list changes — a standing fault does not get to fill the log by standing.
+     * grep them. Debug-gated.
+     *
+     * <p>Three kinds of line on two cadences, because they answer different
+     * questions. Vitals go out every sweep: they are a trend, and a trend needs
+     * every reading. Building faults go out only when the fault list changes — a
+     * crooked wall does not get to fill the log by standing still. Town faults go
+     * out every sweep like the vitals, because a famine standing still <em>is</em>
+     * the news, and deduplicating it would silence it exactly while the town was
+     * dying fastest.
      */
-    private static void auditLoadedTowns() {
+    private static void auditTowns() {
         for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
             for (var kingdom : entry.getValue().kingdoms()) {
                 for (var settlement : kingdom.settlements()) {
-                    if (TownAuditor.visibleCount(entry.getKey(), settlement) == 0) {
-                        continue;
-                    }
+                    // No skipping a town with nothing loaded. Geometry needs
+                    // chunks and is skipped building by building inside the
+                    // auditor, but hunger and stores are pure simulation state —
+                    // and an unwatched town is precisely the one that starves
+                    // quietly, so the guard that used to stand here blinded the
+                    // log to every settlement it most needed to describe.
+                    int seen = TownAuditor.visibleCount(entry.getKey(), settlement);
                     var faults = TownAuditor.audit(entry.getKey(), settlement);
-                    // Vitals every sweep, faults only on change. A town dies of
-                    // hunger in a handful of minutes, which is longer than any
-                    // watched playtest and shorter than a player's attention —
-                    // this line is what lets a scripted run see it coming.
+                    // A town dies of hunger in a handful of minutes, which is
+                    // longer than any watched playtest and shorter than a
+                    // player's attention — this line is what lets a scripted run
+                    // see it coming.
                     int worstHunger = settlement.residents().stream()
                             .mapToInt(p -> p.hunger()).max().orElse(0);
                     long hauls = settlement.residents().stream()
@@ -196,21 +215,58 @@ public final class KingdomsMod {
                     int pantries = settlement.households().stream()
                             .mapToInt(h -> h.pantry()).sum();
                     int total = settlement.foodStock() + fields + stalls + pantries;
+                    // The verdict, judged on the very figures printed beside it,
+                    // and the reserve it turns on: how many steps the larder
+                    // still feeds the town for. Hunger only climbs once the food
+                    // has gone, so a line carrying hunger alone announces a
+                    // famine; carrying the reserve, it predicts one.
+                    int reserve = TownAuditor.reserveSteps(total, settlement.population());
+                    TownAuditor.Distress distress =
+                            TownAuditor.distress(worstHunger, total, settlement.population());
                     LOGGER.info("AUDIT {} vitals pop={} hunger={} total={} granary={} "
-                                    + "fields={} market={} pantries={} hauls={}",
+                                    + "fields={} market={} pantries={} hauls={} "
+                                    + "reserve={} distress={} seen={}",
                             settlement.name(), settlement.population(), worstHunger,
-                            total, settlement.foodStock(), fields, stalls, pantries, hauls);
-                    int fingerprint = faults.stream().map(TownAuditor.Fault::describe)
-                            .sorted().toList().hashCode();
+                            total, settlement.foodStock(), fields, stalls, pantries, hauls,
+                            reserve, distress.token(), seen);
+
+                    List<TownAuditor.Fault> standing = new ArrayList<>();
+                    boolean townFault = false;
+                    for (TownAuditor.Fault fault : faults) {
+                        if (fault.isTownScope()) {
+                            townFault = true;
+                            LOGGER.info("AUDIT {} {}", settlement.name(), fault.describe());
+                        } else {
+                            standing.add(fault);
+                        }
+                    }
+                    if (seen == 0) {
+                        // Not one building was looked at, so nothing can be said
+                        // about the geometry — least of all "clean". Leaving the
+                        // fingerprint alone as well is what stops a town emptying
+                        // its whole fault list back into the log every time a
+                        // player walks out of range and back again.
+                        continue;
+                    }
+                    // The fingerprint covers the building faults and the bare
+                    // fact of a town fault, not its text — the text is meant to
+                    // change as a famine deepens, and it is logged every sweep
+                    // above regardless. But "clean" claims nothing is wrong
+                    // anywhere, so a famine starting or ending has to move the
+                    // fingerprint or the all-clear would never be said again.
+                    int fingerprint = 31 * standing.stream().map(TownAuditor.Fault::describe)
+                            .sorted().toList().hashCode() + (townFault ? 1 : 0);
                     Integer before = AUDIT_SEEN.put(settlement.id().value(), fingerprint);
                     if (before != null && before == fingerprint) {
                         continue;
                     }
-                    if (faults.isEmpty()) {
-                        LOGGER.info("AUDIT {} clean", settlement.name());
+                    if (standing.isEmpty()) {
+                        if (!townFault) {
+                            LOGGER.info("AUDIT {} clean", settlement.name());
+                        }
                         continue;
                     }
-                    for (TownAuditor.Fault fault : faults) {
+                    for (TownAuditor.Fault fault : standing) {
                         LOGGER.info("AUDIT {} {}", settlement.name(), fault.describe());
                     }
                 }

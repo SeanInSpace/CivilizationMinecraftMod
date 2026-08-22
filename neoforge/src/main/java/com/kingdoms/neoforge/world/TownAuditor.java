@@ -1,9 +1,15 @@
 package com.kingdoms.neoforge.world;
 
+import com.kingdoms.neoforge.KingdomsMod;
+import com.kingdoms.sim.person.Foods;
+import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.settlement.BuildPlanner;
+import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
@@ -18,6 +24,7 @@ import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Walks a settlement's buildings and reports what is built wrong.
@@ -33,15 +40,102 @@ import java.util.List;
  * work to: floors sit at grade ({@link BlueprintPlacer#floorFor}), the cleared
  * shelf around a building is part of its plot, and every building needs a way in
  * at ground level.
+ *
+ * <p>One check is not about blocks at all — see {@link #auditTown}. A town that
+ * starves to death does it just as silently as a hall built in a lake, and it
+ * does it whether or not anybody has its chunks loaded.
  */
 public final class TownAuditor {
 
-    /** One thing wrong with one building. */
+    /**
+     * One thing wrong with one building — or, when {@code at} is null, with the
+     * town itself.
+     *
+     * <p>A nullable position was the cheapest honest way to admit a
+     * settlement-scope fault. Pinning a synthetic one to the town centre would
+     * have kept the field non-null at the price of sending whoever read it to
+     * stand on a block where nothing is wrong: a famine is not located anywhere.
+     */
     public record Fault(String blueprintId, BlockPos at, String problem) {
 
-        public String describe() {
-            return blueprintId + " @ " + at.toShortString() + ": " + problem;
+        /** What stands in the blueprint id's place for a fault of the whole town. */
+        public static final String TOWN = "town";
+
+        /** A fault of the settlement rather than of anything standing in it. */
+        public static Fault ofTown(String problem) {
+            return new Fault(TOWN, null, problem);
         }
+
+        public boolean isTownScope() {
+            return at == null;
+        }
+
+        public String describe() {
+            // The null branch is not defensive: town-scope faults have no
+            // position by design, and this is the only place that would notice.
+            return at == null
+                    ? blueprintId + ": " + problem
+                    : blueprintId + " @ " + at.toShortString() + ": " + problem;
+        }
+    }
+
+    /**
+     * How close a town is to famine, worst first.
+     *
+     * <p>Judged here, from the settlement's public state, only because the
+     * simulation has no crisis rule of its own yet. When {@code :common} grows
+     * one this must defer to it — two thresholds that can drift apart are one
+     * threshold too many, and an audit that disagrees with the simulation it is
+     * auditing is worse than an audit that says nothing.
+     */
+    public enum Distress {
+        /** Somebody is at severe hunger: the starvation clock is already running. */
+        SEVERE,
+        /** Somebody is too weak to work, which is how the spiral feeds itself. */
+        WEAK,
+        /** Nobody is weak yet, but the larder no longer covers a lost harvest. */
+        LEAN,
+        NONE;
+
+        /** Stable lowercase token, because this goes on a line the harness greps. */
+        public String token() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    /**
+     * A larder covering fewer steps than this can no longer see the town through
+     * one resident's whole descent from fed to dead, which is the shortest
+     * warning worth giving. Above it an empty granary is a hiccup in the supply
+     * chain; below it the town is spending its last reserve.
+     */
+    public static final int LEAN_RESERVE_STEPS =
+            Person.HUNGER_MAX / FoodPlanner.HUNGER_PER_STEP
+                    + FoodPlanner.STARVATION_GRACE_STEPS;
+
+    /**
+     * Simulation steps a build may sit without advancing before its queue reads
+     * as frozen.
+     *
+     * <p>A dozen steps is about a minute of play: long enough that a build merely
+     * waiting on the next grant of work is never accused, short enough that a
+     * head task nobody can afford gets named while the town can still be saved.
+     */
+    private static final int FROZEN_QUEUE_STEPS = 12;
+
+    /**
+     * The build queue's head as it last looked, per settlement, and the step it
+     * first looked that way.
+     *
+     * <p>Measured in simulation steps rather than game ticks on purpose: 26.2's
+     * per-dimension clocks can hold {@code getGameTime()} at a fixed value (the
+     * fault {@code SimWorld#onGameTick} counts its own ticks to avoid), and a
+     * frozen clock would report every queue in the world as frozen forever.
+     */
+    private static final java.util.Map<Settlement.Id, HeadState> LAST_HEAD =
+            new java.util.HashMap<>();
+
+    private record HeadState(String signature, long sinceStep) {
     }
 
     /** A course of slack either way before a shelf reads as banked or hanging. */
@@ -75,10 +169,29 @@ public final class TownAuditor {
     }
 
     /**
-     * Audits every building of a settlement that stands in a loaded chunk.
+     * Drops everything the auditor remembers from one sweep to the next.
+     *
+     * <p>Both memories are session-scoped by nature and neither says so on its
+     * own: one holds simulation step numbers, which restart at zero when the
+     * server does, and the other holds block positions in a world about to
+     * close. Carried into the next session, a stall would be dated against a
+     * clock that no longer exists and a crop would be missed from a field that
+     * is not there.
+     */
+    public static void forget() {
+        LAST_HEAD.clear();
+        LAST_PLANTED.clear();
+    }
+
+    /**
+     * Audits the town, and every one of its buildings that stands in a loaded
+     * chunk.
      *
      * <p>Unloaded buildings are skipped, not judged: there is nothing there to
-     * look at, and guessing would report ghosts.
+     * look at, and guessing would report ghosts. The town-level check has no such
+     * excuse — it reads simulation state — so it runs even when not one chunk of
+     * the settlement is loaded, and callers must be ready for a fault list from a
+     * town with nothing visible in it.
      */
     public static List<Fault> audit(ServerLevel level, Settlement settlement) {
         List<Fault> faults = new ArrayList<>();
@@ -96,7 +209,54 @@ public final class TownAuditor {
             auditOne(level, building, origin, faults);
         }
         auditOverlaps(present, faults);
+        auditTown(level, settlement, faults);
         return faults;
+    }
+
+    /**
+     * How many simulation steps of appetite a larder still covers.
+     *
+     * <p>Hunger is the lagging indicator: it only climbs once the food has
+     * already run out, by which point the town has minutes. This is the leading
+     * one, and it is the whole reason a vitals line can warn rather than report.
+     */
+    public static int reserveSteps(int larder, int population) {
+        if (population <= 0) {
+            return 0;
+        }
+        return larder * Foods.nutrition(Foods.PROVISION)
+                / (population * FoodPlanner.HUNGER_PER_STEP);
+    }
+
+    /**
+     * The verdict, from figures the caller has already counted.
+     *
+     * <p>Takes the numbers rather than the settlement so that the verdict on a
+     * vitals line is guaranteed to be the verdict on <em>those</em> figures. A
+     * second count of the larder in here could disagree with the one printed
+     * beside it, and a log that argues with itself is worse than no log.
+     */
+    public static Distress distress(int worstHunger, int larder, int population) {
+        if (population <= 0) {
+            return Distress.NONE;   // nobody left to go hungry; this is an obituary
+        }
+        Distress byHunger = hungerTier(worstHunger);
+        if (byHunger != Distress.NONE) {
+            return byHunger;
+        }
+        return reserveSteps(larder, population) < LEAN_RESERVE_STEPS
+                ? Distress.LEAN : Distress.NONE;
+    }
+
+    /** What the worst stomach in town earns on its own, before the larder counts. */
+    private static Distress hungerTier(int worstHunger) {
+        if (worstHunger >= Person.HUNGER_SEVERE) {
+            return Distress.SEVERE;
+        }
+        if (worstHunger >= Person.HUNGER_WEAK) {
+            return Distress.WEAK;
+        }
+        return Distress.NONE;
     }
 
     /** How many of a settlement's buildings the audit could actually see. */
@@ -359,6 +519,82 @@ public final class TownAuditor {
                 }
             }
         }
+    }
+
+    /**
+     * The town itself, judged on simulation state rather than on blocks.
+     *
+     * <p>One fault, named after the way the founding death spiral actually
+     * presented: residents at severe hunger while the build queue's head sat
+     * unaffordable, so nothing behind it — a farm, a granary — could ever be
+     * ordered. Either half alone is survivable and common; the conjunction is
+     * the spiral, and in hindsight it was the one part of the autopsy a reader
+     * outside the code could have spotted while the town was still alive.
+     *
+     * <p>Reads no blocks, so this is the one check that still runs for a town
+     * nobody is watching — which is exactly the town that starves unnoticed.
+     */
+    private static void auditTown(ServerLevel level, Settlement settlement,
+                                  List<Fault> faults) {
+        int worstHunger = 0;
+        int severe = 0;
+        for (Person person : settlement.residents()) {
+            worstHunger = Math.max(worstHunger, person.hunger());
+            if (person.hunger() >= Person.HUNGER_SEVERE) {
+                severe++;
+            }
+        }
+        List<BuildTask> queue = settlement.buildQueue();
+        BuildTask head = queue.isEmpty() ? null : queue.getFirst();
+        // Unconditionally, even when the town is fed: the stall clock has to be
+        // running before the hunger arrives, or the first sweep that sees a
+        // famine would report the queue as freshly frozen and start counting.
+        long stalled = trackHead(level, settlement, head);
+        if (head == null || stalled < FROZEN_QUEUE_STEPS
+                || hungerTier(worstHunger) != Distress.SEVERE) {
+            return;
+        }
+        faults.add(Fault.ofTown("starving with a frozen build queue — "
+                + severe + " of " + settlement.population() + " at severe hunger, and "
+                + head.blueprintId() + " has held the head at " + head.progress()
+                + "/" + head.requiredWork() + " for " + stalled + " steps with "
+                + (queue.size() - 1) + " behind it"));
+    }
+
+    /**
+     * How many simulation steps the build queue's head has sat exactly as it is.
+     *
+     * <p>Remembering the head rather than counting sweeps is what makes this
+     * immune to how often it is asked: {@code /civ audit} run twice in a second
+     * must not convict a build that simply had no simulation step in between.
+     */
+    private static long trackHead(ServerLevel level, Settlement settlement, BuildTask head) {
+        if (head == null) {
+            LAST_HEAD.remove(settlement.id());
+            return 0L;
+        }
+        // Every figure here moves the moment a builder does anything — a block
+        // dug, a block laid, a step credited. Granted-but-unspent work is left
+        // out deliberately: the simulation keeps offering it to a build nobody is
+        // able to work on, which would read as progress in a town making none.
+        String signature = head.blueprintId() + "@" + head.origin() + " "
+                + head.progress() + "/" + head.workDone() + "/" + head.stepsDone();
+        long now = stepsElapsed(level);
+        HeadState seen = LAST_HEAD.get(settlement.id());
+        // The step count restarts at zero with the server, and forget() only
+        // runs if the server stops cleanly. A stamp from the future is therefore
+        // a memory that outlived a crash, not a stall: start the clock again.
+        if (seen == null || !seen.signature().equals(signature) || now < seen.sinceStep()) {
+            LAST_HEAD.put(settlement.id(), new HeadState(signature, now));
+            return 0L;
+        }
+        return now - seen.sinceStep();
+    }
+
+    /** The simulation's own step count, which — unlike the level clock — never freezes. */
+    private static long stepsElapsed(ServerLevel level) {
+        SimWorld world = KingdomsMod.simulationFor(level);
+        return world == null ? 0L : world.stepsElapsed();
     }
 
     // --- small helpers ---
