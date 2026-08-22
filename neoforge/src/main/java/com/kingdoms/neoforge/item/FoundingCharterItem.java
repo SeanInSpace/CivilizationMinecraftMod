@@ -80,11 +80,14 @@ public final class FoundingCharterItem extends Item {
         String name = SettlementNames.forPosition(site);
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, "kingdoms:norman");
         Settlement settlement = new Settlement(Settlement.Id.random(), name, site, 64);
+        settlement.setStage(com.kingdoms.sim.settlement.SettlementStage.CAMP);
         for (int i = 0; i < TownStores.FOUNDING_SETTLERS; i++) {
-            // Half builders so construction starts immediately; the rest idle and
-            // retrain into whatever the town turns out to need.
-            Profession trade = i % 2 == 0 ? Profession.BUILDER : Profession.IDLER;
-            Person settler = new Person(Person.Id.random(), "Settler " + (i + 1), trade, site);
+            // Pioneers, all of them: generalists who build, farm and haul as the
+            // camp needs. Professions crystallize as the stages demand them --
+            // half-builders-half-idlers is how a party ended up with idlers it
+            // could not turn into farmers.
+            Person settler = new Person(Person.Id.random(), "Settler " + (i + 1),
+                    Profession.PIONEER, site);
             // They pack food for the road. Until the first house stands there is
             // no larder to fetch from, so what they carry is what they live on.
             settler.inventory().add(Foods.PROVISION, TownStores.FOUNDING_PROVISIONS_EACH);

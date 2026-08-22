@@ -87,6 +87,23 @@ public final class Settlement {
     private List<BuildingType> catalogue = BuildCatalogue.DEFAULT;
 
     /**
+     * Where this settlement stands on the founding road. Defaults to TOWN so
+     * every settlement from before stages existed keeps its old behaviour —
+     * only a fresh charter starts a CAMP. See {@code FOUNDING.md}.
+     */
+    private SettlementStage stage = SettlementStage.TOWN;
+
+    /**
+     * Consecutive steps the larder has covered the appetite. The homestead
+     * graduates on this, not on a snapshot: one lucky harvest tick is not
+     * self-sufficiency.
+     */
+    private int fedStreak;
+
+    /** Set by the perimeter work once a palisade rings the settlement. */
+    private boolean perimeterClosed;
+
+    /**
      * How threatened this settlement currently is, driving guard behaviour and
      * off-screen combat resolution. Rises when hostiles are detected, decays over time.
      */
@@ -508,6 +525,49 @@ public final class Settlement {
     }
 
     /** What this settlement knows how to build. Swap per culture, or from a datapack. */
+    public SettlementStage stage() {
+        return stage;
+    }
+
+    public void setStage(SettlementStage stage) {
+        this.stage = Objects.requireNonNull(stage, "stage");
+    }
+
+    public int fedStreak() {
+        return fedStreak;
+    }
+
+    public void setFedStreak(int fedStreak) {
+        this.fedStreak = Math.max(0, fedStreak);
+    }
+
+    public boolean perimeterClosed() {
+        return perimeterClosed;
+    }
+
+    public void setPerimeterClosed(boolean perimeterClosed) {
+        this.perimeterClosed = perimeterClosed;
+    }
+
+    /**
+     * Whether this person does this kind of labour here, today.
+     *
+     * <p>The seam the pioneer works through: below VILLAGE a pioneer is every
+     * labouring trade at once, so a camp of four can build and farm without a
+     * staffing table that wants zero farmers below population five ever being
+     * consulted. From VILLAGE the specialists exist and the answer is simply
+     * the profession.
+     */
+    public boolean laboursAs(Person person, Profession trade) {
+        if (person.profession() == trade) {
+            return true;
+        }
+        return person.profession() == Profession.PIONEER
+                && StagePlanner.pioneersLabour(stage)
+                && (trade == Profession.BUILDER || trade == Profession.FARMER
+                        || trade == Profession.LUMBERJACK || trade == Profession.MINER);
+    }
+
     public List<BuildingType> catalogue() {
         return catalogue;
     }
@@ -521,6 +581,26 @@ public final class Settlement {
         return buildings.stream().filter(b -> !b.isMaterialized()).toList();
     }
 
+    /**
+     * Whether this home is one a family can grow in.
+     *
+     * <p>The bunkhouse shelters everyone and breeds no one — communal bunks are
+     * a stage, not a destination. Births gate on this, which is what makes the
+     * cottage transition at VILLAGE a real unlock.
+     */
+    public boolean isFamilyHome(SimPos home) {
+        if (home == null) {
+            return false;
+        }
+        for (Building building : buildings) {
+            if (building.origin().equals(home)) {
+                return !BuildPlanner.baseIdOf(building.blueprintId())
+                        .equals("kingdoms:bunkhouse");
+            }
+        }
+        return true;   // no record of the building; do not orphan the household
+    }
+
     public boolean contains(SimPos pos) {
         return centre.horizontalDistanceSq(pos) <= (long) claimRadius * claimRadius;
     }
@@ -532,6 +612,7 @@ public final class Settlement {
      * here must be safe to run with no chunks loaded.
      */
     public void step(SimContext ctx) {
+        advanceStage(ctx);
         planNextBuild(ctx);
         advanceBuildQueue(ctx);
         materializePending(ctx);
@@ -543,6 +624,7 @@ public final class Settlement {
         equipWorkers();
         JobPlanner.retrainOne(this);
         PopulationPlanner.advance(this, ctx);
+        trackFedStreak();
         decayThreat();
         // After decay so a sustained hostile presence holds threat at its level
         // rather than oscillating one below it.
@@ -654,9 +736,22 @@ public final class Settlement {
         if (!buildQueue.isEmpty()) {
             return;
         }
+        // The stage's own program outranks everything the catalogue wants. This
+        // is the whole founding fix: a camp raises a bunkhouse and a farm in the
+        // program's order, and the catalogue — hall at priority 100 and all —
+        // does not get a word in until VILLAGE.
+        Optional<BuildingType> programmed = StagePlanner.nextProgramWant(this);
+        if (programmed.isPresent()) {
+            orderBuild(ctx, programmed.get());
+            return;
+        }
+        if (!StagePlanner.catalogueRuns(stage)) {
+            return;   // below VILLAGE the program is the whole of the plan
+        }
         // Improvements compete with new work rather than waiting for a town to run
         // out of things it wants — which never happens while it is still growing.
-        Optional<BuildingType> wanted = BuildPlanner.chooseNext(this, catalogue);
+        Optional<BuildingType> wanted = BuildPlanner.chooseNext(this, catalogue)
+                .filter(type -> StagePlanner.catalogueAllows(stage, type.id()));
         Optional<Building> improvable = BuildPlanner.chooseUpgrade(this, catalogue);
         int newRank = wanted.map(BuildingType::priority).orElse(Integer.MIN_VALUE);
         int upgradeRank = improvable
@@ -667,23 +762,54 @@ public final class Settlement {
             return;
         }
 
-        wanted.ifPresent(type -> {
-            SimPos flat = chooseSite(ctx, type);
+        wanted.ifPresent(type -> orderBuild(ctx, type));
+    }
 
-            // Snap to the terrain when the chunk is available; otherwise the
-            // centre's height stands in and the world snaps again at placement.
-            SimPos plot = new SimPos(flat.x(), ctx.bridge().surfaceHeight(flat), flat.z());
+    /** Sites and queues one building — the shared tail of program and catalogue. */
+    private void orderBuild(SimContext ctx, BuildingType type) {
+        SimPos flat = chooseSite(ctx, type);
 
-            // A settlement claims the ground it builds on, so territory grows outward
-            // as the town does rather than being fixed at founding.
-            if (!contains(plot)) {
-                claimRadius = BuildPlanner.claimRadiusFor(centre, plot);
-            }
+        // Snap to the terrain when the chunk is available; otherwise the
+        // centre's height stands in and the world snaps again at placement.
+        SimPos plot = new SimPos(flat.x(), ctx.bridge().surfaceHeight(flat), flat.z());
 
-            BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
-            ordered.setFacing(BuildPlanner.facingToward(plot, centre));
-            buildQueue.add(ordered);
-        });
+        // A settlement claims the ground it builds on, so territory grows outward
+        // as the town does rather than being fixed at founding.
+        if (!contains(plot)) {
+            claimRadius = BuildPlanner.claimRadiusFor(centre, plot);
+        }
+
+        BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
+        ordered.setFacing(BuildPlanner.facingToward(plot, centre));
+        buildQueue.add(ordered);
+    }
+
+    /** Graduates the settlement when its stage's conditions are met. */
+    private void advanceStage(SimContext ctx) {
+        if (!StagePlanner.readyToAdvance(this, ctx)) {
+            return;
+        }
+        SettlementStage was = stage;
+        stage = stage.next();
+        if (stage == was) {
+            return;
+        }
+        StagePlanner.crystallize(this, stage);
+        logEvent(ctx.step(), name + " grows: " + was.pretty() + " becomes " + stage.pretty());
+    }
+
+    /**
+     * The homestead's graduation meter: steps in a row the settlement has
+     * genuinely fed itself — the whole larder covering the appetite, or growing.
+     */
+    private void trackFedStreak() {
+        int larder = FoodPlanner.totalFood(this);
+        int appetitePerStep = Math.max(1, population());
+        if (larder >= appetitePerStep * StagePlanner.FED_WINDOW_STEPS) {
+            fedStreak++;
+        } else {
+            fedStreak = 0;
+        }
     }
 
     private void advanceBuildQueue(SimContext ctx) {
@@ -696,7 +822,7 @@ public final class Settlement {
             return;
         }
         int present = (int) residents.values().stream()
-                .filter(p -> p.profession() == Profession.BUILDER && !p.isTooWeakToWork()
+                .filter(p -> laboursAs(p, Profession.BUILDER) && !p.isTooWeakToWork()
                         && p.isEmbodied())
                 .count();
         BuildTask current = buildQueue.getFirst();
@@ -893,7 +1019,7 @@ public final class Settlement {
 
     private int ableBuilders() {
         return (int) residents.values().stream()
-                .filter(p -> p.profession() == Profession.BUILDER && !p.isTooWeakToWork())
+                .filter(p -> laboursAs(p, Profession.BUILDER) && !p.isTooWeakToWork())
                 .count();
     }
 

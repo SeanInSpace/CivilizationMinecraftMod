@@ -214,7 +214,12 @@ public final class FoodPlanner {
             if (person.haul() != null || heldBackByHunger(person, starving)) {
                 continue;
             }
-            switch (person.profession()) {
+            // A pioneer takes the farmer's errands while generalists labour --
+            // same arm, same granary budget, no second copy of the rules.
+            Profession arm = person.profession() == Profession.PIONEER
+                    && settlement.laboursAs(person, Profession.FARMER)
+                    ? Profession.FARMER : person.profession();
+            switch (arm) {
                 case FARMER -> {
                     if (granarySpace < FARMER_CARRY) {
                         continue;
@@ -543,8 +548,11 @@ public final class FoodPlanner {
      * them.
      */
     private static int countFarmHands(Settlement settlement, boolean starving) {
+        // laboursAs, not the raw profession: below VILLAGE the pioneers ARE the
+        // farmers, and a camp that counted only crystallized ones would harvest
+        // nothing until the staffing table woke up.
         return (int) settlement.residents().stream()
-                .filter(p -> p.profession() == Profession.FARMER
+                .filter(p -> settlement.laboursAs(p, Profession.FARMER)
                         && !heldBackByHunger(p, starving))
                 .count();
     }

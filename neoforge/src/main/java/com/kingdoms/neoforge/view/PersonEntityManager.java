@@ -1066,7 +1066,7 @@ public final class PersonEntityManager {
     /** Every embodied farmer works their field: harvest, tend, plant. */
     private void workFarmers(Settlement settlement) {
         for (Person person : settlement.residents()) {
-            if (person.profession() != Profession.FARMER || !person.isEmbodied()
+            if (!settlement.laboursAs(person, Profession.FARMER) || !person.isEmbodied()
                     || person.isTooWeakToWork() || person.haul() != null) {
                 continue;   // a hauling farmer is on the road, not in the rows
             }
@@ -1171,7 +1171,7 @@ public final class PersonEntityManager {
     private List<PersonEntity> embodiedBuilders(Settlement settlement) {
         List<PersonEntity> builders = new ArrayList<>();
         for (Person person : settlement.residents()) {
-            if (person.profession() != Profession.BUILDER
+            if (!settlement.laboursAs(person, Profession.BUILDER)
                     || !person.isEmbodied()
                     || person.isTooWeakToWork()) {
                 continue;
@@ -1382,7 +1382,7 @@ public final class PersonEntityManager {
 
             // Builders on an active site are steered block by block by
             // tickConstruction; overriding them here would tug them off the wall.
-            if (person.profession() == Profession.BUILDER
+            if (settlement.laboursAs(person, Profession.BUILDER)
                     && !underThreat && !night
                     && (!settlement.buildQueue().isEmpty() || isClearing(settlement))
                     && !person.isTooWeakToWork()) {
@@ -1395,7 +1395,7 @@ public final class PersonEntityManager {
                     && !person.isTooWeakToWork()) {
                 continue;   // steered tree by tree in workLumberjacks
             }
-            if (person.profession() == Profession.FARMER
+            if (settlement.laboursAs(person, Profession.FARMER)
                     && !underThreat && !night
                     && person.haul() == null
                     && !person.isTooWeakToWork()) {
@@ -1462,6 +1462,13 @@ public final class PersonEntityManager {
             case SMITH -> nearestBuilding(settlement, "smith", person.position());
             case SHEPHERD -> nearestBuilding(settlement, "animal_farm", person.position());
             case GUARD -> nearestBuilding(settlement, "watchtower", person.position());
+            // A pioneer's workplace is whatever the camp is doing: the build
+            // site while anything is queued, the fields otherwise, and
+            // nearestBuilding already falls back to the camp centre before
+            // there is a field to stand in.
+            case PIONEER -> settlement.buildQueue().isEmpty()
+                    ? nearestBuilding(settlement, "farm", person.position())
+                    : settlement.buildQueue().getFirst().origin();
             case IDLER -> home != null ? home : settlement.centre();
         };
     }

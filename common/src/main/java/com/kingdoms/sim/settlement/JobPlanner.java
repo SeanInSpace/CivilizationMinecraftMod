@@ -158,6 +158,13 @@ public final class JobPlanner {
                 return true;
             }
         }
+        // Below VILLAGE the table does not staff at all: pioneers are every
+        // labouring trade at once, and pulling them into fixed jobs early is
+        // exactly the churn the stages exist to prevent. The crisis lane above
+        // still runs -- a starving camp crystallizes a farmer, and should.
+        if (StagePlanner.pioneersLabour(settlement.stage())) {
+            return false;
+        }
         Optional<Profession> needed = mostNeeded(settlement);
         if (needed.isEmpty()) {
             return false;

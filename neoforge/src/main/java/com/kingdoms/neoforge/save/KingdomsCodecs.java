@@ -14,6 +14,7 @@ import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.SettlementEvent;
 import com.kingdoms.sim.settlement.WorkArea;
@@ -186,6 +187,26 @@ public final class KingdomsCodecs {
         return task;
     }));
 
+    /**
+     * Culture, stage and the fed streak share one slot of the settlement codec.
+     *
+     * <p>The settlement group already sits at DFU's sixteen-field cap, and a
+     * {@code MapCodec} used directly in a group flattens its fields into the
+     * parent map without spending another slot or changing the wire format --
+     * "culture" reads and writes exactly as it always did.
+     */
+    private record Flavor(String culture, String stage, int fedStreak) {
+        static Flavor of(Settlement s) {
+            return new Flavor(s.cultureId(), s.stage().pretty(), s.fedStreak());
+        }
+    }
+
+    private static final MapCodec<Flavor> FLAVOR = RecordCodecBuilder.mapCodec(i -> i.group(
+            Codec.STRING.optionalFieldOf("culture", Culture.DEFAULT.id()).forGetter(Flavor::culture),
+            Codec.STRING.optionalFieldOf("stage", "").forGetter(Flavor::stage),
+            Codec.INT.optionalFieldOf("fed_streak", 0).forGetter(Flavor::fedStreak)
+    ).apply(i, Flavor::new));
+
     public static final Codec<Household.Id> HOUSEHOLD_ID =
             UUID_CODEC.xmap(Household.Id::new, Household.Id::value);
 
@@ -307,16 +328,20 @@ public final class KingdomsCodecs {
             STORES.forGetter(Stores::of),
             Codec.unboundedMap(Codec.STRING, Codec.INT)
                     .optionalFieldOf("tallies", Map.of()).forGetter(s -> s.tallies().all()),
-            Codec.STRING.optionalFieldOf("culture", Culture.DEFAULT.id()).forGetter(Settlement::cultureId),
+            FLAVOR.forGetter(Flavor::of),
             WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea())),
             WORK_AREA.optionalFieldOf("mine_area").forGetter(s -> Optional.ofNullable(s.mineArea())),
             Codec.INT.optionalFieldOf("next_plot", -1).forGetter(Settlement::nextPlotIndex)
-    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, culture, lumberArea, mineArea, nextPlot) -> {
+    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, flavor, lumberArea, mineArea, nextPlot) -> {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
         settlement.stores().restore(stores.toTownStores().all());
         settlement.tallies().restore(tallies);
-        settlement.setCultureId(culture);
+        settlement.setCultureId(flavor.culture());
+        // Saves from before stages existed carry no stage; they load as TOWN,
+        // which is the behaviour they were built under. Only fresh charters camp.
+        settlement.setStage(SettlementStage.parse(flavor.stage(), SettlementStage.TOWN));
+        settlement.setFedStreak(flavor.fedStreak());
         lumberArea.ifPresent(settlement::setLumberArea);
         mineArea.ifPresent(settlement::setMineArea);
         residents.forEach(settlement::addResident);
