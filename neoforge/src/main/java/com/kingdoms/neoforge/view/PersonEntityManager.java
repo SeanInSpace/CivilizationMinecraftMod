@@ -9,6 +9,7 @@ import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import com.kingdoms.neoforge.world.Excavation;
 import com.kingdoms.neoforge.world.PathLayer;
@@ -28,6 +29,7 @@ import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -107,6 +109,15 @@ public final class PersonEntityManager {
 
     /** Sites that have made no progress recently, by settlement id. */
     private final Map<UUID, Integer> constructionStalls = new HashMap<>();
+
+    /** Gates we swung open for somebody, and when. The town closes its gates. */
+    private final Map<BlockPos, Long> heldOpenGates = new HashMap<>();
+
+    /** Ticks a gate stays open after someone passes, before the town shuts it. */
+    private static final long GATE_CLOSE_AFTER_TICKS = 60L;
+
+    /** How near a person must be for a gate to swing, or to stay open for them. */
+    private static final double GATE_REACH = 2.0;
 
     /**
      * The hole being dug for a settlement's current build.
@@ -217,6 +228,7 @@ public final class PersonEntityManager {
     public void tick() {
         renderClaimBorders();
         renderBuildingBorders();
+        tendGates();
         boolean changed = false;
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
@@ -311,6 +323,72 @@ public final class PersonEntityManager {
                 }
             }
         }
+    }
+
+    // --- gates ---
+
+    /**
+     * Gates yield to the people of the town, then close behind them.
+     *
+     * <p>Vanilla treats a closed fence gate as a wall: mobs will not path
+     * through one and cannot open one, which is exactly what keeps animals
+     * penned and exactly what kept penning the shepherds in with them. Rather
+     * than teaching the pathfinder new physics, gates work like saloon doors —
+     * a citizen walking up to one swings it open, and once nobody has been near
+     * it for a moment the town shuts it again, so a pen is only ever open for
+     * the seconds somebody is actually passing through.
+     *
+     * <p>Navigation converges on its own: a failed route ends adjacent to the
+     * closed gate, the gate opens, and the next of the steering loops' constant
+     * repaths goes through. Only gates this opened are ever closed — one a
+     * player or a plan left open stays exactly as it was left.
+     */
+    private void tendGates() {
+        long now = level.getGameTime();
+        for (PersonEntity person : tracked.values()) {
+            if (person.isRemoved()) {
+                continue;
+            }
+            BlockPos feet = person.blockPosition();
+            Direction facing = person.getDirection();
+            for (BlockPos spot : new BlockPos[]{
+                    feet.relative(facing), feet.relative(facing, 2), feet}) {
+                BlockState state = level.getBlockState(spot);
+                if (state.getBlock() instanceof FenceGateBlock
+                        && !state.getValue(FenceGateBlock.OPEN)) {
+                    level.setBlock(spot,
+                            state.setValue(FenceGateBlock.OPEN, true), Block.UPDATE_ALL);
+                    level.levelEvent(null, 1008, spot, 0);
+                    heldOpenGates.put(spot.immutable(), now);
+                }
+            }
+        }
+
+        heldOpenGates.entrySet().removeIf(held -> {
+            BlockPos gate = held.getKey();
+            if (!level.isLoaded(gate)) {
+                return true;   // let it be; it will read as left-open, which is honest
+            }
+            BlockState state = level.getBlockState(gate);
+            if (!(state.getBlock() instanceof FenceGateBlock)
+                    || !state.getValue(FenceGateBlock.OPEN)) {
+                return true;   // gone, or somebody else closed it already
+            }
+            if (now - held.getValue() < GATE_CLOSE_AFTER_TICKS) {
+                return false;
+            }
+            for (PersonEntity person : tracked.values()) {
+                if (!person.isRemoved() && person.distanceToSqr(
+                        gate.getX() + 0.5, gate.getY() + 0.5, gate.getZ() + 0.5)
+                        <= GATE_REACH * GATE_REACH) {
+                    return false;   // still passing through; hold it for them
+                }
+            }
+            level.setBlock(gate,
+                    state.setValue(FenceGateBlock.OPEN, false), Block.UPDATE_ALL);
+            level.levelEvent(null, 1014, gate, 0);
+            return true;
+        });
     }
 
     // --- excavation ---

@@ -17,6 +17,7 @@ import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
@@ -85,9 +86,22 @@ public final class PersonEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
+        // Real wooden doors — the kind authored blueprints carry — open for the
+        // people who live behind them. Fence gates are not doors to vanilla and
+        // are handled by the manager instead; see PersonEntityManager.tendGates.
+        goalSelector.addGoal(2, new OpenDoorGoal(this, true));
         goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.35));
         goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F));
         goalSelector.addGoal(7, new RandomLookAroundGoal(this));
+    }
+
+    @Override
+    protected net.minecraft.world.entity.ai.navigation.PathNavigation createNavigation(
+            net.minecraft.world.level.Level level) {
+        net.minecraft.world.entity.ai.navigation.GroundPathNavigation navigation =
+                new net.minecraft.world.entity.ai.navigation.GroundPathNavigation(this, level);
+        navigation.setCanOpenDoors(true);
+        return navigation;
     }
 
     /**

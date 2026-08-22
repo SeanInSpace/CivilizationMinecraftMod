@@ -34,6 +34,10 @@ automated check can confirm is whether it *looks* right:
 - [ ] Does a farmer working the rows read as farming — harvest, tend, replant?
 
 ### Next
+- [ ] Fix the paths. The door-to-hall tracks were a first cut: routes ignore each
+      other (no shared trunks or junctions), climb terrain a person cannot, and
+      thread through plots. A path network pass — reuse, grading, keeping to the
+      gaps between plots — is due.
 - [ ] Hideouts, so `hideouts_cleared` counts something
 - [ ] A second culture, to prove the hook earns its keep
 - [ ] `.blueprint` reader, for the MineColonies/Structurize content ecosystem
@@ -41,6 +45,14 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **Gates yield to citizens.** A closed fence gate is a wall to vanilla mobs —
+  which kept animals penned and shepherds penned in with them. Gates now work
+  like saloon doors: a citizen walking up swings one open, the town shuts it
+  after a moment with nobody near, and pens are only ever open for the seconds
+  somebody is passing through. Real wooden doors from authored blueprints open
+  for citizens too, the vanilla way.
+
 
 - **The wheat is the food now.** Generation was the last fully abstract producer;
   it follows the lumber camp's rule at last. Watched farms produce through real
