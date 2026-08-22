@@ -225,11 +225,13 @@ public final class KingdomsMod {
                             TownAuditor.distress(worstHunger, total, settlement.population());
                     LOGGER.info("AUDIT {} vitals stage={} pop={} hunger={} total={} granary={} "
                                     + "fields={} market={} pantries={} hauls={} "
-                                    + "reserve={} distress={} seen={}",
+                                    + "reserve={} distress={} seen={} roads={}/{}",
                             settlement.name(), settlement.stage().pretty(),
                             settlement.population(), worstHunger,
                             total, settlement.foodStock(), fields, stalls, pantries, hauls,
-                            reserve, distress.token(), seen);
+                            reserve, distress.token(), seen,
+                            settlement.paths().segments().size(),
+                            settlement.paths().totalLength());
 
                     List<TownAuditor.Fault> standing = new ArrayList<>();
                     boolean townFault = false;

@@ -22,25 +22,6 @@ than papered over.
       fresh iron tools; the pace needs slowing until an excavation reads as
       work.
 
-- [ ] **Fix the paths.** The current layer draws each track independently and
-      forgets it ever did. What it should be instead:
-      - **The system remembers where every path is.** Laid paths become a
-        persistent network the planner can see — today `pathsLaid` is an
-        in-memory set that forgets on restart, and `PathLayer` knows nothing
-        about any other path.
-      - **Aligned, with right angles.** Runs follow the grid and turn at right
-        angles instead of cutting diagonals, so paths frame ground that
-        buildings can actually fit against.
-      - **Connect to the nearest path first.** A new building joins the closest
-        existing path rather than running its own private line all the way to
-        the hall — that is what produces trunks and junctions instead of a
-        star of separate tracks.
-      - Known faults to fix in the same pass: the door endpoint is hardcoded to
-        the south side (stale since buildings began turning to face the centre,
-        so most tracks meet a back wall), and routes beyond 96 blocks are
-        silently skipped while the caller still records the building as
-        connected.
-
 - [ ] **Create buildings in a much more intelligent way.**
 
 - [ ] **Walls for advanced settlements.** Compute an α-shape concave hull around
@@ -117,6 +98,26 @@ ground.
 ---
 
 ## Done
+
+- [x] **The paths are remembered.** `PathNetwork` holds the roads as
+      axis-aligned segments plus the buildings already joined, both persisted;
+      `PathPlanner` joins one building a step, branching off the nearest
+      existing way unless the hub is genuinely closer, routing at right angles,
+      and leaving by the door the building actually faces
+      (`Building.doorstep()`, which the access-repair stairs now share).
+      `PathLayer` draws and mends through one operation — a stretch is re-laid
+      only once a quarter of it has grown over, one stretch a sweep. The town
+      map draws the network under the buildings. The hub is the hall when there
+      is one and the camp post before that, which is what gives a camp streets
+      from its first day; the old hall-only hub meant no settlement below TOWN
+      had any roads at all. Over-long routes leave a building unjoined and
+      retry as the network reaches it, instead of being recorded as connected
+      and dropped. Pinned by `PathNetworkTest`.
+
+- [x] **The palisade sites its gates on the streets.** One to a side, on
+      whichever road reaches furthest that way, re-sited while the wall goes up
+      and fixed when it closes. This was the `FOUNDING.md` promise that the
+      unremembered network made impossible.
 
 - [x] **The founding party — the staged progression.** All six steps of
       `FOUNDING.md` are built: camp → homestead → fortified → village → town,

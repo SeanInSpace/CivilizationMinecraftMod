@@ -244,6 +244,10 @@ public final class KingdomsCommand {
                         .append("/").append(PopulationPlanner.totalHousingCapacity(s)).append(" housed")
                         .append(", threat ").append(s.threatLevel())
                         .append(", centre ").append(s.centre());
+                sb.append("\n      roads: ")
+                        .append(s.paths().segments().size()).append(" runs, ")
+                        .append(s.paths().totalLength()).append(" blocks, ")
+                        .append(s.paths().joined().size()).append(" buildings joined");
                 sb.append("\n      jobs: ");
                 for (Profession p : Profession.values()) {
                     int n = JobPlanner.count(s, p);
