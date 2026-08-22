@@ -172,19 +172,31 @@ public final class Settlement {
         return chooseSite(ctx, type.plotSpan());
     }
 
+    /**
+     * Ground for a new building — scanning without spending.
+     *
+     * <p>The index advances only when a plot is actually taken. It used to
+     * advance on every rejected candidate too, which read as sensible (a bad
+     * slot is bad forever) and was a disaster in practice: relocation checks
+     * call this every simulation step while a site sits on unfit ground, so a
+     * town beside a lake burned up to {@link BuildPlanner#PLOT_ATTEMPTS} ring
+     * slots per step without building anything — and marched its own rings six
+     * hundred blocks out. Farms were being planned in the next biome over.
+     */
     private SimPos chooseSite(SimContext ctx, int span) {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
-            SimPos candidate = BuildPlanner.plotFor(centre, nextPlotIndex);
+            int index = nextPlotIndex + attempt;
+            SimPos candidate = BuildPlanner.plotFor(centre, index);
             if (ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
                     && isPlotFree(candidate, span, null)) {
+                nextPlotIndex = index + 1;
                 return candidate;
             }
-            nextPlotIndex++;
         }
-        // Every slot examined and every one taken. Take the next one anyway rather
-        // than stop building altogether, and say so, because a town that has run
-        // out of room is worth knowing about.
-        return BuildPlanner.plotFor(centre, nextPlotIndex);
+        // Every candidate examined and none will do. Take the very next slot
+        // rather than stop building altogether — a town that has run out of room
+        // is a town that builds on poor ground, not one that gives up.
+        return BuildPlanner.plotFor(centre, nextPlotIndex++);
     }
 
     /**
@@ -238,13 +250,14 @@ public final class Settlement {
      */
     public SimPos takeNextPlot(int span) {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
-            SimPos candidate = BuildPlanner.plotFor(centre, nextPlotIndex);
-            nextPlotIndex++;
+            int index = nextPlotIndex + attempt;
+            SimPos candidate = BuildPlanner.plotFor(centre, index);
             if (isPlotFree(candidate, span, null)) {
+                nextPlotIndex = index + 1;
                 return candidate;
             }
         }
-        return BuildPlanner.plotFor(centre, nextPlotIndex);
+        return BuildPlanner.plotFor(centre, nextPlotIndex++);
     }
 
     public int nextPlotIndex() {
@@ -565,7 +578,6 @@ public final class Settlement {
             BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
             ordered.setFacing(BuildPlanner.facingToward(plot, centre));
             buildQueue.add(ordered);
-            nextPlotIndex++;
         });
     }
 
@@ -676,7 +688,6 @@ public final class Settlement {
         SimPos from = building.origin();
         building.setOrigin(new SimPos(moved.x(), ctx.bridge().surfaceHeight(moved), moved.z()));
         building.setFacing(BuildPlanner.facingToward(moved, centre));
-        nextPlotIndex++;
         if (!contains(building.origin())) {
             claimRadius = BuildPlanner.claimRadiusFor(centre, building.origin());
         }
@@ -763,7 +774,6 @@ public final class Settlement {
                 task.blueprintId(), moved, task.requiredWork());
         replacement.setFacing(BuildPlanner.facingToward(moved, centre));
         buildQueue.set(0, replacement);
-        nextPlotIndex++;
         logEvent(ctx.step(), "The ground at " + task.origin()
                 + " will not do; the site moves to " + moved);
         return true;

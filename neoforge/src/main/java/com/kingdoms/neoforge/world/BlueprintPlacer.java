@@ -4,6 +4,8 @@ import com.keystone.api.Blueprints;
 import com.keystone.api.LoadedBlueprint;
 import com.keystone.api.PlannedBlock;
 import com.kingdoms.neoforge.KingdomsBlocks;
+import com.kingdoms.neoforge.KingdomsConfig;
+import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.block.BuildingPostBlock;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.BuildTask;
@@ -236,6 +238,32 @@ public final class BlueprintPlacer {
                 || state.canBeReplaced();
     }
 
+    /**
+     * Where a structure's base sits, given the first air block in its column.
+     *
+     * <p>Almost everything uses {@link #floorFor}: the floor course replaces the
+     * topsoil so the door opens at grade. A crop field is the one exception —
+     * its ground layer (farmland, irrigation) is drawn one BELOW its base, so
+     * its base belongs at the first air block, putting the farmland exactly
+     * where the natural surface block was, the way a player tills the ground.
+     *
+     * <p>Getting this wrong sank every farm a block into the earth. Worse than
+     * cosmetic: sunk one block, the crops sit level with the surrounding grade,
+     * which is exactly where any pond beside the plot holds its water — so
+     * fields flooded from the rim and the crops washed off their soil as a
+     * scatter of seed items, over and over, while the farmland underneath
+     * stayed perfectly intact.
+     */
+    public static int baseFor(String blueprintId, int firstAirY) {
+        return isField(blueprintId) ? firstAirY : floorFor(firstAirY);
+    }
+
+    /** A crop field, whatever its level or style. The animal farm is not one. */
+    private static boolean isField(String blueprintId) {
+        String path = Identifier.parse(BuildPlanner.baseIdOf(blueprintId)).getPath();
+        return path.equals("farm") || path.endsWith("/farm");
+    }
+
     /** Where a structure floor sits, given the first air block in that column. */
     public static int floorFor(int firstAirY) {
         // One below, so the floor course replaces the top of the soil instead of
@@ -277,7 +305,8 @@ public final class BlueprintPlacer {
             //
             // Everything else is sunk to grade, so you can walk in through it.
             boolean inPlace = isStairs(task) || task.isUpgrade();
-            task.setSiteY(inPlace ? task.origin().y() : floorFor(firstAir));
+            task.setSiteY(inPlace ? task.origin().y()
+                    : baseFor(task.blueprintId(), firstAir));
             changed = true;
         }
         StructurePlan plan = planOf(level, task);
@@ -489,6 +518,24 @@ public final class BlueprintPlacer {
      * a door's lower half, laid on its own, would pop straight back off.
      */
     private static void lay(ServerLevel level, Placement placement) {
+        // Direct test of a suspected fault: a crop laid before its soil, or soil
+        // laid under a crop that is already standing, pops the crop as an item.
+        // If either line ever prints, the placement order is broken exactly as
+        // suspected; if neither does while seeds still appear, the culprit is
+        // elsewhere and this has ruled the order out for good.
+        if (KingdomsConfig.debugCommandsEnabled()) {
+            if (placement.state().is(BlockTags.CROPS)
+                    && !level.getBlockState(placement.pos().below()).is(Blocks.FARMLAND)) {
+                KingdomsMod.LOGGER.warn("CROPLAY crop over {} at {}",
+                        level.getBlockState(placement.pos().below()).getBlock(),
+                        placement.pos().toShortString());
+            }
+            if (placement.state().is(Blocks.FARMLAND)
+                    && level.getBlockState(placement.pos().above()).is(BlockTags.CROPS)) {
+                KingdomsMod.LOGGER.warn("CROPLAY farmland laid under a standing crop at {}",
+                        placement.pos().toShortString());
+            }
+        }
         evict(level, placement.pos(), placement.state());
         level.setBlock(placement.pos(), placement.state(), Block.UPDATE_CLIENTS);
         if (placement.nbt() == null) {

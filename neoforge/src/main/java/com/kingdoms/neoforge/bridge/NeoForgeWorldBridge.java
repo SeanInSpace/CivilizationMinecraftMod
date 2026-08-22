@@ -81,7 +81,8 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         // An unsurveyed origin carries a planning estimate, so it does get snapped
         // — through the same floorFor the builders would have used, not the raw
         // surface, or the two paths disagree again.
-        int y = surveyed ? origin.y() : BlueprintPlacer.floorFor(surfaceHeight(origin));
+        int y = surveyed ? origin.y()
+                : BlueprintPlacer.baseFor(blueprintId, surfaceHeight(origin));
         BlockPos base = new BlockPos(origin.x(), y, origin.z());
         Footprint placed = BlueprintPlacer.place(level, blueprintId, base, facing);
         // Logs the base actually used, not the requested origin. A mismatch

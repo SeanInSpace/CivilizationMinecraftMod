@@ -56,6 +56,21 @@ public final class TownAuditor {
     /** A field this small is still being cleared; do not judge its planting. */
     private static final int MIN_FIELD_TO_JUDGE = 8;
 
+    /** Vanished-crop reports per farm per sweep, so one bad night stays readable. */
+    private static final int MAX_VANISHED_REPORTED = 4;
+
+    /**
+     * Where crops stood last sweep, per farm.
+     *
+     * <p>The whole point of remembering: when a crop disappears, the next sweep
+     * can say <em>which block</em> and <em>what stands there now</em> — soil
+     * intact means the crop broke off it (a survival check failed), soil turned
+     * to dirt means something trampled it, a path block means it was paved over.
+     * Counting losses never identified the mechanism; naming them does.
+     */
+    private static final java.util.Map<BlockPos, java.util.Set<BlockPos>> LAST_PLANTED =
+            new java.util.HashMap<>();
+
     private TownAuditor() {
     }
 
@@ -245,6 +260,7 @@ public final class TownAuditor {
                                    List<Fault> faults) {
         int farmland = 0;
         int planted = 0;
+        java.util.Set<BlockPos> nowPlanted = new java.util.HashSet<>();
         for (int dx = -wallHalfW; dx <= wallHalfW; dx++) {
             for (int dz = -wallHalfD; dz <= wallHalfD; dz++) {
                 BlockPos soil = new BlockPos(origin.getX() + dx, floor - 1, origin.getZ() + dz);
@@ -255,8 +271,27 @@ public final class TownAuditor {
                     farmland++;
                     if (level.getBlockState(soil.above()).is(BlockTags.CROPS)) {
                         planted++;
+                        nowPlanted.add(soil.above());
                     }
                 }
+            }
+        }
+
+        // Name what vanished since last sweep, and what stands in its place.
+        java.util.Set<BlockPos> before = LAST_PLANTED.put(origin, nowPlanted);
+        if (before != null) {
+            int reported = 0;
+            for (BlockPos was : before) {
+                if (nowPlanted.contains(was) || !level.isLoaded(was)) {
+                    continue;
+                }
+                if (reported++ >= MAX_VANISHED_REPORTED) {
+                    break;
+                }
+                faults.add(new Fault(building.blueprintId(), origin,
+                        "crop vanished at " + was.toShortString()
+                                + " — there now: " + level.getBlockState(was).getBlock()
+                                + ", soil: " + level.getBlockState(was.below()).getBlock()));
             }
         }
         if (farmland >= MIN_FIELD_TO_JUDGE && planted * 2 < farmland) {

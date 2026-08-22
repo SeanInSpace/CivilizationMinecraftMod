@@ -41,6 +41,28 @@ automated check can confirm is whether it *looks* right:
 
 ## Done
 
+- **The crop mystery, solved by instruments.** Fields kept churning into seed
+  items through three plausible-and-wrong theories (trampling, light, placement
+  order — the last ruled out by a probe that never fired). The auditor now
+  remembers where crops stood and names what replaced each one that vanished;
+  every report said the same thing: water over intact farmland. The farm was
+  built one block too deep — its ground layer is drawn below its base, so the
+  standard floor convention sank the field to where any pond at natural grade
+  holds its water, and fields flooded from the rim. Farms now base at the first
+  air block, putting farmland exactly where a player tills.
+
+- **Towns no longer sprawl into the next biome.** Site searches permanently
+  consumed ring-plot indices on every rejected candidate, and relocation checks
+  search every simulation step — a town beside a lake burned hundreds of slots
+  without building anything and planned farms 260 blocks out. Indices are now
+  spent only when a plot is actually taken.
+
+- **Playtest clients close themselves.** Every driver exit path — time up, early
+  exit, boot failure, crash — sweeps the game processes, which are children of
+  the gradle daemon and never died with the wrapper. A playtest can no longer
+  end with more clients open than it started with.
+
+
 - **A building announces itself from the first day.** The post block is the first
   thing laid at a new site — standing at its final spot from the moment the
   ground is surveyed, its cell withheld from the excavation so no digger levels
