@@ -29,9 +29,25 @@ public final class TownStores {
     public static final String WEAPONS = "weapons";
     public static final String ARMOUR = "armour";
 
-    /** What a founding party carries in: enough to raise a hall and get started. */
+    /**
+     * What a founding party carries in: the settlers, the loaves in their pockets,
+     * and the materials for the first buildings.
+     *
+     * <p>All four together because they are one kit and only mean anything sized
+     * against each other. A playtest watched a town spend its timber on the hall
+     * and starve idle long before it was big enough to want a farm, and nothing
+     * anywhere said what the kit was supposed to cover. {@code FoundingEconomicsTest}
+     * now holds that arithmetic; the charter item hands the kit out.
+     *
+     * <p>The party is four for two reasons that pull against each other: enough
+     * hands to build, and few enough to stay under
+     * {@link RaidPlanner#MIN_POPULATION_FOR_RAIDS} — a party that arrived already
+     * worth raiding would meet a war band before it had walls.
+     */
     public static final int FOUNDING_WOOD = 256;
     public static final int FOUNDING_STONE = 256;
+    public static final int FOUNDING_SETTLERS = 4;
+    public static final int FOUNDING_PROVISIONS_EACH = 8;
 
     private final Map<String, Integer> amounts = new LinkedHashMap<>();
 
