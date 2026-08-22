@@ -15,16 +15,15 @@ than papered over.
 
 ## Open
 
-- [ ] **Fix the founding party.** A settlement must not begin with a town hall —
-      no realistic settlement starts by building a government. It starts with
-      shelter and food: houses and a farm first, and the hall once there is a
-      town worth governing. The catalogue's priorities (`BuildCatalogue`, hall
-      at 100 above everything) are what put the hall first today.
-      The earlier six-fault autopsy of the founding death spiral, and the
-      three-part remedy built from it, are withdrawn — the cause analysis was
-      wrong or irrelevant. What genuinely remains underneath is **job
-      reassignment in general**: the staffing system needs rework as a whole,
-      not a rule that reassigns somebody the instant a structure completes.
+- [ ] **Fix the founding party — the staged progression.** Designed in full in
+      `FOUNDING.md`: camp → homestead → fortified → village → town, each stage
+      with its own build program and staffing program, advancing on conditions
+      rather than day counts. The hall moves to the last stage — no realistic
+      settlement starts by building a government — and the general
+      job-reassignment rework lives here as the pioneer: early settlers are
+      generalists, and professions crystallize as the stages demand them.
+      Order of work is in the doc; step 1 alone (the stage machine, hall to
+      TOWN, charter lands a camp of pioneers) ends hall-first founding.
 
 - [ ] **Fix digging time — it is currently too fast.** A block takes exactly the
       ticks vanilla gives a player with the right iron tool

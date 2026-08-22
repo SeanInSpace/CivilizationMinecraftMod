@@ -1,0 +1,205 @@
+# Founding
+
+**How a party of settlers becomes a town — the staged priority structure that
+replaces "build the hall first."**
+
+The verdict that forced this design: no realistic settlement starts by building
+a government. Today the catalogue puts the town hall at priority 100 above
+everything, so four settlers' first act is civic architecture while they sleep
+in the open and their bread runs out. The founding experience is the core of
+this mod, and it deserves a real progression: camp, then food, then safety,
+then permanence — with the hall as the capstone of a town worth governing, not
+the tent-pole of a camp that is not.
+
+The player supplied Phases 3 and 4 of this progression. Phases 0–2 are derived
+to meet them, and Phase 5 closes the arc onto the systems the mod already has.
+
+---
+
+## The shape of it
+
+A settlement carries a **stage**, and each stage carries two programs: an
+ordered **build program** (what gets raised, in what order) and a **staffing
+program** (who does what while it stands at that stage). Stages advance on
+**conditions, not day counts** — the day ranges below are pacing targets to
+tune against, because a stage that advances on a timer advances over a party
+that is failing.
+
+```
+CAMP  →  HOMESTEAD  →  FORTIFIED  →  VILLAGE  →  TOWN
+day 0     days 0–2      days 5–8     days 9+     later
+```
+
+This is also where the **general job-reassignment rework** lives. The staffing
+table today is one global list with population thresholds — which is how a
+founding party ended up with idlers it could not turn into farmers. Under
+stages, early settlers are **pioneers**: generalists with no fixed profession,
+taking work from a task pool (build, forage, haul, plant). Professions
+crystallize as the stages demand them — the sentry at FORTIFIED, the
+specialists at VILLAGE — and reassignment is a stage-transition and shortage
+event, never a reflex fired by a structure completing.
+
+---
+
+## Phase 0 — Arrival (day 0)
+
+The charter lands the party at a validated site (dry, flat enough — the site
+checks that already exist). First acts, in order:
+
+- **Stake the claim.** A camp post — a cheap marker at what will one day be the
+  hall's site. Not a hall. It is where the party's intentions live: clicking it
+  reports the stage, the program, and what is blocking advancement.
+- **Ground the packs.** A supply cache (a crate, not a building) becomes the
+  communal store. `TownStores` is already a ledger; the cache is its first
+  physical address.
+
+**Advance when:** the claim is staked. Effectively immediate; the phase exists
+so the arrival reads as an arrival.
+
+## Phase 1 — Shelter and hearth (days 0–2)
+
+- **P1 Bunkhouse.** One communal building that sleeps the whole party. The
+  existing cabin shape at minimal cost. Shelter for everyone — but communal
+  bunks do **not** count as family housing, so no births yet (see Phase 4).
+- **P2 Hearth.** A campfire at the camp's centre: light against spawns, the
+  cooking point the mill will one day replace.
+- **P3 Cache formalized.** The crate gets a roof if weather ever matters;
+  otherwise it simply persists as the pre-storehouse store.
+
+**Staffing:** everyone is a pioneer. The work planners accept pioneers for any
+labour while the settlement is below FORTIFIED.
+
+**Advance when:** the bunkhouse stands and everyone slept under it.
+
+## Phase 2 — Food security (days 2–5)
+
+- **P1 Farm plot.** The farm the party should have built first all along —
+  planted, tended, at grade (all of which now works).
+- **P2 Interim food.** Pioneers forage while the first crop grows: a simple
+  gathering task against nearby grass/berries/animals that trickles food into
+  the cache. This is what replaces "thirty-two loaves as a fuse."
+- **P3 First granary.** Small, adjacent to the farm.
+
+**Advance when:** food income per step ≥ appetite per step, measured over a
+rolling window — the party is genuinely feeding itself, not merely provisioned.
+
+## Phase 3 — Defensive enclosure and sanitation (days 5–8)
+
+*As specified by the player, with the mechanics mapped:*
+
+- **P1 Boundary construction (palisade / trench).** Builders erect a perimeter
+  around the work radius: a wooden palisade with gated choke points, or a
+  2-block-deep trench dug by the excavation system that already exists. This
+  introduces the **perimeter subsystem** — a segmented closed curve with gates,
+  stored on the settlement — with deliberately cheap geometry: an offset hull
+  around the claimed plots. The α-shape / active-contour wall already in
+  `GOALS.md` is the TOWN-stage implementation of the *same interface*; the
+  palisade proves the pipeline (curve → courses → gates) before the advanced
+  geometry arrives. Gates go where paths cross the curve, which is one of the
+  reasons the path network must remember where its paths are.
+- **P2 Guard assignment and sentry post.** One pioneer crystallizes into a
+  **sentry** — the first fixed profession — equipped from the founding kit's
+  arms. Patrol pathfinding nodes are the perimeter's own vertices: the curve
+  doubles as the patrol route, walked the way lumberjacks walk their trees, to
+  intercept zombies and spiders before they reach the bunks.
+- **P3 Storehouse upgrade.** The cache becomes a proper **Town Storehouse**:
+  segregated sorting (food, timber, minerals, finished tools — the ledger keys
+  that already exist, given shelves), and the **player trade interface** —
+  extending the warehouse post's existing donate/bill screen into two-way
+  trade.
+
+**Advance when:** the perimeter is closed, a sentry patrols it, and the
+storehouse stands.
+
+## Phase 4 — Structural division of labour and growth (days 9+)
+
+*As specified by the player:*
+
+- **P1 Dedicated residences.** Builders raise 2-person cottages and move
+  families out of the bunkhouse. **Births gate on family housing** — the
+  reproduction loop unlocks here and not before, which is what makes the
+  bunkhouse a stage and not a destination. The bunkhouse remains as lodging
+  for the unmarried and for newcomers.
+- **P2 Specialized workshops**, each crystallizing its profession:
+  - **Blacksmith** — exists (the smith); gains tool *repair* alongside
+    production, fed by miners' ore.
+  - **Mill / Bakery** — new. Fields begin yielding **grain**; the mill
+    multiplies it into bread at a real ratio, and unmilled grain feeds people
+    poorly. This introduces the raw/processed food distinction the economy has
+    been missing, and retires the hearth.
+  - **Carpentry / Masonry** — new. Pre-crafts components (stairs, slabs,
+    fences, refined blocks) that **discount the work cost of subsequent
+    builds** — the town literally gets faster at building itself, which is the
+    economic argument for the workshop tier.
+- **P3 Trade and diplomacy post.** The market exists; an **Inn** joins it —
+  the interaction point for wandering traders (vanilla's, hooked), players,
+  and eventually other settlements.
+
+**Advance when:** half the population lives in family housing and two
+workshops operate.
+
+## Phase 5 — Town (the capstone)
+
+- **The town hall, at last** — built once there is a town worth governing, and
+  worth the ceremony of being the stage's headline build.
+- **Expansion gates on it**: `ExpansionPlanner` may not found a daughter
+  settlement until the hall stands. Government precedes colonies.
+- **The wall replaces the palisade** — the α-shape / active-contour perimeter
+  from `GOALS.md`, on the same perimeter interface the palisade proved, for
+  settlements that can afford it. Small villages keep their palisade.
+- The existing building-level upgrade system takes over from here.
+
+---
+
+## What this touches
+
+**The priority core (new, in `common/`).** A `SettlementStage` enum persisted
+on the settlement; a stage program table (ordered build wants + staffing needs
+per stage). `chooseNext` consults the stage program before the catalogue; the
+catalogue's per-resident scaling becomes the VILLAGE+ behaviour it should
+always have been. `JobPlanner` reads the stage's staffing program instead of
+one global list, and learns the pioneer.
+
+**The pioneer (change, `common/`).** A profession that is allowed to do any
+early labour. Work planners at CAMP–HOMESTEAD accept pioneers; crystallization
+converts them as stages demand.
+
+**The perimeter (new, `common/` shape + `neoforge/` courses).** Curve + gates
+on the settlement; palisade builder (fence courses / trench via the existing
+excavation); sentry patrols along its vertices; the advanced wall slots in
+later on the same interface.
+
+**Food processing (change, `common/`).** Grain as a distinct store; the mill's
+conversion ratio; foraging as a pioneer task.
+
+**Housing tiers (change, `common/`).** Bunkhouse shelters but does not breed;
+births require family homes (`PopulationPlanner`).
+
+**New blueprints (`neoforge/`).** Bunkhouse, hearth, cache, palisade segment +
+gate, cottage, mill, carpentry, inn. All procedural first; all replaceable by
+authored blueprints through the seam that already exists.
+
+**Back-compatibility.** Existing saves infer a stage from their census (a hall
+means TOWN; count backward from there). New foundings start at CAMP. Stage is
+one optional codec field.
+
+**Not reverted.** The crisis staffing, queue preemption and distress reporting
+that landed recently stay: they are the safety net *under* this progression,
+and the progression is what should make them rarely fire.
+
+---
+
+## Order of work
+
+1. **Stage machine + programs** — the priority structure itself, hall moved to
+   TOWN, charter lands a CAMP of pioneers. This alone ends hall-first founding.
+2. **Camp content** — bunkhouse, hearth, cache; pioneer labour; foraging.
+3. **Perimeter v1 + sentry** — palisade, gates at path crossings, patrols.
+4. **Storehouse + player trade.**
+5. **Cottages + birth gating; the mill; carpentry; the inn.**
+6. **Hall as capstone; expansion gated; wall interface handed to the α-shape
+   work.**
+
+Each step is playtestable on its own: the sim tests drive a founding through
+its stages headless and assert the day-range targets at default pacing, and
+the audit gains a stage line so a scripted run can watch a camp become a town.
