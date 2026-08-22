@@ -13,6 +13,7 @@ import com.kingdoms.sim.settlement.PopulationPlanner;
 import com.kingdoms.sim.settlement.RaidPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementEvent;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.world.SettlementNames;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
@@ -29,7 +30,8 @@ import java.util.List;
  * The legitimate way to start a settlement — no commands, no cheats.
  *
  * <p>Use on the ground: founds a town on that spot, named deterministically from
- * the position, seeded with four settlers. Consumed on use (outside creative).
+ * the position, seeded with the founding party and kit described by
+ * {@link TownStores}. Consumed on use (outside creative).
  *
  * <p>Sneak-use anywhere: a written report of the nearest settlement — population,
  * jobs, defense, and recent history. The in-game window into the simulation.
@@ -39,11 +41,9 @@ public final class FoundingCharterItem extends Item {
     /** New settlements are refused this close to an existing claim's edge. */
     private static final int SPACING = 48;
 
-    /** Founding party: enough to build, few enough to stay under the raid gate. */
-    private static final int SETTLERS = 4;
-
-    /** Loaves each settler sets out with. Bread is 30 hunger, appetite is 2 a step. */
-    private static final int PROVISIONS_EACH = 8;
+    // The party's size and its rations sit in TownStores beside the timber and
+    // stone, because the four numbers are one kit: they have to be sized against
+    // each other, and only there can the simulation's own tests weigh them.
 
     public FoundingCharterItem(Properties properties) {
         super(properties);
@@ -80,14 +80,14 @@ public final class FoundingCharterItem extends Item {
         String name = SettlementNames.forPosition(site);
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, "kingdoms:norman");
         Settlement settlement = new Settlement(Settlement.Id.random(), name, site, 64);
-        for (int i = 0; i < SETTLERS; i++) {
+        for (int i = 0; i < TownStores.FOUNDING_SETTLERS; i++) {
             // Half builders so construction starts immediately; the rest idle and
             // retrain into whatever the town turns out to need.
             Profession trade = i % 2 == 0 ? Profession.BUILDER : Profession.IDLER;
             Person settler = new Person(Person.Id.random(), "Settler " + (i + 1), trade, site);
             // They pack food for the road. Until the first house stands there is
             // no larder to fetch from, so what they carry is what they live on.
-            settler.inventory().add(Foods.PROVISION, PROVISIONS_EACH);
+            settler.inventory().add(Foods.PROVISION, TownStores.FOUNDING_PROVISIONS_EACH);
             settlement.addResident(settler);
         }
         kingdom.addSettlement(settlement);
@@ -100,7 +100,8 @@ public final class FoundingCharterItem extends Item {
             context.getItemInHand().shrink(1);
         }
         player.sendSystemMessage(Component.literal(
-                name + " is founded! Four settlers begin work — they will build, marry, and grow. "
+                name + " is founded! " + TownStores.FOUNDING_SETTLERS
+                        + " settlers begin work — they will build, marry, and grow. "
                         + "Sneak-use a charter to check on them."));
         return InteractionResult.SUCCESS;
     }
