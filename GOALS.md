@@ -33,6 +33,48 @@ automated check can confirm is whether it *looks* right:
 - [ ] Do the hollow planned plots on the map read as plans, or as bugs?
 - [ ] Does a farmer working the rows read as farming — harvest, tend, replant?
 
+### The founding death spiral — observed live, none of it previously here
+
+A fresh town built its hall, ran out of materials, bootstrapped a mine, staffed
+it with nobody, and starved to death idle. Six distinct faults, each sufficient
+to have killed them, in the order the ratchet turned:
+
+1. **A founding party can never farm.** The staffing table wants zero farmers
+   below population five, and the charter lands four settlers with eight
+   provisions each. Food production is impossible by design on day one; the
+   thirty-two packed loaves are a fuse, not a larder.
+2. **The build queue is head-blocking with no survival lane.** New wants are
+   only ordered when the queue is empty, so a head task stalled unaffordable
+   freezes all ordering forever — a farm cannot even be queued while the hall
+   waits for stone.
+3. **The producer bootstrap orders the building, not the worker.** The mine
+   arrives; the staffing table may have nobody eligible to run it (only idlers
+   retrain, and gates besides). The town builds the tool of its own rescue and
+   cannot pick it up.
+4. **Hunger disqualifies the hungry from the jobs that would feed them.** Weak
+   people stop farming, hauling, building — and stay ineligible — so less food
+   means weaker means less food. No crisis override exists anywhere.
+5. **The spiral is silent.** No distress state, no escalating events, nothing on
+   the posts or the hall; the player performs the autopsy.
+6. **Founding economics are untested.** The kit demonstrably does not cover the
+   first hall, so the day-one bootstrap detour is guaranteed, not chosen — and
+   no test pins what the kit must afford.
+
+**The plan, one phase per link that kills:**
+
+- [ ] **Phase 1 — survival reflexes.** A settlement crisis state (starving
+      residents, or total food under a floor). In crisis: retraining ignores the
+      idler-only rule, the weakness gate, and population thresholds — somebody
+      farms NOW; farm and granary preempt the queue head; a head task stalled
+      unaffordable for N steps is parked behind them instead of blocking.
+- [ ] **Phase 2 — the bootstrap comes with hands.** Ordering a producer
+      force-retrains one resident to its trade in the same breath, or refuses
+      and says why. A pinned test: the founding kit affords the hall and first
+      house; provisions outlast the road to the first harvest.
+- [ ] **Phase 3 — distress is audible.** Crisis leads every post report and the
+      hall screen, escalates in the event log, flags the vitals line, and the
+      auditor gains a town-level fault: starving with a frozen build queue.
+
 ### Next
 - [ ] Fix the paths. The door-to-hall tracks were a first cut: routes ignore each
       other (no shared trunks or junctions), climb terrain a person cannot, and
