@@ -1,9 +1,13 @@
 package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Person;
+import com.kingdoms.sim.person.Profession;
 
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -233,10 +237,51 @@ public final class BuildPlanner {
         return type.workCost() * toLevel;
     }
 
-    /** Which building lets a town make a thing it has run out of. */
+    /**
+     * Which building lets a town make a thing it has run out of.
+     *
+     * <p>Food joined wood and stone after a founding party starved with full
+     * timber stores: there was no building it could reach for when the larder
+     * emptied, so running out of bread was simply the end.
+     *
+     * <p>Putting the farm here is not free. Everything in this table is exempt
+     * from material cost while it is built — see {@code payForProgress} and
+     * {@code BlueprintPlacer.canPayFor} — which now makes every farm a town
+     * raises cost nothing, not only the desperate one. That is the trade, taken
+     * deliberately: a town with an empty larder has nothing to sell, nothing to
+     * spend and no way to earn, so a farm it must pay for is a farm it can never
+     * have. Charging for farms again means first giving a starving town some
+     * other way to get one.
+     */
     public static final Map<String, String> PRODUCER_OF = Map.of(
             TownStores.WOOD, "kingdoms:lumber_camp",
-            TownStores.STONE, "kingdoms:mine");
+            TownStores.STONE, "kingdoms:mine",
+            TownStores.FOOD, "kingdoms:farm");
+
+    /**
+     * Who works each producer. Every entry in {@link #PRODUCER_OF} needs one.
+     *
+     * <p>The staffing table cannot be asked: it does not want a miner until a
+     * mine already stands ({@code ProfessionNeed.appliesTo}), which is the whole
+     * fault — the town builds the tool of its own rescue and has nobody to pick
+     * it up. So the producer names its own trade and {@link #requestProducer}
+     * hires for it directly.
+     */
+    public static final Map<String, Profession> TRADE_OF = Map.of(
+            "kingdoms:lumber_camp", Profession.LUMBERJACK,
+            "kingdoms:mine", Profession.MINER,
+            "kingdoms:farm", Profession.FARMER);
+
+    /**
+     * Who gives somebody up first when two trades are equally staffed.
+     *
+     * <p>Only a tiebreak — the largest cohort is asked first whatever it is,
+     * because that is where the slack actually is. Idlers are not here because
+     * they always go first and give up nothing.
+     */
+    private static final List<Profession> DONOR_ORDER = List.of(
+            Profession.TRADER, Profession.SHEPHERD, Profession.SMITH, Profession.GUARD,
+            Profession.MINER, Profession.LUMBERJACK, Profession.FARMER, Profession.BUILDER);
 
     /** Builder-steps for a producer ordered out of turn; the catalogue cost is used when known. */
     public static final int PRODUCER_WORK = 30;
@@ -248,13 +293,29 @@ public final class BuildPlanner {
     public static final int STAIR_WORK_PER_BLOCK = 3;
 
     /**
-     * Orders the building that would fix a shortage, ahead of everything else.
+     * Orders the building that would fix a shortage, ahead of everything else,
+     * and puts somebody in it in the same breath.
      *
      * <p>This is what stops limited supply becoming a deadlock. A town short of
      * timber wants a house it cannot pay for; the house is the highest-priority
      * thing it lacks, so it would sit on that job forever. Noticing the shortage
      * and going to build a lumber camp instead is both the way out and the
      * obviously sensible thing for a town to do.
+     *
+     * <p>Ordering it was only ever half the job. A town watched live built its
+     * hall, ran dry, bootstrapped a mine, staffed it with nobody and starved
+     * beside it: the staffing table will not want a miner until a mine actually
+     * stands, and by the time one did the idlers it would have retrained had
+     * been spent on higher-priority trades. So the worker is chosen here, when
+     * the building is ordered rather than when it is finished — which is also
+     * how they come to be trained and walking to the site while the walls are
+     * still going up.
+     *
+     * <p>And if nobody can be spared, nothing is ordered at all. A producer no
+     * resident will ever work is not a rescue, it is a hole in the ground the
+     * builders are diverted into. The refusal is logged, and callers ask again
+     * every step the shortage lasts, so the order goes in the moment a resident
+     * comes free.
      *
      * @return true if a producer was ordered by this call
      */
@@ -273,6 +334,23 @@ public final class BuildPlanner {
                 return false;
             }
         }
+        // Hands are settled before ground is: takeNextPlot spends a ring slot for
+        // good, and an order refused for want of a worker must not also cost the
+        // town a plot it never built on.
+        Profession trade = TRADE_OF.get(producer);
+        if (trade == null) {
+            sayOnce(settlement, step, "Out of " + resource + " but nobody knows how to run a "
+                    + readableName(producer));
+            return false;
+        }
+        boolean alreadyStaffed = settlement.residents().stream()
+                .anyMatch(resident -> resident.profession() == trade);
+        Person hands = alreadyStaffed ? null : sparestResident(settlement);
+        if (!alreadyStaffed && hands == null) {
+            sayOnce(settlement, step, "Out of " + resource + " and nobody to spare for a "
+                    + readableName(producer) + " — none is ordered until there is");
+            return false;
+        }
         int work = settlement.catalogue().stream()
                 .filter(type -> type.id().equals(producer))
                 .mapToInt(BuildingType::workCost)
@@ -287,9 +365,105 @@ public final class BuildPlanner {
         BuildTask ordered = new BuildTask(producer, plot, work);
         ordered.setFacing(facingToward(plot, settlement.centre()));
         settlement.enqueueUrgent(ordered);
-        settlement.logEvent(step, "Out of " + resource + " — work starts on a "
-                + producer.substring(producer.indexOf(':') + 1).replace('_', ' '));
+        String announcement = "Out of " + resource + " — work starts on a " + readableName(producer);
+        if (hands != null) {
+            hands.setProfession(trade);
+            announcement += ", and " + hands.name() + " takes up "
+                    + trade.name().toLowerCase(Locale.ROOT);
+        }
+        settlement.logEvent(step, announcement);
         return true;
+    }
+
+    /**
+     * The resident a town can most afford to lose to a new trade, or null if it
+     * cannot afford to lose one at all.
+     *
+     * <p>An idler first, because retraining one gives up nothing. After that the
+     * largest cohort hands somebody over, since that is where the slack is — a
+     * town of ninety-seven farmers can send one down the mine and never feel it.
+     *
+     * <p>Some last workers are never taken; see {@link #irreplaceable}. Where
+     * those are all a town has, this returns null and the caller says so out
+     * loud rather than ordering a building nobody will ever work in.
+     *
+     * <p>Deliberately not {@code JobPlanner.retrainOne}: that fills whichever
+     * trade the staffing table most wants, which is precisely not this one, and
+     * it refuses to draw from a profession sitting exactly at quota — the
+     * politeness that left the bootstrapped mine empty. The two rules want
+     * consolidating once both have settled.
+     */
+    private static Person sparestResident(Settlement settlement) {
+        Map<Profession, Integer> heads = new EnumMap<>(Profession.class);
+        for (Person resident : settlement.residents()) {
+            if (resident.profession() == Profession.IDLER) {
+                return resident;
+            }
+            heads.merge(resident.profession(), 1, Integer::sum);
+        }
+        Profession give = null;
+        int largest = 0;
+        for (Profession candidate : DONOR_ORDER) {
+            int cohort = heads.getOrDefault(candidate, 0);
+            if (cohort > largest && !(cohort == 1 && irreplaceable(settlement, candidate))) {
+                largest = cohort;
+                give = candidate;
+            }
+        }
+        if (give == null) {
+            return null;
+        }
+        Profession chosen = give;
+        return settlement.residents().stream()
+                .filter(resident -> resident.profession() == chosen)
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Whether a town with exactly one of these must keep them.
+     *
+     * <p>The last builder, because retraining them means the rescue just ordered
+     * is never raised at all. The last farmer, because the town then starves
+     * while it waits for the stone. And the last worker of a producer already
+     * standing, because taking them stops the production a previous rescue was
+     * ordered to start — and {@link #requestProducer} would never replace them:
+     * it refuses outright once the building stands, so an emptied camp stays
+     * empty and its resource can never be rescued again.
+     */
+    private static boolean irreplaceable(Settlement settlement, Profession trade) {
+        if (trade == Profession.BUILDER || trade == Profession.FARMER) {
+            return true;
+        }
+        for (Building standing : settlement.buildings()) {
+            if (TRADE_OF.get(baseIdOf(standing.blueprintId())) == trade) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Records an event unless the town is already saying it.
+     *
+     * <p>Refusals repeat: callers ask again every step a shortage lasts, several
+     * times a second while somebody is watching. A settlement remembers twenty
+     * lines, so one repeating refusal would scrub out the founding, the raids
+     * and everything else within seconds — a distress signal that erases the
+     * evidence is worse than silence.
+     */
+    private static void sayOnce(Settlement settlement, long step, String message) {
+        for (SettlementEvent said : settlement.events()) {
+            if (said.message().equals(message)) {
+                return;
+            }
+        }
+        settlement.logEvent(step, message);
+    }
+
+    /** "kingdoms:lumber_camp" reads as "lumber camp" in an event. */
+    private static String readableName(String blueprintId) {
+        return blueprintId.substring(blueprintId.indexOf(':') + 1).replace('_', ' ');
     }
 
     private BuildPlanner() {
