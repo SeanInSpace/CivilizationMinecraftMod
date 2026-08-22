@@ -27,13 +27,33 @@ class FootprintTest {
 
     @Test
     void aplotIsWiderThanTheBuildingItHolds() {
-        // A 7x7 hall on a plot cleared two blocks past its walls is an 11x11 plot.
-        // The recorded size is the plot, because the cleared shelf is part of what
-        // the town has taken for that building — the map and the lamp draw it.
-        Footprint plot = new Footprint(64, 7 + 4, 7 + 4, 5);
+        // A 7x7 hall with one block of doorstep round it is a 9x9 plot. The
+        // recorded size is the plot, because that step is part of what the town has
+        // taken for that building — the map and the lamp draw it.
+        //
+        // It used to be two blocks each side. Two blocks of ground taken on every
+        // side of every building is what a player saw as a scraped-flat pad round
+        // each hut, and it held the next building that much further off.
+        Footprint plot = new Footprint(64, 7 + 2, 7 + 2, 5);
 
-        assertTrue(plot.covers(100, 100, 105, 100), "five east is still the hall's ground");
-        assertFalse(plot.covers(100, 100, 106, 100), "six east belongs to nobody");
+        assertTrue(plot.covers(100, 100, 104, 100), "four east is still the hall's doorstep");
+        assertFalse(plot.covers(100, 100, 105, 100), "five east belongs to nobody");
+    }
+
+    @Test
+    void thewallsCanBeRecoveredFromTheRecordedPlot() {
+        // Everything that wants the building rather than its plot takes the margin
+        // back off the recorded span: the audit's shelf, fluid and doorway checks,
+        // and the farmer scanning their own field. A margin that did not survive
+        // that round trip is exactly how the farmer came to scan a ring of fence
+        // instead of soil, and it went unnoticed because the two numbers agreed by
+        // coincidence rather than by reference.
+        int margin = 1;   // BlueprintPlacer.APRON_MARGIN, which common cannot see
+        for (int walls : new int[]{1, 3, 4, 5, 7, 9, 11, 13}) {
+            Footprint plot = new Footprint(64, walls + 2 * margin, walls + 2 * margin, 4);
+            assertEquals(walls / 2, plot.width() / 2 - margin,
+                    "a " + walls + "-wide building must come back out of its own plot");
+        }
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.kingdoms.neoforge.view;
 
 import com.kingdoms.neoforge.entity.PersonEntity;
+import com.kingdoms.neoforge.world.BlueprintPlacer;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
@@ -61,7 +62,11 @@ public final class FarmWorker {
         if (!plot.isKnown()) {
             return false;
         }
-        int half = Math.max(2, plot.width() / 2 - 2);
+        // The field, not the plot it was recorded as: the apron comes back off to
+        // find the fence line. This was a hardcoded two, which was right only for
+        // as long as the placer's margin also happened to be two — the sort of
+        // agreement that stays correct right up until somebody changes one of them.
+        int half = Math.max(2, plot.width() / 2 - BlueprintPlacer.APRON_MARGIN);
         int floor = plot.y();
         SimPos origin = farm.origin();
 
