@@ -255,6 +255,25 @@ class StageProgressionTest {
     }
 
     @Test
+    void aDeadSentryIsReplacedBeforeTheFoundingCanStall() {
+        Settlement s = foundingParty();
+        s.setStage(SettlementStage.FORTIFIED);
+        StagePlanner.crystallize(s, SettlementStage.FORTIFIED);
+        Person sentry = s.residents().stream()
+                .filter(p -> p.profession() == Profession.GUARD)
+                .findFirst().orElseThrow();
+        s.removePerson(sentry.id());
+
+        s.step(CTX);
+
+        // The playtest raid that forced this killed the only guard twelve
+        // steps after the stage named them; graduation requires a sentry every
+        // step, so the post must refill, not stay vacant forever.
+        assertEquals(1, JobPlanner.count(s, Profession.GUARD),
+                "a raid that kills the only sentry must not stall the founding forever");
+    }
+
+    @Test
     void anOldSaveLoadsAsATownAndKeepsItsBehaviour() {
         // Saves from before stages existed carry no stage field; they must come
         // back as TOWN so nothing about an established settlement changes.

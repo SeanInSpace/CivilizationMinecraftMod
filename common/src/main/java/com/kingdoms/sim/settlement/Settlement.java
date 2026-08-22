@@ -844,6 +844,7 @@ public final class Settlement {
 
     /** Graduates the settlement when its stage's conditions are met. */
     private void advanceStage(SimContext ctx) {
+        StagePlanner.keepPostsFilled(this);
         if (!StagePlanner.readyToAdvance(this, ctx)) {
             return;
         }

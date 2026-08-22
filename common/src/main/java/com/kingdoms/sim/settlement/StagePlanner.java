@@ -189,6 +189,26 @@ public final class StagePlanner {
         }
     }
 
+    /**
+     * Refills the stage's named posts after a death.
+     *
+     * <p>Crystallization fires when a stage is entered, but the conditions it
+     * satisfies are continuous -- FORTIFIED requires a sentry every step, not
+     * merely on arrival. The raid that proved it killed the town's only guard
+     * twelve steps after the fortification named them, and the founding
+     * stalled forever, because entry-time crystallization never runs twice.
+     * While generalists still labour, the stage itself keeps its posts
+     * manned; from VILLAGE the ordinary staffing table holds that duty.
+     */
+    public static void keepPostsFilled(Settlement settlement) {
+        if (!settlement.stage().atLeast(SettlementStage.FORTIFIED)
+                || !pioneersLabour(settlement.stage())) {
+            return;
+        }
+        crystallizeOne(settlement, Profession.GUARD);
+        crystallizeOne(settlement, Profession.LUMBERJACK);
+    }
+
     private static void crystallizeOne(Settlement settlement, Profession trade) {
         // A shortage may have crystallized this trade years early — a camp that
         // ran out of timber already named its woodcutter. The stage fills the
