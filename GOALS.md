@@ -2,8 +2,7 @@
 
 Working list for the self-sufficiency milestone. Items move to **Done** with a
 one-line summary, and are dropped entirely once they have been played and hold up
-— this file is a worklist, not a changelog. The changelog is the git history; the
-long history is `ROADMAP.md`.
+— this file is a worklist, not a changelog. The changelog is the git history.
 
 **Milestone:** a town that secures its own materials, feeds itself, equips itself,
 and can be traded with — without the player doing any of it for them.
@@ -135,8 +134,8 @@ ground.
 
 *Short on purpose. Everything from the milestone-complete era has been dropped —
 it was proven by the endurance and client playtests and it lives in the git
-history and in `ROADMAP.md`. What is left is the recent work, kept until a run
-has been watched over it.*
+history. What is left is the recent work, kept until a run has been watched over
+it.*
 
 - **The ground a town takes, taken differently.** The two-block skirt of
   flattened land halved to one, with the catalogue's plot reservations narrowed

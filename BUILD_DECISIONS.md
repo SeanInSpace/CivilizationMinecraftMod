@@ -24,6 +24,23 @@ If anything is already in the build queue, **stop — do nothing.** A settlement
 
 This is why a town builds one thing at a time rather than starting six projects at once. It also keeps the arithmetic honest: because only one project can be in flight, counting "how many do I have" can ignore work in progress without ever double-counting.
 
+### 1.5. Does my stage have a program?
+
+**Below village size, the catalogue does not run at all.** A settlement climbs a
+founding ladder — camp, homestead, fortified, village, town — and each stage has
+its own ordered list of what to build. That list is worked top to bottom and is
+the *whole* of the plan: a camp raises its camp post and cache, a homestead its
+bunkhouse, hearth, farm and granary, in that order, however loudly the shortfall
+table below would like something else.
+
+From village size the catalogue scan resumes for growth, and one rule outlives the
+ladder: **the town hall may only be ordered at town stage.** It is the capstone of
+the last stage, not the opening move. See [FOUNDING.md](FOUNDING.md) for the
+programs and the conditions that graduate a settlement between them.
+
+A program entry naming a blueprint the catalogue does not know is skipped rather
+than built as a marker, which keeps the machine honest while content catches up.
+
 ### 2. What am I short of?
 
 For each building type in the catalogue:
@@ -37,7 +54,14 @@ For each building type in the catalogue:
 
 Among everything short, **highest priority wins.** Not "biggest shortfall" — priority.
 
-That ordering is deliberate. A settlement of 20 with no town hall and eight missing houses builds the town hall first, because the hall is more important even though the housing gap is larger.
+That ordering is deliberate. A settlement of 20 short of both a market and eight
+houses builds the houses first, because housing gates growth and a market does
+not, even when the two shortfalls are the same size.
+
+*(This paragraph used to say a town builds its hall first "because the hall is
+more important". It did, and it was wrong — a founding party's first act was civic
+architecture while it slept in the open. The hall is now gated to town stage and
+the priority column no longer decides anything until a settlement gets there.)*
 
 Ties are broken by larger shortfall, then alphabetically by id. The alphabetical fallback exists purely so the outcome is deterministic — the same town state always produces the same decision, on every machine.
 
@@ -136,18 +160,46 @@ Ids resolve most-specific-first, so `kingdoms:norman/house` falls back to `kingd
 
 ## The current catalogue
 
-| Building | Work | Min pop | Always want | Plus one per | Priority | Houses |
-|---|---|---|---|---|---|---|
-| Town hall | 40 | 1 | 1 | — | 100 | — |
-| House | 20 | 1 | 1 | 3 residents | 80 | 4 people |
-| Granary | 25 | 4 | 1 | 20 residents | 75 | — |
-| Farm | 30 | 4 | 0 | 5 residents | 70 | — |
-| **Lumber camp** | 30 | 5 | 1 | 30 residents | **68** | — |
-| **Stone mine** | 35 | 8 | 1 | 30 residents | **66** | — |
-| Market | 30 | 6 | 1 | 25 residents | 62 | — |
-| Watchtower | 45 | 12 | 0 | 12 residents | 60 | — |
-| Storehouse | 30 | 6 | 1 | 15 residents | 55 | — |
-| Workshop | 35 | 8 | 0 | 8 residents | 50 | — |
+Twenty-one types. The **plot** column is the ground each one takes — its walls plus
+the shelf cleared around them — and two plots may never overlap, which is what
+stops a town building its granary through the side of its own hall.
+
+**The founding programs** (see [FOUNDING.md](FOUNDING.md)). Priority 0 and "always
+want 0" keep these off the catalogue scan entirely: only a stage's own program ever
+orders one, so an established town never retrofits a camp.
+
+| Building | Work | Min pop | Always want | Plus one per | Priority | Houses | Plot |
+|---|---|---|---|---|---|---|---|
+| Camp post | 6 | 1 | — | — | — | — | 7 |
+| Supply cache | 10 | 1 | — | — | — | — | 7 |
+| Bunkhouse | 22 | 1 | — | — | — | 6 people | 11 |
+| Hearth | 12 | 1 | — | — | — | — | 9 |
+| Cottage | 16 | 1 | — | — | — | 3 people | 9 |
+| Mill | 30 | 1 | — | — | — | — | 9 |
+| Carpentry | 30 | 1 | — | — | — | — | 9 |
+| Inn | 35 | 1 | — | — | — | — | 11 |
+
+**The growth catalogue**, ordered by priority — what a village and a town build as
+they fill out.
+
+| Building | Work | Min pop | Always want | Plus one per | Priority | Houses | Plot |
+|---|---|---|---|---|---|---|---|
+| Town hall | 40 | 1 | 1 | — | 100 | — | 13 |
+| House | 20 | 1 | 1 | 3 residents | 80 | 4 people | 11 |
+| Granary | 25 | 4 | 1 | 20 residents | 75 | — | 9 |
+| Farm | 45 | 4 | 0 | 6 residents | 70 | — | 15 |
+| **Lumber camp** | 30 | 5 | 1 | 30 residents | **68** | — | 9 |
+| **Stone mine** | 35 | 8 | 1 | 30 residents | **66** | — | 9 |
+| Warehouse | 35 | 6 | 1 | 25 residents | 64 | — | 11 |
+| Market | 30 | 6 | 1 | 25 residents | 62 | — | 9 |
+| Watchtower | 45 | 12 | 0 | 12 residents | 60 | — | 7 |
+| Smithy | 40 | 10 | 1 | 40 residents | 57 | — | 9 |
+| Animal farm | 45 | 10 | 1 | 40 residents | 56 | — | 19 |
+| Storehouse | 30 | 6 | 1 | 15 residents | 55 | — | 9 |
+| Workshop | 35 | 8 | 0 | 8 residents | 50 | — | 9 |
+
+The town hall's priority of 100 now only matters *at town stage* — until then the
+stage gate keeps it off the table however loudly the number argues.
 
 **Shelter, then food, then materials, then everything else.** The lumber camp and
 the mine sit above the market and the workshop on purpose: a town that cannot fell

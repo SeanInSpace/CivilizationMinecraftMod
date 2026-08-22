@@ -29,18 +29,52 @@ There is no randomness anywhere — schedules and strengths hash the settlement 
 defense = guards × 2  +  sum of structure bonuses
 ```
 
-Guards contribute 2 each. Buildings contribute their `defenseBonus` from the catalogue — currently only the **watchtower, at +3**. (The bonus is a column in the same table as everything else, so datapack cultures can have their own defensive structures later.)
+Guards contribute 2 each. Buildings contribute their `defenseBonus` from the
+catalogue — currently only the **watchtower, at +3**. (The bonus is a column in the
+same table as everything else, so datapack cultures can have their own defensive
+structures later.)
+
+**The palisade is not in this number yet.** A fortified town rings itself with a
+real wall and real gates, and a sentry really walks it — but the arithmetic above
+still counts only guards and towers, so the wall currently buys physical
+obstruction and atmosphere rather than defence points. Giving the perimeter a
+bonus is the obvious next move and is deliberately not done blind: it wants a
+playtest to say what a palisade is worth.
 
 With the default staffing and build tables, a town's life arc looks like:
 
 | Population | Garrison | Defense | Typical raid | Outcome |
 |---|---|---|---|---|
-| 6 | none (guards staff at 8) | 0 | 1–3 | **bleeds** — the dangerous years |
+| 6 | none until the town fortifies | 0 | 1–3 | **bleeds** — the dangerous years |
 | 8 | 1 guard | 2 | 2–4 | losses about half the time |
 | 16 | 2 guards + watchtower | 7 | 3–5 | safe |
 | 32 | 4 guards + 2 towers | 14 | 5–7 | untouchable |
 
-The early game is deliberately dangerous: a town must grow through its vulnerable band, and growth is what saves it. Guards appear automatically at population 8 (see [POPULATION.md](POPULATION.md)), towers at 12.
+The early game is deliberately dangerous: a town must grow through its vulnerable
+band, and growth is what saves it. Towers arrive at population 12.
+
+Guards arrive by **two** routes, and the first one matters most. The staffing table
+wants one guard per 8 residents (see [POPULATION.md](POPULATION.md)), but a
+settlement that reaches the **fortified** stage names its first sentry immediately,
+whatever its population — a four-person camp with a closed palisade has a watch on
+it. That sentry is a graduation condition, so the post is also *kept* filled: a
+raid that kills the only guard is replaced from the pioneers next step. It had to
+be. The playtest that forced the rule lost its sentry to a raid twelve steps after
+the stage named them, and the founding stalled for three hundred and fifty steps
+with a finished wall and nobody to walk it.
+
+## The palisade
+
+A settlement that has fed itself stakes a ring around everything it has built and
+raises it post by post as its timber allows, pausing whenever a real building needs
+the crew. Gates are cut where the streets reach, one to a side, and are re-sited as
+the roads appear until the wall closes over them. The perimeter's vertices double
+as the sentry's patrol route.
+
+This is deliberately the simple version. It proves the interface that the concave
+terrain-fitted wall in `GOALS.md` will later implement — that wall replaces where
+the ring is *staked* and nothing else. Small settlements keep the palisade; only
+towns that can afford better get better.
 
 ---
 

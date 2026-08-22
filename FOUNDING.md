@@ -222,6 +222,77 @@ The 300-step pin (`StageProgressionTest.aCampLeftAloneClimbsTheWholeLadderToTown
 drives a charter party camp-to-TOWN headless: timber bootstrapped, streak fed,
 palisade closed and walked, cottages filled, hall standing.
 
+## The second way a settlement is founded: daughters
+
+*(Absorbed from the former `EXPANSION.md`. Founding by charter and founding by
+daughter are now literally the same ladder, so they belong in one document.)*
+
+Code: [`ExpansionPlanner`](common/src/main/java/com/kingdoms/sim/kingdom/ExpansionPlanner.java).
+
+> **A full settlement does not stop growing — it sends people out to found the
+> next one.**
+
+A town that has filled up sends a founding party of its youngest families out to
+plant a new settlement under the same banner, ~160 blocks away. The parent,
+relieved of its emigrants, resumes growing. When it fills again, it founds again.
+**Sprawl is the steady state**, and a kingdom is what accumulates.
+
+The rules, all deterministic:
+
+- **Only a full settlement founds.** Population at the ceiling is the trigger —
+  the cap is not a wall, it is a pump.
+- **Only a chartered town founds.** The settlement must have reached TOWN and have
+  its hall actually standing. A settlement still climbing the ladder pours its
+  people into the climb instead of sending them away.
+- **The parent pays the dowry.** Founding costs the same kit a player's charter
+  grants — timber, stone and provisions — taken out of the parent's own stores. A
+  town that cannot outfit its emigrants keeps them until it can. Nobody is sent
+  into the wilderness empty-handed, which is exactly how the very first founding
+  party nearly died.
+- **One frontier town at a time.** No settlement founds while any sibling is still
+  young (below 10 people). A kingdom consolidates before it stretches again.
+- **Whole families emigrate, never fragments.** The party is up to 6 people,
+  chosen youngest-families-first — the founding generation leaves, the elders who
+  built the parent stay.
+- **Nobody you can see teleports.** A family with any member currently embodied as
+  an entity stays home. Emigration happens in the abstract fidelity only.
+- **The daughter is a camp.** Emigrants arrive as pioneers in a fresh CAMP and
+  climb the whole ladder their parent climbed, hall last. Their old trades are
+  re-earned as the camp crystallizes them: a smith on a bare hillside is a pioneer
+  whatever their papers say.
+- **The site** is picked by hashed direction at 160 blocks, stepping further out
+  when the kingdom's own claims are in the way.
+
+Both towns record the event:
+
+```
+[step 412] 6 set out to found Ravenholm
+[step 412] Ravenholm founded by settlers from Oakstead
+```
+
+The full loop, end to end, with no player input:
+
+```
+families grow → town fills → hall stands → party departs → daughter camp founded
+     ↑                                                            ↓
+  parent regrows ← ceiling lifted by emigration      climbs the ladder itself
+```
+
+Hold a Founding Charter and walk the frontier: each green ring is another
+settlement the kingdom planted itself.
+
+### Not yet, on the expansion side
+
+- **Emigration is instant** — a departure step, not a walked journey. Visible
+  caravans belong with the travel system.
+- **Sites ignore terrain and other kingdoms** — a daughter can be planted near a
+  rival's claim. Site *quality* is a later concern.
+- **Nothing links the towns afterward** — no trade, no migration back, no shared
+  defence. The inn's caravan is the seam that will carry it; the kingdom is a
+  family tree, not yet an economy.
+
+---
+
 ## The wall interface, for the α-shape work
 
 The concave wall in GOALS replaces exactly one method:

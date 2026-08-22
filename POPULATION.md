@@ -8,9 +8,13 @@ Code: [`PopulationPlanner`](common/src/main/java/com/kingdoms/sim/settlement/Pop
 
 ## The rule, in one sentence
 
-> **A family only grows if it has a home with room left in it.**
+> **A family only grows if it has a *family* home with room left in it.**
 
-No house, no children. Full house, no children — until somebody moves out into a new one.
+No house, no children. Full house, no children — until somebody moves out into a
+new one. And communal housing does not count: the **bunkhouse** shelters the whole
+founding party and breeds nobody, because bunks are a stage and not a destination.
+That is what makes the first cottage a real unlock rather than one more roof — see
+[FOUNDING.md](FOUNDING.md).
 
 This makes **house construction the pacing mechanism for the entire simulation.** Population cannot outrun what the builders have put up, and a town that stops building stops growing.
 
@@ -32,7 +36,9 @@ Every simulation step, each settlement runs these in order.
 
 Anyone living in the settlement who does not belong to a family yet gets put in one. This covers people added by the debug command, and whatever migration system exists later.
 
-They are **grouped**, not given a family each. New arrivals fill the most recent family up to the size of the largest house type (4, currently), and only start a new family when that one is full.
+They are **grouped**, not given a family each. New arrivals fill the most recent
+family up to the size of the largest housing type the town has — 6 in a bunkhouse,
+4 in a house, 3 in a cottage — and only start a new family when that one is full.
 
 This matters. If six settlers each became their own household, the town would need six houses to accommodate six people. Grouped, they need two.
 
@@ -42,9 +48,21 @@ Any family without a home takes the first unoccupied house, in order. **One fami
 
 When the houses run out, the remaining families stay unhoused. They persist, they are counted in the population, and they do nothing. They are waiting for the builders.
 
+### 2.5. Couples move out of the bunks
+
+A household living in communal housing moves to a family home the moment one
+stands. If the whole household fits, it moves; if it does not, two of its members
+leave to found a new household in the cottage. One move per step, so the change
+is legible.
+
+Without this the founding household sat in its bunks forever — claiming a home is
+only ever done by the *homeless*, and the founding party is not homeless, it is
+badly housed. The cottages the village program raised stood empty while the stage
+waited on the families they were built for.
+
 ### 3. Housed families grow
 
-For each family that has a home:
+For each family in a home a family can grow in:
 
 - Add 1 to its growth progress, up to a threshold of **8 steps** (about 40 seconds of real time).
 - On reaching the threshold:

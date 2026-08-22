@@ -2,9 +2,21 @@
 
 A Millénaire-class civilization simulation for Minecraft 26.2 on NeoForge — autonomous NPC settlements with individually simulated inhabitants, self-directed building, and settlements that defend themselves.
 
-**MVP complete** — see [ROADMAP.md](ROADMAP.md). **Players start at [PLAYING.md](PLAYING.md)**: craft a Founding Charter, use it on open ground, and the town takes it from there.
+**Players start at [PLAYING.md](PLAYING.md)**: craft a Founding Charter, use it on
+open ground, and the town takes it from there.
 
-Design docs: [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what settlements build) · [POPULATION.md](POPULATION.md) (families, growth, jobs) · [DEFENSE.md](DEFENSE.md) (raids and guards) · [MODLOADER_DECISION.md](MODLOADER_DECISION.md) (why NeoForge).
+Design docs: [FOUNDING.md](FOUNDING.md) (how a settlement grows from camp to town,
+and how it daughters the next one) · [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what
+settlements build) · [POPULATION.md](POPULATION.md) (families, growth, jobs) ·
+[DEFENSE.md](DEFENSE.md) (raids, guards, the palisade) ·
+[KEYSTONE.md](KEYSTONE.md) (the blueprint mod shipped alongside).
+The worklist is [GOALS.md](GOALS.md).
+
+**Why NeoForge:** the two closest existing analogs both chose it independently —
+Millénaire's 2026 clean-slate rewrite, and MineColonies officially. The loader
+choice is not about the AI (both loaders give identical access to Mojang's classes,
+and this project barely uses vanilla AI anyway); it is about first-party persistence
+and hooks for per-entity and town-scoped state.
 
 ---
 
@@ -189,9 +201,13 @@ The full call chain, every 100 game ticks:
 ```
 SimWorld.step()                          builds a SimContext(bridge, step, settings)
   └─ for each Kingdom:  Kingdom.step(ctx)
-       ├─ ExpansionPlanner.advance(ctx)      full towns found daughters — see EXPANSION.md
+       ├─ ExpansionPlanner.advance(ctx)      chartered towns daughter camps — FOUNDING.md
        └─ for each Settlement:  Settlement.step(ctx)
-            ├─ planNextBuild(ctx)            terrain-aware since Phase 0
+            ├─ advanceStage(ctx)             camp → homestead → … → town
+            ├─ planNextBuild(ctx)            the stage's program, then the catalogue
+            ├─ PathPlanner.advance(ctx)      one building joined to the road network
+            ├─ PerimeterPlanner.advance(ctx) stakes and raises the palisade
+            ├─ InnPlanner.advance(ctx)       the caravan calls
             ├─ advanceBuildQueue(ctx)
             ├─ materializePending(ctx)
             ├─ FoodPlanner.advance(ctx)      fields, errands, hunger, starvation
@@ -203,13 +219,25 @@ SimWorld.step()                          builds a SimContext(bridge, step, setti
             └─ RaidPlanner.advance(ctx)
 ```
 
-**Rule 0 — planning.** If the build queue is empty, decide what to build next and queue it. The settlement builds the most important thing it is currently short of, and claims the ground it needs. Full rules in **[BUILD_DECISIONS.md](BUILD_DECISIONS.md)**.
+**Rule 0 — planning.** If the build queue is empty, decide what to build next and
+queue it. Below village size that decision belongs entirely to the **stage's own
+build program**; from village size the catalogue's priorities resume, with the town
+hall gated to town stage. The settlement claims the ground it needs. Full rules in
+**[BUILD_DECISIONS.md](BUILD_DECISIONS.md)** and **[FOUNDING.md](FOUNDING.md)**.
 
-**Rule 0.5 — jobs.** At most one idler per step takes up the trade the settlement is most short of (builders first — construction gates everything). Working residents are never reassigned; the mix corrects through idlers and newborns.
+**Rule 0.5 — jobs.** Below village size the staffing table does not run at all:
+every settler is a **pioneer** who labours as builder and farmer at once, and
+trades crystallize as the stages demand them (a sentry and a woodcutter when the
+wall goes up; the rest dissolve into the ordinary table at village). From village
+size, at most one idler per step takes up the trade the settlement is most short
+of. Working residents are never reassigned by the table — the mix corrects through
+idlers and newborns — but a genuine shortage still can: a camp that runs out of
+timber names a woodcutter on the spot.
 
 **Rule 0.75 — population.** Newcomers are gathered into families, families claim empty houses, and housed families with spare room have children. A family with no house, or a full house and nowhere to move, does not grow. **Children take the settlement's most-needed job**, falling back to the family trade when nothing is short. Full rules in **[POPULATION.md](POPULATION.md)**.
 
-**Rule 1 — construction.** Count residents whose profession is `BUILDER`. Add that many work units to the *first* task in the build queue. If it reaches `requiredWork`, drop it from the queue and **record a `Building`** on the settlement, stamped with the step it finished on. If there are no builders, or the queue is empty, nothing happens.
+**Rule 1 — construction.** Count residents who labour as `BUILDER` (which includes
+every pioneer below village size). Add that many work units to the *first* task in the build queue. If it reaches `requiredWork`, drop it from the queue and **record a `Building`** on the settlement, stamped with the step it finished on. If there are no builders, or the queue is empty, nothing happens.
 
 **Rule 2 — deferred placement.** For each recorded building not yet drawn, ask the bridge whether its chunk is loaded. If it is, paint it into the world and mark it materialized. If not, leave it pending and try again next step.
 
@@ -263,17 +291,23 @@ Raising that interval is the cheapest performance lever you have. Reach for it b
 
 ## Next steps
 
-**See [ROADMAP.md](ROADMAP.md) for the MVP plan.** The list below is the simulation-layer view of the same thing.
+The live worklist is **[GOALS.md](GOALS.md)** — this is the simulation-layer view
+of the same thing, kept short.
 
-1. ~~**Persistence.**~~ Done — `KingdomsSavedData`, loaded on `ServerStartedEvent`, written with the level.
-2. **Datapack-driven cultures and blueprints.** The highest-leverage thing in the project, and the reason Millénaire could carry six cultures. Define blueprints and professions in JSON, not Java, before content volume makes it expensive to retrofit. `Profession` is a placeholder enum waiting to be replaced by exactly this.
-3. ~~**Make professions do something.**~~ Done — guards fight, farmers work fields, traders stock the market, lumberjacks fell and replant. Only the *workshop* remains decorative.
-4. ~~**Blueprint placement.**~~ Wired, with placeholder geometry. Replace with real datapack blueprints as part of step 2.
-5. ~~**Settlements that decide for themselves.**~~ Done — see [BUILD_DECISIONS.md](BUILD_DECISIONS.md).
-6. ~~**Population growth.**~~ Done — see [POPULATION.md](POPULATION.md), including Phase 2's needs-based job assignment.
-7. ~~**The entity view layer.**~~ Done — vanilla villagers as disposable views over `Person` records, with hysteresis and per-settlement caps. `EmbodimentPlanner` (common) decides; `PersonEntityManager` (neoforge) executes.
-8. ~~**Two-fidelity defense.**~~ Done — see [DEFENSE.md](DEFENSE.md).
-9. **Datapack-driven content.** The one structural gap left: nine building types, six professions, a nutrition table and a staffing table, all hardcoded. See [ROADMAP.md](ROADMAP.md).
+1. **Datapack-driven content.** The one structural gap left, and the reason
+   Millénaire could carry six cultures: **21 building types, 11 professions**, a
+   nutrition table and a staffing table, all hardcoded in Java. Blueprints are
+   already data (see [KEYSTONE.md](KEYSTONE.md)); the *tables* are not. The build
+   catalogue is the one to do first, since that is what lets cultures want
+   different things.
+2. **Construction materials, and the builder's hut screen.** Both halves exist —
+   timber in the stores, and an ordered block sequence whose cursor can stop. What
+   is missing is the interactive supply GUI: walk up, see what a build needs, hand
+   it over.
+3. **Tuning.** Postponed all along, deliberately. Every loop is watchable now, so
+   the numbers can be judged rather than guessed.
+4. **Age and mortality**, once there is enough economy for population pressure to
+   mean something.
 
 ---
 

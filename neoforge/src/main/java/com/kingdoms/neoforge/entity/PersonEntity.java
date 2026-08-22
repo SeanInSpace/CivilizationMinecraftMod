@@ -38,7 +38,12 @@ import java.util.UUID;
  * view. So this mob carries only ambience through the simple Goal system — float,
  * wander, glance at players — while everything meaningful (walking home, guard
  * combat, jobs, families) is driven from the records by {@code PersonEntityManager}.
- * See VILLAGER_AI.md for the full reasoning.
+ * <p>The reasoning, since the document that held it is gone: the vanilla villager
+ * Brain assumes the entity owns its own state — memories, schedule, job site —
+ * which fights a records-first architecture at every turn. Settlers are a plain
+ * humanoid with almost no AI of their own, and everything meaningful is driven
+ * from outside by the simulation. JobPlanner is our "assign profession",
+ * PopulationPlanner our beds-and-breeding, the settlement event log our gossip.
  */
 public final class PersonEntity extends PathfinderMob {
 
