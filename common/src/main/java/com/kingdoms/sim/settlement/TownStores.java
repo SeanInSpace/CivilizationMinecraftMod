@@ -39,13 +39,76 @@ public final class TownStores {
      * anywhere said what the kit was supposed to cover. {@code FoundingEconomicsTest}
      * now holds that arithmetic; the charter item hands the kit out.
      *
+     * <p><strong>Why the timber outweighs the stone.</strong> The kit used to be
+     * 256 of each, sized when a town's first act was a hall and a house. The
+     * founding rework replaced that with the stage programs, and a later playtest
+     * watched the party build its cache, start its bunkhouse, run dry and divert
+     * into a mine it could not finish either. The kit was 1:1 and building burns
+     * 2:1 — {@link BuildPlanner#WOOD_PER_WORK} against
+     * {@link BuildPlanner#STONE_PER_WORK} — so a party carrying equal parts spends
+     * its last log with half its stone untouched, and every log short of the
+     * programme is a building nobody finishes.
+     *
+     * <p>The programme is what these have to cover: the paid entries of CAMP,
+     * HOMESTEAD and FORTIFIED, which is everything {@code StagePlanner.PROGRAMS}
+     * names except the farm and the lumber camp (free, because
+     * {@link BuildPlanner#PRODUCER_OF} exempts a town's way out of a shortage from
+     * the shortage). That runs to 105 builder-steps, and a party of four is billed
+     * 116 — the last step of every building is charged for the whole crew whether
+     * or not it needed one — so 464 timber and 232 stone.
+     *
+     * <p>The timber's reserve on top of that is thin, and not by choice.
+     * {@link LumberPlanner#BASE_WOOD_STORAGE} is 512: that is every log a town
+     * without a storehouse can hold, so a kit sized much above this one arrives at
+     * its own ceiling and the lumber camp built at FORTIFIED fells into a full
+     * store — {@code LumberPlanner.wantsMoreTimber} is false and the axes stop
+     * before they start. The founding programme costs 464 of a possible 512, so
+     * the whole design has forty-eight of slack in it and this kit takes sixteen
+     * of that as its reserve, leaving thirty-two of headroom for the first felled
+     * log. Widening the cushion means widening the ceiling, not the kit.
+     *
+     * <p>The total is up from 512 to 768, and deliberately: the old kit was not
+     * badly divided, it was too small, and no reshuffle of 512 pays for 696.
+     *
+     * <p><strong>Why the stone keeps the fatter reserve</strong> even though it is
+     * the cheaper half. Timber has a rescue inside the founding itself — FORTIFIED
+     * raises the lumber camp first and free, so a town that runs low on logs is
+     * already felling, and any timber the estimate failed to foresee is felled
+     * rather than carried. Stone has no such rescue: no stage programme orders a
+     * mine at all, so the only mine a founding party ever gets is the one
+     * {@link BuildPlanner#requestProducer} shoves to the head of the queue the
+     * moment the stores run dry — the whole party diverted into an unplanned
+     * build, which is precisely what the playtest watched. Stone is also what the
+     * second fidelity spends fastest: a build somebody is standing over is billed
+     * by the platform layer at one unit per block laid, and a wall is masonry
+     * however the estimate prices it. Only the estimate can be checked from this
+     * module, which has never heard of a block, so the hedge is carried here
+     * instead.
+     *
+     * <p>The provisions are left alone, and the arithmetic for that is
+     * {@code whatTheSettlersPackedOutlastsTheRoadToTheProgramsFirstFarm}: the
+     * programme puts the farm fourth, so a lone builder reaches a standing field
+     * in 95 steps and the loaves in one settler's pockets feed them for 120. The
+     * old road — hall, three houses, granary, then a field — ran to some two
+     * hundred, and is the reason the larder looks as generous as it does.
+     *
+     * <p><strong>The charter is not the only thing that pays this.</strong>
+     * {@code ExpansionPlanner.found} makes the kit the dowry a parent town owes
+     * every daughter, and gates the whole expansion on having it banked — so
+     * these figures are also the price of a second settlement, up here by nearly
+     * half. A TOWN has long since built its storehouse and can hold plenty, but a
+     * town that loses one is a town that can no longer afford to expand, and the
+     * next retune should weigh that as well as the founding.
+     *
      * <p>The party is four for two reasons that pull against each other: enough
      * hands to build, and few enough to stay under
      * {@link RaidPlanner#MIN_POPULATION_FOR_RAIDS} — a party that arrived already
-     * worth raiding would meet a war band before it had walls.
+     * worth raiding would meet a war band before it had walls. A daughter party
+     * may be up to {@code ExpansionPlanner.FOUNDING_PARTY_MAX}, and the kit is
+     * priced against that crew too.
      */
-    public static final int FOUNDING_WOOD = 256;
-    public static final int FOUNDING_STONE = 256;
+    public static final int FOUNDING_WOOD = 480;
+    public static final int FOUNDING_STONE = 288;
     public static final int FOUNDING_SETTLERS = 4;
     public static final int FOUNDING_PROVISIONS_EACH = 8;
 
