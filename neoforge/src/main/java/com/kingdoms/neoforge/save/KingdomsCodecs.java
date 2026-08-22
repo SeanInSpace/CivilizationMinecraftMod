@@ -13,6 +13,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Perimeter;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
@@ -189,7 +190,8 @@ public final class KingdomsCodecs {
     }));
 
     /**
-     * Culture, stage and the fed streak share one slot of the settlement codec.
+     * Everything that would not fit shares one slot of the settlement codec:
+     * culture, stage, the fed streak, the perimeter and the roads.
      *
      * <p>The settlement group already sits at DFU's sixteen-field cap, and a
      * {@code MapCodec} used directly in a group flattens its fields into the
@@ -197,10 +199,13 @@ public final class KingdomsCodecs {
      * "culture" reads and writes exactly as it always did.
      */
     private record Flavor(String culture, String stage, int fedStreak,
-                          boolean perimeterClosed, Optional<Perimeter> perimeter) {
+                          boolean perimeterClosed, Optional<Perimeter> perimeter,
+                          Optional<PathNetwork> paths) {
         static Flavor of(Settlement s) {
             return new Flavor(s.cultureId(), s.stage().pretty(), s.fedStreak(),
-                    s.perimeterClosed(), Optional.ofNullable(s.perimeter()));
+                    s.perimeterClosed(), Optional.ofNullable(s.perimeter()),
+                    s.paths().isEmpty() && s.paths().joined().isEmpty()
+                            ? Optional.empty() : Optional.of(s.paths()));
         }
     }
 
@@ -210,12 +215,32 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("laid", 0).forGetter(Perimeter::laid)
     ).apply(i, Perimeter::new));
 
+    private static final Codec<PathNetwork.Segment> PATH_SEGMENT =
+            RecordCodecBuilder.create(i -> i.group(
+                    SIM_POS.fieldOf("from").forGetter(PathNetwork.Segment::from),
+                    SIM_POS.fieldOf("to").forGetter(PathNetwork.Segment::to)
+            ).apply(i, PathNetwork.Segment::new));
+
+    /**
+     * The road network, stored as its segments and the buildings already joined
+     * to it. Both halves matter on reload: without the joined set a restart
+     * re-plans every road the town ever laid, which is how the old in-memory
+     * version quietly did the whole job again on every server start.
+     */
+    private static final Codec<PathNetwork> PATH_NETWORK = RecordCodecBuilder.create(i -> i.group(
+            PATH_SEGMENT.listOf().optionalFieldOf("segments", List.of())
+                    .forGetter(PathNetwork::segments),
+            SIM_POS.listOf().optionalFieldOf("joined", List.of())
+                    .forGetter(PathNetwork::joined)
+    ).apply(i, PathNetwork::new));
+
     private static final MapCodec<Flavor> FLAVOR = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.STRING.optionalFieldOf("culture", Culture.DEFAULT.id()).forGetter(Flavor::culture),
             Codec.STRING.optionalFieldOf("stage", "").forGetter(Flavor::stage),
             Codec.INT.optionalFieldOf("fed_streak", 0).forGetter(Flavor::fedStreak),
             Codec.BOOL.optionalFieldOf("perimeter_closed", false).forGetter(Flavor::perimeterClosed),
-            PERIMETER.optionalFieldOf("perimeter").forGetter(Flavor::perimeter)
+            PERIMETER.optionalFieldOf("perimeter").forGetter(Flavor::perimeter),
+            PATH_NETWORK.optionalFieldOf("paths").forGetter(Flavor::paths)
     ).apply(i, Flavor::new));
 
     public static final Codec<Household.Id> HOUSEHOLD_ID =
@@ -355,6 +380,7 @@ public final class KingdomsCodecs {
         settlement.setFedStreak(flavor.fedStreak());
         settlement.setPerimeterClosed(flavor.perimeterClosed());
         flavor.perimeter().ifPresent(settlement::setPerimeter);
+        flavor.paths().ifPresent(settlement::setPaths);
         lumberArea.ifPresent(settlement::setLumberArea);
         mineArea.ifPresent(settlement::setMineArea);
         residents.forEach(settlement::addResident);

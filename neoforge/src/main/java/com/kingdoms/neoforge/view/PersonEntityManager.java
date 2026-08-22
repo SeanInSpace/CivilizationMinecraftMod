@@ -26,6 +26,7 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimWorld;
@@ -188,7 +189,8 @@ public final class PersonEntityManager {
     private final Map<UUID, Integer> repathTries = new HashMap<>();
 
     /** Buildings already joined to the hall, so a path is laid once per session. */
-    private final java.util.Set<String> pathsLaid = new java.util.HashSet<>();
+    /** Which stretch of each town's road network is next for inspection. */
+    private final Map<UUID, Integer> pathCursor = new HashMap<>();
 
     /** Houses are 5x5, so their door sits two blocks south of the origin. */
     private static final int HOUSE_DOOR_OFFSET = 2;
@@ -251,7 +253,7 @@ public final class PersonEntityManager {
                 workFarmers(settlement);
                 changed |= workMiners(settlement);
                 changed |= workShepherds(settlement);
-                layPaths(settlement);
+                changed |= layPaths(settlement);
                 PerimeterLayer.draw(level, settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
@@ -969,7 +971,11 @@ public final class PersonEntityManager {
                 }
                 homeAccessFailures.remove(key);
 
-                SimPos doorway = new SimPos(home.x(), home.y() + 1, home.z() + HOUSE_DOOR_OFFSET);
+                // The building's own door, not a guess at one. This used to
+                // assume every door faced south while the placer turned three
+                // houses in four to face the centre, so the flight of steps was
+                // built against a blank wall of the house it was meant to open.
+                SimPos doorway = doorwayOf(settlement, home);
                 if (BuildPlanner.requestAccessStairs(settlement, doorway, climb, world.stepsElapsed())) {
                     KingdomsSavedData.get(level).setDirty();
                     KingdomsMod.LOGGER.info("{} cannot reach home; steps ordered at {}",
@@ -979,6 +985,17 @@ public final class PersonEntityManager {
         }
     }
 
+    /** The doorstep of whatever stands at this origin, or a southward guess. */
+    private static SimPos doorwayOf(Settlement settlement, SimPos origin) {
+        for (Building building : settlement.buildings()) {
+            if (building.origin().equals(origin)) {
+                SimPos step = building.doorstep();
+                return new SimPos(step.x(), origin.y() + 1, step.z());
+            }
+        }
+        return new SimPos(origin.x(), origin.y() + 1, origin.z() + HOUSE_DOOR_OFFSET);
+    }
+
     /**
      * Lumberjacks fell and replant inside the camp's work area. Like builders,
      * they steer themselves while working, so the daily routine leaves them be.
@@ -986,43 +1003,26 @@ public final class PersonEntityManager {
     /** Miners cut stone by daylight and under no threat, same terms as the woodland. */
     /** Shepherds stock the pens, one beast at a time, by daylight. */
     /**
-     * Joins the town's doors up with trodden ways.
+     * Keeps the town's roads on the ground.
      *
-     * <p>One building a pass, and only ones not yet connected — laying a whole
-     * town's paths in a single tick would be a visible hitch, and there is no
-     * hurry. Paths run to the hall, which is what makes a settlement read as
-     * having a centre rather than being a scatter of huts.
+     * <p>Where they run is the simulation's business — {@code PathPlanner}
+     * remembers the network and joins one building a step to it. This walks one
+     * segment a sweep, laying what is missing from it, which draws new roads and
+     * mends worn ones through the same mechanism: a new segment is entirely
+     * missing, so it gets laid; a sound one costs a few block reads.
+     *
+     * <p>One a sweep, round-robin. A town with forty stretches of road looks at
+     * each of them every forty seconds, which is far more often than grass
+     * grows back over one.
      */
     private boolean layPaths(Settlement settlement) {
-        if (settlement.buildings().size() < 2) {
+        List<PathNetwork.Segment> segments = settlement.paths().segments();
+        if (segments.isEmpty()) {
             return false;
         }
-        SimPos hall = null;
-        for (Building building : settlement.buildings()) {
-            if (BuildPlanner.baseIdOf(building.blueprintId()).endsWith("town_hall")) {
-                hall = building.origin();
-                break;
-            }
-        }
-        if (hall == null) {
-            return false;   // no centre to join up to yet
-        }
-        for (Building building : settlement.buildings()) {
-            if (building.origin().equals(hall) || !building.isMaterialized()) {
-                continue;
-            }
-            String key = settlement.id().value() + "@" + building.origin();
-            if (!pathsLaid.add(key)) {
-                continue;
-            }
-            // Doors face south, so aim a block out from the doorway rather than
-            // at the middle of the building, and the track meets the entrance.
-            SimPos door = new SimPos(building.origin().x(),
-                    building.origin().y(), building.origin().z() + HOUSE_DOOR_OFFSET + 1);
-            PathLayer.connect(level, door, hall);
-            return true;
-        }
-        return false;
+        UUID id = settlement.id().value();
+        int cursor = pathCursor.merge(id, 1, Integer::sum) - 1;
+        return PathLayer.mend(level, segments.get(Math.floorMod(cursor, segments.size()))) > 0;
     }
 
     private boolean workShepherds(Settlement settlement) {

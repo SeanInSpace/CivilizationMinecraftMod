@@ -48,12 +48,18 @@ public final class TownMapScreen extends Screen {
 
     /** Planned but unbuilt: a faint wash inside a solid edge — intent, not walls. */
     private static final int PLANNED_FILL = 0x40348A52;
+
+    /** The roads: dim earth, drawn under the buildings so they read as ground. */
+    private static final int ROAD = 0xFF6B5A44;
     private static final int PLAYER = 0xFFFFFFFF;
     private static final int TITLE = 0xFFFFE0A0;
     private static final int SUBTLE = 0xFF9A9A9A;
 
     /** No building ever draws thinner than this, or a hut vanishes at town scale. */
     private static final int MIN_MARK = 2;
+
+    /** Roads never draw thinner than this, or the network vanishes at town scale. */
+    private static final int ROAD_WIDTH = 1;
 
     private final TownMapPayload town;
 
@@ -116,6 +122,9 @@ public final class TownMapScreen extends Screen {
         graphics.outline(mapX, mapY, size, size, BORDER);
 
         drawClaim(graphics, mapX, mapY);
+        // Under the buildings: a road passing a plot should disappear behind it,
+        // the way it does on the ground.
+        drawRoads(graphics, mapX, mapY);
         drawBuildings(graphics, mapX, mapY);
         drawPlayer(graphics, mapX, mapY);
 
@@ -129,6 +138,8 @@ public final class TownMapScreen extends Screen {
         graphics.centeredText(font,
                 Component.literal(built + " buildings"
                         + (planned > 0 ? "   ·   " + planned + " planned" : "")
+                        + (town.roads().isEmpty() ? ""
+                                : "   ·   " + town.roads().size() + " roads")
                         + "   ·   north is up"),
                 x + panelWidth / 2, y + h - 14, SUBTLE);
 
@@ -138,6 +149,35 @@ public final class TownMapScreen extends Screen {
     /** A faint square for the town's borders, so the plan has an edge to read against. */
     private void drawClaim(GuiGraphicsExtractor graphics, int mapX, int mapY) {
         graphics.outline(mapX + 1, mapY + 1, mapSize() - 2, mapSize() - 2, CLAIM);
+    }
+
+    /**
+     * The road network. Every segment is axis-aligned, so each one draws as a
+     * thin filled rectangle — no line rasteriser needed.
+     */
+    private void drawRoads(GuiGraphicsExtractor graphics, int mapX, int mapY) {
+        double scale = scale();
+        int size = mapSize();
+        for (TownMapPayload.Road road : town.roads()) {
+            int x0 = mapX + toPixel(Math.min(road.x1(), road.x2()) - town.centreX(), scale, size);
+            int x1 = mapX + toPixel(Math.max(road.x1(), road.x2()) - town.centreX(), scale, size);
+            int z0 = mapY + toPixel(Math.min(road.z1(), road.z2()) - town.centreZ(), scale, size);
+            int z1 = mapY + toPixel(Math.max(road.z1(), road.z2()) - town.centreZ(), scale, size);
+
+            // A road is a block or three wide, which is under a pixel on a city
+            // plan. Draw it thin rather than not at all.
+            if (x1 - x0 < ROAD_WIDTH) {
+                x1 = x0 + ROAD_WIDTH;
+            }
+            if (z1 - z0 < ROAD_WIDTH) {
+                z1 = z0 + ROAD_WIDTH;
+            }
+            if (x1 <= mapX || z1 <= mapY || x0 >= mapX + size || z0 >= mapY + size) {
+                continue;
+            }
+            graphics.fill(Math.max(x0, mapX), Math.max(z0, mapY),
+                    Math.min(x1, mapX + size), Math.min(z1, mapY + size), ROAD);
+        }
     }
 
     private void drawBuildings(GuiGraphicsExtractor graphics, int mapX, int mapY) {

@@ -1,89 +1,128 @@
 package com.kingdoms.neoforge.world;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.PathNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
- * Trodden ways between buildings.
+ * Draws and mends the ways the settlement has trodden.
  *
- * <p>A village reads as a village when its doors are joined up. Paths are drawn
- * from one entrance to another along the terrain, one block wide, following the
- * surface up and down rather than cutting through it — a track worn by use, not
- * a road cut by engineers.
+ * <p>Where the road runs is decided in the simulation and remembered there
+ * ({@code PathNetwork}); this only makes a remembered segment visible, and puts
+ * it back when it has grown over. Same two-fidelity split as everything else:
+ * the road a town believes it has and the road a player can walk must be the
+ * same road.
  *
- * <p>Only natural ground is paved and only headroom above it is cleared, so a
- * path can never eat a wall it happens to run past.
+ * <p>Drawing and mending are one operation, which is what makes the whole thing
+ * self-healing. A brand-new segment is nothing but gaps, so it is drawn; a worn
+ * one is patched only once enough of it has gone that the road has stopped
+ * reading as a road. Re-walking a sound stretch costs a handful of block reads
+ * and writes nothing.
+ *
+ * <p>Only natural ground is ever paved and only foliage above it is cleared, so
+ * a road can never eat a wall it happens to run past — and a stretch that a
+ * building has since been raised over is left alone rather than fought over.
  */
 public final class PathLayer {
-
-    /** Longest run laid in one go, so a distant plot cannot cost a tick. */
-    private static final int MAX_LENGTH = 96;
 
     /** Blocks of clearance kept above the track. */
     private static final int HEADROOM = 2;
 
     /**
-     * Half-width of the track, so a path is {@code 2 * HALF_WIDTH + 1} across.
+     * Half-width of the track, so a road is {@code 2 * HALF_WIDTH + 1} across.
      *
-     * <p>One block wide read as a trail of crumbs between buildings rather than a
-     * street, and two people could not pass on it.
+     * <p>One block wide read as a trail of crumbs between buildings, and two
+     * people could not pass on it.
      */
     private static final int HALF_WIDTH = 1;
+
+    /**
+     * How much of a stretch must have gone before it is worth re-laying.
+     *
+     * <p>Not zero: grass creeps back over a corner of a road constantly, and a
+     * layer that repaved every blade would rewrite half the town every sweep
+     * for no visible gain. A quarter gone is a road with holes in it.
+     */
+    private static final double REPAIR_FRACTION = 0.25;
 
     private PathLayer() {
     }
 
     /**
-     * Lays a track between two points, following the ground.
+     * Lays what is missing from one segment, if enough of it is missing.
      *
-     * @return how many blocks of path were laid
+     * @return blocks paved — zero for a road that is already sound
      */
-    public static int connect(ServerLevel level, SimPos from, SimPos to) {
-        int x0 = from.x();
-        int z0 = from.z();
-        int x1 = to.x();
-        int z1 = to.z();
-
-        int dx = Math.abs(x1 - x0);
-        int dz = Math.abs(z1 - z0);
-        if (dx + dz > MAX_LENGTH) {
-            return 0;   // too far to be a village path; leave it be
-        }
-        int stepX = x0 < x1 ? 1 : -1;
-        int stepZ = z0 < z1 ? 1 : -1;
-        int error = dx - dz;
-
-        int laid = 0;
-        int x = x0;
-        int z = z0;
-        for (int guard = 0; guard <= MAX_LENGTH; guard++) {
-            // Paved as a swathe rather than a line. Cross-hatching both axes
-            // keeps corners from pinching to a single block on a diagonal run.
+    public static int mend(ServerLevel level, PathNetwork.Segment segment) {
+        int intact = 0;
+        int broken = 0;
+        for (SimPos pos : segment.positions()) {
             for (int ox = -HALF_WIDTH; ox <= HALF_WIDTH; ox++) {
                 for (int oz = -HALF_WIDTH; oz <= HALF_WIDTH; oz++) {
-                    laid += pave(level, x + ox, z + oz);
+                    switch (state(level, pos.x() + ox, pos.z() + oz)) {
+                        case PAVED -> intact++;
+                        case BARE -> broken++;
+                        default -> { }   // not ours: a floor, a wall, water, a drop
+                    }
                 }
             }
-            if (x == x1 && z == z1) {
-                break;
-            }
-            int doubled = error * 2;
-            if (doubled > -dz) {
-                error -= dz;
-                x += stepX;
-            }
-            if (doubled < dx) {
-                error += dx;
-                z += stepZ;
+        }
+        int ours = intact + broken;
+        if (ours == 0 || (double) broken / ours < REPAIR_FRACTION) {
+            return 0;
+        }
+        int laid = 0;
+        for (SimPos pos : segment.positions()) {
+            for (int ox = -HALF_WIDTH; ox <= HALF_WIDTH; ox++) {
+                for (int oz = -HALF_WIDTH; oz <= HALF_WIDTH; oz++) {
+                    laid += pave(level, pos.x() + ox, pos.z() + oz);
+                }
             }
         }
         return laid;
+    }
+
+    /** How much of a segment is still road, for reports and audits. */
+    public static double soundness(ServerLevel level, PathNetwork.Segment segment) {
+        int intact = 0;
+        int ours = 0;
+        for (SimPos pos : segment.positions()) {
+            Column column = state(level, pos.x(), pos.z());
+            if (column == Column.PAVED) {
+                intact++;
+                ours++;
+            } else if (column == Column.BARE) {
+                ours++;
+            }
+        }
+        return ours == 0 ? 1.0 : (double) intact / ours;
+    }
+
+    /** What one column of a road currently is. */
+    private enum Column {
+        /** Already a trodden way. */
+        PAVED,
+        /** Ground a road could wear into, but has not. */
+        BARE,
+        /** Nothing to do with us: built on, flooded, or out of the loaded world. */
+        OTHER
+    }
+
+    private static Column state(ServerLevel level, int x, int z) {
+        BlockPos surface = surfaceOf(level, x, z);
+        if (surface == null) {
+            return Column.OTHER;
+        }
+        BlockState state = level.getBlockState(surface);
+        if (state.is(Blocks.DIRT_PATH)) {
+            return Column.PAVED;
+        }
+        return isPaveable(state) ? Column.BARE : Column.OTHER;
     }
 
     /**
@@ -93,9 +132,8 @@ public final class PathLayer {
      * @return 1 if anything was laid
      */
     private static int pave(ServerLevel level, int x, int z) {
-        // Ground, not canopy: a track through a wood must follow the floor of it.
-        BlockPos surface = new BlockPos(x, BlueprintPlacer.groundLevel(level, x, z) - 1, z);
-        if (!level.isLoaded(surface)) {
+        BlockPos surface = surfaceOf(level, x, z);
+        if (surface == null) {
             return 0;
         }
         BlockState state = level.getBlockState(surface);
@@ -114,6 +152,13 @@ public final class PathLayer {
             }
         }
         return 1;
+    }
+
+    /** The walkable block of a column, or null where the world cannot answer. */
+    private static BlockPos surfaceOf(ServerLevel level, int x, int z) {
+        // Ground, not canopy: a track through a wood must follow the floor of it.
+        BlockPos surface = new BlockPos(x, BlueprintPlacer.groundLevel(level, x, z) - 1, z);
+        return level.isLoaded(surface) ? surface : null;
     }
 
     /** Grass and dirt only — the things a track actually wears into. */

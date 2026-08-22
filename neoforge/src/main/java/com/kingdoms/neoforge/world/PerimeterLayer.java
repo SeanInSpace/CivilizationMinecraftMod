@@ -83,25 +83,52 @@ public final class PerimeterLayer {
      * fence gate facing out through the wall — a choke point with a door.
      */
     private static int drawGateway(ServerLevel level, Perimeter perimeter, SimPos pos) {
+        BlockPos ground = surface(level, pos);
+        if (ground == null) {
+            return 0;
+        }
         for (SimPos gate : perimeter.gates()) {
             if (pos.x() == gate.x() && pos.z() == gate.z()) {
-                BlockPos ground = surface(level, pos);
-                if (ground == null) {
+                if (level.getBlockState(ground).getBlock() == Blocks.OAK_FENCE_GATE) {
                     return 0;
                 }
                 // The wall runs along one axis here; the gate swings across it.
                 Direction facing = gateFacing(perimeter, gate);
                 BlockState state = Blocks.OAK_FENCE_GATE.defaultBlockState()
                         .setValue(HorizontalDirectionalBlock.FACING, facing);
-                if (level.getBlockState(ground).getBlock() != Blocks.OAK_FENCE_GATE
-                        && replaceable(level, ground)) {
+                if (replaceable(level, ground) || isOurPost(level, ground)) {
                     level.setBlock(ground, state, Block.UPDATE_ALL);
                     return 1;
                 }
                 return 0;
             }
         }
-        return 0;   // flanking opening: left clear on purpose
+        // A flanking opening. It is left clear on purpose — but gates move
+        // while the wall is going up, following the streets as they appear, so
+        // a post may already be standing where the opening now is. Our own
+        // posts give way to the gateway; nothing else is touched.
+        return clearPost(level, ground) ? 1 : 0;
+    }
+
+    /** Whether this block is a palisade post we put there. */
+    private static boolean isOurPost(ServerLevel level, BlockPos pos) {
+        return level.getBlockState(pos).is(Blocks.OAK_LOG);
+    }
+
+    /** Takes down a post standing in a gateway, and whatever we stacked on it. */
+    private static boolean clearPost(ServerLevel level, BlockPos ground) {
+        if (!isOurPost(level, ground)) {
+            return false;
+        }
+        level.setBlock(ground, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        for (int dy = 1; dy <= 2; dy++) {
+            BlockPos above = ground.above(dy);
+            BlockState state = level.getBlockState(above);
+            if (state.is(Blocks.OAK_LOG) || state.is(Blocks.TORCH)) {
+                level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            }
+        }
+        return true;
     }
 
     /** The gate swings across the wall's run: side gates face east/west, top and bottom north/south. */

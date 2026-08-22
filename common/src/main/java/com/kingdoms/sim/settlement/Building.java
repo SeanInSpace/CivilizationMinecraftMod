@@ -120,6 +120,30 @@ public final class Building {
         this.facing = Math.floorMod(facing, 4);
     }
 
+    /**
+     * The block you stand on to walk in: one step outside the door, on the side
+     * the building actually faces.
+     *
+     * <p>Every blueprint draws its doorway in the middle of the south wall and
+     * {@link BuildPlanner#facingToward} then turns the whole structure to face
+     * the town centre, so the door ends up on whichever side that turn put it.
+     * Code that assumed south — the path layer did, for as long as paths have
+     * existed — aimed three buildings in four at a blank wall.
+     */
+    public SimPos doorstep() {
+        boolean acrossX = facing == 1 || facing == 3;
+        int span = footprint.isKnown()
+                ? (acrossX ? footprint.width() : footprint.depth())
+                : 4;   // unplaced: a cabin's own depth, close enough to stand off
+        int reach = span / 2 + 1;
+        return switch (facing) {
+            case 1 -> new SimPos(origin.x() - reach, origin.y(), origin.z());
+            case 2 -> new SimPos(origin.x(), origin.y(), origin.z() - reach);
+            case 3 -> new SimPos(origin.x() + reach, origin.y(), origin.z());
+            default -> new SimPos(origin.x(), origin.y(), origin.z() + reach);
+        };
+    }
+
     public Footprint footprint() {
         return footprint;
     }

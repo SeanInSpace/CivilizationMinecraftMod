@@ -4,16 +4,18 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Stakes and raises the settlement's first ring — the palisade.
  *
  * <p>V1 by design: an axis-aligned rectangle around everything the town has
- * built, with a margin to move in and a gate at each side's midpoint. Gates
- * belong where the paths cross the ring; the paths are not remembered yet, so
- * the midpoints stand in until they are. The α-shape wall in the GOALS replaces
- * {@link #stake} and nothing else — laying, closing, gates and patrol all read
+ * built, with a margin to move in and a gate on every road out. Gates
+ * belong where the roads cross the ring, and the roads are remembered now --
+ * the side midpoints only stand in for a town whose paths never reach its
+ * wall. The α-shape wall in the GOALS replaces {@link #stake} and nothing
+ * else — laying, closing, gates and patrol all read
  * the {@link Perimeter} it returns.
  *
  * <p>Raising is paid work on the abstract clock: posts cost timber and go up as
@@ -57,10 +59,37 @@ public final class PerimeterPlanner {
                     + staked.length() + " posts will ring " + settlement.name());
             return;
         }
+        resiteGates(settlement);
         raise(settlement, ctx);
     }
 
-    /** The v1 ring: a rectangle over every plot, margin added, gates at midpoints. */
+    /**
+     * Keeps the gates on the roads while the wall is still going up.
+     *
+     * <p>The ring is staked at FORTIFIED, when a town has usually drawn few of
+     * its streets — so the gates it is staked with are provisional, and follow
+     * the network until the wall closes over them.
+     */
+    private static void resiteGates(Settlement settlement) {
+        Perimeter perimeter = settlement.perimeter();
+        if (perimeter.closed() || settlement.paths().isEmpty()) {
+            return;
+        }
+        int west = Integer.MAX_VALUE;
+        int east = Integer.MIN_VALUE;
+        int north = Integer.MAX_VALUE;
+        int south = Integer.MIN_VALUE;
+        for (SimPos vertex : perimeter.vertices()) {
+            west = Math.min(west, vertex.x());
+            east = Math.max(east, vertex.x());
+            north = Math.min(north, vertex.z());
+            south = Math.max(south, vertex.z());
+        }
+        perimeter.setGates(gatesFor(settlement, west, east, north, south,
+                settlement.centre().y()));
+    }
+
+    /** The v1 ring: a rectangle over every plot, margin added, gates on the roads. */
     private static Perimeter stake(Settlement settlement) {
         SimPos centre = settlement.centre();
         int west = centre.x() - MIN_HALF_SIDE;
@@ -86,13 +115,40 @@ public final class PerimeterPlanner {
                 new SimPos(east, y, north),
                 new SimPos(east, y, south),
                 new SimPos(west, y, south));
-        List<SimPos> gates = List.of(
-                new SimPos((west + east) / 2, y, north),
-                new SimPos(east, y, (north + south) / 2),
-                new SimPos((west + east) / 2, y, south),
-                new SimPos(west, y, (north + south) / 2));
-        return new Perimeter(corners, gates, 0);
+        return new Perimeter(corners, gatesFor(settlement, west, east, north, south, y), 0);
     }
+
+    /**
+     * Gates go where the roads reach.
+     *
+     * <p>One to a side, sited on whichever street pushes furthest that way, so
+     * the ways out of town line up with the ways through it. A settlement whose
+     * roads have not been drawn yet gets the side midpoints, and is re-sited as
+     * soon as they are.
+     */
+    private static List<SimPos> gatesFor(Settlement settlement, int west, int east,
+                                         int north, int south, int y) {
+        PathNetwork paths = settlement.paths();
+        SimPos toNorth = paths.reachToward(0, -1);
+        SimPos toSouth = paths.reachToward(0, 1);
+        SimPos toWest = paths.reachToward(-1, 0);
+        SimPos toEast = paths.reachToward(1, 0);
+        if (toNorth == null) {
+            return List.of(
+                    new SimPos((west + east) / 2, y, north),
+                    new SimPos(east, y, (north + south) / 2),
+                    new SimPos((west + east) / 2, y, south),
+                    new SimPos(west, y, (north + south) / 2));
+        }
+        // Held off the corners: a gate cut into the turn of a wall is a gap in
+        // two walls at once.
+        return List.of(
+                new SimPos(Math.clamp(toNorth.x(), west + 2, east - 2), y, north),
+                new SimPos(east, y, Math.clamp(toEast.z(), north + 2, south - 2)),
+                new SimPos(Math.clamp(toSouth.x(), west + 2, east - 2), y, south),
+                new SimPos(west, y, Math.clamp(toWest.z(), north + 2, south - 2)));
+    }
+
 
     /** Posts go up while the timber lasts and no building is waiting on the crew. */
     private static void raise(Settlement settlement, SimContext ctx) {

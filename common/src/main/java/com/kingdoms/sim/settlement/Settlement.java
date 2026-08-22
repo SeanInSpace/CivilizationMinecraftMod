@@ -106,6 +106,9 @@ public final class Settlement {
     /** The defensive ring, staked at FORTIFIED; null until then. */
     private Perimeter perimeter;
 
+    /** The roads, remembered as segments so they can be joined, drawn and mended. */
+    private PathNetwork paths = new PathNetwork();
+
     /**
      * How threatened this settlement currently is, driving guard behaviour and
      * off-screen combat resolution. Rises when hostiles are detected, decays over time.
@@ -594,6 +597,14 @@ public final class Settlement {
         this.perimeterClosed = perimeterClosed;
     }
 
+    public PathNetwork paths() {
+        return paths;
+    }
+
+    public void setPaths(PathNetwork paths) {
+        this.paths = paths == null ? new PathNetwork() : paths;
+    }
+
     public Perimeter perimeter() {
         return perimeter;
     }
@@ -670,6 +681,9 @@ public final class Settlement {
     public void step(SimContext ctx) {
         advanceStage(ctx);
         planNextBuild(ctx);
+        // Roads before walls: the perimeter cuts its gates where the roads
+        // cross the ring, so the network has to exist before it is staked.
+        PathPlanner.advance(this, ctx);
         PerimeterPlanner.advance(this, ctx);
         InnPlanner.advance(this, ctx);
         advanceBuildQueue(ctx);

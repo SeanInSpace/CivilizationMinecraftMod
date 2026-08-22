@@ -6,6 +6,7 @@ import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Settlement;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -29,10 +30,21 @@ import java.util.List;
  * where it is standing, and sending it would only be a staler copy.
  */
 public record TownMapPayload(String town, int centreX, int centreZ, int claimRadius,
-                             List<Mark> marks) implements CustomPacketPayload {
+                             List<Mark> marks, List<Road> roads)
+        implements CustomPacketPayload {
 
     /** One building, as a rectangle on the plan. Unfinished ones draw hollow. */
     public record Mark(int x, int z, int width, int depth, boolean finished) {
+    }
+
+    /**
+     * One stretch of road, as a straight run on the plan.
+     *
+     * <p>The network is what tells you a plan is a settlement rather than a
+     * scatter of sheds, so it travels with the buildings. Segments are always
+     * axis-aligned, which is why two corners are enough to draw one.
+     */
+    public record Road(int x1, int z1, int x2, int z2) {
     }
 
     public static final Type<TownMapPayload> TYPE = new Type<>(
@@ -49,6 +61,14 @@ public record TownMapPayload(String town, int centreX, int centreZ, int claimRad
                     ByteBufCodecs.BOOL, Mark::finished,
                     Mark::new);
 
+    private static final StreamCodec<RegistryFriendlyByteBuf, Road> ROAD_CODEC =
+            StreamCodec.composite(
+                    ByteBufCodecs.VAR_INT, Road::x1,
+                    ByteBufCodecs.VAR_INT, Road::z1,
+                    ByteBufCodecs.VAR_INT, Road::x2,
+                    ByteBufCodecs.VAR_INT, Road::z2,
+                    Road::new);
+
     public static final StreamCodec<RegistryFriendlyByteBuf, TownMapPayload> STREAM_CODEC =
             StreamCodec.composite(
                     ByteBufCodecs.stringUtf8(MAX_NAME), TownMapPayload::town,
@@ -56,6 +76,7 @@ public record TownMapPayload(String town, int centreX, int centreZ, int claimRad
                     ByteBufCodecs.VAR_INT, TownMapPayload::centreZ,
                     ByteBufCodecs.VAR_INT, TownMapPayload::claimRadius,
                     MARK_CODEC.apply(ByteBufCodecs.list()), TownMapPayload::marks,
+                    ROAD_CODEC.apply(ByteBufCodecs.list()), TownMapPayload::roads,
                     TownMapPayload::new);
 
     @Override
@@ -86,8 +107,13 @@ public record TownMapPayload(String town, int centreX, int centreZ, int claimRad
             int depth = footprint.isKnown() ? footprint.depth() : width;
             marks.add(new Mark(task.origin().x(), task.origin().z(), width, depth, false));
         }
+        List<Road> roads = new ArrayList<>();
+        for (PathNetwork.Segment segment : settlement.paths().segments()) {
+            roads.add(new Road(segment.from().x(), segment.from().z(),
+                    segment.to().x(), segment.to().z()));
+        }
         return new TownMapPayload(settlement.name(), settlement.centre().x(),
-                settlement.centre().z(), settlement.claimRadius(), marks);
+                settlement.centre().z(), settlement.claimRadius(), marks, roads);
     }
 
     public static void handle(TownMapPayload payload, IPayloadContext context) {

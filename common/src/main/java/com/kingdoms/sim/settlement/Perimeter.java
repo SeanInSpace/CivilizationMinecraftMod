@@ -25,7 +25,7 @@ public final class Perimeter {
     public static final int GATE_HALF_WIDTH = 1;
 
     private final List<SimPos> vertices;
-    private final List<SimPos> gates;
+    private List<SimPos> gates;
     private int laid;
 
     public Perimeter(List<SimPos> vertices, List<SimPos> gates, int laid) {
@@ -45,6 +45,20 @@ public final class Perimeter {
     /** Openings in the ring — where the ways in and out are. */
     public List<SimPos> gates() {
         return gates;
+    }
+
+    /**
+     * Moves the gates, which is only allowed while the wall is still going up.
+     *
+     * <p>A ring is staked before most of the town's roads exist, so the gates
+     * it starts with are a guess. They are re-sited as the streets appear and
+     * fixed the moment the wall closes — after that the posts are in the ground
+     * and a gate is where it is.
+     */
+    public void setGates(List<SimPos> gates) {
+        if (!closed()) {
+            this.gates = List.copyOf(gates);
+        }
     }
 
     /** Ring positions raised so far, counted along {@link #ringPositions()}. */
