@@ -7,6 +7,7 @@ import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.net.KingdomsNetwork;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.view.PersonEntityManager;
+import com.kingdoms.neoforge.world.TownAuditor;
 import com.kingdoms.sim.world.SimSettings;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.server.level.ServerLevel;
@@ -22,6 +23,7 @@ import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
@@ -69,6 +71,7 @@ public final class KingdomsMod {
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onEntityJoin);
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onLivingDeath);
+        NeoForge.EVENT_BUS.addListener(KingdomsMod::onFarmlandTrample);
 
         LOGGER.info("Kingdoms loaded");
     }
@@ -125,6 +128,65 @@ public final class KingdomsMod {
         for (PersonEntityManager manager : MANAGERS.values()) {
             manager.tickDigging(tickCounter);
         }
+        if (tickCounter % AUDIT_INTERVAL_TICKS == 0 && KingdomsConfig.debugCommandsEnabled()) {
+            auditLoadedTowns();
+        }
+    }
+
+    /**
+     * A settler never ruins the field that feeds them.
+     *
+     * <p>Vanilla tramples farmland under anything that lands on it, and settlers
+     * cross their own fields all day — hopping the irrigation channel was enough.
+     * Half a farm went back to dirt with the crops popped into item drops, which
+     * the player sees as a field of floating seeds. Players and mobs still
+     * trample; the town's own people know where to step.
+     */
+    private static void onFarmlandTrample(BlockEvent.FarmlandTrampleEvent event) {
+        if (event.getEntity() instanceof PersonEntity) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** A minute between sweeps; the audit reads a lot of chunk state. */
+    private static final int AUDIT_INTERVAL_TICKS = 1200;
+
+    /** What each settlement's faults looked like last sweep, to keep the log quiet. */
+    private static final Map<UUID, Integer> AUDIT_SEEN = new HashMap<>();
+
+    /**
+     * Sweeps every loaded town for geometry faults and logs what changed.
+     *
+     * <p>This is the harness's eyes. Every fault the auditor knows was found by a
+     * person walking through a town, because nothing in a log betrayed it; this
+     * sweep writes those same observations into the log, where a scripted run can
+     * grep them. Debug-gated, and a settlement is only reported when its fault
+     * list changes — a standing fault does not get to fill the log by standing.
+     */
+    private static void auditLoadedTowns() {
+        for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
+            for (var kingdom : entry.getValue().kingdoms()) {
+                for (var settlement : kingdom.settlements()) {
+                    if (TownAuditor.visibleCount(entry.getKey(), settlement) == 0) {
+                        continue;
+                    }
+                    var faults = TownAuditor.audit(entry.getKey(), settlement);
+                    int fingerprint = faults.stream().map(TownAuditor.Fault::describe)
+                            .sorted().toList().hashCode();
+                    Integer before = AUDIT_SEEN.put(settlement.id().value(), fingerprint);
+                    if (before != null && before == fingerprint) {
+                        continue;
+                    }
+                    if (faults.isEmpty()) {
+                        LOGGER.info("AUDIT {} clean", settlement.name());
+                        continue;
+                    }
+                    for (TownAuditor.Fault fault : faults) {
+                        LOGGER.info("AUDIT {} {}", settlement.name(), fault.describe());
+                    }
+                }
+            }
+        }
     }
 
     private static void onRegisterCommands(RegisterCommandsEvent event) {
@@ -148,6 +210,15 @@ public final class KingdomsMod {
     private static void onEntityJoin(EntityJoinLevelEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
+        }
+        // Debug breadcrumb: every item that appears in the world, with what and
+        // where. Crops popping into drops was invisible in every log while being
+        // the most visible fault in the game — the shape of these lines (a blob,
+        // a line, a scatter) is what finally identifies the culprit.
+        if (KingdomsConfig.debugCommandsEnabled()
+                && event.getEntity() instanceof net.minecraft.world.entity.item.ItemEntity item) {
+            LOGGER.info("ITEMPOP {} x{} at {}", item.getItem().getItem(),
+                    item.getItem().getCount(), item.blockPosition().toShortString());
         }
         if (event.getEntity() instanceof Zombie zombie) {
             zombie.targetSelector.addGoal(3,

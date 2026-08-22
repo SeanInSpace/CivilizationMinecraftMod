@@ -8,6 +8,7 @@ import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import com.kingdoms.neoforge.world.Excavation;
 import com.kingdoms.neoforge.world.PathLayer;
@@ -677,6 +678,36 @@ public final class PersonEntityManager {
         }
     }
 
+    /** How far around themselves a farmer looks for bare soil. */
+    private static final int REPLANT_REACH = 4;
+
+    /**
+     * Puts one crop back on the nearest bare, tilled soil.
+     *
+     * <p>One per pass, so a stripped field visibly comes back row by row under a
+     * working farmer rather than snapping whole. Farmland belonging to a player
+     * inside the claim gets replanted too; that is a gift, not a fault.
+     */
+    private void replantAround(PersonEntity farmer) {
+        BlockPos feet = farmer.blockPosition();
+        for (int dy = -2; dy <= 0; dy++) {
+            for (int dx = -REPLANT_REACH; dx <= REPLANT_REACH; dx++) {
+                for (int dz = -REPLANT_REACH; dz <= REPLANT_REACH; dz++) {
+                    BlockPos soil = feet.offset(dx, dy, dz);
+                    if (!level.isLoaded(soil)
+                            || !level.getBlockState(soil).is(Blocks.FARMLAND)
+                            || !level.getBlockState(soil.above()).isAir()) {
+                        continue;
+                    }
+                    farmer.swing(InteractionHand.MAIN_HAND);
+                    level.setBlock(soil.above(), Blocks.WHEAT.defaultBlockState(),
+                            Block.UPDATE_CLIENTS);
+                    return;
+                }
+            }
+        }
+    }
+
     // --- footing ---
 
     /**
@@ -1301,6 +1332,13 @@ public final class PersonEntityManager {
                     && !person.isTooWeakToWork()) {
                 continue;   // steered tree by tree in workLumberjacks
             }
+            if (person.profession() == Profession.FARMER
+                    && !underThreat && !night && !person.isTooWeakToWork()) {
+                // Fields lose crops — trampled by a player, flooded, griefed —
+                // and nothing used to put them back, so every loss was forever.
+                // A farmer standing in the field replants it as part of the day.
+                replantAround(view);
+            }
             if (person.profession() == Profession.BUILDER) {
                 // Reached only when not on an active site — work is finished, the
                 // day is over, danger is near, or they are too hungry. Down tools.
@@ -1512,6 +1550,21 @@ public final class PersonEntityManager {
                     for (Building building : settlement.buildings()) {
                         outline(player, building);
                     }
+                    // Planned work lights up too: the lamp is for reading the
+                    // town's shape, and a plot that has been claimed but not yet
+                    // built is part of that shape.
+                    for (BuildTask task : settlement.buildQueue()) {
+                        if (!BuildPlanner.holdsGround(task.blueprintId())) {
+                            continue;
+                        }
+                        Footprint footprint = task.footprint();
+                        if (!footprint.isKnown()) {
+                            int span = BuildPlanner.plotSpanOf(
+                                    task.blueprintId(), settlement.catalogue());
+                            footprint = new Footprint(task.site().y(), span, span, 3);
+                        }
+                        outline(player, task.site(), footprint);
+                    }
                 }
             }
         }
@@ -1537,7 +1590,10 @@ public final class PersonEntityManager {
             building.setFootprint(footprint);
             KingdomsSavedData.get(level).setDirty();
         }
-        SimPos origin = building.origin();
+        outline(player, building.origin(), footprint);
+    }
+
+    private void outline(ServerPlayer player, SimPos origin, Footprint footprint) {
         double dx = player.getX() - origin.x();
         double dz = player.getZ() - origin.z();
         if (dx * dx + dz * dz > OUTLINE_VIEW_RANGE * OUTLINE_VIEW_RANGE) {

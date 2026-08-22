@@ -651,6 +651,42 @@ public final class Settlement {
     }
 
     /**
+     * Moves a never-drawn building off ground that turns out to be unfit.
+     *
+     * @return true if it moved, in which case nothing should be drawn this step
+     */
+    private boolean relocatePending(SimContext ctx, Building building) {
+        if (building.isSurveyed() || building.level() > 1
+                || !BuildPlanner.holdsGround(building.blueprintId())) {
+            // Surveyed means somebody already built or saw it here; levelled
+            // means it grew from something that stood here. Both belong where
+            // they are, whatever the ground thinks.
+            return false;
+        }
+        if (ctx.bridge().isSiteSuitable(building.origin(), BuildPlanner.PLOT_PROBE_RADIUS)) {
+            return false;
+        }
+        int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalogue);
+        SimPos moved = chooseSite(ctx, span);
+        if (moved.equals(building.origin())
+                || (ctx.bridge().isLoaded(moved)
+                        && !ctx.bridge().isSiteSuitable(moved, BuildPlanner.PLOT_PROBE_RADIUS))) {
+            return false;   // nowhere better; draw it here and make the best of it
+        }
+        SimPos from = building.origin();
+        building.setOrigin(new SimPos(moved.x(), ctx.bridge().surfaceHeight(moved), moved.z()));
+        building.setFacing(BuildPlanner.facingToward(moved, centre));
+        nextPlotIndex++;
+        if (!contains(building.origin())) {
+            claimRadius = BuildPlanner.claimRadiusFor(centre, building.origin());
+        }
+        logEvent(ctx.step(), "The ground at " + from + " turned out unfit; the "
+                + building.blueprintId().substring(building.blueprintId().indexOf(':') + 1)
+                + " moves to " + building.origin());
+        return true;
+    }
+
+    /**
      * Whether this building has to be built rather than counted.
      *
      * <p>The test is whether builders exist in the world as entities right now. If
@@ -751,6 +787,15 @@ public final class Settlement {
                 continue;
             }
             if (ctx.bridge().isLoaded(building.origin())) {
+                // The last moment a building can still move. Everything before
+                // this ran blind — plots are chosen and finished in unloaded
+                // chunks, where the terrain test answers yes to anything — so
+                // this is the FIRST time the ground under a grown-while-away
+                // building is actually seen. Nothing is drawn yet, so moving the
+                // record is free; a step later and it would mean demolition.
+                if (relocatePending(ctx, building)) {
+                    continue;
+                }
                 Footprint placed = ctx.bridge().materializeBlueprint(
                         building.blueprintId(), building.origin(), building.isSurveyed(),
                         building.facing());

@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import com.kingdoms.neoforge.net.TownOverviewPayload;
 import com.kingdoms.neoforge.view.PersonEntityManager;
+import com.kingdoms.neoforge.world.TownAuditor;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
@@ -67,6 +68,9 @@ public final class KingdomsCommand {
                 .then(Commands.literal("overview")
                         .executes(KingdomsCommand::overview))
 
+                .then(Commands.literal("audit")
+                        .executes(KingdomsCommand::audit))
+
                 .then(Commands.literal("populate")
                         .then(Commands.argument("count", IntegerArgumentType.integer(1, 200))
                                 .then(Commands.argument("profession", StringArgumentType.word())
@@ -101,6 +105,51 @@ public final class KingdomsCommand {
         );
     }
 
+    /**
+     * Walks every loaded building and reports what is built wrong.
+     *
+     * <p>The checks are the faults live play keeps finding and logs never show:
+     * buildings in water, floors above or below their own ground, walls through
+     * other walls, doors nobody can reach, fields stripped of their crops. Each
+     * fault is also written to the log under {@code AUDIT}, so a scripted run
+     * can grep for regressions without a person standing in the town.
+     */
+    private static int audit(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        ServerLevel level = source.getLevel();
+        SimWorld world = KingdomsMod.simulationFor(level);
+        if (world == null) {
+            source.sendFailure(Component.literal("No simulation for this dimension."));
+            return 0;
+        }
+
+        StringBuilder sb = new StringBuilder("=== Audit ===");
+        int total = 0;
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                int visible = TownAuditor.visibleCount(level, settlement);
+                if (visible == 0) {
+                    continue;   // nothing of this town is loaded; nothing was judged
+                }
+                java.util.List<TownAuditor.Fault> faults = TownAuditor.audit(level, settlement);
+                sb.append("\n").append(settlement.name()).append(": ")
+                        .append(visible).append(" buildings seen, ")
+                        .append(faults.size()).append(" fault(s)");
+                for (TownAuditor.Fault fault : faults) {
+                    sb.append("\n  - ").append(fault.describe());
+                    KingdomsMod.LOGGER.info("AUDIT {} {}", settlement.name(), fault.describe());
+                }
+                total += faults.size();
+            }
+        }
+        if (sb.length() == "=== Audit ===".length()) {
+            sb.append("\nNo settlement has a loaded building to look at.");
+        }
+        String report = sb.toString();
+        source.sendSuccess(() -> Component.literal(report), false);
+        return total;
+    }
+
     /** Sets every resident's hunger in the nearest settlement — the starvation test lever. */
     private static int hunger(CommandContext<CommandSourceStack> ctx, int value) {
         CommandSourceStack source = ctx.getSource();
@@ -131,7 +180,8 @@ public final class KingdomsCommand {
                   step [n]                  fast-forward the simulation
                   raid [strength]           attack the nearest settlement
                   threat <level>            set the alarm level
-                  hunger <0-99>             set everyone's hunger"""), false);
+                  hunger <0-99>             set everyone's hunger
+                  audit                     walk the town, report what is built wrong"""), false);
         return 1;
     }
 

@@ -4,6 +4,8 @@ import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
+import com.kingdoms.sim.settlement.BuildPlanner;
+import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
@@ -65,6 +67,20 @@ public class BuildingPostBlock extends Block {
             return InteractionResult.SUCCESS;
         }
 
+        // A post standing on an unfinished site answers for the site, not for
+        // the town: what is going up here, and how far along it is. This is why
+        // the post is the first block laid — from the very start of the job
+        // there is something to walk up to and ask.
+        BuildTask underWay = taskAt(settlement, pos);
+        if (underWay != null) {
+            int percent = (int) Math.round(underWay.completionFraction() * 100);
+            player.sendSystemMessage(Component.literal(
+                    role + " of " + settlement.name() + " — under construction, "
+                            + percent + "% (" + underWay.workDone() + "/"
+                            + underWay.planWork() + " blocks)"));
+            return InteractionResult.SUCCESS;
+        }
+
         // A post whose report is blank speaks for itself some other way — the
         // town hall opens a screen — so it gets no chat line at all rather than
         // an empty one underneath its own window.
@@ -76,6 +92,21 @@ public class BuildingPostBlock extends Block {
         }
         extraReport(player, settlement);
         return InteractionResult.SUCCESS;
+    }
+
+    /** The build this post stands on, if its site is still under construction. */
+    private static BuildTask taskAt(Settlement settlement, BlockPos pos) {
+        for (BuildTask task : settlement.buildQueue()) {
+            SimPos site = task.site();
+            int reach = BuildPlanner.plotSpanOf(
+                    task.blueprintId(), settlement.catalogue()) / 2 + 1;
+            if (Math.abs(pos.getX() - site.x()) <= reach
+                    && Math.abs(pos.getZ() - site.z()) <= reach
+                    && Math.abs(pos.getY() - site.y()) <= 8) {
+                return task;
+            }
+        }
+        return null;
     }
 
     /** What this particular post is worth saying beyond its name. Overridable. */

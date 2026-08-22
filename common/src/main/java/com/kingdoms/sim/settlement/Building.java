@@ -75,6 +75,14 @@ public final class Building {
      * height. Placement finds the real ground; without writing that back, every
      * worker who walks to this building aims at the estimate instead.
      */
+    /**
+     * Moves the whole record. Only legitimate while nothing has been drawn: a
+     * building that exists as blocks cannot follow its own bookkeeping.
+     */
+    public void setOrigin(SimPos origin) {
+        this.origin = Objects.requireNonNull(origin, "origin");
+    }
+
     public void setOriginY(int y) {
         this.origin = new SimPos(origin.x(), y, origin.z());
     }

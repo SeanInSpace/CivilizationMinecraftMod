@@ -29,6 +29,8 @@ automated check can confirm is whether it *looks* right:
 - [ ] Does a crew of six digging a hillside read as a crew, or as a scrum?
 - [ ] Does the excavation stake feel like a usable tool for marking out ground?
 - [ ] Does the town read as spaced-out now, or has it become sprawling?
+- [ ] Does the post-then-hole-then-walls sequence read as construction, or as clutter?
+- [ ] Do the hollow planned plots on the map read as plans, or as bugs?
 
 ### Next
 - [ ] Hideouts, so `hideouts_cleared` counts something
@@ -38,6 +40,26 @@ automated check can confirm is whether it *looks* right:
 ---
 
 ## Done
+
+- **A building announces itself from the first day.** The post block is the first
+  thing laid at a new site — standing at its final spot from the moment the
+  ground is surveyed, its cell withheld from the excavation so no digger levels
+  it — and clicking it while work is under way reports what is being built and
+  how far along it is. Planned buildings show on the surveyor's lamp and on the
+  town map too, drawn hollow, so the town's intentions are as visible as its
+  walls.
+
+
+- **The town audits itself.** `/civ audit` walks every loaded building and
+  reports what live play kept finding and logs never showed: standing water in
+  the rooms, floors buried in or perched over their own ground, walls through
+  another building's walls, no doorway at grade on any side, fields half bare or
+  strewn with popped seed items, and buildings the simulation records but the
+  world never drew. The same sweep runs on its own once a minute (debug-gated)
+  and writes `AUDIT` lines to the log only when a town's fault list changes — so
+  the scripted playtests now catch world-geometry regressions that used to need
+  a person walking through the town.
+
 
 - **Buildings were being built through each other.** Ring slots were only ever
   candidate points and nothing knew how broad a farm is, so plots overlapped —

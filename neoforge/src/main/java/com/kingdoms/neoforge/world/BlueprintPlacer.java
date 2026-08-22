@@ -4,6 +4,7 @@ import com.keystone.api.Blueprints;
 import com.keystone.api.LoadedBlueprint;
 import com.keystone.api.PlannedBlock;
 import com.kingdoms.neoforge.KingdomsBlocks;
+import com.kingdoms.neoforge.block.BuildingPostBlock;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Footprint;
@@ -138,7 +139,7 @@ public final class BlueprintPlacer {
     private static final int PLACE_COST = 1;
 
     /** How far past the walls the ground is cut back, so there is somewhere to stand. */
-    private static final int APRON_MARGIN = 2;
+    public static final int APRON_MARGIN = 2;
 
     /** Headroom cleared over the apron — enough to walk the whole way round. */
     private static final int APRON_HEADROOM = 3;
@@ -295,6 +296,9 @@ public final class BlueprintPlacer {
             changed = true;
         }
         if (!task.isSitePrepared()) {
+            // The site announces itself the moment it is surveyed: the post
+            // stands at its final spot while the ground is still being cut.
+            layPosts(level, plan);
             task.setSitePrepared(true);
             changed = true;
         }
@@ -866,12 +870,47 @@ public final class BlueprintPlacer {
                 .thenComparingInt(q -> q.pos().getX())
                 .thenComparingInt(q -> q.pos().getZ()));
 
+        // The post goes down first — before the floor, before everything. It is
+        // the flag on the plot: the thing a player walks up to, clicks, and is
+        // told what is being built here and how far along it is. Its cell is
+        // withheld from the excavation for the same reason, so no digger takes
+        // the sign down to level the ground it stands on.
         List<Step> steps = new ArrayList<>(solid.size());
         for (Placement placement : solid) {
-            steps.add(new Step(placement.pos(), placement.state(), placement.nbt(),
-                    PLACE_COST, materialFor(placement.state())));
+            if (isPost(placement.state())) {
+                steps.add(new Step(placement.pos(), placement.state(), placement.nbt(),
+                        PLACE_COST, materialFor(placement.state())));
+                digTargets.removeIf(dig -> dig.equals(placement.pos()));
+            }
+        }
+        for (Placement placement : solid) {
+            if (!isPost(placement.state())) {
+                steps.add(new Step(placement.pos(), placement.state(), placement.nbt(),
+                        PLACE_COST, materialFor(placement.state())));
+            }
         }
         return new StructurePlan(width, depth, height, steps, digTargets, blocked);
+    }
+
+    private static boolean isPost(BlockState state) {
+        return state.getBlock() instanceof BuildingPostBlock;
+    }
+
+    /**
+     * Stands the building's post up, ahead of everything else.
+     *
+     * <p>Called the moment a site is surveyed, before any digging. Construction
+     * will reach the same steps first anyway and lay them again, which is a
+     * harmless overwrite — this only moves the announcement to the start of the
+     * job instead of the start of the masonry.
+     */
+    private static void layPosts(ServerLevel level, StructurePlan plan) {
+        for (Step step : plan.steps()) {
+            if (!isPost(step.state())) {
+                break;   // posts are sorted to the front; the first non-post ends them
+            }
+            lay(level, new Placement(step.pos(), step.state(), step.nbt()));
+        }
     }
 
     private static boolean isFullBlock(ServerLevel level, Placement placement) {
@@ -1044,6 +1083,17 @@ public final class BlueprintPlacer {
         // harvest wondering how to get out.
         add(blocks, base.offset(0, 0, r),
                 Blocks.OAK_FENCE_GATE.defaultBlockState().setValue(FenceGateBlock.OPEN, true));
+        // Lanterns on the fence, enough that every crop sits in light 8 at night.
+        // A crop that cannot see the sky — and a field cut into a hillside always
+        // has a shaded strip under the overhang — pops off its soil the first
+        // night, and the farmers replant it by day, and it pops again: a whole
+        // field churned into seed items with nothing in any log. Light was the
+        // entire cause. Corners and edge midpoints cover an 11-wide field; the
+        // gate keeps its own post clear.
+        for (int[] post : new int[][]{
+                {-r, -r}, {-r, r}, {r, -r}, {r, r}, {0, -r}, {-r, 0}, {r, 0}, {1, r}}) {
+            add(blocks, base.offset(post[0], 1, post[1]), Blocks.LANTERN);
+        }
         add(blocks, base.offset(r - 1, 0, r - 1), KingdomsBlocks.FARM.get());
         return new int[]{2 * r + 1, 2 * r + 1, 3};
     }

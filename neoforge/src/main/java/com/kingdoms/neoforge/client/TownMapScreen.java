@@ -45,6 +45,9 @@ public final class TownMapScreen extends Screen {
     private static final int CLAIM = 0x30FFFFFF;
     private static final int BUILDING = 0xFF4CD07A;
     private static final int BUILDING_EDGE = 0xFF2E8F52;
+
+    /** Planned but unbuilt: a faint wash inside a solid edge — intent, not walls. */
+    private static final int PLANNED_FILL = 0x40348A52;
     private static final int PLAYER = 0xFFFFFFFF;
     private static final int TITLE = 0xFFFFE0A0;
     private static final int SUBTLE = 0xFF9A9A9A;
@@ -116,8 +119,17 @@ public final class TownMapScreen extends Screen {
         drawBuildings(graphics, mapX, mapY);
         drawPlayer(graphics, mapX, mapY);
 
+        int built = 0;
+        for (TownMapPayload.Mark mark : town.marks()) {
+            if (mark.finished()) {
+                built++;
+            }
+        }
+        int planned = town.marks().size() - built;
         graphics.centeredText(font,
-                Component.literal(town.marks().size() + " buildings   ·   north is up"),
+                Component.literal(built + " buildings"
+                        + (planned > 0 ? "   ·   " + planned + " planned" : "")
+                        + "   ·   north is up"),
                 x + panelWidth / 2, y + h - 14, SUBTLE);
 
         super.extractRenderState(graphics, mouseX, mouseY, a);
@@ -152,8 +164,13 @@ public final class TownMapScreen extends Screen {
                 continue;   // built outside the claim it started with
             }
 
-            graphics.fill(x0, z0, x1, z1, BUILDING);
-            if (x1 - x0 > 3 && z1 - z0 > 3) {
+            if (mark.finished()) {
+                graphics.fill(x0, z0, x1, z1, BUILDING);
+                if (x1 - x0 > 3 && z1 - z0 > 3) {
+                    graphics.outline(x0, z0, x1 - x0, z1 - z0, BUILDING_EDGE);
+                }
+            } else {
+                graphics.fill(x0, z0, x1, z1, PLANNED_FILL);
                 graphics.outline(x0, z0, x1 - x0, z1 - z0, BUILDING_EDGE);
             }
         }
