@@ -127,11 +127,16 @@ public final class KingdomsCommand {
         int total = 0;
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
+                // No skip for an unloaded town. The geometry checks genuinely need
+                // chunks, but hunger and a frozen build queue are pure simulation
+                // and need none — and an unwatched town is precisely the one most
+                // likely to be starving unattended. The sweep learned this; the
+                // command was still turning those towns away at the door.
                 int visible = TownAuditor.visibleCount(level, settlement);
-                if (visible == 0) {
-                    continue;   // nothing of this town is loaded; nothing was judged
-                }
                 java.util.List<TownAuditor.Fault> faults = TownAuditor.audit(level, settlement);
+                if (visible == 0 && faults.isEmpty()) {
+                    continue;   // nothing loaded, and nothing the simulation objects to
+                }
                 sb.append("\n").append(settlement.name()).append(": ")
                         .append(visible).append(" buildings seen, ")
                         .append(faults.size()).append(" fault(s)");

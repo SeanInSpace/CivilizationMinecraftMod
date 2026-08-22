@@ -493,9 +493,12 @@ public final class BlueprintPlacer {
      * <p>Digging is free — it costs sweat, not stores. Laying costs one of
      * whatever the block is made of.
      *
-     * <p>The two producers are exempt on purpose. A lumber camp that needed
-     * timber, or a mine that needed stone, is a town that can never dig itself
-     * out of an empty larder. They are the bootstrap, so they are always payable.
+     * <p>The producers are exempt on purpose. A lumber camp that needed timber,
+     * a mine that needed stone, or a farm that needed food is a town that can
+     * never dig itself out of an empty larder. They are the bootstrap, so they
+     * are always payable. Whatever {@code BuildPlanner.PRODUCER_OF} holds is what
+     * is exempt — the farm joined when food gained a producer, and this comment
+     * counted them until it did.
      */
     private static boolean canPayFor(Settlement settlement, BuildTask task, Step step) {
         if (step.material() == null || isProducer(task)) {

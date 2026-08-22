@@ -112,8 +112,12 @@ class PlotOverlapTest {
         assertEquals("kingdoms:lumber_camp", ordered.blueprintId());
 
         int span = BuildPlanner.plotSpanOf(ordered.blueprintId(), settlement.catalogue());
+        // Both spans come from the catalogue. This test used to hardcode the
+        // hall's, and went red the day the apron shrank and every plot with it —
+        // failing on a number it had copied rather than on the rule it guards.
+        int hallSpan = BuildPlanner.plotSpanOf("kingdoms:town_hall", settlement.catalogue());
         assertFalse(BuildPlanner.plotsOverlap(ordered.origin(), span,
-                        new SimPos(12, 64, 0), 15),
+                        new SimPos(12, 64, 0), hallSpan),
                 "the camp was put at " + ordered.origin() + ", through the hall at (12, 0)");
     }
 
