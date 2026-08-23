@@ -2,6 +2,7 @@ package com.kingdoms.neoforge.block;
 
 import com.kingdoms.neoforge.KingdomsBlockEntities;
 import com.kingdoms.sim.settlement.Resources;
+import com.kingdoms.sim.settlement.StoreMirror;
 import java.util.Map;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -147,12 +148,18 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
     }
 
     /**
-     * Only what the town can actually use.
+     * Only what the town can actually use — advisory, not a guarantee.
      *
-     * <p>The stores are not a junk drawer. Refusing at the slot keeps the
-     * invariant the reconciler depends on — everything in here is a resource
-     * the ledger can account for — which is what stops a donated diamond from
-     * being silently converted into nothing on the next sync.
+     * <p>Worth stating exactly, because the reconciler must not be written as
+     * though this were enforced. Hoppers and other automation do ask. A player
+     * is never asked: the chest screen builds plain slots whose
+     * {@code mayPlace} returns true unconditionally, so anything at all can be
+     * dragged in by hand.
+     *
+     * <p>So this keeps machines honest and no more. Whatever does get in is
+     * left exactly where it lies — neither counted toward the town's stock nor
+     * cleared away — which is why the reconciler has to tolerate finding it
+     * rather than assume it cannot be there.
      */
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack) {
@@ -162,7 +169,19 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
         // Only what this chest actually speaks for. Accepting food or a sword
         // here would put items in a container nothing reconciles, and the next
         // sync would rewrite the slot out from under them.
-        return MIRRORED.contains(Resources.resourceOf(idOf(stack)));
+        return speaksFor(stack);
+    }
+
+    /**
+     * Whether this chest is the authority for an item.
+     *
+     * <p>One predicate, because two would have to agree exactly: the slot uses
+     * it to decide what may be put in, and the reconciler uses it to decide
+     * what it may clear out. Disagreement means either clearing a slot the
+     * chest accepted, or leaving one it refused.
+     */
+    public static boolean speaksFor(ItemStack stack) {
+        return !stack.isEmpty() && StoreMirror.mirrors(idOf(stack), MIRRORED);
     }
 
     /** The registry id of a stack, in the form the simulation names items by. */
@@ -177,7 +196,10 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
         ContainerHelper.loadAllItems(input, this.items);
         lastSynced.clear();
         for (String resource : MIRRORED) {
-            lastSynced.put(resource, input.getIntOr(SYNCED + resource, 0));
+            // Clamped here because this is the one way a negative can arrive:
+            // the setter guards its own writes, but a hand-edited or damaged
+            // save comes straight in through this line.
+            lastSynced.put(resource, Math.max(0, input.getIntOr(SYNCED + resource, 0)));
         }
     }
 

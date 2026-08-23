@@ -59,7 +59,14 @@ public final class StoreSync {
     private StoreSync() {
     }
 
-    /** Drops remembered chest positions. For a world unload or a reload. */
+    /**
+     * Drops remembered chest positions.
+     *
+     * <p>Wired to the server stopping, beside the other static caches. This map
+     * is keyed by settlement id alone, so without it a position found in one
+     * world would be handed straight to the next session that happened to load
+     * a settlement with the same id.
+     */
     public static void forget() {
         FOUND.clear();
     }
@@ -73,10 +80,9 @@ public final class StoreSync {
         readBackWhatChanged(settlement, chest);
         if (chest.isBeingWatched()) {
             // Rewriting slots under an open screen makes stacks jump about in
-            // the player's hands. Their changes are already banked above; the
-            // snapshot moves to match so the next pass does not count them
-            // twice, and the chest is redrawn once they close it.
-            resnapshot(chest);
+            // the player's hands. Their changes were already banked above,
+            // snapshot included, so there is nothing left to do until they
+            // close it and the chest can be redrawn.
             return;
         }
         writeLedgerInto(settlement, chest);
@@ -91,25 +97,38 @@ public final class StoreSync {
      */
     private static void readBackWhatChanged(Settlement settlement, StoreChestBlockEntity chest) {
         for (String resource : StoreChestBlockEntity.MIRRORED) {
-            StoreMirror.reconcile(settlement.stores(), resource,
+            // The mirror hands back the snapshot to remember, so take it. The
+            // watched path used to recompute the same number by scanning every
+            // slot a second time, which was both wasted work and a second
+            // expression of one fact that had to be kept agreeing by hand.
+            int snapshot = StoreMirror.reconcile(settlement.stores(), resource,
                     countIn(chest, resource), chest.lastSynced(resource));
+            chest.setLastSynced(resource, snapshot);
         }
     }
 
     /** Empties the mirrored slots and lays the ledger out in them. */
     private static void writeLedgerInto(Settlement settlement, StoreChestBlockEntity chest) {
         for (int slot = 0; slot < chest.getContainerSize(); slot++) {
-            if (isMirrored(chest.getItem(slot))) {
+            if (StoreChestBlockEntity.speaksFor(chest.getItem(slot))) {
                 chest.setItem(slot, ItemStack.EMPTY);
             }
         }
         int slot = 0;
         for (String resource : StoreChestBlockEntity.MIRRORED) {
             Item item = itemFor(resource);
-            int wanted = item == null ? 0 : settlement.stores().get(resource);
+            if (item == null) {
+                chest.setLastSynced(resource, 0);
+                continue;   // nothing to pay this out in
+            }
+            int perStack = Math.min(item.getDefaultMaxStackSize(), Resources.stackSize(resource));
+            // How much of the holding these shelves can actually show. Asking
+            // StoreMirror rather than working it out again here is what keeps
+            // the overflow rule the tests cover and the one that runs the same
+            // rule.
+            int wanted = StoreMirror.showable(resource, settlement.stores().get(resource),
+                    freeSlotsFrom(chest, slot));
             int laid = 0;
-            int perStack = Math.max(1, Math.min(item == null ? 1 : item.getDefaultMaxStackSize(),
-                    Resources.stackSize(resource)));
             while (laid < wanted && slot < chest.getContainerSize()) {
                 if (!chest.getItem(slot).isEmpty()) {
                     slot++;   // something the chest does not speak for; leave it be
@@ -126,11 +145,15 @@ public final class StoreSync {
         chest.setChanged();
     }
 
-    /** Records the chest as it stands, without touching it. */
-    private static void resnapshot(StoreChestBlockEntity chest) {
-        for (String resource : StoreChestBlockEntity.MIRRORED) {
-            chest.setLastSynced(resource, countIn(chest, resource));
+    /** Empty slots from here to the end of the chest. */
+    private static int freeSlotsFrom(StoreChestBlockEntity chest, int from) {
+        int free = 0;
+        for (int slot = from; slot < chest.getContainerSize(); slot++) {
+            if (chest.getItem(slot).isEmpty()) {
+                free++;
+            }
         }
+        return free;
     }
 
     private static int countIn(StoreChestBlockEntity chest, String resource) {
@@ -143,11 +166,6 @@ public final class StoreSync {
             }
         }
         return total;
-    }
-
-    private static boolean isMirrored(ItemStack stack) {
-        return !stack.isEmpty() && StoreChestBlockEntity.MIRRORED.contains(
-                Resources.resourceOf(StoreChestBlockEntity.idOf(stack)));
     }
 
     private static Item itemFor(String resource) {

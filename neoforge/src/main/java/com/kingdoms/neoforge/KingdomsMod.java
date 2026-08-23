@@ -7,6 +7,7 @@ import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.net.KingdomsNetwork;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.view.PersonEntityManager;
+import com.kingdoms.neoforge.world.StoreSync;
 import com.kingdoms.neoforge.world.TownAuditor;
 import com.kingdoms.sim.world.SimSettings;
 import com.kingdoms.sim.world.SimWorld;
@@ -105,6 +106,7 @@ public final class KingdomsMod {
         // is the one report a scripted run reads.
         AUDIT_SEEN.clear();
         TownAuditor.forget();
+        StoreSync.forget();
     }
 
     /** Our own tick count — the level clock is not trusted for cadence (it can freeze). */

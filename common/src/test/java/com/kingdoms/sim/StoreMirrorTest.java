@@ -4,6 +4,9 @@ import com.kingdoms.sim.settlement.StoreMirror;
 import com.kingdoms.sim.settlement.TownStores;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -137,6 +140,34 @@ class StoreMirrorTest {
 
         assertEquals(0, stores.get(WOOD),
                 "a snapshot larger than the town's holdings empties it, never past empty");
+    }
+
+    @Test
+    void anItemTheTownHasNoUseForDoesNotBringDownTheSimulation() {
+        // The crash this exists to prevent: resourceOf answers null for junk,
+        // and the mirrored list is a List.of, whose contains throws on null
+        // rather than answering false. One diamond dropped into the store took
+        // out the whole per-second pass for the dimension, once a second, for
+        // as long as it sat there.
+        List<String> mirrored = List.of(WOOD, TownStores.STONE);
+
+        assertFalse(StoreMirror.mirrors("minecraft:diamond", mirrored),
+                "a diamond is not timber, and saying so must not throw");
+        assertFalse(StoreMirror.mirrors("minecraft:jukebox", mirrored));
+        assertFalse(StoreMirror.mirrors(null, mirrored),
+                "an unreadable id is refused, not fatal");
+        assertFalse(StoreMirror.mirrors("", mirrored));
+    }
+
+    @Test
+    void whatTheContainerSpeaksForItStillRecognises() {
+        List<String> mirrored = List.of(WOOD, TownStores.STONE);
+
+        assertTrue(StoreMirror.mirrors("minecraft:oak_log", mirrored),
+                "timber is exactly what this store is for");
+        assertTrue(StoreMirror.mirrors("minecraft:cobblestone", mirrored));
+        assertFalse(StoreMirror.mirrors("minecraft:bread", mirrored),
+                "food is a resource, but not one this container speaks for");
     }
 
     @Test

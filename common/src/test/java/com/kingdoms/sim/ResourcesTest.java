@@ -93,25 +93,15 @@ class ResourcesTest {
         assertNull(Resources.resourceOf("minecraft:diamond"));
         assertNull(Resources.resourceOf("minecraft:jukebox"));
         assertNull(Resources.resourceOf(""));
-        assertNull(Resources.resourceOf(null));
-        assertFalse(Resources.isStorable("minecraft:diamond"),
+        assertNull(Resources.resourceOf(null),
                 "refusing is the honest answer — swallowing it would lose the player's item");
     }
 
     @Test
-    void gearDoesNotStackAndTheStoreHasToMakeRoomForThat() {
+    void gearDoesNotStack() {
         assertEquals(1, Resources.stackSize(TownStores.WEAPONS),
                 "a sword is one to a slot");
         assertEquals(1, Resources.stackSize(TownStores.ARMOUR));
         assertEquals(64, Resources.stackSize(TownStores.WOOD));
-
-        assertEquals(32, Resources.slotsFor(TownStores.WEAPONS, 32),
-                "thirty-two swords need thirty-two slots, not one");
-        assertEquals(8, Resources.slotsFor(TownStores.WOOD, 480),
-                "four hundred and eighty logs is eight stacks with room to spare");
-        assertEquals(1, Resources.slotsFor(TownStores.WOOD, 1),
-                "a single log still needs a slot");
-        assertEquals(0, Resources.slotsFor(TownStores.WOOD, 0),
-                "nothing needs no room");
     }
 }

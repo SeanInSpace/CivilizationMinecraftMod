@@ -111,18 +111,6 @@ public final class Resources {
     }
 
     /**
-     * Slots needed to hold this much of a resource — what a store has to have
-     * room for before it can claim to be holding the amount its ledger says.
-     */
-    public static int slotsFor(String resource, int amount) {
-        if (amount <= 0) {
-            return 0;
-        }
-        int stack = Math.max(1, stackSize(resource));
-        return (amount + stack - 1) / stack;
-    }
-
-    /**
      * Which resource an item counts as, or null if the town has no use for it.
      *
      * <p>Food defers to {@link Foods}, which already owns the question of what
@@ -154,10 +142,5 @@ public final class Resources {
             return TownStores.IRON;
         }
         return null;
-    }
-
-    /** Whether an item is worth anything to a town's stores. */
-    public static boolean isStorable(String itemId) {
-        return resourceOf(itemId) != null;
     }
 }
