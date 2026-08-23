@@ -39,6 +39,22 @@ import java.util.Set;
  */
 public final class Resources {
 
+    /**
+     * What a store building keeps.
+     *
+     * <p>Bulk building materials only, and the omissions are deliberate. Gear
+     * does not stack, so a store of sixty-four tools would want sixty-four
+     * slots on its own. Food has its own economy — granary, stalls, pantries
+     * and haulers — and belongs there rather than in the timber store. What is
+     * left is exactly what a builder walks to a storehouse to fetch.
+     *
+     * <p>Lives here rather than on the container that shows it, because which
+     * goods a store holds is a fact about the settlement, not about a block
+     * entity. The chest reads this list; it does not own it.
+     */
+    public static final List<String> STORED = List.of(
+            TownStores.WOOD, TownStores.STONE, TownStores.SAPLINGS, TownStores.IRON);
+
     /** The item a resource is paid out in, keyed by ledger word. */
     private static final Map<String, String> CANONICAL = new LinkedHashMap<>();
 

@@ -263,8 +263,8 @@ class SupplyTest {
         // it must pay for is a farm it can never have. Being in PRODUCER_OF is
         // what exempts it, and this is the exemption doing its job.
         Settlement s = town();
-        s.stores().set(TownStores.WOOD, 0);
-        s.stores().set(TownStores.STONE, 0);
+        s.setStock(TownStores.WOOD, 0);
+        s.setStock(TownStores.STONE, 0);
         assertTrue(BuildPlanner.requestProducer(s, TownStores.FOOD, 5));
 
         s.step(new SimContext(new QuietBridge(), 6, SimSettings.SANDBOX));

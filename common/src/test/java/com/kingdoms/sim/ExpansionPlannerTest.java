@@ -53,9 +53,9 @@ class ExpansionPlannerTest {
         // A chartered town: the hall stands and the dowry is banked, because
         // expansion gates on both.
         s.addBuilding(new Building("kingdoms:town_hall", new SimPos(0, 64, 5), 0, true));
-        s.stores().set(TownStores.WOOD, TownStores.FOUNDING_WOOD * 2);
-        s.stores().set(TownStores.STONE, TownStores.FOUNDING_STONE * 2);
-        s.stores().set(TownStores.FOOD, 400);
+        s.setStock(TownStores.WOOD, TownStores.FOUNDING_WOOD * 2);
+        s.setStock(TownStores.STONE, TownStores.FOUNDING_STONE * 2);
+        s.setStock(TownStores.FOOD, 400);
         for (int f = 0; f < 2; f++) {
             Household household = new Household(Household.Id.random(), "Family " + f);
             SimPos home = new SimPos(10 + f * 8, 64, 0);
@@ -80,9 +80,9 @@ class ExpansionPlannerTest {
         Settlement parent = new Settlement(
                 Settlement.Id.random(), "Hall-less", new SimPos(0, 64, 0), 64);
         parent.setCatalogue(List.of(HOUSE));
-        parent.stores().set(TownStores.WOOD, TownStores.FOUNDING_WOOD * 2);
-        parent.stores().set(TownStores.STONE, TownStores.FOUNDING_STONE * 2);
-        parent.stores().set(TownStores.FOOD, 400);
+        parent.setStock(TownStores.WOOD, TownStores.FOUNDING_WOOD * 2);
+        parent.setStock(TownStores.STONE, TownStores.FOUNDING_STONE * 2);
+        parent.setStock(TownStores.FOOD, 400);
         for (int f = 0; f < 2; f++) {
             Household household = new Household(Household.Id.random(), "Family " + f);
             SimPos home = new SimPos(10 + f * 8, 64, 0);

@@ -23,7 +23,7 @@ class StorehouseTradeTest {
     @Test
     void timberSellsByTheEmeraldDownToTheReserveAndNoFurther() {
         Settlement s = town();
-        s.stores().set(TownStores.WOOD, StorehousePlanner.RESERVE_WOOD + 20);
+        s.setStock(TownStores.WOOD, StorehousePlanner.RESERVE_WOOD + 20);
 
         assertEquals(20, StorehousePlanner.timberForSale(s),
                 "everything above the reserve is on the table");
@@ -41,7 +41,7 @@ class StorehouseTradeTest {
     void donationsFillTheStoreAndStopAtItsCapacity() {
         Settlement s = town();
         int ceiling = LumberPlanner.woodCapacity(s);
-        s.stores().set(TownStores.WOOD, ceiling - 5);
+        s.setStock(TownStores.WOOD, ceiling - 5);
 
         assertEquals(5, StorehousePlanner.donate(s, TownStores.WOOD, 64),
                 "a generous donation is taken only as far as the racks hold");

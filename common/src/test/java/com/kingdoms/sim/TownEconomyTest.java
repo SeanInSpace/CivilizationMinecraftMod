@@ -51,8 +51,8 @@ class TownEconomyTest {
     @Test
     void theForgeTurnsIronIntoTools() {
         Settlement s = townWithSmithy(1);
-        s.stores().set(TownStores.IRON, 10);
-        s.stores().set(TownStores.WOOD, 10);
+        s.setStock(TownStores.IRON, 10);
+        s.setStock(TownStores.WOOD, 10);
 
         SmithPlanner.advance(s, CTX);
 
@@ -64,7 +64,7 @@ class TownEconomyTest {
     @Test
     void noIronMeansNoForging() {
         Settlement s = townWithSmithy(2);
-        s.stores().set(TownStores.WOOD, 100);
+        s.setStock(TownStores.WOOD, 100);
 
         SmithPlanner.advance(s, CTX);
 
@@ -76,8 +76,8 @@ class TownEconomyTest {
     void aTownWithNoSmithyMakesNothing() {
         Settlement s = new Settlement(Settlement.Id.random(), "Bare", new SimPos(0, 64, 0), 128);
         s.addResident(new Person(Person.Id.random(), "Hopeful", Profession.SMITH, s.centre()));
-        s.stores().set(TownStores.IRON, 100);
-        s.stores().set(TownStores.WOOD, 100);
+        s.setStock(TownStores.IRON, 100);
+        s.setStock(TownStores.WOOD, 100);
 
         SmithPlanner.advance(s, CTX);
 
@@ -87,14 +87,14 @@ class TownEconomyTest {
     @Test
     void toolsComeBeforeWeaponsWhichComeBeforeArmour() {
         Settlement s = townWithSmithy(1);
-        s.stores().set(TownStores.IRON, 1000);
-        s.stores().set(TownStores.WOOD, 1000);
-        s.stores().set(TownStores.TOOLS, SmithPlanner.MAX_TOOLS);
+        s.setStock(TownStores.IRON, 1000);
+        s.setStock(TownStores.WOOD, 1000);
+        s.setStock(TownStores.TOOLS, SmithPlanner.MAX_TOOLS);
 
         SmithPlanner.advance(s, CTX);
         assertEquals(1, s.stores().get(TownStores.WEAPONS), "tools stocked, so weapons next");
 
-        s.stores().set(TownStores.WEAPONS, SmithPlanner.MAX_WEAPONS);
+        s.setStock(TownStores.WEAPONS, SmithPlanner.MAX_WEAPONS);
         SmithPlanner.advance(s, CTX);
         assertEquals(1, s.stores().get(TownStores.ARMOUR));
     }
@@ -108,7 +108,7 @@ class TownEconomyTest {
         assertFalse(SmithPlanner.issueTool(s, worker), "an empty rack equips nobody");
         assertFalse(worker.hasTool());
 
-        s.stores().set(TownStores.TOOLS, 1);
+        s.setStock(TownStores.TOOLS, 1);
         assertTrue(SmithPlanner.issueTool(s, worker));
         assertTrue(worker.hasTool());
         assertEquals(0, s.stores().get(TownStores.TOOLS), "and the tool leaves the rack");
@@ -137,7 +137,7 @@ class TownEconomyTest {
     @Test
     void theSeedCornIsNotForSale() {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 128);
-        s.stores().set(TownStores.FOOD, MarketPlanner.RESERVE_FOOD);
+        s.setStock(TownStores.FOOD, MarketPlanner.RESERVE_FOOD);
 
         assertEquals(0, MarketPlanner.foodForSale(s));
         assertEquals(0, MarketPlanner.sellFood(s, 10),
@@ -148,7 +148,7 @@ class TownEconomyTest {
     @Test
     void sellingHandsOverFoodAndCountsTheTrade() {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 128);
-        s.stores().set(TownStores.FOOD, MarketPlanner.RESERVE_FOOD + 100);
+        s.setStock(TownStores.FOOD, MarketPlanner.RESERVE_FOOD + 100);
 
         int sold = MarketPlanner.sellFood(s, 2);
 

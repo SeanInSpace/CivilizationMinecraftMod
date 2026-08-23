@@ -287,13 +287,21 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored),
             Codec.BOOL.optionalFieldOf("surveyed", false).forGetter(Building::isSurveyed),
             FOOTPRINT.optionalFieldOf("footprint", Footprint.UNKNOWN).forGetter(Building::footprint),
-            Codec.INT.optionalFieldOf("facing", 0).forGetter(Building::facing)
-    ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing) -> {
+            Codec.INT.optionalFieldOf("facing", 0).forGetter(Building::facing),
+            // Where the town's goods actually are. Optional and omitted when
+            // empty, because most buildings hold nothing and a map apiece
+            // would be written for every hut in every town.
+            Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("stores", Map.of())
+                    .forGetter(b -> b.hasStores() ? b.stores().all() : Map.<String, Integer>of())
+    ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing, held) -> {
         Building building = new Building(blueprint, origin, step, materialized);
         building.setFoodStored(food);
         building.setSurveyed(surveyed);
         building.setFootprint(footprint);
         building.setFacing(facing);
+        if (!held.isEmpty()) {
+            building.stores().restore(held);
+        }
         return building;
     }));
 
@@ -336,7 +344,10 @@ public final class KingdomsCodecs {
         }
 
         static Stores of(Settlement settlement) {
-            return new Stores(settlement.stores().all(), 0, 0, 0, 0);
+            // The loose pile alone. The rest of the town's goods are saved by
+            // the buildings holding them, so writing the total here as well
+            // would restore every log twice.
+            return new Stores(settlement.loosePile().all(), 0, 0, 0, 0);
         }
     }
 
@@ -371,7 +382,7 @@ public final class KingdomsCodecs {
     ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, flavor, lumberArea, mineArea, nextPlot) -> {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
-        settlement.stores().restore(stores.toTownStores().all());
+        settlement.loosePile().restore(stores.toTownStores().all());
         settlement.tallies().restore(tallies);
         settlement.setCultureId(flavor.culture());
         // Saves from before stages existed carry no stage; they load as TOWN,

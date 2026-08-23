@@ -38,7 +38,7 @@ public final class StoreMirror {
      * @param lastWritten what this mirror put there last time
      * @return the snapshot to remember, which is simply what is there now
      */
-    public static int reconcile(TownStores stores, String resource,
+    public static int reconcile(Stock stores, String resource,
                                 int inChest, int lastWritten) {
         int change = inChest - lastWritten;
         if (change > 0) {

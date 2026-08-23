@@ -107,8 +107,8 @@ class VillageLifeTest {
         Settlement helped = village();
         for (Settlement s : new Settlement[] {plain, helped}) {
             s.setStage(SettlementStage.TOWN);
-            s.stores().set(TownStores.WOOD, 4096);
-            s.stores().set(TownStores.STONE, 4096);
+            s.setStock(TownStores.WOOD, 4096);
+            s.setStock(TownStores.STONE, 4096);
             settle(s, "Bea", Profession.BUILDER);
         }
         helped.addBuilding(new Building("kingdoms:carpentry", COTTAGE, 0, true));

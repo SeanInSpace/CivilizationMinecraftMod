@@ -131,7 +131,24 @@ public final class Settlement {
     private final Tallies tallies = new Tallies();
 
     /** Everything the town owns, by name. See {@link TownStores}. */
-    private final TownStores stores = TownStores.founding(FoodPlanner.STARTING_PROVISIONS);
+    /**
+     * Goods not yet in any building.
+     *
+     * <p>The founding kit arrives here, because a party that has just stepped
+     * off the road has nowhere to put anything. Once a store is raised this is
+     * swept into it and stays near empty — see {@link #putAwayLoosePile}.
+     */
+    private final TownStores loosePile = TownStores.founding(FoodPlanner.STARTING_PROVISIONS);
+
+    /**
+     * Everything the town owns, wherever it is.
+     *
+     * <p>Derived, never stored. Nothing writes a town-wide figure any more:
+     * asking adds up the stores standing in the town, which is what makes
+     * "where is it" a question with an answer, and what stops two containers
+     * showing the same number from each being entitled to hand it all out.
+     */
+    private final PooledStock pooled = new PooledStock(this::holders);
 
     private WorkArea lumberArea;
 
@@ -401,12 +418,93 @@ public final class Settlement {
         return tallies;
     }
 
-    public TownStores stores() {
-        return stores;
+    /**
+     * Everything the town owns, as one view over the places holding it.
+     *
+     * <p>A {@link Stock} rather than a {@link TownStores}: there is no single
+     * ledger to hand back, and the two operations that would need one —
+     * {@code set} and {@code restore} — are meaningless spread across
+     * buildings. Saving and loading reach for {@link #loosePile()} and the
+     * buildings themselves instead.
+     */
+    public Stock stores() {
+        return pooled;
+    }
+
+    /** Goods not yet in any building. For the codecs and the founding kit. */
+    public TownStores loosePile() {
+        return loosePile;
+    }
+
+    /**
+     * Who holds the town's goods, nearest thing to a store first.
+     *
+     * <p>Order is the whole of the locality rule: produce lands in the first
+     * holder and spending drains them in turn, so stores are filled and emptied
+     * before the loose pile is touched. The loose pile is always last and
+     * always present — a pool with no holders accepts nothing, and a camp with
+     * no storehouse would otherwise drop everything its people produced.
+     */
+    private List<Stock> holders() {
+        List<Stock> out = new ArrayList<>();
+        for (Building building : buildings) {
+            if (building.isStore() && building.isMaterialized()) {
+                out.add(building.stores());
+            }
+        }
+        out.add(loosePile);
+        return out;
+    }
+
+    /**
+     * Makes the town hold exactly this much of something.
+     *
+     * <p>Spread across buildings the idea needs a rule, so here it is: empty
+     * every holder of the resource, then put the new amount in the first. Only
+     * the food accessors and the tests ask for this; everything in the running
+     * simulation adds and takes, which need no such rule.
+     */
+    public void setStock(String resource, int amount) {
+        for (Stock holder : holders()) {
+            holder.takeUpTo(resource, Integer.MAX_VALUE);
+        }
+        if (amount > 0) {
+            pooled.add(resource, amount);
+        }
+    }
+
+    /**
+     * Moves the loose pile into a store, once there is one to move it into.
+     *
+     * <p>This is what makes the founding kit real. Four hundred and eighty
+     * timber used to be a number on a charter with not one log anywhere in the
+     * world; now, as soon as the party raises somewhere to put it, it is in a
+     * building that a container can show and a builder can walk to.
+     *
+     * <p>Run at the top of every {@link #step}, and public so it can be
+     * asked for directly rather than only as a side effect of a whole tick.
+     */
+    public void putAwayLoosePile() {
+        if (loosePile.all().isEmpty()) {
+            return;
+        }
+        Building into = null;
+        for (Building building : buildings) {
+            if (building.isStore() && building.isMaterialized()) {
+                into = building;
+                break;
+            }
+        }
+        if (into == null) {
+            return;   // nowhere to put it yet; it stays in the open
+        }
+        for (Map.Entry<String, Integer> held : Map.copyOf(loosePile.all()).entrySet()) {
+            into.stores().add(held.getKey(), loosePile.takeUpTo(held.getKey(), held.getValue()));
+        }
     }
 
     public int foodStock() {
-        return stores.get(TownStores.FOOD);
+        return pooled.get(TownStores.FOOD);
     }
 
     /**
@@ -420,31 +518,31 @@ public final class Settlement {
     }
 
     public void setFoodStock(int amount) {
-        stores.set(TownStores.FOOD, amount);
+        setStock(TownStores.FOOD, amount);
     }
 
     public int woodStock() {
-        return stores.get(TownStores.WOOD);
+        return pooled.get(TownStores.WOOD);
     }
 
     public void setWoodStock(int amount) {
-        stores.set(TownStores.WOOD, amount);
+        setStock(TownStores.WOOD, amount);
     }
 
     public int stoneStock() {
-        return stores.get(TownStores.STONE);
+        return pooled.get(TownStores.STONE);
     }
 
     public void setStoneStock(int amount) {
-        stores.set(TownStores.STONE, amount);
+        setStock(TownStores.STONE, amount);
     }
 
     public int saplingStock() {
-        return stores.get(TownStores.SAPLINGS);
+        return pooled.get(TownStores.SAPLINGS);
     }
 
     public void setSaplingStock(int amount) {
-        stores.set(TownStores.SAPLINGS, amount);
+        setStock(TownStores.SAPLINGS, amount);
     }
 
     public WorkArea lumberArea() {
@@ -681,6 +779,7 @@ public final class Settlement {
      * here must be safe to run with no chunks loaded.
      */
     public void step(SimContext ctx) {
+        putAwayLoosePile();
         advanceStage(ctx);
         planNextBuild(ctx);
         // Roads before walls: the perimeter cuts its gates where the roads
@@ -1135,8 +1234,8 @@ public final class Settlement {
         }
         int wood = BuildPlanner.WOOD_PER_WORK * progress;
         int stone = BuildPlanner.STONE_PER_WORK * progress;
-        boolean shortOfWood = !stores.has(TownStores.WOOD, wood);
-        boolean shortOfStone = !stores.has(TownStores.STONE, stone);
+        boolean shortOfWood = !pooled.has(TownStores.WOOD, wood);
+        boolean shortOfStone = !pooled.has(TownStores.STONE, stone);
         if (shortOfWood && shortOfStone) {
             return List.of(TownStores.WOOD, TownStores.STONE);
         }
@@ -1146,8 +1245,8 @@ public final class Settlement {
         if (shortOfStone) {
             return List.of(TownStores.STONE);
         }
-        stores.take(TownStores.WOOD, wood);
-        stores.take(TownStores.STONE, stone);
+        pooled.take(TownStores.WOOD, wood);
+        pooled.take(TownStores.STONE, stone);
         return List.of();
     }
 

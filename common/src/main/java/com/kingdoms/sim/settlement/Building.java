@@ -60,6 +60,45 @@ public final class Building {
         this.materialized = materialized;
     }
 
+    /**
+     * What this building physically holds.
+     *
+     * <p>Null until something is put here, because most buildings never hold
+     * anything and a ledger apiece would be written to disk for every hut in
+     * every town. Reach for it through {@link #stores()}.
+     */
+    private TownStores stores;
+
+    /**
+     * This building's own goods.
+     *
+     * <p>The town's holdings are the sum of these — see {@link PooledStock}.
+     * Created on first use, so asking is enough to make a building a holder.
+     */
+    public TownStores stores() {
+        if (stores == null) {
+            stores = new TownStores();
+        }
+        return stores;
+    }
+
+    /** Whether anything is held here, without building a ledger to find out. */
+    public boolean hasStores() {
+        return stores != null && !stores.all().isEmpty();
+    }
+
+    /**
+     * Whether this is somewhere the town keeps its bulk goods.
+     *
+     * <p>Asked by the settlement to decide which buildings are holders, and by
+     * the platform to decide which ones get a container. It reads the blueprint
+     * name because that is the only thing a placed building carries that says
+     * what it is for.
+     */
+    public boolean isStore() {
+        return blueprintId.contains("warehouse") || blueprintId.contains("storehouse");
+    }
+
     public String blueprintId() {
         return blueprintId;
     }

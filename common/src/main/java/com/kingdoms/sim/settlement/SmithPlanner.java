@@ -61,7 +61,7 @@ public final class SmithPlanner {
         if (wanted == null) {
             return false;
         }
-        TownStores stores = settlement.stores();
+        Stock stores = settlement.stores();
         if (!stores.has(TownStores.IRON, IRON_PER_ITEM)
                 || !stores.has(TownStores.WOOD, FUEL_PER_ITEM)) {
             return false;
@@ -74,7 +74,7 @@ public final class SmithPlanner {
 
     /** What the forge should be making, or null when everything is stocked. */
     private static String nextWanted(Settlement settlement) {
-        TownStores stores = settlement.stores();
+        Stock stores = settlement.stores();
         if (stores.get(TownStores.TOOLS) < MAX_TOOLS) {
             return TownStores.TOOLS;
         }
