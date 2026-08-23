@@ -294,6 +294,28 @@ public final class KingdomsCommand {
                     s.stores().all().forEach((resource, amount) ->
                             sb.append(" ").append(resource).append("=").append(amount));
                 }
+                // Where those goods actually are. The total above is a sum
+                // now, not a figure anybody keeps, so the interesting line
+                // is this one: which building is holding what, and how much
+                // is still lying in the open waiting for a store to be built.
+                sb.append("\n      where:");
+                boolean anywhere = false;
+                if (!s.loosePile().all().isEmpty()) {
+                    anywhere = true;
+                    sb.append(" open").append(s.loosePile().all());
+                }
+                for (Building b : s.buildings()) {
+                    if (b.isStore() && b.isMaterialized() && b.hasStores()) {
+                        anywhere = true;
+                        sb.append(" ").append(b.blueprintId())
+                                .append("(").append(b.origin().x()).append(",")
+                                .append(b.origin().z()).append(")")
+                                .append(b.stores().all());
+                    }
+                }
+                if (!anywhere) {
+                    sb.append(" nothing anywhere");
+                }
                 if (!s.tallies().all().isEmpty()) {
                     sb.append("\n      deeds:");
                     s.tallies().all().forEach((stat, count) ->
