@@ -444,11 +444,20 @@ public final class Settlement {
      * before the loose pile is touched. The loose pile is always last and
      * always present — a pool with no holders accepts nothing, and a camp with
      * no storehouse would otherwise drop everything its people produced.
+     *
+     * <p><strong>Not gated on whether the blocks are stamped.</strong> A
+     * building the simulation says was raised is a building, whether or not
+     * anybody has been near enough for it to be drawn. Requiring that it be
+     * materialized was a way to make a town's entire stock disappear: an
+     * upgrade sets the flag back to false while the new blocks go down, and a
+     * storehouse that stops counting as a holder takes every log in it out of
+     * the town's reckoning — builders idle for want of timber that is right
+     * there, and a granary's worth of food gone from a hungry town's books.
      */
     private List<Stock> holders() {
         List<Stock> out = new ArrayList<>();
         for (Building building : buildings) {
-            if (building.isStore() && building.isMaterialized()) {
+            if (building.isStore()) {
                 out.add(building.stores());
             }
         }
@@ -486,7 +495,7 @@ public final class Settlement {
         Building nearest = null;
         long best = Long.MAX_VALUE;
         for (Building building : buildings) {
-            if (!building.isStore() || !building.isMaterialized()) {
+            if (!building.isStore()) {
                 continue;
             }
             if (resource != null && !building.stores().has(resource, 1)) {
@@ -535,7 +544,7 @@ public final class Settlement {
         }
         Building into = null;
         for (Building building : buildings) {
-            if (building.isStore() && building.isMaterialized()) {
+            if (building.isStore()) {
                 into = building;
                 break;
             }

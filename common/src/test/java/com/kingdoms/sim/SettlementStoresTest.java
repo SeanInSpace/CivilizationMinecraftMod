@@ -63,16 +63,40 @@ class SettlementStoresTest {
     }
 
     @Test
-    void anUnfinishedStoreIsNowhereToPutAnything() {
+    void aStoreTheSimulationRaisedHoldsGoodsBeforeAnybodyHasSeenIt() {
+        // Materialization says whether the blocks have been stamped into the
+        // world, which happens only once somebody is near enough to see them.
+        // A town that raised a storehouse has a storehouse either way.
         Settlement s = town();
-        Building halfBuilt = storehouse(false);
-        s.addBuilding(halfBuilt);
+        Building unstamped = storehouse(false);
+        s.addBuilding(unstamped);
 
         s.putAwayLoosePile();
 
-        assertFalse(halfBuilt.hasStores(), "a building that is not there yet holds nothing");
-        assertEquals(TownStores.FOUNDING_WOOD, s.loosePile().get(TownStores.WOOD),
-                "so the kit stays in the open until the roof is on");
+        assertEquals(TownStores.FOUNDING_WOOD, unstamped.stores().get(TownStores.WOOD),
+                "the kit is in the store the town built");
+        assertEquals(TownStores.FOUNDING_WOOD, s.stores().get(TownStores.WOOD),
+                "and not one log left the books on the way in");
+    }
+
+    @Test
+    void upgradingAStoreDoesNotMakeTheTownsGoodsVanish() {
+        // The failure this guards. Raising a building a level sets it back to
+        // unstamped while the new blocks go down; if that stopped it counting
+        // as a holder, every log in it would drop out of the town's reckoning
+        // — builders idle for want of timber standing right there, and a
+        // hungry town's food gone from its own books.
+        Settlement s = town();
+        Building store = storehouse(true);
+        s.addBuilding(store);
+        s.putAwayLoosePile();
+        int owned = s.stores().get(TownStores.WOOD);
+        assertTrue(owned > 0, "there is something to lose");
+
+        store.setMaterialized(false);
+
+        assertEquals(owned, s.stores().get(TownStores.WOOD),
+                "still in the storehouse, and still on the books");
     }
 
     @Test
@@ -172,11 +196,12 @@ class SettlementStoresTest {
     }
 
     @Test
-    void aStoreStillBeingBuiltIsNotSomewhereToSendAnybody() {
+    void aWorkerIsSentToAStoreEvenBeforeItsBlocksAreDrawn() {
         Settlement s = town();
-        s.addBuilding(storehouse(false));
+        Building unstamped = storehouse(false);
+        s.addBuilding(unstamped);
 
-        assertNull(s.nearestStore(new SimPos(0, 64, 0)),
-                "a roofless frame is not a store yet");
+        assertEquals(unstamped, s.nearestStore(new SimPos(0, 64, 0)),
+                "the store exists as far as the town is concerned, so that is where they go");
     }
 }

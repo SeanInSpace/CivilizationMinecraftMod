@@ -76,7 +76,7 @@ public final class StoreSync {
     public static void reconcile(ServerLevel level, Settlement settlement) {
         boolean moved = false;
         for (Building building : settlement.buildings()) {
-            if (!building.isStore() || !building.isMaterialized()) {
+            if (!building.isStore()) {
                 continue;
             }
             StoreChestBlockEntity chest = chestOf(level, settlement, building);
