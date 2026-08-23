@@ -144,16 +144,39 @@ public final class PerimeterLayer {
         return Direction.SOUTH;
     }
 
-    /** First air-or-plant block standing on solid ground at this column. */
+    /**
+     * The foot of the post: the first free block above the real ground.
+     *
+     * <p>The subtlety that matters, and the bug that proved it: the heightmap
+     * counts our own wall. Asking it for the surface and planting two logs
+     * there raises the heightmap by two, so the next sweep plants two more on
+     * top of those, and the palisade grows into the sky at two blocks a second
+     * for as long as the town is loaded. A playtest screenshot of hundred-block
+     * towers with a ladder of torches up the side is what this comment is for.
+     *
+     * <p>So step back down through anything the wall itself put here before
+     * calling it ground. That makes {@link #put} genuinely idempotent — the
+     * second sweep finds its own logs already standing and writes nothing.
+     */
     private static BlockPos surface(ServerLevel level, SimPos pos) {
         BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 new BlockPos(pos.x(), pos.y(), pos.z()));
+        while (top.getY() > level.getMinY() + 1 && isOurs(level, top.below())) {
+            top = top.below();
+        }
         // Refuse water: a palisade post in a pond reads as a mistake, and the
         // planner will have routed the useful part of the ring on land anyway.
         if (!level.getFluidState(top.below()).isEmpty()) {
             return null;
         }
         return top;
+    }
+
+    /** Whether this block is one the wall itself laid, rather than the world's. */
+    private static boolean isOurs(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.is(Blocks.OAK_LOG) || state.is(Blocks.TORCH)
+                || state.is(Blocks.OAK_FENCE_GATE);
     }
 
     private static boolean put(ServerLevel level, BlockPos pos, Block block) {
