@@ -5,6 +5,7 @@ import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildTask;
+import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
@@ -246,6 +247,79 @@ public final class TownAuditor {
         }
         return reserveSteps(larder, population) < LEAN_RESERVE_STEPS
                 ? Distress.LEAN : Distress.NONE;
+    }
+
+    /**
+     * Checks the auditor against cases whose answers are already known.
+     *
+     * <p>Worth having because a silent auditor and a healthy town look exactly
+     * the same from the outside: "clean" is only worth reading if the thing
+     * saying it can be shown to say otherwise when there is something to say.
+     * So every check here comes in both directions — a fault that must be
+     * caught, and a near miss that must not be.
+     *
+     * <p>Only the parts that need no world: plot overlap, which reads the
+     * buildings' own geometry, and the hunger verdicts, which take plain
+     * numbers. The checks that walk blocks — doorways, bare fields, litter —
+     * cannot be judged without a town to walk, and {@code /civ audit} on a
+     * building you have just walled up is the honest test of those.
+     *
+     * <p>Expectations are written against the named constants rather than the
+     * numbers they currently hold, so tuning a threshold does not turn this
+     * red on its own.
+     */
+    public static List<String> selfTest() {
+        List<String> lines = new ArrayList<>();
+
+        // --- does it see a fault that is really there? ---
+        Building house = plot("kingdoms:house", 0, 0, 5, 5);
+        Building smith = plot("kingdoms:smith", 1, 1, 5, 5);
+        List<Fault> onSameGround = new ArrayList<>();
+        auditOverlaps(List.of(house, smith), onSameGround);
+        check(lines, !onSameGround.isEmpty(), "two plots on the same ground are reported");
+
+        // --- and does it stay quiet when there is not? ---
+        List<Fault> setApart = new ArrayList<>();
+        auditOverlaps(List.of(house, plot("kingdoms:smith", 500, 500, 5, 5)), setApart);
+        check(lines, setApart.isEmpty(), "plots set well apart are left alone");
+
+        Building unsurveyed = new Building("kingdoms:house", new SimPos(0, 64, 0), 1, true);
+        List<Fault> unjudged = new ArrayList<>();
+        auditOverlaps(List.of(house, unsurveyed), unjudged);
+        check(lines, unjudged.isEmpty(), "a plot with no surveyed footprint is not guessed at");
+
+        // --- the larder, which is the warning the vitals line is for ---
+        check(lines, reserveSteps(100, 0) == 0, "a town with nobody in it has no appetite");
+        check(lines, reserveSteps(1000, 10) > reserveSteps(100, 10),
+                "a fuller larder is a longer reserve");
+        check(lines, reserveSteps(100, 5) > reserveSteps(100, 50),
+                "and more mouths is a shorter one");
+
+        // --- the verdict ---
+        int full = LEAN_RESERVE_STEPS * 100;
+        check(lines, distress(Person.HUNGER_SEVERE, full, 10) == Distress.SEVERE,
+                "a starving resident outranks a full granary");
+        check(lines, distress(Person.HUNGER_WEAK, full, 10) == Distress.WEAK,
+                "somebody too weak to work is still reported");
+        check(lines, distress(0, full, 10) == Distress.NONE,
+                "a fed town with food in hand is left in peace");
+        check(lines, distress(0, 0, 10) == Distress.LEAN,
+                "an empty larder warns before anybody has gone hungry");
+        check(lines, distress(Person.HUNGER_SEVERE, 0, 0) == Distress.NONE,
+                "an empty town is an obituary, not a famine");
+
+        return lines;
+    }
+
+    private static void check(List<String> lines, boolean held, String what) {
+        lines.add((held ? "PASS  " : "FAIL  ") + what);
+    }
+
+    /** A building with a surveyed plot of the given span, for the self-test. */
+    private static Building plot(String blueprintId, int x, int z, int width, int depth) {
+        Building building = new Building(blueprintId, new SimPos(x, 64, z), 1, true);
+        building.setFootprint(new Footprint(64, width, depth, 4));
+        return building;
     }
 
     /** What the worst stomach in town earns on its own, before the larder counts. */

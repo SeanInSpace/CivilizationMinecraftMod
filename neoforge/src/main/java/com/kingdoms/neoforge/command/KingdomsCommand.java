@@ -70,7 +70,9 @@ public final class KingdomsCommand {
                         .executes(KingdomsCommand::overview))
 
                 .then(Commands.literal("audit")
-                        .executes(KingdomsCommand::audit))
+                        .executes(KingdomsCommand::audit)
+                        .then(Commands.literal("selftest")
+                                .executes(KingdomsCommand::auditSelfTest)))
 
                 .then(Commands.literal("populate")
                         .then(Commands.argument("count", IntegerArgumentType.integer(1, 200))
@@ -115,6 +117,30 @@ public final class KingdomsCommand {
      * fault is also written to the log under {@code AUDIT}, so a scripted run
      * can grep for regressions without a person standing in the town.
      */
+    /**
+     * Asks the auditor to check itself, and says plainly whether it passed.
+     *
+     * <p>"No faults" from a broken auditor reads exactly like "no faults" from
+     * a healthy town, so this exists to tell those two apart before anybody
+     * trusts a clean sweep.
+     */
+    private static int auditSelfTest(CommandContext<CommandSourceStack> ctx) {
+        java.util.List<String> lines = TownAuditor.selfTest();
+        long failed = lines.stream().filter(line -> line.startsWith("FAIL")).count();
+        StringBuilder out = new StringBuilder("=== Auditor self-test ===");
+        for (String line : lines) {
+            out.append("\n  ").append(line);
+        }
+        out.append("\n  ").append(lines.size() - failed).append("/").append(lines.size())
+                .append(failed == 0
+                        ? " — it catches what it should and ignores what it should not"
+                        : " — THE AUDITOR IS WRONG; do not trust a clean sweep");
+        String report = out.toString();
+        ctx.getSource().sendSuccess(() -> Component.literal(report), false);
+        KingdomsMod.LOGGER.info("AUDITSELFTEST {}/{} passed", lines.size() - failed, lines.size());
+        return failed == 0 ? 1 : 0;
+    }
+
     private static int audit(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         ServerLevel level = source.getLevel();
