@@ -17,7 +17,7 @@ import java.util.Objects;
  * pays for something or does not get it. That is the whole basis of supply being
  * limited rather than decorative.
  */
-public final class TownStores {
+public final class TownStores implements Stock {
 
     /** Well-known ids. Not exhaustive — anything may be stored under any name. */
     public static final String FOOD = "food";
