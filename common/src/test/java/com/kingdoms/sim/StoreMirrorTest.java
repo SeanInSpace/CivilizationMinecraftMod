@@ -143,37 +143,40 @@ class StoreMirrorTest {
     }
 
     @Test
-    void everyStoreIsOnePoolSoMovingStockBetweenThemIsNotAWithdrawal() {
-        // A town builds a storehouse and later a warehouse, and both hold a
-        // container. Reading only one of them was a way to make timber from
-        // nothing: which chest got read could change across a restart, and the
-        // one left out kept its stock for the taking while its snapshot went on
-        // billing the ledger for goods that had never been in it.
-        TownStores stores = storesWith(480);
+    void eachStoreMeasuresAgainstItsOwnLedgerAndNobodyElses() {
+        // Two chests once shared a single town-wide figure, which meant both
+        // were entitled to show all of it. Whichever one went unread kept its
+        // stock for the taking while its snapshot went on billing the town for
+        // goods that had never been in it, and which chest that was could
+        // change across a restart. A building now holds its own goods, so the
+        // sum that used to have to be got right is not computed anywhere.
+        TownStores warehouse = storesWith(300);
+        TownStores storehouse = storesWith(180);
 
-        // 300 on one set of shelves, 180 on the other, against a summed
-        // snapshot of the same 480.
-        StoreMirror.reconcile(stores, WOOD, 300 + 180, 300 + 180);
-        assertEquals(480, stores.get(WOOD), "split across two stores is still 480");
+        StoreMirror.reconcile(warehouse, WOOD, 300, 300);
+        StoreMirror.reconcile(storehouse, WOOD, 180, 180);
 
-        // Somebody carries the 180 from one store to the other. The total has
-        // not moved, so neither may the ledger.
-        StoreMirror.reconcile(stores, WOOD, 480 + 0, 480);
-        assertEquals(480, stores.get(WOOD),
-                "carrying stock between the town's own stores is not a withdrawal");
+        assertEquals(300, warehouse.get(WOOD), "neither ledger can see the other");
+        assertEquals(180, storehouse.get(WOOD));
     }
 
     @Test
-    void readingOnlyOneOfTwoStoresWouldBillTheTownForGoodsNobodyTook() {
-        // The failure the pooling above prevents, stated plainly: count one
-        // chest's 300 against a snapshot of 480 and the town is debited 180
-        // that is still sitting on the other set of shelves.
-        TownStores stores = storesWith(480);
+    void carryingStockBetweenStoresIsTwoHonestEventsRatherThanNone() {
+        // Somebody moves a hundred and eighty logs from one store to the other.
+        // Under a shared figure this had to be made invisible, or the town was
+        // billed twice; measured per building it is simply a withdrawal here
+        // and a donation there, which is also exactly the work a courier will
+        // have to walk.
+        TownStores warehouse = storesWith(300);
+        TownStores storehouse = storesWith(180);
 
-        StoreMirror.reconcile(stores, WOOD, 300, 480);
+        StoreMirror.reconcile(warehouse, WOOD, 120, 300);
+        StoreMirror.reconcile(storehouse, WOOD, 360, 180);
 
-        assertEquals(300, stores.get(WOOD),
-                "this is what reading a single store costs, and why all of them are summed");
+        assertEquals(120, warehouse.get(WOOD), "the warehouse is lighter by what left it");
+        assertEquals(360, storehouse.get(WOOD), "and the storehouse heavier by the same");
+        assertEquals(480, warehouse.get(WOOD) + storehouse.get(WOOD),
+                "and the town is no richer for the walk");
     }
 
     @Test

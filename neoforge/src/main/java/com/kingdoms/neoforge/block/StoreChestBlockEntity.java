@@ -6,7 +6,6 @@ import com.kingdoms.sim.settlement.StoreMirror;
 import java.util.Map;
 import java.util.List;
 import java.util.LinkedHashMap;
-import com.kingdoms.sim.settlement.TownStores;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -57,14 +56,13 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
     /**
      * The resources this chest speaks for.
      *
-     * <p>Bulk building materials only, and the omissions are deliberate. Gear
-     * does not stack, so a store of sixty-four tools would want sixty-four
-     * slots on its own. Food has its own economy — granary, stalls, pantries
-     * and haulers — and belongs in the granary rather than the timber store.
-     * What is left is exactly what a builder walks here to fetch.
+     * <p>Read from {@link Resources#STORED} rather than listed again here.
+     * Which goods a store holds is a fact about the settlement, and the
+     * settlement now decides it: a building's ledger and the container showing
+     * that ledger must agree about what is being shown, and two lists that had
+     * to be kept identical would eventually stop being.
      */
-    public static final List<String> MIRRORED = List.of(
-            TownStores.WOOD, TownStores.STONE, TownStores.SAPLINGS, TownStores.IRON);
+    public static final List<String> MIRRORED = Resources.STORED;
 
     private NonNullList<ItemStack> items = NonNullList.withSize(SLOTS, ItemStack.EMPTY);
 
