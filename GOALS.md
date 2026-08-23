@@ -12,7 +12,95 @@ than papered over.
 
 ---
 
+## Where the mod stands
+
+Roughly 22,700 lines of source across three modules — `common` 8,600 (pure
+simulation, never imports Minecraft), `neoforge` 11,600 (the world, the entities,
+the blocks), `keystone` 2,500 (blueprints). 346 tests pass and there are no
+TODO markers anywhere in the source.
+
+The milestone is substantially met: a charter-founded party of four climbs
+camp → homestead → fortified → village → town on its own, feeds itself, equips
+itself from its own forge, walls itself, and expands. That has been watched
+end to end, most recently over 570 unattended steps to 47 residents.
+
+Two structural weaknesses are worth stating plainly at the top, because they
+shape most of what follows.
+
+**Half the code has no tests.** All 346 live in `common` and `keystone`.
+`neoforge` has no test source set at all, so the auditor, the chest mirror, the
+blueprint placer, the excavation and every entity behaviour are covered only by
+playtests. That is why the two faults below could persist for weeks under a
+green build, and why `/civ audit selftest` had to be written to establish that
+the auditor was even awake.
+
+**The audit is the only instrument.** It is good, and it is now self-checking,
+but everything it cannot reach — anything about how the town *reads* — still
+needs a person. The "Needs eyes" list is not a backlog; it is the part of the
+work that cannot be delegated.
+
+---
+
 ## Open
+
+- [ ] **Crops are still being lost, and the recorded cause is not the whole
+      cause.** A run today reported `half the field is bare — 72 farmland, 34
+      planted` and `bare AND strewn with 21 items` on the same farm, repeatedly.
+      The flooding fix is in and correct — farms base at the first air block, so
+      farmland sits where a player would till it — but the field is still
+      emptying. Since the auditor names what replaced each vanished crop, the
+      next step is to read those reports rather than theorise: three plausible
+      causes have already been wrong once each (trampling, light, placement
+      order). Treat any new theory as unproven until the auditor names it.
+
+- [ ] **Buildings with no doorway at grade, still.** Four in one run — a
+      storehouse, a lumber camp and two houses. The known false positive was
+      fixed (a dirt-path doorstep fails vanilla's sturdy-face test; doorsteps
+      are judged standable now, with a one-step tolerance) and that fix is
+      present. So these are either genuine — buildings whose only door is above
+      or below grade after the foundation courses go in — or a second false
+      positive with a different cause. The auditor's self-test covers its
+      judgement but not its geometry, so this needs a person standing at
+      `148, 107, -48` to say which.
+
+- [ ] **A test source set for `neoforge`.** 11,600 lines with no unit tests.
+      The blocker is that its classes import Minecraft, so the test sourceset
+      needs the mod's own compile classpath; an abandoned branch
+      (`worktree-agent-ae276793f6c09e959`) already did this — eight lines of
+      `build.gradle` and a 231-line test — and is worth reading before starting
+      from scratch. Highest value first: `TownAuditor`'s geometry checks and
+      `StoreSync`'s reconciliation, both of which currently rely on a whole
+      playtest to exercise a branch.
+
+- [ ] **Goods do not move between stores, because nothing asks them to.**
+      Produce now lands at the store nearest where it was made and a builder
+      fetches from the nearest store that actually holds what they need, so
+      nothing deadlocks. What is missing is the courier. `HaulPlanner` already
+      walks a load between two points at both fidelities, with the goods on the
+      carrier's back the whole way — the transport half is done. The missing
+      half is a *demand signal*: `HaulTask` is food-shaped (`FARM`, `GRANARY`,
+      `MARKET`, `HOME`, routed through `FoodPlanner.withdraw`/`deposit`) and
+      would need generalising. **What to decide:** a naive "even out the
+      stores" rule oscillates. The non-oscillating version is demand-driven —
+      a builder short at their nearest store *is* the request — which is
+      MineColonies' request system in miniature. Worth reading how they do it:
+      resolver priority is the whole of their locality rule (own building 200,
+      crafting 125, warehouse default, retry 50).
+
+- [ ] **Unwatched production is attributed to one camp.** `LumberPlanner.campPos`
+      and `MinePlanner.minePos` return the *first* camp or mine they find, so a
+      town with two lumber camps puts all its unwatched timber at one of them.
+      Still geometry rather than list order, and the watched path knows the
+      exact block — but a large town spreads its goods more coarsely than it
+      should. Fixing it means splitting the aggregate worker counts by which
+      camp each is assigned to.
+
+- [ ] **A store is recognised by its name.** `Building.isStore()` matches
+      blueprint ids containing `storehouse` or `warehouse`. Upgrades are safe
+      today (`storehouse_l2` still matches, verified in play) but a store
+      blueprint that is ever called something else would silently stop being a
+      holder, and its goods would sit in a ledger nothing reads. A declared
+      building role would end the whole class of problem.
 
 - [ ] **Fix digging time — it is currently too fast.** A block takes exactly the
       ticks vanilla gives a player with the right iron tool
@@ -57,6 +145,23 @@ than papered over.
 
 ---
 
+## Housekeeping
+
+- [ ] **Twenty stale worktrees and eighteen stale branches** under
+      `.claude/worktrees/`, left over from batched agent runs. Four carry
+      unmerged commits totalling roughly 1,500 lines, tests included:
+      blueprint transforms with a 117-line `TransformsTest`
+      (`a1189e6c722c47a38`); a mine rework with a 279-line `MinePlannerTest`
+      (`a551f32fe3c7672c4`); a `BuildPlanner` change with `SupplyTest` additions
+      (`a75374de228c69b47`); and the `neoforge` test sourceset above
+      (`ae276793f6c09e959`). All four predate the storage reshape and touch
+      files that have since changed underneath them, so they want reading and
+      re-deriving rather than merging. Decide keep-or-drop per branch, then
+      clear the rest — twenty worktrees is a slow `git status` and a standing
+      invitation to merge something stale.
+
+---
+
 ## Needs eyes, not tests
 
 Deliberately unordered. Everything here runs without throwing and produces the
@@ -66,6 +171,11 @@ scheduling. Several of these want asking again now that the footprint and
 foundation work has landed, which changes what a town looks like on sloping
 ground.
 
+- [ ] Does opening a town's stores read as the town's stores, or as a loot chest?
+- [ ] With two stores standing, does the split between them read as sensible —
+      timber by the woods, stone by the mine — or as goods scattered at random?
+- [ ] Does a builder fetching from the *nearest* store still read as too much
+      walking, now that they no longer cross the village for every load?
 - [ ] Are the animal pens actually separated, and do the beasts stay in them?
 - [ ] Do the wider paths reach the doors, and stay clear of trees now?
 - [ ] Do guards visibly carry swords once a smithy stands?
@@ -76,7 +186,6 @@ ground.
 - [ ] Does the town map read as a plan, and is the fixed claim scale right?
 - [ ] Do turned buildings actually face the centre, doors and stairs included?
 - [ ] Does a level-2 building read as an upgrade, and does the old one clear cleanly?
-- [ ] Is builders walking to the warehouse for every load too slow to watch?
 - [ ] Does a crew of six digging a hillside read as a crew, or as a scrum?
 - [ ] Does the excavation stake feel like a usable tool for marking out ground?
 - [ ] Does the town read as spaced-out now, or has it become sprawling?
@@ -89,6 +198,37 @@ ground.
 ---
 
 ## Done
+
+- [x] **The town's goods are somewhere in particular.** A settlement kept one
+      number per resource and no notion of where any of it was, which is what
+      let two chests each hand out the same timber. Buildings hold goods now, a
+      loose pile holds whatever is not yet indoors, and the town total is
+      summed on demand rather than stored — so the sum that had to be got right
+      is not computed anywhere. One chest mirrors exactly one building's
+      ledger; carrying goods between stores is a real transfer rather than
+      something that had to be made invisible. Produce lands at the store
+      nearest where it was made, a builder walks to the shelves they actually
+      draw from, and a player's donation goes to the door they left it at. The
+      founding kit is real at last: it arrives on open ground, because a party
+      that has just stepped off the road has nowhere to put anything, and is
+      swept inside the moment they raise a store. Verified over 570 unattended
+      steps from a charter founding — 4 settlers to 47, timber in the
+      storehouse by the lumber camp, stone and iron in the warehouse by the
+      mines, iron split 13/251 across the two and summing to the total.
+
+- [x] **A charter's party, where a test can reach it.** The founding party was
+      written out inside `FoundingCharterItem`, so the one path a player can
+      take was the one path no test could reach — and `/civ found`, which every
+      scripted run uses, quietly raised a settlement with a kit and nobody to
+      spend it. Both come through `Founding.party` now, so a headless run
+      founds what a charter founds.
+
+- [x] **The auditor can be asked to prove it is awake.** A silent auditor and a
+      healthy town read identically from outside, so a clean sweep meant
+      nothing. `/civ audit selftest` runs it against cases with known answers,
+      each in both directions — a fault that must be caught and a near miss
+      that must not be. Verified by deliberately blinding the overlap detector
+      and confirming exactly one check went red.
 
 - [x] **A `.blueprint` reader, for the MineColonies/Structurize content
       ecosystem.** `StructurizeNbt` decodes the dense `y → z → x` cell array
@@ -156,9 +296,7 @@ it.*
   failing, dying — leads every building post's report and the hall's overview
   screen, and the audit sweep's vitals line carries a food-reserve figure and a
   distress verdict for every settlement, loaded or not. A famine now reaches
-  the log minutes before it reaches an obituary. (The founding-party fix this
-  was built around has been re-cut — see Open — but the reporting stands on its
-  own.)
+  the log minutes before it reaches an obituary.
 
 - **Gates yield to citizens.** A closed fence gate is a wall to vanilla mobs —
   which kept animals penned and shepherds penned in with them. Gates now work
@@ -181,24 +319,6 @@ it.*
   them — so the player's presence was the famine. Errands now get a fair spell of
   real walking, then the clock delivers. Economy itself proven sound headless:
   total food 302→911 over 750 steps while population grew 36→46.
-
-- **Two audit false positives, both caught by the player from inside the world.**
-  A dirt-path doorstep fails vanilla's sturdy-face test, so the houses with a
-  track laid to their door were the ones flagged "no way in" — doorsteps are now
-  judged standable, with a one-step tolerance. And the "items popping crops"
-  drizzle was support-loss drops from ordinary excavation (grass and leaf litter
-  popping off dug blocks); diggers clear the plant first now, and loose items
-  only testify beside a field that is also losing its planting.
-
-- **The crop mystery, solved by instruments.** Fields kept churning into seed
-  items through three plausible-and-wrong theories (trampling, light, placement
-  order — the last ruled out by a probe that never fired). The auditor now
-  remembers where crops stood and names what replaced each one that vanished;
-  every report said the same thing: water over intact farmland. The farm was
-  built one block too deep — its ground layer is drawn below its base, so the
-  standard floor convention sank the field to where any pond at natural grade
-  holds its water, and fields flooded from the rim. Farms now base at the first
-  air block, putting farmland exactly where a player tills.
 
 - **Towns no longer sprawl into the next biome.** Site searches permanently
   consumed ring-plot indices on every rejected candidate, and relocation checks
