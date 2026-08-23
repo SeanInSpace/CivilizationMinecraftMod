@@ -57,6 +57,7 @@ public final class KingdomsMod {
         container.registerConfig(ModConfig.Type.SERVER, KingdomsConfig.SPEC);
         KingdomsAttachments.ATTACHMENTS.register(modBus);
         KingdomsBlocks.BLOCKS.register(modBus);
+        KingdomsBlockEntities.BLOCK_ENTITIES.register(modBus);
         KingdomsItems.ITEMS.register(modBus);
         KingdomsComponents.COMPONENTS.register(modBus);
         KingdomsEntities.ENTITY_TYPES.register(modBus);

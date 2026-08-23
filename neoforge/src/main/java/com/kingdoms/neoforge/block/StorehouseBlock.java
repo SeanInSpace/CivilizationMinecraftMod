@@ -4,6 +4,14 @@ import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.StorehousePlanner;
 import com.kingdoms.sim.settlement.TownStores;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.network.chat.Component;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.player.Player;
@@ -21,7 +29,48 @@ import net.minecraft.world.item.Items;
  * timber, keeping {@link StorehousePlanner#RESERVE_WOOD} back so a town can
  * never be bought out of its own repairs.
  */
-public class StorehouseBlock extends BuildingPostBlock {
+public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
+
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new StoreChestBlockEntity(pos, state);
+    }
+
+    /**
+     * An empty hand opens the stores; everything else is the post as it was.
+     *
+     * <p>Hooked here rather than in {@code extraReport} because opening a
+     * container needs the block's position, which the report hook does not
+     * carry. Sneaking falls through to the post, so the ledger report and the
+     * bill of materials are still one gesture away.
+     */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+                                               Player player, BlockHitResult hitResult) {
+        if (player.getMainHandItem().isEmpty() && openStores(player, pos)) {
+            return InteractionResult.SUCCESS;
+        }
+        return super.useWithoutItem(state, level, pos, player, hitResult);
+    }
+
+    /**
+     * Opens the stores.
+     *
+     * <p>An empty hand opens the container, because a building that holds the
+     * town's goods should behave like the chest it is. Everything the post used
+     * to do on an empty hand — the bill, the ledger report — moves to a
+     * sneak-click, so both are still one gesture away.
+     */
+    private static boolean openStores(Player player, BlockPos pos) {
+        if (player.isShiftKeyDown() || !(player.level() instanceof ServerLevel level)) {
+            return false;
+        }
+        if (!(level.getBlockEntity(pos) instanceof StoreChestBlockEntity stores)) {
+            return false;
+        }
+        player.openMenu(stores);
+        return true;
+    }
 
     public StorehouseBlock(String role, String explains, Properties properties) {
         super(role, explains, properties);
