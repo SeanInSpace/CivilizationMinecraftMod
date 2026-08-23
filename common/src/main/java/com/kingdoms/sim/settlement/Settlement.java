@@ -457,6 +457,51 @@ public final class Settlement {
     }
 
     /**
+     * The store nearest a point, or null if the town has raised none yet.
+     *
+     * <p>Horizontal distance, because a store a floor up is the same walk.
+     */
+    public Building nearestStore(SimPos from) {
+        return nearestStore(from, null);
+    }
+
+    /**
+     * The nearest store that can actually pay for something.
+     *
+     * <p>This is what makes locality real rather than a convention. A worker
+     * walks to a particular building and draws from that building's ledger, so
+     * a chest on one side of the village stops being a way to fetch timber
+     * kept on the other.
+     *
+     * <p>It asks for a store that <em>holds</em> the goods rather than simply
+     * the closest one, because the closest one being empty must not strand
+     * anybody: without couriers there is nothing yet to move goods to the
+     * store a builder happens to be standing in, so the builder goes to where
+     * the goods are. Once haulers exist this is the rule that tells them which
+     * shelves are running dry.
+     *
+     * @param resource what the store must hold, or null for any store at all
+     */
+    public Building nearestStore(SimPos from, String resource) {
+        Building nearest = null;
+        long best = Long.MAX_VALUE;
+        for (Building building : buildings) {
+            if (!building.isStore() || !building.isMaterialized()) {
+                continue;
+            }
+            if (resource != null && !building.stores().has(resource, 1)) {
+                continue;
+            }
+            long distance = building.origin().horizontalDistanceSq(from);
+            if (distance < best) {
+                best = distance;
+                nearest = building;
+            }
+        }
+        return nearest;
+    }
+
+    /**
      * Makes the town hold exactly this much of something.
      *
      * <p>Spread across buildings the idea needs a rule, so here it is: empty

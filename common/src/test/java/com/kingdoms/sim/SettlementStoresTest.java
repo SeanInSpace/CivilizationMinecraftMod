@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -27,6 +28,10 @@ class SettlementStoresTest {
 
     private static Building storehouse(boolean built) {
         return new Building("kingdoms:storehouse", new SimPos(4, 64, 4), 1, built);
+    }
+
+    private static Building storehouseAt(int x, int z) {
+        return new Building("kingdoms:storehouse", new SimPos(x, 64, z), 1, true);
     }
 
     @Test
@@ -124,5 +129,54 @@ class SettlementStoresTest {
         assertEquals(42, s.stores().get(TownStores.WOOD), "exactly what was asked for");
         assertEquals(42, store.stores().get(TownStores.WOOD), "all of it in one place");
         assertEquals(0, s.loosePile().get(TownStores.WOOD), "and nothing left over anywhere else");
+    }
+
+    // --- which store a worker walks to ---
+
+    @Test
+    void aTownWithNoStoreHasNowhereToSendAnybody() {
+        assertNull(town().nearestStore(new SimPos(0, 64, 0)),
+                "a party that has just stepped off the road has no shelves at all");
+    }
+
+    @Test
+    void theNearestStoreIsTheOneActuallyNearest() {
+        Settlement s = town();
+        Building close = storehouseAt(10, 0);
+        Building far = storehouseAt(200, 0);
+        s.addBuilding(far);
+        s.addBuilding(close);
+
+        assertEquals(close, s.nearestStore(new SimPos(0, 64, 0)),
+                "not the first one raised, the one you can see from here");
+        assertEquals(far, s.nearestStore(new SimPos(300, 64, 0)),
+                "and from the other side of the village, the other one");
+    }
+
+    @Test
+    void anEmptyStoreUnderfootDoesNotStrandABuilder() {
+        // Locality must not become a deadlock. Until couriers exist there is
+        // nothing to carry goods to the store a builder happens to stand in,
+        // so a builder asked for timber goes to where timber actually is.
+        Settlement s = town();
+        Building empty = storehouseAt(10, 0);
+        Building stocked = storehouseAt(200, 0);
+        s.addBuilding(empty);
+        s.addBuilding(stocked);
+        stocked.stores().set(TownStores.WOOD, 64);
+
+        SimPos here = new SimPos(0, 64, 0);
+        assertEquals(empty, s.nearestStore(here), "the closest shelves are still the closest");
+        assertEquals(stocked, s.nearestStore(here, TownStores.WOOD),
+                "but the closest shelves with timber on them are the ones worth the walk");
+    }
+
+    @Test
+    void aStoreStillBeingBuiltIsNotSomewhereToSendAnybody() {
+        Settlement s = town();
+        s.addBuilding(storehouse(false));
+
+        assertNull(s.nearestStore(new SimPos(0, 64, 0)),
+                "a roofless frame is not a store yet");
     }
 }

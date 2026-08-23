@@ -29,6 +29,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.Stock;
 import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
@@ -1119,14 +1120,27 @@ public final class PersonEntityManager {
      */
     private boolean fetchLoad(Settlement settlement, Person carrier, PersonEntity builder,
                               String material) {
-        SimPos stores = storesPos(settlement);
+        // The store that can actually pay, in preference to the closest one:
+        // an empty storehouse underfoot must not strand a builder while the
+        // full one stands across the village.
+        SimPos at = new SimPos((int) Math.floor(builder.getX()),
+                (int) Math.floor(builder.getY()), (int) Math.floor(builder.getZ()));
+        Building store = settlement.nearestStore(at, material);
+        if (store == null) {
+            store = settlement.nearestStore(at);
+        }
+        SimPos stores = store == null ? settlement.centre() : store.origin();
         double dx = builder.getX() - (stores.x() + 0.5);
         double dz = builder.getZ() - (stores.z() + 0.5);
         if (dx * dx + dz * dz > LOAD_REACH * LOAD_REACH) {
             builder.getNavigation().moveTo(stores.x() + 0.5, stores.y(), stores.z() + 0.5, WALK_SPEED);
             return false;
         }
-        int drawn = settlement.stores().takeUpTo(material, LOAD_SIZE);
+        // Drawn from the building they walked to, not from a town-wide figure.
+        // The walk and the withdrawal have to name the same shelves or the trip
+        // is theatre — which is exactly what it used to be.
+        Stock from = store == null ? settlement.stores() : store.stores();
+        int drawn = from.takeUpTo(material, LOAD_SIZE);
         if (drawn <= 0) {
             return false;   // the stores are empty; the shortage is reported elsewhere
         }
@@ -1135,18 +1149,17 @@ public final class PersonEntityManager {
         return true;
     }
 
-    /** Where a builder goes to load up: the warehouse, else a storehouse, else the hall. */
+    /**
+     * Where the town's goods are kept, for anyone who only needs a landmark.
+     *
+     * <p>Which building counts as a store is the settlement's business now, so
+     * this asks rather than reading blueprint names itself. Builders do not use
+     * it: they want the nearest store holding a particular thing, which is a
+     * different and better question.
+     */
     public static SimPos storesPos(Settlement settlement) {
-        SimPos fallback = settlement.centre();
-        for (Building building : settlement.buildings()) {
-            if (building.blueprintId().contains("warehouse")) {
-                return building.origin();
-            }
-            if (building.blueprintId().contains("storehouse")) {
-                fallback = building.origin();
-            }
-        }
-        return fallback;
+        Building store = settlement.nearestStore(settlement.centre());
+        return store == null ? settlement.centre() : store.origin();
     }
 
     /** The record behind an embodied builder, or null if they are not tracked. */
