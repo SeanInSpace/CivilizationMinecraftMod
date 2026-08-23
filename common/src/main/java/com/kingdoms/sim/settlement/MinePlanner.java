@@ -82,9 +82,14 @@ public final class MinePlanner {
         if (miners <= 0) {
             return;
         }
-        settlement.stores().addCapped(TownStores.STONE,
+        // At the mine head, for the same reason the timber goes to the camp.
+        SimPos at = minePos(settlement);
+        if (at == null) {
+            at = settlement.centre();
+        }
+        settlement.produceNear(at, TownStores.STONE,
                 miners * STONE_PER_STEP, stoneCapacity(settlement));
-        settlement.stores().addCapped(TownStores.IRON, miners * IRON_PER_STEP, MAX_IRON);
+        settlement.produceNear(at, TownStores.IRON, miners * IRON_PER_STEP, MAX_IRON);
     }
 
     /** Where the mine stands, or null if the town has not built one. */

@@ -511,6 +511,52 @@ public final class Settlement {
     }
 
     /**
+     * Where goods made at a place should be put down.
+     *
+     * <p>The nearest store, or the open ground if the town has not raised one.
+     * Everything produced somewhere in particular should come through here:
+     * depositing into "the town" put every log in whichever store happened to
+     * be first in the list, which left a second storehouse standing empty
+     * forever — a building the town had paid for and could never fill.
+     */
+    public Stock storeNear(SimPos from) {
+        Building store = nearestStore(from);
+        return store == null ? loosePile : store.stores();
+    }
+
+    /**
+     * Takes in produce at the store nearest where it was made.
+     *
+     * <p>The ceiling is the whole town's and the deposit is local, which is the
+     * only combination that works. Measuring room against one building would
+     * let a town with two stores hold twice what the cap allows; depositing
+     * against the whole town is what made the second store decorative. So the
+     * room is worked out first, from everything the town owns, and only then is
+     * the produce carried to the nearest shelves.
+     *
+     * @return how much was actually taken in
+     */
+    public int produceNear(SimPos from, String resource, int amount, int ceiling) {
+        int room = Math.max(0, ceiling - pooled.get(resource));
+        int fitting = Math.min(Math.max(0, amount), room);
+        if (fitting <= 0) {
+            return 0;
+        }
+        storeNear(from).add(resource, fitting);
+        return fitting;
+    }
+
+    /** The first building whose blueprint name carries this word, or null. */
+    public Building buildingNamed(String fragment) {
+        for (Building building : buildings) {
+            if (building.blueprintId().contains(fragment)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Makes the town hold exactly this much of something.
      *
      * <p>Spread across buildings the idea needs a rule, so here it is: empty
@@ -542,13 +588,7 @@ public final class Settlement {
         if (loosePile.all().isEmpty()) {
             return;
         }
-        Building into = null;
-        for (Building building : buildings) {
-            if (building.isStore()) {
-                into = building;
-                break;
-            }
-        }
+        Building into = nearestStore(centre);
         if (into == null) {
             return;   // nowhere to put it yet; it stays in the open
         }

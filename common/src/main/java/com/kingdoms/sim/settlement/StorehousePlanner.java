@@ -1,5 +1,7 @@
 package com.kingdoms.sim.settlement;
 
+import com.kingdoms.sim.geom.SimPos;
+
 /**
  * The storehouse's dealings with the player: donations in, timber out.
  *
@@ -47,7 +49,7 @@ public final class StorehousePlanner {
      *
      * @return how much the town could actually take
      */
-    public static int donate(Settlement settlement, String resource, int amount) {
+    public static int donate(Settlement settlement, SimPos at, String resource, int amount) {
         int ceiling = switch (resource) {
             case TownStores.WOOD -> LumberPlanner.woodCapacity(settlement);
             case TownStores.STONE -> MinePlanner.stoneCapacity(settlement);
@@ -57,6 +59,6 @@ public final class StorehousePlanner {
         if (ceiling <= 0 || amount <= 0) {
             return 0;
         }
-        return settlement.stores().addCapped(resource, amount, ceiling);
+        return settlement.produceNear(at, resource, amount, ceiling);
     }
 }

@@ -204,4 +204,85 @@ class SettlementStoresTest {
         assertEquals(unstamped, s.nearestStore(new SimPos(0, 64, 0)),
                 "the store exists as far as the town is concerned, so that is where they go");
     }
+
+    // --- produce lands where it was made ---
+
+    @Test
+    void produceGoesToTheStoreNearestWhereItWasMade() {
+        Settlement s = town();
+        Building west = storehouseAt(-200, 0);
+        Building east = storehouseAt(200, 0);
+        s.addBuilding(west);
+        s.addBuilding(east);
+
+        s.produceNear(new SimPos(190, 64, 0), TownStores.STONE, 64, 100_000);
+
+        assertEquals(64, east.stores().get(TownStores.STONE),
+                "cut beside the east store, stacked in the east store");
+        assertEquals(0, west.stores().get(TownStores.STONE),
+                "and the one across the village never saw it");
+    }
+
+    @Test
+    void aSecondStorehouseIsNotDecorative() {
+        // The failure this exists to end. Depositing into "the town" put every
+        // log in whichever store came first in the list, so the second one a
+        // town had paid for stood empty for the rest of its life.
+        Settlement s = town();
+        Building byTheWoods = storehouseAt(-200, 0);
+        Building byTheMine = storehouseAt(200, 0);
+        s.addBuilding(byTheWoods);
+        s.addBuilding(byTheMine);
+
+        s.produceNear(new SimPos(-195, 64, 0), TownStores.WOOD, 64, 100_000);
+        s.produceNear(new SimPos(195, 64, 0), TownStores.STONE, 64, 100_000);
+
+        assertEquals(64, byTheWoods.stores().get(TownStores.WOOD), "timber by the woods");
+        assertEquals(64, byTheMine.stores().get(TownStores.STONE), "stone by the mine");
+        assertEquals(0, byTheWoods.stores().get(TownStores.STONE),
+                "and neither store is doing the other's job");
+        assertEquals(0, byTheMine.stores().get(TownStores.WOOD));
+    }
+
+    @Test
+    void theCeilingBelongsToTheTownEvenThoughTheShelvesAreLocal() {
+        // Measuring room against one building instead of the town would let a
+        // settlement hold one cap per storehouse, which is a way to raise the
+        // limit on anything by building another shed.
+        Settlement s = town();
+        s.addBuilding(storehouseAt(-200, 0));
+        s.addBuilding(storehouseAt(200, 0));
+        s.setStock(TownStores.IRON, 0);
+
+        assertEquals(100, s.produceNear(new SimPos(-200, 64, 0), TownStores.IRON, 100, 100),
+                "the first hundred fits");
+        assertEquals(0, s.produceNear(new SimPos(200, 64, 0), TownStores.IRON, 100, 100),
+                "and the far store cannot start a second hundred");
+        assertEquals(100, s.stores().get(TownStores.IRON), "the town holds one cap, not two");
+    }
+
+    @Test
+    void produceWithNowhereToPutItStaysOnOpenGround() {
+        Settlement s = town();
+
+        s.produceNear(new SimPos(50, 64, 50), TownStores.IRON, 10, 1000);
+
+        assertEquals(10, s.loosePile().get(TownStores.IRON),
+                "a camp with no storehouse still keeps what it makes");
+    }
+
+    @Test
+    void theKitIsSweptToTheStoreNearestTheTownCentre() {
+        Settlement s = town();
+        Building far = storehouseAt(400, 400);
+        Building near = storehouseAt(6, 6);
+        s.addBuilding(far);
+        s.addBuilding(near);
+
+        s.putAwayLoosePile();
+
+        assertEquals(TownStores.FOUNDING_WOOD, near.stores().get(TownStores.WOOD),
+                "put away in the store by the square, not the one at the far fence");
+        assertEquals(0, far.stores().get(TownStores.WOOD));
+    }
 }

@@ -28,6 +28,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.kingdoms.sim.geom.SimPos;
 
 /**
  * The town's stores, and the one place a player can add to them.
@@ -112,7 +113,11 @@ public class WarehouseBlock extends BuildingPostBlock implements EntityBlock {
             return;
         }
         int given = held.getCount();
-        settlement.stores().add(resource, given);
+        // The warehouse they are standing at, rather than whichever store the
+        // town lists first — a gift left at one door used to turn up at another.
+        BlockPos where = player.blockPosition();
+        settlement.storeNear(new SimPos(where.getX(), where.getY(), where.getZ()))
+                .add(resource, given);
         held.setCount(0);
         player.sendSystemMessage(Component.literal(
                 "  " + given + " " + resource + " into the stores of " + settlement.name()

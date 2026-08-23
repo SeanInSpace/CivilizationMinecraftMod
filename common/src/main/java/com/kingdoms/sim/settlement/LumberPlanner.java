@@ -80,11 +80,18 @@ public final class LumberPlanner {
         if (jacks <= 0) {
             return;
         }
-        settlement.stores().addCapped(TownStores.WOOD,
+        // Put down at the camp, not into the town at large: felled timber ends
+        // up on the shelves nearest the woods, which is where a builder working
+        // that side of the village will go looking for it.
+        SimPos at = campPos(settlement);
+        if (at == null) {
+            at = settlement.centre();
+        }
+        settlement.produceNear(at, TownStores.WOOD,
                 jacks * WOOD_PER_STEP, woodCapacity(settlement));
         // Capped: saplings are for replanting, not a stockpile. A playtest left a
         // town holding a thousand of them, which is just noise in the ledger.
-        settlement.stores().addCapped(TownStores.SAPLINGS, jacks, MAX_SAPLINGS);
+        settlement.produceNear(at, TownStores.SAPLINGS, jacks, MAX_SAPLINGS);
     }
 
     /** Where the camp stands, or null if the town has not built one. */

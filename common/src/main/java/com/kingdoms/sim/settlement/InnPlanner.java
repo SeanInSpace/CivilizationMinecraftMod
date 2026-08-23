@@ -43,7 +43,10 @@ public final class InnPlanner {
         }
         sold = iron * FOOD_PER_IRON;
         settlement.stores().take(TownStores.FOOD, sold);
-        settlement.stores().add(TownStores.IRON, iron);
+        // Unloaded at the inn the wagon stopped at.
+        Building inn = settlement.buildingNamed("kingdoms:inn");
+        settlement.storeNear(inn == null ? settlement.centre() : inn.origin())
+                .add(TownStores.IRON, iron);
         settlement.logEvent(ctx.step(), "A caravan calls at the inn — "
                 + sold + " loaves traded for " + iron + " iron");
     }

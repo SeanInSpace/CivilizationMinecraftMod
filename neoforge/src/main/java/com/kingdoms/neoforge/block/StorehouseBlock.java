@@ -17,6 +17,7 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import com.kingdoms.sim.geom.SimPos;
 
 /**
  * The town storehouse: the ledger made walkable, and the founding arc's
@@ -132,7 +133,11 @@ public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
 
     private static void donate(Player player, Settlement settlement,
                                ItemStack held, String resource) {
-        int taken = StorehousePlanner.donate(settlement, resource, held.getCount());
+        // The store they are standing at, which is the one they meant.
+        BlockPos where = player.blockPosition();
+        int taken = StorehousePlanner.donate(settlement,
+                new SimPos(where.getX(), where.getY(), where.getZ()),
+                resource, held.getCount());
         if (taken <= 0) {
             player.sendSystemMessage(Component.literal(
                     "  The " + resource + " store is full — nothing more fits.")
