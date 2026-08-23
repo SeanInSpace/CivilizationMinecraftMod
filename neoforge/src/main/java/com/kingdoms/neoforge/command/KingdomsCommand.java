@@ -37,6 +37,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 import java.util.Locale;
+import com.kingdoms.sim.settlement.Founding;
 
 /**
  * Debug commands. This exists purely so the simulation is observable.
@@ -204,7 +205,7 @@ public final class KingdomsCommand {
     private static int help(CommandContext<CommandSourceStack> ctx) {
         ctx.getSource().sendSuccess(() -> Component.literal("""
                 === /civ ===
-                  found <name>              found a settlement here
+                  found <name>              found a settlement here, party and all
                   info                      full state of every settlement
                   overview                  open the town overview screen
                   populate <n> <job>        BUILDER/FARMER/GUARD/TRADER/LUMBERJACK/MINER/IDLER
@@ -228,9 +229,11 @@ public final class KingdomsCommand {
 
         SimPos centre = toSimPos(source.getPosition());
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, "kingdoms:norman");
-        Settlement settlement = new Settlement(Settlement.Id.random(), name + " Town", centre, 64);
-        // Fresh foundings live the ladder; only loaded saves default to TOWN.
-        settlement.setStage(SettlementStage.CAMP);
+        // The same founding a charter performs, party and all. This used to
+        // raise a settlement with a kit and nobody to spend it, so every
+        // scripted run had to follow with /civ populate and no test ever
+        // exercised what a player actually gets.
+        Settlement settlement = Founding.party(centre, name + " Town");
         kingdom.addSettlement(settlement);
 
         // Both, deliberately: the saved data is what persists, the sim world is what ticks.
