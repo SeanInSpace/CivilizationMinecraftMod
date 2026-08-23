@@ -305,7 +305,7 @@ public final class KingdomsCommand {
                     sb.append(" open").append(s.loosePile().all());
                 }
                 for (Building b : s.buildings()) {
-                    if (b.isStore() && b.isMaterialized() && b.hasStores()) {
+                    if (b.isStore() && b.hasStores()) {
                         anywhere = true;
                         sb.append(" ").append(b.blueprintId())
                                 .append("(").append(b.origin().x()).append(",")
