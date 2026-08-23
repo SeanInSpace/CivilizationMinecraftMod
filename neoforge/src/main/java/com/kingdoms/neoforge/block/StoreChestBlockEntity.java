@@ -12,7 +12,6 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.ContainerHelper;
-import net.minecraft.world.entity.ContainerUser;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
@@ -112,39 +111,16 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
         return ChestMenu.sixRows(id, playerInventory, this);
     }
 
-    /**
-     * How many players have this open.
-     *
-     * <p>Tracked because the reconciler rewrites these slots every second, and
-     * doing that under an open screen makes stacks jump about in somebody's
-     * hands. Deliberately not persisted: nobody is looking at a chest in an
-     * unloaded chunk, and a stale count would freeze the mirror forever.
-     */
-    private int watchers;
-
-    @Override
-    public void startOpen(ContainerUser user) {
-        watchers++;
-    }
-
-    @Override
-    public void stopOpen(ContainerUser user) {
-        watchers = Math.max(0, watchers - 1);
-    }
-
-    /** Whether anybody is looking, and the mirror should hold still. */
-    public boolean isBeingWatched() {
-        return watchers > 0;
-    }
-
     /** What the reconciler last wrote for a resource. */
     public int lastSynced(String resource) {
         return lastSynced.getOrDefault(resource, 0);
     }
 
     public void setLastSynced(String resource, int amount) {
+        // No setChanged here: the reconciler marks the entity once when it is
+        // done with it. Doing it per resource cost four dirty-marks a second,
+        // each of which walks the neighbours looking for a comparator.
         lastSynced.put(resource, Math.max(0, amount));
-        setChanged();
     }
 
     /**

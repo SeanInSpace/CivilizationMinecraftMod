@@ -143,6 +143,61 @@ class StoreMirrorTest {
     }
 
     @Test
+    void everyStoreIsOnePoolSoMovingStockBetweenThemIsNotAWithdrawal() {
+        // A town builds a storehouse and later a warehouse, and both hold a
+        // container. Reading only one of them was a way to make timber from
+        // nothing: which chest got read could change across a restart, and the
+        // one left out kept its stock for the taking while its snapshot went on
+        // billing the ledger for goods that had never been in it.
+        TownStores stores = storesWith(480);
+
+        // 300 on one set of shelves, 180 on the other, against a summed
+        // snapshot of the same 480.
+        StoreMirror.reconcile(stores, WOOD, 300 + 180, 300 + 180);
+        assertEquals(480, stores.get(WOOD), "split across two stores is still 480");
+
+        // Somebody carries the 180 from one store to the other. The total has
+        // not moved, so neither may the ledger.
+        StoreMirror.reconcile(stores, WOOD, 480 + 0, 480);
+        assertEquals(480, stores.get(WOOD),
+                "carrying stock between the town's own stores is not a withdrawal");
+    }
+
+    @Test
+    void readingOnlyOneOfTwoStoresWouldBillTheTownForGoodsNobodyTook() {
+        // The failure the pooling above prevents, stated plainly: count one
+        // chest's 300 against a snapshot of 480 and the town is debited 180
+        // that is still sitting on the other set of shelves.
+        TownStores stores = storesWith(480);
+
+        StoreMirror.reconcile(stores, WOOD, 300, 480);
+
+        assertEquals(300, stores.get(WOOD),
+                "this is what reading a single store costs, and why all of them are summed");
+    }
+
+    @Test
+    void aSnapshotAheadOfTheLedgerIsHowTimberGetsMintedFromNothing() {
+        // The mirror used to hold still while a player had a chest open. The
+        // town would spend the ledger down while 480 logs still sat on the
+        // shelves; taking all of them then debited a ledger of 100, which
+        // clamps at zero — and 380 logs existed that the town never owned.
+        TownStores overspent = storesWith(100);
+        StoreMirror.reconcile(overspent, WOOD, 0, 480);
+        assertEquals(0, overspent.get(WOOD),
+                "the debit clamps, and the 380 it could not take are already in a pocket");
+
+        // Rewritten every pass, the snapshot follows the ledger down, so the
+        // shelves never offer more than the town has.
+        TownStores inStep = storesWith(100);
+        int snapshot = StoreMirror.reconcile(inStep, WOOD, 100, 100);
+        assertEquals(100, snapshot, "in step: what is shown is what is owned");
+        StoreMirror.reconcile(inStep, WOOD, 0, snapshot);
+        assertEquals(0, inStep.get(WOOD),
+                "a full withdrawal takes the hundred that existed, and invents nothing");
+    }
+
+    @Test
     void anItemTheTownHasNoUseForDoesNotBringDownTheSimulation() {
         // The crash this exists to prevent: resourceOf answers null for junk,
         // and the mirrored list is a List.of, whose contains throws on null
