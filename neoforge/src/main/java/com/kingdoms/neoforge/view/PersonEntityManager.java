@@ -14,6 +14,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import com.kingdoms.neoforge.world.Excavation;
 import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.neoforge.world.PerimeterLayer;
+import com.kingdoms.neoforge.world.StoreSync;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Tallies;
@@ -255,6 +256,7 @@ public final class PersonEntityManager {
                 changed |= workShepherds(settlement);
                 changed |= layPaths(settlement);
                 PerimeterLayer.draw(level, settlement);
+                StoreSync.reconcile(level, settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
                 guardCombat(settlement);
@@ -1134,7 +1136,7 @@ public final class PersonEntityManager {
     }
 
     /** Where a builder goes to load up: the warehouse, else a storehouse, else the hall. */
-    private static SimPos storesPos(Settlement settlement) {
+    public static SimPos storesPos(Settlement settlement) {
         SimPos fallback = settlement.centre();
         for (Building building : settlement.buildings()) {
             if (building.blueprintId().contains("warehouse")) {

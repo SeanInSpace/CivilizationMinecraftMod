@@ -2,11 +2,16 @@ package com.kingdoms.neoforge.block;
 
 import com.kingdoms.neoforge.KingdomsBlockEntities;
 import com.kingdoms.sim.settlement.Resources;
+import java.util.Map;
+import java.util.List;
+import java.util.LinkedHashMap;
+import com.kingdoms.sim.settlement.TownStores;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.ContainerUser;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
@@ -32,17 +37,50 @@ import net.minecraft.world.level.storage.ValueOutput;
  * true on load, but a player's items must never evaporate because a save
  * happened at an awkward moment.
  *
- * <p>Three rows, so it reads and behaves as the chest players already know.
- * That is also the ceiling on what a store can show: see
- * {@link Resources#slotsFor} for why gear is the size that matters — a store of
- * thirty-two swords is thirty-two slots, not one.
+ * <p>It behaves as the chest players already know, and its size is taken from
+ * the ledger it has to show rather than chosen for looks — see {@link #SLOTS}
+ * and {@link #MIRRORED} for what it speaks for and what it deliberately does
+ * not.
  */
 public class StoreChestBlockEntity extends BaseContainerBlockEntity {
 
-    /** A vanilla three-row chest, and deliberately nothing cleverer. */
-    public static final int SLOTS = 27;
+    /**
+     * Six rows — a double chest.
+     *
+     * <p>Sized from the ledger it has to show rather than picked for looks. A
+     * town with one storehouse can hold 912 timber and 912 stone, which is
+     * thirty slots before anything else is counted; three rows would have
+     * overflowed on an ordinary mature town.
+     */
+    public static final int SLOTS = 54;
+
+    /**
+     * The resources this chest speaks for.
+     *
+     * <p>Bulk building materials only, and the omissions are deliberate. Gear
+     * does not stack, so a store of sixty-four tools would want sixty-four
+     * slots on its own. Food has its own economy — granary, stalls, pantries
+     * and haulers — and belongs in the granary rather than the timber store.
+     * What is left is exactly what a builder walks here to fetch.
+     */
+    public static final List<String> MIRRORED = List.of(
+            TownStores.WOOD, TownStores.STONE, TownStores.SAPLINGS, TownStores.IRON);
 
     private NonNullList<ItemStack> items = NonNullList.withSize(SLOTS, ItemStack.EMPTY);
+
+    /**
+     * What the reconciler last wrote here, per resource.
+     *
+     * <p>This is what makes a player's hand distinguishable from the town's own
+     * bookkeeping. The chest is rewritten from the ledger every sync, so the
+     * only way to know somebody took a stack is to compare what is here now
+     * against what was put here last time.
+     *
+     * <p>It is persisted for the same reason the contents are. If it were lost
+     * on reload, the next sync would read the whole chest as a donation and
+     * credit the town twice for stock it already had.
+     */
+    private final Map<String, Integer> lastSynced = new LinkedHashMap<>();
 
     public StoreChestBlockEntity(BlockPos pos, BlockState state) {
         super(KingdomsBlockEntities.STORE_CHEST.get(), pos, state);
@@ -70,7 +108,42 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
 
     @Override
     protected AbstractContainerMenu createMenu(int id, Inventory playerInventory) {
-        return ChestMenu.threeRows(id, playerInventory, this);
+        return ChestMenu.sixRows(id, playerInventory, this);
+    }
+
+    /**
+     * How many players have this open.
+     *
+     * <p>Tracked because the reconciler rewrites these slots every second, and
+     * doing that under an open screen makes stacks jump about in somebody's
+     * hands. Deliberately not persisted: nobody is looking at a chest in an
+     * unloaded chunk, and a stale count would freeze the mirror forever.
+     */
+    private int watchers;
+
+    @Override
+    public void startOpen(ContainerUser user) {
+        watchers++;
+    }
+
+    @Override
+    public void stopOpen(ContainerUser user) {
+        watchers = Math.max(0, watchers - 1);
+    }
+
+    /** Whether anybody is looking, and the mirror should hold still. */
+    public boolean isBeingWatched() {
+        return watchers > 0;
+    }
+
+    /** What the reconciler last wrote for a resource. */
+    public int lastSynced(String resource) {
+        return lastSynced.getOrDefault(resource, 0);
+    }
+
+    public void setLastSynced(String resource, int amount) {
+        lastSynced.put(resource, Math.max(0, amount));
+        setChanged();
     }
 
     /**
@@ -83,7 +156,13 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
      */
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack) {
-        return stack.isEmpty() || Resources.isStorable(idOf(stack));
+        if (stack.isEmpty()) {
+            return true;
+        }
+        // Only what this chest actually speaks for. Accepting food or a sword
+        // here would put items in a container nothing reconciles, and the next
+        // sync would rewrite the slot out from under them.
+        return MIRRORED.contains(Resources.resourceOf(idOf(stack)));
     }
 
     /** The registry id of a stack, in the form the simulation names items by. */
@@ -96,11 +175,20 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
         super.loadAdditional(input);
         this.items = NonNullList.withSize(SLOTS, ItemStack.EMPTY);
         ContainerHelper.loadAllItems(input, this.items);
+        lastSynced.clear();
+        for (String resource : MIRRORED) {
+            lastSynced.put(resource, input.getIntOr(SYNCED + resource, 0));
+        }
     }
 
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
         ContainerHelper.saveAllItems(output, this.items);
+        for (String resource : MIRRORED) {
+            output.putInt(SYNCED + resource, lastSynced(resource));
+        }
     }
+
+    private static final String SYNCED = "synced_";
 }
