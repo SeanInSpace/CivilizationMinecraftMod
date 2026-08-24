@@ -47,16 +47,18 @@ work that cannot be delegated.
 
 ## Open
 
-- [ ] **The placer and the excavation are only half reachable.** Their pure
-      decisions are tested now — where a building's floor sits across a sloping
-      plot, and where a digger can stand to reach a block — but everything that
-      actually reads or writes blocks still needs a world. Neither has a seam
-      like `WorldView` or `Shelves`. The excavation's would be the easier of the
-      two and would look much like the auditor's, being mostly questions about
-      what is at a position; the placer's is harder because it writes far more
-      than it reads, and the interesting question there is whether a plan can be
-      produced as a list of placements and only then applied, which would make
-      the plan itself testable without a seam at all.
+- [ ] **The excavation's writes still need a world, and always will in part.**
+      Its geometry is out now — where a digger may stand, how the candidates are
+      ordered, what reach means, where a crew gathers — because all of that is
+      arithmetic over a predicate. What is left genuinely is not: choosing a
+      stance ends in `getNavigation().createPath`, and a seam in front of the
+      game's own pathfinder would either omit it, making the test say nothing,
+      or need a fake A* larger than the code it checks. The same is true of the
+      placer's write half. **What would help more than a seam:** the placer
+      already builds its output as a `List<Placement>` before applying any of
+      it, so if the terrain reads it makes on the way (`groundLevel`, the
+      foundation probes) went behind something small, the whole plan would be
+      inspectable without a world. That is the shape worth trying.
 
 
 - [ ] **Create buildings in a much more intelligent way.** Never specified, so

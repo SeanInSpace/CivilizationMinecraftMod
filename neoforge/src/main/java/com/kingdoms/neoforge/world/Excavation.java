@@ -651,6 +651,63 @@ public final class Excavation {
     }
 
     /**
+     * Every square a digger could stand on to work this block, best first.
+     *
+     * <p>Separated from {@link #standFor} because everything here is geometry
+     * and an ordering, and neither needs a world: what a square must be like to
+     * be usable arrives as a predicate, and the last tiebreak — how far the
+     * digger has to walk — arrives as a measure. That leaves the part worth
+     * testing testable, while the part that genuinely needs the game's own
+     * pathfinder stays where it is.
+     *
+     * <p>Beside the block, never on it and never in it. Feet are level with the
+     * block or one above, so a digger only ever works at or below their own feet
+     * — the other half of why nobody drops themselves down a hole: the block
+     * coming out is never the one they are standing on.
+     *
+     * <p>Ordered level with the block first, then a course lower and so on down;
+     * within a level the adjacent square, and within that the shortest walk.
+     * Ordering purely on closeness to the block sent people round the far side
+     * of a mound for a square a foot nearer the target, and a walk like that
+     * outlasts the patience that hands the cell to somebody else.
+     */
+    static List<BlockPos> standCandidates(BlockPos block,
+                                          java.util.function.Predicate<BlockPos> usable,
+                                          java.util.function.ToDoubleFunction<BlockPos> walk) {
+        List<BlockPos> candidates = new ArrayList<>(32);
+        for (int feetY = block.getY() + 1; feetY >= block.getY() - STAND_REACH_DOWN; feetY--) {
+            for (int dx = -STAND_SEARCH; dx <= STAND_SEARCH; dx++) {
+                for (int dz = -STAND_SEARCH; dz <= STAND_SEARCH; dz++) {
+                    if (dx == 0 && dz == 0) {
+                        // The block's own column, at any height: inside it,
+                        // under it, or on top of it. The first two are obvious;
+                        // the third was not excluded, and since standing on top
+                        // is zero blocks from the target it sorted ahead of
+                        // every square beside it — so the rule this method
+                        // documents, and the "last resort" standFor adds
+                        // afterwards, were both quietly inverted. On top is a
+                        // real fallback and standFor still offers it; it is not
+                        // the first thing to try.
+                        continue;
+                    }
+                    BlockPos feet = new BlockPos(block.getX() + dx, feetY, block.getZ() + dz);
+                    if (!reaches(feet, block) || !usable.test(feet)) {
+                        continue;
+                    }
+                    candidates.add(feet);
+                }
+            }
+        }
+        candidates.sort(Comparator
+                .comparingInt((BlockPos feet) -> Math.abs(feet.getY() - (block.getY() + 1)))
+                .thenComparingInt(feet -> Math.max(
+                        Math.abs(feet.getX() - block.getX()),
+                        Math.abs(feet.getZ() - block.getZ())))
+                .thenComparingDouble(walk));
+        return candidates;
+    }
+
+    /**
      * Somewhere to stand to dig this block.
      *
      * <p>Beside it, never on it and never in it. Feet are level with the block or
@@ -663,34 +720,11 @@ public final class Excavation {
      * the digging does.
      */
     private BlockPos standFor(ServerLevel level, PersonEntity digger, BlockPos block) {
-        List<BlockPos> candidates = new ArrayList<>(32);
-        for (int feetY = block.getY() + 1; feetY >= block.getY() - STAND_REACH_DOWN; feetY--) {
-            for (int dx = -STAND_SEARCH; dx <= STAND_SEARCH; dx++) {
-                for (int dz = -STAND_SEARCH; dz <= STAND_SEARCH; dz++) {
-                    if (dx == 0 && dz == 0 && feetY <= block.getY()) {
-                        continue;   // never inside the block itself, nor under it
-                    }
-                    BlockPos feet = new BlockPos(block.getX() + dx, feetY, block.getZ() + dz);
-                    if (reserved.contains(feet) || !reaches(feet, block)
-                            || !fits(level, feet) || !hasFooting(level, feet)) {
-                        continue;
-                    }
-                    candidates.add(feet);
-                }
-            }
-        }
-        // Level with the block first, then a course lower, and so on down; within
-        // a level, the adjacent square, and within that the one nearest the digger.
-        // Sorting purely on closeness to the block sent people round the far side
-        // of a mound to a square a foot nearer the target, and a walk like that
-        // outlasts the patience that hands the cell to somebody else.
-        candidates.sort(Comparator
-                .comparingInt((BlockPos feet) -> Math.abs(feet.getY() - (block.getY() + 1)))
-                .thenComparingInt(feet -> Math.max(
-                        Math.abs(feet.getX() - block.getX()),
-                        Math.abs(feet.getZ() - block.getZ())))
-                .thenComparingDouble(feet -> digger.distanceToSqr(
-                        feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5)));
+        List<BlockPos> candidates = standCandidates(block,
+                feet -> !reserved.contains(feet)
+                        && fits(level, feet) && hasFooting(level, feet),
+                feet -> digger.distanceToSqr(
+                        feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5));
 
         // Last resort: on top of the block itself. Standing beside it is the rule
         // and this breaks it, but a spur of rock with nothing but air around it
