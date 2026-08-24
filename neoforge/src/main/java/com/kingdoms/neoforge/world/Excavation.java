@@ -748,13 +748,33 @@ public final class Excavation {
     // --- timing and tools ---
 
     /**
+     * How much longer a settler takes over a block than you would.
+     *
+     * <p>Vanilla's number is the time a player takes with a fresh tool and
+     * somewhere to be. A settler has a shared tool, no hurry, and six colleagues
+     * on the same face — and at parity a hillside site simply evaporated, which
+     * read as the ground being deleted rather than dug.
+     *
+     * <p>Two rather than three, deliberately. Watched digging is not on the
+     * clock: an embodied crew suppresses the abstract builder, and the stall
+     * guard measures whether the head of the queue <em>moved</em>, not how fast
+     * — so a crew making slow honest progress never trips it. Slowing the dig
+     * therefore slows a watched town's building outright, which is the same
+     * shape as the bug where standing and watching a town starved it. Two is a
+     * step toward labour reading as labour with room left to go further once a
+     * run has been watched over it.
+     */
+    public static final int LABOUR_FACTOR = 2;
+
+    /**
      * How many ticks this block takes, for a digger holding the right tool.
      *
-     * <p>Vanilla's arithmetic verbatim: tool speed over hardness, divided by 30
-     * when the tool can harvest the block and 100 when it cannot. There is no
-     * fudge factor and no cap. Obsidian genuinely takes a digger as long as it
-     * takes you, which is the point — a town that wants to build on an obsidian
-     * outcrop can spend the afternoon on it.
+     * <p>Vanilla's arithmetic: tool speed over hardness, divided by 30 when the
+     * tool can harvest the block and 100 when it cannot — then multiplied by
+     * {@link #LABOUR_FACTOR}, which is the only fudge in it. There is still no
+     * cap. Obsidian genuinely takes a digger longer than it takes you, which is
+     * the point: a town that wants to build on an obsidian outcrop can spend
+     * the afternoon on it.
      */
     public static int digTicks(ServerLevel level, BlockPos pos, BlockState state) {
         float hardness = state.getDestroySpeed(level, pos);
@@ -762,13 +782,14 @@ public final class Excavation {
             return Integer.MAX_VALUE;   // bedrock; excavation never schedules these
         }
         if (hardness == 0) {
-            return 1;
+            return LABOUR_FACTOR;   // grass and litter: brief, but not instant
         }
         ItemStack tool = new ItemStack(toolFor(state));
         float speed = tool.getDestroySpeed(state);
         boolean harvests = !state.requiresCorrectToolForDrops() || tool.isCorrectToolForDrops(state);
         float perTick = speed / hardness / (harvests ? 30.0F : 100.0F);
-        return perTick >= 1.0F ? 1 : (int) Math.ceil(1.0F / perTick);
+        int ticks = perTick >= 1.0F ? 1 : (int) Math.ceil(1.0F / perTick);
+        return ticks * LABOUR_FACTOR;
     }
 
     /**

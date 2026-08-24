@@ -102,19 +102,16 @@ work that cannot be delegated.
       should. Fixing it means splitting the aggregate worker counts by which
       camp each is assigned to.
 
-- [ ] **A store is recognised by its name.** `Building.isStore()` matches
-      blueprint ids containing `storehouse` or `warehouse`. Upgrades are safe
-      today (`storehouse_l2` still matches, verified in play) but a store
-      blueprint that is ever called something else would silently stop being a
-      holder, and its goods would sit in a ledger nothing reads. A declared
-      building role would end the whole class of problem.
-
-- [ ] **Fix digging time — it is currently too fast.** A block takes exactly the
-      ticks vanilla gives a player with the right iron tool
-      (`Excavation.digTicks`), and a whole crew digs in parallel, so a site
-      vanishes quicker than labour should read. Settlers are not players with
-      fresh iron tools; the pace needs slowing until an excavation reads as
-      work.
+- [ ] **Decide what to do with the four rescued branches.** Roughly 1,500 lines
+      including tests, all of it predating the storage reshape and touching
+      files that have changed underneath it. Worth reading and re-deriving
+      rather than merging: blueprint transforms with a 117-line `TransformsTest`
+      (`a1189e6c722c47a38`); a mine rework with a 279-line `MinePlannerTest`
+      (`a551f32fe3c7672c4`); a `BuildPlanner` change with `SupplyTest` additions
+      (`a75374de228c69b47`); and an `UnwatchedBridge` with a 231-line test
+      (`ae276793f6c09e959`), whose build change is superseded but whose bridge
+      nobody has looked at. This one needs a person to say keep or drop — the
+      commits are the only copy.
 
 - [ ] **Create buildings in a much more intelligent way.**
 
@@ -152,24 +149,6 @@ work that cannot be delegated.
 
 ---
 
-## Housekeeping
-
-- [ ] **Twenty stale worktrees and eighteen stale branches** under
-      `.claude/worktrees/`, left over from batched agent runs. Four carry
-      unmerged commits totalling roughly 1,500 lines, tests included:
-      blueprint transforms with a 117-line `TransformsTest`
-      (`a1189e6c722c47a38`); a mine rework with a 279-line `MinePlannerTest`
-      (`a551f32fe3c7672c4`); a `BuildPlanner` change with `SupplyTest` additions
-      (`a75374de228c69b47`); and an `UnwatchedBridge` with a 231-line test
-      (`ae276793f6c09e959`) — its build change is superseded now, but the bridge
-      itself was never looked at. All four predate the storage reshape and touch
-      files that have since changed underneath them, so they want reading and
-      re-deriving rather than merging. Decide keep-or-drop per branch, then
-      clear the rest — twenty worktrees is a slow `git status` and a standing
-      invitation to merge something stale.
-
----
-
 ## Needs eyes, not tests
 
 Deliberately unordered. Everything here runs without throwing and produces the
@@ -179,6 +158,13 @@ scheduling. Several of these want asking again now that the footprint and
 foundation work has landed, which changes what a town looks like on sloping
 ground.
 
+- [ ] Does digging read as labour now, at `Excavation.LABOUR_FACTOR` of two —
+      and does a watched town still get its farm up in time? The factor is one
+      named constant, so this is a question about a number, not a rewrite. Three
+      was the tempting value and was deliberately not taken: watched digging is
+      not on the clock, and the stall guard measures whether the queue head
+      moved rather than how fast, so slowing the dig slows a watched town's
+      building outright.
 - [ ] Does opening a town's stores read as the town's stores, or as a loot chest?
 - [ ] With two stores standing, does the split between them read as sensible —
       timber by the woods, stone by the mine — or as goods scattered at random?
@@ -206,6 +192,17 @@ ground.
 ---
 
 ## Done
+
+- [x] **A building says what it is for, once.** Eleven places worked out what
+      they were looking at by searching a blueprint id for a substring, and the
+      dangerous case was quiet: a store blueprint ever renamed would simply have
+      stopped counting as one, its goods left in a ledger nothing reads.
+      `BuildingRole` matches the bare building name with namespace, culture
+      folder and level suffix stripped, on exact names rather than substrings.
+      `JobPlanner`'s staffing table names roles instead of spelling strings.
+      Zero substring matches on blueprint ids remain in the source. Also cleared
+      fourteen stale agent worktrees and branches that held nothing not already
+      in main; the four that carry real work are kept, and listed under Open.
 
 - [x] **The chest mirror can be run without a chest.** `StoreSync` reads the
       world through `StoreWorld` (find a building's shelves, say the books
