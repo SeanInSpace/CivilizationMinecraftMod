@@ -98,6 +98,23 @@ public final class PathNetwork {
         return List.copyOf(joined);
     }
 
+    /**
+     * How far this spot is from the nearest stretch of road, or -1 with no roads.
+     *
+     * <p>Used when siting a building, so a town grows along its own streets
+     * instead of scattering to whichever ring slot came up next.
+     */
+    public double distanceToRoad(SimPos pos) {
+        if (segments.isEmpty()) {
+            return -1;
+        }
+        double closest = Double.MAX_VALUE;
+        for (Segment segment : segments) {
+            closest = Math.min(closest, pos.horizontalDistance(segment.nearestTo(pos)));
+        }
+        return closest;
+    }
+
     public boolean isEmpty() {
         return segments.isEmpty();
     }

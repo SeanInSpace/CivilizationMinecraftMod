@@ -287,15 +287,55 @@ public final class Settlement {
      * slots per step without building anything — and marched its own rings six
      * hundred blocks out. Farms were being planned in the next biome over.
      */
+    /**
+     * How many usable plots are weighed against each other before one is taken.
+     *
+     * <p>Bounded because relocation checks call this every step while a site
+     * sits on unfit ground, and because the point is a choice rather than an
+     * exhaustive search: the nearest dozen fits already contain something on a
+     * street if a street runs anywhere near.
+     */
+    private static final int SITE_CHOICES = 12;
+
     private SimPos chooseSite(SimContext ctx, int span) {
+        SimPos best = null;
+        double bestCost = Double.MAX_VALUE;
+        int firstFree = -1;
+        int considered = 0;
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
             SimPos candidate = BuildPlanner.plotFor(centre, index);
-            if (ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
-                    && isPlotFree(candidate, span, null)) {
+            if (!ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
+                    || !isPlotFree(candidate, span, null)) {
+                continue;
+            }
+            if (firstFree < 0) {
+                firstFree = index;
+            }
+            double cost = paths.distanceToRoad(candidate);
+            if (cost < 0) {
+                // No streets yet, so nothing to prefer: the first fit wins, which
+                // is exactly what this did before there was anything to weigh.
                 nextPlotIndex = index + 1;
                 return candidate;
             }
+            if (cost < bestCost) {
+                bestCost = cost;
+                best = candidate;
+            }
+            if (++considered >= SITE_CHOICES) {
+                break;
+            }
+        }
+        if (best != null) {
+            // Advanced to the first fit rather than past the one taken, so the
+            // slots passed over stay available to the next building. The one
+            // actually used is offered again later and refused by isPlotFree,
+            // which costs an iteration and keeps the ring economy exactly as it
+            // was — a town that chooses more carefully must not also creep
+            // outward faster.
+            nextPlotIndex = firstFree + 1;
+            return best;
         }
         // Every candidate examined and none will do. Take the very next slot
         // rather than stop building altogether — a town that has run out of room
