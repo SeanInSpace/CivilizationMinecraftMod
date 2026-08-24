@@ -555,8 +555,48 @@ public final class BuildPlanner {
                 .filter(type -> shortfall(settlement, type, population) > 0)
                 .max(Comparator
                         .comparingInt(BuildingType::priority)
+                        .thenComparingInt((BuildingType type) -> makesSomethingScarce(settlement, type))
                         .thenComparingInt((BuildingType type) -> shareShort(settlement, type, population))
                         .thenComparing(BuildingType::id, Comparator.reverseOrder()));
+    }
+
+    /**
+     * Below this, a town counts as scarce in something a producer makes.
+     *
+     * <p>A stack. Enough that a build wanting a few dozen blocks is not already
+     * failing, and little enough that a town sitting on nine hundred timber is
+     * not told it needs another camp.
+     */
+    public static final int SCARCE = 64;
+
+    /**
+     * Whether this building makes something the town is running out of.
+     *
+     * <p>The table of wants has always been a fixed list — so many houses per
+     * head, one granary, and so on — with no notion that a mine is worth more
+     * the morning the stone runs out than it was the day before. Reacting to
+     * that was left to {@link #requestProducer}, which shoves a producer to the
+     * front of the queue when a build actually fails for want of materials:
+     * correct, but a special case bolted beside the table rather than part of
+     * how the table is read.
+     *
+     * <p>This is the milder version of the same idea, and it sits where ties
+     * are broken rather than jumping the queue. Priority still outranks it
+     * entirely: a town short of stone does not stop building the hall to raise a
+     * second mine.
+     *
+     * @return 1 when it makes something scarce, 0 otherwise — an int so it can
+     *         be used as a comparator key alongside the others
+     */
+    public static int makesSomethingScarce(Settlement settlement, BuildingType type) {
+        String base = baseIdOf(type.id());
+        for (Map.Entry<String, String> made : PRODUCER_OF.entrySet()) {
+            if (made.getValue().equals(base)
+                    && settlement.stores().get(made.getKey()) < SCARCE) {
+                return 1;
+            }
+        }
+        return 0;
     }
 
     /**

@@ -74,13 +74,14 @@ work that cannot be delegated.
       order. The other half of the rule is unbuilt — nothing prefers ground near
       the buildings it works with, the lumber camp by the woods or the granary
       by the fields.
-      **What next.** Half done. Ties are broken on the shortfall as a *share* of
-      what is wanted, so the first of a kind outranks the fourth of another — a
-      town no longer raises a fourth house while it has nowhere to put anything.
-      What is still true is that nothing reacts to circumstance: a mine is worth
-      no more the moment stone runs short than it was the day before. The
-      urgent-producer path is the one place that reasons about need, and it is
-      still a special case bolted beside the table rather than the rule.
+      **What next.** Done, in the modest sense the table allows. Ties break
+      first on whether a building makes something the town is running out of,
+      then on the shortfall as a *share* of what is wanted — so a town short of
+      stone reaches for its mine, and one with nowhere to put anything raises a
+      storehouse before a fourth house. Both sit under priority, which still
+      outranks them entirely: a town short of stone does not stop building its
+      hall. `requestProducer` remains for the sharper case, where a build has
+      actually failed for want of materials and something must jump the queue.
       **How well.** The premise was wrong and the fix was underneath it.
       Choosing upgrades "more intelligently" was pointless while upgrading
       gained nothing: every ceiling counted store *buildings*, so a storehouse

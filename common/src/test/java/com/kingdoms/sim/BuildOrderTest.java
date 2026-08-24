@@ -7,6 +7,7 @@ import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.TownStores;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -114,5 +115,63 @@ class BuildOrderTest {
         assertEquals(0, BuildPlanner.shareShort(town, unwanted, 5));
         assertTrue(BuildPlanner.chooseNext(town, List.of(unwanted)).isEmpty(),
                 "and it is never chosen at all");
+    }
+
+    // --- reacting to what is running out ---
+
+    private static final BuildingType MINE =
+            new BuildingType("kingdoms:mine", 20, 0, 1, 0, 50, 0);
+
+    @Test
+    void aTownRunningOutOfStoneWantsItsMineFirst() {
+        // Same priority, same shortfall share: the tiebreak is that one of them
+        // makes the thing the town is running out of.
+        Settlement town = townOf(5);
+        town.setStock(TownStores.STONE, 0);
+
+        Optional<BuildingType> next = BuildPlanner.chooseNext(town, List.of(STORE, MINE));
+
+        assertEquals("kingdoms:mine", next.get().id());
+    }
+
+    @Test
+    void aTownSittingOnStoneIsNotToldToBuildAnotherMine() {
+        Settlement town = townOf(5);
+        town.setStock(TownStores.STONE, 5_000);
+
+        assertEquals(0, BuildPlanner.makesSomethingScarce(town, MINE),
+                "nine hundred blocks of stone is not a stone shortage");
+    }
+
+    @Test
+    void scarcityNeverOutranksPriority() {
+        // A town short of stone does not stop building its hall to raise a mine.
+        Settlement town = townOf(5);
+        town.setStock(TownStores.STONE, 0);
+
+        Optional<BuildingType> next = BuildPlanner.chooseNext(town, List.of(MINE, HALL));
+
+        assertEquals("kingdoms:town_hall", next.get().id());
+    }
+
+    @Test
+    void aBuildingThatMakesNothingIsNeverScarce() {
+        Settlement town = townOf(5);
+        town.setStock(TownStores.STONE, 0);
+        town.setStock(TownStores.WOOD, 0);
+
+        assertEquals(0, BuildPlanner.makesSomethingScarce(town, HOUSE),
+                "a house produces nothing, so no shortage argues for one");
+    }
+
+    @Test
+    void animprovedProducerStillCountsAsOne() {
+        // baseIdOf strips the level, so a mine raised to level two is still the
+        // building a stone shortage is asking for.
+        BuildingType improved = new BuildingType("kingdoms:mine_l2", 20, 0, 1, 0, 50, 0);
+        Settlement town = townOf(5);
+        town.setStock(TownStores.STONE, 0);
+
+        assertEquals(1, BuildPlanner.makesSomethingScarce(town, improved));
     }
 }
