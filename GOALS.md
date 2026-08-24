@@ -14,10 +14,10 @@ than papered over.
 
 ## Where the mod stands
 
-Roughly 22,700 lines of source across three modules — `common` 8,600 (pure
-simulation, never imports Minecraft), `neoforge` 11,600 (the world, the entities,
-the blocks), `keystone` 2,500 (blueprints). 386 tests pass and there are no
-TODO markers anywhere in the source.
+Roughly 24,200 lines of source across three modules — `common` 9,600 (pure
+simulation, never imports Minecraft), `neoforge` 12,100 (the world, the
+entities, the blocks), `keystone` 2,500 (blueprints). 477 tests across 52
+classes, and no TODO markers anywhere in the source.
 
 The milestone is substantially met: a charter-founded party of four climbs
 camp → homestead → fortified → village → town on its own, feeds itself, equips
@@ -112,6 +112,11 @@ scheduling. Several of these want asking again now that the footprint and
 foundation work has landed, which changes what a town looks like on sloping
 ground.
 
+- [ ] The larder's ceiling counts granaries and storehouses but not warehouses,
+      while the timber and stone ceilings count every store. Preserved rather
+      than changed while making capacity scale with level, because it may well
+      be deliberate — a warehouse full of logs is not a pantry. Worth somebody
+      deciding on purpose.
 - [ ] Three buildings a town still report `no way in`, down from nine. The
       doorway check itself is tested and correct, and the floor rule that was
       sinking buildings into hillsides is fixed — so what is left is most likely
