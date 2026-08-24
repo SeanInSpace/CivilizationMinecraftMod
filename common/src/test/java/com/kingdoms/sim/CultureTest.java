@@ -77,4 +77,25 @@ class CultureTest {
                     culture.id() + " asks for a layout nothing implements");
         }
     }
+
+    @Test
+    void aCultureDrawsFromItsOwnFolder() {
+        // The style is the id's own path, derived rather than stored beside it,
+        // so the two can never drift apart.
+        assertEquals("norman", Culture.NORMAN.style());
+        assertEquals("highland", Culture.HIGHLAND.style());
+        assertEquals("default", Culture.DEFAULT.style());
+    }
+
+    @Test
+    void everyCultureHasAFolderToDrawFrom() {
+        // An empty style would make the placer ask for "/house", which resolves
+        // to nothing and would silently drop every town of that culture back to
+        // the built-in shapes.
+        for (Culture culture : Culture.all()) {
+            assertTrue(!culture.style().isEmpty(), culture.id() + " has no style folder");
+            assertTrue(!culture.style().contains(":"),
+                    culture.id() + " kept its namespace in the folder name");
+        }
+    }
 }

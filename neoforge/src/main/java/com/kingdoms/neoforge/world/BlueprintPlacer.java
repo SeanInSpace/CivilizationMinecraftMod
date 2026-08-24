@@ -898,8 +898,8 @@ public final class BlueprintPlacer {
         Identifier id = Identifier.parse(blueprintId);
         Rotation rotation = rotationOf(facing);
 
-        Optional<LoadedBlueprint> authored =
-                Blueprints.loadFirst(level, base, styleCandidates(id), rotation, Mirror.NONE);
+        Optional<LoadedBlueprint> authored = Blueprints.loadFirst(level, base,
+                styleCandidates(id, cultureAt(level, base)), rotation, Mirror.NONE);
         if (authored.isPresent()) {
             return fromBlueprint(level, authored.get(), base,
                     BuildPlanner.baseIdOf(id.getPath()));
@@ -918,14 +918,32 @@ public final class BlueprintPlacer {
      * <p>A styled id like {@code kingdoms:norman/house} falls back to plain
      * {@code kingdoms:house}, so a culture only has to draw the buildings it
      * wants to differ on and inherits the rest.
+     *
+     * <p><strong>The style is applied here rather than carried in the id.</strong>
+     * That was the whole difficulty. Producing styled ids upstream would have
+     * meant every comparison of a blueprint id against a catalogue row —
+     * {@code type.id().equals(baseId)}, the upgrade lookup, {@code plotSpanOf} —
+     * quietly stopping matching, because they all strip a level suffix and none
+     * of them strips a culture folder. Composing the path at the last possible
+     * moment, from the culture of the town whose ground this is, leaves every
+     * one of them untouched: the id stays plain everywhere it is reasoned
+     * about, and only the file lookup knows about styles.
+     *
+     * <p>A blueprint that already names its own folder is left alone. Nothing
+     * produces one today, but a datapack asking for a specific style outright
+     * should get it rather than have the local culture imposed on top.
      */
-    private static List<Identifier> styleCandidates(Identifier id) {
+    private static List<Identifier> styleCandidates(Identifier id, Culture culture) {
         String path = id.getPath();
         int slash = path.lastIndexOf('/');
-        if (slash < 0) {
+        if (slash >= 0) {
+            return List.of(id, id.withPath(path.substring(slash + 1)));
+        }
+        String style = culture.style();
+        if (style.isEmpty()) {
             return List.of(id);
         }
-        return List.of(id, id.withPath(path.substring(slash + 1)));
+        return List.of(id.withPath(style + "/" + path), id);
     }
 
     /**

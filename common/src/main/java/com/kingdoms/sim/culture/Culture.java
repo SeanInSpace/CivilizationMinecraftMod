@@ -82,6 +82,19 @@ public record Culture(String id, List<String> pennedAnimals, String layout) {
         return id == null ? DEFAULT : KNOWN.getOrDefault(id, DEFAULT);
     }
 
+    /**
+     * The folder this culture's blueprints live in.
+     *
+     * <p>Derived from the id rather than stored beside it, so the two can never
+     * disagree: {@code kingdoms:highland} draws from {@code highland/}. Nothing
+     * has to exist in that folder — a culture inherits every building it has
+     * not drawn.
+     */
+    public String style() {
+        int colon = id.indexOf(':');
+        return colon < 0 ? id : id.substring(colon + 1);
+    }
+
     /** How many pens the animal farm needs to hold this culture's beasts. */
     public int penCount() {
         return pennedAnimals.size();

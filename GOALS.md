@@ -90,18 +90,6 @@ work that cannot be delegated.
       Start with **where**: it is the one whose absence is visible from inside
       the town.
 
-- [ ] **Cultures do not yet change what a town looks like.** The beasts half
-      is done — see below — but nothing produces a styled blueprint id, so
-      `kingdoms:norman/house` is still a path the loader is ready for and
-      nothing asks it for. The blocker is not the loader: it is that every
-      comparison of a blueprint id against a catalogue entry
-      (`type.id().equals(baseId)`, the upgrade lookup, `plotSpanOf`) strips a
-      level suffix but not a culture folder, so a styled id stops matching its
-      own catalogue row. **What to decide:** whether to carry the style
-      alongside the id rather than inside it — a `Building` knowing its culture
-      and the placer composing the path at the last moment — which would leave
-      every existing comparison untouched. That reads like the smaller change
-      of the two and is worth trying first.
 
 ---
 
@@ -156,6 +144,19 @@ ground.
 ---
 
 ## Done
+
+- [x] **A town builds in its own style.** The placer composes the styled path
+      at the last possible moment, from the culture of the town whose ground it
+      is standing on, so `kingdoms:norman/house` is tried before
+      `kingdoms:house` and a culture inherits every building it has not drawn.
+      Applying the style at the file lookup rather than carrying it in the id is
+      what made this small: every comparison of a blueprint id against a
+      catalogue row strips a level suffix and none of them strips a culture
+      folder, so a styled id would have quietly stopped matching its own row.
+      The id stays plain everywhere it is reasoned about. **Unexercised until
+      somebody draws one** — no styled blueprint exists yet, so today every
+      culture still falls through to the same shapes, which is exactly what it
+      should do.
 
 - [x] **A second people, and the pens that belong to them.** `NORMAN` is now a
       real entry rather than a name every lookup fell through on, and `HIGHLAND`
