@@ -47,16 +47,6 @@ work that cannot be delegated.
 
 ## Open
 
-- [ ] **Crops are still being lost, and the recorded cause is not the whole
-      cause.** A run today reported `half the field is bare — 72 farmland, 34
-      planted` and `bare AND strewn with 21 items` on the same farm, repeatedly.
-      The flooding fix is in and correct — farms base at the first air block, so
-      farmland sits where a player would till it — but the field is still
-      emptying. Since the auditor names what replaced each vanished crop, the
-      next step is to read those reports rather than theorise: three plausible
-      causes have already been wrong once each (trampling, light, placement
-      order). Treat any new theory as unproven until the auditor names it.
-
 - [ ] **Buildings with no doorway at grade — and the check is probably right.**
       Four in one run: a storehouse, a lumber camp and two houses. The doorway
       check is now tested against hand-built worlds and passes every case its
@@ -169,6 +159,22 @@ ground.
 ---
 
 ## Done
+
+- [x] **The crops were never being destroyed.** Four theories had been wrong
+      about this — trampling, light, placement order, flooding — and the fourth
+      was a real bug that really was fixed, which is why nobody questioned the
+      premise. The evidence that broke it was in the log all along: the audit
+      reported the same `72 farmland, 34 planted` on three consecutive sweeps
+      while the vanished-crop tracker, which names what replaced each crop that
+      disappears, never fired once. Nothing was being destroyed. The field was
+      simply never being filled. `FarmWorker` ordered its jobs harvest, tend,
+      plant — and tending nudges one crop's age up by one, so a field with any
+      growing crop in it always has something to tend and the planting branch
+      was reached only in the instant every crop was simultaneously ripe. Now
+      harvest, plant, tend: fill the field, then optimise it. **Still wants a
+      run watched over it** — the "strewn with items" fault only fires beside a
+      field that is also bare, so it should go quiet too, and that is a claim
+      about play rather than about the ordering.
 
 - [x] **Goods move to the store that is about to need them.** `SupplyPlanner`
       sends at most one courier a step, and the signal is a build rather than a

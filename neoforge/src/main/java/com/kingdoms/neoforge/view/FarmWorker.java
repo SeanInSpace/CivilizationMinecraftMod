@@ -70,8 +70,8 @@ public final class FarmWorker {
         int floor = plot.y();
         SimPos origin = farm.origin();
 
-        // The best thing to do right now, nearest first: harvest beats tending
-        // beats planting, because a mature crop is food standing in the weather.
+        // The best thing to do right now, nearest first — see nextJob for why
+        // planting beats tending, which is not the order this used to use.
         BlockPos harvest = null;
         BlockPos tend = null;
         BlockPos plant = null;
@@ -97,7 +97,7 @@ public final class FarmWorker {
             }
         }
 
-        BlockPos target = harvest != null ? harvest : (tend != null ? tend : plant);
+        BlockPos target = nextJob(harvest, plant, tend);
         if (target == null) {
             return false;   // a full field of growing crops needs nothing yet
         }
@@ -131,6 +131,33 @@ public final class FarmWorker {
             level.setBlock(target, Blocks.WHEAT.defaultBlockState(), Block.UPDATE_CLIENTS);
         }
         return true;
+    }
+
+    /**
+     * What a farmer does next, given the nearest of each job available.
+     *
+     * <p>Harvest first: a mature crop is food standing out in the weather, and
+     * harvesting replants the cell in the same motion.
+     *
+     * <p>Then planting, and this is the part that was wrong. Tending used to
+     * come second, which sounds harmless and starves a field to death. Tending
+     * nudges one crop's age up by one; a field with any growing crop in it
+     * therefore always has something to tend, so the planting branch was only
+     * ever reached in the instant every single crop was simultaneously ripe.
+     * A field would fill to whatever it happened to have planted early on and
+     * then sit there — the audit reported the same "72 farmland, 34 planted"
+     * three sweeps running, with the vanished-crop tracker never firing once,
+     * which is what a field that is not losing crops but never gaining them
+     * looks like. It read as something destroying the wheat. Nothing was.
+     *
+     * <p>Planting adds a cell that then grows on its own; tending only hurries
+     * one that already is. Fill the field, then optimise it.
+     */
+    static BlockPos nextJob(BlockPos harvest, BlockPos plant, BlockPos tend) {
+        if (harvest != null) {
+            return harvest;
+        }
+        return plant != null ? plant : tend;
     }
 
     private static BlockPos closer(PersonEntity farmer, BlockPos held, BlockPos candidate) {
