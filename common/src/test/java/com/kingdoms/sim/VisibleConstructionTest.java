@@ -183,23 +183,41 @@ class VisibleConstructionTest {
     }
 
     @Test
-    void abuilderInTheWorldMeansNoClockRunsBesideThem() {
+    void abuilderInTheWorldIsGivenAFairSpellBeforeTheClockRuns() {
         Settlement s = townWithBuilders(1, true);
         s.enqueueBuild(surveyedTask(200));
         SimContext ctx = new SimContext(new SiteBridge(true), 0, SimSettings.SANDBOX);
 
-        // Far more steps than the 20 builder-steps the job costs.
-        for (int step = 0; step < 60; step++) {
+        // Inside the grace: the hands are there and might yet start.
+        for (int step = 0; step < Settlement.WATCHED_BUILD_GRACE_STEPS; step++) {
             s.step(ctx);
         }
 
         assertEquals(1, s.buildQueue().size(),
                 "the task is still queued, because no block has actually been laid");
         assertEquals(0.0, s.buildQueue().getFirst().completionFraction(), 1e-9,
-                "and it reads as untouched, however long the clock ran");
+                "and it reads as untouched while the crew still has its chance");
         assertTrue(s.buildings().isEmpty(), "and nothing was recorded as built");
-        assertTrue(s.buildQueue().getFirst().pendingWork() > 0,
-                "the builders are simply cleared for work nobody has done yet");
+    }
+
+    @Test
+    void aCrewThatNeverLaysABlockDoesNotStopTheTownBuilding() {
+        // The failure this replaced an invariant for. Builders can be embodied
+        // and standing on a loaded site and lay nothing for a very long time:
+        // mob navigation cannot climb everything a town builds on, and /civ step
+        // passes no game ticks at all — so the player who typed it is the switch
+        // that turned the clock off while nothing turned the hands on. Ten
+        // thousand steps of that used to leave everybody dead.
+        Settlement s = townWithBuilders(1, true);
+        s.enqueueBuild(surveyedTask(200));
+        SimContext ctx = new SimContext(new SiteBridge(true), 0, SimSettings.SANDBOX);
+
+        for (int step = 0; step < 120; step++) {
+            s.step(ctx);
+        }
+
+        assertTrue(s.buildQueue().isEmpty() || s.buildQueue().getFirst().progress() > 0,
+                "after a fair spell of nothing, the clock has to be what runs");
     }
 
     @Test

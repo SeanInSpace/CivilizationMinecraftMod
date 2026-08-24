@@ -1258,7 +1258,17 @@ public final class Settlement {
             current.grantWork(current.workForStep(present));
             current.syncProgressToWork();
             if (!current.isVisuallyComplete()) {
-                return;
+                // Unless the hands have plainly stopped. Builders can be
+                // embodied and standing on a loaded site and still lay nothing
+                // for a good while: mob navigation cannot climb everything a
+                // town builds on, and /civ step passes no game ticks at all, so
+                // the player who typed it is the switch that turned the clock
+                // off while nothing turned the hands on. Ten thousand steps of
+                // that and everybody is dead.
+                if (current.noteWatchedIdleStep() <= WATCHED_BUILD_GRACE_STEPS) {
+                    return;
+                }
+                // Fall through to the clock, exactly as if nobody were here.
             }
         } else {
             // Nobody watching. Nothing to look at, so the clock runs instead and
@@ -1532,6 +1542,15 @@ public final class Settlement {
                 + " will not do; the site moves to " + moved);
         return true;
     }
+
+    /**
+     * Watched steps a build may sit without a block going down before the clock
+     * takes over.
+     *
+     * <p>Same shape and the same number as the harvest and cutting graces. Being
+     * watched must never starve a town, and it must not stop it building either.
+     */
+    public static final int WATCHED_BUILD_GRACE_STEPS = 12;
 
     private boolean isBuiltByHand(SimContext ctx, BuildTask task, int embodiedBuilders) {
         return embodiedBuilders > 0 && ctx.bridge().isLoaded(task.site());

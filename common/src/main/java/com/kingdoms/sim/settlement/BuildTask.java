@@ -119,6 +119,28 @@ public final class BuildTask {
         return requiredWork;
     }
 
+    /**
+     * Steps this build has been watched without a block actually going down.
+     *
+     * <p>Not persisted: it is a measure of what is happening right now, and a
+     * reload has by definition interrupted whatever that was.
+     */
+    private int idleWatchedSteps;
+
+    /** A block went down by hand. */
+    public void touchVisibleProgress() {
+        idleWatchedSteps = 0;
+    }
+
+    /**
+     * A watched step passed with nothing laid.
+     *
+     * @return how many such steps have run together
+     */
+    public int noteWatchedIdleStep() {
+        return ++idleWatchedSteps;
+    }
+
     public int progress() {
         return progress;
     }
@@ -285,6 +307,10 @@ public final class BuildTask {
     /** Records one step finished — a block dug or laid — and spends its cost. */
     public void recordStepDone(int cost) {
         int spent = Math.max(1, cost);
+        // A block going down is the only proof that hands are working. Granted
+        // work is not: the simulation goes on clearing a crew that never lays
+        // anything, which is exactly the state this distinguishes.
+        touchVisibleProgress();
         stepsDone++;
         stepProgress = 0;
         workDone += spent;
