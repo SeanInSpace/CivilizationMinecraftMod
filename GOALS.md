@@ -65,17 +65,20 @@ work that cannot be delegated.
       here is what it appears to mean after a few weeks of watching towns build
       themselves. Three separate questions, worth separating because they have
       different answers:
-      **Where.** Half done. A town now weighs the nearest dozen usable plots
-      against how far each is from its own streets and takes the closest to one,
-      rather than the first slot that fits — and it advances its ring index only
-      to the first fit, so choosing more carefully does not also make it creep
-      outward faster. What is left is that this only bites once a town has
-      streets, and a town nobody has visited has none: `PathPlanner` needs a
-      building's doorstep, which needs its footprint, which is not known until
-      the structure is actually placed. So an unwatched town still sites by ring
-      order. The other half of the rule is unbuilt — nothing prefers ground near
-      the buildings it works with, the lumber camp by the woods or the granary
-      by the fields.
+      **Where.** Done, bar one thing it cannot reach. A town weighs the nearest
+      dozen usable plots by how far each is from its own streets and from the
+      buildings that kind of building works with — a granary among the fields it
+      fills, a mill beside the corn, a forge near the ore — and takes the best,
+      rather than the first slot that fits. Partners count half a street, since a
+      building off the road is awkward for everybody who walks to it while a
+      granary a little further out is awkward only for carriers already walking.
+      The ring index still advances only to the first fit, so choosing more
+      carefully does not also make a town creep outward faster. What is left:
+      none of it bites until a town has streets, and a town nobody has visited
+      has none — `PathPlanner` needs a building's doorstep, which needs its
+      footprint, which is not known until the structure is placed. And "the
+      lumber camp by the woods" stays unbuilt because the simulation has no
+      notion of woods to site one by.
       **What next.** Done, in the modest sense the table allows. Ties break
       first on whether a building makes something the town is running out of,
       then on the shortfall as a *share* of what is wanted — so a town short of
