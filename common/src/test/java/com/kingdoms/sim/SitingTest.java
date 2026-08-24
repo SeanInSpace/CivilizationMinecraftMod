@@ -1,10 +1,14 @@
 package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.world.SimContext;
+import com.kingdoms.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -139,5 +143,59 @@ class SitingTest {
         double byTheFarm = town.siteCost(at(96, 0), BuildingRole.SMITH);
 
         assertTrue(byTheMine < byTheFarm, "a smith wants the ore, not the wheat");
+    }
+
+    // --- a camp goes where the trees are ---
+
+    /** A world with a wood to the east of the origin and open grass to the west. */
+    private static SimContext woodTo(int easternEdge) {
+        WorldBridge bridge = new WorldBridge() {
+            @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
+            @Override public boolean isLoaded(SimPos pos) { return true; }
+            @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
+            @Override public Footprint materializeBlueprint(String id, SimPos origin,
+                                                            boolean surveyed, int facing) {
+                return new Footprint(origin.y(), 3, 3, 3);
+            }
+            @Override public int woodedness(SimPos centre, int radius) {
+                return centre.x() >= easternEdge ? 100 : 0;
+            }
+            @Override public void log(String message) { }
+        };
+        return new SimContext(bridge, 0, SimSettings.SANDBOX);
+    }
+
+    @Test
+    void aLumberCampIsDrawnToTheTrees() {
+        Settlement town = town();
+        SimContext ctx = woodTo(50);
+
+        double inTheWood = town.siteCost(at(60, 0), BuildingRole.LUMBER_CAMP, ctx);
+        double onTheGrass = town.siteCost(at(10, 0), BuildingRole.LUMBER_CAMP, ctx);
+
+        assertTrue(inTheWood < onTheGrass,
+                "a camp on open grass has nothing to fell, however convenient it is");
+    }
+
+    @Test
+    void nothingElseCaresAboutTheTrees() {
+        // Only the camp asks. A granary sited by woodedness would wander off
+        // into the forest away from the fields it exists to serve.
+        Settlement town = town();
+        SimContext ctx = woodTo(50);
+
+        assertEquals(town.siteCost(at(60, 0), BuildingRole.OTHER, ctx),
+                town.siteCost(at(10, 0), BuildingRole.OTHER, ctx),
+                "a house is indifferent to the canopy");
+    }
+
+    @Test
+    void aWorldThatCannotSeeTheTreesFallsBackRatherThanGuessing() {
+        // The default bridge answers zero, which reads as "no reason to prefer
+        // this spot" rather than "definitely bare" — so a town with no streets
+        // and no partner still takes the first plot that fits.
+        Settlement town = town();
+
+        assertEquals(-1, town.siteCost(at(0, 0), BuildingRole.LUMBER_CAMP, null));
     }
 }

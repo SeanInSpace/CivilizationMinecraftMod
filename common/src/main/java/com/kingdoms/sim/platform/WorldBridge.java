@@ -79,6 +79,25 @@ public interface WorldBridge {
         return true;
     }
 
+    /**
+     * How wooded this ground is, from 0 to 100.
+     *
+     * <p>The one thing siting a lumber camp needs and the simulation cannot
+     * know: it has no notion of where trees are. The work area was derived
+     * *from* the camp rather than the camp from the trees, which is the wrong
+     * way round — a camp put on open grass claims a circle of open grass and
+     * then has nothing to fell.
+     *
+     * <p>Zero when nothing is loaded, which reads as "no reason to prefer this
+     * spot" rather than "definitely bare". A guess would be worse: the plot is
+     * surveyed again for real before a block is laid.
+     *
+     * <p>Default zero so test doubles stay small; real platforms should answer.
+     */
+    default int woodedness(SimPos centre, int radius) {
+        return 0;
+    }
+
     /** Structured logging that does not depend on a specific logging backend. */
     void log(String message);
 

@@ -61,13 +61,6 @@ work that cannot be delegated.
       instrument that can judge what these two actually produced.
 
 
-- [ ] **The lumber camp still cannot be sited by the woods.** The one part of
-      intelligent siting that is not a rule but a missing concept: the
-      simulation has no notion of where trees are. The lumber area is derived
-      *from* the camp rather than the camp from the trees, which is the wrong
-      way round, and no amount of weighing plots can fix it. It wants the
-      bridge to be able to answer "how wooded is this ground", which is the same
-      shape as `isSiteSuitable` and would serve the mine as well.
 
 
 ---
@@ -128,6 +121,17 @@ ground.
 ---
 
 ## Done
+
+- [x] **A lumber camp is sited by the trees.** The last part of intelligent
+      siting that was a missing concept rather than a missing rule: the
+      simulation had no notion of where trees were, and derived the lumber area
+      *from* the camp rather than the camp from the wood. `WorldBridge` can now
+      be asked how wooded a patch of ground is, sampled on a coarse grid because
+      the question is asked while weighing a dozen candidate plots and the
+      difference between a wood and a meadow does not need every block counted.
+      Only the camp asks — a granary sited by canopy would wander into the
+      forest away from the fields it exists to serve. The same question would
+      serve a mine if somebody teaches the bridge to answer "how much stone".
 
 - [x] **A town lays streets whether or not anybody is watching.** A building
       finished out of sight had never been measured, so it had no footprint;

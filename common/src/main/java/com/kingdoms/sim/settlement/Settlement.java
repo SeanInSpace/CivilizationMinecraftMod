@@ -311,6 +311,15 @@ public final class Settlement {
     private static final double PARTNER_WEIGHT = 0.5;
 
     /**
+     * What a wooded plot is worth to a lumber camp, per point of woodedness.
+     *
+     * <p>Half a block per percent, so ground under full canopy is worth a fifty
+     * block walk. Generous on purpose: everything else on this list is a
+     * convenience and this one is whether the building works at all.
+     */
+    private static final double WOODS_WEIGHT = 0.5;
+
+    /**
      * What standing here would cost this building, or -1 when nothing minds.
      *
      * <p>Distance to the town's own streets, plus half the distance to whatever
@@ -319,16 +328,36 @@ public final class Settlement {
      * fall back to taking the first plot that fits.
      */
     public double siteCost(SimPos candidate, BuildingRole role) {
+        return siteCost(candidate, role, null);
+    }
+
+    /** As above, and asking the world about the trees when one is to hand. */
+    public double siteCost(SimPos candidate, BuildingRole role, SimContext ctx) {
         double toRoad = paths.distanceToRoad(candidate);
         Building partner = SITS_NEAR.containsKey(role)
                 ? nearestWithRole(candidate, SITS_NEAR.get(role)) : null;
-        if (toRoad < 0 && partner == null) {
+        boolean wantsTrees = role == BuildingRole.LUMBER_CAMP && ctx != null;
+        if (toRoad < 0 && partner == null && !wantsTrees) {
             return -1;
         }
         double cost = toRoad < 0 ? 0 : toRoad;
         if (partner != null) {
             cost += PARTNER_WEIGHT
                     * Math.sqrt(partner.origin().horizontalDistanceSq(candidate));
+        }
+        if (wantsTrees) {
+            // Charged for the trees that are missing rather than credited for
+            // the ones that are there, so a cost is never negative. It has to
+            // not be: the caller reads any negative as "this town has no
+            // opinion" and falls back to the first plot that fits, so crediting
+            // would have made every wooded plot look like no plot at all.
+            //
+            // A camp wants trees more than it wants a short walk. It is the one
+            // building whose whole purpose is what happens to be growing around
+            // it, and one on open grass has nothing to fell however convenient
+            // it is.
+            int trees = ctx.bridge().woodedness(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
+            cost += WOODS_WEIGHT * (100 - trees);
         }
         return cost;
     }
@@ -375,7 +404,7 @@ public final class Settlement {
             if (firstFree < 0) {
                 firstFree = index;
             }
-            double cost = siteCost(candidate, role);
+            double cost = siteCost(candidate, role, ctx);
             if (cost < 0) {
                 // Nothing to prefer — no streets and no partner standing yet —
                 // so the first fit wins, which is what this did before there was

@@ -160,6 +160,57 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      */
     private static final int WATER_UNDERCUT = 2;
 
+    /**
+     * How much of this ground has trees standing on it, as a percentage.
+     *
+     * <p>Sampled on a coarse grid rather than every column: this is asked while
+     * weighing a dozen candidate plots against each other, and the difference
+     * between a wood and a meadow does not need every block counted. A column
+     * counts as wooded if there is a log within a few blocks of the surface,
+     * which finds trunks and ignores the leaf litter a single sapling drops.
+     */
+    @Override
+    public int woodedness(SimPos centre, int radius) {
+        BlockPos at = toBlockPos(centre);
+        if (!level.isLoaded(at)) {
+            return 0;   // nothing to judge; no reason to prefer this spot
+        }
+        int sampled = 0;
+        int wooded = 0;
+        for (int dx = -radius; dx <= radius; dx += WOOD_SAMPLE_STEP) {
+            for (int dz = -radius; dz <= radius; dz += WOOD_SAMPLE_STEP) {
+                BlockPos column = at.offset(dx, 0, dz);
+                if (!level.isLoaded(column)) {
+                    continue;
+                }
+                sampled++;
+                if (hasTrunk(column)) {
+                    wooded++;
+                }
+            }
+        }
+        return sampled == 0 ? 0 : wooded * 100 / sampled;
+    }
+
+    /** Whether a trunk stands anywhere near the surface of this column. */
+    private boolean hasTrunk(BlockPos column) {
+        int surface = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,
+                column.getX(), column.getZ());
+        for (int y = surface; y > surface - WOOD_PROBE_DEPTH; y--) {
+            if (level.getBlockState(new BlockPos(column.getX(), y, column.getZ()))
+                    .is(net.minecraft.tags.BlockTags.LOGS)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Every fourth column: enough to tell a wood from a meadow. */
+    private static final int WOOD_SAMPLE_STEP = 4;
+
+    /** How far below the surface a trunk still counts as standing on it. */
+    private static final int WOOD_PROBE_DEPTH = 6;
+
     @Override
     public boolean isSiteSuitable(SimPos plot, int radius) {
         BlockPos centre = toBlockPos(plot);
