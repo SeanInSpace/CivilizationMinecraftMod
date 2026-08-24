@@ -576,8 +576,16 @@ public final class FoodPlanner {
 
     /** Granary buildings and storehouses both extend the town's bulk storage. */
     public static int granaryCapacity(Settlement settlement) {
-        int extensions = buildingsOf(settlement, "granary").size()
-                + buildingsOf(settlement, "storehouse").size();
+        // Levels rather than buildings, for the same reason the timber and stone
+        // ceilings count them: a granary raised a level should hold more than it
+        // did, or improving one is a change of scenery.
+        int extensions = 0;
+        for (Building standing : buildingsOf(settlement, "granary")) {
+            extensions += Math.max(1, standing.level());
+        }
+        for (Building standing : buildingsOf(settlement, "storehouse")) {
+            extensions += Math.max(1, standing.level());
+        }
         return BASE_GRANARY + extensions * GRANARY_PER_BUILDING;
     }
 

@@ -113,10 +113,8 @@ public final class LumberPlanner {
     }
 
     public static int woodCapacity(Settlement settlement) {
-        int stores = (int) settlement.buildings().stream()
-                .filter(Building::isStore)
-                .count();
-        return BASE_WOOD_STORAGE + stores * WOOD_PER_STOREHOUSE;
+        return BASE_WOOD_STORAGE
+                + BuildPlanner.storeStrength(settlement) * WOOD_PER_STOREHOUSE;
     }
 
     /** Whether felling is still worth doing, so lumberjacks idle instead of clear-cutting. */

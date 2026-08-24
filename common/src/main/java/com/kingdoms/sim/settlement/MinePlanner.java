@@ -110,10 +110,8 @@ public final class MinePlanner {
     }
 
     public static int stoneCapacity(Settlement settlement) {
-        int stores = (int) settlement.buildings().stream()
-                .filter(Building::isStore)
-                .count();
-        return BASE_STONE_STORAGE + stores * STONE_PER_STOREHOUSE;
+        return BASE_STONE_STORAGE
+                + BuildPlanner.storeStrength(settlement) * STONE_PER_STOREHOUSE;
     }
 
     /** Whether cutting is still worth doing, so miners idle instead of hollowing the hill. */

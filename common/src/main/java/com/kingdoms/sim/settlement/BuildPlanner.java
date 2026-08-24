@@ -191,6 +191,26 @@ public final class BuildPlanner {
     }
 
     /**
+     * How much storehouse a town has, counting a bigger one as more.
+     *
+     * <p>Levels, not buildings. Capacity used to be a count of stores, which
+     * meant a storehouse raised to level two held exactly what it did before —
+     * so improving one gained the town nothing at all, and "improve the lowest
+     * first" was an even distribution of no effect. A town with three plain
+     * stores measures three either way, so nothing moves until somebody
+     * actually improves something.
+     */
+    public static int storeStrength(Settlement settlement) {
+        int strength = 0;
+        for (Building standing : settlement.buildings()) {
+            if (standing.isStore()) {
+                strength += Math.max(1, standing.level());
+            }
+        }
+        return strength;
+    }
+
+    /**
      * The building most worth improving, or empty when nothing is.
      *
      * <p>Only ever consulted once a town has everything it wants — a second house

@@ -91,10 +91,14 @@ work that cannot be delegated.
       no more the moment stone runs short than it was the day before. The
       urgent-producer path is the one place that reasons about need, and it is
       still a special case bolted beside the table rather than the rule.
-      **How well.** Every building of a kind is the same building. Levels exist
-      and are chosen by "lowest first", which is even rather than intelligent.
-      Start with **where**: it is the one whose absence is visible from inside
-      the town.
+      **How well.** The premise was wrong and the fix was underneath it.
+      Choosing upgrades "more intelligently" was pointless while upgrading
+      gained nothing: every ceiling counted store *buildings*, so a storehouse
+      raised to level two held exactly what it had before. Capacity now counts
+      levels, which makes "improve the lowest first" an even distribution of a
+      real effect rather than of none. What is still true is that a level only
+      changes capacity and the drawing — nothing else about a building improves,
+      and a grander smithy forges no faster.
 
 
 ---
