@@ -45,6 +45,18 @@ neoForge {
             sourceSet project(':keystone').sourceSets.main
         }
     }
+
+    // Unit tests for the platform half.
+    //
+    // Half this module's line count had no tests at all, because everything in
+    // it can reach Minecraft and Minecraft cannot simply be new-ed up in a JUnit
+    // run. ModDevGradle's unitTest puts a real, bootstrapped game on the test
+    // classpath, which is what makes the geometry and the ledger mirror -- the
+    // two places bugs kept surviving green builds -- reachable by a test at all.
+    unitTest {
+        enable()
+        testedMod = mods.named(project.mod_id)
+    }
 }
 
 // Wire the console through to the dev runs. Without this, typing "stop" into a
@@ -64,6 +76,14 @@ dependencies {
     // Kingdoms consumes blueprints through Keystone's BlueprintSource seam.
     // Keystone never depends on Kingdoms.
     implementation project(':keystone')
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
 }
 
 // Bundle the loader-free simulation core into the mod jar.

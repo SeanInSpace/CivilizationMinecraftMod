@@ -16,7 +16,7 @@ than papered over.
 
 Roughly 22,700 lines of source across three modules — `common` 8,600 (pure
 simulation, never imports Minecraft), `neoforge` 11,600 (the world, the entities,
-the blocks), `keystone` 2,500 (blueprints). 346 tests pass and there are no
+the blocks), `keystone` 2,500 (blueprints). 361 tests pass and there are no
 TODO markers anywhere in the source.
 
 The milestone is substantially met: a charter-founded party of four climbs
@@ -27,12 +27,15 @@ end to end, most recently over 570 unattended steps to 47 residents.
 Two structural weaknesses are worth stating plainly at the top, because they
 shape most of what follows.
 
-**Half the code has no tests.** All 346 live in `common` and `keystone`.
-`neoforge` has no test source set at all, so the auditor, the chest mirror, the
-blueprint placer, the excavation and every entity behaviour are covered only by
-playtests. That is why the two faults below could persist for weeks under a
-green build, and why `/civ audit selftest` had to be written to establish that
-the auditor was even awake.
+**Most of the platform half is still only reachable by playing.** `neoforge`
+has a test source set now — 15 tests against a real bootstrapped game — but its
+reach is narrower than the line count suggests. The JUnit game populates the
+registries and answers questions about them, and that is all: item components
+are never bound, so no test here can hold an `ItemStack`, and nothing can
+supply a `ServerLevel`. Everything that reads or writes blocks — the auditor's
+geometry, the blueprint placer, the excavation, the chest mirror's world half,
+every entity behaviour — is still covered only by playtests. That is why the
+two faults below could persist for weeks under a green build.
 
 **The audit is the only instrument.** It is good, and it is now self-checking,
 but everything it cannot reach — anything about how the town *reads* — still
@@ -63,14 +66,17 @@ work that cannot be delegated.
       judgement but not its geometry, so this needs a person standing at
       `148, 107, -48` to say which.
 
-- [ ] **A test source set for `neoforge`.** 11,600 lines with no unit tests.
-      The blocker is that its classes import Minecraft, so the test sourceset
-      needs the mod's own compile classpath; an abandoned branch
-      (`worktree-agent-ae276793f6c09e959`) already did this — eight lines of
-      `build.gradle` and a 231-line test — and is worth reading before starting
-      from scratch. Highest value first: `TownAuditor`'s geometry checks and
-      `StoreSync`'s reconciliation, both of which currently rely on a whole
-      playtest to exercise a branch.
+- [ ] **Get a world under the tests that need one.** The `neoforge` source set
+      exists and its JUnit game answers registry questions, but it cannot build
+      an `ItemStack` (components are never bound to their holders) and cannot
+      supply a `ServerLevel`. So the two things most worth testing are still
+      out of reach: `TownAuditor`'s geometry — the doorway and bare-field checks
+      that are currently reporting faults nobody has explained — and
+      `StoreSync`'s reconciliation against a real chest. **What to decide:**
+      whether to stand a headless server up inside the test run (slow, but
+      real), or to put a seam in front of the block reads so the geometry can be
+      driven from a fake — which is what `WorldBridge` already does for the
+      simulation, and would make the auditor testable the same way.
 
 - [ ] **Goods do not move between stores, because nothing asks them to.**
       Produce now lands at the store nearest where it was made and a builder
@@ -153,8 +159,9 @@ work that cannot be delegated.
       blueprint transforms with a 117-line `TransformsTest`
       (`a1189e6c722c47a38`); a mine rework with a 279-line `MinePlannerTest`
       (`a551f32fe3c7672c4`); a `BuildPlanner` change with `SupplyTest` additions
-      (`a75374de228c69b47`); and the `neoforge` test sourceset above
-      (`ae276793f6c09e959`). All four predate the storage reshape and touch
+      (`a75374de228c69b47`); and an `UnwatchedBridge` with a 231-line test
+      (`ae276793f6c09e959`) — its build change is superseded now, but the bridge
+      itself was never looked at. All four predate the storage reshape and touch
       files that have since changed underneath them, so they want reading and
       re-deriving rather than merging. Decide keep-or-drop per branch, then
       clear the rest — twenty worktrees is a slow `git status` and a standing
@@ -198,6 +205,19 @@ ground.
 ---
 
 ## Done
+
+- [x] **`neoforge` has tests at last.** Eleven thousand lines had none, because
+      everything in the module can reach Minecraft and Minecraft cannot be
+      constructed inside a JUnit run. ModDevGradle's `unitTest` starts a real
+      bootstrapped game on the test classpath — FML loads, both mods load, 1564
+      items answer to their ids. Fifteen tests so far: the auditor's judgement
+      and its self-check, and the join between the ledger's words and the game's
+      registry, which nothing had ever checked — a typo or a vanilla rename in
+      `Resources` would have shown up only as a store that quietly could not pay
+      anything out. What the environment will and will not do is written down in
+      `StoreChestBlockEntityTest`, measured rather than assumed, so the next
+      person does not spend an afternoon rediscovering that item components are
+      never bound.
 
 - [x] **The town's goods are somewhere in particular.** A settlement kept one
       number per resource and no notion of where any of it was, which is what
