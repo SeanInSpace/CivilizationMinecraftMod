@@ -3,6 +3,7 @@ package com.kingdoms.sim.settlement;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
+import java.util.List;
 
 /**
  * The stone trade — the timber trade's twin, one layer down.
@@ -82,14 +83,20 @@ public final class MinePlanner {
         if (miners <= 0) {
             return;
         }
-        // At the mine head, for the same reason the timber goes to the camp.
-        SimPos at = minePos(settlement);
-        if (at == null) {
-            at = settlement.centre();
+        // At the mine head that cut it, split between the mines for the same
+        // reason the timber is split between the camps.
+        List<Building> mines = settlement.buildingsWithRole(BuildingRole.MINE);
+        int places = Math.max(1, mines.size());
+        for (int i = 0; i < places; i++) {
+            int share = Workforce.shareOf(miners, i, places);
+            if (share <= 0) {
+                continue;
+            }
+            SimPos at = mines.isEmpty() ? settlement.centre() : mines.get(i).origin();
+            settlement.produceNear(at, TownStores.STONE,
+                    share * STONE_PER_STEP, stoneCapacity(settlement));
+            settlement.produceNear(at, TownStores.IRON, share * IRON_PER_STEP, MAX_IRON);
         }
-        settlement.produceNear(at, TownStores.STONE,
-                miners * STONE_PER_STEP, stoneCapacity(settlement));
-        settlement.produceNear(at, TownStores.IRON, miners * IRON_PER_STEP, MAX_IRON);
     }
 
     /** Where the mine stands, or null if the town has not built one. */

@@ -3,6 +3,7 @@ package com.kingdoms.sim.settlement;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
+import java.util.List;
 
 /**
  * The timber trade.
@@ -80,18 +81,25 @@ public final class LumberPlanner {
         if (jacks <= 0) {
             return;
         }
-        // Put down at the camp, not into the town at large: felled timber ends
-        // up on the shelves nearest the woods, which is where a builder working
-        // that side of the village will go looking for it.
-        SimPos at = campPos(settlement);
-        if (at == null) {
-            at = settlement.centre();
+        // Put down at the camp that felled it, not into the town at large, and
+        // split between the camps rather than credited all to the first — a town
+        // with two camps works both, so its timber should pile up at both. The
+        // ceiling is still the whole town's: produceNear measures the room it
+        // has left before each drop.
+        List<Building> camps = settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP);
+        int places = Math.max(1, camps.size());
+        for (int i = 0; i < places; i++) {
+            int share = Workforce.shareOf(jacks, i, places);
+            if (share <= 0) {
+                continue;
+            }
+            SimPos at = camps.isEmpty() ? settlement.centre() : camps.get(i).origin();
+            settlement.produceNear(at, TownStores.WOOD,
+                    share * WOOD_PER_STEP, woodCapacity(settlement));
+            // Capped: saplings are for replanting, not a stockpile. A playtest left
+            // a town holding a thousand of them, which is noise in the ledger.
+            settlement.produceNear(at, TownStores.SAPLINGS, share, MAX_SAPLINGS);
         }
-        settlement.produceNear(at, TownStores.WOOD,
-                jacks * WOOD_PER_STEP, woodCapacity(settlement));
-        // Capped: saplings are for replanting, not a stockpile. A playtest left a
-        // town holding a thousand of them, which is just noise in the ledger.
-        settlement.produceNear(at, TownStores.SAPLINGS, jacks, MAX_SAPLINGS);
     }
 
     /** Where the camp stands, or null if the town has not built one. */

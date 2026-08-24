@@ -546,6 +546,17 @@ public final class Settlement {
         return fitting;
     }
 
+    /** Every building of this kind, in the order they were raised. */
+    public List<Building> buildingsWithRole(BuildingRole role) {
+        List<Building> out = new ArrayList<>();
+        for (Building building : buildings) {
+            if (building.role() == role) {
+                out.add(building);
+            }
+        }
+        return out;
+    }
+
     /** The first building of this kind, or null if the town has none. */
     public Building buildingWithRole(BuildingRole role) {
         for (Building building : buildings) {

@@ -94,14 +94,6 @@ work that cannot be delegated.
       resolver priority is the whole of their locality rule (own building 200,
       crafting 125, warehouse default, retry 50).
 
-- [ ] **Unwatched production is attributed to one camp.** `LumberPlanner.campPos`
-      and `MinePlanner.minePos` return the *first* camp or mine they find, so a
-      town with two lumber camps puts all its unwatched timber at one of them.
-      Still geometry rather than list order, and the watched path knows the
-      exact block — but a large town spreads its goods more coarsely than it
-      should. Fixing it means splitting the aggregate worker counts by which
-      camp each is assigned to.
-
 - [ ] **Decide what to do with the four rescued branches.** Roughly 1,500 lines
       including tests, all of it predating the storage reshape and touching
       files that have changed underneath it. Worth reading and re-deriving
@@ -192,6 +184,15 @@ ground.
 ---
 
 ## Done
+
+- [x] **Unwatched production lands at the site that made it.** The aggregate
+      planners credited everything to whichever camp or mine was listed first,
+      so a town with two of either piled its goods at one and left the other's
+      shelves empty for good. `Workforce.shareOf` divides the crew between the
+      sites — evenly, remainder to the earliest — and each share is put down at
+      its own camp. The shares add back up to the crew, which is the invariant
+      that matters: the rate was priced against the whole crew, so losing
+      somebody to rounding would quietly slow the town down.
 
 - [x] **A building says what it is for, once.** Eleven places worked out what
       they were looking at by searching a blueprint id for a substring, and the
