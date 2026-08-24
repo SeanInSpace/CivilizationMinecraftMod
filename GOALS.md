@@ -27,16 +27,19 @@ end to end, most recently over 570 unattended steps to 47 residents.
 Two structural weaknesses are worth stating plainly at the top, because they
 shape most of what follows.
 
-**The rest of the platform half is still only reachable by playing.** `neoforge`
-has a test source set now, and the two subsystems that kept producing bugs — the
-auditor's geometry and the chest mirror — each read the world through a seam, so
-both can be driven from fakes. What is left has none: the blueprint placer, the
-excavation, and every entity behaviour. The JUnit game populates the registries
-and answers questions about them, and that is all — item components are never
-bound, so no test here can hold an `ItemStack`, and nothing supplies a
-`ServerLevel`. The seam is the pattern for fixing that, and it is cheap: one
-narrow interface, one wrapper, one fake. It is also worth doing in the order
-the bugs appeared, not the order the packages are listed.
+**What is left untested needs a world, and mostly always will.** `neoforge` has
+a test source set, and everything decidable without a running game has been
+pulled out behind a seam and pinned: the auditor's geometry, the chest mirror,
+the floor a building takes across a sloping plot, the underpinning and its
+apron, where a digger may stand and in what order. What remains is not a seam
+waiting to be cut. Choosing a stance ends in the game's own A*; laying a block
+ends in entity handling; the site veto's judgement is one comparison wrapped in
+a sampling loop. A seam in front of any of those would either omit the thing
+being tested or need a fake larger than the code it checks. The JUnit game also
+never binds item components, so no test here can hold an `ItemStack`. **The
+instrument for the rest is the audit**, which walks the finished world and is
+the only thing that can judge what these actually produced — which is why it is
+now self-checking.
 
 **The audit is the only instrument.** It is good, and it is now self-checking,
 but everything it cannot reach — anything about how the town *reads* — still
@@ -47,18 +50,6 @@ work that cannot be delegated.
 
 ## Open
 
-- [ ] **What is left of the placer and the excavation genuinely needs a world.**
-      Everything decidable without one is out and tested: the floor across a
-      sloping plot, the underpinning and its apron, where a digger may stand and
-      in what order, reach, and where a crew gathers. What remains is not a
-      seam waiting to be cut. Choosing a stance ends in
-      `getNavigation().createPath`, and putting a seam in front of the game's own
-      pathfinder would either omit it — making the test say nothing — or need a
-      fake A* larger than the code it checks. The placer's remaining reads are
-      the site-suitability probes and the entity handling around laying a block,
-      which are the same kind of thing. **The honest next step is not more
-      seams** but the audit: it already walks the finished world and is the only
-      instrument that can judge what these two actually produced.
 
 
 
