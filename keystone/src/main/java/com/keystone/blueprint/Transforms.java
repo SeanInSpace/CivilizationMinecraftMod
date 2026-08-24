@@ -87,6 +87,12 @@ public final class Transforms {
                     block.state().mirror(mirror).rotate(rotation),
                     block.nbt()));
         }
-        return new Blueprint(size(size, rotation), moved);
+        // Read the size before it is swapped: every block above went through
+        // position() with the pre-rotation size, and the anchor names a cell of
+        // the same structure, so it is not exempt. An anchor left behind while
+        // the blocks turned would line the building up by whatever happened to
+        // land in the old cell.
+        return new Blueprint(size(size, rotation), moved,
+                position(blueprint.anchor(), size, rotation, mirror));
     }
 }

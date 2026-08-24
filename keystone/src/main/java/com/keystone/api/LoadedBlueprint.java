@@ -37,11 +37,13 @@ import java.util.List;
 public final class LoadedBlueprint {
 
     private final Vec3i size;
+    private final net.minecraft.core.BlockPos anchor;
     private final List<PlannedBlock> all;
     private final List<PlannedBlock> sequence;
 
     public LoadedBlueprint(Blueprint blueprint) {
         this.size = blueprint.size();
+        this.anchor = blueprint.anchor();
 
         List<PlannedBlock> everything = new ArrayList<>(blueprint.blocks().size());
         for (Blueprint.BlueprintBlock block : blueprint.blocks()) {
@@ -73,6 +75,17 @@ public final class LoadedBlueprint {
     }
 
     /** Bounding size after any rotation. */
+    /**
+     * The cell this structure lines up by, after any rotation.
+     *
+     * <p>Usually what the author put at the front door. A caller wanting the
+     * building to sit where a plot says should place its origin so that this
+     * cell lands on the plot.
+     */
+    public net.minecraft.core.BlockPos anchor() {
+        return anchor;
+    }
+
     public Vec3i size() {
         return size;
     }

@@ -63,6 +63,10 @@ import java.util.TreeMap;
 public final class StructurizeNbt {
 
     private static final String VERSION = "version";
+    private static final String OPTIONAL_DATA = "optional_data";
+    private static final String STRUCTURIZE = "structurize";
+    private static final String PRIMARY_OFFSET = "primary_offset";
+
     private static final String SIZE_X = "size_x";
     private static final String SIZE_Y = "size_y";
     private static final String SIZE_Z = "size_z";
@@ -102,6 +106,40 @@ public final class StructurizeNbt {
     }
 
     /** Where a cell lives in the flat array. The format walks y, then z, then x. */
+    /**
+     * The anchor the file names, or the default when it names none.
+     *
+     * <p>Structurize records it under {@code optional_data → structurize →
+     * primary_offset}, as three lowercase {@code TAG_Int} keys — verified
+     * against a real MineColonies file rather than assumed, because the
+     * capitalisation and the shape are both easy to guess wrong.
+     *
+     * <p>It matters because it is the cell the author meant to line the
+     * structure up by — the hut block, usually. Ignoring it and centring on the
+     * bounding box instead is what put an imported building beside its plot
+     * rather than on it, sometimes half into the hillside.
+     *
+     * <p>An anchor outside the structure's own box is refused rather than
+     * honoured: it describes a building the file does not contain, and lining
+     * up by it would move the whole thing somewhere nobody asked for.
+     */
+    static BlockPos readAnchor(CompoundTag tag, Vec3i size) {
+        CompoundTag optional = tag.getCompoundOrEmpty(OPTIONAL_DATA);
+        CompoundTag structurize = optional.getCompoundOrEmpty(STRUCTURIZE);
+        CompoundTag offset = structurize.getCompoundOrEmpty(PRIMARY_OFFSET);
+        if (offset.isEmpty()) {
+            return Blueprint.defaultAnchor(size);
+        }
+        BlockPos stated = new BlockPos(
+                offset.getIntOr("x", 0), offset.getIntOr("y", 0), offset.getIntOr("z", 0));
+        if (!Blueprint.anchorFits(stated, size)) {
+            KeystoneMod.LOG.warn("Blueprint anchor {} lies outside its own {}; centring instead",
+                    stated, size);
+            return Blueprint.defaultAnchor(size);
+        }
+        return stated;
+    }
+
     public static int cellIndex(int x, int y, int z, int sizeX, int sizeZ) {
         return (y * sizeZ + z) * sizeX + x;
     }
@@ -193,7 +231,8 @@ public final class StructurizeNbt {
             KeystoneMod.LOG.warn("Dropped {} cell(s) with an out-of-range palette index", dropped);
         }
         palette.report();
-        return new Blueprint(new Vec3i(sizeX, sizeY, sizeZ), out);
+        Vec3i size = new Vec3i(sizeX, sizeY, sizeZ);
+        return new Blueprint(size, out, readAnchor(tag, size));
     }
 
     /** The decoded palette: a state per entry, and whether it was ours to begin with. */

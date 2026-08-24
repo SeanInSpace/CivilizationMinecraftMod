@@ -949,16 +949,31 @@ public final class BlueprintPlacer {
     /**
      * Turns an authored blueprint into a plan on this site.
      *
-     * <p>Blueprints are anchored from their minimum corner, while build plots are
-     * points, so the footprint is centred on the plot. The blueprint itself has no
-     * foundation — nobody draws one — so the same cobble underpinning the
-     * procedural shapes get is laid beneath it, which is what stops an authored
-     * building floating over a slope.
+     * <p>Blueprints are held from their minimum corner while build plots are
+     * points, so the structure is laid so that the cell it names as its anchor
+     * lands on the plot. Most authored files say which cell that is — Structurize
+     * records it as {@code primary_offset}, usually the hut block — and a file
+     * that says nothing is centred on its own footprint, which is what this
+     * always did. Honouring the stated one is what stops an imported building
+     * sitting beside its plot instead of on it.
+     *
+     * <p>The blueprint itself has no foundation — nobody draws one — so the same
+     * cobble underpinning the procedural shapes get is laid beneath it, which is
+     * what stops an authored building floating over a slope.
      */
     private static StructurePlan fromBlueprint(ServerLevel level, LoadedBlueprint blueprint,
                                                BlockPos base, String path) {
         Vec3i size = blueprint.size();
-        BlockPos anchor = base.offset(-(size.getX() - 1) / 2, 0, -(size.getZ() - 1) / 2);
+        // The origin that puts the blueprint's own anchor cell on the plot.
+        //
+        // Its height is deliberately ignored. A stated anchor names a cell in
+        // three dimensions — a real file gives (10, 2, 22) in a 32x16x31
+        // structure, so its hut block sits two courses up — but a plot is a
+        // floor, and shifting the structure down by two to line that block up
+        // would bury its bottom two courses in the ground. The building stands
+        // on its plot; the anchor decides where on it.
+        BlockPos stated = blueprint.anchor();
+        BlockPos anchor = base.offset(-stated.getX(), 0, -stated.getZ());
 
         List<Placement> blocks = new ArrayList<>(blueprint.blockCount() + 32);
         foundation(level, blocks, base, size.getX(), size.getZ());
