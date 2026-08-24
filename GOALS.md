@@ -84,11 +84,13 @@ work that cannot be delegated.
       order. The other half of the rule is unbuilt — nothing prefers ground near
       the buildings it works with, the lumber camp by the woods or the granary
       by the fields.
-      **What next.** `BuildPlanner` orders by a fixed table of wants. It has no
-      notion that a second storehouse is worth less than a first, or that a mine
-      is worth more the moment stone runs short — the urgent-producer path is
-      the one place that reasons about need, and it is a special case bolted
-      beside the table rather than the rule.
+      **What next.** Half done. Ties are broken on the shortfall as a *share* of
+      what is wanted, so the first of a kind outranks the fourth of another — a
+      town no longer raises a fourth house while it has nowhere to put anything.
+      What is still true is that nothing reacts to circumstance: a mine is worth
+      no more the moment stone runs short than it was the day before. The
+      urgent-producer path is the one place that reasons about need, and it is
+      still a special case bolted beside the table rather than the rule.
       **How well.** Every building of a kind is the same building. Levels exist
       and are chosen by "lowest first", which is even rather than intelligent.
       Start with **where**: it is the one whose absence is visible from inside

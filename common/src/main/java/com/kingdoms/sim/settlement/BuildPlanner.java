@@ -514,8 +514,18 @@ public final class BuildPlanner {
      * Picks the next building, or empty if the settlement wants nothing right now.
      *
      * <p>A type is a candidate when the settlement is big enough for it and has
-     * fewer than it wants. Among candidates, highest priority wins; ties go to the
-     * larger shortfall, then to whichever id sorts first so the result is stable.
+     * fewer than it wants. Among candidates, highest priority wins; ties go to
+     * the larger shortfall <em>as a share of what is wanted</em>, then to
+     * whichever id sorts first so the result is stable.
+     *
+     * <p>The share is what makes the first of a kind matter more than the
+     * fourth. Ranked on the raw shortfall, a town wanting five houses with three
+     * standing is two short and beats its very first storehouse, which is only
+     * one short — so it builds a fourth house while it has nowhere to put
+     * anything. Measured proportionally the storehouse is missing all of what
+     * it wants and the houses two fifths of theirs, and the storehouse goes
+     * first. Nothing else needed changing: this is a tiebreak, and priority
+     * still decides everything it has an opinion about.
      */
     public static Optional<BuildingType> chooseNext(Settlement settlement, List<BuildingType> catalogue) {
         int population = settlement.population();
@@ -525,8 +535,23 @@ public final class BuildPlanner {
                 .filter(type -> shortfall(settlement, type, population) > 0)
                 .max(Comparator
                         .comparingInt(BuildingType::priority)
-                        .thenComparingInt((BuildingType type) -> shortfall(settlement, type, population))
+                        .thenComparingInt((BuildingType type) -> shareShort(settlement, type, population))
                         .thenComparing(BuildingType::id, Comparator.reverseOrder()));
+    }
+
+    /**
+     * How short of a type the settlement is, per hundred of what it wants.
+     *
+     * <p>In hundredths rather than a fraction so the comparison stays integer
+     * arithmetic and two types that are equally short compare equal rather than
+     * on floating-point dust.
+     */
+    public static int shareShort(Settlement settlement, BuildingType type, int population) {
+        int wanted = type.desiredCount(population);
+        if (wanted <= 0) {
+            return 0;
+        }
+        return shortfall(settlement, type, population) * 100 / wanted;
     }
 
     /** How many more of this type the settlement wants than it has. */
