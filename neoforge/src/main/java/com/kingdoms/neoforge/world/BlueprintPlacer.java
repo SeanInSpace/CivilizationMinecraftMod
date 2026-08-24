@@ -13,6 +13,8 @@ import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.world.SimWorld;
+import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
@@ -325,6 +327,31 @@ public final class BlueprintPlacer {
      */
     public static int baseFor(String blueprintId, int firstAirY) {
         return isField(blueprintId) ? firstAirY : floorFor(firstAirY);
+    }
+
+    /**
+     * The culture of the settlement whose claim this ground falls in.
+     *
+     * <p>Resolved here rather than passed down, because the whole placement
+     * chain from {@code materializeBlueprint} takes a position and no
+     * settlement — and widening that seam to carry a culture would change an
+     * interface that six test doubles implement, to tell it something it can
+     * work out from where it is standing.
+     */
+    private static Culture cultureAt(ServerLevel level, BlockPos base) {
+        SimWorld world = KingdomsMod.simulationFor(level);
+        if (world == null) {
+            return Culture.DEFAULT;
+        }
+        SimPos at = new SimPos(base.getX(), base.getY(), base.getZ());
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                if (settlement.contains(at)) {
+                    return Culture.of(settlement.cultureId());
+                }
+            }
+        }
+        return Culture.DEFAULT;
     }
 
     /** A crop field, whatever its level or style. The animal farm is not one. */
@@ -878,8 +905,6 @@ public final class BlueprintPlacer {
                     BuildPlanner.baseIdOf(id.getPath()));
         }
         // Styles degrade too: with no norman/house drawn, a norman town still
-        // gets the built-in house rather than an unknown-blueprint marker.
-        // Styles degrade too: with no norman/house drawn, a norman town still
         // gets the built-in house rather than an unknown-blueprint marker. So does
         // a level nobody has drawn — it falls back to the plain shape, grown.
         String path = BuildPlanner.baseIdOf(id.getPath());
@@ -1264,7 +1289,12 @@ public final class BlueprintPlacer {
      * not end up in with the chickens.
      */
     private static int[] animalFarm(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int pens = Math.max(1, Culture.DEFAULT.penCount());
+        // The culture of the town whose ground this is, not the default one.
+        // ShepherdWorker has always stocked these pens from the settlement's own
+        // culture while this sized them from the default — which agreed only for
+        // as long as there was one culture, and would have penned a highland
+        // town's goats into a compound built for somebody else's herd.
+        int pens = Math.max(1, cultureAt(level, base).penCount());
         int penDepth = 3;
         int width = 9;
         int depth = pens * penDepth + pens + 1;

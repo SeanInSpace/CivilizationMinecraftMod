@@ -28,11 +28,58 @@ public record Culture(String id, List<String> pennedAnimals, String layout) {
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
             LAYOUT_RING);
 
-    private static final Map<String, Culture> KNOWN = Map.of(DEFAULT.id(), DEFAULT);
+    /**
+     * The lowland people, who are what every town has quietly been all along.
+     *
+     * <p>Settlements were already stamped {@code kingdoms:norman} and the
+     * blueprint loader was already looking for {@code kingdoms:norman/house}
+     * before anything defined a culture by that name — so every lookup fell
+     * through to {@link #DEFAULT} and nobody noticed, because the default was
+     * the only thing there was to fall through to. Naming it is what turns the
+     * fallback from a coincidence into a decision.
+     */
+    public static final Culture NORMAN = new Culture(
+            "kingdoms:norman",
+            List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
+            LAYOUT_RING);
 
-    /** The named culture, or the default when nobody has defined it. */
+    /**
+     * The hill people, who keep different beasts.
+     *
+     * <p>A second entry in the table, which is the whole claim the culture type
+     * was making: that a second people is filling this in rather than threading
+     * a new idea through the simulation. Goats and rabbits over pigs and cows —
+     * the same four pens, because the animal farm's plot is reserved in the
+     * catalogue and a culture cannot quietly outgrow the ground set aside for
+     * it. Widening that reservation is what a fifth pen would cost.
+     */
+    public static final Culture HIGHLAND = new Culture(
+            "kingdoms:highland",
+            List.of("minecraft:goat", "minecraft:sheep", "minecraft:rabbit",
+                    "minecraft:chicken"),
+            LAYOUT_RING);
+
+    private static final Map<String, Culture> KNOWN = Map.of(
+            DEFAULT.id(), DEFAULT,
+            NORMAN.id(), NORMAN,
+            HIGHLAND.id(), HIGHLAND);
+
+    /** Every culture that has been defined. */
+    public static java.util.Collection<Culture> all() {
+        return KNOWN.values();
+    }
+
+    /**
+     * The named culture, or the default when nobody has defined it.
+     *
+     * <p>Null-guarded, and not defensively: {@code KNOWN} is a {@code Map.of},
+     * which throws on a null key rather than missing it. A settlement restored
+     * from a save written before cultures had names carries no id at all, so
+     * the one lookup guaranteed to happen on an old world was the one that
+     * would have thrown.
+     */
     public static Culture of(String id) {
-        return KNOWN.getOrDefault(id, DEFAULT);
+        return id == null ? DEFAULT : KNOWN.getOrDefault(id, DEFAULT);
     }
 
     /** How many pens the animal farm needs to hold this culture's beasts. */
