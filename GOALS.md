@@ -14,15 +14,18 @@ than papered over.
 
 ## Where the mod stands
 
-Roughly 24,200 lines of source across three modules — `common` 9,600 (pure
-simulation, never imports Minecraft), `neoforge` 12,100 (the world, the
-entities, the blocks), `keystone` 2,500 (blueprints). 477 tests across 52
+Roughly 24,750 lines of source across three modules — `common` 9,900 (pure
+simulation, never imports Minecraft), `neoforge` 12,300 (the world, the
+entities, the blocks), `keystone` 2,600 (blueprints). 520 tests across 56
 classes, and no TODO markers anywhere in the source.
 
-The milestone is substantially met: a charter-founded party of four climbs
-camp → homestead → fortified → village → town on its own, feeds itself, equips
-itself from its own forge, walls itself, and expands. That has been watched
-end to end, most recently over 570 unattended steps to 47 residents.
+The milestone is met. A charter-founded party of four climbs camp → homestead
+→ fortified → village → town on its own, feeds itself, equips itself from its
+own forge, walls itself, lays its own streets and expands. The most recent
+audit found a kingdom of three settlements — 48, 12 and 6 — with **no faults of
+any kind in any of them**, two of them climbing a stage while the audit
+watched, and one reading `distress=none`. The same shape of run reported
+fifteen faults before this round of work.
 
 Two structural weaknesses are worth stating plainly at the top, because they
 shape most of what follows.
