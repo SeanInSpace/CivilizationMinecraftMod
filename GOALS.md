@@ -47,20 +47,6 @@ work that cannot be delegated.
 
 ## Open
 
-- [ ] **Buildings with no doorway at grade — and the check is probably right.**
-      Four in one run: a storehouse, a lumber camp and two houses. The doorway
-      check is now tested against hand-built worlds and passes every case its
-      own javadoc claims — a door on any of the four sides, a doorstep that is
-      the town's own dirt path, a door at the head of its own stair, a door onto
-      a shelf a block proud, a shut fence gate, and the two genuine failures
-      (a door onto a pit, a door the terrain has closed over). So this is very
-      likely a real defect in what gets built rather than a false positive in
-      what gets reported. **Where to look next:** the check reads the wall ring
-      at the *recorded* floor (`Footprint.y`), so the leading suspicion is
-      buildings whose foundation courses leave the real doorway at a different
-      height from the record — go and stand at `148, 107, -48` and compare the
-      door's actual y against what `/civ info` reports for that building.
-
 - [ ] **The blueprint placer and the excavation still have no seam.** They are
       the two largest untested things left, and between them they own the
       failures that keep reaching play: where a building's floor ends up, what
@@ -81,24 +67,6 @@ work that cannot be delegated.
       commits are the only copy.
 
 - [ ] **Create buildings in a much more intelligent way.**
-
-- [ ] **Walls for advanced settlements.** Compute an α-shape concave hull around
-      all settlement asset bounding boxes with a safety margin, then optimize
-      this perimeter using an active contour (Snake) energy-minimization model
-      over a multi-layer terrain influence map. The energy function balances
-      perimeter length and curvature against a terrain cost field that rewards
-      natural chokepoints, plateau edges, and contour-line alignment while
-      heavily penalizing steep elevation changes and deep water. Once the 2D
-      closed spline settles into its local minimum, sample intersections with
-      outgoing A* pathfinding flow fields to inject gatehouses, then output the
-      final segmented curve to the wall-construction pipeline. A wall blueprint
-      builds the defensive perimeter. **Advanced settlements only** — small
-      villages and towns that cannot afford one do not get one.
-      **The seam is ready:** the founding work landed `Perimeter` (vertex loop,
-      gates, laying cursor) and everything downstream of it — persistence, paid
-      raising, gate drawing, sentry patrol, ring-aware siting. This wall
-      replaces exactly one method, `PerimeterPlanner.stake`; the handoff notes
-      live in `FOUNDING.md` under "The wall interface".
 
 - [ ] **A second culture, to prove the hook earns its keep.** The claim is that
       a second culture is a table entry rather than new code. Known to be false
@@ -125,6 +93,14 @@ scheduling. Several of these want asking again now that the footprint and
 foundation work has landed, which changes what a town looks like on sloping
 ground.
 
+- [ ] Three buildings a town still report `no way in`, down from nine. The
+      doorway check itself is tested and correct, and the floor rule that was
+      sinking buildings into hillsides is fixed — so what is left is most likely
+      the plots the new rule perches rather than sinks, which the auditor also
+      reports and which wants somebody to go and look at one.
+- [ ] Does the palisade read as a wall around a town now, rather than a box
+      around a field? It follows the buildings and drifts along contours; both
+      are claims about how it looks from inside the gate.
 - [ ] Does digging read as labour now, at `Excavation.LABOUR_FACTOR` of two —
       and does a watched town still get its farm up in time? The factor is one
       named constant, so this is a question about a number, not a rewrite. Three
@@ -159,6 +135,17 @@ ground.
 ---
 
 ## Done
+
+- [x] **The wall follows the town instead of boxing it.** A concave hull over
+      the plot corners, dug in from the convex hull so an outlying farm adds
+      corners rather than fortifying the field between; then a greedy active
+      contour settles the line onto the ground, each vertex weighing how uneven
+      the ground under it is against how long and crooked the line through it
+      is, so a wall drifts along a contour rather than marching up one. Every
+      candidate move is checked for containment first: the terrain may move the
+      line anywhere it likes and may never talk it into leaving a building
+      outside. Staked at 196 posts in a headless run where the rectangle wanted
+      half again as many.
 
 - [x] **The crops were never being destroyed.** Four theories had been wrong
       about this — trampling, light, placement order, flooding — and the fourth
