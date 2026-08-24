@@ -16,7 +16,7 @@ than papered over.
 
 Roughly 22,700 lines of source across three modules — `common` 8,600 (pure
 simulation, never imports Minecraft), `neoforge` 11,600 (the world, the entities,
-the blocks), `keystone` 2,500 (blueprints). 374 tests pass and there are no
+the blocks), `keystone` 2,500 (blueprints). 386 tests pass and there are no
 TODO markers anywhere in the source.
 
 The milestone is substantially met: a charter-founded party of four climbs
@@ -27,16 +27,16 @@ end to end, most recently over 570 unattended steps to 47 residents.
 Two structural weaknesses are worth stating plainly at the top, because they
 shape most of what follows.
 
-**Most of the platform half is still only reachable by playing.** `neoforge`
-has a test source set now, and the auditor's geometry has a seam in front of
-its block reads, so that much can be driven from a hand-built world. The rest
-cannot. The JUnit game populates the registries and answers questions about
-them, and that is all: item components are never bound, so no test here can
-hold an `ItemStack`, and nothing supplies a `ServerLevel`. The blueprint
-placer, the excavation, the chest mirror's world half and every entity
-behaviour are still covered only by playtests. The seam that fixed this for the
-auditor is the pattern for fixing it elsewhere, and it is cheap — one narrow
-interface, one wrapper, one fake.
+**The rest of the platform half is still only reachable by playing.** `neoforge`
+has a test source set now, and the two subsystems that kept producing bugs — the
+auditor's geometry and the chest mirror — each read the world through a seam, so
+both can be driven from fakes. What is left has none: the blueprint placer, the
+excavation, and every entity behaviour. The JUnit game populates the registries
+and answers questions about them, and that is all — item components are never
+bound, so no test here can hold an `ItemStack`, and nothing supplies a
+`ServerLevel`. The seam is the pattern for fixing that, and it is cheap: one
+narrow interface, one wrapper, one fake. It is also worth doing in the order
+the bugs appeared, not the order the packages are listed.
 
 **The audit is the only instrument.** It is good, and it is now self-checking,
 but everything it cannot reach — anything about how the town *reads* — still
@@ -71,15 +71,13 @@ work that cannot be delegated.
       height from the record — go and stand at `148, 107, -48` and compare the
       door's actual y against what `/civ info` reports for that building.
 
-- [ ] **Put the same seam in front of `StoreSync`.** The auditor now reads the
-      world through `WorldView` and its geometry is tested against fakes; the
-      chest mirror still takes a `ServerLevel` directly, so the one part of the
-      storage work with no unit test is the part that actually touches chests —
-      finding a store's container, reading a player's withdrawal back out,
-      laying the ledger onto shelves. The seam it needs is narrower than the
-      auditor's: find a block entity, read and write its slots. The
-      reconciliation arithmetic is already covered in `:common`; what is missing
-      is everything around it.
+- [ ] **The blueprint placer and the excavation still have no seam.** They are
+      the two largest untested things left, and between them they own the
+      failures that keep reaching play: where a building's floor ends up, what
+      its foundation courses do to the ground around it, and — most likely —
+      the doorway fault above. The placer's is the harder seam of the two,
+      because it writes far more than it reads; the excavation's is closer to
+      the auditor's, being mostly questions about what is at a position.
 
 - [ ] **Goods do not move between stores, because nothing asks them to.**
       Produce now lands at the store nearest where it was made and a builder
@@ -208,6 +206,19 @@ ground.
 ---
 
 ## Done
+
+- [x] **The chest mirror can be run without a chest.** `StoreSync` reads the
+      world through `StoreWorld` (find a building's shelves, say the books
+      moved) and `Shelves` (slots, in resources and counts). Deliberately not in
+      `ItemStack`s: a JUnit game never binds item components, so a seam that
+      spoke in stacks would have been untestable for exactly the reason the code
+      above it was — and "sixty-four of what the town calls wood" is the truer
+      thing to say anyway. `ChestShelves` does the translating, `LevelStoreWorld`
+      owns the chest hunt and its cache, and `StoreSync` is down to one Minecraft
+      import for the convenience overload. Twelve tests, including both ways this
+      once made timber out of nothing — each store answering only to its own
+      ledger, and a stack carried between two stores reading as a withdrawal and
+      a donation rather than as nothing at all.
 
 - [x] **The auditor's geometry can be run without a town.** Its block reads go
       through `WorldView` — nine questions and a clock — with `LevelWorldView`
