@@ -1,6 +1,5 @@
 package com.kingdoms.neoforge.world;
 
-import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.settlement.BuildPlanner;
@@ -15,12 +14,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.FenceGateBlock;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
@@ -194,7 +187,20 @@ public final class TownAuditor {
      * the settlement is loaded, and callers must be ready for a fault list from a
      * town with nothing visible in it.
      */
+    /** Convenience for callers holding a live level. */
     public static List<Fault> audit(ServerLevel level, Settlement settlement) {
+        return audit(new LevelWorldView(level), settlement);
+    }
+
+    /**
+     * The audit proper, against whatever can answer questions about the world.
+     *
+     * <p>Takes a {@link WorldView} rather than a level so the geometry can be
+     * driven from a hand-built world in a test. The checks below are the only
+     * instrument this project has for what a town actually looks like, and
+     * until this seam existed the only way to run one was to found a town.
+     */
+    public static List<Fault> audit(WorldView world, Settlement settlement) {
         List<Fault> faults = new ArrayList<>();
         List<Building> present = new ArrayList<>();
         for (Building building : settlement.buildings()) {
@@ -203,14 +209,14 @@ public final class TownAuditor {
             }
             BlockPos origin = new BlockPos(building.origin().x(),
                     building.origin().y(), building.origin().z());
-            if (!level.isLoaded(origin)) {
+            if (!world.isLoaded(origin)) {
                 continue;
             }
             present.add(building);
-            auditOne(level, building, origin, faults);
+            auditOne(world, building, origin, faults);
         }
         auditOverlaps(present, faults);
-        auditTown(level, settlement, faults);
+        auditTown(world, settlement, faults);
         return faults;
     }
 
@@ -334,13 +340,18 @@ public final class TownAuditor {
     }
 
     /** How many of a settlement's buildings the audit could actually see. */
+    /** Convenience for callers holding a live level. */
     public static int visibleCount(ServerLevel level, Settlement settlement) {
+        return visibleCount(new LevelWorldView(level), settlement);
+    }
+
+    public static int visibleCount(WorldView world, Settlement settlement) {
         int seen = 0;
         for (Building building : settlement.buildings()) {
             if (isPath(building.blueprintId())) {
                 continue;
             }
-            if (level.isLoaded(new BlockPos(building.origin().x(),
+            if (world.isLoaded(new BlockPos(building.origin().x(),
                     building.origin().y(), building.origin().z()))) {
                 seen++;
             }
@@ -350,7 +361,7 @@ public final class TownAuditor {
 
     // --- the checks ---
 
-    private static void auditOne(ServerLevel level, Building building, BlockPos origin,
+    private static void auditOne(WorldView world, Building building, BlockPos origin,
                                  List<Fault> faults) {
         if (!building.isMaterialized()) {
             // The chunk is loaded and the simulation says this building exists,
@@ -369,11 +380,11 @@ public final class TownAuditor {
         int wallHalfW = Math.max(1, plot.width() / 2 - BlueprintPlacer.APRON_MARGIN);
         int wallHalfD = Math.max(1, plot.depth() / 2 - BlueprintPlacer.APRON_MARGIN);
 
-        checkShelf(level, building, origin, floor, wallHalfW, wallHalfD, faults);
-        checkFluid(level, building, origin, floor, wallHalfW, wallHalfD, faults);
-        checkDoorway(level, building, origin, floor, wallHalfW, wallHalfD, faults);
+        checkShelf(world, building, origin, floor, wallHalfW, wallHalfD, faults);
+        checkFluid(world, building, origin, floor, wallHalfW, wallHalfD, faults);
+        checkDoorway(world, building, origin, floor, wallHalfW, wallHalfD, faults);
         if (isCropFarm(building.blueprintId())) {
-            checkField(level, building, origin, floor, wallHalfW, wallHalfD, faults);
+            checkField(world, building, origin, floor, wallHalfW, wallHalfD, faults);
         }
     }
 
@@ -387,7 +398,7 @@ public final class TownAuditor {
      * nobody is walking in. Partial banking is left alone — a hillside build is
      * banked uphill by nature, and one open side is all an entrance needs.
      */
-    private static void checkShelf(ServerLevel level, Building building, BlockPos origin,
+    private static void checkShelf(WorldView world, Building building, BlockPos origin,
                                    int floor, int wallHalfW, int wallHalfD,
                                    List<Fault> faults) {
         int samples = 0;
@@ -396,10 +407,10 @@ public final class TownAuditor {
         int worstAbove = 0;
         int worstBelow = 0;
         for (BlockPos spot : ring(origin, wallHalfW + 1, wallHalfD + 1, RING_STEP)) {
-            if (!level.isLoaded(spot)) {
+            if (!world.isLoaded(spot)) {
                 continue;
             }
-            int grade = BlueprintPlacer.groundLevel(level, spot.getX(), spot.getZ()) - 1;
+            int grade = world.groundLevel(spot.getX(), spot.getZ()) - 1;
             samples++;
             if (grade > floor + SHELF_TOLERANCE) {
                 banked++;
@@ -424,7 +435,7 @@ public final class TownAuditor {
     }
 
     /** Water or lava standing in the rooms is a building in a lake. */
-    private static void checkFluid(ServerLevel level, Building building, BlockPos origin,
+    private static void checkFluid(WorldView world, Building building, BlockPos origin,
                                    int floor, int wallHalfW, int wallHalfD,
                                    List<Fault> faults) {
         int wet = 0;
@@ -433,7 +444,7 @@ public final class TownAuditor {
                 for (int dy = 0; dy <= 2; dy++) {
                     BlockPos pos = new BlockPos(origin.getX() + dx, floor + dy,
                             origin.getZ() + dz);
-                    if (level.isLoaded(pos) && !level.getFluidState(pos).isEmpty()) {
+                    if (world.isLoaded(pos) && world.hasFluid(pos)) {
                         wet++;
                     }
                 }
@@ -465,7 +476,7 @@ public final class TownAuditor {
      * the town hall with its door a storey up, or a doorway the terrain has
      * swallowed.
      */
-    private static void checkDoorway(ServerLevel level, Building building, BlockPos origin,
+    private static void checkDoorway(WorldView world, Building building, BlockPos origin,
                                      int floor, int wallHalfW, int wallHalfD,
                                      List<Fault> faults) {
         // Every column, no sampling. A doorway is one column wide, and stepping
@@ -473,11 +484,10 @@ public final class TownAuditor {
         // reported half the town as having no way in when it plainly did.
         for (BlockPos wall : ring(origin, wallHalfW, wallHalfD, 1)) {
             BlockPos feet = new BlockPos(wall.getX(), floor + 1, wall.getZ());
-            BlockState atFeet = level.getBlockState(feet);
-            if (atFeet.getBlock() instanceof FenceGateBlock) {
+            if (world.isFenceGate(feet)) {
                 return;   // a gate is a way in, even one kept shut on purpose
             }
-            if (!passable(level, feet) || !passable(level, feet.above())) {
+            if (!world.isPassable(feet) || !world.isPassable(feet.above())) {
                 continue;   // solid wall here
             }
             // A gap. Is there ground to stand on just outside it — level with
@@ -487,9 +497,9 @@ public final class TownAuditor {
             BlockPos outside = feet.relative(out);
             for (int dy = -1; dy <= 1; dy++) {
                 BlockPos ground = new BlockPos(outside.getX(), floor + dy, outside.getZ());
-                if (standable(level, ground)
-                        && passable(level, ground.above())
-                        && passable(level, ground.above(2))) {
+                if (world.isStandable(ground)
+                        && world.isPassable(ground.above())
+                        && world.isPassable(ground.above(2))) {
                     return;
                 }
             }
@@ -505,7 +515,7 @@ public final class TownAuditor {
      * trampled, flooded, or updated off their soil — which the player sees as a
      * field of floating seeds.
      */
-    private static void checkField(ServerLevel level, Building building, BlockPos origin,
+    private static void checkField(WorldView world, Building building, BlockPos origin,
                                    int floor, int wallHalfW, int wallHalfD,
                                    List<Fault> faults) {
         int farmland = 0;
@@ -514,12 +524,12 @@ public final class TownAuditor {
         for (int dx = -wallHalfW; dx <= wallHalfW; dx++) {
             for (int dz = -wallHalfD; dz <= wallHalfD; dz++) {
                 BlockPos soil = new BlockPos(origin.getX() + dx, floor - 1, origin.getZ() + dz);
-                if (!level.isLoaded(soil)) {
+                if (!world.isLoaded(soil)) {
                     continue;
                 }
-                if (level.getBlockState(soil).is(Blocks.FARMLAND)) {
+                if (world.isFarmland(soil)) {
                     farmland++;
-                    if (level.getBlockState(soil.above()).is(BlockTags.CROPS)) {
+                    if (world.isCrop(soil.above())) {
                         planted++;
                         nowPlanted.add(soil.above());
                     }
@@ -532,7 +542,7 @@ public final class TownAuditor {
         if (before != null) {
             int reported = 0;
             for (BlockPos was : before) {
-                if (nowPlanted.contains(was) || !level.isLoaded(was)) {
+                if (nowPlanted.contains(was) || !world.isLoaded(was)) {
                     continue;
                 }
                 if (reported++ >= MAX_VANISHED_REPORTED) {
@@ -540,8 +550,8 @@ public final class TownAuditor {
                 }
                 faults.add(new Fault(building.blueprintId(), origin,
                         "crop vanished at " + was.toShortString()
-                                + " — there now: " + level.getBlockState(was).getBlock()
-                                + ", soil: " + level.getBlockState(was.below()).getBlock()));
+                                + " — there now: " + world.blockNameAt(was)
+                                + ", soil: " + world.blockNameAt(was.below())));
             }
         }
         if (farmland >= MIN_FIELD_TO_JUDGE && planted * 2 < farmland) {
@@ -558,8 +568,7 @@ public final class TownAuditor {
             AABB box = new AABB(
                     origin.getX() - wallHalfW, floor - 1, origin.getZ() - wallHalfD,
                     origin.getX() + wallHalfW + 1, floor + 3, origin.getZ() + wallHalfD + 1);
-            int loose = level.getEntities((Entity) null, box,
-                    entity -> entity instanceof ItemEntity && entity.isAlive()).size();
+            int loose = world.looseItemsIn(box);
             if (loose >= LOOSE_ITEM_THRESHOLD) {
                 faults.add(new Fault(building.blueprintId(), origin,
                         "bare AND strewn with " + loose
@@ -608,7 +617,7 @@ public final class TownAuditor {
      * <p>Reads no blocks, so this is the one check that still runs for a town
      * nobody is watching — which is exactly the town that starves unnoticed.
      */
-    private static void auditTown(ServerLevel level, Settlement settlement,
+    private static void auditTown(WorldView world, Settlement settlement,
                                   List<Fault> faults) {
         int worstHunger = 0;
         int severe = 0;
@@ -623,7 +632,7 @@ public final class TownAuditor {
         // Unconditionally, even when the town is fed: the stall clock has to be
         // running before the hunger arrives, or the first sweep that sees a
         // famine would report the queue as freshly frozen and start counting.
-        long stalled = trackHead(level, settlement, head);
+        long stalled = trackHead(world, settlement, head);
         if (head == null || stalled < FROZEN_QUEUE_STEPS
                 || hungerTier(worstHunger) != Distress.SEVERE) {
             return;
@@ -642,7 +651,7 @@ public final class TownAuditor {
      * immune to how often it is asked: {@code /civ audit} run twice in a second
      * must not convict a build that simply had no simulation step in between.
      */
-    private static long trackHead(ServerLevel level, Settlement settlement, BuildTask head) {
+    private static long trackHead(WorldView world, Settlement settlement, BuildTask head) {
         if (head == null) {
             LAST_HEAD.remove(settlement.id());
             return 0L;
@@ -653,7 +662,7 @@ public final class TownAuditor {
         // able to work on, which would read as progress in a town making none.
         String signature = head.blueprintId() + "@" + head.origin() + " "
                 + head.progress() + "/" + head.workDone() + "/" + head.stepsDone();
-        long now = stepsElapsed(level);
+        long now = world.stepsElapsed();
         HeadState seen = LAST_HEAD.get(settlement.id());
         // The step count restarts at zero with the server, and forget() only
         // runs if the server stops cleanly. A stamp from the future is therefore
@@ -666,28 +675,14 @@ public final class TownAuditor {
     }
 
     /** The simulation's own step count, which — unlike the level clock — never freezes. */
-    private static long stepsElapsed(ServerLevel level) {
-        SimWorld world = KingdomsMod.simulationFor(level);
-        return world == null ? 0L : world.stepsElapsed();
+    private static long stepsElapsed(WorldView world) {
+        return world.stepsElapsed();
     }
 
     // --- small helpers ---
 
     private static int wallHalf(int plotSpan) {
         return Math.max(1, plotSpan / 2 - BlueprintPlacer.APRON_MARGIN);
-    }
-
-    private static boolean passable(ServerLevel level, BlockPos pos) {
-        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
-    }
-
-    /**
-     * Whether feet can rest on this block: any collision at all. Deliberately
-     * not {@code isFaceSturdy} — paths, farmland and slabs all fail that while
-     * being exactly what people walk on all day.
-     */
-    private static boolean standable(ServerLevel level, BlockPos pos) {
-        return !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
     }
 
     /** Which way is out, from a spot on a building's wall ring. */

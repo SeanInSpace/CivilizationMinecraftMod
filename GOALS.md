@@ -16,7 +16,7 @@ than papered over.
 
 Roughly 22,700 lines of source across three modules — `common` 8,600 (pure
 simulation, never imports Minecraft), `neoforge` 11,600 (the world, the entities,
-the blocks), `keystone` 2,500 (blueprints). 361 tests pass and there are no
+the blocks), `keystone` 2,500 (blueprints). 374 tests pass and there are no
 TODO markers anywhere in the source.
 
 The milestone is substantially met: a charter-founded party of four climbs
@@ -28,14 +28,15 @@ Two structural weaknesses are worth stating plainly at the top, because they
 shape most of what follows.
 
 **Most of the platform half is still only reachable by playing.** `neoforge`
-has a test source set now — 15 tests against a real bootstrapped game — but its
-reach is narrower than the line count suggests. The JUnit game populates the
-registries and answers questions about them, and that is all: item components
-are never bound, so no test here can hold an `ItemStack`, and nothing can
-supply a `ServerLevel`. Everything that reads or writes blocks — the auditor's
-geometry, the blueprint placer, the excavation, the chest mirror's world half,
-every entity behaviour — is still covered only by playtests. That is why the
-two faults below could persist for weeks under a green build.
+has a test source set now, and the auditor's geometry has a seam in front of
+its block reads, so that much can be driven from a hand-built world. The rest
+cannot. The JUnit game populates the registries and answers questions about
+them, and that is all: item components are never bound, so no test here can
+hold an `ItemStack`, and nothing supplies a `ServerLevel`. The blueprint
+placer, the excavation, the chest mirror's world half and every entity
+behaviour are still covered only by playtests. The seam that fixed this for the
+auditor is the pattern for fixing it elsewhere, and it is cheap — one narrow
+interface, one wrapper, one fake.
 
 **The audit is the only instrument.** It is good, and it is now self-checking,
 but everything it cannot reach — anything about how the town *reads* — still
@@ -56,27 +57,29 @@ work that cannot be delegated.
       causes have already been wrong once each (trampling, light, placement
       order). Treat any new theory as unproven until the auditor names it.
 
-- [ ] **Buildings with no doorway at grade, still.** Four in one run — a
-      storehouse, a lumber camp and two houses. The known false positive was
-      fixed (a dirt-path doorstep fails vanilla's sturdy-face test; doorsteps
-      are judged standable now, with a one-step tolerance) and that fix is
-      present. So these are either genuine — buildings whose only door is above
-      or below grade after the foundation courses go in — or a second false
-      positive with a different cause. The auditor's self-test covers its
-      judgement but not its geometry, so this needs a person standing at
-      `148, 107, -48` to say which.
+- [ ] **Buildings with no doorway at grade — and the check is probably right.**
+      Four in one run: a storehouse, a lumber camp and two houses. The doorway
+      check is now tested against hand-built worlds and passes every case its
+      own javadoc claims — a door on any of the four sides, a doorstep that is
+      the town's own dirt path, a door at the head of its own stair, a door onto
+      a shelf a block proud, a shut fence gate, and the two genuine failures
+      (a door onto a pit, a door the terrain has closed over). So this is very
+      likely a real defect in what gets built rather than a false positive in
+      what gets reported. **Where to look next:** the check reads the wall ring
+      at the *recorded* floor (`Footprint.y`), so the leading suspicion is
+      buildings whose foundation courses leave the real doorway at a different
+      height from the record — go and stand at `148, 107, -48` and compare the
+      door's actual y against what `/civ info` reports for that building.
 
-- [ ] **Get a world under the tests that need one.** The `neoforge` source set
-      exists and its JUnit game answers registry questions, but it cannot build
-      an `ItemStack` (components are never bound to their holders) and cannot
-      supply a `ServerLevel`. So the two things most worth testing are still
-      out of reach: `TownAuditor`'s geometry — the doorway and bare-field checks
-      that are currently reporting faults nobody has explained — and
-      `StoreSync`'s reconciliation against a real chest. **What to decide:**
-      whether to stand a headless server up inside the test run (slow, but
-      real), or to put a seam in front of the block reads so the geometry can be
-      driven from a fake — which is what `WorldBridge` already does for the
-      simulation, and would make the auditor testable the same way.
+- [ ] **Put the same seam in front of `StoreSync`.** The auditor now reads the
+      world through `WorldView` and its geometry is tested against fakes; the
+      chest mirror still takes a `ServerLevel` directly, so the one part of the
+      storage work with no unit test is the part that actually touches chests —
+      finding a store's container, reading a player's withdrawal back out,
+      laying the ledger onto shelves. The seam it needs is narrower than the
+      auditor's: find a block entity, read and write its slots. The
+      reconciliation arithmetic is already covered in `:common`; what is missing
+      is everything around it.
 
 - [ ] **Goods do not move between stores, because nothing asks them to.**
       Produce now lands at the store nearest where it was made and a builder
@@ -205,6 +208,17 @@ ground.
 ---
 
 ## Done
+
+- [x] **The auditor's geometry can be run without a town.** Its block reads go
+      through `WorldView` — nine questions and a clock — with `LevelWorldView`
+      answering them from a real server and a `FakeWorld` answering them from a
+      `HashSet` of solid blocks. `TownAuditor` is down to five Minecraft
+      imports, only one of which is a live-server type, and that only for the
+      convenience overloads callers use. Thirteen tests now put a house in a
+      hand-built world and ask what the auditor makes of it. The immediate
+      payoff: the doorway check passes every case its own javadoc claims, which
+      moves "four buildings with no way in" from an unexplained report to a
+      probable real defect — see Open.
 
 - [x] **`neoforge` has tests at last.** Eleven thousand lines had none, because
       everything in the module can reach Minecraft and Minecraft cannot be
