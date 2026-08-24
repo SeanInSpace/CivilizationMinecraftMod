@@ -58,16 +58,6 @@ work that cannot be delegated.
       produced as a list of placements and only then applied, which would make
       the plan itself testable without a seam at all.
 
-- [ ] **Decide what to do with the four rescued branches.** Roughly 1,500 lines
-      including tests, all of it predating the storage reshape and touching
-      files that have changed underneath it. Worth reading and re-deriving
-      rather than merging: blueprint transforms with a 117-line `TransformsTest`
-      (`a1189e6c722c47a38`); a mine rework with a 279-line `MinePlannerTest`
-      (`a551f32fe3c7672c4`); a `BuildPlanner` change with `SupplyTest` additions
-      (`a75374de228c69b47`); and an `UnwatchedBridge` with a 231-line test
-      (`ae276793f6c09e959`), whose build change is superseded but whose bridge
-      nobody has looked at. This one needs a person to say keep or drop — the
-      commits are the only copy.
 
 - [ ] **Create buildings in a much more intelligent way.** Never specified, so
       here is what it appears to mean after a few weeks of watching towns build
@@ -159,6 +149,20 @@ ground.
 ---
 
 ## Done
+
+- [x] **The four rescued branches are decided.** Read, judged one at a time,
+      and their value re-derived on main rather than merged — all four predated
+      the storage reshape and touched files that had moved underneath them. The
+      keystone one was right and is now in, verified against a real MineColonies
+      file rather than taken on trust. The mine one was right and was
+      understated: the same hole was in timber as well as stone, and fixing it
+      turned up a worse bug of my own. The `RESCUE_HEAD_START` one was verified
+      broken in an earlier session — its gate can never lift below VILLAGE,
+      because births need a family home and the bunkhouse is not one — and is
+      dropped. The `UnwatchedBridge` one diagnosed `/civ step` correctly and is
+      superseded: a grace on real work covers it without a wrapper, and covers
+      every other watched-but-idle case too. The refs are left in place as an
+      archive; nothing in them is now unrepresented on main.
 
 - [x] **A town builds in its own style.** The placer composes the styled path
       at the last possible moment, from the culture of the town whose ground it
