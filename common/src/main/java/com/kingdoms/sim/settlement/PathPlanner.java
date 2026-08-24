@@ -51,8 +51,8 @@ public final class PathPlanner {
         PathNetwork network = settlement.paths();
 
         for (Building building : settlement.buildings()) {
-            if (!building.isMaterialized() || !building.footprint().isKnown()) {
-                continue;   // nothing drawn yet, so nothing to run a road to
+            if (!building.footprint().isKnown()) {
+                continue;   // never measured, so there is no doorstep to aim at
             }
             if (network.hasJoined(building.origin())) {
                 continue;
@@ -127,9 +127,6 @@ public final class PathPlanner {
     private static Building hubBuilding(Settlement settlement) {
         Building campPost = null;
         for (Building building : settlement.buildings()) {
-            if (!building.isMaterialized()) {
-                continue;
-            }
             String id = BuildPlanner.baseIdOf(building.blueprintId());
             if (id.endsWith("town_hall")) {
                 return building;

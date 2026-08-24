@@ -1399,7 +1399,17 @@ public final class Settlement {
         raised.setSurveyed(current.siteY() != BuildTask.UNSET_SITE_Y);
         // A hand-built structure already knows its size from the survey; one built
         // out of sight learns it when it is finally placed.
-        raised.setFootprint(current.footprint());
+        // A building finished out of sight has never been measured, so it has
+        // no footprint — and without one it has no doorstep, and without a
+        // doorstep no road can be run to it. That is why a town nobody had
+        // visited never laid a single street, and why everything that makes
+        // siting intelligent was inert there. The plot span is what the
+        // catalogue set aside for this building, which is the same figure a
+        // measured one comes back with; materialization overwrites it with the
+        // real thing the moment the structure is actually drawn.
+        raised.setFootprint(current.footprint().isKnown()
+                ? current.footprint()
+                : expectedFootprint(current));
         raised.setFacing(current.facing());
         buildings.add(raised);
         tallies.record(Tallies.BUILDINGS_RAISED);
@@ -1408,6 +1418,19 @@ public final class Settlement {
     /** Whether two origins name the same plot, whatever height each was read at. */
     private static boolean samePlot(SimPos a, SimPos b) {
         return a != null && b != null && a.x() == b.x() && a.z() == b.z();
+    }
+
+    /**
+     * The footprint a building is expected to have, before anybody has measured it.
+     *
+     * <p>Provisional by construction and replaced by the measured one at
+     * placement. The height is a storey rather than a guess at the real
+     * elevation: nothing reads it before the structure is drawn, and claiming a
+     * precise number nobody checked would be worse than claiming a plain one.
+     */
+    private Footprint expectedFootprint(BuildTask task) {
+        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalogue);
+        return new Footprint(task.site().y(), span, span, 4);
     }
 
     /**

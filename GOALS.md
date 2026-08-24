@@ -61,16 +61,13 @@ work that cannot be delegated.
       instrument that can judge what these two actually produced.
 
 
-- [ ] **An unwatched town still sites its buildings by ring order.** Everything
-      that makes siting intelligent — the streets, the partner buildings — needs
-      a road network, and `PathPlanner` cannot lay one until a building has a
-      doorstep, which needs a footprint, which is not known until the structure
-      is actually placed. So a town nobody has visited grows the old way. The
-      fix is not in the siting rule; it is whether a completed-but-undrawn
-      building can be given a footprint from its plan rather than from its
-      placement. **Also unbuilt for want of a concept:** "the lumber camp by the
-      woods". The simulation has no notion of woods to site one by — the lumber
-      area is derived *from* the camp, which is the wrong way round.
+- [ ] **The lumber camp still cannot be sited by the woods.** The one part of
+      intelligent siting that is not a rule but a missing concept: the
+      simulation has no notion of where trees are. The lumber area is derived
+      *from* the camp rather than the camp from the trees, which is the wrong
+      way round, and no amount of weighing plots can fix it. It wants the
+      bridge to be able to answer "how wooded is this ground", which is the same
+      shape as `isSiteSuitable` and would serve the mine as well.
 
 
 ---
@@ -131,6 +128,17 @@ ground.
 ---
 
 ## Done
+
+- [x] **A town lays streets whether or not anybody is watching.** A building
+      finished out of sight had never been measured, so it had no footprint;
+      with no footprint it had no doorstep, and with no doorstep no road could
+      be run to it. So an unwatched town never laid a single street — and
+      everything that makes siting intelligent reads the street network, which
+      meant all of it was inert in exactly the case that dominates. A building
+      now takes the plot span the catalogue set aside for it as a provisional
+      footprint, replaced by the measured one the moment it is drawn. Roads in
+      a headless run went from nothing at all to 106 runs, 1219 blocks and 64
+      buildings joined.
 
 - [x] **Buildings are created more intelligently, in all three senses.** The
       item was one unspecified line; it resolved into three questions with
