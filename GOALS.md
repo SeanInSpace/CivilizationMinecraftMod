@@ -61,40 +61,16 @@ work that cannot be delegated.
       instrument that can judge what these two actually produced.
 
 
-- [ ] **Create buildings in a much more intelligent way.** Never specified, so
-      here is what it appears to mean after a few weeks of watching towns build
-      themselves. Three separate questions, worth separating because they have
-      different answers:
-      **Where.** Done, bar one thing it cannot reach. A town weighs the nearest
-      dozen usable plots by how far each is from its own streets and from the
-      buildings that kind of building works with — a granary among the fields it
-      fills, a mill beside the corn, a forge near the ore — and takes the best,
-      rather than the first slot that fits. Partners count half a street, since a
-      building off the road is awkward for everybody who walks to it while a
-      granary a little further out is awkward only for carriers already walking.
-      The ring index still advances only to the first fit, so choosing more
-      carefully does not also make a town creep outward faster. What is left:
-      none of it bites until a town has streets, and a town nobody has visited
-      has none — `PathPlanner` needs a building's doorstep, which needs its
-      footprint, which is not known until the structure is placed. And "the
-      lumber camp by the woods" stays unbuilt because the simulation has no
-      notion of woods to site one by.
-      **What next.** Done, in the modest sense the table allows. Ties break
-      first on whether a building makes something the town is running out of,
-      then on the shortfall as a *share* of what is wanted — so a town short of
-      stone reaches for its mine, and one with nowhere to put anything raises a
-      storehouse before a fourth house. Both sit under priority, which still
-      outranks them entirely: a town short of stone does not stop building its
-      hall. `requestProducer` remains for the sharper case, where a build has
-      actually failed for want of materials and something must jump the queue.
-      **How well.** The premise was wrong and the fix was underneath it.
-      Choosing upgrades "more intelligently" was pointless while upgrading
-      gained nothing: every ceiling counted store *buildings*, so a storehouse
-      raised to level two held exactly what it had before. Capacity now counts
-      levels, which makes "improve the lowest first" an even distribution of a
-      real effect rather than of none. What is still true is that a level only
-      changes capacity and the drawing — nothing else about a building improves,
-      and a grander smithy forges no faster.
+- [ ] **An unwatched town still sites its buildings by ring order.** Everything
+      that makes siting intelligent — the streets, the partner buildings — needs
+      a road network, and `PathPlanner` cannot lay one until a building has a
+      doorstep, which needs a footprint, which is not known until the structure
+      is actually placed. So a town nobody has visited grows the old way. The
+      fix is not in the siting rule; it is whether a completed-but-undrawn
+      building can be given a footprint from its plan rather than from its
+      placement. **Also unbuilt for want of a concept:** "the lumber camp by the
+      woods". The simulation has no notion of woods to site one by — the lumber
+      area is derived *from* the camp, which is the wrong way round.
 
 
 ---
@@ -155,6 +131,22 @@ ground.
 ---
 
 ## Done
+
+- [x] **Buildings are created more intelligently, in all three senses.** The
+      item was one unspecified line; it resolved into three questions with
+      different answers, and each is now answered. **Where:** a town weighs the
+      nearest dozen usable plots by distance to its own streets and to the
+      buildings that kind works with, rather than taking the first that fits —
+      and its ring index still advances only to the first fit, so choosing more
+      carefully does not make it creep outward faster. **What next:** ties break
+      on whether a building makes something the town is running out of, then on
+      the shortfall as a share of what is wanted, so a town reaches for its mine
+      when the stone runs low and raises a storehouse before a fourth house.
+      **How well:** the premise was wrong — every ceiling counted store
+      buildings, so improving one gained nothing at all; capacity counts levels
+      now, which makes "improve the lowest first" an even distribution of a real
+      effect. What each still cannot do is written down under Open and in the
+      code.
 
 - [x] **The four rescued branches are decided.** Read, judged one at a time,
       and their value re-derived on main rather than merged — all four predated
