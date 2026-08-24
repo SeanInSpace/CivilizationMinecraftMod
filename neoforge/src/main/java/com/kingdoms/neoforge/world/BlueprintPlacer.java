@@ -85,7 +85,7 @@ import java.util.Set;
 public final class BlueprintPlacer {
 
     /** One block placement in a plan. */
-    private record Placement(BlockPos pos, BlockState state, CompoundTag nbt) {
+    record Placement(BlockPos pos, BlockState state, CompoundTag nbt) {
     }
 
     /**
@@ -1719,13 +1719,51 @@ public final class BlueprintPlacer {
      */
     private static void foundation(ServerLevel level, List<Placement> blocks, BlockPos base,
                                    int width, int depth, int floorCourse) {
+        foundation(blocks, base, width, depth, floorCourse, groundOf(level));
+    }
+
+    /**
+     * What the ground says, for the purpose of underpinning something.
+     *
+     * <p>Two questions, which is all the whole foundation pass ever asks of a
+     * world — so asking them through this makes what it lays testable without
+     * one. The cells it fills are where "floating over a slope" and "a cobble
+     * kerb standing proud of the grass" both live, and neither was reachable by
+     * anything but looking at a hillside.
+     */
+    interface Ground {
+
+        /** Whether this cell can be judged at all. */
+        boolean loaded(BlockPos pos);
+
+        /** Nothing holding this cell up: open air, or water to displace. */
+        boolean unsupported(BlockPos pos);
+    }
+
+    private static Ground groundOf(ServerLevel level) {
+        return new Ground() {
+            @Override
+            public boolean loaded(BlockPos pos) {
+                return level.isLoaded(pos);
+            }
+
+            @Override
+            public boolean unsupported(BlockPos pos) {
+                return isUnsupported(level, pos);
+            }
+        };
+    }
+
+    /** The underpinning and its apron, as a list of blocks and nothing else. */
+    static void foundation(List<Placement> blocks, BlockPos base,
+                           int width, int depth, int floorCourse, Ground ground) {
         int rx = width / 2;
         int rz = depth / 2;
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
                 for (int dy = 1; dy <= FOUNDATION_DEPTH; dy++) {
                     BlockPos below = base.offset(dx, floorCourse - dy, dz);
-                    if (isUnsupported(level, below)) {
+                    if (ground.unsupported(below)) {
                         add(blocks, below, Blocks.COBBLESTONE);
                     }
                 }
@@ -1736,7 +1774,7 @@ public final class BlueprintPlacer {
                 if (Math.abs(dx) <= rx && Math.abs(dz) <= rz) {
                     continue;   // the building's own box, underpinned above
                 }
-                doorstep(level, blocks, base.offset(dx, floorCourse, dz));
+                doorstep(blocks, base.offset(dx, floorCourse, dz), ground);
             }
         }
     }
@@ -1747,17 +1785,17 @@ public final class BlueprintPlacer {
     }
 
     /** Packs one apron column up to the floor line, if it can reach the ground. */
-    private static void doorstep(ServerLevel level, List<Placement> blocks, BlockPos top) {
+    static void doorstep(List<Placement> blocks, BlockPos top, Ground ground) {
         // The apron reaches past the footprint and can cross into a chunk nobody
         // has loaded, exactly as the apron cut can.
-        if (!level.isLoaded(top)) {
+        if (!ground.loaded(top)) {
             return;
         }
         int drop = 0;
-        while (drop < FOUNDATION_DEPTH && isUnsupported(level, top.below(drop))) {
+        while (drop < FOUNDATION_DEPTH && ground.unsupported(top.below(drop))) {
             drop++;
         }
-        if (drop == 0 || isUnsupported(level, top.below(drop))) {
+        if (drop == 0 || ground.unsupported(top.below(drop))) {
             return;   // already at grade, or the ground is further down than a step
         }
         for (int dy = 0; dy < drop; dy++) {

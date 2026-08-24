@@ -47,18 +47,18 @@ work that cannot be delegated.
 
 ## Open
 
-- [ ] **The excavation's writes still need a world, and always will in part.**
-      Its geometry is out now — where a digger may stand, how the candidates are
-      ordered, what reach means, where a crew gathers — because all of that is
-      arithmetic over a predicate. What is left genuinely is not: choosing a
-      stance ends in `getNavigation().createPath`, and a seam in front of the
-      game's own pathfinder would either omit it, making the test say nothing,
-      or need a fake A* larger than the code it checks. The same is true of the
-      placer's write half. **What would help more than a seam:** the placer
-      already builds its output as a `List<Placement>` before applying any of
-      it, so if the terrain reads it makes on the way (`groundLevel`, the
-      foundation probes) went behind something small, the whole plan would be
-      inspectable without a world. That is the shape worth trying.
+- [ ] **What is left of the placer and the excavation genuinely needs a world.**
+      Everything decidable without one is out and tested: the floor across a
+      sloping plot, the underpinning and its apron, where a digger may stand and
+      in what order, reach, and where a crew gathers. What remains is not a
+      seam waiting to be cut. Choosing a stance ends in
+      `getNavigation().createPath`, and putting a seam in front of the game's own
+      pathfinder would either omit it — making the test say nothing — or need a
+      fake A* larger than the code it checks. The placer's remaining reads are
+      the site-suitability probes and the entity handling around laying a block,
+      which are the same kind of thing. **The honest next step is not more
+      seams** but the audit: it already walks the finished world and is the only
+      instrument that can judge what these two actually produced.
 
 
 - [ ] **Create buildings in a much more intelligent way.** Never specified, so
