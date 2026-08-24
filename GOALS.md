@@ -66,21 +66,39 @@ work that cannot be delegated.
       nobody has looked at. This one needs a person to say keep or drop — the
       commits are the only copy.
 
-- [ ] **Create buildings in a much more intelligent way.**
+- [ ] **Create buildings in a much more intelligent way.** Never specified, so
+      here is what it appears to mean after a few weeks of watching towns build
+      themselves. Three separate questions, worth separating because they have
+      different answers:
+      **Where.** Plots come from rings around the centre, filtered by a site
+      veto. That is why towns sprawl toward whichever ring index came up rather
+      than clustering along their own streets, and why the wall had to learn to
+      follow an outlying farm. A siting rule that preferred ground near an
+      existing road, and near the buildings it works with — the lumber camp by
+      the woods, the granary by the fields — would change the shape of a town
+      more than anything else on this list.
+      **What next.** `BuildPlanner` orders by a fixed table of wants. It has no
+      notion that a second storehouse is worth less than a first, or that a mine
+      is worth more the moment stone runs short — the urgent-producer path is
+      the one place that reasons about need, and it is a special case bolted
+      beside the table rather than the rule.
+      **How well.** Every building of a kind is the same building. Levels exist
+      and are chosen by "lowest first", which is even rather than intelligent.
+      Start with **where**: it is the one whose absence is visible from inside
+      the town.
 
-- [ ] **A second culture, to prove the hook earns its keep.** The claim is that
-      a second culture is a table entry rather than new code. Known to be false
-      in at least these places: `BlueprintPlacer.animalFarm` sizes the compound
-      from `Culture.DEFAULT.penCount()` while `ShepherdWorker` stocks the pens
-      from the *settlement's* culture; `BuildCatalogue` reserves a fixed plot
-      for `kingdoms:animal_farm` regardless of how many beasts a culture keeps;
-      every settlement starts on `BuildCatalogue.DEFAULT` and nothing picks a
-      catalogue by culture; settlement and person names read no culture at all.
-      The blueprint side is ready and untouched — `styleCandidates` already
-      resolves `kingdoms:norman/house` and falls back to plain — but nothing
-      yet *produces* a styled id. **What to decide:** how far a culture is
-      allowed to reach. Animals and building styles alone is a day's work;
-      catalogue, professions, staffing and names is a different project.
+- [ ] **Cultures do not yet change what a town looks like.** The beasts half
+      is done — see below — but nothing produces a styled blueprint id, so
+      `kingdoms:norman/house` is still a path the loader is ready for and
+      nothing asks it for. The blocker is not the loader: it is that every
+      comparison of a blueprint id against a catalogue entry
+      (`type.id().equals(baseId)`, the upgrade lookup, `plotSpanOf`) strips a
+      level suffix but not a culture folder, so a styled id stops matching its
+      own catalogue row. **What to decide:** whether to carry the style
+      alongside the id rather than inside it — a `Building` knowing its culture
+      and the placer composing the path at the last moment — which would leave
+      every existing comparison untouched. That reads like the smaller change
+      of the two and is worth trying first.
 
 ---
 
@@ -135,6 +153,16 @@ ground.
 ---
 
 ## Done
+
+- [x] **A second people, and the pens that belong to them.** `NORMAN` is now a
+      real entry rather than a name every lookup fell through on, and `HIGHLAND`
+      is the second — goats and rabbits where the lowlanders keep pigs and cows.
+      The live defect it exposed: the placer sized the animal compound from the
+      default culture while the shepherd stocked its pens from the settlement's
+      own, which agreed for exactly as long as there was one culture. The placer
+      now reads the culture of the town whose claim the ground falls in. A test
+      over every culture holds them to the plot the catalogue reserves, so a
+      fifth pen fails loudly rather than as a compound built through a wall.
 
 - [x] **The wall follows the town instead of boxing it.** A concave hull over
       the plot corners, dug in from the convex hull so an outlying farm adds
