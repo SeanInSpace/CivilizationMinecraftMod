@@ -35,7 +35,7 @@ public final class JobPlanner {
      * {@link BuildingType}: {@code base + population / perResidents}.
      */
     public record ProfessionNeed(Profession profession, int base, int perResidents, int priority,
-                                 String requiresBuilding) {
+                                 BuildingRole requiresBuilding) {
 
         public ProfessionNeed {
             Objects.requireNonNull(profession, "profession");
@@ -67,7 +67,7 @@ public final class JobPlanner {
                 return true;
             }
             return settlement.buildings().stream()
-                    .anyMatch(b -> b.blueprintId().contains(requiresBuilding));
+                    .anyMatch(b -> b.role() == requiresBuilding);
         }
     }
 
@@ -80,12 +80,12 @@ public final class JobPlanner {
             new ProfessionNeed(Profession.BUILDER,     1,            5,       90),
             new ProfessionNeed(Profession.GUARD,       0,            8,       80),
             new ProfessionNeed(Profession.FARMER,      0,            5,       70),
-            new ProfessionNeed(Profession.LUMBERJACK,  1,           10,       60, "lumber_camp"),
-            new ProfessionNeed(Profession.MINER,       1,           12,       55, "mine"),
-            new ProfessionNeed(Profession.SMITH,       1,           14,       52, "smith"),
-            new ProfessionNeed(Profession.SHEPHERD,    1,           16,       48, "animal_farm"),
-            new ProfessionNeed(Profession.MILLER,      1,           20,       46, "mill"),
-            new ProfessionNeed(Profession.CARPENTER,   1,           20,       44, "carpentry"),
+            new ProfessionNeed(Profession.LUMBERJACK,  1,           10,       60, BuildingRole.LUMBER_CAMP),
+            new ProfessionNeed(Profession.MINER,       1,           12,       55, BuildingRole.MINE),
+            new ProfessionNeed(Profession.SMITH,       1,           14,       52, BuildingRole.SMITH),
+            new ProfessionNeed(Profession.SHEPHERD,    1,           16,       48, BuildingRole.ANIMAL_FARM),
+            new ProfessionNeed(Profession.MILLER,      1,           20,       46, BuildingRole.MILL),
+            new ProfessionNeed(Profession.CARPENTER,   1,           20,       44, BuildingRole.CARPENTRY),
             new ProfessionNeed(Profession.TRADER,      0,           15,       50)
     );
 

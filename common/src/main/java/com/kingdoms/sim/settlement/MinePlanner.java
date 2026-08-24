@@ -95,7 +95,7 @@ public final class MinePlanner {
     /** Where the mine stands, or null if the town has not built one. */
     public static SimPos minePos(Settlement settlement) {
         for (Building building : settlement.buildings()) {
-            if (building.blueprintId().contains("mine")) {
+            if (building.role() == BuildingRole.MINE) {
                 return building.origin();
             }
         }
@@ -104,8 +104,7 @@ public final class MinePlanner {
 
     public static int stoneCapacity(Settlement settlement) {
         int stores = (int) settlement.buildings().stream()
-                .filter(b -> b.blueprintId().contains("storehouse")
-                        || b.blueprintId().contains("warehouse"))
+                .filter(Building::isStore)
                 .count();
         return BASE_STONE_STORAGE + stores * STONE_PER_STOREHOUSE;
     }

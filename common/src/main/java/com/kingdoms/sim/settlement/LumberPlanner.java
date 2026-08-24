@@ -97,7 +97,7 @@ public final class LumberPlanner {
     /** Where the camp stands, or null if the town has not built one. */
     public static SimPos campPos(Settlement settlement) {
         for (Building building : settlement.buildings()) {
-            if (building.blueprintId().contains("lumber_camp")) {
+            if (building.role() == BuildingRole.LUMBER_CAMP) {
                 return building.origin();
             }
         }
@@ -106,8 +106,7 @@ public final class LumberPlanner {
 
     public static int woodCapacity(Settlement settlement) {
         int stores = (int) settlement.buildings().stream()
-                .filter(b -> b.blueprintId().contains("storehouse")
-                        || b.blueprintId().contains("warehouse"))
+                .filter(Building::isStore)
                 .count();
         return BASE_WOOD_STORAGE + stores * WOOD_PER_STOREHOUSE;
     }

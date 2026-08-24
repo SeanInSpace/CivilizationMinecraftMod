@@ -69,6 +69,9 @@ public final class Building {
      */
     private TownStores stores;
 
+    /** Worked out from the blueprint id on first use. See {@link #role()}. */
+    private BuildingRole role;
+
     /**
      * This building's own goods.
      *
@@ -96,7 +99,21 @@ public final class Building {
      * what it is for.
      */
     public boolean isStore() {
-        return blueprintId.contains("warehouse") || blueprintId.contains("storehouse");
+        return role() == BuildingRole.STORE;
+    }
+
+    /**
+     * What this building is for.
+     *
+     * <p>Cached because the holder list asks every settlement's every building
+     * on every read of the town's stock, and thrown away when an upgrade
+     * renames the blueprint underneath it.
+     */
+    public BuildingRole role() {
+        if (role == null) {
+            role = BuildingRole.of(blueprintId);
+        }
+        return role;
     }
 
     public String blueprintId() {
@@ -141,6 +158,7 @@ public final class Building {
     /** Changed only when a building is improved in place; see {@code planUpgrade}. */
     public void setBlueprintId(String blueprintId) {
         this.blueprintId = blueprintId;
+        this.role = null;   // an upgrade can change what a building is
     }
 
     public int level() {

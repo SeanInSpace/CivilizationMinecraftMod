@@ -546,10 +546,10 @@ public final class Settlement {
         return fitting;
     }
 
-    /** The first building whose blueprint name carries this word, or null. */
-    public Building buildingNamed(String fragment) {
+    /** The first building of this kind, or null if the town has none. */
+    public Building buildingWithRole(BuildingRole role) {
         for (Building building : buildings) {
-            if (building.blueprintId().contains(fragment)) {
+            if (building.role() == role) {
                 return building;
             }
         }

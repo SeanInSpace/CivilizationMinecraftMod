@@ -6,6 +6,7 @@ import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
@@ -715,7 +716,6 @@ public final class TownAuditor {
 
     /** A crop farm, as opposed to the animal one. Levels and styles both allowed for. */
     private static boolean isCropFarm(String blueprintId) {
-        String path = Identifier.parse(BuildPlanner.baseIdOf(blueprintId)).getPath();
-        return path.equals("farm") || path.endsWith("/farm");
+        return BuildingRole.of(blueprintId) == BuildingRole.CROP_FARM;
     }
 }
