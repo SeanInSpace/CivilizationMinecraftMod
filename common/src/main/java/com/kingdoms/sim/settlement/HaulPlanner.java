@@ -74,25 +74,62 @@ public final class HaulPlanner {
             haul.resetStalled();
 
             if (!haul.isLoaded()) {
-                int taken = FoodPlanner.withdraw(settlement, haul.fromStore(), haul.fromPos(), haul.requested());
+                int taken = pickUp(settlement, haul);
                 if (taken <= 0) {
                     person.setHaul(null);   // somebody beat them to it
                     continue;
                 }
                 haul.setCarried(taken);
             } else {
-                FoodPlanner.deposit(settlement, haul.toStore(), haul.toPos(), haul.carried());
+                setDown(settlement, haul.resource(), haul.toStore(), haul.toPos(), haul.carried());
                 person.setHaul(null);
             }
         }
     }
 
-    /** Put a carried load back into the nearest sensible store and cancel the errand. */
+    /** Put a carried load back where it came from and cancel the errand. */
     private static void abandon(Settlement settlement, Person person, HaulTask haul) {
         if (haul.isLoaded()) {
-            FoodPlanner.deposit(settlement, haul.fromStore(), haul.fromPos(), haul.carried());
+            setDown(settlement, haul.resource(), haul.fromStore(), haul.fromPos(), haul.carried());
         }
         person.setHaul(null);
+    }
+
+    /**
+     * Takes the load out of the books it is leaving.
+     *
+     * <p>Food keeps its own economy — granary, field, stall, pantry — and bulk
+     * goods come off the shelves of the building they were fetched from.
+     */
+    private static int pickUp(Settlement settlement, HaulTask haul) {
+        if (TownStores.FOOD.equals(haul.resource())) {
+            return FoodPlanner.withdraw(settlement, haul.fromStore(), haul.fromPos(),
+                    haul.requested());
+        }
+        Building from = settlement.buildingAt(haul.fromPos());
+        return from == null ? 0 : from.stores().takeUpTo(haul.resource(), haul.requested());
+    }
+
+    /**
+     * Puts the load into the books it has arrived at.
+     *
+     * <p>A load whose destination has been pulled down since it set out goes on
+     * the ground rather than nowhere: goods only ever exist in one place, and
+     * losing them because a building did is the one outcome worse than a wasted
+     * walk.
+     */
+    private static void setDown(Settlement settlement, String resource,
+                                HaulTask.Store store, SimPos pos, int amount) {
+        if (TownStores.FOOD.equals(resource)) {
+            FoodPlanner.deposit(settlement, store, pos, amount);
+            return;
+        }
+        Building to = settlement.buildingAt(pos);
+        if (to != null) {
+            to.stores().add(resource, amount);
+        } else {
+            settlement.loosePile().add(resource, amount);
+        }
     }
 
     /** Move at most {@code blocks} from one point toward another, never overshooting. */

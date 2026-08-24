@@ -1,6 +1,7 @@
 package com.kingdoms.sim.person;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.TownStores;
 
 import java.util.Objects;
 
@@ -21,8 +22,20 @@ public final class HaulTask {
         FARM,
         GRANARY,
         MARKET,
-        HOME
+        HOME,
+        /** A building's own bulk shelves — timber, stone, saplings, iron. */
+        STORE
     }
+
+    /**
+     * What is being carried.
+     *
+     * <p>Every errand was food once, and the food economy still names its stops
+     * by kind — farm, granary, stall, pantry. Bulk goods move between buildings'
+     * own shelves instead, so the resource is what decides which set of books
+     * the load comes out of and goes into.
+     */
+    private final String resource;
 
     private final Store fromStore;
     private final SimPos fromPos;
@@ -33,12 +46,23 @@ public final class HaulTask {
     /** Zero until the load is picked up; the amount on their back afterwards. */
     private int carried;
 
+    /** A food errand, which is what every errand used to be. */
     public HaulTask(Store fromStore, SimPos fromPos, Store toStore, SimPos toPos, int requested) {
+        this(TownStores.FOOD, fromStore, fromPos, toStore, toPos, requested);
+    }
+
+    public HaulTask(String resource, Store fromStore, SimPos fromPos,
+                    Store toStore, SimPos toPos, int requested) {
+        this.resource = Objects.requireNonNull(resource, "resource");
         this.fromStore = Objects.requireNonNull(fromStore, "fromStore");
         this.fromPos = Objects.requireNonNull(fromPos, "fromPos");
         this.toStore = Objects.requireNonNull(toStore, "toStore");
         this.toPos = Objects.requireNonNull(toPos, "toPos");
         this.requested = Math.max(1, requested);
+    }
+
+    public String resource() {
+        return resource;
     }
 
     public Store fromStore() {

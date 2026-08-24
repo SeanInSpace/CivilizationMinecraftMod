@@ -546,6 +546,16 @@ public final class Settlement {
         return fitting;
     }
 
+    /** The building standing at exactly this origin, or null. */
+    public Building buildingAt(SimPos pos) {
+        for (Building building : buildings) {
+            if (building.origin().equals(pos)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
     /** Every building of this kind, in the order they were raised. */
     public List<Building> buildingsWithRole(BuildingRole role) {
         List<Building> out = new ArrayList<>();
@@ -895,6 +905,9 @@ public final class Settlement {
         advanceBuildQueue(ctx);
         materializePending(ctx);
         FoodPlanner.advance(this, ctx);
+        // Errands are set before they are walked, so the courier is asked
+        // first and its load moves on the same step it was ordered.
+        SupplyPlanner.advance(this, ctx);
         HaulPlanner.advance(this, ctx);
         LumberPlanner.advance(this, ctx);
         MinePlanner.advance(this, ctx);

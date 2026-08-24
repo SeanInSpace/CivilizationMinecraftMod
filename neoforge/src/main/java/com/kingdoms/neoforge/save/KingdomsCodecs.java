@@ -105,9 +105,14 @@ public final class KingdomsCodecs {
             HAUL_STORE.fieldOf("to_store").forGetter(HaulTask::toStore),
             SIM_POS.fieldOf("to_pos").forGetter(HaulTask::toPos),
             Codec.INT.fieldOf("requested").forGetter(HaulTask::requested),
-            Codec.INT.optionalFieldOf("carried", 0).forGetter(HaulTask::carried)
-    ).apply(i, (fromStore, fromPos, toStore, toPos, requested, carried) -> {
-        HaulTask task = new HaulTask(fromStore, fromPos, toStore, toPos, requested);
+            Codec.INT.optionalFieldOf("carried", 0).forGetter(HaulTask::carried),
+            // Optional and defaulted to food, because every errand saved before
+            // couriers existed was one, and a load in transit must survive the
+            // reload that taught the game about timber.
+            Codec.STRING.optionalFieldOf("resource", TownStores.FOOD)
+                    .forGetter(HaulTask::resource)
+    ).apply(i, (fromStore, fromPos, toStore, toPos, requested, carried, resource) -> {
+        HaulTask task = new HaulTask(resource, fromStore, fromPos, toStore, toPos, requested);
         task.setCarried(carried);
         return task;
     }));

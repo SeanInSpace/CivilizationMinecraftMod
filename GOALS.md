@@ -79,21 +79,6 @@ work that cannot be delegated.
       because it writes far more than it reads; the excavation's is closer to
       the auditor's, being mostly questions about what is at a position.
 
-- [ ] **Goods do not move between stores, because nothing asks them to.**
-      Produce now lands at the store nearest where it was made and a builder
-      fetches from the nearest store that actually holds what they need, so
-      nothing deadlocks. What is missing is the courier. `HaulPlanner` already
-      walks a load between two points at both fidelities, with the goods on the
-      carrier's back the whole way — the transport half is done. The missing
-      half is a *demand signal*: `HaulTask` is food-shaped (`FARM`, `GRANARY`,
-      `MARKET`, `HOME`, routed through `FoodPlanner.withdraw`/`deposit`) and
-      would need generalising. **What to decide:** a naive "even out the
-      stores" rule oscillates. The non-oscillating version is demand-driven —
-      a builder short at their nearest store *is* the request — which is
-      MineColonies' request system in miniature. Worth reading how they do it:
-      resolver priority is the whole of their locality rule (own building 200,
-      crafting 125, warehouse default, retry 50).
-
 - [ ] **Decide what to do with the four rescued branches.** Roughly 1,500 lines
       including tests, all of it predating the storage reshape and touching
       files that have changed underneath it. Worth reading and re-deriving
@@ -184,6 +169,21 @@ ground.
 ---
 
 ## Done
+
+- [x] **Goods move to the store that is about to need them.** `SupplyPlanner`
+      sends at most one courier a step, and the signal is a build rather than a
+      difference between two stores — what is the town raising, which store is
+      nearest it, is that store short. An "even the stores out" rule oscillates,
+      because every move it makes creates the imbalance that justifies moving
+      something back; this only ever moves goods toward work already waiting on
+      them. A source must hold a full load *above* the shortage line before it
+      gives any away, which is the hysteresis that stops two stores passing the
+      same timber back and forth forever. `HaulTask` carries a resource now, so
+      the courier rides the same errand system the food economy has always used
+      — walked at both fidelities, with the load on somebody's back the whole
+      way. Builders are passed over when picking a carrier: the demand *is* a
+      build, so sending its own builder to fetch its materials would stop the
+      work in order to supply it.
 
 - [x] **Unwatched production lands at the site that made it.** The aggregate
       planners credited everything to whichever camp or mine was listed first,
