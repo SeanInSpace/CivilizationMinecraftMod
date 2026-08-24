@@ -1256,8 +1256,17 @@ public final class Settlement {
         if (current.isUpgrade()) {
             // Raised in place: the same building, one level better. Recording a
             // second one here would leave the town believing it owns two.
+            //
+            // Matched on the plan position rather than the whole origin. A
+            // building's x and z are its plot and never move; its y is wherever
+            // the ground turned out to be, and setOriginY writes it again when
+            // the structure is finally placed. Comparing all three meant an
+            // upgrade whose target had settled at a different height simply
+            // found nothing, dropped out of the loop, and threw away every unit
+            // of work that had gone into it — leaving a town that believed it
+            // had upgraded a building it had not touched.
             for (Building standing : buildings) {
-                if (standing.origin().equals(current.upgradeOf())) {
+                if (samePlot(standing.origin(), current.upgradeOf())) {
                     standing.setLevel(BuildPlanner.levelOf(current.blueprintId()));
                     standing.setBlueprintId(current.blueprintId());
                     standing.setFootprint(current.footprint());
@@ -1280,6 +1289,11 @@ public final class Settlement {
         raised.setFacing(current.facing());
         buildings.add(raised);
         tallies.record(Tallies.BUILDINGS_RAISED);
+    }
+
+    /** Whether two origins name the same plot, whatever height each was read at. */
+    private static boolean samePlot(SimPos a, SimPos b) {
+        return a != null && b != null && a.x() == b.x() && a.z() == b.z();
     }
 
     /**

@@ -170,7 +170,23 @@ public final class BlueprintPlacer {
      * is never chosen higher than this above the lowest column of its own plot,
      * because a floor the fill cannot reach is a floor with a hole under it.
      */
-    private static final int FOUNDATION_DEPTH = 3;
+    static final int FOUNDATION_DEPTH = 3;
+
+    /**
+     * Which part of a plot counts as its low ground, for the foundation cap.
+     *
+     * <p>A fifth from the bottom, so a handful of freak columns — a cave mouth,
+     * a ravine clipping one corner, a rabbit hole — cannot pull a whole building
+     * down after them. The absolute minimum was the obvious thing to measure and
+     * was wrong for the same reason the mean was wrong for the median: one
+     * unlucky column should not decide where a building sits.
+     *
+     * <p>The cost is that a plot genuinely straddling a cliff can now be perched
+     * rather than sunk. That is the better failure — it is visible, the auditor
+     * reports it as "perched", and a plot like that should have been refused by
+     * the site check before it ever got here.
+     */
+    static final int LOW_GROUND_QUANTILE = 5;
 
     private BlueprintPlacer() {
     }
@@ -330,9 +346,10 @@ public final class BlueprintPlacer {
      *
      * <p>Pure arithmetic, and deliberately the whole of the decision: everything
      * about how a building meets sloping ground is these three lines, so they can
-     * be read and argued with without a world to run them in. There is no test
-     * source set on this side to pin them with — hence the arithmetic being
-     * separated out where it can at least be checked by eye.
+     * be read and argued with without a world to run them in — and, since the
+     * module grew a test source set, actually pinned. See
+     * {@code BlueprintPlacerFloorTest}, which exists because this javadoc used
+     * to end by regretting that it could not.
      *
      * <p>The median rather than the lowest. Taking the lowest — which is what
      * surveying one arbitrary column amounted to, whenever that column happened to
@@ -342,13 +359,22 @@ public final class BlueprintPlacer {
      * half up, which is how a real building sits on a slope. The median rather than
      * the mean because one boulder or one rabbit hole must not drag the floor with it.
      *
-     * <p>Then held down to what the underpinning can reach: see {@link #FOUNDATION_DEPTH}.
+     * <p>Then held down to what the underpinning can reach: see
+     * {@link #FOUNDATION_DEPTH}. That cap used to measure from the single
+     * lowest column, which quietly undid the median it had just been at pains
+     * to compute — one rabbit hole or one cave mouth in a corner of the plot
+     * dragged the entire building down to within three blocks of it. A house
+     * sunk eleven blocks into a hillside has its doorway underground, which is
+     * precisely what "no doorway at grade on any side" looks like from the
+     * audit. The cap now measures from the low ground rather than the lowest
+     * point: see {@link #LOW_GROUND_QUANTILE}.
      */
-    private static int baseAcross(String blueprintId, int[] firstAir) {
+    static int baseAcross(String blueprintId, int[] firstAir) {
         int[] sorted = firstAir.clone();
         Arrays.sort(sorted);
+        int low = sorted[Math.min(sorted.length - 1, sorted.length / LOW_GROUND_QUANTILE)];
         return Math.min(baseFor(blueprintId, sorted[sorted.length / 2]),
-                sorted[0] + FOUNDATION_DEPTH);
+                low + FOUNDATION_DEPTH);
     }
 
     // --- the visible path ---
