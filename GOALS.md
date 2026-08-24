@@ -47,13 +47,16 @@ work that cannot be delegated.
 
 ## Open
 
-- [ ] **The blueprint placer and the excavation still have no seam.** They are
-      the two largest untested things left, and between them they own the
-      failures that keep reaching play: where a building's floor ends up, what
-      its foundation courses do to the ground around it, and — most likely —
-      the doorway fault above. The placer's is the harder seam of the two,
-      because it writes far more than it reads; the excavation's is closer to
-      the auditor's, being mostly questions about what is at a position.
+- [ ] **The placer and the excavation are only half reachable.** Their pure
+      decisions are tested now — where a building's floor sits across a sloping
+      plot, and where a digger can stand to reach a block — but everything that
+      actually reads or writes blocks still needs a world. Neither has a seam
+      like `WorldView` or `Shelves`. The excavation's would be the easier of the
+      two and would look much like the auditor's, being mostly questions about
+      what is at a position; the placer's is harder because it writes far more
+      than it reads, and the interesting question there is whether a plan can be
+      produced as a list of placements and only then applied, which would make
+      the plan itself testable without a seam at all.
 
 - [ ] **Decide what to do with the four rescued branches.** Roughly 1,500 lines
       including tests, all of it predating the storage reshape and touching

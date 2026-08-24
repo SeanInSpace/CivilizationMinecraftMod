@@ -132,13 +132,21 @@ public final class SupplyPlanner {
      * the site ran low. Anyone else goes instead; if the town is nothing but
      * builders, the shortage waits, which is the right answer because they are
      * already fetching their own loads a stack at a time.
+     *
+     * <p>Farmers too, for a harder reason. {@code FoodPlanner} runs first and
+     * gives them their errands, so one already carrying grain is safe — but one
+     * merely idle this step is not, and a farmer sent off with a load of timber
+     * is a farmer not in the field when the granary next wants filling. This
+     * project has already killed one town by making a walk take priority over
+     * eating. Timber can wait; nothing else here can.
      */
     static Person freeHand(Settlement settlement) {
         for (Person person : settlement.residents()) {
             if (person.haul() != null || person.isTooWeakToWork()) {
                 continue;
             }
-            if (settlement.laboursAs(person, Profession.BUILDER)) {
+            if (settlement.laboursAs(person, Profession.BUILDER)
+                    || settlement.laboursAs(person, Profession.FARMER)) {
                 continue;
             }
             return person;

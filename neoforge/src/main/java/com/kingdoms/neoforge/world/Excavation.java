@@ -349,7 +349,8 @@ public final class Excavation {
         }
     }
 
-    private static BlockPos middleOf(List<SimPos> targets) {
+    /** The middle of a job, which is where a digger walks before choosing a face. */
+    static BlockPos middleOf(List<SimPos> targets) {
         if (targets.isEmpty()) {
             return BlockPos.ZERO;
         }
@@ -720,8 +721,14 @@ public final class Excavation {
         return null;
     }
 
-    /** Whether somebody standing here could actually put a tool on that block. */
-    private static boolean reaches(BlockPos feet, BlockPos block) {
+    /**
+     * Whether somebody standing here could actually put a tool on that block.
+     *
+     * <p>Measured from the eyes rather than the feet, which is why a digger can
+     * reach further up than down: the whole reason diggers stand beside a block
+     * and never in it is that this has to be answerable before anybody walks.
+     */
+    static boolean reaches(BlockPos feet, BlockPos block) {
         double dx = (feet.getX() + 0.5) - (block.getX() + 0.5);
         double dy = (feet.getY() + PersonEntity.EYE_ABOVE_FEET) - (block.getY() + 0.5);
         double dz = (feet.getZ() + 0.5) - (block.getZ() + 0.5);
