@@ -46,6 +46,25 @@ public final class LumberPlanner {
     public static final int BASE_WOOD_STORAGE = 512;
     public static final int WOOD_PER_STOREHOUSE = 400;
 
+    /**
+     * Steps a watched camp may go without real work before the clock takes
+     * over again.
+     *
+     * <p>Deliberately the same shape and the same number as
+     * {@code FoodPlanner.WATCHED_HARVEST_GRACE_STEPS}. What stood here was an
+     * outright return the moment a player came within the observed radius —
+     * which is ninety-six blocks, against a camp on a ring plot a dozen from
+     * the town square. Standing in your own town suppressed the abstract yield
+     * entirely, and that is only correct while the real hands are actually
+     * working: a camp whose trees have all been felled has nothing left to swing at,
+     * and one sited on open grass never had any. So the town received nothing at all for exactly as long
+     * as somebody was there to watch it fail.
+     *
+     * <p>Being watched must never starve a town, and it must not bankrupt one
+     * either.
+     */
+    public static final int WATCHED_WORK_GRACE_STEPS = 12;
+
     private LumberPlanner() {
     }
 
@@ -72,8 +91,9 @@ public final class LumberPlanner {
         if (camp == null || !wantsMoreTimber(settlement)) {
             return;
         }
-        if (ctx.bridge().playerWithin(camp, ctx.settings().observedRadius())) {
-            return;   // somebody is watching; the real axes are swinging
+        if (ctx.bridge().playerWithin(camp, ctx.settings().observedRadius())
+                && cutRecently(settlement, ctx.step())) {
+            return;   // somebody is watching and the real axes are swinging
         }
         int jacks = (int) settlement.residents().stream()
                 .filter(p -> p.profession() == Profession.LUMBERJACK && !p.isTooWeakToWork())
@@ -100,6 +120,16 @@ public final class LumberPlanner {
             // a town holding a thousand of them, which is noise in the ledger.
             settlement.produceNear(at, TownStores.SAPLINGS, share, MAX_SAPLINGS);
         }
+    }
+
+    /** Whether any camp has seen a real log cut lately. */
+    private static boolean cutRecently(Settlement settlement, long step) {
+        for (Building camp : settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP)) {
+            if (camp.harvestedWithin(step, WATCHED_WORK_GRACE_STEPS)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Where the camp stands, or null if the town has not built one. */

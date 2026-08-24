@@ -2,8 +2,11 @@ package com.kingdoms.neoforge.view;
 
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.LumberPlanner;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.WorkArea;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -83,10 +86,24 @@ public final class LumberjackWorker {
 
         level.destroyBlock(log, false);
         settlement.tallies().record(com.kingdoms.sim.settlement.Tallies.TREES_FELLED);
-        settlement.setWoodStock(Math.min(
-                LumberPlanner.woodCapacity(settlement), settlement.woodStock() + WOOD_PER_LOG));
+        // Put down at the camp, and added rather than set. setWoodStock means
+        // "make the town hold exactly this", which empties every store and puts
+        // the remainder in one — so a watched lumberjack used to sweep the whole
+        // town's timber into a single building with every log they cut, undoing
+        // the distribution the unwatched clock had just built up.
+        // Tell the camp a real log was cut. Without this the abstract clock
+        // cannot tell "somebody is watching the axes swing" from "somebody is
+        // watching nothing happen", and floors the yield in either case.
+        Building campBuilding = settlement.buildingWithRole(BuildingRole.LUMBER_CAMP);
+        if (campBuilding != null) {
+            campBuilding.touchRealHarvest(stepOf(level));
+        }
+        SimPos camp = LumberPlanner.campPos(settlement);
+        SimPos at = camp == null ? settlement.centre() : camp;
+        settlement.produceNear(at, TownStores.WOOD, WOOD_PER_LOG,
+                LumberPlanner.woodCapacity(settlement));
         if (Math.floorMod(log.asLong(), SAPLING_EVERY) == 0) {
-            settlement.setSaplingStock(settlement.saplingStock() + 1);
+            settlement.produceNear(at, TownStores.SAPLINGS, 1, LumberPlanner.MAX_SAPLINGS);
         }
         return true;
     }
@@ -101,7 +118,7 @@ public final class LumberjackWorker {
         worker.swing(InteractionHand.MAIN_HAND);
 
         level.setBlockAndUpdate(spot, Blocks.OAK_SAPLING.defaultBlockState());
-        settlement.setSaplingStock(settlement.saplingStock() - 1);
+        settlement.stores().takeUpTo(TownStores.SAPLINGS, 1);
         return true;
     }
 
@@ -225,6 +242,13 @@ public final class LumberjackWorker {
             }
         }
         return best;
+    }
+
+    /** The simulation's own step count, which the worker is not handed. */
+    private static long stepOf(ServerLevel level) {
+        com.kingdoms.sim.world.SimWorld world =
+                com.kingdoms.neoforge.KingdomsMod.simulationFor(level);
+        return world == null ? 0L : world.stepsElapsed();
     }
 
     private static boolean withinReach(PersonEntity worker, BlockPos pos) {

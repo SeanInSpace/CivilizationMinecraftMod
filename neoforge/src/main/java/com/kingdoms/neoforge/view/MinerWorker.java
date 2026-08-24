@@ -70,6 +70,15 @@ public final class MinerWorker {
 
         // Where the rock actually came out, so the load lands on the nearest
         // shelves rather than wherever the town happens to list first.
+        // Tell the mine a real block came out, so the clock can tell a watched
+        // mine that is working from a watched mine that has nothing to cut.
+        com.kingdoms.sim.settlement.Building mineBuilding = settlement.buildingWithRole(
+                com.kingdoms.sim.settlement.BuildingRole.MINE);
+        if (mineBuilding != null) {
+            com.kingdoms.sim.world.SimWorld simWorld =
+                    com.kingdoms.neoforge.KingdomsMod.simulationFor(level);
+            mineBuilding.touchRealHarvest(simWorld == null ? 0L : simWorld.stepsElapsed());
+        }
         SimPos cut = new SimPos(face.getX(), face.getY(), face.getZ());
         boolean ore = level.getBlockState(face).is(BlockTags.IRON_ORES);
         level.destroyBlock(face, false);

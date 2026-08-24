@@ -335,9 +335,11 @@ public final class FoodPlanner {
     static int withdraw(Settlement settlement, HaulTask.Store store, SimPos pos, int amount) {
         switch (store) {
             case GRANARY -> {
-                int take = Math.min(amount, settlement.foodStock());
-                settlement.setFoodStock(settlement.foodStock() - take);
-                return take;
+                // takeUpTo, not setFoodStock. The setter means "make the town
+                // hold exactly this", which empties every building and puts the
+                // remainder in one — so spending a loaf used to sweep the whole
+                // town's larder into a single store on the way past.
+                return settlement.stores().takeUpTo(TownStores.FOOD, amount);
             }
             case FARM, MARKET -> {
                 Building building = buildingAt(settlement, pos);
@@ -357,8 +359,8 @@ public final class FoodPlanner {
     /** Puts goods into a store. Anything that will not fit is spoiled rather than duplicated. */
     static void deposit(Settlement settlement, HaulTask.Store store, SimPos pos, int amount) {
         switch (store) {
-            case GRANARY -> settlement.setFoodStock(
-                    Math.min(granaryCapacity(settlement), settlement.foodStock() + amount));
+            case GRANARY -> settlement.stores()
+                    .addCapped(TownStores.FOOD, amount, granaryCapacity(settlement));
             case FARM, MARKET -> {
                 Building building = buildingAt(settlement, pos);
                 if (building != null) {
@@ -450,7 +452,7 @@ public final class FoodPlanner {
                 .count();
         int gathered = (hands + FORAGERS_PER_MEAL - 1) / FORAGERS_PER_MEAL;
         if (gathered > 0) {
-            settlement.setFoodStock(settlement.foodStock() + gathered);
+            settlement.stores().add(TownStores.FOOD, gathered);
         }
     }
 

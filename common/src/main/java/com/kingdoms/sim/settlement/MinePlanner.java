@@ -54,6 +54,25 @@ public final class MinePlanner {
     public static final int BASE_STONE_STORAGE = 512;
     public static final int STONE_PER_STOREHOUSE = 400;
 
+    /**
+     * Steps a watched mine may go without real work before the clock takes
+     * over again.
+     *
+     * <p>Deliberately the same shape and the same number as
+     * {@code FoodPlanner.WATCHED_HARVEST_GRACE_STEPS}. What stood here was an
+     * outright return the moment a player came within the observed radius —
+     * which is ninety-six blocks, against a mine on a ring plot a dozen from
+     * the town square. Standing in your own town suppressed the abstract yield
+     * entirely, and that is only correct while the real hands are actually
+     * working: on ordinary flat grassland there is no exposed stone to swing at until
+     * a shaft has been sunk. So the town received nothing at all for exactly as long
+     * as somebody was there to watch it fail.
+     *
+     * <p>Being watched must never starve a town, and it must not bankrupt one
+     * either.
+     */
+    public static final int WATCHED_WORK_GRACE_STEPS = 12;
+
     private MinePlanner() {
     }
 
@@ -74,8 +93,9 @@ public final class MinePlanner {
         if (mine == null || !wantsMoreStone(settlement)) {
             return;
         }
-        if (ctx.bridge().playerWithin(mine, ctx.settings().observedRadius())) {
-            return;
+        if (ctx.bridge().playerWithin(mine, ctx.settings().observedRadius())
+                && cutRecently(settlement, ctx.step())) {
+            return;   // somebody is watching and the real picks are cutting
         }
         int miners = (int) settlement.residents().stream()
                 .filter(p -> p.profession() == Profession.MINER && !p.isTooWeakToWork())
@@ -97,6 +117,16 @@ public final class MinePlanner {
                     share * STONE_PER_STEP, stoneCapacity(settlement));
             settlement.produceNear(at, TownStores.IRON, share * IRON_PER_STEP, MAX_IRON);
         }
+    }
+
+    /** Whether any mine has seen a real block cut lately. */
+    private static boolean cutRecently(Settlement settlement, long step) {
+        for (Building mine : settlement.buildingsWithRole(BuildingRole.MINE)) {
+            if (mine.harvestedWithin(step, WATCHED_WORK_GRACE_STEPS)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Where the mine stands, or null if the town has not built one. */
