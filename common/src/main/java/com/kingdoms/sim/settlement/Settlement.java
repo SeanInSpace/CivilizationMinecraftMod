@@ -256,7 +256,7 @@ public final class Settlement {
             // Nothing fits inside: the town has outgrown its wall and builds
             // beyond it, which is the alpha-wall's cue to re-stake, not ours.
         }
-        return chooseSite(ctx, type.plotSpan());
+        return chooseSite(ctx, type.plotSpan(), BuildingRole.of(type.id()));
     }
 
     /** Whether a plot of this span fits wholly inside the staked ring. */
@@ -288,6 +288,69 @@ public final class Settlement {
      * hundred blocks out. Farms were being planned in the next biome over.
      */
     /**
+     * Which buildings would rather stand near which.
+     *
+     * <p>A granary among the fields it fills, a mill beside the corn it grinds,
+     * a forge near the ore. Deliberately small, and one direction per entry: it
+     * is a preference expressed while siting, not a claim that two buildings
+     * belong to each other.
+     */
+    private static final Map<BuildingRole, BuildingRole> SITS_NEAR = Map.of(
+            BuildingRole.GRANARY, BuildingRole.CROP_FARM,
+            BuildingRole.CROP_FARM, BuildingRole.GRANARY,
+            BuildingRole.MILL, BuildingRole.CROP_FARM,
+            BuildingRole.SMITH, BuildingRole.MINE);
+
+    /**
+     * How much a partner counts against a street, when both have an opinion.
+     *
+     * <p>Half. A building off the road is awkward for everybody who ever walks
+     * to it; a granary a little further from the fields is awkward only for the
+     * carriers, and they are already walking.
+     */
+    private static final double PARTNER_WEIGHT = 0.5;
+
+    /**
+     * What standing here would cost this building, or -1 when nothing minds.
+     *
+     * <p>Distance to the town's own streets, plus half the distance to whatever
+     * this kind of building likes to stand near. A town with neither a road nor
+     * a relevant neighbour has no opinion at all and says so, so the caller can
+     * fall back to taking the first plot that fits.
+     */
+    public double siteCost(SimPos candidate, BuildingRole role) {
+        double toRoad = paths.distanceToRoad(candidate);
+        Building partner = SITS_NEAR.containsKey(role)
+                ? nearestWithRole(candidate, SITS_NEAR.get(role)) : null;
+        if (toRoad < 0 && partner == null) {
+            return -1;
+        }
+        double cost = toRoad < 0 ? 0 : toRoad;
+        if (partner != null) {
+            cost += PARTNER_WEIGHT
+                    * Math.sqrt(partner.origin().horizontalDistanceSq(candidate));
+        }
+        return cost;
+    }
+
+    /** The nearest standing building of a kind, or null if the town has none. */
+    private Building nearestWithRole(SimPos from, BuildingRole role) {
+        Building nearest = null;
+        long best = Long.MAX_VALUE;
+        for (Building building : buildings) {
+            if (building.role() != role) {
+                continue;
+            }
+            long away = building.origin().horizontalDistanceSq(from);
+            if (away < best) {
+                best = away;
+                nearest = building;
+            }
+        }
+        return nearest;
+    }
+
+    /**
      * How many usable plots are weighed against each other before one is taken.
      *
      * <p>Bounded because relocation checks call this every step while a site
@@ -297,7 +360,7 @@ public final class Settlement {
      */
     private static final int SITE_CHOICES = 12;
 
-    private SimPos chooseSite(SimContext ctx, int span) {
+    private SimPos chooseSite(SimContext ctx, int span, BuildingRole role) {
         SimPos best = null;
         double bestCost = Double.MAX_VALUE;
         int firstFree = -1;
@@ -312,10 +375,11 @@ public final class Settlement {
             if (firstFree < 0) {
                 firstFree = index;
             }
-            double cost = paths.distanceToRoad(candidate);
+            double cost = siteCost(candidate, role);
             if (cost < 0) {
-                // No streets yet, so nothing to prefer: the first fit wins, which
-                // is exactly what this did before there was anything to weigh.
+                // Nothing to prefer — no streets and no partner standing yet —
+                // so the first fit wins, which is what this did before there was
+                // anything to weigh.
                 nextPlotIndex = index + 1;
                 return candidate;
             }
@@ -1363,7 +1427,7 @@ public final class Settlement {
             return false;
         }
         int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalogue);
-        SimPos moved = chooseSite(ctx, span);
+        SimPos moved = chooseSite(ctx, span, building.role());
         if (moved.equals(building.origin())
                 || (ctx.bridge().isLoaded(moved)
                         && !ctx.bridge().isSiteSuitable(moved, BuildPlanner.PLOT_PROBE_RADIUS))) {
@@ -1530,7 +1594,7 @@ public final class Settlement {
         }
 
         int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalogue);
-        SimPos moved = chooseSite(ctx, span);
+        SimPos moved = chooseSite(ctx, span, BuildingRole.of(task.blueprintId()));
         if (moved.equals(task.origin())) {
             return false;   // nowhere better; build it here and make the best of it
         }

@@ -1,7 +1,10 @@
 package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.PathNetwork;
+import com.kingdoms.sim.settlement.Settlement;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -72,5 +75,69 @@ class SitingTest {
 
         assertTrue(town.distanceToRoad(at(20, 2)) < town.distanceToRoad(at(20, 60)),
                 "a spot beside the road must score better than one in the next field");
+    }
+
+    // --- standing near the buildings you work with ---
+
+    private static Settlement town() {
+        return new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
+    }
+
+    private static void farmAt(Settlement town, int x) {
+        town.addBuilding(new Building("kingdoms:farm", new SimPos(x, 64, 0), 1, true));
+    }
+
+    @Test
+    void aGranaryIsDrawnTowardTheFieldsItFills() {
+        Settlement town = town();
+        farmAt(town, 100);
+
+        double beside = town.siteCost(at(96, 0), BuildingRole.GRANARY);
+        double acrossTown = town.siteCost(at(-100, 0), BuildingRole.GRANARY);
+
+        assertTrue(beside < acrossTown,
+                "a granary among the fields must cost less than one the other side of town");
+    }
+
+    @Test
+    void aBuildingWithNoPartnerHasNoOpinionAboutWhereTheFieldsAre() {
+        Settlement town = town();
+        farmAt(town, 100);
+
+        assertEquals(-1, town.siteCost(at(0, 0), BuildingRole.OTHER),
+                "a house does not care where the corn is, and there are no streets yet");
+    }
+
+    @Test
+    void aTownWithNothingToPreferSaysSoRatherThanGuessing() {
+        // -1 rather than a big number: "no roads and no partner" is a different
+        // answer from "everything is far away", and the caller falls back to the
+        // first plot that fits.
+        assertEquals(-1, town().siteCost(at(0, 0), BuildingRole.GRANARY));
+    }
+
+    @Test
+    void theNearestPartnerIsTheOneThatCounts() {
+        Settlement town = town();
+        farmAt(town, 200);
+        farmAt(town, 20);
+
+        double byTheNearField = town.siteCost(at(24, 0), BuildingRole.GRANARY);
+        double betweenThem = town.siteCost(at(110, 0), BuildingRole.GRANARY);
+
+        assertTrue(byTheNearField < betweenThem,
+                "beside one field beats splitting the difference between two");
+    }
+
+    @Test
+    void aForgeIsDrawnTowardTheOreRatherThanTheCorn() {
+        Settlement town = town();
+        farmAt(town, 100);
+        town.addBuilding(new Building("kingdoms:mine", new SimPos(-100, 64, 0), 1, true));
+
+        double byTheMine = town.siteCost(at(-96, 0), BuildingRole.SMITH);
+        double byTheFarm = town.siteCost(at(96, 0), BuildingRole.SMITH);
+
+        assertTrue(byTheMine < byTheFarm, "a smith wants the ore, not the wheat");
     }
 }
