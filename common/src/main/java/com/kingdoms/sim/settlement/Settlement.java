@@ -809,6 +809,17 @@ public final class Settlement {
         this.lumberArea = lumberArea;
     }
 
+    /**
+     * What the town is doing about what it has seen.
+     *
+     * <p>Derived from the threat count rather than stored, so the two can never
+     * disagree — and graduated, because one skeleton and a raid are not the same
+     * emergency. See {@link Alarm}.
+     */
+    public Alarm alarm() {
+        return Alarm.of(threatLevel);
+    }
+
     public void setThreatLevel(int threatLevel) {
         this.threatLevel = Math.max(0, threatLevel);
     }

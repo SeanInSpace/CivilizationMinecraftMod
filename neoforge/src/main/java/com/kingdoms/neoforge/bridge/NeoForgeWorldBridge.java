@@ -17,6 +17,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 
 import java.util.Objects;
+import com.kingdoms.neoforge.entity.PersonEntity;
+import java.util.List;
 
 /**
  * Translates between the simulation's plain data and an actual {@link ServerLevel}.
@@ -309,15 +311,49 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         KingdomsMod.LOGGER.info(message);
     }
 
+    /** How far a settler notices something wrong. */
+    private static final double CITIZEN_SIGHT = 24.0;
+
+    /** How far above and below the claim a hostile is worth even considering. */
+    private static final int THREAT_REACH_Y = 32;
+
+    /**
+     * Hostiles the town's own people can see.
+     *
+     * <p>Line of sight from a living citizen, within {@link #CITIZEN_SIGHT}. The
+     * vertical reach is still generous, but it no longer matters much: a mob in
+     * a cave fails the sight test against every settler standing on the ground
+     * above it, which is the whole point. What is left is what somebody could
+     * point at.
+     *
+     * <p>A town with nobody embodied sees nothing, and says so. That is correct
+     * rather than a gap — with no citizens loaded there is nobody to be
+     * frightened, and the abstract half of the simulation has its own raids.
+     */
     @Override
-    public int hostilesNear(SimPos centre, double radius) {
+    public int hostilesSeen(SimPos centre, double radius) {
         if (!level.isLoaded(toBlockPos(centre))) {
             return 0;
         }
         AABB box = new AABB(
-                centre.x() - radius, centre.y() - 32, centre.z() - radius,
-                centre.x() + radius, centre.y() + 32, centre.z() + radius);
-        return level.getEntitiesOfClass(Monster.class, box, LivingEntity::isAlive).size();
+                centre.x() - radius, centre.y() - THREAT_REACH_Y, centre.z() - radius,
+                centre.x() + radius, centre.y() + THREAT_REACH_Y, centre.z() + radius);
+        List<PersonEntity> citizens =
+                level.getEntitiesOfClass(PersonEntity.class, box, LivingEntity::isAlive);
+        if (citizens.isEmpty()) {
+            return 0;
+        }
+        int seen = 0;
+        for (Monster hostile : level.getEntitiesOfClass(Monster.class, box, LivingEntity::isAlive)) {
+            for (PersonEntity citizen : citizens) {
+                if (citizen.distanceToSqr(hostile) <= CITIZEN_SIGHT * CITIZEN_SIGHT
+                        && citizen.hasLineOfSight(hostile)) {
+                    seen++;
+                    break;   // one witness is enough; a mob is not scarier for being seen twice
+                }
+            }
+        }
+        return seen;
     }
 
     /**

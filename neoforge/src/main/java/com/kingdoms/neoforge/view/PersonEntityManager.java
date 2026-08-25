@@ -25,6 +25,7 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildPlanner;
+import com.kingdoms.sim.settlement.Alarm;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
@@ -933,7 +934,10 @@ public final class PersonEntityManager {
      * masonry.
      */
     private void checkHouseAccess(Settlement settlement) {
-        boolean headingHome = level.isDarkOutside() || settlement.threatLevel() > 0;
+        // Alarmed rather than merely wary: at wary most of the town is still
+        // out working, and a door they are not trying to use is not a fault.
+        boolean headingHome = level.isDarkOutside()
+                || settlement.alarm() == Alarm.ALARMED;
         if (!headingHome) {
             homeAccessFailures.clear();
             return;
@@ -1029,7 +1033,9 @@ public final class PersonEntityManager {
     }
 
     private boolean workShepherds(Settlement settlement) {
-        if (settlement.threatLevel() > 0) {
+        // The pens are on a ring plot, behind the wall. A shepherd only comes in
+        // when everybody does.
+        if (settlement.alarm().callsIn(Profession.SHEPHERD)) {
             return false;
         }
         boolean changed = false;
@@ -1049,7 +1055,8 @@ public final class PersonEntityManager {
     }
 
     private boolean workMiners(Settlement settlement) {
-        if (settlement.mineArea() == null || settlement.threatLevel() > 0) {
+        if (settlement.mineArea() == null
+                || settlement.alarm().callsIn(Profession.MINER)) {
             return false;
         }
         boolean changed = false;
@@ -1084,7 +1091,7 @@ public final class PersonEntityManager {
 
     private boolean workLumberjacks(Settlement settlement) {
         if (settlement.lumberArea() == null || level.isDarkOutside()
-                || settlement.threatLevel() > 0) {
+                || settlement.alarm().callsIn(Profession.LUMBERJACK)) {
             return false;
         }
         boolean changed = false;
@@ -1374,7 +1381,7 @@ public final class PersonEntityManager {
      */
     private void dailyRoutine(Settlement settlement) {
         boolean night = level.isDarkOutside();
-        boolean underThreat = settlement.threatLevel() > 0;
+        Alarm alarm = settlement.alarm();
 
         Map<UUID, SimPos> homes = new HashMap<>();
         for (Household household : settlement.households()) {
@@ -1400,20 +1407,20 @@ public final class PersonEntityManager {
             // Builders on an active site are steered block by block by
             // tickConstruction; overriding them here would tug them off the wall.
             if (settlement.laboursAs(person, Profession.BUILDER)
-                    && !underThreat && !night
+                    && !alarm.callsIn(person.profession()) && !night
                     && (!settlement.buildQueue().isEmpty() || isClearing(settlement))
                     && !person.isTooWeakToWork()) {
                 continue;
             }
             if (person.profession() == Profession.LUMBERJACK
-                    && !underThreat && !night
+                    && !alarm.callsIn(Profession.LUMBERJACK) && !night
                     && person.haul() == null
                     && settlement.lumberArea() != null
                     && !person.isTooWeakToWork()) {
                 continue;   // steered tree by tree in workLumberjacks
             }
             if (settlement.laboursAs(person, Profession.FARMER)
-                    && !underThreat && !night
+                    && !alarm.callsIn(person.profession()) && !night
                     && person.haul() == null
                     && !person.isTooWeakToWork()) {
                 continue;   // steered row by row in workFarmers
@@ -1434,9 +1441,12 @@ public final class PersonEntityManager {
 
             SimPos target;
             double speed;
-            if (underThreat && !guard) {
+            if (alarm.callsIn(person.profession())) {
+                // Wary is a walk indoors; alarmed is a run. A town that sprints
+                // for its doors over one skeleton reads as hysterical, and a
+                // town that strolls through a raid reads as asleep.
                 target = home != null ? home : settlement.centre();
-                speed = SHELTER_SPEED;
+                speed = alarm == Alarm.ALARMED ? SHELTER_SPEED : WALK_SPEED;
             } else if (night && !guard) {
                 target = home != null ? home : settlement.centre();
                 speed = WALK_SPEED;
@@ -1447,7 +1457,7 @@ public final class PersonEntityManager {
 
             double dx = view.getX() - (target.x() + 0.5);
             double dz = view.getZ() - (target.z() + 0.5);
-            double arrive = underThreat && !guard ? 2.0 : ARRIVE_RADIUS;
+            double arrive = alarm == Alarm.ALARMED && !guard ? 2.0 : ARRIVE_RADIUS;
             if (dx * dx + dz * dz > arrive * arrive) {
                 // The target's own Y, never the surface heightmap: a building's
                 // "surface" is its ROOF, and routing people there is what put

@@ -46,9 +46,10 @@ public final class RaidPlanner {
 
     /** Called once per settlement step: track visible hostiles, then check the raid clock. */
     public static void advance(Settlement settlement, SimContext ctx) {
-        // Threat mirrors real hostiles whenever the area is loaded. Zero when
-        // abstract — threat there comes from raid events instead.
-        int hostiles = ctx.bridge().hostilesNear(settlement.centre(), settlement.claimRadius());
+        // Threat mirrors what the town's people can see, whenever anybody is
+        // there to see it. Zero when abstract — there are no eyes and no
+        // hostiles, so threat there comes from raid events instead.
+        int hostiles = ctx.bridge().hostilesSeen(settlement.centre(), settlement.claimRadius());
         if (hostiles > settlement.threatLevel()) {
             settlement.setThreatLevel(hostiles);
         }

@@ -31,5 +31,18 @@ public enum Profession {
 
     /** Works the carpentry: pre-cut components speed every build crew. */
     CARPENTER,
-    SHEPHERD
+    SHEPHERD;
+
+    /**
+     * Whether this trade works out past the town's walls.
+     *
+     * <p>The woods and the mine head are where the claim runs out, and they are
+     * what a hostile reaches first. Everything else on this list works on a ring
+     * plot — behind the palisade, or where the palisade will be — so a town that
+     * has seen something out there calls in the woodcutters and the miners and
+     * lets the rest get on with it.
+     */
+    public boolean worksBeyondTheWalls() {
+        return this == LUMBERJACK || this == MINER;
+    }
 }

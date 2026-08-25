@@ -39,7 +39,7 @@ class RaidPlannerTest {
             return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }
-        @Override public int hostilesNear(SimPos centre, double radius) { return hostiles; }
+        @Override public int hostilesSeen(SimPos centre, double radius) { return hostiles; }
         @Override public void spawnHostiles(int count, SimPos around) { spawnedRaids.add(count); }
     }
 

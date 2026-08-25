@@ -102,13 +102,20 @@ public interface WorldBridge {
     void log(String message);
 
     /**
-     * How many hostile creatures are currently near this position.
+     * How many hostile creatures the town's own people can actually see.
      *
-     * <p>Zero when nothing is loaded — which is exactly right: abstract fidelity
-     * has no real hostiles, so threat there comes from the raid system instead.
-     * Default provided so test doubles stay small; real platforms must override.
+     * <p>Seen, not merely present. This used to count every hostile in a box
+     * thirty-two blocks deep, which meant a zombie in a cave under the town
+     * hall — invisible, unreachable, and never coming up — emptied the streets
+     * and kept them empty for as long as it lived. A town can only be frightened
+     * of what it knows about.
+     *
+     * <p>Zero when nothing is loaded, which is exactly right: abstract fidelity
+     * has no real hostiles and no real eyes, so threat there comes from the raid
+     * system instead. Default provided so test doubles stay small; real
+     * platforms must override.
      */
-    default int hostilesNear(SimPos centre, double radius) {
+    default int hostilesSeen(SimPos centre, double radius) {
         return 0;
     }
 

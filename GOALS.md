@@ -88,6 +88,15 @@ ground.
       not on the clock, and the stall guard measures whether the queue head
       moved rather than how fast, so slowing the dig slows a watched town's
       building outright.
+- [ ] Does a town read as sensibly frightened now? One hostile in sight should
+      be the woodcutters walking in while the guards deal with it; three should
+      be everybody indoors. Both numbers (`Alarm.WARY_AT`, `Alarm.ALARMED_AT`)
+      and a citizen's sight range are single constants, so this is a question
+      about numbers rather than a rewrite.
+- [ ] Does a mob glimpsed and lost cause visible dithering? Threat decays one a
+      step, so a single hostile ducking in and out of sight flickers the alarm
+      between wary and calm. Harmless in the economy — wary only walks two
+      trades indoors — but it may look twitchy.
 - [ ] Does opening a town's stores read as the town's stores, or as a loot chest?
 - [ ] With two stores standing, does the split between them read as sensible —
       timber by the woods, stone by the mine — or as goods scattered at random?
