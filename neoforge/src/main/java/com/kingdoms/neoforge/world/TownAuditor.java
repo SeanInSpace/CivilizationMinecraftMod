@@ -427,7 +427,9 @@ public final class TownAuditor {
 
         checkShelf(world, building, origin, floor, wallHalfW, wallHalfD, faults);
         checkFluid(world, building, origin, floor, wallHalfW, wallHalfD, faults);
-        checkDoorway(world, building, origin, floor, wallHalfW, wallHalfD, faults);
+        if (hasSomethingToEnter(plot)) {
+            checkDoorway(world, building, origin, floor, wallHalfW, wallHalfD, faults);
+        }
         if (isCropFarm(building.blueprintId())) {
             checkField(world, building, origin, floor, wallHalfW, wallHalfD, faults);
         }
@@ -500,6 +502,34 @@ public final class TownAuditor {
                     "standing fluid inside it (" + wet + " blocks)"));
         }
     }
+
+    /**
+     * Whether this structure has an inside for a doorway to lead to.
+     *
+     * <p>Not every thing a town builds is a building. A cache is a three-by-three
+     * plank platform with barrels and a composter standing on it; a hearth is a
+     * fire pit with log seats and nothing overhead. Asking whether you can get
+     * inside one is asking a question with no answer, and the auditor was
+     * answering it wrongly — the barrels standing on a cache fill its "wall"
+     * ring, so it reported an unbroken wall and no way in, on a platform you can
+     * walk onto from any side.
+     *
+     * <p>The rule is arithmetic rather than a list of exceptions, so it holds
+     * for structures nobody has written yet. A doorway is a two-high gap, which
+     * needs wall at {@code floor + 1} and {@code floor + 2}; a structure whose
+     * whole height is less than three has no wall that tall and therefore
+     * nowhere a doorway could be. Anything taller is still asked.
+     */
+    private static boolean hasSomethingToEnter(Footprint plot) {
+        return plot.height() >= DOORWAY_MIN_HEIGHT;
+    }
+
+    /**
+     * The shortest a structure can be and still have a doorway in it.
+     *
+     * <p>Floor, then two courses of wall for a person to walk through.
+     */
+    private static final int DOORWAY_MIN_HEIGHT = 3;
 
     /**
      * Somewhere along the walls there must be a way in a person can use.

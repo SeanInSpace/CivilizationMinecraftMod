@@ -123,6 +123,65 @@ class TownAuditorGeometryTest {
                 "and what stopped the one it found: " + fault);
     }
 
+    // --- things that are not buildings ---
+
+    /** A cache: a plank platform with barrels standing on it. Two blocks tall. */
+    private static Building openPlatform() {
+        Building cache = new Building("kingdoms:cache", new SimPos(0, FLOOR, 0), 1, true);
+        cache.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 2));
+        return cache;
+    }
+
+    private static List<String> faultsFor(FakeWorld world, Building building) {
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Testburg", new SimPos(0, FLOOR, 0), 64);
+        town.addBuilding(building);
+        return TownAuditor.audit(world, town).stream()
+                .map(TownAuditor.Fault::describe)
+                .toList();
+    }
+
+    @Test
+    void aPlatformWithNoInsideIsNotAskedForADoor() {
+        // A cache is three by three of planks with barrels and a composter
+        // standing on it. Those stand exactly where the wall ring is read, so it
+        // reported an unbroken wall and no way in — for a platform you can walk
+        // onto from any side. There is no inside to be shut out of.
+        TownAuditor.forget();
+
+        assertFalse(faultsFor(sealedHouse(), openPlatform()).stream()
+                        .anyMatch(f -> f.contains("no way in")),
+                "asking whether you can get inside a platform has no answer");
+    }
+
+    @Test
+    void aStructureTallEnoughToHaveADoorIsStillAsked() {
+        // The other half, so the exemption cannot quietly swallow real buildings.
+        // Three is the shortest thing that can have one: floor, then two courses
+        // of wall for a person to walk through.
+        TownAuditor.forget();
+        Building shed = new Building("kingdoms:storehouse", new SimPos(0, FLOOR, 0), 1, true);
+        shed.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 3));
+
+        assertTrue(faultsFor(sealedHouse(), shed).stream()
+                        .anyMatch(f -> f.contains("no way in")),
+                "a walled structure with no opening is still a fault");
+    }
+
+    @Test
+    void theExemptionIsArithmeticAndNotAListOfNames() {
+        // A cache exempted by name would leave the next open structure somebody
+        // writes reporting the same nonsense. The rule is about height, so it
+        // covers structures that do not exist yet.
+        TownAuditor.forget();
+        Building unnamedThing = new Building("kingdoms:something_new", new SimPos(0, FLOOR, 0), 1, true);
+        unnamedThing.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 2));
+
+        assertFalse(faultsFor(sealedHouse(), unnamedThing).stream()
+                        .anyMatch(f -> f.contains("no way in")),
+                "nothing two blocks tall has room for a doorway, whatever it is called");
+    }
+
     // --- a building with nothing drawn: caught mid-step, or genuinely stuck ---
 
     /** Recorded by the simulation, with no blocks laid for it yet. */
