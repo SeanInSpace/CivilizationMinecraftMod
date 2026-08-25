@@ -58,6 +58,72 @@ class TownAuditorGeometryTest {
         return faultsOf(world).stream().anyMatch(f -> f.contains("no way in"));
     }
 
+    // --- fields, and the difference between bare and frozen ---
+
+    private static Building farm() {
+        Building farm = new Building("kingdoms:farm", new SimPos(0, FLOOR, 0), 1, true);
+        farm.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 4));
+        return farm;
+    }
+
+    /** A field of twenty-five tilled cells with only four things growing in it. */
+    private static FakeWorld halfBareField() {
+        FakeWorld world = new FakeWorld(FLOOR + 1).plain(FLOOR, 12);
+        for (int dx = -HALF; dx <= HALF; dx++) {
+            for (int dz = -HALF; dz <= HALF; dz++) {
+                world.farmland(dx, FLOOR - 1, dz);
+            }
+        }
+        world.crop(-HALF, FLOOR, -HALF).crop(-HALF, FLOOR, HALF)
+             .crop(HALF, FLOOR, -HALF).crop(HALF, FLOOR, HALF);
+        return world;
+    }
+
+    private static List<String> fieldFaults(FakeWorld world) {
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Testburg", new SimPos(0, FLOOR, 0), 64);
+        town.addBuilding(farm());
+        return TownAuditor.audit(world, town).stream()
+                .map(TownAuditor.Fault::describe)
+                .toList();
+    }
+
+    @Test
+    void aBareFieldOnLivingGroundIsStillReported() {
+        // The check must keep working where it can actually mean something.
+        assertTrue(fieldFaults(halfBareField()).stream()
+                        .anyMatch(fault -> fault.contains("half the field is bare")),
+                "twenty-one tilled cells with nothing in them is a real complaint");
+    }
+
+    @Test
+    void aFieldOnGroundThatIsNotRunningIsNotAccused() {
+        // Loaded but not ticking: crops do not grow, farmers are not asked to
+        // work, and dropped items never despawn. The field is frozen exactly as
+        // the last person left it. Reporting that as "something is destroying
+        // the crops" is an accusation with no evidence behind it — and it is
+        // what a live audit was doing, reporting the identical "72 farmland, 35
+        // planted" sixteen times in seven minutes while nothing whatsoever
+        // happened on that ground.
+        FakeWorld frozen = halfBareField();
+        frozen.ticking = false;
+
+        assertTrue(fieldFaults(frozen).stream()
+                        .noneMatch(fault -> fault.contains("half the field is bare")),
+                "not knowing is not a fault; the auditor says nothing instead");
+    }
+
+    @Test
+    void frozenGroundStillHasItsGeometryJudged() {
+        // Only claims about processes are withdrawn. A wall is a wall whether or
+        // not the chunk is ticking, and a building with no door still has no door.
+        FakeWorld frozen = sealedHouse();
+        frozen.ticking = false;
+
+        assertTrue(reportsNoWayIn(frozen),
+                "geometry does not move, so it can always be judged");
+    }
+
     @Test
     void aHouseWalledAllRoundHasNoWayIn() {
         assertTrue(reportsNoWayIn(sealedHouse()),

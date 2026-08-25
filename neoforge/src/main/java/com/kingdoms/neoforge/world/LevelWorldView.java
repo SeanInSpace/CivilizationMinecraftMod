@@ -27,6 +27,11 @@ public record LevelWorldView(ServerLevel level) implements WorldView {
     }
 
     @Override
+    public boolean isTicking(BlockPos pos) {
+        return level.isPositionEntityTicking(pos);
+    }
+
+    @Override
     public boolean isPassable(BlockPos pos) {
         return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
     }

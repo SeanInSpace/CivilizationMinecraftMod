@@ -519,6 +519,20 @@ public final class TownAuditor {
     private static void checkField(WorldView world, Building building, BlockPos origin,
                                    int floor, int wallHalfW, int wallHalfD,
                                    List<Fault> faults) {
+        // Every judgement below is about something happening over time — a field
+        // filling up, or being emptied. On ground that is loaded but not running,
+        // nothing happens at all: crops do not grow, farmers are not asked to
+        // work, and dropped items never despawn. A field there is frozen exactly
+        // as it was when the last person walked away from it, and reporting that
+        // as "something is destroying the crops" is an accusation with no
+        // evidence behind it.
+        //
+        // This is the same rule the rest of the auditor already follows — a plot
+        // with no surveyed footprint is not guessed at. Not knowing is not a
+        // fault, and saying nothing is the honest answer.
+        if (!world.isTicking(origin)) {
+            return;
+        }
         int farmland = 0;
         int planted = 0;
         java.util.Set<BlockPos> nowPlanted = new java.util.HashSet<>();

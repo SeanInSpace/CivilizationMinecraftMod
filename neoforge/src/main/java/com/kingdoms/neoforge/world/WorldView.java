@@ -29,6 +29,18 @@ public interface WorldView {
     /** Whether the chunk holding this position is loaded and can be judged. */
     boolean isLoaded(BlockPos pos);
 
+    /**
+     * Whether this ground is actually <em>running</em> — not merely readable.
+     *
+     * <p>These are two different questions and the difference matters. A chunk
+     * at the edge of the loaded area can be read block by block while nothing in
+     * it ticks: crops do not grow, dropped items never despawn, and the settlers
+     * standing in it are not being asked to do anything. Every geometric check
+     * here is fair on such ground, because geometry does not move. Every check
+     * about a <em>process</em> is not.
+     */
+    boolean isTicking(BlockPos pos);
+
     /** Nothing here to bump into — a body could occupy this block. */
     boolean isPassable(BlockPos pos);
 

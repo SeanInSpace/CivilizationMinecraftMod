@@ -116,6 +116,17 @@ final class FakeWorld implements WorldView {
 
     // --- what the auditor is allowed to ask ---
 
+    /**
+     * Whether this fake's ground is running. True by default: a test that has
+     * gone to the trouble of laying out a field means it to be judged.
+     */
+    public boolean ticking = true;
+
+    @Override
+    public boolean isTicking(BlockPos pos) {
+        return ticking;
+    }
+
     @Override
     public boolean isLoaded(BlockPos pos) {
         return !unloaded.contains(pos);
