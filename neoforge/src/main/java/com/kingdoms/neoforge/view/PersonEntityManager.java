@@ -30,6 +30,7 @@ import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.phys.Vec3;
 import com.kingdoms.sim.settlement.Alarm;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.FieldRoster;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Settlement;
@@ -1091,7 +1092,7 @@ public final class PersonEntityManager {
             }
             PersonEntity view = tracked.get(person.id().value());
             if (view != null && !view.isRemoved()) {
-                FarmWorker.work(level, settlement, world.stepsElapsed(), view);
+                FarmWorker.work(level, settlement, world.stepsElapsed(), view, person);
             }
         }
     }
@@ -1598,6 +1599,13 @@ public final class PersonEntityManager {
         }
     }
 
+    /** The farmer's rostered field, falling back to the nearest if the town has none. */
+    private SimPos fieldOrNearest(Settlement settlement, Person person) {
+        Building field = FieldRoster.fieldFor(settlement, person);
+        return field != null ? field.origin()
+                : nearestBuilding(settlement, "farm", person.position());
+    }
+
     private SimPos workplaceFor(Settlement settlement, Person person, SimPos home) {
         // An errand outranks the day job: haulers walk to the store they are
         // collecting from, then to the one they are delivering to.
@@ -1606,7 +1614,11 @@ public final class PersonEntityManager {
             return haul.target();
         }
         return switch (person.profession()) {
-            case FARMER -> nearestBuilding(settlement, "farm", person.position());
+            // The field this farmer is answerable for, not whichever one they
+            // happen to be closest to -- a farmer standing on a farm is always
+            // closest to that one, so the first field anybody reached became the
+            // only field the town ever worked. See FieldRoster.
+            case FARMER -> fieldOrNearest(settlement, person);
             case BUILDER -> settlement.buildQueue().isEmpty()
                     ? nearestBuilding(settlement, "hall", person.position())
                     : settlement.buildQueue().getFirst().origin();

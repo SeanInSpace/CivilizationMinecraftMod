@@ -58,6 +58,86 @@ class TownAuditorGeometryTest {
         return faultsOf(world).stream().anyMatch(f -> f.contains("no way in"));
     }
 
+    // --- a building with nothing drawn: caught mid-step, or genuinely stuck ---
+
+    /** Recorded by the simulation, with no blocks laid for it yet. */
+    private static Building undrawn() {
+        Building pending = new Building("kingdoms:house", new SimPos(0, FLOOR, 0), 1, false);
+        pending.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 4));
+        return pending;
+    }
+
+    private static List<String> sweep(FakeWorld world, Building building) {
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Testburg", new SimPos(0, FLOOR, 0), 64);
+        town.addBuilding(building);
+        return TownAuditor.audit(world, town).stream()
+                .map(TownAuditor.Fault::describe)
+                .toList();
+    }
+
+    private static boolean reportsNothingStanding(List<String> faults) {
+        return faults.stream().anyMatch(f -> f.contains("nothing stands on the ground"));
+    }
+
+    @Test
+    void aBuildingCaughtBetweenBeingRecordedAndBeingDrawnIsNotAFault() {
+        // The state every building finished out of sight passes through. The
+        // record exists, the chunk is loaded, and the next settlement step will
+        // draw it. Complaining here reported 61 of these in one seven-minute
+        // run, every one of which was drawn thirty seconds later.
+        TownAuditor.forget();
+
+        assertFalse(reportsNothingStanding(sweep(sealedHouse(), undrawn())),
+                "one sweep is not evidence; it has had no chance to be drawn yet");
+    }
+
+    @Test
+    void aBuildingStillNotDrawnNextSweepIsAFault() {
+        // The genuine article, reproduced with a cause I control: the same
+        // building, never materialized, looked at twice. Anything actually
+        // stuck stays stuck, and this is what it looks like.
+        TownAuditor.forget();
+        Building stuck = undrawn();
+
+        sweep(sealedHouse(), stuck);
+        List<String> second = sweep(sealedHouse(), stuck);
+
+        assertTrue(reportsNothingStanding(second),
+                "twice running is a building that is not going to be drawn");
+    }
+
+    @Test
+    void aBuildingDrawnBetweenSweepsIsNeverReported() {
+        // The race, run the way it actually goes.
+        TownAuditor.forget();
+        Building pending = undrawn();
+
+        sweep(sealedHouse(), pending);
+        pending.setMaterialized(true);
+        List<String> second = sweep(sealedHouse(), pending);
+
+        assertFalse(reportsNothingStanding(second),
+                "it was drawn, which is what was supposed to happen");
+    }
+
+    @Test
+    void theTwoSweepCountRestartsWhenNobodyIsLookingAtIt() {
+        // A building nobody has walked past for an hour has not been stuck for
+        // an hour -- there was no sweep to observe it. Unloaded ground must not
+        // accumulate evidence.
+        TownAuditor.forget();
+        Building pending = undrawn();
+        sweep(sealedHouse(), pending);
+
+        FakeWorld away = sealedHouse();
+        away.unloaded(0, FLOOR, 0);
+        sweep(away, pending);
+
+        assertFalse(reportsNothingStanding(sweep(sealedHouse(), pending)),
+                "the count starts again from the first sweep that could see it");
+    }
+
     // --- fields, and the difference between bare and frozen ---
 
     private static Building farm() {
@@ -222,13 +302,23 @@ class TownAuditorGeometryTest {
 
     @Test
     void aBuildingTheWorldNeverDrewIsReported() {
+        // Still reported — but on the second sweep, not the first. This test
+        // used to look once and complain, which is what produced 61 false
+        // alarms in a seven-minute run: every building finished out of sight is
+        // a record with nothing drawn until the next settlement step reaches
+        // it, and the auditor kept catching them mid-stride. The claim it was
+        // always making, and now actually makes, is that a building the world
+        // never draws is reported.
+        TownAuditor.forget();
         Building unbuilt = new Building("kingdoms:house", new SimPos(0, FLOOR, 0), 1, false);
+
+        TownAuditor.audit(sealedHouse(), townWith(unbuilt));
         List<String> faults = TownAuditor.audit(sealedHouse(), townWith(unbuilt)).stream()
                 .map(TownAuditor.Fault::describe)
                 .toList();
 
         assertTrue(faults.stream().anyMatch(f -> f.contains("nothing stands on the ground")),
-                "the simulation says it is there and the world disagrees");
+                "the simulation says it is there and the world still disagrees");
     }
 
     @Test

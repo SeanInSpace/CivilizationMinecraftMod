@@ -7,6 +7,8 @@ import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.settlement.FieldRoster;
+import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.settlement.Settlement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -54,7 +56,19 @@ public final class FarmWorker {
      */
     public static boolean work(ServerLevel level, Settlement settlement, long step,
                                PersonEntity farmer) {
-        Building farm = nearestCropFarm(settlement, farmer);
+        return work(level, settlement, step, farmer, null);
+    }
+
+    /** The same, told which person this body stands for so the roster can be read. */
+    public static boolean work(ServerLevel level, Settlement settlement, long step,
+                               PersonEntity farmer, Person person) {
+        // The rostered field first: the farmer has been walked here on purpose,
+        // and picking "nearest" again would let two farmers standing between two
+        // fields each adopt the other's.
+        Building farm = FieldRoster.fieldFor(settlement, person);
+        if (farm == null) {
+            farm = nearestCropFarm(settlement, farmer);
+        }
         if (farm == null) {
             return false;
         }

@@ -104,19 +104,6 @@ work that cannot be delegated.
       rather than treated as overflowing. Doing nothing is a choice too, but it
       should be made rather than inherited from an `orElse(0)`.
 
-- [ ] **Buildings recorded but never drawn.** Now the loudest thing in an audit
-      by a wide margin: 61 reports in one seven-minute run, across houses,
-      farms, workshops, granaries and storehouses. The simulation has the
-      building, the chunk is loaded, and nothing stands on the ground.
-
-      `materializePending` is supposed to catch exactly this on the next step,
-      so either it is not running for these, or it is running and failing
-      quietly. Worth checking first whether it is the same root cause as the
-      crop false alarm below — a chunk that is loaded but not ticking can be
-      read and audited while nothing in it is asked to do anything, and if
-      materialization is driven off a tick then loaded-but-frozen ground would
-      produce precisely this. That would make it one bug wearing two hats.
-
 - [ ] **A building survives its own destruction.** Nothing anywhere removes a
       `Building` from a settlement — no `removeBuilding`, no `buildings.remove`.
       Once raised, the record is permanent. `PathNetwork` has a method for

@@ -160,6 +160,32 @@ public final class TownAuditor {
     private static final java.util.Map<BlockPos, java.util.Set<BlockPos>> LAST_PLANTED =
             new java.util.HashMap<>();
 
+    /**
+     * Buildings that had no blocks on the ground when we last looked.
+     *
+     * <p>Because "recorded here, but nothing stands" is not a fault the first
+     * time you see it. A building finished while nobody was watching is a
+     * record with nothing drawn by design, and stays that way until the next
+     * settlement step reaches it — a gap of one step, which the auditor is
+     * quick enough to walk straight into.
+     *
+     * <p>It reported 61 of them in a seven-minute run. Every single one was
+     * drawn before the next sweep thirty seconds later: each was named exactly
+     * once, while a genuine fault in the same run — a building with no doorway
+     * — was named on six to fifteen consecutive sweeps. That is the difference
+     * between a race and a defect, and until now the report could not tell
+     * them apart. Sixty-one false alarms is also precisely how a real one goes
+     * unnoticed.
+     *
+     * <p>So a building must be found undrawn twice running before it is worth
+     * complaining about. Anything genuinely stuck stays stuck and is still
+     * reported; anything that was merely caught mid-step is not.
+     */
+    private static final java.util.Set<BlockPos> LAST_UNDRAWN = new java.util.HashSet<>();
+
+    /** Filled during a sweep, and swapped into {@link #LAST_UNDRAWN} at the end of it. */
+    private static final java.util.Set<BlockPos> UNDRAWN_THIS_SWEEP = new java.util.HashSet<>();
+
     private TownAuditor() {
     }
 
@@ -176,6 +202,8 @@ public final class TownAuditor {
     public static void forget() {
         LAST_HEAD.clear();
         LAST_PLANTED.clear();
+        LAST_UNDRAWN.clear();
+        UNDRAWN_THIS_SWEEP.clear();
     }
 
     /**
@@ -204,6 +232,10 @@ public final class TownAuditor {
     public static List<Fault> audit(WorldView world, Settlement settlement) {
         List<Fault> faults = new ArrayList<>();
         List<Building> present = new ArrayList<>();
+        // What was undrawn when we last looked, so this sweep can tell a
+        // building caught mid-step from one that is genuinely stuck. Collected
+        // fresh below and swapped in at the end.
+        UNDRAWN_THIS_SWEEP.clear();
         for (Building building : settlement.buildings()) {
             if (isPath(building.blueprintId())) {
                 continue;   // steps are a path, not a building with an inside
@@ -218,6 +250,13 @@ public final class TownAuditor {
         }
         auditOverlaps(present, faults);
         auditTown(world, settlement, faults);
+        // Only the buildings this sweep actually looked at. A building in an
+        // unloaded chunk is not evidence of anything either way, and letting it
+        // fall out of the set here means it starts its two-sweep count again
+        // when somebody next walks past — which is right, because a building
+        // nobody has seen for an hour has not been "stuck" for an hour.
+        LAST_UNDRAWN.clear();
+        LAST_UNDRAWN.addAll(UNDRAWN_THIS_SWEEP);
         return faults;
     }
 
@@ -366,11 +405,16 @@ public final class TownAuditor {
                                  List<Fault> faults) {
         if (!building.isMaterialized()) {
             // The chunk is loaded and the simulation says this building exists,
-            // yet nothing has been drawn. materializePending should have caught
-            // it on the next step — a building stuck like this is exactly the
-            // "stepping did not create everything" fault.
-            faults.add(new Fault(building.blueprintId(), origin,
-                    "recorded here, but nothing stands on the ground"));
+            // yet nothing has been drawn. That is expected for exactly one step
+            // — materializePending draws it the next time the settlement runs —
+            // so it is only worth reporting if it is STILL true next sweep. See
+            // LAST_UNDRAWN for the measurements that forced this distinction.
+            UNDRAWN_THIS_SWEEP.add(origin);
+            if (LAST_UNDRAWN.contains(origin)) {
+                faults.add(new Fault(building.blueprintId(), origin,
+                        "recorded here, but nothing stands on the ground —"
+                                + " and it was the same last sweep"));
+            }
             return;
         }
         Footprint plot = building.footprint();
