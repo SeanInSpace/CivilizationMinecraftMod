@@ -33,6 +33,9 @@ public final class PerimeterLayer {
     /** Posts drawn per settlement per tick, at most. */
     private static final int SLICE = 24;
 
+    /** What the wall is made of. Two of these stand three high to anything jumping. */
+    private static final Block POST = Blocks.OAK_FENCE;
+
     /** A torch every so many posts, so the wall reads at night. */
     private static final int TORCH_EVERY = 8;
 
@@ -60,7 +63,13 @@ public final class PerimeterLayer {
     }
 
     /**
-     * One post: two logs on the surface, a torch on every eighth.
+     * One post: fence two high on the surface, a torch on every eighth.
+     *
+     * <p>Fence rather than log, and two of them. A fence is a block and a half
+     * to anything trying to get over it, so two courses stand three high to a
+     * mob and cannot be jumped — where two stacked logs were exactly two blocks
+     * and a zombie could climb the slope beside them and step in. It also reads
+     * as a wall somebody built rather than a row of trees somebody left.
      *
      * @return 1 if anything was placed, 0 if the post already stood
      */
@@ -70,8 +79,8 @@ public final class PerimeterLayer {
             return 0;
         }
         boolean placed = false;
-        placed |= put(level, ground, Blocks.OAK_LOG);
-        placed |= put(level, ground.above(), Blocks.OAK_LOG);
+        placed |= put(level, ground, POST);
+        placed |= put(level, ground.above(), POST);
         if (index % TORCH_EVERY == 0) {
             placed |= put(level, ground.above(2), Blocks.TORCH);
         }
@@ -110,9 +119,16 @@ public final class PerimeterLayer {
         return clearPost(level, ground) ? 1 : 0;
     }
 
-    /** Whether this block is a palisade post we put there. */
+    /**
+     * Whether this block is a palisade post we put there.
+     *
+     * <p>Logs are still recognised: towns walled before the fence was adopted
+     * have log posts standing, and a gate that could not clear one would sit
+     * blocked by a wall the town no longer builds.
+     */
     private static boolean isOurPost(ServerLevel level, BlockPos pos) {
-        return level.getBlockState(pos).is(Blocks.OAK_LOG);
+        BlockState state = level.getBlockState(pos);
+        return state.is(POST) || state.is(Blocks.OAK_LOG);
     }
 
     /** Takes down a post standing in a gateway, and whatever we stacked on it. */
@@ -124,7 +140,7 @@ public final class PerimeterLayer {
         for (int dy = 1; dy <= 2; dy++) {
             BlockPos above = ground.above(dy);
             BlockState state = level.getBlockState(above);
-            if (state.is(Blocks.OAK_LOG) || state.is(Blocks.TORCH)) {
+            if (state.is(POST) || state.is(Blocks.OAK_LOG) || state.is(Blocks.TORCH)) {
                 level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
         }

@@ -153,8 +153,19 @@ public final class StagePlanner {
             case CAMP -> programComplete(settlement);
             case HOMESTEAD -> programComplete(settlement)
                     && settlement.fedStreak() >= FED_WINDOW_STEPS;
+            // The wall is deliberately NOT here any more. A palisade is now paid
+            // for in coin as well as timber, and coin comes only from a levy on
+            // production that takes a working town a long while to accumulate --
+            // which is the point, because a wall should be a late thing a
+            // settlement can afford rather than the first thing it does.
+            //
+            // That makes it impossible for the wall to also be the gate out of
+            // FORTIFIED: a town that must wall itself before it may grow can
+            // never grow rich enough to wall itself. It locked at FORTIFIED
+            // forever, which is how this was found. What fortifies a settlement
+            // at this stage is its program and somebody standing watch; the wall
+            // comes when the town is good for it.
             case FORTIFIED -> programComplete(settlement)
-                    && settlement.perimeterClosed()
                     && JobPlanner.count(settlement, Profession.GUARD) >= 1;
             case VILLAGE -> programComplete(settlement)
                     && familyHoused(settlement) * 2 >= settlement.population()

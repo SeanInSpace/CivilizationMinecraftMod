@@ -34,6 +34,46 @@ public final class PerimeterPlanner {
     /** Timber per ring position — one log, split into posts. */
     public static final int WOOD_PER_POST = 1;
 
+    /**
+     * Coin a post costs on top of the timber.
+     *
+     * <p>A wall is the last thing a settlement gets, not the first. Timber alone
+     * it has from the day it has a lumberjack, so a town that had cut enough
+     * wood started walling itself while it was still half-built. Coin comes only
+     * from the levy on production, which takes a working town a good while to
+     * accumulate — so paying for the wall in money is what actually puts it
+     * late in a settlement's life, where it belongs.
+     *
+     * <p>It is also the first thing the treasury is spent on that is not wages,
+     * which makes the money mean something: a town can now be too poor to
+     * defend itself.
+     */
+    public static final int COIN_PER_POST = 3;
+
+    /**
+     * Timber the wall will not touch, so a building is never starved by fencing.
+     *
+     * <p>The wall is the one build with no queue behind it and no deadline, so
+     * it is the one that should give way.
+     */
+    public static final int TIMBER_KEPT_FOR_BUILDING = 64;
+
+    /**
+     * Pays for one post, and says whether it could.
+     *
+     * <p>Both or neither. A town that has the timber but not the coin does not
+     * get a free post, and does not lose the timber pretending otherwise.
+     */
+    public static boolean payForPost(Settlement settlement) {
+        if (settlement.woodStock() < WOOD_PER_POST
+                || settlement.treasury() < COIN_PER_POST) {
+            return false;
+        }
+        settlement.stores().take(TownStores.WOOD, WOOD_PER_POST);
+        settlement.spend(COIN_PER_POST);
+        return true;
+    }
+
     /** Positions one pair of hands raises in a step. */
     public static final int POSTS_PER_HAND = 2;
 
@@ -62,6 +102,26 @@ public final class PerimeterPlanner {
         }
         resiteGates(settlement);
         raise(settlement, ctx);
+    }
+
+    /**
+     * Whether somebody is actually there to raise the next post themselves.
+     *
+     * <p>The same test construction uses, for the same reason: a clock running
+     * alongside a builder would raise the wall twice, and one running instead of
+     * a builder standing right there would have posts appear beside somebody
+     * doing nothing.
+     */
+    private static boolean handsAreOnIt(Settlement settlement, SimContext ctx,
+                                        Perimeter perimeter) {
+        if (perimeter.laid() >= perimeter.length()) {
+            return false;
+        }
+        boolean anyEmbodied = settlement.residents().stream()
+                .anyMatch(person -> settlement.laboursAs(person, Profession.BUILDER)
+                        && person.isEmbodied() && !person.isTooWeakToWork());
+        return anyEmbodied
+                && ctx.bridge().isLoaded(perimeter.ringPositions().get(perimeter.laid()));
     }
 
     /**
@@ -337,8 +397,19 @@ public final class PerimeterPlanner {
             }
             return;
         }
-        if (!settlement.buildQueue().isEmpty()) {
-            return;   // shelter and stores before walls
+        // "Shelter and stores before walls" used to be an empty build queue, and
+        // that quietly meant never: a town of any size always has something
+        // queued, so the wall was only ever raised during the lull a young
+        // settlement had while it waited to be allowed to grow. Take that lull
+        // away -- which decoupling the wall from stage progression does -- and
+        // the ring stayed at nought of four hundred and twenty for good, with a
+        // thousand coin and nine hundred timber sitting in the stores.
+        //
+        // The rule it is replaced by says the same thing and actually holds: do
+        // not take the timber a building is waiting on. Coin does the rest of
+        // the gatekeeping now, which is the whole point of a wall costing money.
+        if (settlement.woodStock() < TIMBER_KEPT_FOR_BUILDING + WOOD_PER_POST) {
+            return;
         }
         int hands = (int) settlement.residents().stream()
                 .filter(p -> settlement.laboursAs(p, Profession.BUILDER)
@@ -347,16 +418,28 @@ public final class PerimeterPlanner {
         if (hands <= 0) {
             return;
         }
+        // Where there is a hand there is no clock. A watched town raises its
+        // wall post by post, with a builder walking to each one -- see
+        // PerimeterWorker. The clock here is for the town nobody is looking at,
+        // exactly as it is for construction.
+        if (handsAreOnIt(settlement, ctx, perimeter)) {
+            return;
+        }
         int want = Math.min(hands * POSTS_PER_HAND,
                 perimeter.length() - perimeter.laid());
         int affordable = Math.min(want,
                 settlement.woodStock() / Math.max(1, WOOD_PER_POST));
+        affordable = Math.min(affordable,
+                settlement.treasury() / Math.max(1, COIN_PER_POST));
         if (affordable <= 0) {
-            // Same rule as any other build that runs dry: go make more timber.
-            BuildPlanner.requestProducer(settlement, TownStores.WOOD, ctx.step());
-            return;
+            if (settlement.woodStock() < WOOD_PER_POST) {
+                // Same rule as any other build that runs dry: go make more timber.
+                BuildPlanner.requestProducer(settlement, TownStores.WOOD, ctx.step());
+            }
+            return;   // no coin is not a fault; it is a town that cannot afford a wall yet
         }
         settlement.stores().take(TownStores.WOOD, affordable * WOOD_PER_POST);
+        settlement.spend(affordable * COIN_PER_POST);
         perimeter.setLaid(perimeter.laid() + affordable);
     }
 }

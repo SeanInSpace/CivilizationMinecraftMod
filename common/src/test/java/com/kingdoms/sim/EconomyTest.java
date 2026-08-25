@@ -226,6 +226,50 @@ class EconomyTest {
         assertEquals(500, town.treasury());
     }
 
+    // --- what the money is for ---
+
+    @Test
+    void aPostCostsCoinAsWellAsTimber() {
+        // The wall is the first thing the treasury buys that is not wages, and
+        // it is what makes a town able to be too poor to defend itself.
+        Settlement town = town(1);
+        town.stores().add(com.kingdoms.sim.settlement.TownStores.WOOD, 100);
+
+        assertFalse(com.kingdoms.sim.settlement.PerimeterPlanner.payForPost(town),
+                "timber alone no longer raises a wall");
+
+        town.bank(com.kingdoms.sim.settlement.PerimeterPlanner.COIN_PER_POST);
+        assertTrue(com.kingdoms.sim.settlement.PerimeterPlanner.payForPost(town));
+        assertEquals(0, town.treasury(), "and it paid for it");
+    }
+
+    @Test
+    void aTownWithCoinButNoTimberStillCannotBuildAWall() {
+        Settlement town = town(1);
+        // A settlement is founded holding timber -- 480 of it -- so this has to
+        // be emptied deliberately. The first draft of this test asserted against
+        // a town it wrongly assumed was destitute, and passed for the wrong
+        // reason until the assertion was the other way round.
+        town.stores().take(com.kingdoms.sim.settlement.TownStores.WOOD, town.woodStock());
+        assertEquals(0, town.woodStock(), "and now it really has none");
+        town.bank(1000);
+
+        assertFalse(com.kingdoms.sim.settlement.PerimeterPlanner.payForPost(town));
+        assertEquals(1000, town.treasury(), "and nothing was taken for nothing");
+    }
+
+    @Test
+    void payingForAPostIsBothOrNeither() {
+        // A town that has the timber but not the coin must not lose the timber
+        // pretending otherwise.
+        Settlement town = town(1);
+        town.stores().add(com.kingdoms.sim.settlement.TownStores.WOOD, 10);
+        int before = town.woodStock();
+
+        assertFalse(com.kingdoms.sim.settlement.PerimeterPlanner.payForPost(town));
+        assertEquals(before, town.woodStock());
+    }
+
     // --- the loop closes ---
 
     @Test

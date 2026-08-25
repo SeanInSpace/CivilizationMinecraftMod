@@ -272,6 +272,7 @@ public final class PersonEntityManager {
                 changed |= workMiners(settlement);
                 changed |= workShepherds(settlement);
                 changed |= layPaths(settlement);
+                workWall(settlement);
                 PerimeterLayer.draw(level, settlement);
                 StoreSync.reconcile(level, settlement);
                 freeStrandedPeople(settlement);
@@ -1490,6 +1491,33 @@ public final class PersonEntityManager {
             view.discard();
         }
         person.setEmbodied(false);
+    }
+
+    /**
+     * Sends idle builders to raise the next post of the wall.
+     *
+     * <p>Only when there is nothing else for them: shelter and stores before
+     * walls, which is the same order the abstract clock uses. A builder with a
+     * building to raise is not spared for fencing.
+     */
+    private void workWall(Settlement settlement) {
+        if (settlement.perimeter() == null || !settlement.buildQueue().isEmpty()) {
+            return;
+        }
+        for (Person person : settlement.residents()) {
+            if (!settlement.laboursAs(person, Profession.BUILDER)
+                    || !person.isEmbodied() || person.isTooWeakToWork()
+                    || person.haul() != null) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view == null || view.isRemoved()) {
+                continue;
+            }
+            if (PerimeterWorker.work(level, settlement, view)) {
+                return;   // one post at a time, by one pair of hands
+            }
+        }
     }
 
     /** How close a settler has to pass to notice something on the ground. */
