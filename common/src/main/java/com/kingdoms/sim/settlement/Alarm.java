@@ -12,9 +12,13 @@ import com.kingdoms.sim.person.Profession;
  * hall, which nobody could see and which was never coming up, emptied the
  * streets and kept them empty for as long as it lived.
  *
- * <p>Now the count is of hostiles somebody has actually <em>seen</em>, and the
- * response is graduated. One is a thing for the guards. Three is everybody
+ * <p>Now the reckoning is of hostiles somebody has actually <em>seen</em>,
+ * weighted by what each of them is worth — a creeper is not a zombie — and the
+ * response is graduated. A little is a thing for the guards. A lot is everybody
  * indoors.
+ *
+ * <p>These are danger totals, not head counts. The scale is the platform's
+ * danger table: an ordinary zombie is 1, a skeleton 2, a creeper 4.
  */
 public enum Alarm {
 
@@ -35,18 +39,25 @@ public enum Alarm {
     /** Enough of them that everybody but the watch goes home. */
     ALARMED;
 
-    /** Seen this many and the town is wary. */
+    /** This much danger in sight and the town is wary. */
     public static final int WARY_AT = 1;
 
-    /** Seen this many and it stops pretending everything is fine. */
-    public static final int ALARMED_AT = 3;
+    /**
+     * This much danger and it stops pretending everything is fine.
+     *
+     * <p>Six: six zombies, or three skeletons, or a creeper with company. Set
+     * deliberately above what any one ordinary creature is worth, so that the
+     * only way to reach it is for there to be several of them — see
+     * {@link Settlement#sighted}, which enforces that from the other end.
+     */
+    public static final int ALARMED_AT = 6;
 
-    /** What a town does about this many hostiles in sight. */
-    public static Alarm of(int seen) {
-        if (seen >= ALARMED_AT) {
+    /** What a town does about this much danger in sight. */
+    public static Alarm of(int danger) {
+        if (danger >= ALARMED_AT) {
             return ALARMED;
         }
-        return seen >= WARY_AT ? WARY : CALM;
+        return danger >= WARY_AT ? WARY : CALM;
     }
 
     /** Whether the town is worried at all. */

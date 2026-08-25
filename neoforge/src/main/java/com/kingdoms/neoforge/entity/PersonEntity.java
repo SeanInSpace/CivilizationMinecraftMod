@@ -5,6 +5,7 @@ import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Inventory;
 import com.kingdoms.sim.person.Person;
+import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.network.chat.Component;
@@ -91,6 +92,10 @@ public final class PersonEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
+        // Above the door goal and everything below it: getting away from a
+        // creeper outranks getting to work, and outranks tidily shutting the
+        // door behind you.
+        goalSelector.addGoal(1, new FleeCreepersGoal(this));
         // Real wooden doors — the kind authored blueprints carry — open for the
         // people who live behind them. Fence gates are not doors to vanilla and
         // are handled by the manager instead; see PersonEntityManager.tendGates.
@@ -189,6 +194,37 @@ public final class PersonEntity extends PathfinderMob {
             return "hungry";
         }
         return "well fed";
+    }
+
+    /**
+     * Whether this body is currently running from something.
+     *
+     * <p>Owned by {@link FleeCreepersGoal} and read by {@code PersonEntityManager},
+     * which otherwise steers every settler toward their workplace once a tick and
+     * would drag a fleeing farmer straight back into the blast.
+     */
+    private boolean fleeing;
+
+    /** See {@link #fleeing}. */
+    public boolean isFleeing() {
+        return fleeing;
+    }
+
+    /** See {@link #fleeing}. Set by the goal that owns the flight. */
+    public void setFleeing(boolean fleeing) {
+        this.fleeing = fleeing;
+    }
+
+    /**
+     * Whether the simulation has this body down as one of the watch.
+     *
+     * <p>A body whose record cannot be found is <em>not</em> a guard. The two
+     * callers both use this to decide whether to stand and fight, and an
+     * unidentified settler should not be volunteered for that.
+     */
+    public boolean isGuard() {
+        Person person = person();
+        return person != null && person.profession() == Profession.GUARD;
     }
 
     /** The record this body stands for, if the simulation still knows them. */

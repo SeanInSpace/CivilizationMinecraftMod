@@ -110,13 +110,17 @@ public interface WorldBridge {
      * and kept them empty for as long as it lived. A town can only be frightened
      * of what it knows about.
      *
-     * <p>Zero when nothing is loaded, which is exactly right: abstract fidelity
-     * has no real hostiles and no real eyes, so threat there comes from the raid
-     * system instead. Default provided so test doubles stay small; real
+     * <p>Weighted, not counted. Four zombies and four creepers are not the same
+     * news, so the platform scores each creature by what it is worth and reports
+     * the total alongside the head count. See the platform's own danger table.
+     *
+     * <p>Nothing when nothing is loaded, which is exactly right: abstract
+     * fidelity has no real hostiles and no real eyes, so threat there comes from
+     * the raid system instead. Default provided so test doubles stay small; real
      * platforms must override.
      */
-    default int hostilesSeen(SimPos centre, double radius) {
-        return 0;
+    default Sighting hostilesSeen(SimPos centre, double radius) {
+        return Sighting.NONE;
     }
 
     /**

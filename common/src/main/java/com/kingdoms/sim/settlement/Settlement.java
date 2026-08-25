@@ -5,6 +5,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
+import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
 
@@ -844,19 +845,29 @@ public final class Settlement {
     }
 
     /**
-     * Records that hostiles were seen this step, and how many.
+     * Records what was seen this step: how much danger, and from how many.
      *
      * <p>Raises the alarm to at least what was seen — never lowers it, because
      * the fewer you can see the more likely it is that the rest went round the
      * back — and refreshes the memory so a mob breaking line of sight does not
      * clear the town's mind with it.
+     *
+     * <p><strong>One creature is never a panic.</strong> A lone hostile, however
+     * nasty, is capped one rung below {@link Alarm#ALARMED_AT} no matter what it
+     * is worth. This is the difference between a town that fears creepers and a
+     * town that is paralysed by them: the danger still registers, the guards
+     * still go, the civilians near it still run — but the streets do not empty
+     * over one of anything. That is what a watch is for.
      */
-    public void sighted(int hostiles) {
-        if (hostiles <= 0) {
+    public void sighted(Sighting sighting) {
+        if (!sighting.any() || sighting.danger() <= 0) {
             return;
         }
-        if (hostiles > threatLevel) {
-            threatLevel = hostiles;
+        int worth = sighting.isLone()
+                ? Math.min(sighting.danger(), Alarm.ALARMED_AT - 1)
+                : sighting.danger();
+        if (worth > threatLevel) {
+            threatLevel = worth;
         }
         sightingMemory = SIGHTING_MEMORY_STEPS;
     }

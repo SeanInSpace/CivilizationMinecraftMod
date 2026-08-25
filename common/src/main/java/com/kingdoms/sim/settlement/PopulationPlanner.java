@@ -181,6 +181,26 @@ public final class PopulationPlanner {
                 continue;
             }
 
+            // A household nobody is left in is not a family that can grow or
+            // split, it is the record of one that died out. Both paths below
+            // reach into members() for a first or last member and neither
+            // survives finding none: this crashed the server tick outright,
+            // because a house whose capacity reads zero also reads as full.
+            // A household nobody is left in is not a family that can grow or
+            // split, it is the record of one that died out. Both paths below
+            // reach into members() for a first or last member and neither
+            // survives finding none: this crashed the server tick outright,
+            // because a house whose capacity reads zero also reads as full.
+            // A household nobody is left in is not a family that can grow or
+            // split, it is the record of one that died out. Both paths below
+            // reach into members() for a first or last member and neither
+            // survives finding none: this crashed the server tick outright and
+            // every tick after it, because a house whose capacity reads zero
+            // also reads as full, and a full house sends somebody out.
+            if (household.members().isEmpty()) {
+                continue;
+            }
+
             if (household.growthProgress() < stepsPerBirth) {
                 household.addGrowthProgress(1);
             }

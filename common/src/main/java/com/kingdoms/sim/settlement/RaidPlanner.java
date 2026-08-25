@@ -2,6 +2,7 @@ package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.world.SimContext;
 
 import java.util.ArrayList;
@@ -49,9 +50,9 @@ public final class RaidPlanner {
         // Threat mirrors what the town's people can see, whenever anybody is
         // there to see it. Zero when abstract — there are no eyes and no
         // hostiles, so threat there comes from raid events instead.
-        int hostiles = ctx.bridge().hostilesSeen(settlement.centre(), settlement.claimRadius());
-        settlement.sighted(hostiles);
-        if (outmatched(settlement, hostiles)) {
+        Sighting seen = ctx.bridge().hostilesSeen(settlement.centre(), settlement.claimRadius());
+        settlement.sighted(seen);
+        if (outmatched(settlement, seen)) {
             settlement.soundAlarm();
         }
 
@@ -84,23 +85,48 @@ public final class RaidPlanner {
     }
 
     /**
+     * How much danger one guard is reckoned able to hold.
+     *
+     * <p>Three: a guard handles three zombies, or one witch, but not a creeper
+     * and a skeleton at once.
+     */
+    public static final int GUARD_CAPACITY = 3;
+
+    /**
+     * Below this much danger the bell stays quiet however thin the watch is.
+     *
+     * <p>Without a floor, a town whose only guard was hungry would ring over two
+     * zombies. Set below {@link Alarm#ALARMED_AT} on purpose: the bell's job is
+     * to panic a badly defended town <em>earlier</em> than the tiers would, not
+     * to panic it over nothing.
+     */
+    public static final int BELL_FLOOR = 4;
+
+    /**
      * Whether what has been seen is more than the watch can be expected to hold.
      *
      * <p>The bell's own rule, and the reason it is not just another threshold:
-     * it compares what is coming against who is standing, so the same three
-     * zombies are a job for a town with four guards and an emergency for a town
-     * with one. A town with no watch at all rings at the first sight of
-     * anything, which is exactly right — there is nobody whose job it was.
+     * it weighs what is coming against who is standing, so the same two
+     * skeletons are a Tuesday for a town with three guards and an emergency for
+     * a town with none.
+     *
+     * <p>Two things it will not do. It will not ring for a single creature —
+     * that is the watch's job and the whole reason a town keeps one. And it will
+     * not ring below {@link #BELL_FLOOR}, so a thin watch means panicking sooner
+     * rather than panicking always.
      */
-    public static boolean outmatched(Settlement settlement, int hostiles) {
-        if (hostiles <= 0) {
+    public static boolean outmatched(Settlement settlement, Sighting seen) {
+        // One creature is the watch's problem, whatever it is. The bell is for
+        // telling a town that something has arrived which the watch cannot hold,
+        // and a single creeper is not that — it is a guard's afternoon.
+        if (seen.seen() < 2 || seen.danger() < BELL_FLOOR) {
             return false;
         }
         long watch = settlement.residents().stream()
                 .filter(person -> person.profession() == Profession.GUARD
                         && !person.isTooWeakToWork())
                 .count();
-        return hostiles > watch;
+        return seen.danger() > watch * GUARD_CAPACITY;
     }
 
     /** Guards times {@link #GUARD_POWER}, plus every standing structure's defense bonus. */

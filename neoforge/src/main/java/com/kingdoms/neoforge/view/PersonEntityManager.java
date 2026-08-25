@@ -25,6 +25,9 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildPlanner;
+import com.kingdoms.neoforge.bridge.Menace;
+import net.minecraft.world.entity.ai.util.DefaultRandomPos;
+import net.minecraft.world.phys.Vec3;
 import com.kingdoms.sim.settlement.Alarm;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
@@ -1299,9 +1302,28 @@ public final class PersonEntityManager {
             }
             Monster target = nearestHostile(guard);
             if (target == null) {
+                backingOff.remove(person.id().value());
                 continue;
             }
             arm(settlement, guard);
+
+            // A creeper is not fought the way a zombie is fought. Standing in
+            // reach and swinging until it dies kills the guard too — the fuse is
+            // shorter than the creeper's health. So: one hit, then out of the
+            // blast until the fuse has had time to reset, then back in. It takes
+            // longer and the guard survives it.
+            boolean volatileFoe = Menace.blowsUp(target);
+            long now = level.getGameTime();
+            Long clear = backingOff.get(person.id().value());
+            if (clear != null && now >= clear) {
+                backingOff.remove(person.id().value());
+                clear = null;
+            }
+            if (volatileFoe && clear != null) {
+                retreatFrom(guard, target);
+                continue;
+            }
+
             if (guard.distanceTo(target) <= GUARD_STRIKE_RANGE) {
                 guard.swing(InteractionHand.MAIN_HAND);
                 boolean wasAlive = target.isAlive();
@@ -1310,9 +1332,41 @@ public final class PersonEntityManager {
                 if (wasAlive && !target.isAlive()) {
                     settlement.tallies().record(Tallies.MOBS_SLAIN);
                 }
+                if (volatileFoe && target.isAlive()) {
+                    backingOff.put(person.id().value(), now + FUSE_RESET_TICKS);
+                    retreatFrom(guard, target);
+                }
             } else {
                 guard.getNavigation().moveTo(target, GUARD_CHARGE_SPEED);
             }
+        }
+    }
+
+    /**
+     * When each guard mid-retreat may turn round again, by game time.
+     *
+     * <p>Not persisted, and it does not need to be: an unloaded guard is not
+     * standing next to a creeper.
+     */
+    private final Map<UUID, Long> backingOff = new HashMap<>();
+
+    /**
+     * How long a guard stays out of it after hitting a creeper.
+     *
+     * <p>The fuse runs thirty ticks and stops climbing once its target is more
+     * than seven blocks off, so this is that plus enough margin to have covered
+     * the seven blocks. Too short and the guard walks back into its own detonation.
+     */
+    private static final int FUSE_RESET_TICKS = 45;
+
+    /** How far to get before turning round. */
+    private static final int RETREAT_DISTANCE = 12;
+
+    /** Walks the guard away from something about to go off. */
+    private void retreatFrom(PersonEntity guard, Monster blast) {
+        Vec3 away = DefaultRandomPos.getPosAway(guard, RETREAT_DISTANCE, 7, blast.position());
+        if (away != null) {
+            guard.getNavigation().moveTo(away.x, away.y, away.z, GUARD_CHARGE_SPEED);
         }
     }
 
@@ -1524,6 +1578,12 @@ public final class PersonEntityManager {
             } else {
                 target = workplaceFor(settlement, person, home);
                 speed = WALK_SPEED;
+            }
+
+            if (view.isFleeing()) {
+                // Getting away from a creeper beats every errand on this list.
+                // Steering them now would just cancel the escape path.
+                continue;
             }
 
             double dx = view.getX() - (target.x() + 0.5);

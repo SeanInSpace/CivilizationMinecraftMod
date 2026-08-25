@@ -3,6 +3,7 @@ package com.kingdoms.sim;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
@@ -40,7 +41,8 @@ class RaidPlannerTest {
             return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }
-        @Override public int hostilesSeen(SimPos centre, double radius) { return hostiles; }
+        // Plain zombies: one danger apiece, so the count and the weight agree.
+        @Override public Sighting hostilesSeen(SimPos centre, double radius) { return new Sighting(hostiles, hostiles); }
         @Override public void spawnHostiles(int count, SimPos around) { spawnedRaids.add(count); }
     }
 
@@ -194,12 +196,15 @@ class RaidPlannerTest {
 
     @Test
     void threatTracksWhatTheTownCanSee() {
+        // Three zombies on purpose: that is below the bell floor, so no watch
+        // however thin can ring about it, and what is measured here is the
+        // tracking rather than the panic on top of it.
         Settlement s = settlement(1, 2, 0);
         WarBridge bridge = new WarBridge();
-        bridge.hostiles = 4;
+        bridge.hostiles = 3;
 
         s.step(new SimContext(bridge, 0, SimSettings.SANDBOX));
-        assertEquals(4, s.threatLevel(), "threat mirrors what the town can see");
+        assertEquals(3, s.threatLevel(), "threat mirrors what the town can see");
     }
 
     @Test
@@ -207,23 +212,29 @@ class RaidPlannerTest {
         // Read fresh every step, a hostile using cover would clear the alarm and
         // raise it again on alternate steps. A town that has seen something does
         // not forget it that fast.
+        // Three zombies on purpose: that is below the bell floor, so no watch
+        // however thin can ring about it, and what is measured here is the
+        // tracking rather than the panic on top of it.
         Settlement s = settlement(1, 2, 0);
         WarBridge bridge = new WarBridge();
-        bridge.hostiles = 4;
+        bridge.hostiles = 3;
         s.step(new SimContext(bridge, 0, SimSettings.SANDBOX));
 
         bridge.hostiles = 0;
         s.step(new SimContext(bridge, 1, SimSettings.SANDBOX));
 
-        assertEquals(4, s.threatLevel(), "still believed, and still true for all the town knows");
+        assertEquals(3, s.threatLevel(), "still believed, and still true for all the town knows");
         assertTrue(s.remembersSighting());
     }
 
     @Test
     void andThenItStandsDown() {
+        // Three zombies on purpose: that is below the bell floor, so no watch
+        // however thin can ring about it, and what is measured here is the
+        // tracking rather than the panic on top of it.
         Settlement s = settlement(1, 2, 0);
         WarBridge bridge = new WarBridge();
-        bridge.hostiles = 4;
+        bridge.hostiles = 3;
         s.step(new SimContext(bridge, 0, SimSettings.SANDBOX));
 
         bridge.hostiles = 0;
@@ -233,7 +244,7 @@ class RaidPlannerTest {
         }
 
         assertFalse(s.remembersSighting(), "the memory has run out");
-        assertEquals(3, s.threatLevel(), "and the alarm has started to fall");
+        assertEquals(2, s.threatLevel(), "and the alarm has started to fall");
     }
 
     // --- the evidence trail ---

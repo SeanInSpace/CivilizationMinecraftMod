@@ -7,6 +7,7 @@ import com.kingdoms.sim.settlement.BuildCatalogue;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.platform.WorldBridge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -326,14 +327,18 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      * above it, which is the whole point. What is left is what somebody could
      * point at.
      *
+     * <p>Weighted by {@link Menace}, so what comes back is an opinion about
+     * danger rather than a head count — four zombies and four creepers read very
+     * differently to a town, and now they do here too.
+     *
      * <p>A town with nobody embodied sees nothing, and says so. That is correct
      * rather than a gap — with no citizens loaded there is nobody to be
      * frightened, and the abstract half of the simulation has its own raids.
      */
     @Override
-    public int hostilesSeen(SimPos centre, double radius) {
+    public Sighting hostilesSeen(SimPos centre, double radius) {
         if (!level.isLoaded(toBlockPos(centre))) {
-            return 0;
+            return Sighting.NONE;
         }
         AABB box = new AABB(
                 centre.x() - radius, centre.y() - THREAT_REACH_Y, centre.z() - radius,
@@ -341,19 +346,21 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         List<PersonEntity> citizens =
                 level.getEntitiesOfClass(PersonEntity.class, box, LivingEntity::isAlive);
         if (citizens.isEmpty()) {
-            return 0;
+            return Sighting.NONE;
         }
         int seen = 0;
+        int danger = 0;
         for (Monster hostile : level.getEntitiesOfClass(Monster.class, box, LivingEntity::isAlive)) {
             for (PersonEntity citizen : citizens) {
                 if (citizen.distanceToSqr(hostile) <= CITIZEN_SIGHT * CITIZEN_SIGHT
                         && citizen.hasLineOfSight(hostile)) {
                     seen++;
+                    danger += Menace.of(hostile);
                     break;   // one witness is enough; a mob is not scarier for being seen twice
                 }
             }
         }
-        return seen;
+        return new Sighting(danger, seen);
     }
 
     /**
