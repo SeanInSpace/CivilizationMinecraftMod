@@ -238,8 +238,20 @@ public final class KingdomsCodecs {
             PATH_SEGMENT.listOf().optionalFieldOf("segments", List.of())
                     .forGetter(PathNetwork::segments),
             SIM_POS.listOf().optionalFieldOf("joined", List.of())
-                    .forGetter(PathNetwork::joined)
-    ).apply(i, PathNetwork::new));
+                    .forGetter(PathNetwork::joined),
+            // Which stretches somebody has actually walked out and opened. A
+            // road is a job now, not a line on a plan, so without this a reload
+            // would send the builders out to open every street the town already
+            // has -- the same mistake the joined set exists to prevent, one
+            // level down. Optional, so a save from before roads were work loads
+            // with none opened and re-opens them as its builders get to them.
+            Codec.INT.listOf().optionalFieldOf("opened", List.of())
+                    .forGetter(PathNetwork::openedSegments)
+    ).apply(i, (segments, joined, opened) -> {
+        PathNetwork network = new PathNetwork(segments, joined);
+        network.restoreOpened(opened);
+        return network;
+    }));
 
     private static final MapCodec<Flavor> FLAVOR = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.STRING.optionalFieldOf("culture", Culture.DEFAULT.id()).forGetter(Flavor::culture),

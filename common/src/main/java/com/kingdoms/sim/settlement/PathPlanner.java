@@ -1,7 +1,10 @@
 package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
+
+import java.util.List;
 
 /**
  * Decides where the town's roads run.
@@ -65,6 +68,38 @@ public final class PathPlanner {
                 network.markJoined(building.origin());
             }
             return;   // one road a step: a town lays its network as it grows
+        }
+        // Every road is planned; what is left is opening them. Where there is a
+        // hand there is no clock -- a watched town walks somebody out to each
+        // stretch (see PublicWorks.RoadWork) and only an unwatched one has its
+        // streets appear, which is what "grew while you were away" has to mean.
+        openNextUnwatched(settlement, ctx, network);
+    }
+
+    /**
+     * Opens one stretch on the clock, for a town nobody is looking at.
+     *
+     * <p>The same test construction and the wall use, for the same reason: a
+     * clock running alongside a builder would open the road twice, and one
+     * running instead of a builder standing right there would have a street
+     * appear beside somebody doing nothing.
+     */
+    private static void openNextUnwatched(Settlement settlement, SimContext ctx,
+                                          PathNetwork network) {
+        List<PathNetwork.Segment> segments = network.segments();
+        for (int i = 0; i < segments.size(); i++) {
+            if (network.isOpened(i)) {
+                continue;
+            }
+            SimPos where = segments.get(i).from();
+            boolean handsThere = settlement.residents().stream()
+                    .anyMatch(person -> settlement.laboursAs(person, Profession.BUILDER)
+                            && person.isEmbodied() && !person.isTooWeakToWork());
+            if (handsThere && ctx.bridge().isLoaded(where)) {
+                return;   // somebody is there to walk it out themselves
+            }
+            network.markOpened(i);
+            return;   // one stretch a step, watched or not
         }
     }
 

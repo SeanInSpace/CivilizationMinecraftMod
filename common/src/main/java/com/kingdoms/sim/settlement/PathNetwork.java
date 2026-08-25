@@ -82,12 +82,60 @@ public final class PathNetwork {
      */
     private final Set<SimPos> joined = new LinkedHashSet<>();
 
+    /**
+     * Which stretches somebody has actually walked out and opened.
+     *
+     * <p>A road used to exist the moment it was planned: the network held the
+     * line and the layer paved whatever was bare along it, wherever the town was
+     * loaded, with nobody present. So a street between two houses appeared while
+     * every builder in the village was somewhere else.
+     *
+     * <p>Opening a stretch is now a job somebody walks to — see
+     * {@code PublicWorks.RoadWork}. Keeping an opened one clear of the grass
+     * that grows back over it stays automatic, because that is sweeping a road
+     * rather than building one, and is not worth crossing the village for.
+     *
+     * <p>Indices into {@link #segments}, which only ever grows, so an index
+     * means the same stretch for as long as the town stands.
+     */
+    private final Set<Integer> opened = new LinkedHashSet<>();
+
     public PathNetwork() {
     }
 
     public PathNetwork(List<Segment> segments, List<SimPos> joined) {
         this.segments.addAll(segments);
         this.joined.addAll(joined);
+    }
+
+    /** Whether this stretch has been walked out and opened. */
+    public boolean isOpened(int index) {
+        return opened.contains(index);
+    }
+
+    /** Records a stretch opened. */
+    public void markOpened(int index) {
+        if (index >= 0) {
+            opened.add(index);
+        }
+    }
+
+    /** Every opened stretch, for saving. */
+    public List<Integer> openedSegments() {
+        return List.copyOf(opened);
+    }
+
+    /** Restores opened stretches from a save. */
+    public void restoreOpened(List<Integer> indices) {
+        opened.clear();
+        if (indices != null) {
+            opened.addAll(indices);
+        }
+    }
+
+    /** How many stretches are open, which is what a town has actually built. */
+    public int openedCount() {
+        return opened.size();
     }
 
     public List<Segment> segments() {

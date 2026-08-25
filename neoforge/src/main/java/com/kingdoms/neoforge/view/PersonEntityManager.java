@@ -1099,7 +1099,14 @@ public final class PersonEntityManager {
         }
         UUID id = settlement.id().value();
         int cursor = pathCursor.merge(id, 1, Integer::sum) - 1;
-        return PathLayer.mend(level, segments.get(Math.floorMod(cursor, segments.size()))) > 0;
+        int index = Math.floorMod(cursor, segments.size());
+        // Only stretches somebody has actually opened. Paving one nobody has
+        // walked out yet would put a street on the ground ahead of the people
+        // laying it -- which is what this did before roads were a job.
+        if (!settlement.paths().isOpened(index)) {
+            return false;
+        }
+        return PathLayer.mend(level, segments.get(index)) > 0;
     }
 
     private boolean workShepherds(Settlement settlement) {
@@ -1494,15 +1501,18 @@ public final class PersonEntityManager {
     }
 
     /**
-     * Sends idle builders to raise the next post of the wall.
+     * Sends a spare builder to whatever public work needs a body next.
      *
      * <p>Only when there is nothing else for them: shelter and stores before
-     * walls, which is the same order the abstract clock uses. A builder with a
-     * building to raise is not spared for fencing.
+     * roads and walls, which is the same order the abstract clock uses. A
+     * builder with a building to raise is not spared for fencing.
+     *
+     * <p>Which work, and in what order, is the settlement's own opinion — see
+     * {@code PublicWorks}. This only finds somebody free to go and do it.
      */
     private void workWall(Settlement settlement) {
-        if (settlement.perimeter() == null || !settlement.buildQueue().isEmpty()) {
-            return;
+        if (!settlement.buildQueue().isEmpty()) {
+            return;   // shelter and stores before roads and walls
         }
         for (Person person : settlement.residents()) {
             if (!settlement.laboursAs(person, Profession.BUILDER)
@@ -1514,8 +1524,8 @@ public final class PersonEntityManager {
             if (view == null || view.isRemoved()) {
                 continue;
             }
-            if (PerimeterWorker.work(level, settlement, view)) {
-                return;   // one post at a time, by one pair of hands
+            if (Foreman.work(level, settlement, view)) {
+                return;   // one station at a time, by one pair of hands
             }
         }
     }
