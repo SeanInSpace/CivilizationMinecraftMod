@@ -58,6 +58,71 @@ class TownAuditorGeometryTest {
         return faultsOf(world).stream().anyMatch(f -> f.contains("no way in"));
     }
 
+    @Test
+    void aDoorwayWithATreeInItIsNoWayIn() {
+        // What every "no way in" report in a live audit turned out to be. The
+        // doorway is cut, the doorstep is laid, there is solid ground to stand
+        // on — and the block where a person's head goes is oak leaves. Leaves
+        // have full collision, so this is a door you cannot walk through, and
+        // the auditor was right about it for as long as it has been complaining.
+        FakeWorld blocked = sealedHouse().doorway(HALF, 0, FLOOR);
+        // Head height, one block out from the doorway, over standable ground.
+        blocked.solid(HALF + 1, FLOOR + 2, 0);
+
+        assertTrue(reportsNoWayIn(blocked),
+                "a person cannot walk through a tree, whatever the ground is doing");
+    }
+
+    @Test
+    void theSameDoorwayIsFineOnceTheTreeIsGone() {
+        // The other half of the claim, so the test above cannot pass by the
+        // check simply being broken.
+        assertFalse(reportsNoWayIn(sealedHouse().doorway(HALF, 0, FLOOR)),
+                "clear the head height and it is a door again");
+    }
+
+    @Test
+    void aTrunkStandingInTheDoorwayIsNoWayIn() {
+        // A whole trunk, not one block: a single block outside the door at
+        // chest height is a step UP, which the check tolerates on purpose for
+        // doors at the head of their own stair flight. A tree fills the column.
+        FakeWorld blocked = sealedHouse().doorway(HALF, 0, FLOOR);
+        blocked.solid(HALF + 1, FLOOR + 1, 0);
+        blocked.solid(HALF + 1, FLOOR + 2, 0);
+        blocked.solid(HALF + 1, FLOOR + 3, 0);
+
+        assertTrue(reportsNoWayIn(blocked), "a trunk in the doorway is not a doorway");
+    }
+
+    @Test
+    void aSingleBlockOutsideTheDoorIsAStepAndNotAnObstruction() {
+        // The tolerance the case above had to work around, stated so nobody
+        // later reads it as a bug: a door at the top of its own stair flight
+        // has exactly this shape.
+        FakeWorld stepped = sealedHouse().doorway(HALF, 0, FLOOR);
+        stepped.solid(HALF + 1, FLOOR + 1, 0);
+
+        assertFalse(reportsNoWayIn(stepped), "you can step up into a doorway");
+    }
+
+    @Test
+    void aRefusedDoorwayNamesWhatWasInTheWay() {
+        // The report is the instrument. "No way in" on its own was argued about
+        // for as long as it was reported and never once settled, because it said
+        // what the auditor concluded and nothing about what it saw.
+        FakeWorld blocked = sealedHouse().doorway(HALF, 0, FLOOR);
+        blocked.solid(HALF + 1, FLOOR + 2, 0);
+
+        String fault = faultsOf(blocked).stream()
+                .filter(f -> f.contains("no way in"))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(fault.contains("gap(s)"), "how many ways in it found: " + fault);
+        assertTrue(fault.contains("head hits") || fault.contains("blocked by"),
+                "and what stopped the one it found: " + fault);
+    }
+
     // --- a building with nothing drawn: caught mid-step, or genuinely stuck ---
 
     /** Recorded by the simulation, with no blocks laid for it yet. */

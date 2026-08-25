@@ -672,6 +672,19 @@ public final class BlueprintPlacer {
      * so cutting a shelf for one building can never take a bite out of the one
      * beside it — and leaves trees standing for the lumberjacks.
      */
+    /**
+     * Whether this is something growing rather than something built.
+     *
+     * <p>The two things a doorway is blocked by that no amount of levelling
+     * will shift. Kept apart from {@link #isNaturalGround} because the apron
+     * treats them differently in principle even though it now takes both: earth
+     * is cut back to make a shelf, and a tree is felled because it is in the
+     * way.
+     */
+    private static boolean isGrowth(BlockState state) {
+        return state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES);
+    }
+
     private static boolean isNaturalGround(BlockState state) {
         return state.is(BlockTags.MINEABLE_WITH_SHOVEL)
                 || state.is(BlockTags.BASE_STONE_OVERWORLD);
@@ -1184,10 +1197,27 @@ public final class BlueprintPlacer {
                         continue;
                     }
                     BlockState standing = level.getBlockState(pos);
-                    // Only ground that genuinely stands over the floor line. Snow,
-                    // grass and flowers are left exactly where they are — nothing
-                    // is gained by clearing what was never blocking anything.
-                    if (needsDigging(standing) && isNaturalGround(standing)) {
+                    // Ground that stands over the floor line, and growth that
+                    // stands in the way of a person. Snow, grass and flowers are
+                    // left exactly where they are — nothing is gained by
+                    // clearing what was never blocking anything.
+                    //
+                    // Growth is here because leaving it out was a real defect
+                    // rather than an oversight of taste. isNaturalGround is
+                    // shovel work and base stone; leaves are hoe work and logs
+                    // are axe work, so a tree standing against a wall was never
+                    // touched by the apron. Every "no way in" report in a live
+                    // audit turned out to be exactly that: the doorway was cut,
+                    // the doorstep was laid, there was solid ground to stand on
+                    // — and a tree was growing in it. Six of seven read "head
+                    // hits oak_leaves" at the one block a person's head goes.
+                    //
+                    // A log added here does not become a three-block hole in a
+                    // trunk: Excavation.reduceTrees swaps any log or leaf for
+                    // the stump it stands on, so the whole tree comes down in
+                    // one job, as it already does inside the footprint.
+                    if (needsDigging(standing)
+                            && (isNaturalGround(standing) || isGrowth(standing))) {
                         toDig.add(pos);
                     }
                 }

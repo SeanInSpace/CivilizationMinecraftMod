@@ -527,7 +527,18 @@ public final class TownAuditor {
         // Every column, no sampling. A doorway is one column wide, and stepping
         // by two walked straight past the door on two of the four sides — which
         // reported half the town as having no way in when it plainly did.
+        //
+        // What is collected on the way round is as important as the verdict.
+        // "No way in" on its own has been argued about for as long as it has
+        // been reported and never once settled, because it says what the
+        // auditor concluded and nothing about what it saw. The crop check
+        // stopped being a mystery the day it started naming the block that
+        // replaced each vanished crop; this does the same.
+        int gaps = 0;
+        int columns = 0;
+        String firstGap = null;
         for (BlockPos wall : ring(origin, wallHalfW, wallHalfD, 1)) {
+            columns++;
             BlockPos feet = new BlockPos(wall.getX(), floor + 1, wall.getZ());
             if (world.isFenceGate(feet)) {
                 return;   // a gate is a way in, even one kept shut on purpose
@@ -538,6 +549,7 @@ public final class TownAuditor {
             // A gap. Is there ground to stand on just outside it — level with
             // the floor, one step down (a stair tread), or one hop up (a shelf
             // the terrain left a block proud)?
+            gaps++;
             Direction out = outward(origin, wall);
             BlockPos outside = feet.relative(out);
             for (int dy = -1; dy <= 1; dy++) {
@@ -548,9 +560,45 @@ public final class TownAuditor {
                     return;
                 }
             }
+            if (firstGap == null) {
+                firstGap = describeOutside(world, outside, floor, out);
+            }
         }
         faults.add(new Fault(building.blueprintId(), origin,
-                "no way in — no doorway at grade on any side"));
+                "no way in — " + gaps + " gap(s) in " + columns + " wall columns"
+                        + (firstGap == null
+                                ? ", the wall ring is unbroken"
+                                : "; outside the first gap " + firstGap)));
+    }
+
+    /**
+     * What is actually outside a gap the auditor refused to accept as a door.
+     *
+     * <p>Named block by block through the three heights the check will take, so
+     * a report can be argued with. A gap whose outside reads as air all the way
+     * down is a doorway over a drop; one that reads solid at every height is a
+     * doorway into a hillside; one naming a slab or a path is the check being
+     * too fussy about what counts as ground.
+     */
+    private static String describeOutside(WorldView world, BlockPos outside, int floor,
+                                          Direction out) {
+        // Each height the check will try, and which of its two clauses failed
+        // there: something to stand on, and two blocks of clear air above it.
+        StringBuilder said = new StringBuilder(out.getName()).append(' ');
+        for (int dy = -1; dy <= 1; dy++) {
+            BlockPos ground = new BlockPos(outside.getX(), floor + dy, outside.getZ());
+            said.append(dy == -1 ? "" : " | ")
+                    .append(dy >= 0 ? "+" : "").append(dy).append('=')
+                    .append(world.isLoaded(ground) ? world.blockNameAt(ground) : "unloaded");
+            if (!world.isStandable(ground)) {
+                said.append("(nothing to stand on)");
+            } else if (!world.isPassable(ground.above())) {
+                said.append("(blocked by ").append(world.blockNameAt(ground.above())).append(')');
+            } else if (!world.isPassable(ground.above(2))) {
+                said.append("(head hits ").append(world.blockNameAt(ground.above(2))).append(')');
+            }
+        }
+        return said.toString();
     }
 
     /**
