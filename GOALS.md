@@ -83,22 +83,44 @@ work that cannot be delegated.
 
 - [ ] **Decide what a capacity of zero means.** `capacityOfHome` returns zero for
       a home the catalogue has no matching building type for, and every caller
-      reads zero as *full*, because the test is `size() < capacity`. That is what
-      turned a household with no members into a server crash — an empty house
-      counted as overcrowded and tried to move somebody out of it.
+      reads zero as *full*, because the test is `size() < capacity`. A family of
+      three in a building whose blueprint has left the catalogue — a renamed
+      cottage, a removed mod building, an older save — reads as permanently
+      overcrowded, and sheds a member into any vacancy that appears, every birth
+      cycle, until there is nobody left. Measured, not supposed: three members to
+      zero in a hundred and twenty steps.
 
-      The crash is fixed and covered by `EmptyHouseholdTest`, but the reading
-      itself is untouched and is still a landmine. A family of three living in a
-      building whose blueprint has left the catalogue — a renamed cottage, a
-      removed mod building, a save from an older version — also reads as
-      overcrowded, and will try to split into any vacancy that appears, every
-      time one appears. Nothing crashes; the town just quietly churns families
-      between houses for reasons nobody can see.
+      Nothing crashes any more and no house is lost — the household retires and
+      its home goes back on the market — so what is left is the reading itself.
+      A family that should have been having children is instead dismantled, and
+      nothing in the game says why.
 
-      Two honest options: treat an unknown building as having *unknown* capacity
-      and leave the household alone, or treat the home as genuinely gone and
-      rehouse them deliberately. Doing nothing is the third, and is a choice too
-      — but it should be made rather than inherited.
+      The remaining question is narrower than it first looked. A house cannot
+      *die* in this codebase — see the demolition item below — so "the home is
+      gone" is not a state the sim can reach, and the only real case is a
+      building that is standing and unrecognised. For that, zero is the wrong
+      answer to the wrong question: the honest reading is that the capacity is
+      **unknown**, and a household in an unknown house should be left alone
+      rather than treated as overflowing. Doing nothing is a choice too, but it
+      should be made rather than inherited from an `orElse(0)`.
+
+- [ ] **A building survives its own destruction.** Nothing anywhere removes a
+      `Building` from a settlement — no `removeBuilding`, no `buildings.remove`.
+      Once raised, the record is permanent. `PathNetwork` has a method for
+      forgetting a building so "a demolished plot's road can be re-planned", so
+      demolition was clearly intended as a concept; nothing implements it.
+
+      So a cottage that burns down, or is blown up, is still a cottage as far as
+      the town is concerned. It counts toward housing, families are assigned to
+      live in it, roads are routed to its door, and the auditor checks that door
+      for access it no longer has.
+
+      This wants doing sooner rather than later because the creeper work made it
+      much easier to reach: the mod now contains a creature whose entire purpose
+      is removing buildings, in a simulation with no concept of a building being
+      removed. The pieces to build on are there — the auditor already walks
+      standing structures and could notice one that is mostly air, and
+      `PathNetwork.forget` is waiting for a caller.
 
 
 ---

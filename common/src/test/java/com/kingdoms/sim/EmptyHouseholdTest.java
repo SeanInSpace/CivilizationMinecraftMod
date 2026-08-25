@@ -16,7 +16,10 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import com.kingdoms.sim.settlement.PopulationPlanner;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -32,7 +35,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * "the most recently added member" out to found a family in the first vacant
  * house. There is no most recently added member. {@code List.getLast()} threw.
  *
- * <p>Every gate before that one has to be open for it to fire, which is why it
+ * <p>And the house it lived in was reserved for it forever. An empty household
+ * still reported {@code isHoused()}, so {@code firstVacantHome} counted its home
+ * as taken — a house nobody lived in and nobody could move into. Empty
+ * households are retired now, at the top of the population step, so the house is
+ * back on the market the same step it falls vacant.
+ *
+ * <p>Every gate before the crash has to be open for it to fire, which is why it
  * took a running world to find and why this fixture is as furnished as it is:
  * the ghost household must be housed, its home must count as a family home, the
  * town must be under its population cap and hold enough food to feed another
@@ -101,6 +110,44 @@ class EmptyHouseholdTest {
                 town.step(new SimContext(new QuietBridge(), step, SimSettings.SANDBOX));
             }
         }, "an empty household is the record of a family that died out, not a family");
+    }
+
+    @Test
+    void aHouseWhoseFamilyDiedOutGoesBackOnTheMarket() {
+        // The point of retiring the household rather than merely skipping it.
+        Settlement town = townWithAGhostFamily();
+        Household ghosts = town.households().stream()
+                .filter(household -> household.members().isEmpty())
+                .findFirst()
+                .orElseThrow();
+        SimPos emptyHouse = ghosts.home();
+
+        town.step(new SimContext(new QuietBridge(), 0, SimSettings.SANDBOX));
+
+        assertFalse(town.households().contains(ghosts),
+                "a household with nobody in it is not a household");
+        assertTrue(PopulationPlanner.firstVacantHome(town) != null,
+                "and there is somewhere for a new family to live");
+        assertTrue(town.households().stream()
+                        .noneMatch(household -> emptyHouse.equals(household.home())
+                                && household.members().isEmpty()),
+                "nobody is holding the deeds to an empty house");
+    }
+
+    @Test
+    void aFamilyThatShedsItsLastMemberDoesNotLeaveAReservedHouse() {
+        // splitFamilyInto takes a member straight off a household, which is the
+        // one path that can empty one without going through removePerson. A home
+        // reporting zero capacity reads as permanently overcrowded, so the family
+        // sheds somebody every birth cycle until there is nobody left.
+        Settlement town = townWithAGhostFamily();
+
+        for (int step = 0; step < 120; step++) {
+            town.step(new SimContext(new QuietBridge(), step, SimSettings.SANDBOX));
+        }
+
+        assertTrue(town.households().stream().noneMatch(h -> h.members().isEmpty()),
+                "no household should outlive the last person in it");
     }
 
     @Test

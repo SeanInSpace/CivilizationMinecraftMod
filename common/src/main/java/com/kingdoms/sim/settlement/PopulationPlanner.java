@@ -37,13 +37,50 @@ public final class PopulationPlanner {
     private PopulationPlanner() {
     }
 
-    /** One population step: settle newcomers, house families, then grow them. */
+    /**
+     * One population step: clear the dead, settle newcomers, house families,
+     * then grow them.
+     *
+     * <p>Retiring comes first so that a house freed this step is on the market
+     * for {@link #assignHomes} in the same step, rather than standing empty
+     * until the next one.
+     */
     public static void advance(Settlement settlement, SimContext ctx) {
+        retireEmptyHouseholds(settlement);
         groupUnassignedResidents(settlement);
         assignHomes(settlement);
         rehouseIntoFamilyHomes(settlement);
         growFamilies(settlement, ctx.settings().stepsPerBirth(),
                 ctx.settings().maxSettlementPopulation());
+    }
+
+    // --- 0. the dead ---
+
+    /**
+     * A household with nobody left in it stops being a household, and its house
+     * goes back on the market.
+     *
+     * <p>Death already does this — {@link Settlement#removePerson} drops a
+     * household when it takes its last member — but death is not the only thing
+     * that empties one. {@link #splitFamilyInto} takes a member out directly,
+     * and a family living somewhere that reports a capacity of zero counts as
+     * permanently overcrowded, so it sheds a member every birth cycle until
+     * there is nobody left. That household went on existing, and went on being
+     * {@code isHoused()}, which meant {@link #firstVacantHome} counted its house
+     * as taken — reserved, in perpetuity, for a family that no longer existed.
+     * A town could fill up with houses nobody lived in and nobody could move
+     * into.
+     *
+     * <p>It is also what turned a bookkeeping oddity into a crash: an empty
+     * household that is still housed is the one input {@code growFamilies} could
+     * not survive.
+     */
+    private static void retireEmptyHouseholds(Settlement settlement) {
+        for (Household household : List.copyOf(settlement.households())) {
+            if (household.members().isEmpty()) {
+                settlement.removeHousehold(household);
+            }
+        }
     }
 
     // --- 1. newcomers ---
@@ -263,6 +300,12 @@ public final class PopulationPlanner {
     private static void splitFamilyInto(Settlement settlement, Household parent, SimPos vacant) {
         Person.Id leaver = parent.members().getLast();
         parent.removeMember(leaver);
+        if (parent.members().isEmpty()) {
+            // The last one out. Taking a member straight off a household is the
+            // one path that can empty it without going through removePerson, so
+            // this is where a family quietly became a reserved empty house.
+            settlement.removeHousehold(parent);
+        }
 
         Household founded = new Household(Household.Id.random(), nextFamilyName(settlement));
         founded.addMember(leaver);
