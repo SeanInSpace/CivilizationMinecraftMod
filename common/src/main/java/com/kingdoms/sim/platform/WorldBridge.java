@@ -94,6 +94,22 @@ public interface WorldBridge {
      *
      * <p>Default zero so test doubles stay small; real platforms should answer.
      */
+    /**
+     * How many solid blocks stand inside this building's footprint right now.
+     *
+     * <p>The measurement damage is judged from — counted rather than inferred,
+     * so it does not matter whether the blocks were taken by a creeper, a fire,
+     * a player with a pickaxe or another mod entirely.
+     *
+     * <p>Returns a negative number when the answer cannot be had: nothing loaded,
+     * nobody there to look. That is not the same as zero, and callers must not
+     * treat it as a building reduced to rubble — an unwatched building is not
+     * decaying, it is merely unobserved.
+     */
+    default int solidBlocksIn(SimPos origin, Footprint plot) {
+        return -1;
+    }
+
     default int woodedness(SimPos centre, int radius) {
         return 0;
     }

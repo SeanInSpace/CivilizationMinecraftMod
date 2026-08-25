@@ -1136,6 +1136,9 @@ public final class Settlement {
         // After decay so a sustained hostile presence holds threat at its level
         // rather than oscillating one below it.
         RaidPlanner.advance(this, ctx);
+        // Last, and after the raid pass on purpose: whatever a raid just knocked
+        // down is counted on the same step it happens rather than the next one.
+        RepairPlanner.advance(this, ctx);
     }
 
     /**
@@ -1497,6 +1500,12 @@ public final class Settlement {
                     standing.setBlueprintId(current.blueprintId());
                     standing.setFootprint(current.footprint());
                     standing.setMaterialized(current.isVisuallyComplete());
+                    // Rebuilt in place, so it is whole by definition — and its
+                    // old census belongs to a structure that no longer stands.
+                    // This is also the repair path: a repair is an upgrade to
+                    // the level the building already had.
+                    standing.setDamage(0);
+                    standing.clearCensus();
                     tallies.record(Tallies.BUILDINGS_RAISED);
                     return;
                 }

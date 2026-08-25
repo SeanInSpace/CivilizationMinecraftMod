@@ -297,13 +297,23 @@ public final class KingdomsCodecs {
             // empty, because most buildings hold nothing and a map apiece
             // would be written for every hut in every town.
             Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("stores", Map.of())
-                    .forGetter(b -> b.hasStores() ? b.stores().all() : Map.<String, Integer>of())
-    ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing, held) -> {
+                    .forGetter(b -> b.hasStores() ? b.stores().all() : Map.<String, Integer>of()),
+            // The building's condition. Both optional so every save written
+            // before buildings could be damaged still loads: an old record comes
+            // back uncounted and undamaged, and is counted afresh the first time
+            // somebody is there to look at it.
+            Codec.INT.optionalFieldOf("sound_census", Building.UNCOUNTED)
+                    .forGetter(Building::soundCensus),
+            Codec.INT.optionalFieldOf("damage", 0).forGetter(Building::damage)
+    ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing, held,
+                census, damage) -> {
         Building building = new Building(blueprint, origin, step, materialized);
         building.setFoodStored(food);
         building.setSurveyed(surveyed);
         building.setFootprint(footprint);
         building.setFacing(facing);
+        building.setSoundCensus(census);
+        building.setDamage(damage);
         if (!held.isEmpty()) {
             building.stores().restore(held);
         }

@@ -18,6 +18,9 @@ import java.util.Objects;
  */
 public final class Building {
 
+    /** Sentinel for {@link #soundCensus}: nobody has ever counted this building. */
+    public static final int UNCOUNTED = -1;
+
     private String blueprintId;
     private SimPos origin;
     private final long completedOnStep;
@@ -33,6 +36,23 @@ public final class Building {
 
     /** One is the plain version; higher is an improvement raised on the same spot. */
     private int level = 1;
+
+    /**
+     * How many solid blocks stood here when this building was last seen whole.
+     *
+     * <p>The baseline damage is judged against — see {@link RepairPlanner}. Taken
+     * from the world rather than from the blueprint, because a blueprint says
+     * what was meant to be laid and a building is what the builders actually
+     * managed once the ground had been levelled and the doorway cut.
+     *
+     * <p>{@link #UNCOUNTED} until somebody has been there to look. A building
+     * raised while nobody was watching has never been counted, and must not be
+     * mistaken for one that has been reduced to nothing.
+     */
+    private int soundCensus = UNCOUNTED;
+
+    /** How much of it is missing, in percent. Zero for a building in good repair. */
+    private int damage;
 
     /** Food held at this building — harvest waiting at a farm, stock at a market. */
     private int foodStored;
@@ -159,6 +179,44 @@ public final class Building {
     public void setBlueprintId(String blueprintId) {
         this.blueprintId = blueprintId;
         this.role = null;   // an upgrade can change what a building is
+    }
+
+    /** See {@link #soundCensus}. */
+    public int soundCensus() {
+        return soundCensus;
+    }
+
+    public void setSoundCensus(int soundCensus) {
+        this.soundCensus = soundCensus;
+    }
+
+    /** Whether this building has ever been counted whole. */
+    public boolean hasCensus() {
+        return soundCensus > 0;
+    }
+
+    /** Forgets the baseline, so the next look re-establishes it. */
+    public void clearCensus() {
+        this.soundCensus = UNCOUNTED;
+    }
+
+    /** How much of this building is missing, in percent. */
+    public int damage() {
+        return damage;
+    }
+
+    public void setDamage(int damage) {
+        this.damage = Math.max(0, Math.min(100, damage));
+    }
+
+    /** Whether anything is visibly wrong with it. */
+    public boolean isDamaged() {
+        return damage >= RepairPlanner.NOISE_FLOOR;
+    }
+
+    /** Whether it is hurt badly enough for the town to spend timber on it. */
+    public boolean needsRepair() {
+        return damage >= RepairPlanner.SEVERE_DAMAGE;
     }
 
     public int level() {

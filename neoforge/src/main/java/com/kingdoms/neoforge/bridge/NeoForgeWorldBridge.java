@@ -7,6 +7,7 @@ import com.kingdoms.sim.settlement.BuildCatalogue;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Footprint;
+import net.minecraft.world.level.block.state.BlockState;
 import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.platform.WorldBridge;
 import net.minecraft.core.BlockPos;
@@ -310,6 +311,49 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     @Override
     public void log(String message) {
         KingdomsMod.LOGGER.info(message);
+    }
+
+    /**
+     * Counts the solid blocks standing inside a building's footprint.
+     *
+     * <p>Air, fluids and plants do not count; everything else does. The figure
+     * is only ever compared against an earlier figure for the same building, so
+     * what matters is that the rule is the same both times, not that it agrees
+     * with anybody's idea of what a wall is made of.
+     *
+     * <p>Counted from the floor up through the building's own height, across its
+     * measured width and depth. A negative answer means the chunk is not loaded
+     * and the question cannot be answered — which is not the same as an answer
+     * of zero, and {@code RepairPlanner} is careful about the difference.
+     */
+    @Override
+    public int solidBlocksIn(SimPos origin, Footprint plot) {
+        if (!plot.isKnown()) {
+            return -1;
+        }
+        BlockPos at = new BlockPos(origin.x(), plot.y(), origin.z());
+        if (!level.isLoaded(at)) {
+            return -1;
+        }
+        int halfWidth = Math.max(0, plot.width() / 2);
+        int halfDepth = Math.max(0, plot.depth() / 2);
+        int standing = 0;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dx = -halfWidth; dx <= halfWidth; dx++) {
+            for (int dz = -halfDepth; dz <= halfDepth; dz++) {
+                for (int dy = 0; dy < Math.max(1, plot.height()); dy++) {
+                    cursor.set(origin.x() + dx, plot.y() + dy, origin.z() + dz);
+                    if (!level.isLoaded(cursor)) {
+                        return -1;   // half a count is worse than no count
+                    }
+                    BlockState state = level.getBlockState(cursor);
+                    if (!state.isAir() && state.getFluidState().isEmpty()) {
+                        standing++;
+                    }
+                }
+            }
+        }
+        return standing;
     }
 
     /** How far a settler notices something wrong. */
