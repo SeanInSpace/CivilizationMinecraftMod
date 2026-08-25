@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Covers hostile pressure: scheduling, resolution, casualties, and the evidence trail. */
@@ -192,17 +193,47 @@ class RaidPlannerTest {
     // --- threat tracking ---
 
     @Test
-    void threatTracksRealHostiles() {
+    void threatTracksWhatTheTownCanSee() {
         Settlement s = settlement(1, 2, 0);
         WarBridge bridge = new WarBridge();
         bridge.hostiles = 4;
 
         s.step(new SimContext(bridge, 0, SimSettings.SANDBOX));
-        assertEquals(4, s.threatLevel(), "threat mirrors what is prowling the claim");
+        assertEquals(4, s.threatLevel(), "threat mirrors what the town can see");
+    }
+
+    @Test
+    void aTownDoesNotForgetTheMomentAMobStepsBehindAHill() {
+        // Read fresh every step, a hostile using cover would clear the alarm and
+        // raise it again on alternate steps. A town that has seen something does
+        // not forget it that fast.
+        Settlement s = settlement(1, 2, 0);
+        WarBridge bridge = new WarBridge();
+        bridge.hostiles = 4;
+        s.step(new SimContext(bridge, 0, SimSettings.SANDBOX));
 
         bridge.hostiles = 0;
         s.step(new SimContext(bridge, 1, SimSettings.SANDBOX));
-        assertEquals(3, s.threatLevel(), "and decays once they are gone");
+
+        assertEquals(4, s.threatLevel(), "still believed, and still true for all the town knows");
+        assertTrue(s.remembersSighting());
+    }
+
+    @Test
+    void andThenItStandsDown() {
+        Settlement s = settlement(1, 2, 0);
+        WarBridge bridge = new WarBridge();
+        bridge.hostiles = 4;
+        s.step(new SimContext(bridge, 0, SimSettings.SANDBOX));
+
+        bridge.hostiles = 0;
+        // Out of sight for longer than the town's memory, then a step to fall.
+        for (int step = 1; step <= Settlement.SIGHTING_MEMORY_STEPS + 1; step++) {
+            s.step(new SimContext(bridge, step, SimSettings.SANDBOX));
+        }
+
+        assertFalse(s.remembersSighting(), "the memory has run out");
+        assertEquals(3, s.threatLevel(), "and the alarm has started to fall");
     }
 
     // --- the evidence trail ---

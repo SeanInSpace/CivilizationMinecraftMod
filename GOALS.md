@@ -93,10 +93,13 @@ ground.
       be everybody indoors. Both numbers (`Alarm.WARY_AT`, `Alarm.ALARMED_AT`)
       and a citizen's sight range are single constants, so this is a question
       about numbers rather than a rewrite.
-- [ ] Does a mob glimpsed and lost cause visible dithering? Threat decays one a
-      step, so a single hostile ducking in and out of sight flickers the alarm
-      between wary and calm. Harmless in the economy — wary only walks two
-      trades indoors — but it may look twitchy.
+- [ ] Is the town's memory of a sighting the right length? Eight steps, and it
+      exists so a hostile using cover cannot flicker the alarm on and off. Too
+      short and the town dithers; too long and it hides from something that left.
+- [ ] Does the bell read as an alarm rather than a noise? It rings once, on the
+      rise to alarmed, from the watchtower if one stands. The watch rings when
+      what it can see outnumbers it — so the same three zombies are a Tuesday
+      for a town with four guards and an emergency for a town with one.
 - [ ] Does opening a town's stores read as the town's stores, or as a loot chest?
 - [ ] With two stores standing, does the split between them read as sensible —
       timber by the woods, stone by the mine — or as goods scattered at random?

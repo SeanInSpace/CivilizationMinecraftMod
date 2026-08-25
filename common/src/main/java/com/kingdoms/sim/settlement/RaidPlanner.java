@@ -50,8 +50,9 @@ public final class RaidPlanner {
         // there to see it. Zero when abstract — there are no eyes and no
         // hostiles, so threat there comes from raid events instead.
         int hostiles = ctx.bridge().hostilesSeen(settlement.centre(), settlement.claimRadius());
-        if (hostiles > settlement.threatLevel()) {
-            settlement.setThreatLevel(hostiles);
+        settlement.sighted(hostiles);
+        if (outmatched(settlement, hostiles)) {
+            settlement.soundAlarm();
         }
 
         if (!ctx.settings().raidsEnabled()) {
@@ -80,6 +81,26 @@ public final class RaidPlanner {
     public static int raidStrength(Settlement settlement, long step) {
         int jitter = (int) Math.floorMod(mix(settlement.id().value().hashCode(), step), 3);
         return Math.min(MAX_RAID_STRENGTH, 1 + settlement.population() / 8 + jitter);
+    }
+
+    /**
+     * Whether what has been seen is more than the watch can be expected to hold.
+     *
+     * <p>The bell's own rule, and the reason it is not just another threshold:
+     * it compares what is coming against who is standing, so the same three
+     * zombies are a job for a town with four guards and an emergency for a town
+     * with one. A town with no watch at all rings at the first sight of
+     * anything, which is exactly right — there is nobody whose job it was.
+     */
+    public static boolean outmatched(Settlement settlement, int hostiles) {
+        if (hostiles <= 0) {
+            return false;
+        }
+        long watch = settlement.residents().stream()
+                .filter(person -> person.profession() == Profession.GUARD
+                        && !person.isTooWeakToWork())
+                .count();
+        return hostiles > watch;
     }
 
     /** Guards times {@link #GUARD_POWER}, plus every standing structure's defense bonus. */

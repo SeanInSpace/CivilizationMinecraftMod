@@ -1,6 +1,10 @@
 package com.kingdoms.sim;
 
+import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.RaidPlanner;
+import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.Alarm;
 import org.junit.jupiter.api.Test;
 
@@ -96,5 +100,86 @@ class AlarmTest {
             }
             assertFalse(trade.worksBeyondTheWalls(), trade + " works inside the claim");
         }
+    }
+
+    // --- the bell ---
+
+    private static Settlement watchOf(int guards, int civilians) {
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);
+        for (int i = 0; i < guards; i++) {
+            town.addResident(new Person(
+                    Person.Id.random(), "Watch " + i, Profession.GUARD, town.centre()));
+        }
+        for (int i = 0; i < civilians; i++) {
+            town.addResident(new Person(
+                    Person.Id.random(), "Hand " + i, Profession.FARMER, town.centre()));
+        }
+        return town;
+    }
+
+    @Test
+    void theWatchRingsWhenItIsOutnumbered() {
+        assertTrue(RaidPlanner.outmatched(watchOf(1, 5), 2),
+                "one guard against two is a thing to tell the town about");
+    }
+
+    @Test
+    void aWatchThatCanHandleItDoesNotRing() {
+        assertFalse(RaidPlanner.outmatched(watchOf(4, 5), 3),
+                "four guards and three zombies is a Tuesday");
+    }
+
+    @Test
+    void theSameThreeZombiesAreDifferentNewsToDifferentTowns() {
+        // The reason the bell is not simply another threshold: it weighs what is
+        // coming against who is standing.
+        assertTrue(RaidPlanner.outmatched(watchOf(1, 8), 3));
+        assertFalse(RaidPlanner.outmatched(watchOf(3, 8), 3));
+    }
+
+    @Test
+    void aTownWithNoWatchRingsAtTheFirstThingItSees() {
+        assertTrue(RaidPlanner.outmatched(watchOf(0, 4), 1),
+                "there is nobody whose job it was, so everybody's business");
+    }
+
+    @Test
+    void aWatchTooHungryToStandDoesNotCount() {
+        Settlement town = watchOf(2, 4);
+        town.residents().forEach(person -> person.setHunger(Person.HUNGER_WEAK));
+
+        assertTrue(RaidPlanner.outmatched(town, 1),
+                "guards who cannot lift a sword are not a garrison");
+    }
+
+    @Test
+    void nothingSeenIsNothingToRingAbout() {
+        assertFalse(RaidPlanner.outmatched(watchOf(0, 4), 0));
+    }
+
+    @Test
+    void soundingTheAlarmPanicsTheTownWhateverTheCount() {
+        // One hostile, seen by a guard who judges it beyond them: the whole town
+        // goes in, even though the count alone would only make it wary.
+        Settlement town = watchOf(0, 4);
+        town.sighted(1);
+        assertEquals(Alarm.WARY, town.alarm());
+
+        town.soundAlarm();
+
+        assertEquals(Alarm.ALARMED, town.alarm());
+        assertTrue(town.remembersSighting(), "and the town holds that belief for a while");
+    }
+
+    @Test
+    void theBellNeverQuietensATownAlreadyWorseOff() {
+        Settlement town = watchOf(1, 4);
+        town.sighted(9);
+
+        town.soundAlarm();
+
+        assertEquals(9, town.threatLevel(),
+                "ringing about nine hostiles must not talk it down to three");
     }
 }

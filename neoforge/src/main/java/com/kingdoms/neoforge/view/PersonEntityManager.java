@@ -62,6 +62,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import net.minecraft.world.level.block.entity.BellBlockEntity;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
 
 /**
  * Executes the embodiment plan: spawns villagers for people players can see,
@@ -250,6 +253,7 @@ public final class PersonEntityManager {
                     changed |= embody(person);
                 }
 
+                ringTheBell(settlement);
                 dailyRoutine(settlement);
                 checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
@@ -1371,6 +1375,73 @@ public final class PersonEntityManager {
         }
         person.setEmbodied(false);
     }
+
+    /**
+     * What each settlement's alarm was last pass, so a rise can be heard.
+     *
+     * <p>Not persisted. A bell rings at the moment the alarm goes up, and a
+     * reload is not that moment.
+     */
+    private final Map<UUID, Alarm> lastAlarm = new HashMap<>();
+
+    /** How far from the tower a bell can be heard, in blocks. */
+    private static final double BELL_REACH = 8.0;
+
+    /**
+     * Sounds the town's bell when its alarm rises to alarmed.
+     *
+     * <p>The simulation has already decided — {@code RaidPlanner} rings when
+     * what has been seen outnumbers the watch — and this is that decision made
+     * audible. It swings a real bell if the town has one, so the sound comes
+     * from the tower rather than from nowhere, and falls back to the town centre
+     * for a settlement whose tower has not gone up yet.
+     *
+     * <p>Only on the rise. A bell that tolled every second for as long as a raid
+     * lasted would be a fire alarm, not a warning.
+     */
+    private void ringTheBell(Settlement settlement) {
+        Alarm now = settlement.alarm();
+        Alarm before = lastAlarm.put(settlement.id().value(), now);
+        if (now != Alarm.ALARMED || before == Alarm.ALARMED) {
+            return;
+        }
+        BlockPos bell = findBell(settlement);
+        SimPos centre = settlement.centre();
+        BlockPos from = bell != null ? bell
+                : new BlockPos(centre.x(), centre.y(), centre.z());
+        if (bell != null && level.getBlockEntity(bell) instanceof BellBlockEntity ringing) {
+            // Swings the real thing: the model moves and vanilla's own bell
+            // effects run, so it reads as somebody pulling the rope.
+            ringing.onHit(Direction.NORTH);
+        }
+        level.playSound(null, from, SoundEvents.BELL_BLOCK, SoundSource.BLOCKS, 4.0F, 1.0F);
+        settlement.logEvent(world.stepsElapsed(),
+                "The bell is rung — more than the watch can hold");
+    }
+
+    /** The bell on a standing watchtower, or null if the town has no tower yet. */
+    private BlockPos findBell(Settlement settlement) {
+        for (Building building : settlement.buildings()) {
+            if (!building.blueprintId().contains("watchtower")) {
+                continue;
+            }
+            BlockPos origin = new BlockPos(building.origin().x(),
+                    building.origin().y(), building.origin().z());
+            if (!level.isLoaded(origin)) {
+                continue;
+            }
+            for (int dy = 0; dy <= BELL_SEARCH_HEIGHT; dy++) {
+                BlockPos at = origin.above(dy);
+                if (level.getBlockState(at).is(Blocks.BELL)) {
+                    return at;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** How far up a tower the bell might have ended up. */
+    private static final int BELL_SEARCH_HEIGHT = 10;
 
     /**
      * The village day. Threatened civilians run home; at night everyone but the

@@ -1583,7 +1583,13 @@ public final class BlueprintPlacer {
                 add(blocks, base.offset(dx, 7, dz), Blocks.COBBLESTONE_WALL);
             }
         }
-        add(blocks, base.offset(0, 7, 0), Blocks.LANTERN);
+        // The bell goes at the peak, where the watch can reach it and the whole
+        // town can hear it. The lantern moves inside, hung from the roof it was
+        // sitting on — a tower with a light on top and nothing to ring is a
+        // tower that cannot raise the alarm.
+        add(blocks, base.offset(0, 7, 0), Blocks.BELL);
+        add(blocks, base.offset(0, 5, 0), Blocks.LANTERN.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.LanternBlock.HANGING, true));
         add(blocks, base.offset(0, 1, 0), KingdomsBlocks.WATCHTOWER.get());
         return new int[]{3, 3, 9};
     }

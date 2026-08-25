@@ -115,7 +115,30 @@ public final class Settlement {
      * How threatened this settlement currently is, driving guard behaviour and
      * off-screen combat resolution. Rises when hostiles are detected, decays over time.
      */
+    /**
+     * How long a town goes on believing what it last saw.
+     *
+     * <p>Long enough that a hostile using cover does not flicker the alarm on
+     * and off every step, short enough that a town does not spend a minute
+     * hiding from something that left.
+     */
+    public static final int SIGHTING_MEMORY_STEPS = 8;
+
     private int threatLevel;
+
+    /**
+     * Steps the town goes on believing what it last saw.
+     *
+     * <p>Threat is read fresh from what people can see, and a hostile ducking
+     * behind a hill would otherwise clear the alarm the moment it broke line of
+     * sight — then raise it again when it stepped out. A town that has seen
+     * something does not forget it that fast.
+     *
+     * <p>Not persisted. A reload has by definition interrupted whatever was
+     * happening, and starting a fresh session already convinced of a mob nobody
+     * can find would be worse than looking again.
+     */
+    private int sightingMemory;
 
     /** Food banked in the granary. The founding party arrives provisioned. */
     private int foodStock = FoodPlanner.STARTING_PROVISIONS;
@@ -818,6 +841,44 @@ public final class Settlement {
      */
     public Alarm alarm() {
         return Alarm.of(threatLevel);
+    }
+
+    /**
+     * Records that hostiles were seen this step, and how many.
+     *
+     * <p>Raises the alarm to at least what was seen — never lowers it, because
+     * the fewer you can see the more likely it is that the rest went round the
+     * back — and refreshes the memory so a mob breaking line of sight does not
+     * clear the town's mind with it.
+     */
+    public void sighted(int hostiles) {
+        if (hostiles <= 0) {
+            return;
+        }
+        if (hostiles > threatLevel) {
+            threatLevel = hostiles;
+        }
+        sightingMemory = SIGHTING_MEMORY_STEPS;
+    }
+
+    /**
+     * Sounds the alarm: somebody has decided this is beyond the watch.
+     *
+     * <p>Deliberate rather than counted. The tiers below it are the town's own
+     * eyes doing arithmetic; this is a guard looking at what is coming and
+     * ringing the bell, which panics everybody whether or not three of them
+     * happen to be in view at the same moment.
+     */
+    public void soundAlarm() {
+        if (threatLevel < Alarm.ALARMED_AT) {
+            threatLevel = Alarm.ALARMED_AT;
+        }
+        sightingMemory = SIGHTING_MEMORY_STEPS;
+    }
+
+    /** Whether the town is still going on what it last saw rather than what it sees. */
+    public boolean remembersSighting() {
+        return sightingMemory > 0;
     }
 
     public void setThreatLevel(int threatLevel) {
@@ -1721,7 +1782,18 @@ public final class Settlement {
         }
     }
 
+    /**
+     * Holds the alarm while the memory lasts, then lets it fall.
+     *
+     * <p>One a step once the memory runs out, which reads as a town standing
+     * down gradually: a raid of eight is still alarming for eight steps after
+     * the last of them dies.
+     */
     private void decayThreat() {
+        if (sightingMemory > 0) {
+            sightingMemory--;
+            return;
+        }
         if (threatLevel > 0) {
             threatLevel--;
         }
