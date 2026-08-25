@@ -266,7 +266,7 @@ public final class Settlement {
         if (perimeter != null && !BuildPlanner.PRODUCER_OF.containsValue(type.id())) {
             int frontier = nextPlotIndex + BuildPlanner.PLOT_ATTEMPTS;
             for (int index = 0; index < frontier; index++) {
-                SimPos candidate = BuildPlanner.plotFor(centre, index);
+                SimPos candidate = arrangement().plotFor(centre, index);
                 if (!insideRing(candidate, type.plotSpan())
                         || !ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
                         || !isPlotFree(candidate, type.plotSpan(), null)) {
@@ -420,7 +420,7 @@ public final class Settlement {
         int considered = 0;
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
-            SimPos candidate = BuildPlanner.plotFor(centre, index);
+            SimPos candidate = arrangement().plotFor(centre, index);
             if (!ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
                     || !isPlotFree(candidate, span, null)) {
                 continue;
@@ -457,7 +457,7 @@ public final class Settlement {
         // Every candidate examined and none will do. Take the very next slot
         // rather than stop building altogether — a town that has run out of room
         // is a town that builds on poor ground, not one that gives up.
-        return BuildPlanner.plotFor(centre, nextPlotIndex++);
+        return arrangement().plotFor(centre, nextPlotIndex++);
     }
 
     /**
@@ -512,13 +512,13 @@ public final class Settlement {
     public SimPos takeNextPlot(int span) {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
-            SimPos candidate = BuildPlanner.plotFor(centre, index);
+            SimPos candidate = arrangement().plotFor(centre, index);
             if (isPlotFree(candidate, span, null)) {
                 nextPlotIndex = index + 1;
                 return candidate;
             }
         }
-        return BuildPlanner.plotFor(centre, nextPlotIndex++);
+        return arrangement().plotFor(centre, nextPlotIndex++);
     }
 
     public int nextPlotIndex() {
@@ -565,6 +565,18 @@ public final class Settlement {
      */
     public String cultureId() {
         return cultureId;
+    }
+
+    /**
+     * How this town arranges itself on the ground.
+     *
+     * <p>Read from the culture every time rather than cached: a settlement's
+     * culture can be set after it is built (a save restores it, a founding
+     * party carries one), and a layout captured at construction would be the
+     * default forever.
+     */
+    public com.kingdoms.sim.culture.Layout arrangement() {
+        return Culture.of(cultureId).arrangement();
     }
 
     public void setCultureId(String cultureId) {
@@ -1214,7 +1226,8 @@ public final class Settlement {
         SimPos flat = chooseSite(ctx, wanted);
         SimPos plot = new SimPos(flat.x(), ctx.bridge().surfaceHeight(flat), flat.z());
         if (!contains(plot)) {
-            claimRadius = BuildPlanner.claimRadiusFor(centre, plot);
+            claimRadius = BuildPlanner.claimRadiusFor(centre, plot,
+                    arrangement().claimMargin());
         }
         BuildTask ordered = new BuildTask(wanted.id(), plot, wanted.workCost());
         ordered.setFacing(BuildPlanner.facingToward(plot, centre));
@@ -1366,7 +1379,8 @@ public final class Settlement {
         // A settlement claims the ground it builds on, so territory grows outward
         // as the town does rather than being fixed at founding.
         if (!contains(plot)) {
-            claimRadius = BuildPlanner.claimRadiusFor(centre, plot);
+            claimRadius = BuildPlanner.claimRadiusFor(centre, plot,
+                    arrangement().claimMargin());
         }
 
         BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());

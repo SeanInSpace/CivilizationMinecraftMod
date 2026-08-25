@@ -1,6 +1,7 @@
 package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -288,7 +289,7 @@ public final class PopulationPlanner {
 
         Person child = new Person(
                 Person.Id.random(),
-                givenName(household.size()) + " " + household.name(),
+                givenName(settlement, household.size()) + " " + household.name(),
                 trade,
                 household.home());
 
@@ -387,14 +388,31 @@ public final class PopulationPlanner {
         return last.size() < groupSize ? last : null;
     }
 
+    /**
+     * The next family name this town has not used, in its own language.
+     *
+     * <p>Read from the settlement's culture rather than the one list everybody
+     * used to share. A goblin warren whose families were called Baker and
+     * Cooper was the clearest sign that culture reached the beasts in the pens
+     * and almost nothing else.
+     */
     private static String nextFamilyName(Settlement settlement) {
+        List<String> pool = namesOr(Culture.of(settlement.cultureId()).familyNames(),
+                FAMILY_NAMES);
         int index = settlement.households().size();
-        String base = FAMILY_NAMES.get(index % FAMILY_NAMES.size());
-        int wrap = index / FAMILY_NAMES.size();
+        String base = pool.get(index % pool.size());
+        int wrap = index / pool.size();
         return wrap == 0 ? base : base + " " + (wrap + 1);
     }
 
-    private static String givenName(int index) {
-        return GIVEN_NAMES.get(index % GIVEN_NAMES.size());
+    private static String givenName(Settlement settlement, int index) {
+        List<String> pool = namesOr(Culture.of(settlement.cultureId()).givenNames(),
+                GIVEN_NAMES);
+        return pool.get(index % pool.size());
+    }
+
+    /** A culture's own list, or the lowland one if it never defined any. */
+    private static List<String> namesOr(List<String> pool, List<String> fallback) {
+        return pool == null || pool.isEmpty() ? fallback : pool;
     }
 }

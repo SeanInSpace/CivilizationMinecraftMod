@@ -24,6 +24,7 @@ import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.settlement.SettlementEvent;
 import com.kingdoms.sim.world.SimContext;
+import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.world.SimWorld;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -102,6 +103,17 @@ public final class KingdomsCommand {
                         .executes(ctx -> raid(ctx, 0))
                         .then(Commands.argument("strength", IntegerArgumentType.integer(1, 100))
                                 .executes(ctx -> raid(ctx, IntegerArgumentType.getInteger(ctx, "strength")))))
+
+                .then(Commands.literal("culture")
+                        .then(Commands.argument("id", StringArgumentType.string())
+                                .suggests((ctx, builder) -> {
+                                    for (Culture known : Culture.all()) {
+                                        builder.suggest(known.id());
+                                    }
+                                    return builder.buildFuture();
+                                })
+                                .executes(ctx -> culture(ctx,
+                                        StringArgumentType.getString(ctx, "id")))))
 
                 .then(Commands.literal("hunger")
                         .then(Commands.argument("level", IntegerArgumentType.integer(0, 99))
@@ -435,6 +447,46 @@ public final class KingdomsCommand {
         source.sendSuccess(() -> Component.literal(
                 "Queued " + blueprint + " (" + work + " work) at " + settlement.name()
                         + ". Needs BUILDERs — each contributes 1 work per step."), true);
+        return 1;
+    }
+
+    /**
+     * Re-badges the nearest settlement as another people.
+     *
+     * <p>Until this existed there was no way to reach any culture but the
+     * default from inside a game: every settlement started on
+     * {@code kingdoms:default} and nothing ever picked another. So the layouts,
+     * the names and the beasts were all reachable only from a unit test, which
+     * is a poor place to find out that a warren looks wrong from the ground.
+     *
+     * <p>Only the plots not yet taken move. A town already standing keeps every
+     * building where it is — re-planning ground that has houses on it would
+     * demolish them — so what this changes is how the town grows from here.
+     * Re-badging a settlement with nothing built yet gives a clean example of
+     * the new arrangement.
+     */
+    private static int culture(CommandContext<CommandSourceStack> ctx, String id) {
+        CommandSourceStack source = ctx.getSource();
+        Settlement settlement = nearestSettlement(source);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No settlement nearby."));
+            return 0;
+        }
+        Culture chosen = Culture.of(id);
+        if (!chosen.id().equals(id)) {
+            source.sendFailure(Component.literal(
+                    "No culture called " + id + ". Known: "
+                            + Culture.all().stream().map(Culture::id).sorted().toList()));
+            return 0;
+        }
+        settlement.setCultureId(chosen.id());
+        markDirty(source);
+        source.sendSuccess(() -> Component.literal(
+                settlement.name() + " is now " + chosen.id()
+                        + " — laying out as " + chosen.arrangement().id()
+                        + " from its next plot on"), true);
+        KingdomsMod.LOGGER.info("CULTURE {} -> {} ({})",
+                settlement.name(), chosen.id(), chosen.arrangement().id());
         return 1;
     }
 

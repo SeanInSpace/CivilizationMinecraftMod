@@ -72,10 +72,23 @@ class CultureTest {
 
     @Test
     void everyCultureLaysItselfOutSomeWayItKnowsAbout() {
+        // This used to insist on rings, which was the only honest thing to say
+        // while rings were the only arrangement that existed — the field was a
+        // string nothing read. Now the question is the one that was always
+        // meant: does the name a culture asks for resolve to something real.
         for (Culture culture : Culture.all()) {
-            assertEquals(Culture.LAYOUT_RING, culture.layout(),
+            assertEquals(culture.layout(), culture.arrangement().id(),
                     culture.id() + " asks for a layout nothing implements");
         }
+    }
+
+    @Test
+    void thePeoplesDoNotAllBuildTheSameTown() {
+        // The claim the culture type has been making since it was written, and
+        // could not back up while every settlement was laid out in rings
+        // whatever it called itself.
+        assertNotEquals(Culture.NORMAN.layout(), Culture.GOBLIN.layout());
+        assertNotEquals(Culture.GOBLIN.layout(), Culture.ORC.layout());
     }
 
     @Test

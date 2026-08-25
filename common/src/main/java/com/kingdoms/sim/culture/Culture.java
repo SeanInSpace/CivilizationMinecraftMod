@@ -16,12 +16,44 @@ import java.util.Map;
  *
  * @param id            the culture's identifier
  * @param pennedAnimals which beasts the animal farm keeps, one pen each, in order
- * @param layout        how the settlement arranges itself; see {@code Layouts}
+ * @param layout        how the settlement arranges itself; see {@link Layouts}
+ * @param townNames     what this people calls its settlements
+ * @param familyNames   what it calls its families
+ * @param givenNames    what it calls its children
  */
-public record Culture(String id, List<String> pennedAnimals, String layout) {
+public record Culture(String id, List<String> pennedAnimals, String layout,
+                      List<String> townNames, List<String> familyNames,
+                      List<String> givenNames) {
 
-    /** Arrangement ids. Only one exists so far, and it is the fallback for any unknown. */
+    /** Arrangement ids, as {@link Layouts} knows them. */
     public static final String LAYOUT_RING = "ring";
+    public static final String LAYOUT_WARREN = "warren";
+    public static final String LAYOUT_STRONGHOLD = "stronghold";
+
+    /** How this people lays a town out on the ground. */
+    public Layout arrangement() {
+        return Layouts.of(layout);
+    }
+
+    /**
+     * The old three-field shape, for the entries that only ever set those.
+     *
+     * <p>Kept so that adding names to the record did not mean editing every
+     * culture and every test that builds one.
+     */
+    public Culture(String id, List<String> pennedAnimals, String layout) {
+        this(id, pennedAnimals, layout, LOWLAND_TOWNS, LOWLAND_FAMILIES, LOWLAND_GIVEN);
+    }
+
+    static final List<String> LOWLAND_TOWNS = List.of(
+            "Ashmarch", "Bellbrook", "Millbrook", "Stonebridge", "Fairwater",
+            "Oakhollow", "Greenfield", "Whitecliff");
+
+    static final List<String> LOWLAND_FAMILIES = List.of(
+            "Baker", "Miller", "Smith", "Cooper", "Fletcher", "Mason", "Turner", "Weaver");
+
+    static final List<String> LOWLAND_GIVEN = List.of(
+            "Ada", "Bren", "Cyn", "Dov", "Esa", "Fen", "Gil", "Hana", "Ivo", "Jor");
 
     public static final Culture DEFAULT = new Culture(
             "kingdoms:default",
@@ -59,10 +91,50 @@ public record Culture(String id, List<String> pennedAnimals, String layout) {
                     "minecraft:chicken"),
             LAYOUT_RING);
 
+    /**
+     * The goblins, who do not build towns so much as accumulate them.
+     *
+     * <p>The first entry that proves the type was worth having. Everything that
+     * makes a goblin settlement a goblin settlement is filled in here — the
+     * beasts, the names, and above all the arrangement. A warren grows by
+     * digging in wherever the digging is good and budding a new knot off the
+     * last one; it has no high street and never did.
+     */
+    public static final Culture GOBLIN = new Culture(
+            "kingdoms:goblin",
+            List.of("minecraft:chicken", "minecraft:pig", "minecraft:rabbit",
+                    "minecraft:chicken"),
+            LAYOUT_WARREN,
+            List.of("Gritmaw", "Snagholt", "Murkdig", "Rotcrag", "Slugwarren",
+                    "Cinderhole", "Grubfen", "Thistlemire"),
+            List.of("Snag", "Grib", "Mulch", "Skarn", "Wretch", "Gnash", "Bogle", "Nix"),
+            List.of("Zib", "Krek", "Nub", "Vex", "Grot", "Hix", "Snee", "Ug", "Yark", "Pib"));
+
+    /**
+     * The orcs, who lay a camp out in rows and mean it.
+     *
+     * <p>The other end of the same argument. Where a warren sprawls, a
+     * stronghold is a grid on a fixed pitch filled from the middle outward —
+     * dense, regimented, and obviously the work of somebody who counts. Same
+     * simulation, same planners, same everything: only the table entry differs.
+     */
+    public static final Culture ORC = new Culture(
+            "kingdoms:orc",
+            List.of("minecraft:pig", "minecraft:cow", "minecraft:goat", "minecraft:wolf"),
+            LAYOUT_STRONGHOLD,
+            List.of("Karrgurd", "Dromgar", "Ironmaw", "Bloodpost", "Skullwatch",
+                    "Grimhold", "Ashfang", "Warmoot"),
+            List.of("Gorehand", "Skullsplit", "Ironjaw", "Blacktusk", "Redaxe",
+                    "Bonebreak", "Stonefist", "Grimhide"),
+            List.of("Brak", "Durg", "Ghal", "Hrok", "Kazh", "Morg", "Rurk", "Thok",
+                    "Uzga", "Zharg"));
+
     private static final Map<String, Culture> KNOWN = Map.of(
             DEFAULT.id(), DEFAULT,
             NORMAN.id(), NORMAN,
-            HIGHLAND.id(), HIGHLAND);
+            HIGHLAND.id(), HIGHLAND,
+            GOBLIN.id(), GOBLIN,
+            ORC.id(), ORC);
 
     /** Every culture that has been defined. */
     public static java.util.Collection<Culture> all() {

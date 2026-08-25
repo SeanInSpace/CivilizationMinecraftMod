@@ -659,6 +659,17 @@ public final class BuildPlanner {
 
     /** Claim radius needed to keep the given plot inside the settlement's territory. */
     public static int claimRadiusFor(SimPos centre, SimPos plot) {
-        return (int) Math.ceil(centre.horizontalDistance(plot)) + CLAIM_MARGIN;
+        return claimRadiusFor(centre, plot, CLAIM_MARGIN);
+    }
+
+    /**
+     * The same, with the margin a particular arrangement wants.
+     *
+     * <p>A layout that flings clumps of buildings about needs more room outside
+     * its outermost plot than one that grows in tidy rings, or its own outliers
+     * end up outside the claim that is supposed to contain them.
+     */
+    public static int claimRadiusFor(SimPos centre, SimPos plot, int margin) {
+        return (int) Math.ceil(centre.horizontalDistance(plot)) + Math.max(0, margin);
     }
 }
