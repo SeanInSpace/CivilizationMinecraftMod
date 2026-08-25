@@ -53,8 +53,52 @@ work that cannot be delegated.
 
 ## Open
 
+- [ ] **Settle the danger table.** `Menace.of` is the whole of a town's opinion
+      about how frightening each kind of creature is, and every alarm decision
+      now reads from it — the tiers in `Alarm`, the bell rule in `RaidPlanner`,
+      and by extension who stops working and who runs. The numbers in it were
+      chosen to be *arguable rather than arbitrary* and they have not yet been
+      argued with. A zombie is 1, a skeleton 2, a creeper 4, an evoker 4, a
+      ravager 5, a warden 10, and anything unrecognised is 1.
 
+      Three things about it want deciding on purpose rather than inheriting:
 
+      - **The scale's meaning.** It is documented as: 1 is one guard's routine
+        afternoon, 3 is a guard's full attention, 6 is a thing a lone guard
+        probably loses to. If that reading is wrong then every number is wrong
+        with it, and the two thresholds tuned against it — `Alarm.ALARMED_AT` at
+        6 and `RaidPlanner.BELL_FLOOR` at 4 — move too.
+      - **The gaps.** Anything not named falls to `ORDINARY`, which is a zombie.
+        That is wrong for at least drowned with tridents and for anything a mod
+        adds, and it is silently wrong: an unrecognised horror reads as a
+        shambling corpse and nobody finds out until a town is overrun by
+        something it never worried about.
+      - **Whether a creeper at 4 is right.** It is the number the whole feature
+        turns on. Too low and a lone creeper barely registers; too high and a
+        pair of them panics a town that could have handled it. This one is only
+        answerable by watching a town meet one.
+
+      Cheap to change and hard to get right: it is one file, one method, and no
+      other code needs touching when the numbers move.
+
+- [ ] **Decide what a capacity of zero means.** `capacityOfHome` returns zero for
+      a home the catalogue has no matching building type for, and every caller
+      reads zero as *full*, because the test is `size() < capacity`. That is what
+      turned a household with no members into a server crash — an empty house
+      counted as overcrowded and tried to move somebody out of it.
+
+      The crash is fixed and covered by `EmptyHouseholdTest`, but the reading
+      itself is untouched and is still a landmine. A family of three living in a
+      building whose blueprint has left the catalogue — a renamed cottage, a
+      removed mod building, a save from an older version — also reads as
+      overcrowded, and will try to split into any vacancy that appears, every
+      time one appears. Nothing crashes; the town just quietly churns families
+      between houses for reasons nobody can see.
+
+      Two honest options: treat an unknown building as having *unknown* capacity
+      and leave the household alone, or treat the home as genuinely gone and
+      rehouse them deliberately. Doing nothing is the third, and is a choice too
+      — but it should be made rather than inherited.
 
 
 ---
@@ -88,18 +132,34 @@ ground.
       not on the clock, and the stall guard measures whether the queue head
       moved rather than how fast, so slowing the dig slows a watched town's
       building outright.
-- [ ] Does a town read as sensibly frightened now? One hostile in sight should
-      be the woodcutters walking in while the guards deal with it; three should
-      be everybody indoors. Both numbers (`Alarm.WARY_AT`, `Alarm.ALARMED_AT`)
+- [ ] Does a town read as sensibly frightened now? These are danger totals
+      rather than head counts — see the danger table above — so one zombie in
+      sight should be the woodcutters walking in while the guards deal with it,
+      and six should be everybody indoors. `Alarm.WARY_AT`, `Alarm.ALARMED_AT`
       and a citizen's sight range are single constants, so this is a question
       about numbers rather than a rewrite.
+- [ ] Does the rule that one creature is never a panic hold up in play? However
+      nasty a lone hostile is, it is capped one rung below the tier that empties
+      the streets, on the grounds that a watch is exactly what a town keeps so it
+      does not have to hide from one of anything. Verified as *working* — a
+      creeper parked beside a town for two hundred seconds never rang the bell —
+      but whether it reads as composure or as complacency is a question for
+      somebody watching it happen.
+- [ ] Do civilians running from a creeper read as sensible, or as a stampede?
+      They flee at ten blocks and only from creepers, which is the one hostile
+      that kills by arriving. Everything else they ignore and let the watch
+      handle.
+- [ ] Does a guard fighting a creeper read as skill or as cowardice? One hit,
+      then out of the blast for `FUSE_RESET_TICKS` (45), then back in. It is
+      slower than standing and swinging, and the guard lives through it.
 - [ ] Is the town's memory of a sighting the right length? Eight steps, and it
       exists so a hostile using cover cannot flicker the alarm on and off. Too
       short and the town dithers; too long and it hides from something that left.
 - [ ] Does the bell read as an alarm rather than a noise? It rings once, on the
       rise to alarmed, from the watchtower if one stands. The watch rings when
-      what it can see outnumbers it — so the same three zombies are a Tuesday
-      for a town with four guards and an emergency for a town with one.
+      the danger it can see outweighs what it can hold — so the same two creepers
+      are a Tuesday for a town with three guards and an emergency for a town with
+      one. It will not ring for a single creature at all, whatever it is.
 - [ ] Does opening a town's stores read as the town's stores, or as a loot chest?
 - [ ] With two stores standing, does the split between them read as sensible —
       timber by the woods, stone by the mine — or as goods scattered at random?
