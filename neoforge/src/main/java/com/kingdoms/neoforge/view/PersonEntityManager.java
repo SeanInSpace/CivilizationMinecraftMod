@@ -28,6 +28,7 @@ import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.neoforge.bridge.Menace;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.phys.Vec3;
+import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.sim.settlement.Alarm;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FieldRoster;
@@ -424,7 +425,61 @@ public final class PersonEntityManager {
      * no standing per-builder assignment to go stale, and no single block for a
      * crowd to fight over.
      */
+    /**
+     * Advances every settler who is part-way through a block of their own.
+     *
+     * <p>Every tick, and separately from the excavation, because a lumberjack at
+     * a trunk and a miner at a face are not on a building site and have no yard
+     * between them. What they share with the excavation is the reason for the
+     * cadence: block hardness is counted in ticks, so a coarser pass cannot
+     * reproduce the time a player would spend on the same block.
+     *
+     * <p>The coarse pass chooses the target and walks them to it; this only
+     * keeps swinging at whatever they are already on. A worker who has wandered
+     * out of reach drops it, and starts again from nothing when they return —
+     * swings taken at a trunk you walked away from are not banked.
+     */
+    private void tickHandWork() {
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                for (Person person : settlement.residents()) {
+                    Profession trade = person.profession();
+                    if (trade != Profession.LUMBERJACK && trade != Profession.MINER) {
+                        continue;
+                    }
+                    if (!person.isEmbodied()) {
+                        continue;
+                    }
+                    PersonEntity view = tracked.get(person.id().value());
+                    if (view == null || view.isRemoved()) {
+                        continue;
+                    }
+                    BlockPos target = HandDig.targetOf(view);
+                    if (target == null) {
+                        continue;
+                    }
+                    double reach = trade == Profession.LUMBERJACK
+                            ? LumberjackWorker.WORK_REACH : MinerWorker.WORK_REACH;
+                    if (view.distanceToSqr(target.getX() + 0.5, target.getY() + 0.5,
+                            target.getZ() + 0.5) > reach * reach) {
+                        HandDig.stop(level, view);
+                        continue;
+                    }
+                    if (!HandDig.strike(level, view, target)) {
+                        continue;
+                    }
+                    if (trade == Profession.LUMBERJACK) {
+                        LumberjackWorker.harvest(level, settlement, view, target);
+                    } else {
+                        MinerWorker.harvest(level, settlement, view, target);
+                    }
+                }
+            }
+        }
+    }
+
     public void tickDigging(long tick) {
+        tickHandWork();
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
                 // No hands, no hole. Opening one for an unwatched town would both

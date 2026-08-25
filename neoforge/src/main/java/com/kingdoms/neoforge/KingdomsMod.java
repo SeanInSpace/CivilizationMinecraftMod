@@ -8,6 +8,7 @@ import com.kingdoms.neoforge.net.KingdomsNetwork;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.view.PersonEntityManager;
 import com.kingdoms.neoforge.world.StoreSync;
+import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.neoforge.world.TownAuditor;
 import com.kingdoms.sim.world.SimSettings;
 import com.kingdoms.sim.world.SimWorld;
@@ -106,6 +107,8 @@ public final class KingdomsMod {
         // is the one report a scripted run reads.
         AUDIT_SEEN.clear();
         TownAuditor.forget();
+        // Crack overlays belong to entity ids in a world about to close.
+        HandDig.forget();
         StoreSync.forget();
     }
 

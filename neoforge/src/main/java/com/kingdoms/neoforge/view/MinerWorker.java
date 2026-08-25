@@ -1,6 +1,7 @@
 package com.kingdoms.neoforge.view;
 
 import com.kingdoms.neoforge.entity.PersonEntity;
+import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.MinePlanner;
 import com.kingdoms.sim.settlement.Settlement;
@@ -27,7 +28,8 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class MinerWorker {
 
     /** How close a miner has to be to swing at a block. */
-    private static final double WORK_REACH = 4.5;
+    /** How close a worker has to be to swing at something. */
+    public static final double WORK_REACH = 4.5;
 
     /** Positions probed per turn, so a big claim cannot stall a tick. */
     private static final int MAX_PROBES = 900;
@@ -65,13 +67,22 @@ public final class MinerWorker {
             walkTo(worker, face);
             return false;
         }
-        worker.getLookControl().setLookAt(face.getX() + 0.5, face.getY() + 0.5, face.getZ() + 0.5);
-        worker.swing(InteractionHand.MAIN_HAND);
+        // The rock takes as long as rock takes. See LumberjackWorker for the
+        // same change and HandDig for why both needed it.
+        if (!HandDig.strike(level, worker, face)) {
+            return true;   // still cutting
+        }
+        return harvest(level, settlement, worker, face);
+    }
 
-        // Where the rock actually came out, so the load lands on the nearest
-        // shelves rather than wherever the town happens to list first.
+    /** The moment a face gives: take it out, and put the stone or iron away. */
+    public static boolean harvest(ServerLevel level, Settlement settlement,
+                                  PersonEntity worker, BlockPos face) {
         // Tell the mine a real block came out, so the clock can tell a watched
-        // mine that is working from a watched mine that has nothing to cut.
+        // mine that is working from a watched mine that has nothing to cut. This
+        // belongs here and not in the approach: while a cut is still under way
+        // no block has come out, and saying otherwise every tick told the clock
+        // a mine was producing whenever somebody was merely standing at it.
         com.kingdoms.sim.settlement.Building mineBuilding = settlement.buildingWithRole(
                 com.kingdoms.sim.settlement.BuildingRole.MINE);
         if (mineBuilding != null) {
@@ -79,6 +90,8 @@ public final class MinerWorker {
                     com.kingdoms.neoforge.KingdomsMod.simulationFor(level);
             mineBuilding.touchRealHarvest(simWorld == null ? 0L : simWorld.stepsElapsed());
         }
+        // Where the rock actually came out, so the load lands on the nearest
+        // shelves rather than wherever the town happens to list first.
         SimPos cut = new SimPos(face.getX(), face.getY(), face.getZ());
         boolean ore = level.getBlockState(face).is(BlockTags.IRON_ORES);
         level.destroyBlock(face, false);

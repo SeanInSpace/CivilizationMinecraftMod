@@ -1,6 +1,7 @@
 package com.kingdoms.neoforge.view;
 
 import com.kingdoms.neoforge.entity.PersonEntity;
+import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingRole;
@@ -33,7 +34,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
 public final class LumberjackWorker {
 
     /** Reach for felling and planting — an arm's length plus a bit. */
-    private static final double WORK_REACH = 4.5;
+    /** How close a worker has to be to swing at something. */
+    public static final double WORK_REACH = 4.5;
 
     /** Columns examined per search before giving up until the next pass. */
     private static final int MAX_COLUMNS_PER_SCAN = 900;
@@ -81,9 +83,25 @@ public final class LumberjackWorker {
             walkTo(worker, log);
             return false;
         }
-        worker.getLookControl().setLookAt(log.getX() + 0.5, log.getY() + 0.5, log.getZ() + 0.5);
-        worker.swing(InteractionHand.MAIN_HAND);
+        // A trunk is not deleted by arriving next to it. HandDig spends the
+        // ticks vanilla says an axe spends on this log, cracks it while it
+        // happens, and reports the one tick it finally gives -- which is when
+        // the timber is credited, below. Until then this returns "working".
+        if (!HandDig.strike(level, worker, log)) {
+            return true;   // still swinging, and still busy
+        }
+        return harvest(level, settlement, worker, log);
+    }
 
+    /**
+     * The moment a trunk gives: take it out, and put the timber in the store.
+     *
+     * <p>Split out because the strike that finishes a log may land on any tick,
+     * not only the coarse pass that chose it — see
+     * {@code PersonEntityManager.tickHandWork}.
+     */
+    public static boolean harvest(ServerLevel level, Settlement settlement,
+                                  PersonEntity worker, BlockPos log) {
         level.destroyBlock(log, false);
         settlement.tallies().record(com.kingdoms.sim.settlement.Tallies.TREES_FELLED);
         // Put down at the camp, and added rather than set. setWoodStock means
