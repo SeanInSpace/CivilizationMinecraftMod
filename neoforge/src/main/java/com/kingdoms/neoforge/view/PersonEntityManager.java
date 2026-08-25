@@ -29,8 +29,12 @@ import com.kingdoms.neoforge.bridge.Menace;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.phys.Vec3;
 import com.kingdoms.neoforge.world.HandDig;
+import com.kingdoms.sim.economy.Economy;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.item.ItemEntity;
 import com.kingdoms.sim.settlement.Alarm;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.FieldRoster;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
@@ -258,6 +262,8 @@ public final class PersonEntityManager {
                     changed |= embody(person);
                 }
 
+                pickUpLitter(settlement);
+                sellAtMarket(settlement);
                 ringTheBell(settlement);
                 dailyRoutine(settlement);
                 checkHouseAccess(settlement);
@@ -1486,6 +1492,108 @@ public final class PersonEntityManager {
         person.setEmbodied(false);
     }
 
+    /** How close a settler has to pass to notice something on the ground. */
+    private static final double PICKUP_REACH = 1.6;
+
+    /** How close to the market counter a sale happens. */
+    private static final double MARKET_REACH = 4.0;
+
+    /**
+     * Settlers pick up what they walk over.
+     *
+     * <p>Everything a town owns used to arrive by being produced. Nothing on the
+     * ground was anybody's business — a sword dropped where the guards killed a
+     * skeleton lay there until it despawned, in full view of forty people who
+     * walked round it all day.
+     *
+     * <p>What they pick up is <em>theirs</em>, which is the whole point. It goes
+     * into their own pockets, not the town stores, and the town buys it off them
+     * at the market if it wants it. A lumberjack's timber belongs to the town
+     * because the town paid them to cut it; a sword they trod on does not.
+     */
+    private void pickUpLitter(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied() || Economy.pocketsFull(person)) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view == null || view.isRemoved()) {
+                continue;
+            }
+            AABB reach = view.getBoundingBox().inflate(PICKUP_REACH);
+            for (ItemEntity dropped : level.getEntitiesOfClass(ItemEntity.class, reach,
+                    item -> item.isAlive() && !item.hasPickUpDelay())) {
+                ItemStack stack = dropped.getItem();
+                String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                int taken = person.inventory().add(id, stack.getCount());
+                if (taken <= 0) {
+                    continue;   // no room for this kind; leave it where it lies
+                }
+                stack.shrink(taken);
+                level.playSound(null, view.blockPosition(), SoundEvents.ITEM_PICKUP,
+                        SoundSource.PLAYERS, 0.2F, 1.6F);
+                if (stack.isEmpty()) {
+                    dropped.discard();
+                } else {
+                    dropped.setItem(stack);
+                }
+                if (Economy.pocketsFull(person)) {
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * A settler at the market sells the town what they found.
+     *
+     * <p>The town pays out of its own treasury, and only if it can: a poor town
+     * does not get the sword, and the settler keeps it and tries again when the
+     * levy has refilled the coffers. That refusal is the reason the treasury is
+     * finite rather than a formality.
+     */
+    private void sellAtMarket(Settlement settlement) {
+        SimPos market = marketPos(settlement);
+        if (market == null) {
+            return;   // no market, no trade; they carry it until there is one
+        }
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied() || !Economy.wantsMarket(person)) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view == null || view.isRemoved()) {
+                continue;
+            }
+            if (view.distanceToSqr(market.x() + 0.5, market.y(), market.z() + 0.5)
+                    > MARKET_REACH * MARKET_REACH) {
+                continue;   // on their way; workplaceFor is steering them
+            }
+            Economy.Sale sale = Economy.sellOne(settlement, person);
+            if (sale == null) {
+                continue;
+            }
+            // Bought, so it is the town's now and belongs on the town's shelves.
+            settlement.storeNear(market).add(sale.itemId(), 1);
+            settlement.logEvent(world.stepsElapsed(), person.name() + " sold "
+                    + plainName(sale.itemId()) + " to the market for "
+                    + sale.price() + " coin");
+            level.playSound(null, new BlockPos(market.x(), market.y(), market.z()),
+                    SoundEvents.VILLAGER_YES, SoundSource.NEUTRAL, 0.6F, 1.0F);
+        }
+    }
+
+    /** Where the town trades, or null before a market stands. */
+    private SimPos marketPos(Settlement settlement) {
+        Building market = settlement.buildingWithRole(BuildingRole.MARKET);
+        return market == null ? null : market.origin();
+    }
+
+    private static String plainName(String itemId) {
+        int colon = itemId.indexOf(':');
+        return itemId.substring(colon + 1).replace('_', ' ');
+    }
+
     /**
      * What each settlement's alarm was last pass, so a rise can be heard.
      *
@@ -1664,6 +1772,15 @@ public final class PersonEntityManager {
     private SimPos workplaceFor(Settlement settlement, Person person, SimPos home) {
         // An errand outranks the day job: haulers walk to the store they are
         // collecting from, then to the one they are delivering to.
+        // Their own business, ranked below the town's. A haul is the town's
+        // errand and comes first; the market is where somebody takes what they
+        // found, once it is worth the walk. See Economy.wantsMarket.
+        if (person.haul() == null && Economy.wantsMarket(person)) {
+            SimPos market = marketPos(settlement);
+            if (market != null) {
+                return market;
+            }
+        }
         HaulTask haul = person.haul();
         if (haul != null) {
             return haul.target();

@@ -60,6 +60,16 @@ public final class Person {
     private boolean embodied;
 
     /** Issued a tool by the smith; see {@code SmithPlanner}. */
+    /**
+     * Coin this person owns outright.
+     *
+     * <p>Theirs, not the town's. Wages are paid into it and what they are paid
+     * for a find is paid into it, and nothing in the simulation may spend it on
+     * the town's behalf — that is the difference between this settlement and a
+     * commune, and it is one field.
+     */
+    private int purse;
+
     private boolean hasTool;
 
     private String carriedMaterial;
@@ -169,6 +179,37 @@ public final class Person {
     /** Too hungry to farm, haul, or build. */
     public boolean isTooWeakToWork() {
         return hunger >= HUNGER_WEAK;
+    }
+
+    /** See {@link #purse}. */
+    public int purse() {
+        return purse;
+    }
+
+    /** Takes a payment. */
+    public void earn(int coin) {
+        if (coin > 0) {
+            purse += coin;
+        }
+    }
+
+    /**
+     * Spends from the purse, and says whether it could.
+     *
+     * <p>Never goes negative: somebody who cannot afford a thing does not buy
+     * it, rather than going into debt to the town they work for.
+     */
+    public boolean spend(int coin) {
+        if (coin <= 0 || purse < coin) {
+            return false;
+        }
+        purse -= coin;
+        return true;
+    }
+
+    /** Restores a saved purse. */
+    public void setPurse(int purse) {
+        this.purse = Math.max(0, purse);
     }
 
     public Inventory inventory() {

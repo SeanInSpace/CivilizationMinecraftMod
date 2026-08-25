@@ -4,6 +4,7 @@ import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.person.Household;
+import com.kingdoms.sim.economy.Economy;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.person.Profession;
@@ -124,6 +125,16 @@ public final class Settlement {
      * hiding from something that left.
      */
     public static final int SIGHTING_MEMORY_STEPS = 8;
+
+    /**
+     * The town's money.
+     *
+     * <p>Fed by a levy on what its people produce, drawn on for wages and for
+     * buying what they find. Finite on purpose: a town that cannot afford the
+     * sword a settler brings to the market has to say so, and that is only
+     * meaningful if the coin can actually run out. See {@code Economy}.
+     */
+    private int treasury;
 
     private int threatLevel;
 
@@ -712,6 +723,11 @@ public final class Settlement {
             return 0;
         }
         storeNear(from).add(resource, fitting);
+        // The levy. This is the only place coin is created, and it is created
+        // in proportion to work actually done — every unit of produce in the
+        // town comes through here, watched or abstract, so a settlement that
+        // makes nothing earns nothing and cannot pay anybody.
+        bank(Economy.levyOn(fitting));
         return fitting;
     }
 
@@ -852,6 +868,37 @@ public final class Settlement {
      * disagree — and graduated, because one skeleton and a raid are not the same
      * emergency. See {@link Alarm}.
      */
+    /** See {@link #treasury}. */
+    public int treasury() {
+        return treasury;
+    }
+
+    /** Takes coin in — a levy on production, or a sale to an outsider. */
+    public void bank(int coin) {
+        if (coin > 0) {
+            treasury += coin;
+        }
+    }
+
+    /**
+     * Pays coin out, and says whether it could.
+     *
+     * <p>Never goes negative. A town with an empty treasury does not pay wages
+     * and does not buy finds; both are visible failures rather than a debt
+     * nobody records.
+     */
+    public boolean spend(int coin) {
+        if (coin <= 0 || treasury < coin) {
+            return false;
+        }
+        treasury -= coin;
+        return true;
+    }
+
+    public void setTreasury(int treasury) {
+        this.treasury = Math.max(0, treasury);
+    }
+
     public Alarm alarm() {
         return Alarm.of(threatLevel);
     }
@@ -1151,6 +1198,11 @@ public final class Settlement {
         // Last, and after the raid pass on purpose: whatever a raid just knocked
         // down is counted on the same step it happens rather than the next one.
         RepairPlanner.advance(this, ctx);
+        if (Economy.isPayday(ctx.step())) {
+            // After everything that could have produced this step, so a payday
+            // spends what the day actually earned rather than yesterday's.
+            Economy.payWages(this);
+        }
     }
 
     /**

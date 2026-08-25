@@ -135,9 +135,10 @@ public final class KingdomsCodecs {
             Codec.BOOL.optionalFieldOf("has_tool", false).forGetter(Person::hasTool),
             Codec.STRING.optionalFieldOf("carry_material", "").forGetter(
                     person -> person.carriedMaterial() == null ? "" : person.carriedMaterial()),
-            Codec.INT.optionalFieldOf("carry_load", 0).forGetter(Person::carriedLoad)
+            Codec.INT.optionalFieldOf("carry_load", 0).forGetter(Person::carriedLoad),
+            Codec.INT.optionalFieldOf("purse", 0).forGetter(Person::purse)
     ).apply(i, (id, name, profession, position, hunger, carried, starving, haul, hasTool,
-                carryMaterial, carryLoad) -> {
+                carryMaterial, carryLoad, purse) -> {
         Person person = new Person(id, name, profession, position);
         person.setHunger(hunger);
         carried.forEach(slot -> person.inventory().restore(slot.itemId(), slot.count()));
@@ -145,6 +146,7 @@ public final class KingdomsCodecs {
         haul.ifPresent(person::setHaul);
         person.setHasTool(hasTool);
         person.setCarry(carryMaterial.isEmpty() ? null : carryMaterial, carryLoad);
+        person.setPurse(purse);
         return person;
     }));
 
@@ -337,7 +339,8 @@ public final class KingdomsCodecs {
      * out as zero-defaulted duplicates only when the map is absent, which it never
      * is once a world has been saved again.
      */
-    private record Stores(Map<String, Integer> amounts, int food, int wood, int saplings, int stone) {
+    private record Stores(Map<String, Integer> amounts, int food, int wood, int saplings,
+                          int stone, int treasury) {
 
         TownStores toTownStores() {
             TownStores out = new TownStores();
@@ -362,7 +365,7 @@ public final class KingdomsCodecs {
             // The loose pile alone. The rest of the town's goods are saved by
             // the buildings holding them, so writing the total here as well
             // would restore every log twice.
-            return new Stores(settlement.loosePile().all(), 0, 0, 0, 0);
+            return new Stores(settlement.loosePile().all(), 0, 0, 0, 0, settlement.treasury());
         }
     }
 
@@ -372,7 +375,12 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Stores::food),
             Codec.INT.optionalFieldOf("wood", 0).forGetter(Stores::wood),
             Codec.INT.optionalFieldOf("saplings", 0).forGetter(Stores::saplings),
-            Codec.INT.optionalFieldOf("stone", 0).forGetter(Stores::stone)
+            Codec.INT.optionalFieldOf("stone", 0).forGetter(Stores::stone),
+            // Rides here rather than in the settlement group, which is already
+            // at the sixteen fields group() allows. Optional, so a save written
+            // before the town had money loads with an empty treasury and earns
+            // its first coin from the next thing it produces.
+            Codec.INT.optionalFieldOf("treasury", 0).forGetter(Stores::treasury)
     ).apply(i, Stores::new));
 
     // "buildings" is optional so saves written before it existed still load.
@@ -398,6 +406,7 @@ public final class KingdomsCodecs {
         Settlement settlement = new Settlement(id, name, centre, claimRadius);
         settlement.setThreatLevel(threatLevel);
         settlement.loosePile().restore(stores.toTownStores().all());
+        settlement.setTreasury(stores.treasury());
         settlement.tallies().restore(tallies);
         settlement.setCultureId(flavor.culture());
         // Saves from before stages existed carry no stage; they load as TOWN,
