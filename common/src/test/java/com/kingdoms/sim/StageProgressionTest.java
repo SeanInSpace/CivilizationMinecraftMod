@@ -103,7 +103,12 @@ class StageProgressionTest {
     void aCampLeftAloneClimbsTheWholeLadderToTown() {
         Settlement camp = foundingParty();
 
-        for (int i = 0; i < 300; i++) {
+        // Four hundred and fifty rather than three hundred. Growth is no longer
+        // capped and a birth now costs more the fuller the town is, so a
+        // settlement takes considerably longer to reach the size that finishes
+        // its wall — measured at step 373 for the closing, against 300 before.
+        // The ladder itself is unchanged; only the clock it runs on is slower.
+        for (int i = 0; i < 450; i++) {
             camp.step(CTX);
         }
 

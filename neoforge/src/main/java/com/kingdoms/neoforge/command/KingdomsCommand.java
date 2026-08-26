@@ -24,6 +24,8 @@ import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.settlement.SettlementEvent;
 import com.kingdoms.sim.world.SimContext;
+import com.kingdoms.neoforge.world.LevelStoreWorld;
+import com.kingdoms.neoforge.world.Shelves;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.world.SimWorld;
 import com.mojang.brigadier.CommandDispatcher;
@@ -103,6 +105,9 @@ public final class KingdomsCommand {
                         .executes(ctx -> raid(ctx, 0))
                         .then(Commands.argument("strength", IntegerArgumentType.integer(1, 100))
                                 .executes(ctx -> raid(ctx, IntegerArgumentType.getInteger(ctx, "strength")))))
+
+                .then(Commands.literal("stores")
+                        .executes(KingdomsCommand::stores))
 
                 .then(Commands.literal("culture")
                         .then(Commands.argument("id", StringArgumentType.string())
@@ -488,6 +493,72 @@ public final class KingdomsCommand {
         KingdomsMod.LOGGER.info("CULTURE {} -> {} ({})",
                 settlement.name(), chosen.id(), chosen.arrangement().id());
         return 1;
+    }
+
+    /**
+     * Every store in the nearest town: where it is, what its ledger says, and
+     * what is actually on its shelves.
+     *
+     * <p>The ledger is the truth and the chest is a window onto it, so the two
+     * can disagree for an honest reason — a chest holds fifty-four slots and a
+     * building's ledger has no such limit. This prints both side by side so the
+     * difference can be seen rather than argued about, and prints the
+     * coordinates so somebody can go and open the thing.
+     */
+    private static int stores(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        Settlement settlement = nearestSettlement(source);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No settlement nearby."));
+            return 0;
+        }
+        LevelStoreWorld world = new LevelStoreWorld(source.getLevel());
+        StringBuilder out = new StringBuilder("=== stores of " + settlement.name() + " ===");
+        int shownTotal = 0;
+        int heldTotal = 0;
+        for (Building building : settlement.buildings()) {
+            if (!building.isStore() || !building.hasStores()) {
+                continue;
+            }
+            int held = building.stores().all().values().stream().mapToInt(Integer::intValue).sum();
+            heldTotal += held;
+            Shelves shelves = world.shelvesOf(building);
+            out.append("\n  ").append(plain(building.blueprintId()))
+                    .append(" @ ").append(building.origin().x()).append(' ')
+                    .append(building.origin().y()).append(' ')
+                    .append(building.origin().z());
+            if (shelves == null) {
+                out.append("  ledger=").append(held).append("  (no chest found)");
+                continue;
+            }
+            int onShelves = 0;
+            int used = 0;
+            for (int slot = 0; slot < shelves.slots(); slot++) {
+                if (!shelves.isEmpty(slot)) {
+                    used++;
+                    onShelves += shelves.amountAt(slot);
+                }
+            }
+            shownTotal += onShelves;
+            out.append("  ledger=").append(held)
+                    .append("  onShelves=").append(onShelves)
+                    .append("  slots=").append(used).append('/').append(shelves.slots());
+            if (held > onShelves) {
+                out.append("  << ").append(held - onShelves).append(" held but not shown");
+            }
+        }
+        out.append("\n  town total: ledger=").append(heldTotal)
+                .append(" onShelves=").append(shownTotal)
+                .append("  treasury=").append(settlement.treasury());
+        String report = out.toString();
+        source.sendSuccess(() -> Component.literal(report), false);
+        KingdomsMod.LOGGER.info("STORES {} ledger={} shelves={}",
+                settlement.name(), heldTotal, shownTotal);
+        return 1;
+    }
+
+    private static String plain(String blueprintId) {
+        return blueprintId.substring(blueprintId.indexOf(':') + 1);
     }
 
     private static int threat(CommandContext<CommandSourceStack> ctx, int level) {

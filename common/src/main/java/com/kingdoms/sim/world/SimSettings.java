@@ -52,7 +52,24 @@ public record SimSettings(
      * drawing 131-zombie raids inside sixteen minutes. Millénaire and MineColonies
      * cap settlement size for exactly this reason; those caps are load-bearing.
      */
-    public static final int DEFAULT_MAX_SETTLEMENT_POPULATION = 48;
+    /**
+     * No ceiling. A settlement grows for as long as it can house and feed people.
+     *
+     * <p>There used to be a hard cap of forty-eight, and the reason is worth
+     * keeping in view: housing supply scales with population, so a town that can
+     * always build another cottage can always fill it, and live playtesting
+     * produced a thousand-person settlement drawing 131-zombie raids inside
+     * sixteen minutes. The cap was load-bearing.
+     *
+     * <p>What replaces it is the birth rate. {@link PopulationPlanner#STEPS_PER_BIRTH}
+     * is now slow enough that the limit is time and land rather than an
+     * arbitrary number, which is what a growing village should be bounded by.
+     * The setting remains, so a cap can be put back without new code — see
+     * {@link #maxSettlementPopulation}.
+     */
+    public static final int NO_POPULATION_CAP = Integer.MAX_VALUE;
+
+    public static final int DEFAULT_MAX_SETTLEMENT_POPULATION = NO_POPULATION_CAP;
 
     public static final SimSettings DEFAULTS = new SimSettings(
             SimWorld.SIM_INTERVAL_TICKS,

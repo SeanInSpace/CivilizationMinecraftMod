@@ -25,10 +25,13 @@ public final class KingdomsConfig {
             .defineInRange("population.steps_per_birth", PopulationPlanner.STEPS_PER_BIRTH, 1, 10000);
 
     public static final ModConfigSpec.IntValue MAX_SETTLEMENT_POPULATION = BUILDER
-            .comment("Births stop at this population. Housing scales with population,",
-                    "so without a ceiling towns grow exponentially forever.")
+            .comment("Births stop at this population. Default is no ceiling at all:",
+                    "growth is held back by how fast a town can house and feed",
+                    "people, and by births costing more the fuller it already is",
+                    "(population.steps_per_birth scales with size). Set a real",
+                    "number here to put a hard cap back.")
             .defineInRange("population.max_per_settlement",
-                    SimSettings.DEFAULT_MAX_SETTLEMENT_POPULATION, 4, 4096);
+                    SimSettings.DEFAULT_MAX_SETTLEMENT_POPULATION, 4, Integer.MAX_VALUE);
 
     public static final ModConfigSpec.DoubleValue OBSERVED_RADIUS = BUILDER
             .comment("Distance (blocks) from a player at which simulated people appear as villagers.")

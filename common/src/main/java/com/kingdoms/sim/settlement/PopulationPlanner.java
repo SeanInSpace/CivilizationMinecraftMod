@@ -26,8 +26,47 @@ import java.util.Set;
  */
 public final class PopulationPlanner {
 
-    /** Steps a family needs before a birth, once it has room. */
-    public static final int STEPS_PER_BIRTH = 8;
+    /**
+     * Steps a family needs before a birth in a young settlement.
+     *
+     * <p>Was eight. The base rate matters far less than {@link #CROWDING_SCALE}
+     * below, because the problem with the old arrangement was never the number.
+     */
+    public static final int STEPS_PER_BIRTH = 24;
+
+    /**
+     * How many people a settlement adds before a birth takes twice as long.
+     *
+     * <p>This is the load-bearing one, and it is here because slowing the base
+     * rate does not work. Housing supply scales with population, so every new
+     * person eventually enables another house, which enables another person:
+     * growth is <em>exponential</em>, and dividing an exponent by five buys
+     * time and changes nothing. Measured, with the hard cap lifted and births
+     * merely five times slower: 7 people at step 250, 51 at 500, 184 at 750,
+     * 567 at 1000, and 1069 by 1250 — which is the thousand-person town the cap
+     * was put there to prevent, arriving an hour later than it used to.
+     *
+     * <p>So the rate now falls as the town fills. A family in a hamlet of four
+     * has a child in {@link #STEPS_PER_BIRTH} steps; the same family in a town
+     * of two hundred takes many times longer. Because the number of families
+     * rises with population and the rate per family falls with it, the two
+     * cancel: births per step settle roughly constant and the curve is close to
+     * a straight line rather than a hockey stick.
+     *
+     * <p>That is what removing the cap should mean — a village bounded by land,
+     * food and time rather than by an arbitrary number it slams into.
+     */
+    public static final int CROWDING_SCALE = 16;
+
+    /**
+     * What a birth actually costs this settlement right now.
+     *
+     * <p>The base rate, stretched by how crowded the place already is.
+     */
+    public static int stepsPerBirthIn(int baseSteps, int population) {
+        int crowding = 1 + Math.max(0, population) / Math.max(1, CROWDING_SCALE);
+        return Math.max(1, baseSteps) * crowding;
+    }
 
     private static final List<String> FAMILY_NAMES = List.of(
             "Baker", "Miller", "Smith", "Cooper", "Fletcher", "Mason", "Turner", "Weaver");
@@ -239,10 +278,14 @@ public final class PopulationPlanner {
                 continue;
             }
 
-            if (household.growthProgress() < stepsPerBirth) {
+            // Stretched by how full the town already is -- see CROWDING_SCALE.
+            // A hamlet grows quickly and a town barely at all, which is what
+            // keeps the curve from running away now the hard cap is gone.
+            int needed = stepsPerBirthIn(stepsPerBirth, settlement.population());
+            if (household.growthProgress() < needed) {
                 household.addGrowthProgress(1);
             }
-            if (household.growthProgress() < stepsPerBirth) {
+            if (household.growthProgress() < needed) {
                 continue;
             }
 

@@ -55,6 +55,12 @@ public final class ExpansionPlanner {
 
     /** Called once per kingdom step. At most one founding per step. */
     public static void advance(Kingdom kingdom, SimContext ctx) {
+        // Doubly stopped, and deliberately. The flag below turns it off; and the
+        // trigger it waits for -- a settlement at its population ceiling -- can
+        // no longer happen either, because there is no ceiling any more. Neither
+        // is load-bearing on its own, which is the point: turning expansion back
+        // on now means choosing a cap as well as setting the flag, rather than
+        // discovering daughters appearing because a number moved.
         if (!ctx.settings().expansionEnabled()) {
             // Off by default. Everything below works; what it also does is turn
             // one settlement into six inside a single run, and a kingdom is a
