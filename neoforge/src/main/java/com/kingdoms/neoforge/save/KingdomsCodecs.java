@@ -135,10 +135,9 @@ public final class KingdomsCodecs {
             Codec.BOOL.optionalFieldOf("has_tool", false).forGetter(Person::hasTool),
             Codec.STRING.optionalFieldOf("carry_material", "").forGetter(
                     person -> person.carriedMaterial() == null ? "" : person.carriedMaterial()),
-            Codec.INT.optionalFieldOf("carry_load", 0).forGetter(Person::carriedLoad),
-            Codec.INT.optionalFieldOf("purse", 0).forGetter(Person::purse)
+            Codec.INT.optionalFieldOf("carry_load", 0).forGetter(Person::carriedLoad)
     ).apply(i, (id, name, profession, position, hunger, carried, starving, haul, hasTool,
-                carryMaterial, carryLoad, purse) -> {
+                carryMaterial, carryLoad) -> {
         Person person = new Person(id, name, profession, position);
         person.setHunger(hunger);
         carried.forEach(slot -> person.inventory().restore(slot.itemId(), slot.count()));
@@ -146,7 +145,6 @@ public final class KingdomsCodecs {
         haul.ifPresent(person::setHaul);
         person.setHasTool(hasTool);
         person.setCarry(carryMaterial.isEmpty() ? null : carryMaterial, carryLoad);
-        person.setPurse(purse);
         return person;
     }));
 
@@ -392,7 +390,8 @@ public final class KingdomsCodecs {
             // at the sixteen fields group() allows. Optional, so a save written
             // before the town had money loads with an empty treasury and earns
             // its first coin from the next thing it produces.
-            Codec.INT.optionalFieldOf("treasury", 0).forGetter(Stores::treasury)
+            Codec.INT.optionalFieldOf("treasury", Settlement.FOUNDING_TREASURY)
+                    .forGetter(Stores::treasury)
     ).apply(i, Stores::new));
 
     // "buildings" is optional so saves written before it existed still load.

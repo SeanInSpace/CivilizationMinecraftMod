@@ -1,6 +1,6 @@
 # Trading with a settlement
 
-**Status:** designed, not built. Companion to [POPULATION.md](POPULATION.md) (who lives there) and [DEFENSE.md](DEFENSE.md) (who attacks). This one covers the only thing a player can currently *do* with a town, which today is nothing.
+**Status:** the internal half is built — settlers own nothing and hand in what they carry. The player-facing trade below is designed, not built. Companion to [POPULATION.md](POPULATION.md) (who lives there) and [DEFENSE.md](DEFENSE.md) (who attacks). This one covers the only thing a player can currently *do* with a town, which today is nothing.
 
 Code it would touch: `MarketBlock`, `Economy`, `Valuation`, `Settlement` (treasury), `Profession.TRADER`.
 
@@ -98,7 +98,15 @@ A young settlement therefore has almost nothing to sell and desperately wants ba
 
 ---
 
-## Where coin comes from, after this
+## Where coin comes from — settled
+
+**A settlement is founded holding 2,000 coin, and nothing ever mints more.** That endowment is the entire money supply until somebody trades with the town.
+
+This replaced a production levy that created coin from nothing in proportion to output — issuance dressed up as taxation, which made a town's wealth a measure of how long it had existed rather than of anything it had done with anybody.
+
+The consequence is that the treasury is a real constraint. A wall of 420 posts costs 1,260 of the 2,000, so a town can fortify itself once out of what it was founded with, and that is most of everything it has. Getting more is something a player has to come and do.
+
+## Where coin does *not* go
 
 The minting goes. This is the substantive change to the existing economy.
 
@@ -106,13 +114,17 @@ The minting goes. This is the substantive change to the existing economy.
 
 **After:**
 
-- **In:** the town sells goods to outsiders. Coin enters *because somebody paid it*.
-- **Out:** the town buys from outsiders, and pays for public works.
-- **Around:** wages, and eventually villagers buying at their own market.
+**Not to settlers.** A settler owns nothing and wants for nothing. They belong to the town and the town belongs to them: what they cut, grow, mine or find goes to the common stores, and what they need comes back out of it at no charge. A farmer carrying bread home from the market is not shopping, they are being fed.
 
-A small production levy should probably survive — a town with no player nearby still needs to pay wages, and a settlement that can never afford its wall because nobody visited is a worse outcome than slightly loose money. But it becomes a trickle rather than the whole supply, and the headline number stops being "how long has this town existed" and starts being "how much has it traded".
+There are no wages, no purses and no prices between one settler and another. There were all three, briefly; they ran correctly and added nothing anybody could see. `Person.spend` was never called by a single caller, and a settler holding four hundred coin behaved exactly like one holding none.
 
-**The open question I cannot answer alone:** should an untraded town be able to get rich on its own at all? Keeping a levy says yes, slowly. Removing it says a town's prosperity is the player's doing. The second is a stronger game and a lonelier simulation.
+So the flows are:
+
+- **In:** the town sells to a player. Coin enters *because somebody paid it*.
+- **Out:** the town buys from a player, and pays for public works.
+- **Never:** between one villager and another, or between the town and its own people.
+
+A player is the only party who is ever charged anything.
 
 ---
 
@@ -130,7 +142,7 @@ Across all three the loop is the same: **the town's problems are your opportunit
 
 ## What this deliberately does not include
 
-- **Villagers spending their own purses.** They accumulate wages and cannot spend them, which is a real hole — but it does not pay off until a player can tell one villager from another. See the note at the end of this file.
+- **Villagers spending money.** They have none, and that is the design rather than an omission. If individuals ever become legible enough that a purse would tell a story, it can come back — but it earns its way in then, not before.
 - **Wandering traders between settlements.** Interesting, and much later.
 - **Haggling, reputation, contracts.** The price signal carries the drama already.
 

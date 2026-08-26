@@ -6,21 +6,29 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.PerimeterPlanner;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.TownStores;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Money, and the loop it goes round.
+ * The town's money, and the fact that only the town has any.
  *
- * <p>A settlement of this culture is not a commune. The town owns what its
- * people are paid to produce; a person owns what they come across, and can sell
- * it. Everything here is that one distinction, made to hold under arithmetic.
+ * <p>A settler owns nothing and wants for nothing: what they cut, grow, mine or
+ * find goes to the common stores, and what they need comes back out of it at no
+ * charge. There are no wages, no purses and no prices between one settler and
+ * another.
+ *
+ * <p>There used to be all three. They ran correctly and added nothing anybody
+ * could see — {@code Person.spend} was never called by a single caller, and a
+ * settler holding four hundred coin behaved exactly like one holding none.
  */
 class EconomyTest {
 
@@ -38,25 +46,189 @@ class EconomyTest {
         return town.residents().iterator().next();
     }
 
-    // --- what a thing is worth ---
+    /** Collects what a hand-in would put on the shelves. */
+    private static Map<String, Integer> shelf() {
+        return new HashMap<>();
+    }
+
+    private static int handIn(Settlement town, Person person, Map<String, Integer> onto) {
+        return Economy.handIn(town, person, (id, count) -> onto.merge(id, count, Integer::sum));
+    }
+
+    // --- the whole money supply ---
 
     @Test
-    void aFindIsWorthCoinAndProduceIsNot() {
-        assertTrue(Valuation.priceOf("minecraft:diamond_chestplate") > 0);
-        assertTrue(Valuation.priceOf("minecraft:iron_sword") > 0);
-        assertEquals(Valuation.WORTHLESS, Valuation.priceOf("minecraft:oak_log"),
-                "the town paid somebody to cut that; it does not buy it back");
-        assertEquals(Valuation.WORTHLESS, Valuation.priceOf("minecraft:cobblestone"));
+    void aTownIsFoundedHoldingItsEntireSupply() {
+        assertEquals(Settlement.FOUNDING_TREASURY, town(0).treasury(),
+                "the endowment is the money, and there is no other source");
+        assertEquals(2000, Settlement.FOUNDING_TREASURY);
     }
 
     @Test
-    void nobodySellsTheTownItsOwnDinner() {
-        // A settler who could sell their rations back at a profit would do
-        // nothing else for the rest of their life.
+    void producingGoodsDoesNotCreateMoney() {
+        // Production used to mint a coin for every four units, which made a
+        // town's wealth a measure of how long it had been running rather than
+        // of anything it had done with anybody.
+        Settlement town = town(2);
+        int before = town.treasury();
+
+        town.produceNear(town.centre(), TownStores.WOOD, 400, 100000);
+
+        assertEquals(before, town.treasury(), "goods are not money");
+        assertTrue(town.woodStock() > 0, "but the goods are certainly there");
+    }
+
+    @Test
+    void spendingIsRealAndCannotBeUndoneByWorking() {
+        // The point of a fixed supply: a town that spends its endowment on a
+        // wall has spent it, and no amount of cutting timber brings it back.
+        Settlement town = town(2);
+        town.spend(1500);
+        town.produceNear(town.centre(), TownStores.STONE, 4000, 100000);
+
+        assertEquals(Settlement.FOUNDING_TREASURY - 1500, town.treasury());
+    }
+
+    @Test
+    void aTownNeverGoesNegative() {
+        Settlement town = town(1);
+        assertFalse(town.spend(Settlement.FOUNDING_TREASURY + 1),
+                "it cannot spend what it has not got");
+        assertEquals(Settlement.FOUNDING_TREASURY, town.treasury());
+    }
+
+    @Test
+    void theEndowmentCoversAWallAndNotMuchElse() {
+        // A settlement can afford to fortify itself once. That is the intended
+        // shape of the constraint, and it is worth knowing if either number moves.
+        int wall = 420 * PerimeterPlanner.COIN_PER_POST;
+        assertTrue(wall < Settlement.FOUNDING_TREASURY,
+                "a town can wall itself from what it was founded with");
+        assertTrue(wall > Settlement.FOUNDING_TREASURY / 2,
+                "and doing so is most of everything it has");
+    }
+
+    // --- a settler owns nothing ---
+
+    @Test
+    void whatASettlerCarriesBelongsToTheTown() {
+        Settlement town = town(1);
+        Person finder = first(town);
+        finder.inventory().add("minecraft:diamond_chestplate", 1);
+        Map<String, Integer> onto = shelf();
+
+        int given = handIn(town, finder, onto);
+
+        assertEquals(1, given);
+        assertEquals(1, onto.get("minecraft:diamond_chestplate"));
+        assertEquals(0, finder.inventory().count("minecraft:diamond_chestplate"),
+                "it was the town's before they picked it up");
+    }
+
+    @Test
+    void handingInCostsTheTownNothing() {
+        // The internal half of the economy in its entirety: goods move, coin
+        // does not.
+        Settlement town = town(1);
+        Person finder = first(town);
+        finder.inventory().add("minecraft:diamond_chestplate", 1);
+        int before = town.treasury();
+
+        handIn(town, finder, shelf());
+
+        assertEquals(before, town.treasury(), "nobody is paid for their own work");
+    }
+
+    @Test
+    void aSettlerKeepsTheirDinner() {
+        // Stripping a settler's rations into the granary as they walk past would
+        // have them starve in front of a full larder.
+        Settlement town = town(1);
+        Person walker = first(town);
+        walker.inventory().add(Foods.PROVISION, 6);
+        walker.inventory().add("minecraft:iron_sword", 1);
+        Map<String, Integer> onto = shelf();
+
+        handIn(town, walker, onto);
+
+        assertEquals(6, walker.inventory().count(Foods.PROVISION), "still theirs to eat");
+        assertEquals(1, onto.get("minecraft:iron_sword"), "the sword is not");
+    }
+
+    @Test
+    void carryingNothingButFoodIsNotWorthAWalk() {
+        Settlement town = town(1);
+        Person walker = first(town);
+        walker.inventory().add(Foods.PROVISION, 8);
+
+        assertFalse(Economy.wantsToUnload(walker),
+                "a settler carrying their lunch is not on an errand");
+    }
+
+    @Test
+    void somethingWorthCarryingInIsWorthTheWalk() {
+        Settlement town = town(1);
+        Person finder = first(town);
+        finder.inventory().add("minecraft:diamond_chestplate", 1);
+
+        assertTrue(Economy.wantsToUnload(finder));
+    }
+
+    @Test
+    void aTrifleIsCarriedRatherThanWalkedIn() {
+        // Downing tools to walk across the village with one flint would be a
+        // worse settler than one who finishes the row first.
+        Settlement town = town(1);
+        Person worker = first(town);
+        worker.inventory().add("minecraft:flint", 1);
+
+        assertFalse(Economy.wantsToUnload(worker));
+    }
+
+    @Test
+    void fullPocketsAreWorthTheWalkWhateverTheyHold() {
+        // Somebody with nowhere left to put anything has stopped being able to
+        // pick things up, which is the one case where the trip is the useful
+        // thing to do regardless of value.
+        Settlement town = town(1);
+        Person worker = first(town);
+        for (int i = 0; i < com.kingdoms.sim.person.Inventory.SLOTS; i++) {
+            worker.inventory().add("minecraft:stick_" + i, 1);
+        }
+
+        assertTrue(Economy.pocketsFull(worker));
+        assertTrue(Economy.wantsToUnload(worker));
+    }
+
+    @Test
+    void anErrandForTheTownOutranksTheirOwnArmful() {
+        Settlement town = town(1);
+        Person hauler = first(town);
+        hauler.inventory().add("minecraft:diamond_chestplate", 1);
+        hauler.setHaul(new com.kingdoms.sim.person.HaulTask(
+                com.kingdoms.sim.person.HaulTask.Store.FARM, new SimPos(0, 64, 0),
+                com.kingdoms.sim.person.HaulTask.Store.MARKET, new SimPos(8, 64, 8), 4));
+
+        assertFalse(Economy.wantsToUnload(hauler),
+                "they are already carrying the town's business");
+    }
+
+    // --- what things are worth, which is now only the player's concern ---
+
+    @Test
+    void valuationStillPricesFindsForTheOneTradeThatCosts() {
+        // Nobody inside the town pays for anything. The table survives because
+        // the market will charge a player from it -- see TRADE.md -- and because
+        // it is still the best measure of whether a load is worth carrying in.
+        assertTrue(Valuation.priceOf("minecraft:diamond_chestplate") > 0);
+        assertTrue(Valuation.priceOf("minecraft:diamond_chestplate")
+                > Valuation.priceOf("minecraft:iron_chestplate"));
+    }
+
+    @Test
+    void rationsAreNotMerchandise() {
         assertEquals(Valuation.WORTHLESS, Valuation.priceOf(Foods.PROVISION));
         assertEquals(Valuation.WORTHLESS, Valuation.priceOf("minecraft:bread"));
-        assertEquals(Valuation.WORTHLESS, Valuation.priceOf("minecraft:golden_apple"),
-                "priced in the table, but food is refused before the table is read");
     }
 
     @Test
@@ -65,238 +237,28 @@ class EconomyTest {
         assertEquals(Valuation.WORTHLESS, Valuation.priceOf(null));
     }
 
-    @Test
-    void betterArmourFetchesMore() {
-        assertTrue(Valuation.priceOf("minecraft:diamond_chestplate")
-                > Valuation.priceOf("minecraft:iron_chestplate"));
-    }
-
-    // --- where money comes from ---
-
-    @Test
-    void aTownEarnsFromWhatItProduces() {
-        Settlement town = town(2);
-        assertEquals(0, town.treasury(), "a new town has nothing");
-
-        town.produceNear(town.centre(), com.kingdoms.sim.settlement.TownStores.WOOD, 40, 1000);
-
-        assertEquals(Economy.levyOn(40), town.treasury());
-        assertTrue(town.treasury() > 0, "work turns into coin");
-    }
-
-    @Test
-    void aTownThatMakesNothingEarnsNothing() {
-        // The anchor on the whole economy: coin is created only by production,
-        // so an idle settlement cannot pay anybody and has to show it.
-        Settlement town = town(3);
-        assertEquals(0, town.treasury());
-    }
-
-    @Test
-    void aSingleLogIsNotACoin() {
-        assertEquals(0, Economy.levyOn(1), "rounded down, or every twig mints money");
-        assertEquals(0, Economy.levyOn(Economy.LEVY_PER - 1));
-        assertEquals(Economy.LEVY_COIN, Economy.levyOn(Economy.LEVY_PER));
-    }
-
-    // --- and where it goes ---
-
-    @Test
-    void everyWorkerDrawsAWageOnPayday() {
-        Settlement town = town(3);
-        town.bank(100);
-
-        int paid = Economy.payWages(town);
-
-        assertEquals(3 * Economy.WAGE, paid);
-        assertEquals(100 - paid, town.treasury());
-        for (Person worker : town.residents()) {
-            assertEquals(Economy.WAGE, worker.purse());
-        }
-    }
-
-    @Test
-    void aBrokeTownPaysAsManyAsItCanAndNoMore() {
-        // All or nothing per person: half a coin to everybody is worse than a
-        // whole coin to as many as the town can actually afford.
-        Settlement town = town(5);
-        town.bank(2 * Economy.WAGE);
-
-        int paid = Economy.payWages(town);
-
-        assertEquals(2 * Economy.WAGE, paid);
-        assertEquals(0, town.treasury(), "spent to the last coin, never past it");
-        assertEquals(2, town.residents().stream().filter(p -> p.purse() > 0).count());
-    }
-
-    @Test
-    void anIdlerDrawsNothing() {
-        Settlement town = town(1);
-        Person idler = new Person(
-                Person.Id.random(), "Idle", Profession.IDLER, town.centre());
-        town.addResident(idler);
-        town.bank(100);
-
-        Economy.payWages(town);
-
-        assertEquals(0, idler.purse(), "the wage is for the work");
-        assertEquals(Economy.WAGE, first(town).purse());
-    }
-
-    @Test
-    void somebodyTooWeakToWorkHasNotWorked() {
-        Settlement town = town(1);
-        Person weak = first(town);
-        weak.setHunger(Person.HUNGER_WEAK);
-        town.bank(100);
-
-        Economy.payWages(town);
-
-        assertEquals(0, weak.purse());
-    }
-
-    @Test
-    void aPaydayIsOccasionalRatherThanConstant() {
-        assertTrue(Economy.isPayday(Economy.PAYDAY_EVERY));
-        assertFalse(Economy.isPayday(Economy.PAYDAY_EVERY - 1));
-        assertFalse(Economy.isPayday(0), "the first step is not a payday");
-    }
-
-    // --- selling a find ---
-
-    @Test
-    void theTownBuysWhatSomebodyFound() {
-        // The whole arrangement in one test: a settler picks up armour, the town
-        // has money, and the armour changes hands for coin.
-        Settlement town = town(1);
-        town.bank(500);
-        Person finder = first(town);
-        finder.inventory().add("minecraft:diamond_chestplate", 1);
-
-        Economy.Sale sale = Economy.sellOne(town, finder);
-
-        assertNotNull(sale);
-        assertEquals("minecraft:diamond_chestplate", sale.itemId());
-        assertEquals(Valuation.priceOf("minecraft:diamond_chestplate"), sale.price());
-        assertEquals(sale.price(), finder.purse(), "paid into their own purse");
-        assertEquals(500 - sale.price(), town.treasury());
-        assertEquals(0, finder.inventory().count("minecraft:diamond_chestplate"),
-                "and it is the town's now");
-    }
-
-    @Test
-    void aTownThatCannotAffordItDoesNotGetIt() {
-        // The reason the treasury is finite. A poor town has to say no, and the
-        // settler keeps their sword.
-        Settlement town = town(1);
-        town.bank(1);
-        Person finder = first(town);
-        finder.inventory().add("minecraft:diamond_chestplate", 1);
-
-        assertNull(Economy.sellOne(town, finder));
-        assertEquals(1, town.treasury(), "not a coin moved");
-        assertEquals(0, finder.purse());
-        assertEquals(1, finder.inventory().count("minecraft:diamond_chestplate"),
-                "they still have it, and can try again when the town is richer");
-    }
-
-    @Test
-    void theBestThingIsSoldFirst() {
-        Settlement town = town(1);
-        town.bank(500);
-        Person finder = first(town);
-        finder.inventory().add("minecraft:iron_boots", 1);
-        finder.inventory().add("minecraft:diamond_chestplate", 1);
-
-        Economy.Sale sale = Economy.sellOne(town, finder);
-
-        assertEquals("minecraft:diamond_chestplate", sale.itemId(),
-                "one trip to the market should be the trip that mattered");
-    }
-
-    @Test
-    void carryingNothingWorthSellingIsNotASale() {
-        Settlement town = town(1);
-        town.bank(500);
-        Person finder = first(town);
-        finder.inventory().add(Foods.PROVISION, 8);
-        finder.inventory().add("minecraft:cobblestone", 4);
-
-        assertNull(Economy.sellOne(town, finder));
-        assertEquals(500, town.treasury());
-    }
-
-    // --- what the money is for ---
+    // --- what the money is actually for ---
 
     @Test
     void aPostCostsCoinAsWellAsTimber() {
-        // The wall is the first thing the treasury buys that is not wages, and
-        // it is what makes a town able to be too poor to defend itself.
         Settlement town = town(1);
-        town.stores().add(com.kingdoms.sim.settlement.TownStores.WOOD, 100);
+        town.stores().add(TownStores.WOOD, 100);
+        town.spend(town.treasury());
 
-        assertFalse(com.kingdoms.sim.settlement.PerimeterPlanner.payForPost(town),
-                "timber alone no longer raises a wall");
+        assertFalse(PerimeterPlanner.payForPost(town),
+                "a town with no money cannot wall itself, however much timber it has");
 
-        town.bank(com.kingdoms.sim.settlement.PerimeterPlanner.COIN_PER_POST);
-        assertTrue(com.kingdoms.sim.settlement.PerimeterPlanner.payForPost(town));
-        assertEquals(0, town.treasury(), "and it paid for it");
-    }
-
-    @Test
-    void aTownWithCoinButNoTimberStillCannotBuildAWall() {
-        Settlement town = town(1);
-        // A settlement is founded holding timber -- 480 of it -- so this has to
-        // be emptied deliberately. The first draft of this test asserted against
-        // a town it wrongly assumed was destitute, and passed for the wrong
-        // reason until the assertion was the other way round.
-        town.stores().take(com.kingdoms.sim.settlement.TownStores.WOOD, town.woodStock());
-        assertEquals(0, town.woodStock(), "and now it really has none");
-        town.bank(1000);
-
-        assertFalse(com.kingdoms.sim.settlement.PerimeterPlanner.payForPost(town));
-        assertEquals(1000, town.treasury(), "and nothing was taken for nothing");
+        town.bank(PerimeterPlanner.COIN_PER_POST);
+        assertTrue(PerimeterPlanner.payForPost(town));
     }
 
     @Test
     void payingForAPostIsBothOrNeither() {
-        // A town that has the timber but not the coin must not lose the timber
-        // pretending otherwise.
         Settlement town = town(1);
-        town.stores().add(com.kingdoms.sim.settlement.TownStores.WOOD, 10);
-        int before = town.woodStock();
+        town.stores().take(TownStores.WOOD, town.woodStock());
+        int coin = town.treasury();
 
-        assertFalse(com.kingdoms.sim.settlement.PerimeterPlanner.payForPost(town));
-        assertEquals(before, town.woodStock());
-    }
-
-    // --- the loop closes ---
-
-    @Test
-    void coinCirculatesRatherThanDraining() {
-        // Produce, get paid, and the town is still solvent -- which is the whole
-        // point of a levy rather than a founding purse that only ever shrinks.
-        Settlement town = town(2);
-        for (int round = 0; round < 5; round++) {
-            town.produceNear(town.centre(),
-                    com.kingdoms.sim.settlement.TownStores.WOOD, 40, 100000);
-            Economy.payWages(town);
-        }
-
-        assertTrue(town.treasury() > 0, "the town is still solvent after five paydays");
-        for (Person worker : town.residents()) {
-            assertTrue(worker.purse() > 0, "and everybody has been paid");
-        }
-    }
-
-    @Test
-    void nobodyEverGoesNegative() {
-        Settlement town = town(1);
-        Person pauper = first(town);
-
-        assertFalse(town.spend(5), "a town cannot spend what it has not got");
-        assertFalse(pauper.spend(5), "and neither can a person");
-        assertEquals(0, town.treasury());
-        assertEquals(0, pauper.purse());
+        assertFalse(PerimeterPlanner.payForPost(town), "no timber, no post");
+        assertEquals(coin, town.treasury(), "and nothing was taken for nothing");
     }
 }

@@ -263,7 +263,7 @@ public final class PersonEntityManager {
                 }
 
                 pickUpLitter(settlement);
-                sellAtMarket(settlement);
+                unloadAtStore(settlement);
                 ringTheBell(settlement);
                 dailyRoutine(settlement);
                 checkHouseAccess(settlement);
@@ -1583,41 +1583,40 @@ public final class PersonEntityManager {
     }
 
     /**
-     * A settler at the market sells the town what they found.
+     * A settler puts what they are carrying into the town's stores.
      *
-     * <p>The town pays out of its own treasury, and only if it can: a poor town
-     * does not get the sword, and the settler keeps it and tries again when the
-     * levy has refilled the coffers. That refusal is the reason the treasury is
-     * finite rather than a formality.
+     * <p>No coin changes hands and none is owed. They found it while working for
+     * the town, so it was the town's before they picked it up — the walk in is
+     * the whole of the transaction. Money exists in this mod for exactly one
+     * relationship, and it is not this one; see {@code TRADE.md}.
      */
-    private void sellAtMarket(Settlement settlement) {
-        SimPos market = marketPos(settlement);
-        if (market == null) {
-            return;   // no market, no trade; they carry it until there is one
+    private void unloadAtStore(Settlement settlement) {
+        SimPos where = marketPos(settlement);
+        if (where == null) {
+            where = settlement.centre();
         }
         for (Person person : settlement.residents()) {
-            if (!person.isEmbodied() || !Economy.wantsMarket(person)) {
+            if (!person.isEmbodied() || !Economy.wantsToUnload(person)) {
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
             if (view == null || view.isRemoved()) {
                 continue;
             }
-            if (view.distanceToSqr(market.x() + 0.5, market.y(), market.z() + 0.5)
+            if (view.distanceToSqr(where.x() + 0.5, where.y(), where.z() + 0.5)
                     > MARKET_REACH * MARKET_REACH) {
                 continue;   // on their way; workplaceFor is steering them
             }
-            Economy.Sale sale = Economy.sellOne(settlement, person);
-            if (sale == null) {
+            SimPos shelf = where;
+            int given = Economy.handIn(settlement, person,
+                    (itemId, count) -> settlement.storeNear(shelf).add(itemId, count));
+            if (given <= 0) {
                 continue;
             }
-            // Bought, so it is the town's now and belongs on the town's shelves.
-            settlement.storeNear(market).add(sale.itemId(), 1);
-            settlement.logEvent(world.stepsElapsed(), person.name() + " sold "
-                    + plainName(sale.itemId()) + " to the market for "
-                    + sale.price() + " coin");
-            level.playSound(null, new BlockPos(market.x(), market.y(), market.z()),
-                    SoundEvents.VILLAGER_YES, SoundSource.NEUTRAL, 0.6F, 1.0F);
+            settlement.logEvent(world.stepsElapsed(),
+                    person.name() + " brings " + given + " item(s) in to the stores");
+            level.playSound(null, new BlockPos(where.x(), where.y(), where.z()),
+                    SoundEvents.VILLAGER_YES, SoundSource.NEUTRAL, 0.5F, 1.0F);
         }
     }
 
@@ -1810,10 +1809,10 @@ public final class PersonEntityManager {
     private SimPos workplaceFor(Settlement settlement, Person person, SimPos home) {
         // An errand outranks the day job: haulers walk to the store they are
         // collecting from, then to the one they are delivering to.
-        // Their own business, ranked below the town's. A haul is the town's
-        // errand and comes first; the market is where somebody takes what they
-        // found, once it is worth the walk. See Economy.wantsMarket.
-        if (person.haul() == null && Economy.wantsMarket(person)) {
+        // Ranked below the town's own errands. A haul comes first; putting away
+        // an armful of what they picked up comes next, once it is worth the
+        // walk. See Economy.wantsToUnload.
+        if (person.haul() == null && Economy.wantsToUnload(person)) {
             SimPos market = marketPos(settlement);
             if (market != null) {
                 return market;

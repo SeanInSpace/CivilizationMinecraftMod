@@ -127,14 +127,25 @@ public final class Settlement {
     public static final int SIGHTING_MEMORY_STEPS = 8;
 
     /**
-     * The town's money.
+     * What a settlement is founded holding, and the whole of its money supply
+     * until somebody trades with it.
      *
-     * <p>Fed by a levy on what its people produce, drawn on for wages and for
-     * buying what they find. Finite on purpose: a town that cannot afford the
-     * sword a settler brings to the market has to say so, and that is only
-     * meaningful if the coin can actually run out. See {@code Economy}.
+     * <p>Nothing mints more. Production used to create coin out of nothing in
+     * proportion to output, which was issuance dressed up as a levy and meant a
+     * town's wealth measured how long it had existed. Now it measures what it
+     * started with, minus what it has spent — and the only way to get more is
+     * for somebody to come and buy something.
      */
-    private int treasury;
+    public static final int FOUNDING_TREASURY = 2000;
+
+    /**
+     * The town's money. All of it — no settler owns a coin.
+     *
+     * <p>Spent on public works, and on whatever the town buys from an outsider.
+     * Finite on purpose and now genuinely finite: a town that spends its
+     * endowment on a wall has spent it.
+     */
+    private int treasury = FOUNDING_TREASURY;
 
     private int threatLevel;
 
@@ -723,11 +734,10 @@ public final class Settlement {
             return 0;
         }
         storeNear(from).add(resource, fitting);
-        // The levy. This is the only place coin is created, and it is created
-        // in proportion to work actually done — every unit of produce in the
-        // town comes through here, watched or abstract, so a settlement that
-        // makes nothing earns nothing and cannot pay anybody.
-        bank(Economy.levyOn(fitting));
+        // No coin is created here. Production makes goods; goods are not money.
+        // This used to mint a coin for every four units produced, which made a
+        // town's wealth a measure of how long it had been running rather than
+        // of anything it had done with anybody.
         return fitting;
     }
 
@@ -1198,11 +1208,6 @@ public final class Settlement {
         // Last, and after the raid pass on purpose: whatever a raid just knocked
         // down is counted on the same step it happens rather than the next one.
         RepairPlanner.advance(this, ctx);
-        if (Economy.isPayday(ctx.step())) {
-            // After everything that could have produced this step, so a payday
-            // spends what the day actually earned rather than yesterday's.
-            Economy.payWages(this);
-        }
     }
 
     /**

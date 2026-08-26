@@ -1,40 +1,34 @@
 package com.kingdoms.sim.economy;
 
 import com.kingdoms.sim.person.Person;
-import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.Settlement;
 
 /**
- * Money, and the loop it goes round.
+ * The town's money, and the fact that only the town has any.
  *
- * <p>A settlement of this culture is not a commune. The town owns what its
- * people are paid to produce — a lumberjack's timber is the town's the moment
- * it is cut, and nobody buys it back — but a person owns what they come across,
- * and can sell it. That single distinction is the whole of the arrangement, and
- * everything here follows from it.
+ * <p><strong>A settler owns nothing and wants for nothing.</strong> They belong
+ * to the town and the town belongs to them: what they cut, grow, mine or find
+ * goes to the common stores, and what they need comes back out of it at no
+ * charge. A farmer carrying bread home from the market is not shopping, they
+ * are being fed. There are no wages, no purses, and no prices between one
+ * settler and another.
  *
- * <p><strong>The loop.</strong> Money has to come from somewhere and go
- * somewhere, or the first rare thing a settler finds empties the treasury for
- * good.
+ * <p>This is a deliberate retreat from a more detailed arrangement that did
+ * have personal purses and a payday. It ran correctly and added nothing anybody
+ * could see: purses were invisible, {@code Person.spend} was never called by a
+ * single caller, and a settler with four hundred coin behaved exactly like one
+ * with none. Detail earns its place when it produces stories rather than
+ * numbers, and that detail produced numbers.
  *
- * <ol>
- *   <li><strong>A levy on production.</strong> The town realises a little coin
- *       from everything its workers produce. This is the only place money is
- *       created, and it is created in proportion to work actually done, so a
- *       town that produces nothing earns nothing.</li>
- *   <li><strong>Wages back out.</strong> Every able worker draws a wage each
- *       payday, from the treasury, and only if the treasury can cover it. A
- *       broke town does not pay, which is a legible failure rather than a
- *       negative number.</li>
- *   <li><strong>Buying finds.</strong> A settler who brings a find to the
- *       market is paid for it out of the same treasury, and the thing itself
- *       becomes the town's.</li>
- * </ol>
+ * <p><strong>Money exists for exactly one relationship: the town and an
+ * outsider.</strong> A settlement is founded holding {@link Settlement#FOUNDING_TREASURY}
+ * and that is the whole supply until somebody trades with it. Nothing mints
+ * more. Coin leaves when the town buys, and arrives when it sells, and the only
+ * party on the far side of either is a player — see {@code TRADE.md}.
  *
- * <p>So coin flows town → worker as wages, worker → town as goods, and the
- * total is anchored to how much the settlement actually makes. A rich town is
- * one that has been producing; a poor one cannot buy the sword somebody found,
- * and has to say so.
+ * <p>Which means the treasury is a real constraint rather than a growing
+ * number: a town that spends its endowment on walls has spent it, and getting
+ * more is something somebody has to come and do.
  */
 public final class Economy {
 
@@ -42,150 +36,78 @@ public final class Economy {
     }
 
     /**
-     * Coin the town realises per unit of goods produced.
+     * Hands whatever a settler is carrying over to the town, for nothing.
      *
-     * <p>Deliberately less than one: production is counted in units of timber
-     * and stone, of which a working town makes a great many, and a coin apiece
-     * would make every settlement rich beyond any use for it. See
-     * {@link #LEVY_PER}.
+     * <p>They found it while working for the town, so it was the town's before
+     * they picked it up. This is the internal half of the economy in its
+     * entirety: goods move, coin does not.
+     *
+     * <p>Food is kept. A settler carrying their dinner is carrying their dinner,
+     * and stripping it into the granary the moment they walk past would have
+     * them starve in front of a full larder.
+     *
+     * @return how many items were handed over
      */
-    public static final int LEVY_COIN = 1;
-
-    /** Units of produce that yield {@link #LEVY_COIN}. */
-    public static final int LEVY_PER = 4;
-
-    /** A day's pay for one worker. */
-    public static final int WAGE = 1;
-
-    /** Steps between paydays. Long enough that wages are an event, not a drip. */
-    public static final int PAYDAY_EVERY = 12;
-
-    /**
-     * What the town takes from a delivery of goods.
-     *
-     * <p>Rounded down, so very small deliveries yield nothing at all rather
-     * than rounding a single log up into a coin.
-     */
-    public static int levyOn(int producedUnits) {
-        if (producedUnits <= 0) {
-            return 0;
-        }
-        return producedUnits / LEVY_PER * LEVY_COIN;
-    }
-
-    /** Whether this step is a payday. */
-    public static boolean isPayday(long step) {
-        return step > 0 && step % PAYDAY_EVERY == 0;
-    }
-
-    /**
-     * Whether this person draws a wage.
-     *
-     * <p>Everybody who works. Idlers do not, and neither does anybody too weak
-     * with hunger to have done anything — not as a punishment, but because the
-     * wage is for the work and there has not been any.
-     */
-    public static boolean earnsWage(Person person) {
-        return person.profession() != Profession.IDLER && !person.isTooWeakToWork();
-    }
-
-    /**
-     * Pays everybody who is owed, as far as the treasury reaches.
-     *
-     * <p>All or nothing per person rather than a part-wage each: half a coin
-     * paid to everybody is worse than a full coin paid to as many as the town
-     * can afford, and it keeps the arithmetic in whole numbers.
-     *
-     * @return how much was paid out in total
-     */
-    public static int payWages(Settlement settlement) {
-        int paid = 0;
-        for (Person person : settlement.residents()) {
-            if (!earnsWage(person)) {
-                continue;
+    public static int handIn(Settlement settlement, Person person, java.util.function.
+            BiConsumer<String, Integer> intoStores) {
+        int given = 0;
+        for (var slot : java.util.List.copyOf(person.inventory().slots())) {
+            if (com.kingdoms.sim.person.Foods.nutrition(slot.itemId()) > 0) {
+                continue;   // their dinner is their dinner
             }
-            if (settlement.treasury() < WAGE) {
-                break;   // the purse is empty; the rest go unpaid and it shows
-            }
-            settlement.spend(WAGE);
-            person.earn(WAGE);
-            paid += WAGE;
-        }
-        return paid;
-    }
-
-    /**
-     * What the town will pay this person for what they are carrying, and takes it.
-     *
-     * <p>The find becomes the town's and the coin becomes theirs. Nothing
-     * happens at all if the treasury cannot cover it — a town that cannot pay
-     * does not get the sword, which is the point of the treasury being finite.
-     *
-     * @return the item sold and what it fetched, or null if nothing changed
-     */
-    public static Sale sellOne(Settlement settlement, Person seller) {
-        String best = null;
-        int bestPrice = 0;
-        for (var slot : seller.inventory().slots()) {
-            int price = Valuation.priceOf(slot.itemId());
-            if (price > bestPrice) {
-                best = slot.itemId();
-                bestPrice = price;
+            int taken = person.inventory().remove(slot.itemId(), slot.count());
+            if (taken > 0) {
+                intoStores.accept(slot.itemId(), taken);
+                given += taken;
             }
         }
-        if (best == null || bestPrice <= 0 || settlement.treasury() < bestPrice) {
-            return null;
-        }
-        if (seller.inventory().remove(best, 1) <= 0) {
-            return null;
-        }
-        settlement.spend(bestPrice);
-        seller.earn(bestPrice);
-        return new Sale(best, bestPrice);
+        return given;
     }
 
     /**
-     * Whether this person has reason to walk to the market.
+     * Whether this person is carrying anything the town would want put away.
      *
      * <p>Deliberately not urgent. A settler who dropped a day's work the instant
-     * they picked up a sword would be a worse settler than one who finishes the
-     * row and takes it in afterwards, and a town whose whole workforce downed
-     * tools every time a skeleton died would never build anything. So this is
-     * consulted after the errands and before the day job, and only once
-     * somebody is carrying enough to be worth the walk.
+     * they picked something up would be a worse settler than one who finishes
+     * the row and takes it in afterwards. So this is consulted after the town's
+     * own errands and before the day job, and only once somebody is carrying
+     * enough to be worth the walk.
      *
-     * <p>Pockets nearly full counts as worth the walk on its own. A settler with
-     * nowhere left to put anything has stopped being able to pick things up,
-     * which is the one case where the trip really is the useful thing to do.
+     * <p>Pockets full counts on its own: somebody with nowhere left to put
+     * anything has stopped being able to pick things up, which is the one case
+     * where the trip really is the useful thing to do.
      */
-    public static boolean wantsMarket(Person person) {
+    public static boolean wantsToUnload(Person person) {
         if (person.haul() != null || person.isTooWeakToWork()) {
-            return false;   // already carrying the town's errand, or too hungry to care
+            return false;   // already carrying the town's errand, or too weak to care
         }
         int worth = 0;
+        int carried = 0;
         for (var slot : person.inventory().slots()) {
+            if (com.kingdoms.sim.person.Foods.nutrition(slot.itemId()) > 0) {
+                continue;
+            }
+            carried += slot.count();
             worth += Valuation.priceOf(slot.itemId()) * slot.count();
         }
-        if (worth <= 0) {
+        if (carried <= 0) {
             return false;
         }
         return worth >= WORTH_THE_WALK || pocketsFull(person);
     }
 
     /**
-     * Coin's worth of finds that makes the trip worth taking on its own.
+     * What a load has to be worth before it is worth walking in with.
      *
-     * <p>Below this a settler carries it and gets on with the day; the market is
-     * not going anywhere.
+     * <p>Priced by {@link Valuation} even though nobody is paid for it: what a
+     * thing is worth is still the best measure of whether it is worth crossing
+     * the village carrying, and it is the same table the market will charge a
+     * player from.
      */
     public static final int WORTH_THE_WALK = 20;
 
     /** Whether somebody has run out of room to pick anything else up. */
     public static boolean pocketsFull(Person person) {
         return person.inventory().slots().size() >= com.kingdoms.sim.person.Inventory.SLOTS;
-    }
-
-    /** One thing changing hands at the market. */
-    public record Sale(String itemId, int price) {
     }
 }
