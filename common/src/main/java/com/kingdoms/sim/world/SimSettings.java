@@ -15,6 +15,7 @@ import com.kingdoms.sim.settlement.PopulationPlanner;
  * @param raidIntervalSteps       simulation steps between raid checks per settlement
  * @param raidsEnabled            master switch for hostile pressure
  * @param maxSettlementPopulation births stop at this population; the growth ceiling
+ * @param expansionEnabled        master switch for founding daughter settlements
  */
 public record SimSettings(
         int simIntervalTicks,
@@ -23,8 +24,25 @@ public record SimSettings(
         int embodyCapPerSettlement,
         int raidIntervalSteps,
         boolean raidsEnabled,
-        int maxSettlementPopulation
+        int maxSettlementPopulation,
+        boolean expansionEnabled
 ) {
+
+    /**
+     * The old six-field shape, which every caller but the two constants uses.
+     *
+     * <p>Expansion defaults to off. A full town sending out a founding party is
+     * a feature that works; what it also does is turn one settlement into six
+     * inside a single run, which makes every other thing being looked at harder
+     * to look at. It is off until somebody wants to watch a kingdom rather than
+     * a village.
+     */
+    public SimSettings(int simIntervalTicks, int stepsPerBirth, double observedRadius,
+                       int embodyCapPerSettlement, int raidIntervalSteps,
+                       boolean raidsEnabled, int maxSettlementPopulation) {
+        this(simIntervalTicks, stepsPerBirth, observedRadius, embodyCapPerSettlement,
+                raidIntervalSteps, raidsEnabled, maxSettlementPopulation, false);
+    }
 
     public static final int DEFAULT_RAID_INTERVAL_STEPS = 50;
 

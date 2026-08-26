@@ -231,13 +231,22 @@ public final class KingdomsMod {
                             TownAuditor.distress(worstHunger, total, settlement.population());
                     LOGGER.info("AUDIT {} vitals stage={} pop={} hunger={} total={} granary={} "
                                     + "fields={} market={} pantries={} hauls={} "
-                                    + "reserve={} distress={} seen={} roads={}/{}",
+                                    + "reserve={} distress={} seen={} roads={}/{} "
+                                    + "coin={} wood={} stone={} wall={}/{} opened={}",
                             settlement.name(), settlement.stage().pretty(),
                             settlement.population(), worstHunger,
                             total, settlement.foodStock(), fields, stalls, pantries, hauls,
                             reserve, distress.token(), seen,
                             settlement.paths().segments().size(),
-                            settlement.paths().totalLength());
+                            settlement.paths().totalLength(),
+                            settlement.treasury(), settlement.woodStock(),
+                            settlement.stores().get(
+                                    com.kingdoms.sim.settlement.TownStores.STONE),
+                            settlement.perimeter() == null ? 0
+                                    : settlement.perimeter().laid(),
+                            settlement.perimeter() == null ? 0
+                                    : settlement.perimeter().length(),
+                            settlement.paths().openedCount());
 
                     List<TownAuditor.Fault> standing = new ArrayList<>();
                     boolean townFault = false;

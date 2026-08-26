@@ -39,7 +39,17 @@ class ExpansionPlannerTest {
     }
 
     /** Cap of 8 so a small test settlement counts as "full". Raids off, determinism. */
-    private static final SimSettings CAPPED = new SimSettings(100, 8, 96.0, 64, 50, false, 8);
+    /**
+     * A small population ceiling so a town fills quickly, and expansion switched
+     * on explicitly.
+     *
+     * <p>It is off by default now — a full town founding daughters turns one
+     * settlement into six inside a run, which makes everything else harder to
+     * watch. These are the tests of the feature itself, so they are the one
+     * place that asks for it.
+     */
+    private static final SimSettings CAPPED =
+            new SimSettings(100, 8, 96.0, 64, 50, false, 8, true);
 
     private static SimContext ctx() {
         return new SimContext(new QuietBridge(), 5, CAPPED);

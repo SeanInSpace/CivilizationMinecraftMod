@@ -127,8 +127,7 @@ public final class PerimeterLayer {
      * blocked by a wall the town no longer builds.
      */
     private static boolean isOurPost(ServerLevel level, BlockPos pos) {
-        BlockState state = level.getBlockState(pos);
-        return state.is(POST) || state.is(Blocks.OAK_LOG);
+        return isPostBlock(level.getBlockState(pos));
     }
 
     /** Takes down a post standing in a gateway, and whatever we stacked on it. */
@@ -140,7 +139,7 @@ public final class PerimeterLayer {
         for (int dy = 1; dy <= 2; dy++) {
             BlockPos above = ground.above(dy);
             BlockState state = level.getBlockState(above);
-            if (state.is(POST) || state.is(Blocks.OAK_LOG) || state.is(Blocks.TORCH)) {
+            if (isPostBlock(state) || state.is(Blocks.TORCH)) {
                 level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
         }
@@ -188,11 +187,36 @@ public final class PerimeterLayer {
         return top;
     }
 
-    /** Whether this block is one the wall itself laid, rather than the world's. */
+    /**
+     * Whether this block is one the wall itself laid, rather than the world's.
+     *
+     * <p><strong>Every block the wall can place must be listed here.</strong>
+     * This is what {@link #surface} walks down through to find the real ground,
+     * and a post the wall does not recognise as its own is a post the heightmap
+     * reports as the surface — so the next sweep lays another two on top of it,
+     * and the sweep after that another two, and the wall climbs to the sky.
+     *
+     * <p>That is not hypothetical. Changing the post from a log to a fence
+     * updated the gateway's idea of a post and missed this one, and the sky
+     * walls came straight back. The two predicates now read the same
+     * {@link #POST} constant so they cannot drift apart again — which is the
+     * actual fix; adding one block id would only have postponed it.
+     */
     private static boolean isOurs(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        return state.is(Blocks.OAK_LOG) || state.is(Blocks.TORCH)
+        return isPostBlock(state) || state.is(Blocks.TORCH)
                 || state.is(Blocks.OAK_FENCE_GATE);
+    }
+
+    /**
+     * Whether this is a palisade post, of any vintage.
+     *
+     * <p>Logs are still recognised: towns walled before the fence was adopted
+     * have log posts standing, and neither the gateways nor the ground-finding
+     * may stop seeing them.
+     */
+    private static boolean isPostBlock(BlockState state) {
+        return state.is(POST) || state.is(Blocks.OAK_LOG);
     }
 
     private static boolean put(ServerLevel level, BlockPos pos, Block block) {

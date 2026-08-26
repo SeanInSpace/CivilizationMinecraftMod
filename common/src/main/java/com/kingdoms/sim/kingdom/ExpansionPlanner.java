@@ -55,6 +55,14 @@ public final class ExpansionPlanner {
 
     /** Called once per kingdom step. At most one founding per step. */
     public static void advance(Kingdom kingdom, SimContext ctx) {
+        if (!ctx.settings().expansionEnabled()) {
+            // Off by default. Everything below works; what it also does is turn
+            // one settlement into six inside a single run, and a kingdom is a
+            // much harder thing to watch than a village. The whole decision tree
+            // is preserved rather than deleted -- see the class javadoc -- so
+            // turning it back on is one flag.
+            return;
+        }
         for (Settlement settlement : List.copyOf(kingdom.settlements())) {
             if (settlement.population() < ctx.settings().maxSettlementPopulation()) {
                 continue;
