@@ -12,7 +12,7 @@ A player's entire vocabulary today is: place a charter, watch, right-click thing
 
 Three separate defects all turn out to be the same missing thing — **there is nothing outside the town**:
 
-- **Coin is minted from nothing.** `produceNear` calls `bank(levyOn(...))`; no money is taken from anybody. It is issuance, not a levy, and it was documented as a circulating loop that does not exist.
+- ~~**Coin is minted from nothing.**~~ *Fixed.* `produceNear` used to call `bank(levyOn(...))` — issuance, not a levy, documented as a circulating loop that did not exist. Production no longer creates money; a town is founded with 2,000 and that is the supply.
 - **Income stops when the warehouses fill.** Measured: wood and stone pin at 53,312, coin peaks at 112,066 and then declines forever. A town is punished for being well stocked.
 - **Population stalls at 401** because food cannot keep up. A hard ceiling with no way through it.
 
@@ -107,12 +107,6 @@ This replaced a production levy that created coin from nothing in proportion to 
 The consequence is that the treasury is a real constraint. A wall of 420 posts costs 1,260 of the 2,000, so a town can fortify itself once out of what it was founded with, and that is most of everything it has. Getting more is something a player has to come and do.
 
 ## Where coin does *not* go
-
-The minting goes. This is the substantive change to the existing economy.
-
-**Now:** production creates coin from nothing, forever, and the only way it leaves is wall posts.
-
-**After:**
 
 **Not to settlers.** A settler owns nothing and wants for nothing. They belong to the town and the town belongs to them: what they cut, grow, mine or find goes to the common stores, and what they need comes back out of it at no charge. A farmer carrying bread home from the market is not shopping, they are being fed.
 
