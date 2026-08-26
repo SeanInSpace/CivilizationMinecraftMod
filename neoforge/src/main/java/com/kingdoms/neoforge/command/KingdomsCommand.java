@@ -552,8 +552,20 @@ public final class KingdomsCommand {
                 .append("  treasury=").append(settlement.treasury());
         String report = out.toString();
         source.sendSuccess(() -> Component.literal(report), false);
-        KingdomsMod.LOGGER.info("STORES {} ledger={} shelves={}",
-                settlement.name(), heldTotal, shownTotal);
+        // One machine-readable line with everything a run wants to plot. Logged
+        // rather than only shown, because the thing reading it is usually a
+        // script driving a headless server — and unlike the audit's vitals,
+        // every figure here is simulation state, so it reports the same whether
+        // or not a single chunk of the town is loaded.
+        KingdomsMod.LOGGER.info(
+                "STORES {} pop={} stage={} coin={} wood={} stone={} food={} iron={} "
+                        + "ledger={} shelves={}",
+                settlement.name(), settlement.population(), settlement.stage().name(),
+                settlement.treasury(), settlement.woodStock(),
+                settlement.stores().get(com.kingdoms.sim.settlement.TownStores.STONE),
+                settlement.foodStock(),
+                settlement.stores().get(com.kingdoms.sim.settlement.TownStores.IRON),
+                heldTotal, shownTotal);
         return 1;
     }
 
