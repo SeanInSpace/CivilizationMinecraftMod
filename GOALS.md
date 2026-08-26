@@ -53,6 +53,24 @@ work that cannot be delegated.
 
 ## Open
 
+- [ ] **Trade with a settlement.** Designed in [TRADE.md](TRADE.md); not built.
+      The player's whole vocabulary today is: place a charter, watch, right-click
+      to read a report, type a debug command. The town is a good simulation with
+      no game attached, and an economy nobody can see or touch is the purest
+      example of that.
+
+      One verb — buy and sell at the market — closes three open defects that are
+      all the same missing thing, namely that there is nothing outside the town:
+      coin minted from nothing, income stopping dead when the warehouses fill,
+      and population stalling at 401 because food cannot keep up. Prices move
+      with what the town is short of, which turns its troubles into the player's
+      opportunities and makes a shortage legible from the road.
+
+      The one question the design cannot settle alone is written down in it:
+      whether a town nobody ever trades with should be able to grow rich on its
+      own. Keeping a small production levy says yes, slowly; removing it says a
+      settlement's prosperity is the player's doing.
+
 - [ ] **Settle the danger table.** `Menace.of` is the whole of a town's opinion
       about how frightening each kind of creature is, and every alarm decision
       now reads from it — the tiers in `Alarm`, the bell rule in `RaidPlanner`,
