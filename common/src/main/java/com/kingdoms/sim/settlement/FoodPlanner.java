@@ -488,6 +488,32 @@ public final class FoodPlanner {
 
 
 
+    /**
+     * A meal taken straight from wherever the town keeps it, carrying nothing.
+     *
+     * <p>The same places the fetching above reaches for, in the same order, but
+     * without the step that can fail: no inventory slot is needed because
+     * nothing is picked up. One loaf, eaten on the spot.
+     *
+     * @return true if they found something to eat
+     */
+    private static boolean eatWhereItStands(Settlement settlement, Person person) {
+        int nutrition = Foods.nutrition(Foods.PROVISION);
+        if (settlement.foodStock() > 0 && settlement.stores().take(TownStores.FOOD, 1)) {
+            person.setHunger(person.hunger() - nutrition);
+            return true;
+        }
+        for (String role : new String[] {"market", "farm", "granary"}) {
+            Building holder = fullestWithStock(settlement, role, 1);
+            if (holder != null && holder.foodStored() > 0) {
+                holder.setFoodStored(holder.foodStored() - 1);
+                person.setHunger(person.hunger() - nutrition);
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Hunger rises; the hungry eat what they carry; the starving die. */
     private static void eatAndHunger(Settlement settlement, SimContext ctx) {
         Map<Person.Id, Household> families = new HashMap<>();
@@ -551,6 +577,21 @@ public final class FoodPlanner {
                 if (meal != null) {
                     person.inventory().remove(meal, 1);
                     person.setHunger(person.hunger() - Foods.nutrition(meal));
+                } else if (person.hunger() >= Person.HUNGER_SEVERE) {
+                    // Nothing carried, and every route above failed to hand them
+                    // any. The usual reason is not that the town is empty: it is
+                    // that their pockets are full.
+                    //
+                    // Inventory.add returns nothing when all six slots are taken
+                    // and none of them holds bread, and settlers pick things up
+                    // off the ground now — wildflowers, seeds, whatever they walk
+                    // over. So a settler could stand in front of three thousand
+                    // loaves, be handed none of them because there was nowhere to
+                    // put one, and starve to death holding a fistful of weeds.
+                    //
+                    // Eating is not a logistics problem. Somebody at the granary
+                    // does not need a free pocket to eat; they need a granary.
+                    eatWhereItStands(settlement, person);
                 }
             }
 
