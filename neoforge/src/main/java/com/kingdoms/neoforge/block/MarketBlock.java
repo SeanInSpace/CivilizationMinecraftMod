@@ -1,20 +1,27 @@
 package com.kingdoms.neoforge.block;
 
+import com.kingdoms.neoforge.trade.TownMerchant;
+import com.kingdoms.sim.economy.Market;
+import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.MarketPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 
 /**
  * The market stall: the one place the town will trade with a player.
  *
- * <p>Open during {@link MarketPlanner} hours and shut outside them. Bring
- * emeralds and it sells bread, keeping a reserve back so a town can never be
- * bought into starvation — the seed corn is not for sale at any price.
+ * <p>Open during {@link MarketPlanner} hours and shut outside them, and only
+ * if somebody here trades for a living. What is on offer is whatever the town
+ * is short of or has spare, at prices its own shortages set — see {@code Market}
+ * — and a reserve is always kept back, so a settlement can never be bought into
+ * starvation. The seed corn is not for sale at any price.
+ *
+ * <p>It used to sell bread for emeralds at a fixed rate and never touch the
+ * treasury, so trading with a town left its books unchanged. Every emerald now
+ * comes out of, or goes into, the town's own money.
  */
 public class MarketBlock extends BuildingPostBlock {
 
@@ -37,42 +44,25 @@ public class MarketBlock extends BuildingPostBlock {
             return;
         }
 
-        int forSale = MarketPlanner.foodForSale(settlement);
-        if (forSale <= 0) {
+        // The stall proper. Anything the town is short of or has spare is a real
+        // offer at a price its own shortages set -- see Market -- and the
+        // villager trading screen already knows how to show that.
+        if (Market.hasTrader(settlement)) {
+            SimPos at = new SimPos((int) player.getX(), (int) player.getY(), (int) player.getZ());
+            TownMerchant stall = new TownMerchant(settlement, at);
+            if (stall.hasAnything()) {
+                stall.setTradingPlayer(player);
+                stall.openTradingScreen(player,
+                        Component.literal(settlement.name() + " market"), 1);
+                return;
+            }
             player.sendSystemMessage(Component.literal(
-                    "  Open, but there is nothing to spare today.")
+                    "  Open, but there is nothing they want or can spare today.")
                     .withStyle(ChatFormatting.GRAY));
             return;
-        }
-
-        ItemStack held = player.getMainHandItem();
-        if (!held.is(Items.EMERALD)) {
-            player.sendSystemMessage(Component.literal(
-                    "  Open. " + forSale + " loaves to spare — "
-                            + MarketPlanner.FOOD_PER_EMERALD + " for an emerald.")
-                    .withStyle(ChatFormatting.YELLOW));
-            player.sendSystemMessage(Component.literal(
-                    "  Hold emeralds and use the stall to buy.")
-                    .withStyle(ChatFormatting.GRAY));
-            return;
-        }
-
-        // Only charge for what the town can actually hand over.
-        int affordable = Math.min(held.getCount(),
-                Math.max(1, forSale / MarketPlanner.FOOD_PER_EMERALD));
-        int sold = MarketPlanner.sellFood(settlement, affordable);
-        if (sold <= 0) {
-            player.sendSystemMessage(Component.literal("  Nothing to spare today.")
-                    .withStyle(ChatFormatting.GRAY));
-            return;
-        }
-        int paid = Math.max(1, sold / MarketPlanner.FOOD_PER_EMERALD);
-        held.shrink(paid);
-        if (!player.getInventory().add(new ItemStack(Items.BREAD, sold))) {
-            player.drop(new ItemStack(Items.BREAD, sold), false);
         }
         player.sendSystemMessage(Component.literal(
-                "  " + sold + " bread for " + paid + " emerald" + (paid == 1 ? "" : "s") + ".")
-                .withStyle(ChatFormatting.GREEN));
+                "  Nobody here trades. The town needs somebody in the market.")
+                .withStyle(ChatFormatting.GRAY));
     }
 }
