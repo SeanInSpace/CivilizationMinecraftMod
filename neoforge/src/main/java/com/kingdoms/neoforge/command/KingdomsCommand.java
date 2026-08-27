@@ -112,7 +112,9 @@ public final class KingdomsCommand {
                 .then(Commands.literal("wall")
                         .executes(KingdomsCommand::wall)
                         .then(Commands.literal("complete")
-                                .executes(KingdomsCommand::wallComplete)))
+                                .executes(KingdomsCommand::wallComplete))
+                        .then(Commands.literal("map")
+                                .executes(KingdomsCommand::wallMap)))
 
                 .then(Commands.literal("stores")
                         .executes(KingdomsCommand::stores))
@@ -622,6 +624,83 @@ public final class KingdomsCommand {
                         + ring.length() + " (unpaid; debug)"), false);
         KingdomsMod.LOGGER.info("WALLCOMPLETE {} {} -> {} gates={}",
                 settlement.name(), was, ring.length(), ring.gates());
+        return 1;
+    }
+
+    /**
+     * A plan view of the ring, drawn into the log.
+     *
+     * <p>Counts could not settle what a wall looked like. A ring of 2758 posts
+     * around a town of eighty is either a long boundary or a wrong one, and
+     * "2758" says nothing about which -- while a screenshot from inside a town
+     * shows fence in every direction and cannot say whether that is one line
+     * seen from within or twenty lines that should not be there.
+     *
+     * <p>So: the ring as {@code #}, its gates as {@code G}, building plots as
+     * {@code B}, the centre as {@code +}, scaled to fit a readable grid. One
+     * look answers the shape question that no tally can.
+     */
+    private static int wallMap(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        Settlement settlement = nearestSettlement(source);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No settlement nearby."));
+            return 0;
+        }
+        com.kingdoms.sim.settlement.Perimeter ring = settlement.perimeter();
+        if (ring == null) {
+            source.sendFailure(Component.literal("No wall staked."));
+            return 0;
+        }
+        java.util.List<com.kingdoms.sim.geom.SimPos> line = ring.ringPositions();
+        int west = Integer.MAX_VALUE;
+        int east = Integer.MIN_VALUE;
+        int north = Integer.MAX_VALUE;
+        int south = Integer.MIN_VALUE;
+        for (com.kingdoms.sim.geom.SimPos at : line) {
+            west = Math.min(west, at.x());
+            east = Math.max(east, at.x());
+            north = Math.min(north, at.z());
+            south = Math.max(south, at.z());
+        }
+        int width = Math.max(1, east - west);
+        int depth = Math.max(1, south - north);
+        final int cols = 78;
+        int rows = Math.max(8, Math.min(40, cols * depth / Math.max(1, width) / 2));
+        char[][] grid = new char[rows][cols];
+        for (char[] row : grid) {
+            java.util.Arrays.fill(row, ' ');
+        }
+        for (com.kingdoms.sim.settlement.Building building : settlement.buildings()) {
+            com.kingdoms.sim.geom.SimPos at = building.origin();
+            int cx = (at.x() - west) * (cols - 1) / width;
+            int cz = (at.z() - north) * (rows - 1) / depth;
+            if (cx >= 0 && cx < cols && cz >= 0 && cz < rows) {
+                grid[cz][cx] = 'B';
+            }
+        }
+        for (com.kingdoms.sim.geom.SimPos at : line) {
+            int cx = (at.x() - west) * (cols - 1) / width;
+            int cz = (at.z() - north) * (rows - 1) / depth;
+            if (grid[cz][cx] != 'G') {
+                grid[cz][cx] = ring.isGateway(at) ? 'G' : '#';
+            }
+        }
+        int px = (settlement.centre().x() - west) * (cols - 1) / width;
+        int pz = (settlement.centre().z() - north) * (rows - 1) / depth;
+        if (px >= 0 && px < cols && pz >= 0 && pz < rows) {
+            grid[pz][px] = '+';
+        }
+        KingdomsMod.LOGGER.info("WALLMAP {} posts={} vertices={} box={}x{} at {},{}",
+                settlement.name(), line.size(), ring.vertices().size(),
+                width, depth, west, north);
+        for (char[] row : grid) {
+            KingdomsMod.LOGGER.info("WALLMAP |{}|", new String(row));
+        }
+        source.sendSuccess(() -> Component.literal(
+                "  plan of " + settlement.name() + " written to the log ("
+                        + line.size() + " posts, " + ring.vertices().size()
+                        + " vertices)"), false);
         return 1;
     }
 

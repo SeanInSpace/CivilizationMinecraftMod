@@ -75,7 +75,8 @@ public final class Hull {
         if (loop.size() < 3 || maxEdge <= 0) {
             return loop;
         }
-        List<SimPos> spare = new ArrayList<>(dedupe(points));
+        List<SimPos> all = dedupe(points);
+        List<SimPos> spare = new ArrayList<>(all);
         spare.removeAll(loop);
 
         boolean dug = true;
@@ -92,14 +93,43 @@ public final class Hull {
                     continue;
                 }
                 // Only if going by way of this point is shorter than the two
-                // legs it replaces would otherwise justify. Without this the
-                // loop happily doubles back on itself.
+                // legs it replaces would otherwise justify. This keeps the loop
+                // from reaching halfway across the town for one stray plot; it
+                // does NOT keep the loop from crossing itself, which it was
+                // once claimed to do and never did.
                 double direct = distance(from, to);
                 double detour = distance(from, best) + distance(best, to);
                 if (detour >= direct * 2.0) {
                     continue;
                 }
+                // And only if the two new legs cross nothing. A length ratio
+                // says how far the detour goes, never where it goes through --
+                // so a point in the middle of town passed the old test happily,
+                // the line dug in to reach it, and crossed its own far side on
+                // the way. One measured ring: 68 vertices, 2758 posts round a
+                // 289x285 town, drawn as nested boxes, blind corridors and two
+                // full-width walls straight through the middle. The town was
+                // not walled. It was partitioned.
+                if (wouldCross(loop, i, best)) {
+                    continue;
+                }
+                // And only if nothing ends up outside. This is the rule that
+                // makes the loop a wall rather than a tracing of the plots: a
+                // point already inside the line does not want visiting, and
+                // reaching in to touch it drags the line through the town and
+                // leaves the plots on either side of the new leg out in the
+                // open. Digging into an empty bay excludes nobody and is
+                // exactly what the concave hull is for; digging into the middle
+                // of a town excludes its neighbours, and is now refused.
+                //
+                // Without it the loop stayed simple and still went wrong: a
+                // measured ring came back with a corridor of wall running deep
+                // into the town between the houses and back out again.
                 loop.add(i + 1, best);
+                if (excludesAny(loop, all)) {
+                    loop.remove(i + 1);
+                    continue;
+                }
                 spare.remove(best);
                 dug = true;
                 break;
@@ -129,6 +159,64 @@ public final class Hull {
             }
         }
         return in;
+    }
+
+    /** Whether any of the points has ended up outside the loop. */
+    private static boolean excludesAny(List<SimPos> loop, List<SimPos> points) {
+        for (SimPos point : points) {
+            if (!contains(loop, point)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether splitting this edge around a point would put a leg across the
+     * loop.
+     *
+     * <p>Every edge is checked but the one being replaced, and legs that merely
+     * share an endpoint with an edge are joins rather than crossings.
+     */
+    private static boolean wouldCross(List<SimPos> loop, int edge, SimPos best) {
+        SimPos from = loop.get(edge);
+        SimPos to = loop.get((edge + 1) % loop.size());
+        for (int j = 0; j < loop.size(); j++) {
+            if (j == edge) {
+                continue;   // this is the edge the two new legs replace
+            }
+            SimPos p = loop.get(j);
+            SimPos q = loop.get((j + 1) % loop.size());
+            if (crosses(from, best, p, q) || crosses(best, to, p, q)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether two segments meet anywhere other than at a shared endpoint. */
+    private static boolean crosses(SimPos a, SimPos b, SimPos c, SimPos d) {
+        if (same(a, c) || same(a, d) || same(b, c) || same(b, d)) {
+            return false;   // consecutive edges of a loop always share a corner
+        }
+        long d1 = turn(c, d, a);
+        long d2 = turn(c, d, b);
+        long d3 = turn(a, b, c);
+        long d4 = turn(a, b, d);
+        if (d1 != 0 && d2 != 0 && d3 != 0 && d4 != 0) {
+            return ((d1 > 0) != (d2 > 0)) && ((d3 > 0) != (d4 > 0));
+        }
+        // Collinear or touching. A corner resting on somebody else's edge is a
+        // crossing here even though it is not a proper intersection: a wall
+        // that grazes its own line is still a wall with a seam in it.
+        return (d1 == 0 && onSegment(c, d, a))
+                || (d2 == 0 && onSegment(c, d, b))
+                || (d3 == 0 && onSegment(a, b, c))
+                || (d4 == 0 && onSegment(a, b, d));
+    }
+
+    private static boolean same(SimPos a, SimPos b) {
+        return a.x() == b.x() && a.z() == b.z();
     }
 
     // --- the small print ---

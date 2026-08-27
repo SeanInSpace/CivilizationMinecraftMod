@@ -101,10 +101,37 @@ work that cannot be delegated.
       laid, 2483 standing, 9 gateways, 0 missing, 0 unfooted, 0 growth in the
       line.** Before: 197 to 334 missing of the 422 to 535 that could be seen.
 
-      Nobody is shut out. With a closed ring and a player watching, `shut out of
-      bed` reads 1, 0, 0, 2, 0 across successive reports — it never settles,
-      because settlers are walking through the gates. The lock-out was the
-      frozen wall: a ring drawn in disconnected stretches is a maze.
+      Nobody is shut out by the drawing. With a closed ring and a player
+      watching, `shut out of bed` reads 1, 0, 0, 2, 0 across successive reports
+      — it never settles, because settlers are walking through the gates.
+
+      **And then the fixed drawing showed what the shape was.** With posts
+      finally going up everywhere they were staked, a playtest screenshot came
+      back full of fence in every direction, through the farms. `/civ wall map`
+      draws the ring in plan, and it was not a ring: nested boxes, corridors
+      ending in nothing, and two full-width walls through the middle of the
+      town, one across the centre itself. 68 vertices, 2758 posts round a
+      289x285 town — 2.4x a plain ring that size. The town was not walled, it
+      was partitioned, and *that* is what shuts a settler out of their bed.
+
+      `Hull.concave` digs in from the convex hull, and its only guard was a
+      length ratio — the detour by way of a new point had to be under twice the
+      edge it replaced — carrying a comment claiming that stopped the loop
+      folding back through itself. It never did. Two rules replace it:
+
+      - **Nothing may cross.** The two new legs are tested against every other
+        edge. A ratio says how far a detour goes, never where it goes through.
+      - **Nothing may end up outside.** A point already inside the loop does not
+        want visiting; reaching in to touch it drags the line between the houses
+        and leaves their neighbours out in the open. Digging into an empty bay
+        excludes nobody, which is what the concave hull is actually for.
+
+      2758 posts / 68 vertices → **986 posts / 18 vertices**, one simple loop
+      with gentle bays, every plot inside, gates on the boundary. Raised and
+      drawn: 976 standing, 7 gateways, 2 shut by a building, **1 missing, 0
+      blocked, 0 unfooted** — and it converges in under a minute where the
+      knotted ring took four. `HullSimplicityTest` holds the property, and fails
+      without the guard.
 
       `/civ wall` now names what is in the line and where, counts settlers
       inside and outside, and `/civ wall complete` raises the ring unpaid so the
