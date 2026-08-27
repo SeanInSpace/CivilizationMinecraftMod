@@ -78,6 +78,8 @@ public final class PerimeterLayer {
         if (ground == null) {
             return 0;
         }
+        clearGrowth(level, ground);
+        takeDownWhatIsHanging(level, ground);
         boolean placed = false;
         placed |= put(level, ground, POST);
         placed |= put(level, ground.above(), POST);
@@ -173,10 +175,36 @@ public final class PerimeterLayer {
      * calling it ground. That makes {@link #put} genuinely idempotent — the
      * second sweep finds its own logs already standing and writes nothing.
      */
+    /** Where a post's foot belongs, for anybody wanting to inspect the line. */
+    public static BlockPos footingFor(ServerLevel level, SimPos pos) {
+        return surface(level, pos);
+    }
+
+    /** Whether a post is actually standing at this footing. */
+    public static boolean postStands(ServerLevel level, BlockPos ground) {
+        return isPostBlock(level.getBlockState(ground));
+    }
+
     private static BlockPos surface(ServerLevel level, SimPos pos) {
         BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 new BlockPos(pos.x(), pos.y(), pos.z()));
-        while (top.getY() > level.getMinY() + 1 && isOurs(level, top.below())) {
+        // Down through the wall's own work, and down through anything growing.
+        // MOTION_BLOCKING_NO_LEAVES steps over leaves and NOT over logs, so a
+        // post whose column held a trunk was founded on top of the trunk and
+        // the wall climbed the tree. Ground is under the wood, not on it.
+        while (top.getY() > level.getMinY() + 1
+                && (isOurs(level, top.below())
+                        || WallClearing.isGrowth(level.getBlockState(top.below())))) {
+            top = top.below();
+        }
+        // And down through nothing at all. A post founded on a trunk before the
+        // heightmap was taught to see through wood is left hanging the moment a
+        // lumberjack fells that tree — a fence in mid-air over a stump-hole,
+        // which is exactly what a walled town in a wood looked like. Falling to
+        // whatever is actually holding the column up re-founds those on the next
+        // sweep instead of leaving them floating for good.
+        while (top.getY() > level.getMinY() + 1
+                && level.getBlockState(top.below()).isAir()) {
             top = top.below();
         }
         // Refuse water: a palisade post in a pond reads as a mistake, and the
@@ -217,6 +245,76 @@ public final class PerimeterLayer {
      */
     private static boolean isPostBlock(BlockState state) {
         return state.is(POST) || state.is(Blocks.OAK_LOG);
+    }
+
+    /**
+     * Takes down any of our own posts left hanging above the real footing.
+     *
+     * <p>The wall used to be founded on whatever the heightmap called the
+     * surface, and the heightmap steps over leaves but not over logs — so a post
+     * in a tree's column was planted on top of the trunk. Fell that tree later,
+     * as a lumberjack eventually does, and the fence stays where it was: a line
+     * of posts floating two blocks over a clearing.
+     *
+     * <p>Founding correctly stops it happening again and does nothing about the
+     * ones already up there, because they are above the new footing and out of
+     * the way of everything the drawing touches. So they are swept on the pass
+     * that re-founds the post, which is the only moment anything knows both
+     * where the post is and where it should have been.
+     *
+     * <p>Only our own blocks, and only directly overhead. A wall that pulled
+     * down whatever happened to be above it would demolish the branch it was
+     * built under.
+     */
+    private static void takeDownWhatIsHanging(ServerLevel level, BlockPos ground) {
+        for (int dy = 2; dy <= HANGING_REACH; dy++) {
+            BlockPos above = ground.above(dy);
+            if (!level.isLoaded(above)) {
+                return;
+            }
+            BlockState state = level.getBlockState(above);
+            if (isPostBlock(state) || state.is(Blocks.TORCH)) {
+                level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            }
+        }
+    }
+
+    /**
+     * How far above a footing to look for posts the ground has left.
+     *
+     * <p>A tree is the reason they are up there, so this reaches about as high
+     * as a trunk a post could have been planted on.
+     */
+    private static final int HANGING_REACH = 12;
+
+    /**
+     * Takes the wood out of a stretch of line before a post goes into it.
+     *
+     * <p>The unwatched half of the same job a builder does by hand — see
+     * {@code WallClearing} and {@code Foreman}. Without it a post whose column
+     * holds a trunk is simply never placed: a log is neither air nor
+     * replaceable, so {@link #put} refuses and says nothing, while the laid
+     * count has already moved on. The result is a hole in the wall that the
+     * town believes it has built.
+     *
+     * <p>Our own posts are stepped over. Legacy walls are made of oak logs and
+     * the growth test cannot tell one of those from a tree, so clearing without
+     * this guard would have each post quietly demolish its neighbours.
+     */
+    private static void clearGrowth(ServerLevel level, BlockPos footing) {
+        for (int dy = 0; dy < WallClearing.CLEAR_UP; dy++) {
+            for (int dx = -WallClearing.CLEAR_SIDEWAYS; dx <= WallClearing.CLEAR_SIDEWAYS; dx++) {
+                for (int dz = -WallClearing.CLEAR_SIDEWAYS; dz <= WallClearing.CLEAR_SIDEWAYS; dz++) {
+                    BlockPos at = footing.offset(dx, dy, dz);
+                    if (!level.isLoaded(at) || isOurs(level, at)) {
+                        continue;
+                    }
+                    if (WallClearing.isGrowth(level.getBlockState(at))) {
+                        level.destroyBlock(at, false, null, 512);
+                    }
+                }
+            }
+        }
     }
 
     private static boolean put(ServerLevel level, BlockPos pos, Block block) {

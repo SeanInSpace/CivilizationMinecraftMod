@@ -106,6 +106,9 @@ public final class KingdomsCommand {
                         .then(Commands.argument("strength", IntegerArgumentType.integer(1, 100))
                                 .executes(ctx -> raid(ctx, IntegerArgumentType.getInteger(ctx, "strength")))))
 
+                .then(Commands.literal("wall")
+                        .executes(KingdomsCommand::wall))
+
                 .then(Commands.literal("stores")
                         .executes(KingdomsCommand::stores))
 
@@ -505,6 +508,69 @@ public final class KingdomsCommand {
      * difference can be seen rather than argued about, and prints the
      * coordinates so somebody can go and open the thing.
      */
+    /**
+     * The state of the palisade, post by post, for the stretches loaded enough
+     * to look at.
+     *
+     * <p>Written because the wall was being built straight through woodland and
+     * there was no way to see it without walking the whole ring. The auditor
+     * checks buildings and says nothing about the wall; this counts what is
+     * standing, what is missing, and what has a tree in it.
+     */
+    private static int wall(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        Settlement settlement = nearestSettlement(source);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No settlement nearby."));
+            return 0;
+        }
+        com.kingdoms.sim.settlement.Perimeter ring = settlement.perimeter();
+        if (ring == null) {
+            source.sendSuccess(() -> Component.literal(
+                    "  " + settlement.name() + " has not staked a wall yet."), false);
+            return 0;
+        }
+        ServerLevel level = source.getLevel();
+        int looked = 0;
+        int standing = 0;
+        int missing = 0;
+        int blocked = 0;
+        java.util.List<com.kingdoms.sim.geom.SimPos> positions = ring.ringPositions();
+        int laid = Math.min(ring.laid(), positions.size());
+        for (int i = 0; i < laid; i++) {
+            com.kingdoms.sim.geom.SimPos at = positions.get(i);
+            net.minecraft.core.BlockPos here =
+                    new net.minecraft.core.BlockPos(at.x(), at.y(), at.z());
+            if (!level.isLoaded(here)) {
+                continue;
+            }
+            looked++;
+            net.minecraft.core.BlockPos ground =
+                    com.kingdoms.neoforge.world.PerimeterLayer.footingFor(level, at);
+            if (ground == null) {
+                continue;
+            }
+            if (com.kingdoms.neoforge.world.WallClearing.isBlocked(level, ground)) {
+                blocked++;
+            }
+            if (com.kingdoms.neoforge.world.PerimeterLayer.postStands(level, ground)) {
+                standing++;
+            } else {
+                missing++;
+            }
+        }
+        String report = "=== wall of " + settlement.name() + " ==="
+                + "\n  laid " + ring.laid() + " of " + ring.length()
+                + ", " + looked + " close enough to look at"
+                + "\n  posts standing : " + standing
+                + "\n  posts missing  : " + missing
+                + "\n  growth in the line : " + blocked;
+        source.sendSuccess(() -> Component.literal(report), false);
+        KingdomsMod.LOGGER.info("WALL {} laid={}/{} looked={} standing={} missing={} blocked={}",
+                settlement.name(), ring.laid(), ring.length(), looked, standing, missing, blocked);
+        return 1;
+    }
+
     private static int stores(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         Settlement settlement = nearestSettlement(source);
