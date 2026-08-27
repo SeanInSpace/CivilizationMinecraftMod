@@ -82,17 +82,19 @@ work that cannot be delegated.
       pathfinder — a shut gate is a way in for the auditor's doorway check but
       not necessarily for a settler's A*.
 
-- [ ] **A town starves with no threat at all.** Seen in play on a peaceful flat
-      world with raids off, which rules out everything external. The headless
-      benchmark reached a food ceiling of 401 people and held there, so the
-      arithmetic sustains a large town in the abstract — meaning this is
-      something about watched fidelity, or about food that exists in a ledger
-      the eaters cannot reach.
+- [x] **A town starves with no threat at all.** ~~Seen in play on a peaceful flat
+      world with raids off, which rules out everything external.~~ Guessed at
+      twice and wrong both times — it was neither watched fidelity nor a
+      building nobody is routed to. It was that the last leg of the food chain
+      is an errand, and out of sight nobody runs errands.
 
-      The two most likely shapes, neither confirmed: food banked in a building
-      nobody is routed to, or eaters embodied while the farms that feed them are
-      not. The store readout (`/civ stores`) and the field roster are the places
-      to start.
+      Field to granary to stall to family larder to mouth: every link is
+      somebody walking. Under `/civ step` the walking stops and hunger does not,
+      so the granary fills while the larders sit empty. Forty-three of
+      ninety-six starving on top of thousands of loaves. Reproduced headless at
+      41 weak of 96, none after; the unwatched now end up where hands would have
+      put them. It moves food and never makes any — an empty granary still
+      kills, and `UnwatchedFeedingTest` insists on it.
 
 - [ ] **Trade with a settlement.** Designed in [TRADE.md](TRADE.md); not built.
       The player's whole vocabulary today is: place a charter, watch, right-click
