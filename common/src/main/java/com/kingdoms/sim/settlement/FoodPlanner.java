@@ -212,12 +212,84 @@ public final class FoodPlanner {
         forage(settlement);
         growHarvest(settlement, ctx, starving);
         assignHauls(settlement, starving);
+        carryItHomeUnwatched(settlement);
         eatAndHunger(settlement, ctx);
 
         if (poolBefore > 0 && settlement.foodStock() == 0) {
             settlement.logEvent(ctx.step(),
                     "The granary is empty — growth halts until the fields catch up");
         }
+    }
+
+    /**
+     * The food that moves itself where nobody is watching it move.
+     *
+     * <p>Out of sight a town should end up in the state hands would have put it
+     * in, and the chain that feeds it is long: fields to granary, granary to
+     * stall, stall to family larder, larder to mouth. Every link is an errand
+     * somebody has to be free, fed and unoccupied to run, and every link can
+     * fail on its own. Under {@code /civ step} they fail together — nothing
+     * walks anywhere, hunger climbs on its own clock, and a town sits on
+     * thousands of loaves with its people starving in front of them.
+     *
+     * <p>So for a household with nobody embodied, the last two links are done as
+     * arithmetic. The stall is stocked from the granary and the larder from the
+     * stall, exactly as far as a shopper would have carried, and no further —
+     * this fills pantries, it does not conjure food. An empty granary still
+     * feeds nobody.
+     *
+     * <p>Only the unwatched. Where somebody IS there to walk it, they walk it:
+     * where there is a hand there is no clock, the same rule construction, the
+     * wall and the roads all follow.
+     */
+    private static void carryItHomeUnwatched(Settlement settlement) {
+        if (settlement.foodStock() <= 0) {
+            return;   // nothing to distribute; this moves food, it does not make it
+        }
+        // Only the last link. The granary-to-stall leg is a trader's haul and
+        // that already completes out of sight — HaulPlanner walks an unembodied
+        // carrier abstractly and sets the load down at the far end. Stocking
+        // stalls here as well delivered the same load twice: a test that asserts
+        // one trader carries one load to the market found fifty in it.
+        //
+        // What genuinely fails is the leg after that, and only that one is done
+        // here.
+        for (Household household : settlement.households()) {
+            if (household.size() == 0 || !household.isHoused()) {
+                continue;
+            }
+            if (anyMemberEmbodied(settlement, household)) {
+                continue;   // somebody is there to fetch it themselves
+            }
+            int target = household.size() * PANTRY_PER_MEMBER;
+            int want = Math.min(FETCH_MAX, target - household.pantry());
+            if (want <= 0) {
+                continue;
+            }
+            Building stall = fullestWithStock(settlement, "market", 1);
+            int got = 0;
+            if (stall != null) {
+                got = Math.min(want, stall.foodStored());
+                stall.setFoodStored(stall.foodStored() - got);
+            }
+            if (got < want) {
+                got += settlement.stores().takeUpTo(TownStores.FOOD, want - got);
+            }
+            if (got > 0) {
+                household.setPantry(household.pantry() + got);
+            }
+        }
+    }
+
+    /** Whether anybody in this family is standing in the world right now. */
+    private static boolean anyMemberEmbodied(Settlement settlement, Household household) {
+        for (Person.Id id : household.members()) {
+            Person member = settlement.resident(id);
+            if (member != null && member.isEmbodied()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // --- who fetches what ---
