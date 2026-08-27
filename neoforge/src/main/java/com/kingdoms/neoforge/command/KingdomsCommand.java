@@ -106,6 +106,9 @@ public final class KingdomsCommand {
                         .then(Commands.argument("strength", IntegerArgumentType.integer(1, 100))
                                 .executes(ctx -> raid(ctx, IntegerArgumentType.getInteger(ctx, "strength")))))
 
+                .then(Commands.literal("list")
+                        .executes(KingdomsCommand::list))
+
                 .then(Commands.literal("wall")
                         .executes(KingdomsCommand::wall))
 
@@ -517,6 +520,70 @@ public final class KingdomsCommand {
      * checks buildings and says nothing about the wall; this counts what is
      * standing, what is missing, and what has a tree in it.
      */
+    /**
+     * Every settlement in the world, nearest first, with where to find it.
+     *
+     * <p>There was no way to ask this. {@code /civ info} and {@code /civ stores}
+     * answer about the nearest town, {@code /civ overview} draws a screen and
+     * needs a player, and {@code /civ audit} reports faults rather than places.
+     * So the only way to find out what a world contained was to read a log and
+     * infer it from the names, which is how a session went by before anybody
+     * noticed six towns had been founded rather than one.
+     *
+     * <p>Sorted by distance because the question behind the question is nearly
+     * always "which one am I standing near, and where is the next".
+     */
+    private static int list(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        ServerLevel level = source.getLevel();
+        SimWorld world = KingdomsMod.simulationFor(level);
+        if (world == null) {
+            source.sendFailure(Component.literal("No simulation for this dimension."));
+            return 0;
+        }
+        Vec3 from = source.getPosition();
+        record Row(double away, String line) { }
+        java.util.List<Row> rows = new java.util.ArrayList<>();
+        int total = 0;
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                total++;
+                SimPos at = settlement.centre();
+                double away = Math.sqrt(Math.pow(at.x() - from.x, 2)
+                        + Math.pow(at.z() - from.z, 2));
+                String wall = settlement.perimeter() == null ? "none"
+                        : settlement.perimeter().laid() + "/"
+                                + settlement.perimeter().length();
+                rows.add(new Row(away, String.format(
+                        "  %-22s %-10s pop %-4d  at %6d %4d %6d  %5.0fm away"
+                                + "  wall %-9s coin %-6d food %d",
+                        settlement.name(), settlement.stage().pretty(),
+                        settlement.population(), at.x(), at.y(), at.z(), away,
+                        wall, settlement.treasury(), settlement.foodStock())));
+                KingdomsMod.LOGGER.info(
+                        "LIST {} kingdom={} stage={} pop={} at={} {} {} wall={} coin={} food={}",
+                        settlement.name(), kingdom.name(), settlement.stage().name(),
+                        settlement.population(), at.x(), at.y(), at.z(), wall,
+                        settlement.treasury(), settlement.foodStock());
+            }
+        }
+        rows.sort(java.util.Comparator.comparingDouble(Row::away));
+        StringBuilder out = new StringBuilder(
+                "=== " + total + " settlement" + (total == 1 ? "" : "s") + " ===");
+        for (Row row : rows) {
+            out.append(NEWLINE).append(row.line());
+        }
+        if (rows.isEmpty()) {
+            out.append(NEWLINE).append("  Nothing has been founded in this world.");
+        }
+        String report = out.toString();
+        source.sendSuccess(() -> Component.literal(report), false);
+        return total;
+    }
+
+    /** A line break in a chat report. Named so no editor can eat the escape. */
+    private static final String NEWLINE = String.valueOf((char) 10);
+
     private static int wall(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         Settlement settlement = nearestSettlement(source);
@@ -535,6 +602,11 @@ public final class KingdomsCommand {
         int standing = 0;
         int missing = 0;
         int blocked = 0;
+        int gateways = 0;
+        int shutByBuilding = 0;
+        int unfooted = 0;
+        java.util.Map<String, Integer> why = new java.util.TreeMap<>();
+        java.util.List<String> examples = new java.util.ArrayList<>();
         java.util.List<com.kingdoms.sim.geom.SimPos> positions = ring.ringPositions();
         int laid = Math.min(ring.laid(), positions.size());
         for (int i = 0; i < laid; i++) {
@@ -545,9 +617,17 @@ public final class KingdomsCommand {
                 continue;
             }
             looked++;
+            // A gateway is SUPPOSED to be open. Counting the three-wide opening
+            // at every gate as a hole made the first report of this untrustworthy
+            // — "51 missing" with no way to tell a doorway from a failure.
+            if (ring.isGateway(at)) {
+                gateways++;
+                continue;
+            }
             net.minecraft.core.BlockPos ground =
                     com.kingdoms.neoforge.world.PerimeterLayer.footingFor(level, at);
             if (ground == null) {
+                unfooted++;   // water, or no ground the layer would accept
                 continue;
             }
             if (com.kingdoms.neoforge.world.WallClearing.isBlocked(level, ground)) {
@@ -555,19 +635,43 @@ public final class KingdomsCommand {
             }
             if (com.kingdoms.neoforge.world.PerimeterLayer.postStands(level, ground)) {
                 standing++;
+            } else if (com.kingdoms.neoforge.world.PerimeterLayer
+                    .lineIsClosed(level, ground)) {
+                shutByBuilding++;   // the ring runs through a wall; that is a wall
             } else {
                 missing++;
+                // Name what is there instead. A count says a post is absent; the
+                // block standing in its place says why, which is the difference
+                // between a report you can act on and one you can only argue with.
+                String what = level.getBlockState(ground).getBlock()
+                        .getName().getString();
+                why.merge(what, 1, Integer::sum);
+                if (examples.size() < 5) {
+                    examples.add(ground.toShortString() + " (" + what + ")");
+                }
             }
         }
-        String report = "=== wall of " + settlement.name() + " ==="
-                + "\n  laid " + ring.laid() + " of " + ring.length()
-                + ", " + looked + " close enough to look at"
-                + "\n  posts standing : " + standing
-                + "\n  posts missing  : " + missing
-                + "\n  growth in the line : " + blocked;
+        StringBuilder out = new StringBuilder("=== wall of " + settlement.name() + " ===")
+                .append("\n  laid ").append(ring.laid()).append(" of ").append(ring.length())
+                .append(", ").append(looked).append(" close enough to look at")
+                .append("\n  posts standing     : ").append(standing)
+                .append("\n  gateways (open)    : ").append(gateways)
+                .append("\n  no footing         : ").append(unfooted)
+                .append("\n  growth in the line : ").append(blocked)
+                .append("\n  GENUINELY MISSING  : ").append(missing);
+        for (var entry : why.entrySet()) {
+            out.append("\n      ").append(entry.getValue()).append(" x ").append(entry.getKey());
+        }
+        for (String example : examples) {
+            out.append("\n      at ").append(example);
+        }
+        String report = out.toString();
         source.sendSuccess(() -> Component.literal(report), false);
-        KingdomsMod.LOGGER.info("WALL {} laid={}/{} looked={} standing={} missing={} blocked={}",
-                settlement.name(), ring.laid(), ring.length(), looked, standing, missing, blocked);
+        KingdomsMod.LOGGER.info(
+                "WALL {} laid={}/{} looked={} standing={} gateways={} unfooted={} "
+                        + "blocked={} missing={} shutByBuilding={} because={}",
+                settlement.name(), ring.laid(), ring.length(), looked, standing,
+                gateways, unfooted, blocked, missing, shutByBuilding, why);
         return 1;
     }
 

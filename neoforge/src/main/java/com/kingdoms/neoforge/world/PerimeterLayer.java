@@ -185,6 +185,29 @@ public final class PerimeterLayer {
         return isPostBlock(level.getBlockState(ground));
     }
 
+    /**
+     * Whether the line is shut here, by a post or by anything else solid.
+     *
+     * <p>The ring is a hull thrown round the town, so it runs through whatever
+     * the town has already built — and a post cannot be placed inside a
+     * storehouse wall. That is not a hole. A building is a better wall than a
+     * fence, and counting those positions as gaps made the wall report read far
+     * worse than the wall was.
+     *
+     * <p>Two courses, because that is what a post is. A single step somebody can
+     * stand on is not a wall, and half of one is a stile.
+     */
+    public static boolean lineIsClosed(ServerLevel level, BlockPos ground) {
+        if (postStands(level, ground)) {
+            return true;
+        }
+        return !isPassable(level, ground) && !isPassable(level, ground.above());
+    }
+
+    private static boolean isPassable(ServerLevel level, BlockPos pos) {
+        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
+    }
+
     private static BlockPos surface(ServerLevel level, SimPos pos) {
         BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 new BlockPos(pos.x(), pos.y(), pos.z()));
