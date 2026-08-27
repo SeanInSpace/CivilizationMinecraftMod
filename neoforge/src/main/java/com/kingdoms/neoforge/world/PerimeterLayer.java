@@ -36,8 +36,23 @@ public final class PerimeterLayer {
     /** What the wall is made of. Two of these stand three high to anything jumping. */
     private static final Block POST = Blocks.OAK_FENCE;
 
-    /** A torch every so many posts, so the wall reads at night. */
-    private static final int TORCH_EVERY = 8;
+    /** A light every so many posts, so the wall reads at night. */
+    private static final int LAMP_EVERY = 8;
+
+    /**
+     * What the light is.
+     *
+     * <p>It was a torch, and a torch cannot stand on a fence: the top of a
+     * post is not a face a torch can be supported on, so every one placed
+     * popped straight back off. That was invisible in the world -- an unlit
+     * wall reads as a wall nobody has got round to lighting -- and fatal in the
+     * sweep, which counted each doomed torch as work done and spent its entire
+     * budget re-placing the same two dozen of them every second while four
+     * fifths of the ring was never reached. See {@link #CURSOR}.
+     *
+     * <p>A lantern sits on a fence post and stays there.
+     */
+    private static final Block LAMP = Blocks.LANTERN;
 
     private PerimeterLayer() {
     }
@@ -50,17 +65,59 @@ public final class PerimeterLayer {
         }
         List<SimPos> ring = perimeter.ringPositions();
         int limit = Math.min(perimeter.laid(), ring.size());
-        int drawn = 0;
-        for (int i = 0; i < limit && drawn < SLICE; i++) {
-            SimPos pos = ring.get(i);
-            if (!level.isLoaded(new BlockPos(pos.x(), pos.y(), pos.z()))) {
-                continue;
-            }
-            drawn += perimeter.isGateway(pos)
-                    ? drawGateway(level, perimeter, pos)
-                    : drawPost(level, pos, i);
+        // Where the last sweep stopped, so the budget travels round the ring
+        // instead of being spent on the same opening stretch every second.
+        int start = CURSOR.getOrDefault(settlement.id(), 0);
+        if (start >= limit) {
+            start = 0;
         }
+        int drawn = 0;
+        int looked = 0;
+        int i = start;
+        while (looked < limit && looked < SCAN && drawn < SLICE) {
+            SimPos pos = ring.get(i);
+            if (level.isLoaded(new BlockPos(pos.x(), pos.y(), pos.z()))) {
+                drawn += perimeter.isGateway(pos)
+                        ? drawGateway(level, perimeter, pos)
+                        : drawPost(level, pos, i);
+            }
+            looked++;
+            i++;
+            if (i >= limit) {
+                i = 0;
+            }
+        }
+        CURSOR.put(settlement.id(), i);
     }
+
+    /**
+     * How far round the ring each settlement's sweep had got.
+     *
+     * <p>The sweep used to start at the first post every time and stop once it
+     * had placed {@link #SLICE} blocks. That is fine only while every position
+     * it touches settles down afterwards, and one that never settles turns the
+     * budget into a treadmill: the torches were re-placed every single second,
+     * twenty-four of them came up before index 185 of a 666-post ring, and the
+     * remaining four hundred and eighty posts were never once reached. The wall
+     * did not build slowly. It stopped, at exactly the point the first
+     * twenty-four torches had eaten the budget, and no amount of waiting moved
+     * it.
+     *
+     * <p>Starting where the last sweep finished means no stretch of wall can
+     * starve any other stretch, whatever goes wrong at a single position.
+     */
+    private static final java.util.Map<com.kingdoms.sim.settlement.Settlement.Id, Integer>
+            CURSOR = new java.util.HashMap<>();
+
+    /**
+     * Positions examined per sweep, placed or not.
+     *
+     * <p>The second half of the same lesson. A budget counted only in blocks
+     * laid is not a budget at all when nothing can be laid — a stretch of ring
+     * running through a cliff face would spin the whole ring every tick looking
+     * for work it cannot do. This bounds the looking as well as the doing.
+     */
+    private static final int SCAN = 256;
 
     /**
      * One post: fence two high on the surface, a torch on every eighth.
@@ -79,12 +136,12 @@ public final class PerimeterLayer {
             return 0;
         }
         clearGrowth(level, ground);
-        takeDownWhatIsHanging(level, ground);
+        takeDownWhatIsHanging(level, ground, index % LAMP_EVERY == 0);
         boolean placed = false;
         placed |= put(level, ground, POST);
         placed |= put(level, ground.above(), POST);
-        if (index % TORCH_EVERY == 0) {
-            placed |= put(level, ground.above(2), Blocks.TORCH);
+        if (index % LAMP_EVERY == 0) {
+            placed |= put(level, ground.above(2), LAMP);
         }
         return placed ? 1 : 0;
     }
@@ -141,7 +198,7 @@ public final class PerimeterLayer {
         for (int dy = 1; dy <= 2; dy++) {
             BlockPos above = ground.above(dy);
             BlockState state = level.getBlockState(above);
-            if (isPostBlock(state) || state.is(Blocks.TORCH)) {
+            if (isPostBlock(state) || isLamp(state)) {
                 level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
         }
@@ -230,11 +287,18 @@ public final class PerimeterLayer {
                 && level.getBlockState(top.below()).isAir()) {
             top = top.below();
         }
-        // Refuse water: a palisade post in a pond reads as a mistake, and the
-        // planner will have routed the useful part of the ring on land anyway.
-        if (!level.getFluidState(top.below()).isEmpty()) {
-            return null;
-        }
+        // Water is crossed, not refused. This used to return no footing at all
+        // on the theory that the planner would have routed the ring onto dry
+        // land -- it does not, and on one measured ring a hundred and fifty of
+        // two and a half thousand positions were open water. That is a
+        // six-per-cent hole in a wall whose entire job is not having holes, and
+        // it sat where a stream crossed the line, which is the most ordinary
+        // terrain there is.
+        //
+        // The descent above has already stopped on the first solid thing under
+        // the column, so a post over water stands at the waterline: a palisade
+        // carried across the stream on its posts, which is both what a town
+        // would build and a line nothing can walk through.
         return top;
     }
 
@@ -255,19 +319,41 @@ public final class PerimeterLayer {
      */
     private static boolean isOurs(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        return isPostBlock(state) || state.is(Blocks.TORCH)
+        return isPostBlock(state) || isLamp(state)
                 || state.is(Blocks.OAK_FENCE_GATE);
     }
 
     /**
-     * Whether this is a palisade post, of any vintage.
+     * Whether this is one of the wall's lights, of any vintage.
      *
-     * <p>Logs are still recognised: towns walled before the fence was adopted
-     * have log posts standing, and neither the gateways nor the ground-finding
-     * may stop seeing them.
+     * <p>Torches are still recognised. Any that an earlier build managed to
+     * leave standing are ours, and a ground-finding that stopped seeing them
+     * would found a post on top of one.
+     */
+    private static boolean isLamp(BlockState state) {
+        return state.is(LAMP) || state.is(Blocks.TORCH) || state.is(Blocks.WALL_TORCH);
+    }
+
+    /**
+     * Whether this is a palisade post.
+     *
+     * <p>A fence, and only a fence. It used to accept oak logs too, so that a
+     * town walled before the fence was adopted kept its wall — and that
+     * generosity was measured in a wood: <strong>181 of 666 positions on one
+     * ring were tree trunks being counted as wall.</strong> An oak log in the
+     * line satisfied "a post is standing here", so no post was ever placed;
+     * {@link #isOurs} then reported the same trunk as the town's own work, so
+     * {@link #clearGrowth} stepped over it rather than felling it. The trees
+     * were not merely in the way of the wall. They <em>were</em> the wall, as
+     * far as everything that inspects it could tell.
+     *
+     * <p>Nothing can distinguish a post somebody planted from a trunk that grew
+     * there when both are oak logs, so the wall stops trying. Any real legacy
+     * post is now growth, and gets replaced by a fence on the sweep that
+     * reaches it — which is the outcome wanted in both cases anyway.
      */
     private static boolean isPostBlock(BlockState state) {
-        return state.is(POST) || state.is(Blocks.OAK_LOG);
+        return state.is(POST);
     }
 
     /**
@@ -289,14 +375,20 @@ public final class PerimeterLayer {
      * down whatever happened to be above it would demolish the branch it was
      * built under.
      */
-    private static void takeDownWhatIsHanging(ServerLevel level, BlockPos ground) {
-        for (int dy = 2; dy <= HANGING_REACH; dy++) {
+    private static void takeDownWhatIsHanging(
+            ServerLevel level, BlockPos ground, boolean lit) {
+        // Start above this post's own top, or it demolishes itself. The sweep
+        // used to begin at +2 unconditionally, which is precisely where a lit
+        // post's lantern stands: every lamp was torn down and rebuilt every
+        // second for as long as the town was loaded. Harmless to look at and
+        // the same treadmill that halted the wall -- see {@link #CURSOR}.
+        for (int dy = lit ? 3 : 2; dy <= HANGING_REACH; dy++) {
             BlockPos above = ground.above(dy);
             if (!level.isLoaded(above)) {
                 return;
             }
             BlockState state = level.getBlockState(above);
-            if (isPostBlock(state) || state.is(Blocks.TORCH)) {
+            if (isPostBlock(state) || isLamp(state)) {
                 level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
         }
@@ -348,7 +440,12 @@ public final class PerimeterLayer {
             return false;
         }
         level.setBlock(pos, block.defaultBlockState(), Block.UPDATE_ALL);
-        return true;
+        // Only if it survived being placed. A block that pops off the moment it
+        // is set -- a torch with nothing to hold it -- is not work done, and
+        // counting it as work is what let one bad choice of block halt the
+        // whole wall. Whatever the next mistake of this shape is, the sweep now
+        // walks past it instead of grinding on it.
+        return level.getBlockState(pos).getBlock() == block;
     }
 
     /** Only air and soft growth give way; a wall never eats a building. */

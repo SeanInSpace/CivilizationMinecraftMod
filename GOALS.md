@@ -71,16 +71,47 @@ work that cannot be delegated.
       does not un-build anything.
 
 
-- [ ] **The walls lock citizens in or out.** Seen in play. The palisade closes
-      as a ring of two-high fence with gateways left clear, and either the
-      gateways are not where people actually walk or the ring encloses ground
-      the town works outside of. A settler shut out of their own town cannot
-      eat, which makes this a starvation cause as well as an annoyance.
+- [x] **The wall was never finished being drawn.** ~~The walls lock citizens in
+      or out.~~ Reported as a wall that shut people out; measured, it was a wall
+      that stopped existing partway round. Four faults, each hiding the next:
 
-      Worth checking first whether the gates are being resited onto the streets
-      as `resiteGates` claims, and whether a fence gate reads as passable to the
-      pathfinder — a shut gate is a way in for the auditor's doorway check but
-      not necessarily for a settler's A*.
+      1. **The sweep froze.** It restarted at post zero every second and stopped
+         once it had placed twenty-four blocks. The lights were torches, and a
+         torch cannot stand on a fence — each popped off the instant it was set,
+         so every one counted as work done, forever. Twenty-four doomed torches
+         came up before index 185 of a 666-post ring and the other four hundred
+         and eighty were never once reached. It did not build slowly; it
+         stopped, and no amount of waiting moved it. Lanterns stand, `put` now
+         refuses to count a block that did not stick, and the sweep resumes
+         where it left off so no stretch can starve any other.
+      2. **Trees were counted as the wall.** `isPostBlock` accepted oak logs, to
+         keep faith with towns walled before the fence. So a trunk in the line
+         read as a post already standing — and as the town's own work, which
+         meant the clearing stepped over it too. **181 of 666 positions were
+         trees.** A post is a fence now, and nothing else.
+      3. **Every lit post demolished its own lantern** each sweep, because the
+         hanging-post sweep started at +2, which is where the lantern is.
+      4. **Water was a hole.** Founding refused any post over fluid on the
+         theory that the ring would have been routed onto dry land. It is not:
+         **150 of 2492 positions were open stream.** The wall is carried across
+         on its posts.
+
+      Measured end to end on a live server, whole ring force-loaded so
+      "nothing to look at" could not pass for "nothing wrong": **2492 of 2492
+      laid, 2483 standing, 9 gateways, 0 missing, 0 unfooted, 0 growth in the
+      line.** Before: 197 to 334 missing of the 422 to 535 that could be seen.
+
+      Nobody is shut out. With a closed ring and a player watching, `shut out of
+      bed` reads 1, 0, 0, 2, 0 across successive reports — it never settles,
+      because settlers are walking through the gates. The lock-out was the
+      frozen wall: a ring drawn in disconnected stretches is a maze.
+
+      `/civ wall` now names what is in the line and where, counts settlers
+      inside and outside, and `/civ wall complete` raises the ring unpaid so the
+      closed-wall case can be tested at all — a headless town stalls at about a
+      quarter of its ring forever, because coin only enters through player
+      trade. `-PjoinServer=` puts a client on a running server, which is the
+      only way to measure anything about bodies.
 
 - [x] **A town starves with no threat at all.** ~~Seen in play on a peaceful flat
       world with raids off, which rules out everything external.~~ Guessed at

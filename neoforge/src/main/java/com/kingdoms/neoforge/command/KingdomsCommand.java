@@ -110,7 +110,9 @@ public final class KingdomsCommand {
                         .executes(KingdomsCommand::list))
 
                 .then(Commands.literal("wall")
-                        .executes(KingdomsCommand::wall))
+                        .executes(KingdomsCommand::wall)
+                        .then(Commands.literal("complete")
+                                .executes(KingdomsCommand::wallComplete)))
 
                 .then(Commands.literal("stores")
                         .executes(KingdomsCommand::stores))
@@ -584,6 +586,45 @@ public final class KingdomsCommand {
     /** A line break in a chat report. Named so no editor can eat the escape. */
     private static final String NEWLINE = String.valueOf((char) 10);
 
+    /**
+     * Raises the whole ring at once, paid for by nobody.
+     *
+     * <p>A wall only shuts anybody in once it closes, and a town closes its ring
+     * when it can afford to -- which under the current economy means when a
+     * player has traded with it, since coin enters the world no other way. So
+     * the one state worth testing for lock-in is the one a test world will not
+     * reach on its own: every headless run stalls at about a quarter of the
+     * ring with gaps a herd could walk through, and reports no one trapped
+     * because nothing is yet capable of trapping them.
+     *
+     * <p>This is a debug command and says so. It skips the cost, not the work:
+     * the posts still go up through {@code PerimeterLayer} exactly as they
+     * would have, so what you are looking at afterwards is a real wall.
+     */
+    private static int wallComplete(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        Settlement settlement = nearestSettlement(source);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No settlement nearby."));
+            return 0;
+        }
+        com.kingdoms.sim.settlement.Perimeter ring = settlement.perimeter();
+        if (ring == null) {
+            source.sendFailure(Component.literal(
+                    settlement.name() + " has not staked a wall yet."));
+            return 0;
+        }
+        int was = ring.laid();
+        ring.setLaid(ring.length());
+        KingdomsSavedData.get(source.getLevel()).setDirty();
+        source.sendSuccess(() -> Component.literal(
+                "  " + settlement.name() + ": ring raised " + was + " -> "
+                        + ring.length() + " (unpaid; debug)"), false);
+        KingdomsMod.LOGGER.info("WALLCOMPLETE {} {} -> {} gates={}",
+                settlement.name(), was, ring.length(), ring.gates());
+        return 1;
+    }
+
     private static int wall(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         Settlement settlement = nearestSettlement(source);
@@ -606,6 +647,7 @@ public final class KingdomsCommand {
         int shutByBuilding = 0;
         int unfooted = 0;
         java.util.Map<String, Integer> why = new java.util.TreeMap<>();
+        java.util.Map<String, Integer> inTheWay = new java.util.TreeMap<>();
         java.util.List<String> examples = new java.util.ArrayList<>();
         java.util.List<com.kingdoms.sim.geom.SimPos> positions = ring.ringPositions();
         int laid = Math.min(ring.laid(), positions.size());
@@ -630,8 +672,16 @@ public final class KingdomsCommand {
                 unfooted++;   // water, or no ground the layer would accept
                 continue;
             }
-            if (com.kingdoms.neoforge.world.WallClearing.isBlocked(level, ground)) {
+            net.minecraft.core.BlockPos growth =
+                    com.kingdoms.neoforge.world.WallClearing.inTheWay(level, ground);
+            if (growth != null) {
                 blocked++;
+                // What, and where relative to the post's foot. "Growth in the
+                // line: 240" is a number to argue with; "240, all of them leaves
+                // four above the footing" is a number to act on, and the two
+                // readings mean entirely different things about the wall.
+                inTheWay.merge(level.getBlockState(growth).getBlock().getName().getString()
+                        + " at +" + (growth.getY() - ground.getY()), 1, Integer::sum);
             }
             if (com.kingdoms.neoforge.world.PerimeterLayer.postStands(level, ground)) {
                 standing++;
@@ -651,6 +701,40 @@ public final class KingdomsCommand {
                 }
             }
         }
+        // Who the wall has ended up on the wrong side of. A ring is meant to
+        // put the town inside and everything else outside; a settler whose bed
+        // is in and whose body is out is a settler the wall has shut out, and
+        // nothing measured that before -- the fault was reported from play and
+        // could only be argued about.
+        int in = 0;
+        int out_ = 0;
+        int shutOut = 0;
+        for (com.kingdoms.sim.person.Person person : settlement.residents()) {
+            if (!person.isEmbodied()) {
+                continue;
+            }
+            com.kingdoms.sim.geom.SimPos at = person.position();
+            boolean within = com.kingdoms.sim.geom.Hull.contains(ring.vertices(), at);
+            if (within) {
+                in++;
+                continue;
+            }
+            out_++;
+            for (com.kingdoms.sim.person.Household household : settlement.households()) {
+                if (!household.isHoused() || !household.members().contains(person.id())) {
+                    continue;
+                }
+                if (com.kingdoms.sim.geom.Hull.contains(
+                        ring.vertices(), household.home())) {
+                    shutOut++;   // bed inside, body outside
+                }
+                break;
+            }
+        }
+        final int inside = in;
+        final int outside = out_;
+        final int strandedFromBed = shutOut;
+
         StringBuilder out = new StringBuilder("=== wall of " + settlement.name() + " ===")
                 .append("\n  laid ").append(ring.laid()).append(" of ").append(ring.length())
                 .append(", ").append(looked).append(" close enough to look at")
@@ -662,6 +746,10 @@ public final class KingdomsCommand {
         for (var entry : why.entrySet()) {
             out.append("\n      ").append(entry.getValue()).append(" x ").append(entry.getKey());
         }
+        for (var entry : inTheWay.entrySet()) {
+            out.append(NEWLINE).append("      ").append(entry.getValue())
+                    .append(" x ").append(entry.getKey());
+        }
         for (String example : examples) {
             out.append("\n      at ").append(example);
         }
@@ -669,9 +757,11 @@ public final class KingdomsCommand {
         source.sendSuccess(() -> Component.literal(report), false);
         KingdomsMod.LOGGER.info(
                 "WALL {} laid={}/{} looked={} standing={} gateways={} unfooted={} "
-                        + "blocked={} missing={} shutByBuilding={} because={}",
+                        + "blocked={} missing={} shutByBuilding={} because={} inTheWay={} "
+                        + "inside={} outside={} shutOutOfBed={}",
                 settlement.name(), ring.laid(), ring.length(), looked, standing,
-                gateways, unfooted, blocked, missing, shutByBuilding, why);
+                gateways, unfooted, blocked, missing, shutByBuilding, why, inTheWay,
+                inside, outside, strandedFromBed);
         return 1;
     }
 

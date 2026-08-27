@@ -29,6 +29,19 @@ neoForge {
                 programArguments.addAll('--quickPlaySingleplayer',
                         project.property('quickplay').toString())
             }
+            // Join a running dedicated server instead:
+            //   ./gradlew :neoforge:runClient -PjoinServer=localhost
+            //
+            // Some faults only exist where a player is standing. Settlers are
+            // only embodied within the observed radius, so anything about real
+            // bodies -- pathing, a wall somebody is shut outside of -- is
+            // invisible to a headless run, and a headless run reports zero for
+            // it either way. This puts a player in the world while the server
+            // console does the asking.
+            if (project.hasProperty('joinServer')) {
+                programArguments.addAll('--quickPlayMultiplayer',
+                        project.property('joinServer').toString())
+            }
         }
         server {
             server()
