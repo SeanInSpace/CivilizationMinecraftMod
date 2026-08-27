@@ -547,6 +547,31 @@ public final class KingdomsCommand {
                 out.append("  << ").append(held - onShelves).append(" held but not shown");
             }
         }
+        // The stall, which is the only place money changes hands and therefore
+        // the thing anybody testing trade actually wants the coordinates of.
+        Building market = settlement.buildingWithRole(
+                com.kingdoms.sim.settlement.BuildingRole.MARKET);
+        boolean trader = com.kingdoms.sim.economy.Market.hasTrader(settlement);
+        out.append("\n  market: ");
+        if (market == null) {
+            out.append("none built");
+        } else {
+            out.append(market.origin().x()).append(' ').append(market.origin().y())
+                    .append(' ').append(market.origin().z())
+                    .append(trader ? "  (trader on duty)" : "  (NOBODY TRADES HERE)");
+            for (com.kingdoms.sim.economy.Market.Deal deal
+                    : com.kingdoms.sim.economy.Market.offers(settlement)) {
+                out.append("\n    ").append(deal.townBuys() ? "buys  " : "sells ")
+                        .append(deal.resource())
+                        .append(" @ ").append(deal.unitPrice()).append("/unit, ")
+                        .append(deal.lots()).append(" lot(s) of ")
+                        .append(com.kingdoms.sim.economy.Market.LOT);
+            }
+            KingdomsMod.LOGGER.info("MARKET {} at {} {} {} trader={} offers={}",
+                    settlement.name(), market.origin().x(), market.origin().y(),
+                    market.origin().z(), trader,
+                    com.kingdoms.sim.economy.Market.offers(settlement).size());
+        }
         out.append("\n  town total: ledger=").append(heldTotal)
                 .append(" onShelves=").append(shownTotal)
                 .append("  treasury=").append(settlement.treasury());

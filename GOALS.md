@@ -53,6 +53,47 @@ work that cannot be delegated.
 
 ## Open
 
+- [ ] **Buildings could stack, and the cause is fixed but the geometry is not
+      guarded.** Procedural buildings were drawn two blocks broader per level
+      while their neighbours were sited against the catalogue's declared plot
+      span. A house is declared eleven across and drawn thirteen at level four;
+      a town hall thirteen and drawn fifteen. The fourth one grew straight
+      through whatever stood next door.
+
+      Upgrading is removed from the planner and the growth term is gone with it,
+      so nothing new can reach a size that does not fit. What is *not* in place
+      is anything that would catch it happening again: no test compares what the
+      placer draws against what the catalogue reserves, because the placer needs
+      a running level to ask. If levels ever return, that comparison has to
+      exist first.
+
+      Old saves keep their stacked geometry — the fix stops it recurring, it
+      does not un-build anything.
+
+
+- [ ] **The walls lock citizens in or out.** Seen in play. The palisade closes
+      as a ring of two-high fence with gateways left clear, and either the
+      gateways are not where people actually walk or the ring encloses ground
+      the town works outside of. A settler shut out of their own town cannot
+      eat, which makes this a starvation cause as well as an annoyance.
+
+      Worth checking first whether the gates are being resited onto the streets
+      as `resiteGates` claims, and whether a fence gate reads as passable to the
+      pathfinder — a shut gate is a way in for the auditor's doorway check but
+      not necessarily for a settler's A*.
+
+- [ ] **A town starves with no threat at all.** Seen in play on a peaceful flat
+      world with raids off, which rules out everything external. The headless
+      benchmark reached a food ceiling of 401 people and held there, so the
+      arithmetic sustains a large town in the abstract — meaning this is
+      something about watched fidelity, or about food that exists in a ledger
+      the eaters cannot reach.
+
+      The two most likely shapes, neither confirmed: food banked in a building
+      nobody is routed to, or eaters embodied while the farms that feed them are
+      not. The store readout (`/civ stores`) and the field roster are the places
+      to start.
+
 - [ ] **Trade with a settlement.** Designed in [TRADE.md](TRADE.md); not built.
       The player's whole vocabulary today is: place a charter, watch, right-click
       to read a report, type a debug command. The town is a good simulation with

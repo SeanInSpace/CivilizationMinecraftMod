@@ -1073,15 +1073,29 @@ public final class BlueprintPlacer {
     }
 
     /**
-     * The built-in shapes, grown by level.
+     * The built-in shapes. One size each, whatever level the record claims.
      *
-     * <p>An improved building is the same shape with more room and another course
-     * of wall — which is enough to read as an upgrade, and means every level of
-     * every building does not have to be drawn by hand before levels work at all.
+     * <p>They used to grow with tier — two blocks broader per level — and that
+     * is what stacked a town. A plot is reserved from the catalogue's declared
+     * span and a neighbour is sited against that span, but the drawn building
+     * answered to its own level instead. A house is declared eleven across;
+     * drawn it is seven at level one, eleven at level three, and
+     * <strong>thirteen at level four</strong>. The fourth one grows straight
+     * through whatever was next door, and the town hall does the same at
+     * fifteen against a plot of thirteen.
+     *
+     * <p>Upgrading is gone from the planner, so nothing new reaches tier two.
+     * The growth goes with it rather than being left armed: a save that already
+     * holds a level-three house draws it at the one size that is known to fit,
+     * which is smaller than the ground reserved for it and therefore safe.
+     *
+     * <p>If levels ever come back, the size drawn here must be checked against
+     * {@code BuildPlanner.plotSpanOf} rather than assumed to fit. That is the
+     * whole lesson and it is why this comment is longer than the line it guards.
      */
     private static StructurePlan procedural(ServerLevel level, String path, BlockPos base,
                                             Rotation rotation, int tier) {
-        int grow = 2 * (Math.max(1, tier) - 1);
+        int grow = 0;
         List<Placement> blocks = new ArrayList<>();
         int[] dims = switch (path) {
             case "town_hall" -> cabin(level, blocks, base, 7 + grow, 7 + grow, 4 + grow / 2, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);

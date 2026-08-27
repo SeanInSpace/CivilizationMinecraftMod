@@ -237,35 +237,6 @@ public final class Settlement {
      * <p>After {@link BuildPlanner#PLOT_ATTEMPTS} it takes whatever comes next. A
      * town on an island must still be able to build.
      */
-    /**
-     * Improves something, once there is nothing left to build.
-     *
-     * <p>A town that has everything it wants is not finished — it starts making
-     * what it has better. The improvement is raised on the same spot facing the
-     * same way, and the old walls come down as part of the excavation, because they
-     * stand inside the new plan's footprint.
-     */
-    private void planUpgrade(SimContext ctx) {
-        BuildPlanner.chooseUpgrade(this, catalogue).ifPresent(standing -> {
-            String baseId = BuildPlanner.baseIdOf(standing.blueprintId());
-            int toLevel = standing.level() + 1;
-            BuildingType type = catalogue.stream()
-                    .filter(candidate -> candidate.id().equals(baseId))
-                    .findFirst()
-                    .orElse(null);
-            if (type == null) {
-                return;
-            }
-            BuildTask work = new BuildTask(BuildPlanner.levelledId(baseId, toLevel),
-                    standing.origin(), BuildPlanner.upgradeWork(type, toLevel));
-            work.setFacing(standing.facing());
-            work.setUpgradeOf(standing.origin());
-            buildQueue.add(work);
-            logEvent(ctx.step(), "Work begins improving the "
-                    + baseId.substring(baseId.indexOf(':') + 1).replace('_', ' ')
-                    + " at " + standing.origin() + " to level " + toLevel);
-        });
-    }
 
     /**
      * Ground for a new building: suitable terrain, and nobody else's.
@@ -1408,20 +1379,18 @@ public final class Settlement {
         if (!StagePlanner.catalogueRuns(stage)) {
             return;   // below VILLAGE the program is the whole of the plan
         }
-        // Improvements compete with new work rather than waiting for a town to run
-        // out of things it wants — which never happens while it is still growing.
+        // A town no longer improves what already stands. Upgrading raised a
+        // bigger building on the footprint of a smaller one, and the plot
+        // overlap check deliberately exempts an upgrade from colliding with the
+        // thing it is replacing — so a level-two building could grow straight
+        // through whatever was next door, which is what "the buildings are
+        // stacked" looks like from the ground.
+        //
+        // Removed rather than gated, because a switch would leave the same
+        // geometry waiting to be turned back on. It comes back when a building
+        // that grows can be shown not to eat its neighbour. See GOALS.md.
         Optional<BuildingType> wanted = BuildPlanner.chooseNext(this, catalogue)
                 .filter(type -> StagePlanner.catalogueAllows(stage, type.id()));
-        Optional<Building> improvable = BuildPlanner.chooseUpgrade(this, catalogue);
-        int newRank = wanted.map(BuildingType::priority).orElse(Integer.MIN_VALUE);
-        int upgradeRank = improvable
-                .map(standing -> BuildPlanner.upgradePriority(this, catalogue, standing))
-                .orElse(Integer.MIN_VALUE);
-        if (upgradeRank > newRank) {
-            planUpgrade(ctx);
-            return;
-        }
-
         wanted.ifPresent(type -> orderBuild(ctx, type));
     }
 
