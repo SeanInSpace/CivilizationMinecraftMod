@@ -276,6 +276,49 @@ work that cannot be delegated.
       sampled the growth phase. **Measure the thing, in the function that does
       the work, across the window that matters.**
 
+- [~] **The terrain oracle: ground can be judged without loading it.** Built and
+      working, on a premise that turned out to be half wrong.
+
+      `TerrainOracle` answers *what the ground is* at any column from two sources
+      in order of authority: a loaded chunk when there is one, and the
+      generator's noise otherwise. A town now grows, sites itself and walls
+      itself **with no chunks force-loaded at all** — 96 people, 113 buildings,
+      188 road runs, `554/554` posts with coin to spare. `/civ plan` needs no
+      force-load either, which removes the chunk-generation storm that was
+      starving the manager of ticks.
+
+      **The premise that was wrong, and it is the useful finding.**
+      `getBaseHeight` is not a cheap lookup. It builds a noise chunk per column
+      and measures about **six milliseconds**. Vanilla uses it for structure
+      placement, where a handful of calls is nothing; it is not a bulk terrain
+      API and this treated it as one. Two watchdog kills came of that — a single
+      tick of sixty seconds, once from siting and once from the survey.
+
+      **What that means for the next version.** One chunk generated to a partial
+      status (`ChunkStatus.SURFACE`, confirmed reachable here) yields 256 columns
+      for roughly the price of a handful of `getBaseHeight` calls, with the same
+      "no ticking chunk" benefit. That is what this class should sit on. Until it
+      does, three bounds keep it safe: readings are remembered on a four-block
+      grid, a planner may spend 1024 samples a tick and then answers from memory,
+      and an operator's `warm` may spend 1200 and then reports the rest unread.
+
+      **Accuracy, checked rather than assumed.** `/civ oracle` compares the
+      generator's answer against real loaded ground. Two faults in the *checking*
+      turned up first, both mine and both instructive: comparing `WORLD_SURFACE`
+      against `OCEAN_FLOOR` is not a water test — it counts grass and flowers, so
+      754 meadows read as lakes — and `OCEAN_FLOOR` counts tree trunks, so wooded
+      columns sit sixty blocks above the ground the noise correctly describes.
+      With the water test asking the fluid directly, lakes-called-dry fell from
+      341 to **5**. Height error is a genuine 8 courses mean: good enough to tell
+      a cliff from a shelf, not good enough for anything finer, and nobody should
+      build a finer decision on it.
+
+      **Still open.** Buildings-on-water went 22 to 5 after sampling at the
+      grain, but that is seed 20260828 (half water) and the "0 of 113" it wants
+      comparing against is seed 8675309. Cross-seed comparison is the same error
+      withdrawn elsewhere in this file. Run both versions on one seed before
+      claiming either.
+
 - [ ] **Finish the wall.** What the work above left standing, none of it yet
       chased. Open deliberately: the ring went from unusable to good, and good
       is not done.

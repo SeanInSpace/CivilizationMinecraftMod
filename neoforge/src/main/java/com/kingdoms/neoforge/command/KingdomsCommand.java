@@ -119,6 +119,9 @@ public final class KingdomsCommand {
                 .then(Commands.literal("plan")
                         .executes(KingdomsCommand::plan))
 
+                .then(Commands.literal("oracle")
+                        .executes(KingdomsCommand::oracle))
+
                 .then(Commands.literal("stores")
                         .executes(KingdomsCommand::stores))
 
@@ -725,6 +728,104 @@ public final class KingdomsCommand {
      * <p>Written to the log rather than to chat. It is thousands of lines, and
      * the log is the only sink that will take it.
      */
+    /**
+     * Checks the terrain oracle against the ground it is guessing at.
+     *
+     * <p>The oracle's whole worth is being right about land nobody has loaded.
+     * That is a claim, and an unchecked claim about terrain is how this project
+     * ended up siting a quarter of a town in water. So: walk the chunks that
+     * <em>are</em> loaded, ask the generator what it would have said about each
+     * column without them, and compare with what is actually there.
+     *
+     * <p>Height error and water disagreement are reported separately because
+     * they fail differently. Being a course out on a hillside costs a little
+     * excavation; calling a lake dry puts a house in it.
+     */
+    private static int oracle(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        ServerLevel level = source.getLevel();
+        com.kingdoms.neoforge.world.TerrainOracle oracle =
+                ((com.kingdoms.neoforge.bridge.NeoForgeWorldBridge)
+                        KingdomsMod.simulationFor(level).bridge()).oracle();
+        net.minecraft.world.phys.Vec3 at = source.getPosition();
+        int cx = (int) at.x;
+        int cz = (int) at.z;
+
+        int compared = 0;
+        int exact = 0;
+        long error = 0;
+        int worst = 0;
+        int wetAgreed = 0;
+        int saidDryIsWet = 0;
+        int saidWetIsDry = 0;
+        for (int dz = -96; dz <= 96; dz += 4) {
+            for (int dx = -96; dx <= 96; dx += 4) {
+                int x = cx + dx;
+                int z = cz + dz;
+                if (!level.hasChunkAt(new net.minecraft.core.BlockPos(x, 0, z))) {
+                    continue;
+                }
+                int real = level.getHeight(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR, x, z);
+                // OCEAN_FLOOR counts a tree: trunk and leaves are both solid and
+                // dry, so a wooded column reads sixty blocks above the ground the
+                // generator is describing. Comparing those is measuring the
+                // forest, not the oracle -- so wooded columns sit this out.
+                net.minecraft.world.level.block.state.BlockState under =
+                        level.getBlockState(new net.minecraft.core.BlockPos(x, real - 1, z));
+                if (com.kingdoms.neoforge.world.WallClearing.isGrowth(under)) {
+                    continue;
+                }
+                boolean reallyWet =
+                        !level.getFluidState(
+                                new net.minecraft.core.BlockPos(x, real, z)).isEmpty()
+                        || !level.getFluidState(
+                                new net.minecraft.core.BlockPos(x, real - 1, z)).isEmpty();
+                int guess = oracle.noiseHeight(x, z);
+                boolean guessWet = oracle.noiseWet(x, z);
+
+                compared++;
+                int off = Math.abs(guess - real);
+                error += off;
+                worst = Math.max(worst, off);
+                if (off == 0) {
+                    exact++;
+                }
+                if (guessWet == reallyWet) {
+                    wetAgreed++;
+                } else if (reallyWet) {
+                    saidDryIsWet++;
+                } else {
+                    saidWetIsDry++;
+                }
+            }
+        }
+        if (compared == 0) {
+            source.sendFailure(Component.literal(
+                    "Nothing loaded here to check the oracle against."));
+            return 0;
+        }
+        final int n = compared;
+        final long total = error;
+        final int hits = exact;
+        final int agreed = wetAgreed;
+        final int missedWater = saidDryIsWet;
+        final int imaginedWater = saidWetIsDry;
+        final int deepest = worst;
+        String report = "=== oracle against " + n + " loaded columns ===" + NEWLINE
+                + "  height: " + (100 * hits / n) + "% exact, mean error "
+                + String.format("%.2f", total / (double) n)
+                + ", worst " + deepest + NEWLINE
+                + "  water : " + (100 * agreed / n) + "% agree, "
+                + missedWater + " lakes missed, " + imaginedWater + " imagined";
+        source.sendSuccess(() -> Component.literal(report), false);
+        KingdomsMod.LOGGER.info("ORACLE compared={} exactPct={} meanErr={} worst={} "
+                        + "wetAgreePct={} missedWater={} imaginedWater={}",
+                n, 100 * hits / n, String.format("%.2f", total / (double) n), deepest,
+                100 * agreed / n, missedWater, imaginedWater);
+        return 1;
+    }
+
     private static int plan(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         Settlement settlement = nearestSettlement(source);
@@ -771,26 +872,34 @@ public final class KingdomsCommand {
             KingdomsMod.LOGGER.info("PLAN G {}", gates.toString().trim());
         }
 
-        // The ground, sampled every PLAN_STEP blocks: surface height, and
-        // whether that column is water. Rows so the log stays readable and the
-        // reader can rebuild the grid without an index.
+        // The ground, sampled every PLAN_STEP blocks: surface height, whether
+        // that column is water, and whether the reading came from a real chunk
+        // ('.') or from the generator's noise (',').
+        com.kingdoms.neoforge.world.TerrainOracle oracle =
+                ((com.kingdoms.neoforge.bridge.NeoForgeWorldBridge)
+                        KingdomsMod.simulationFor(level).bridge()).oracle();
+        // Somebody asked; read the whole square rather than metering it out at
+        // the planner's budget and returning a map nine tenths unread.
+        oracle.warm(centre.x(), centre.z(), PLAN_REACH, PLAN_STEP);
         int half = PLAN_REACH;
         for (int dz = -half; dz <= half; dz += PLAN_STEP) {
             StringBuilder heights = new StringBuilder();
             StringBuilder wet = new StringBuilder();
             for (int dx = -half; dx <= half; dx += PLAN_STEP) {
-                net.minecraft.core.BlockPos probe = new net.minecraft.core.BlockPos(
-                        centre.x() + dx, centre.y(), centre.z() + dz);
-                if (!level.isLoaded(probe)) {
-                    heights.append("-,");
-                    wet.append('?');
-                    continue;
-                }
-                net.minecraft.core.BlockPos top = level.getHeightmapPos(
-                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                        probe);
-                heights.append(top.getY()).append(',');
-                wet.append(level.getFluidState(top.below()).isEmpty() ? '.' : '~');
+                // The oracle, not the loaded world. A survey that could only
+                // read loaded chunks came back with a tenth of the map blank
+                // and needed three thousand chunks force-loaded to avoid it --
+                // which starved the server of the ticks the town needed to draw
+                // itself. It answers everywhere, and says which readings are
+                // certain.
+                int x = centre.x() + dx;
+                int z = centre.z() + dz;
+                heights.append(oracle.height(x, z)).append(',');
+                // ':' rather than ',' -- the heights beside it are comma
+                // separated, and a marker that collides with the separator made
+                // the field unreadable to the survey parser.
+                wet.append(oracle.isWet(x, z) ? '~'
+                        : oracle.isCertain(x, z) ? '.' : ':');
             }
             KingdomsMod.LOGGER.info("PLAN H {} {} {}", dz, heights, wet);
         }

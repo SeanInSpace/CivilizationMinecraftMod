@@ -20,7 +20,7 @@ BUILD = re.compile(r"PLAN B (\S+) (-?\d+) (-?\d+) (-?\d+) (\d+) (\d+) (\S+)")
 ROAD = re.compile(r"PLAN R (-?\d+) (-?\d+) (-?\d+) (-?\d+)")
 WALL = re.compile(r"PLAN W (\d+) (\d+) (.*)")
 GATE = re.compile(r"PLAN G (.*)")
-GROUND = re.compile(r"PLAN H (-?\d+) ([\d,\-]+) ([.~?]+)")
+GROUND = re.compile(r"PLAN H (-?\d+) ([\d,\-]+) ([.~?:]+)")
 
 # What each blueprint is FOR, which is the only grouping worth colouring by.
 # A town where the dwellings cluster and the industry rings the edge is a

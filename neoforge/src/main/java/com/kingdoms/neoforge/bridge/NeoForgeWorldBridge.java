@@ -2,6 +2,7 @@ package com.kingdoms.neoforge.bridge;
 
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
+import com.kingdoms.neoforge.world.TerrainOracle;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.BuildCatalogue;
 import com.kingdoms.sim.settlement.BuildPlanner;
@@ -34,6 +35,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
 
     public NeoForgeWorldBridge(ServerLevel level) {
         this.level = Objects.requireNonNull(level, "level");
+        this.oracle = new TerrainOracle(level);
     }
 
     public ServerLevel level() {
@@ -452,42 +454,40 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     /**
-     * Judging ground from the world generator, for plots nobody has loaded.
+     * Judging ground nobody has loaded, through the terrain oracle.
      *
-     * <p>Noise, not blocks: this is the terrain before caves are carved, trees
-     * are placed or a player has changed anything, which is exactly what is
-     * available for a chunk that does not exist. It is an estimate and is
-     * treated as one — the real test still runs when the chunk loads, and
-     * {@code relocatePending} still moves a building off ground that turns out
-     * worse than this thought.
-     *
-     * <p>Sampled at five points rather than across the whole plot. This is asked
-     * up to {@link BuildPlanner#PLOT_ATTEMPTS} times per building and noise
-     * sampling is not free, and the difference between a shelf and a cliff face
-     * shows up in five points as clearly as in a hundred.
+     * <p>Was five hand-rolled noise samples here. The oracle does the same thing
+     * properly: it remembers what it has already read, it knows water exactly
+     * rather than by comparison with sea level, and it upgrades a reading to the
+     * real chunk the moment there is one. See {@link TerrainOracle}.
      */
     private boolean generatorThinksItBuildable(SimPos plot, int radius) {
-        int sea = level.getSeaLevel();
-        int lowest = Integer.MAX_VALUE;
-        int highest = Integer.MIN_VALUE;
-        for (int[] at : new int[][] {
-                {0, 0}, {-radius, -radius}, {radius, -radius},
-                {-radius, radius}, {radius, radius}}) {
-            int ground = baseHeight(plot.x() + at[0], plot.z() + at[1]);
-            if (ground < sea) {
-                return false;   // the sea floor is below the sea; this is water
-            }
-            lowest = Math.min(lowest, ground);
-            highest = Math.max(highest, ground);
+        // Nine samples for the water and nine for the fall, on the corners and
+        // edges of the plot. The first version took about a hundred, and since
+        // siting weighs up to ninety-six candidates for one building that came
+        // to ten thousand noise columns a decision -- which stalled a tick for
+        // sixty seconds and had the watchdog kill the server. Nine finds a lake
+        // or a cliff; a hundred finds the same lake and the same cliff.
+        // Sample AT the oracle's own grain. Nine samples thirteen blocks apart
+        // stepped straight over lakes -- twenty-two of a hundred and thirteen
+        // buildings went into water, against none for the cruder check this
+        // replaced. Finer sampling is not the cost it looks: the oracle
+        // remembers on a four-block grid, so the first candidate in an area pays
+        // for the readings and every candidate after it is answered from memory.
+        int wide = Math.max(radius, WATER_REACH);
+        if (oracle.anyWet(plot.x(), plot.z(), wide, TerrainOracle.GRAIN)) {
+            return false;
         }
-        return highest - lowest <= MAX_SLOPE_UNSEEN;
+        return oracle.roughness(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)
+                <= MAX_SLOPE_UNSEEN;
     }
 
-    /** The generator's idea of the ground at a column, water not counted. */
-    private int baseHeight(int x, int z) {
-        return level.getChunkSource().getGenerator().getBaseHeight(
-                x, z, net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG,
-                level, level.getChunkSource().randomState());
+    /** What the ground is, wherever it is asked about. */
+    private final TerrainOracle oracle;
+
+    /** The oracle this bridge reads, so a survey can ask it too. */
+    public TerrainOracle oracle() {
+        return oracle;
     }
 
     /**
