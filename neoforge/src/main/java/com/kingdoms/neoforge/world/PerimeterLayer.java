@@ -74,14 +74,22 @@ public final class PerimeterLayer {
         int drawn = 0;
         int looked = 0;
         int i = start;
-        while (looked < limit && looked < SCAN && drawn < SLICE) {
+        // Only ground somebody could actually draw on counts against the budget.
+        // A ring is usually half out of sight -- 254 of 640 positions loaded on a
+        // measured town -- and charging the scan for the arc nobody can see meant
+        // a sweep whose cursor sat in that arc did nothing at all, then handed the
+        // same arc to the next sweep. The wall appeared to have stopped when it
+        // had simply spent every look on ground it was never allowed to touch.
+        int examined = 0;
+        while (looked < SCAN && examined < limit && drawn < SLICE) {
             SimPos pos = ring.get(i);
             if (level.isLoaded(new BlockPos(pos.x(), pos.y(), pos.z()))) {
                 drawn += perimeter.isGateway(pos)
                         ? drawGateway(level, perimeter, pos)
                         : drawPost(level, pos, i);
+                looked++;
             }
-            looked++;
+            examined++;
             i++;
             if (i >= limit) {
                 i = 0;
@@ -89,6 +97,7 @@ public final class PerimeterLayer {
         }
         CURSOR.put(settlement.id(), i);
     }
+
 
     /**
      * How far round the ring each settlement's sweep had got.

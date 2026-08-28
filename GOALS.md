@@ -231,6 +231,51 @@ work that cannot be delegated.
       here built their whole ring unaided — 364/364 with 908 coin left, and
       420/420 with 740 — with no `wall complete` involved.
 
+- [ ] **A town that grew unwatched draws almost nothing when you arrive.**
+      Not fixed. Six instrumented runs, one real improvement, and the cause
+      still not pinned — written down properly so the next attempt starts from
+      facts instead of repeating mine.
+
+      **What is established.** On a quiet server with a modest force-load, a
+      town that grew unloaded reports `laid=640/640 looked=254 standing=0
+      missing=248`, stable over 160 seconds. Drawing at 24 posts a second would
+      finish that in eleven. `PerimeterLayer.draw` *is* reached, its cursor *does*
+      advance, and `drawPost` is called far too rarely to matter.
+
+      **The likeliest cause, measured but not proven.** The manager is starved of
+      ticks. `PersonEntityManager.tick()` should run once a second; counting
+      probe lines it runs about once every five, because the server never catches
+      up from the `/civ step` blocks — the log carries
+      `Can't keep up! Running 19429ms or 388 ticks behind`. Roughly thirty
+      sweeps happen in a five-minute run, most of them while the ring is still
+      out of sight. That is enough to explain everything above without any
+      further defect, and it is not confirmed.
+
+      **One real fault found and fixed on the way.** The sweep charged its scan
+      budget for positions nobody could draw on. A ring is usually half out of
+      sight — 254 of 640 on the measured town — so a sweep whose cursor sat in
+      the unloaded arc did nothing at all and handed the same arc to the next
+      one. Only loaded ground counts against the budget now, bounded separately
+      so an entirely unloaded ring still costs one lap and no more. The effect
+      end to end is unconfirmed.
+
+      **Next, and in this order.** Measure the manager's real tick rate directly
+      rather than inferring it from log counts. If it is starved, the fix is
+      pacing, not drawing — and every timing figure recorded elsewhere in this
+      file was taken on a server in that state and wants re-checking. Only then
+      look again at the drawing.
+
+      **A warning about the instrumentation, which cost more than the bug.**
+      Five wrong conclusions in a row, each from a probe rather than from the
+      code: a `return` read without measuring; a probe that skipped the
+      `isLoaded` guard the real code has and so manufactured bedrock footings; a
+      sample interval that aliased exactly with the ring length and made a moving
+      cursor look frozen; a `static` counter shared across three dimension
+      managers, so the Nether's empty world read as the overworld losing its
+      kingdoms; and a probe capped to the first twelve calls, which only ever
+      sampled the growth phase. **Measure the thing, in the function that does
+      the work, across the window that matters.**
+
 - [ ] **Finish the wall.** What the work above left standing, none of it yet
       chased. Open deliberately: the ring went from unusable to good, and good
       is not done.

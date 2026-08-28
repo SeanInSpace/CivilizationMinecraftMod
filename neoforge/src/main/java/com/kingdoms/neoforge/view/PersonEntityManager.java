@@ -1098,6 +1098,48 @@ public final class PersonEntityManager {
             return false;
         }
         UUID id = settlement.id().value();
+
+        // A town that grew while nobody was here arrives with its whole network
+        // already planned and opened -- the roads exist, as surely as the
+        // buildings do. Paving them one a second meant a hundred and seventy
+        // stretches took three minutes to appear, so a settlement you walked
+        // back into showed its houses at once and then drew its streets in
+        // slowly around you, one at a time, for as long as you stood there.
+        //
+        // So: everything opened since the last sweep goes down together. Only
+        // the tail is new, because segments are appended, so this costs nothing
+        // on the steps where nothing has changed.
+        int swept = pathsSwept.getOrDefault(id, 0);
+        if (swept < segments.size()) {
+            int done = 0;
+            int i = swept;
+            for (; i < segments.size() && done < PAVE_AT_ONCE; i++) {
+                if (!settlement.paths().isOpened(i)) {
+                    break;   // the network is opened in order; wait for this one
+                }
+                if (!groundIsHere(segments.get(i))) {
+                    // Nobody can see this stretch, so nothing can be laid on it.
+                    // Stopping here rather than stepping over it is the whole
+                    // point: PathLayer no-ops on unloaded ground and reports
+                    // nothing, so a mark that advanced anyway would tick every
+                    // road of an away town off as done without a block being
+                    // placed -- and then the arrival this exists to serve would
+                    // find the work already crossed out.
+                    break;
+                }
+                PathLayer.mend(level, segments.get(i));
+                done++;
+            }
+            pathsSwept.put(id, i);
+            if (done > 0) {
+                if (done > 4) {
+                    KingdomsMod.LOGGER.info("PAVED {} laid {} stretches at once ({} of {})",
+                            settlement.name(), done, i, segments.size());
+                }
+                return true;
+            }
+        }
+
         int cursor = pathCursor.merge(id, 1, Integer::sum) - 1;
         int index = Math.floorMod(cursor, segments.size());
         // Only stretches somebody has actually opened. Paving one nobody has
@@ -1108,6 +1150,31 @@ public final class PersonEntityManager {
         }
         return PathLayer.mend(level, segments.get(index)) > 0;
     }
+
+    /** Whether this stretch's ground is loaded, and so can actually be paved. */
+    private boolean groundIsHere(PathNetwork.Segment segment) {
+        return level.isLoaded(new BlockPos(
+                segment.from().x(), level.getSeaLevel(), segment.from().z()));
+    }
+
+    /**
+     * How much of a waiting network is paved in one pass.
+     *
+     * <p>Bounded because mending a stretch writes blocks, and a town arriving
+     * with two hundred of them owed would otherwise land in a single frame.
+     * Sixty-four a pass clears any real backlog in a few seconds and is not felt.
+     */
+    private static final int PAVE_AT_ONCE = 64;
+
+    /**
+     * How far through each settlement's network the paving has swept.
+     *
+     * <p>Not a boolean: a town keeps growing, and roads planned while you were
+     * away are appended to the same list. Remembering the high-water mark makes
+     * the next arrival lay exactly the stretches added since the last one.
+     */
+    private final Map<UUID, Integer> pathsSwept = new HashMap<>();
+
 
     private boolean workShepherds(Settlement settlement) {
         // The pens are on a ring plot, behind the wall. A shepherd only comes in
