@@ -71,7 +71,7 @@ work that cannot be delegated.
       does not un-build anything.
 
 
-- [x] **The wall was never finished being drawn.** ~~The walls lock citizens in
+- [~] **The wall was never finished being drawn.** ~~The walls lock citizens in
       or out.~~ Reported as a wall that shut people out; measured, it was a wall
       that stopped existing partway round. Four faults, each hiding the next:
 
@@ -139,6 +139,72 @@ work that cannot be delegated.
       quarter of its ring forever, because coin only enters through player
       trade. `-PjoinServer=` puts a client on a running server, which is the
       only way to measure anything about bodies.
+
+- [ ] **The warren layout costs a town three quarters of its people.** Not an
+      argument any more — measured. Same seed, same centre, same nine hundred
+      steps, culture set before a single plot was taken, and `Culture` carries
+      nothing the planners read except the layout (an id, its penned animals,
+      its layout and its name lists), so the layout is the only thing that
+      differed:
+
+      | layout | people | buildings | road runs | road blocks | ring | spread |
+      | --- | --- | --- | --- | --- | --- | --- |
+      | ring | 96 | 113 | 183 | 2981 | 934 | 268 |
+      | stronghold | 96 | 113 | 29 | 704 | 1058 | 281 |
+      | warren | **26** | **40** | **6** | **314** | **1404** | **476** |
+
+      A warren reaches a quarter of the population on a third of the buildings,
+      sprawls nearly twice as far, and needs the longest wall of the three to
+      enclose the least. Six road runs means it is barely a settlement at all;
+      `PathPlanner.MAX_ROUTE` is 192 and its buildings are further apart than
+      that.
+
+      The cause is almost certainly the one already recorded above: `WARREN`
+      keeps `MIN_PLOT_SEPARATION` as a distance and fails the overlap test,
+      which is a box, so a third of its plots are refused, the plot cursor runs
+      away outward, and the town scatters beyond its own roads. Fix the
+      invariant first (it is the same work), then re-run this table —
+      `tools/README.md` has the recipe and it is one command.
+
+      Worth noting what the same table says about the grid, which nobody was
+      asking: **stronghold matches ring on people and buildings for a quarter of
+      the road** — 704 blocks against 2981. Buildings that line up share their
+      streets.
+
+- [ ] **Finish the wall.** What the work above left standing, none of it yet
+      chased. Open deliberately: the ring went from unusable to good, and good
+      is not done.
+
+      - **One post in 986 still will not go up.** Stable across every report, at
+        a footing reading air — where `put` would succeed, so it is not a
+        refusal. It was 3, then 8, then 6 on earlier rings: always under half a
+        per cent, never zero. It no longer halts anything, because the sweep
+        walks past a position it cannot place, and that is precisely why it will
+        sit there forever unless somebody looks. Instrument the one position
+        rather than reasoning about it — every guess at this class of fault so
+        far has been wrong.
+      - **Buildings end up outside their own wall.** The plan view shows plots
+        beyond the line. `chooseSite` prefers slots inside the ring for civic
+        buildings and gives up when none fit — "the town has outgrown its wall,
+        which is the alpha-wall's cue to re-stake, not ours." But nothing
+        re-stakes: `PerimeterPlanner.advance` stakes once and never again, so a
+        town that outgrows its ring stays outgrown permanently. Either re-stake
+        as the town spreads, or refuse to build outside and say so.
+      - **A town can never afford its wall.** Coin enters only through player
+        trade, so a settlement left alone spends its founding treasury and
+        stalls near a quarter of its ring — forever, with gaps a herd could walk
+        through. That follows from the economy as specified rather than from any
+        bug, and it makes the wall player-gated content. Decide whether that is
+        the intent.
+      - **The gates are unproven.** Nine on one ring, seven on another, and
+        `tendGates` opens one for anybody facing it — but a closed fence gate is
+        impassable to vanilla pathfinding, so a settler may not be able to path
+        to the gate that would let them through. Never tested. `shut out of bed`
+        refusing to settle is evidence that people cross, not proof of how.
+      - **`shutByBuilding` is load-bearing and unexamined.** Two or three
+        positions a ring count as closed because the line runs through a
+        building's wall. Defensible — and it also silently forgives a ring
+        staked straight through somebody's house.
 
 - [x] **A town starves with no threat at all.** ~~Seen in play on a peaceful flat
       world with raids off, which rules out everything external.~~ Guessed at
