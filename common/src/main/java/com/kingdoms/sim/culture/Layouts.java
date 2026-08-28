@@ -2,6 +2,9 @@ package com.kingdoms.sim.culture;
 
 import com.kingdoms.sim.geom.SimPos;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -243,10 +246,130 @@ public final class Layouts {
         }
     };
 
+    /**
+     * Dart-thrown plots with a guaranteed gap: blue noise.
+     *
+     * <p>Every other arrangement here is a <em>lattice</em> — rings, knots on a
+     * spiral, a square grid — and each one has had the same fault, which is that
+     * its spacing is a consequence of its arithmetic rather than a promise. The
+     * ring's innermost course cannot hold its own plots. The warren put six huts
+     * on a circle whose neighbours fell inside the overlap box, and a third of
+     * every goblin town was thrown away for years because of it. Both were
+     * "fixed" by choosing better constants, which is a repair that lasts exactly
+     * until somebody chooses a different constant.
+     *
+     * <p>This one cannot have that fault. A position is only returned once it has
+     * been <em>checked</em> against every position already given out, so
+     * {@link Layout#MIN_PLOT_SEPARATION} is the algorithm rather than a number
+     * somebody has to get right. The overlap check downstream can still refuse a
+     * plot for the ground it sits on; it can no longer refuse one for sitting on
+     * its neighbour.
+     *
+     * <p>The three rules are kept the way the others keep them. <b>Deterministic:</b>
+     * the dart throws come from a hash of the town's own centre, so the same town
+     * is the same town on every reload and in every test. <b>Injective:</b> two
+     * plots a clear twelve apart are not the same plot. <b>Roomy:</b> by
+     * construction, above.
+     *
+     * <p>It fills outward, because a town does: the radius each dart may land in
+     * grows with the square root of how many plots have been handed out, which
+     * keeps the density even instead of piling the middle or racing for the edge.
+     */
+    public static final Layout ORGANIC = new Layout() {
+
+        /** Nothing is offered inside this: the hall and its yard live here. */
+        static final int HEART = 15;
+
+        /** How fast the town is allowed to reach outward as it fills. */
+        static final double SPREAD = 13.0;
+
+        /** Darts thrown at one radius before the town is allowed to reach further. */
+        static final int THROWS = 48;
+
+        /** Towns whose sequences are kept. More than a handful is a server's worth. */
+        static final int TOWNS_REMEMBERED = 8;
+
+        @Override
+        public String id() {
+            return "organic";
+        }
+
+        @Override
+        public SimPos plotFor(SimPos centre, int index) {
+            List<SimPos> seq = sequenceFor(centre, Math.max(0, index) + 1);
+            return seq.get(Math.max(0, index));
+        }
+
+        /**
+         * The town's plots in order, generated as far as asked and remembered.
+         *
+         * <p>Kept because the sequence is defined by everything before it: plot
+         * four hundred is only knowable by having placed the three hundred and
+         * ninety-nine before it. Recomputing that for every candidate a
+         * settlement weighs would be the same work a hundred times over.
+         */
+        private List<SimPos> sequenceFor(SimPos centre, int wanted) {
+            String key = centre.x() + ":" + centre.z();
+            synchronized (REMEMBERED) {
+                List<SimPos> seq = REMEMBERED.get(key);
+                if (seq == null) {
+                    seq = new ArrayList<>();
+                    REMEMBERED.put(key, seq);
+                    if (REMEMBERED.size() > TOWNS_REMEMBERED) {
+                        Iterator<String> it = REMEMBERED.keySet().iterator();
+                        it.next();
+                        it.remove();
+                    }
+                }
+                extend(centre, seq, wanted);
+                return seq;
+            }
+        }
+
+        private void extend(SimPos centre, List<SimPos> seq, int wanted) {
+            // The throws are a function of the town's own centre, so this world's
+            // Newholt is the same Newholt after a reload and in every test.
+            long seed = (long) centre.x() * 0x9E3779B97F4A7C15L
+                    ^ (long) centre.z() * 0xC2B2AE3D27D4EB4FL
+                    ^ (long) seq.size() * 0x165667B19E3779F9L;
+            while (seq.size() < wanted) {
+                double reach = HEART + SPREAD * Math.sqrt(seq.size() + 1.0);
+                SimPos placed = null;
+                for (int attempt = 0; placed == null; attempt++) {
+                    if (attempt > 0 && attempt % THROWS == 0) {
+                        reach += SPREAD;   // no room at this size; let the town breathe
+                    }
+                    seed = seed * 6364136223846793005L + 1442695040888963407L;
+                    double angle = ((seed >>> 11) / (double) (1L << 53)) * Math.PI * 2;
+                    seed = seed * 6364136223846793005L + 1442695040888963407L;
+                    double radius = Math.sqrt((seed >>> 11) / (double) (1L << 53))
+                            * (reach - HEART) + HEART;
+                    SimPos dart = new SimPos(
+                            centre.x() + (int) Math.round(radius * Math.cos(angle)),
+                            centre.y(),
+                            centre.z() + (int) Math.round(radius * Math.sin(angle)));
+                    boolean clear = true;
+                    for (SimPos taken : seq) {
+                        if (!Layout.farEnoughApart(dart, taken)) {
+                            clear = false;
+                            break;
+                        }
+                    }
+                    if (clear) {
+                        placed = dart;
+                    }
+                }
+                seq.add(placed);
+            }
+        }
+
+        private final Map<String, List<SimPos>> REMEMBERED = new LinkedHashMap<>();
+    };
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     static {
-        for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD}) {
+        for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC}) {
             KNOWN.put(layout.id(), layout);
         }
     }

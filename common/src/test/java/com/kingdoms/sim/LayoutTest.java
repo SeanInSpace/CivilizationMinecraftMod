@@ -73,7 +73,7 @@ class LayoutTest {
         // months while a third of its plots were being thrown away in play.
         // A test in the wrong units is worse than no test -- it certifies the
         // fault.
-        for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD)) {
+        for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD, Layouts.ORGANIC)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTRE, i);
@@ -98,13 +98,50 @@ class LayoutTest {
         for (Layout layout : Layouts.all()) {
             SimPos here = layout.plotFor(CENTRE, 3);
             SimPos there = layout.plotFor(elsewhere, 3);
-            assertEquals(there.x() - elsewhere.x(), here.x() - CENTRE.x(),
-                    layout.id() + " is not the same shape somewhere else");
-            assertEquals(there.z() - elsewhere.z(), here.z() - CENTRE.z(),
-                    layout.id() + " is not the same shape somewhere else");
             assertEquals(elsewhere.y(), there.y(),
                     layout.id() + " invented a height; that is the survey's job");
+
+            // A lattice is the same shape wherever it is put, and that is worth
+            // holding: it is what makes rings rings. ORGANIC is deliberately not
+            // — its throws are seeded from the town's own centre, so two villages
+            // of the same people are not the same village twice. What the rule is
+            // actually for is that a layout must build around the centre it is
+            // HANDED rather than one it remembers, and that is asserted for all
+            // of them below.
+            if (!layout.id().equals("organic")) {
+                assertEquals(there.x() - elsewhere.x(), here.x() - CENTRE.x(),
+                        layout.id() + " is not the same shape somewhere else");
+                assertEquals(there.z() - elsewhere.z(), here.z() - CENTRE.z(),
+                        layout.id() + " is not the same shape somewhere else");
+            }
+
+            assertTrue(near(here, CENTRE) && near(there, elsewhere),
+                    layout.id() + " put a plot nowhere near the centre it was given");
         }
+    }
+
+    /** Whether a plot is close enough to be part of that centre's town at all. */
+    private static boolean near(SimPos plot, SimPos centre) {
+        return Math.max(Math.abs(plot.x() - centre.x()),
+                        Math.abs(plot.z() - centre.z())) < 400;
+    }
+
+    @Test
+    void twoOrganicTownsAreNotTheSameTownTwice() {
+        // The property the exemption above is buying. A scatter that repeated
+        // itself would be a lattice with extra steps.
+        SimPos elsewhere = new SimPos(3000, 70, -1500);
+        int same = 0;
+        for (int i = 0; i < MANY; i++) {
+            SimPos a = Layouts.ORGANIC.plotFor(CENTRE, i);
+            SimPos b = Layouts.ORGANIC.plotFor(elsewhere, i);
+            if (a.x() - CENTRE.x() == b.x() - elsewhere.x()
+                    && a.z() - CENTRE.z() == b.z() - elsewhere.z()) {
+                same++;
+            }
+        }
+        assertTrue(same < MANY / 4,
+                "two organic towns came out " + same + " plots identical of " + MANY);
     }
 
     // --- and that they are actually different from each other ---

@@ -29,6 +29,7 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
     public static final String LAYOUT_RING = "ring";
     public static final String LAYOUT_WARREN = "warren";
     public static final String LAYOUT_STRONGHOLD = "stronghold";
+    public static final String LAYOUT_ORGANIC = "organic";
 
     /** How this people lays a town out on the ground. */
     public Layout arrangement() {
@@ -89,7 +90,11 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
             "kingdoms:highland",
             List.of("minecraft:goat", "minecraft:sheep", "minecraft:rabbit",
                     "minecraft:chicken"),
-            LAYOUT_RING);
+            // Rings are a lowland idea. A people who live where the ground will
+            // not take a lattice put a house wherever there is room for one, and
+            // that is what the organic scatter is -- the only arrangement here
+            // whose spacing is a promise rather than a consequence.
+            LAYOUT_ORGANIC);
 
     /**
      * The goblins, who do not build towns so much as accumulate them.
