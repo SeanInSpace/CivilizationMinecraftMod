@@ -44,3 +44,9 @@ bin/
 # OS
 .DS_Store
 Thumbs.db
+
+# Agent worktrees are scratch: created and destroyed per run, and eight of them
+# were committed once as bare gitlinks by a parallel session. Clones cannot
+# fetch them, they turn up as phantom deletions in every status, and a stray
+# 'git add -A' sweeps them straight back in.
+.claude/worktrees/
