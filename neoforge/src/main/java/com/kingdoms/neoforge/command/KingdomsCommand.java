@@ -116,6 +116,9 @@ public final class KingdomsCommand {
                         .then(Commands.literal("map")
                                 .executes(KingdomsCommand::wallMap)))
 
+                .then(Commands.literal("plan")
+                        .executes(KingdomsCommand::plan))
+
                 .then(Commands.literal("stores")
                         .executes(KingdomsCommand::stores))
 
@@ -703,6 +706,105 @@ public final class KingdomsCommand {
                         + " vertices)"), false);
         return 1;
     }
+
+    /**
+     * Dumps the whole town as data, for drawing outside the game.
+     *
+     * <p>Every picture of this simulation so far has been a <em>port</em> of it:
+     * the layout formulas rewritten in another language and plotted on a blank
+     * sheet. Those pictures are faithful to the arithmetic and to nothing else
+     * — no ground, no water, no trees, no roads, no wall, and every plot drawn
+     * the same size because the port did not know the catalogue. A port also
+     * drifts from what it copied, silently, the first time either side changes.
+     *
+     * <p>This emits the town's own numbers instead: real origins, real spans
+     * from the real catalogue, the roads the path planner actually laid, the
+     * ring as staked, and the ground under all of it. What is drawn from this
+     * is the town, not a reconstruction of it.
+     *
+     * <p>Written to the log rather than to chat. It is thousands of lines, and
+     * the log is the only sink that will take it.
+     */
+    private static int plan(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        Settlement settlement = nearestSettlement(source);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No settlement nearby."));
+            return 0;
+        }
+        ServerLevel level = source.getLevel();
+        SimPos centre = settlement.centre();
+
+        KingdomsMod.LOGGER.info("PLAN TOWN {} {} {} {} {} {} {} {}",
+                settlement.name().replace(' ', '_'), centre.x(), centre.y(), centre.z(),
+                settlement.stage().name(), settlement.population(),
+                settlement.cultureId(), settlement.arrangement().id());
+
+        for (com.kingdoms.sim.settlement.Building b : settlement.buildings()) {
+            SimPos at = b.origin();
+            KingdomsMod.LOGGER.info("PLAN B {} {} {} {} {} {} {}",
+                    b.blueprintId(), at.x(), at.y(), at.z(),
+                    com.kingdoms.sim.settlement.BuildPlanner.plotSpanOf(
+                            b.blueprintId(), settlement.catalogue()),
+                    com.kingdoms.sim.settlement.BuildPlanner.facingToward(at, centre),
+                    b.role());
+        }
+
+        for (com.kingdoms.sim.settlement.PathNetwork.Segment seg
+                : settlement.paths().segments()) {
+            KingdomsMod.LOGGER.info("PLAN R {} {} {} {}",
+                    seg.from().x(), seg.from().z(), seg.to().x(), seg.to().z());
+        }
+
+        com.kingdoms.sim.settlement.Perimeter ring = settlement.perimeter();
+        if (ring != null) {
+            StringBuilder line = new StringBuilder();
+            for (SimPos v : ring.vertices()) {
+                line.append(v.x()).append(',').append(v.z()).append(' ');
+            }
+            KingdomsMod.LOGGER.info("PLAN W {} {} {}",
+                    ring.laid(), ring.length(), line.toString().trim());
+            StringBuilder gates = new StringBuilder();
+            for (SimPos g : ring.gates()) {
+                gates.append(g.x()).append(',').append(g.z()).append(' ');
+            }
+            KingdomsMod.LOGGER.info("PLAN G {}", gates.toString().trim());
+        }
+
+        // The ground, sampled every PLAN_STEP blocks: surface height, and
+        // whether that column is water. Rows so the log stays readable and the
+        // reader can rebuild the grid without an index.
+        int half = PLAN_REACH;
+        for (int dz = -half; dz <= half; dz += PLAN_STEP) {
+            StringBuilder heights = new StringBuilder();
+            StringBuilder wet = new StringBuilder();
+            for (int dx = -half; dx <= half; dx += PLAN_STEP) {
+                net.minecraft.core.BlockPos probe = new net.minecraft.core.BlockPos(
+                        centre.x() + dx, centre.y(), centre.z() + dz);
+                if (!level.isLoaded(probe)) {
+                    heights.append("-,");
+                    wet.append('?');
+                    continue;
+                }
+                net.minecraft.core.BlockPos top = level.getHeightmapPos(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                        probe);
+                heights.append(top.getY()).append(',');
+                wet.append(level.getFluidState(top.below()).isEmpty() ? '.' : '~');
+            }
+            KingdomsMod.LOGGER.info("PLAN H {} {} {}", dz, heights, wet);
+        }
+
+        source.sendSuccess(() -> Component.literal(
+                "  " + settlement.name() + ": plan written to the log ("
+                        + settlement.buildings().size() + " buildings, "
+                        + settlement.paths().segments().size() + " road runs)"), false);
+        return 1;
+    }
+
+    /** Half-width of ground sampled by {@code /civ plan}, and the sample pitch. */
+    private static final int PLAN_REACH = 200;
+    private static final int PLAN_STEP = 4;
 
     private static int wall(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
