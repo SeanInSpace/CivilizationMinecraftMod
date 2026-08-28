@@ -39,17 +39,43 @@ public interface Layout {
     /**
      * The closest two plot centres may sit and still both be buildable.
      *
-     * <p>Not a matter of taste: a default plot is eleven across and the siting
-     * code insists on a block of bare ground between neighbours, so two plot
-     * centres closer than twelve fail the overlap check and one of them is
-     * refused. A layout that proposes ground this tight is not making a dense
-     * town, it is making candidates that get thrown away.
+     * <p><strong>Measured on the wider axis, not as a distance.</strong> That
+     * distinction is the whole of this constant's history. It used to be
+     * documented as a distance and tested as one, while
+     * {@code BuildPlanner.plotsOverlap} refused a pair when they were within
+     * reach on <em>both</em> axes at once — a square box, not a circle. So a
+     * layout could keep the stated rule, pass the test that checked it, and
+     * still have its plots thrown away by the siting code.
      *
-     * <p>{@link Layouts#RING} does not keep this on its innermost ring, which
-     * is a defect it has always had — see the test that measures it. New
-     * arrangements are expected to keep it.
+     * <p>{@link Layouts#WARREN} did exactly that. Six huts on a circle of
+     * thirteen sit a comfortable 12.5 apart as the crow flies and 11 apart on
+     * the wider axis, so a third of every warren's plots were refused, its plot
+     * cursor ran away outward, and a measured town reached a quarter of the
+     * population of the same seed under a different layout. The rule was never
+     * broken. It was written in the wrong units.
+     *
+     * <p>Hence {@link #farEnoughApart}: one predicate, in the metric the code
+     * actually applies, for layouts and tests to share. A rule with two
+     * definitions has none.
      */
     int MIN_PLOT_SEPARATION = 12;
+
+    /**
+     * Whether two plot centres are far enough apart to both be built on.
+     *
+     * <p>The wider axis decides it, because that is what the overlap check
+     * asks: two plots foul each other only when they are close on <em>both</em>
+     * axes. Being far apart on one is enough, which is precisely how a street
+     * of houses works and why a distance was always the wrong measure.
+     *
+     * <p>Stated for two plots of the default span. A larger building reaches
+     * further and may still be refused; the siting loop tries the next index
+     * when that happens, which is a cost of one attempt and not a fault.
+     */
+    static boolean farEnoughApart(SimPos a, SimPos b) {
+        return Math.max(Math.abs(a.x() - b.x()), Math.abs(a.z() - b.z()))
+                >= MIN_PLOT_SEPARATION;
+    }
 
     /** This arrangement's identifier, as a culture names it. */
     String id();

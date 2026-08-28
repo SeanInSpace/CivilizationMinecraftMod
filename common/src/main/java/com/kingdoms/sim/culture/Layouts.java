@@ -95,21 +95,44 @@ public final class Layouts {
         /**
          * How far a hut sits from the middle of its own knot.
          *
-         * <p>Six around a circle of thirteen puts neighbours thirteen apart,
-         * which clears {@link Layout#MIN_PLOT_SEPARATION} with a block to spare.
+         * <p>Was thirteen, on the reasoning that six around a circle of
+         * thirteen puts neighbours thirteen apart and so clears
+         * {@link Layout#MIN_PLOT_SEPARATION} with a block to spare. Both halves
+         * of that were true and it was still wrong: the separation is measured
+         * on the wider axis, not as a distance, and those neighbours sit six
+         * across and eleven deep. Eleven is inside the box, so one hut of every
+         * pair was refused.
+         *
+         * <p>What that cost, measured against the same seed and the same nine
+         * hundred steps: <strong>26 people to the ring layout's 96</strong>, on
+         * forty buildings to its hundred and thirteen, sprawling nearly twice as
+         * far because the plot cursor ran outward hunting for ground it kept
+         * being refused.
          */
-        static final int CLUMP_RADIUS = 13;
+        static final int CLUMP_RADIUS = 16;
 
         /**
          * How far the second knot sits from the first.
          *
          * <p>Has to clear two knot radii plus a plot separation, or huts on the
          * facing edges of neighbouring knots overlap — which is exactly what the
-         * first draft of this did, putting plots 2 and 6 ten blocks apart.
+         * first draft of this did, putting plots 2 and 6 ten blocks apart. The
+         * worst pair under the old numbers was between knots rather than inside
+         * one, so widening the knot alone never fixed it; these three constants
+         * are solved together.
+         *
+         * <p>Solved for two things, not one. The tightest set that merely clears
+         * the box pulls the knots in until huts in neighbouring knots sit closer
+         * than huts in the same one — at which point there are no knots, just a
+         * scatter, and the layout has been repaired into meaninglessness. So the
+         * search also keeps the nearest hut in another knot further off than the
+         * nearest hut at home, which is the only thing that makes a knot legible
+         * from above. These numbers hold that ratio at 1.5, against the old
+         * geometry's 1.4.
          */
-        static final int FIRST_CLUMP_OUT = 42;
+        static final int FIRST_CLUMP_OUT = 54;
 
-        static final int CLUMP_SPREAD = 34;
+        static final int CLUMP_SPREAD = 26;
 
         /** Two fifths of a turn: never repeats a spoke, and looks unplanned. */
         static final double CLUMP_TURN = 2.399963;

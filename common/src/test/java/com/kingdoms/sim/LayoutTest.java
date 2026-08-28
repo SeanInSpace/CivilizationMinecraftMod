@@ -13,6 +13,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -65,6 +66,13 @@ class LayoutTest {
         // away. RING is excluded and measured separately, below, because it has
         // never kept this rule and moving it now would shift the first ring of
         // every town that already exists.
+        //
+        // Measured with Layout.farEnoughApart, which is the whole point of that
+        // predicate existing: this test used to compare straight-line distance
+        // while the siting code refused on a box, so WARREN passed it for
+        // months while a third of its plots were being thrown away in play.
+        // A test in the wrong units is worse than no test -- it certifies the
+        // fault.
         for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
@@ -72,10 +80,13 @@ class LayoutTest {
             }
             for (int a = 0; a < MANY; a++) {
                 for (int b = a + 1; b < MANY; b++) {
-                    double gap = plots[a].horizontalDistance(plots[b]);
-                    assertTrue(gap >= Layout.MIN_PLOT_SEPARATION,
+                    assertTrue(Layout.farEnoughApart(plots[a], plots[b]),
                             layout.id() + " put plots " + a + " and " + b
-                                    + " only " + Math.round(gap) + " apart");
+                                    + " at " + plots[a] + " and " + plots[b]
+                                    + " — only " + Math.max(
+                                            Math.abs(plots[a].x() - plots[b].x()),
+                                            Math.abs(plots[a].z() - plots[b].z()))
+                                    + " apart on the wider axis");
                 }
             }
         }
@@ -114,9 +125,9 @@ class LayoutTest {
     @Test
     void theVillagesInnermostRingIsTooTightForItsOwnPlots() {
         // A defect, recorded rather than hidden, and not introduced here: with
-        // eight slots at a radius of twelve the chord is nine, and a default
-        // plot is eleven across and wants a block of clear ground besides. So
-        // the innermost ring of every human town cannot hold two neighbouring
+        // eight slots at a radius of twelve, neighbouring plots sit four across
+        // and eight deep, and a pair that close on BOTH axes fouls. So the
+        // innermost ring of every human town cannot hold two neighbouring
         // buildings, and the overlap check quietly refuses one of each pair.
         //
         // Harmless enough to have gone unnoticed -- an index is only spent when
@@ -124,11 +135,47 @@ class LayoutTest {
         // but it means the first ring never holds what the arithmetic says it
         // holds. Fixing it moves the first ring of every existing town, which is
         // not a thing to do quietly on the way past.
-        double gap = Layouts.RING.plotFor(CENTRE, 0)
-                .horizontalDistance(Layouts.RING.plotFor(CENTRE, 1));
-        assertTrue(gap < Layout.MIN_PLOT_SEPARATION,
+        SimPos first = Layouts.RING.plotFor(CENTRE, 0);
+        SimPos second = Layouts.RING.plotFor(CENTRE, 1);
+        assertFalse(Layout.farEnoughApart(first, second),
                 "if this ever passes, the first ring was widened and this note is stale");
-        assertTrue(gap > 8, "and it is nine, not nothing");
+        assertEquals(8, Math.max(Math.abs(first.x() - second.x()),
+                        Math.abs(first.z() - second.z())),
+                "and it is eight on the wider axis, not nothing");
+    }
+
+    @Test
+    void aWarrenKeepsItsKnotsRatherThanBecomingAScatter() {
+        // Separation alone is not enough to describe this layout, and solving
+        // for separation alone very nearly destroyed it. Pulling the knots
+        // together until every plot cleared the overlap box left huts in
+        // NEIGHBOURING knots sitting closer than huts in the same knot -- which
+        // passes every rule and is no longer a warren. It is a scatter with the
+        // same plot count.
+        //
+        // So the thing the layout exists to be is asserted too: from above, a
+        // knot has to read as a knot.
+        int perClump = 6;
+        double within = Double.MAX_VALUE;
+        double between = Double.MAX_VALUE;
+        SimPos[] plots = new SimPos[60];
+        for (int i = 0; i < plots.length; i++) {
+            plots[i] = Layouts.WARREN.plotFor(CENTRE, i);
+        }
+        for (int a = 0; a < plots.length; a++) {
+            for (int b = a + 1; b < plots.length; b++) {
+                double gap = plots[a].horizontalDistance(plots[b]);
+                if (a / perClump == b / perClump) {
+                    within = Math.min(within, gap);
+                } else {
+                    between = Math.min(between, gap);
+                }
+            }
+        }
+        assertTrue(between > within,
+                "huts in different knots are " + Math.round(between)
+                        + " apart and huts in the same knot " + Math.round(within)
+                        + " — the knots have dissolved into a scatter");
     }
 
     @Test
