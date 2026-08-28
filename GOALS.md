@@ -140,45 +140,53 @@ work that cannot be delegated.
       trade. `-PjoinServer=` puts a client on a running server, which is the
       only way to measure anything about bodies.
 
-- [ ] **The warren layout costs a town three quarters of its people.** Not an
-      argument any more — measured. Same seed, same centre, same nine hundred
-      steps, culture set before a single plot was taken, and `Culture` carries
-      nothing the planners read except the layout (an id, its penned animals,
-      its layout and its name lists), so the layout is the only thing that
-      differed:
+- [x] **The plot separation rule was written in the wrong units.** Fixed.
+      `MIN_PLOT_SEPARATION` was documented and tested as a distance while
+      `plotsOverlap` refuses a pair only when they are close on *both* axes — a
+      box, not a circle. A layout could keep the stated rule, pass the test that
+      checked it, and still have its plots thrown away. `Layout.farEnoughApart`
+      is now the single definition, in the metric the code applies, and the
+      corrected test fails against the old geometry. A second test asserts what
+      a warren is *for*, because solving separation alone very nearly dissolved
+      the knots into a scatter.
 
-      | layout | people | buildings | road runs | road blocks | ring | spread |
-      | --- | --- | --- | --- | --- | --- | --- |
-      | ring | 96 | 113 | 183 | 2981 | 934 | 268 |
-      | stronghold | 96 | 113 | 29 | 704 | 1058 | 281 |
-      | warren | **26** | **40** | **6** | **314** | **1404** | **476** |
+- [ ] **The warren layout cannot support a town, and separation was not why.**
+      A prediction made in advance and falsified, which is the useful kind. The
+      geometry fix took accepted plots from 31/48 to 48/48 — and the town got
+      *smaller*, not larger.
 
-      A warren reaches a quarter of the population on a third of the buildings,
-      sprawls nearly twice as far, and needs the longest wall of the three to
-      enclose the least. Six road runs means it is barely a settlement at all;
-      `PathPlanner.MAX_ROUTE` is 192 and its buildings are further apart than
-      that.
+      | layout | people | buildings | spread |
+      | --- | --- | --- | --- |
+      | ring | 96 | 113 | 268 |
+      | stronghold | 96 | 113 | 318 |
+      | warren, original (broken separation) | 26 | 40 | 476 |
+      | warren, separation fixed | **16** | **30** | 328 |
 
-      The cause is almost certainly the one already recorded above: `WARREN`
-      keeps `MIN_PLOT_SEPARATION` as a distance and fails the overlap test,
-      which is a box, so a third of its plots are refused, the plot cursor runs
-      away outward, and the town scatters beyond its own roads. Fix the
-      invariant first (it is the same work), then re-run this table —
-      `tools/README.md` has the recipe and it is one command.
+      Sprawl is not the cause either: the original sprawled *further* (476) and
+      supported *more* people. The cause is visible in where the early buildings
+      land — distance from the centre, in order:
 
-      ~~Worth noting what the same table says about the grid: stronghold matches
-      ring on people and buildings for a quarter of the road — 704 blocks against
-      2981.~~ **Withdrawn: that was n=1 and does not replicate.** The same seed
-      and the same script gave stronghold 704 road-blocks on one run and 2405 on
-      the next.
+      - ring: 12, 28, 44, 44, 60, 60 — fills continuously outward, 16 farms
+      - warren: 16, 16, 45, **93, 126, 166** — jumps, 2 farms
 
-      Which is itself the more useful finding, and belongs on every survey read
-      from here: **population, building count and spread repeat exactly across
-      runs; road count, road length and ring length do not.** The sim is
-      real-time sensitive — a `/civ step` block that lands while chunks are
-      still settling does different work from one that does not — so anything
-      counted in roads or posts needs several runs before it means anything, and
-      anything counted in people or plots can be trusted from one.
+      A warren puts six huts in a knot and then crosses open ground to the next
+      one. `Economy.WORTH_THE_WALK` is 20 and the void is 36. So the seventh
+      building onward is out of reach, food never gets back to the granary, the
+      population cannot grow, and the town never builds the farms that would
+      feed it. Sixteen people and two farms is that loop closing.
+
+      **It is not tunable.** Six huts at radius 16 make a knot 32 blocks across,
+      so the next knot must clear it: searching all three constants under the
+      separation and knot-legibility rules, the smallest void available is 35
+      against the 36 now shipping. The ring layout's seventh building sits at 28.
+
+      So it needs a design decision, not a constant:
+      - pack more knots close in before spiralling out, accepting a denser
+        centre than a warren "should" have; or
+      - let a warren be what it looks like — a scatter of hamlets — and teach
+        the simulation to run one: per-knot stores, hauling between knots, and a
+        food chain that does not assume one granary within a short walk. That is
+        the more interesting game and much the larger job.
 
 - [ ] **Finish the wall.** What the work above left standing, none of it yet
       chased. Open deliberately: the ring went from unusable to good, and good
