@@ -127,12 +127,22 @@ public final class Layouts {
          * scatter, and the layout has been repaired into meaninglessness. So the
          * search also keeps the nearest hut in another knot further off than the
          * nearest hut at home, which is the only thing that makes a knot legible
-         * from above. These numbers hold that ratio at 1.5, against the old
-         * geometry's 1.4.
+         * from above.
+         *
+         * <p>And solved over the town that <em>exists</em>. The first attempt
+         * minimised the spread of three hundred plots, which bought a tight tail
+         * by pushing the first three knots further out — and no warren has ever
+         * reached the tail. A measured town of twenty-nine buildings uses knots
+         * nought to four and nothing beyond, so every knot it had was further
+         * from home than before and the town came out <em>smaller</em>: fifteen
+         * people where the broken geometry managed twenty-six. Correct by the
+         * invariant, worse by the outcome. These numbers are solved for the
+         * first thirty plots instead, and span 96 blocks against the original's
+         * 104.
          */
-        static final int FIRST_CLUMP_OUT = 54;
+        static final int FIRST_CLUMP_OUT = 52;
 
-        static final int CLUMP_SPREAD = 26;
+        static final int CLUMP_SPREAD = 20;
 
         /** Two fifths of a turn: never repeats a spoke, and looks unplanned. */
         static final double CLUMP_TURN = 2.399963;

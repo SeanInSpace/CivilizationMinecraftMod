@@ -166,10 +166,19 @@ work that cannot be delegated.
       invariant first (it is the same work), then re-run this table —
       `tools/README.md` has the recipe and it is one command.
 
-      Worth noting what the same table says about the grid, which nobody was
-      asking: **stronghold matches ring on people and buildings for a quarter of
-      the road** — 704 blocks against 2981. Buildings that line up share their
-      streets.
+      ~~Worth noting what the same table says about the grid: stronghold matches
+      ring on people and buildings for a quarter of the road — 704 blocks against
+      2981.~~ **Withdrawn: that was n=1 and does not replicate.** The same seed
+      and the same script gave stronghold 704 road-blocks on one run and 2405 on
+      the next.
+
+      Which is itself the more useful finding, and belongs on every survey read
+      from here: **population, building count and spread repeat exactly across
+      runs; road count, road length and ring length do not.** The sim is
+      real-time sensitive — a `/civ step` block that lands while chunks are
+      still settling does different work from one that does not — so anything
+      counted in roads or posts needs several runs before it means anything, and
+      anything counted in people or plots can be trusted from one.
 
 - [ ] **Finish the wall.** What the work above left standing, none of it yet
       chased. Open deliberately: the ring went from unusable to good, and good
