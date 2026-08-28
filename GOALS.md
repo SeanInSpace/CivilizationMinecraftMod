@@ -188,6 +188,49 @@ work that cannot be delegated.
         food chain that does not assume one granary within a short walk. That is
         the more interesting game and much the larger job.
 
+- [x] **Ground nobody had loaded was never judged at all.** Spotted from the
+      survey map: past the loaded edge, no building was ever refused.
+      `isSiteSuitable` returned `true` for an unloaded chunk — "nothing to judge
+      on; the real survey happens later" — and since a town grows mostly out of
+      sight, that made the terrain test a no-op for most of most towns.
+
+      The later survey is real but weak: `relocatePending` moves a never-drawn
+      building off unfit ground, and calls the same predicate, so it is inert
+      until something loads. And by then the shape is committed — claim radius,
+      roads and the staked ring all come from the blind positions.
+
+      It was also unnecessary. The generator will describe ground it has not
+      built: `getBaseHeight(x, z, OCEAN_FLOOR_WG, ...)` samples the terrain noise
+      with no chunk loads, which is what vanilla asks when siting a village. Five
+      points per plot, refuse open water or more than 8 courses of fall.
+
+      Measured with both towns grown **fully unwatched**, same seed, same script,
+      one line different:
+
+      | | people | buildings | spread | on water |
+      | --- | --- | --- | --- | --- |
+      | fail-open (as shipped) | 96 | 113 | 124 | **29 of 113** |
+      | generator judges it | 96 | 113 | 188 | **0 of 113** |
+
+      A quarter of every unwatched town was standing in water. None now, at the
+      cost of spreading half as far again — which is the honest trade and not a
+      free win: refusing ground pushes the plot cursor outward. 37% of blind
+      candidates are now refused where 100% used to pass.
+
+- [ ] **Force-loading a town to measure it changes the town.** Found while
+      controlling for the above, and it undermines every survey taken so far.
+      The same seed and script gives spread 268 when the area is force-loaded and
+      124 when it is not, because a loaded chunk gets the strict test (4 courses,
+      water across the widest span) and an unloaded one got none. Strictness
+      drives sprawl.
+
+      Two things follow. **Surveys must say how they were grown**, because a
+      force-loaded town is not the town a player gets. And the recorded finding
+      that *a town can never afford its wall* is wrong: it came from force-loaded
+      runs sprawling into rings they could not pay for. Both unwatched towns
+      here built their whole ring unaided — 364/364 with 908 coin left, and
+      420/420 with 740 — with no `wall complete` involved.
+
 - [ ] **Finish the wall.** What the work above left standing, none of it yet
       chased. Open deliberately: the ring went from unusable to good, and good
       is not done.
@@ -207,12 +250,13 @@ work that cannot be delegated.
         re-stakes: `PerimeterPlanner.advance` stakes once and never again, so a
         town that outgrows its ring stays outgrown permanently. Either re-stake
         as the town spreads, or refuse to build outside and say so.
-      - **A town can never afford its wall.** Coin enters only through player
-        trade, so a settlement left alone spends its founding treasury and
-        stalls near a quarter of its ring — forever, with gaps a herd could walk
-        through. That follows from the economy as specified rather than from any
-        bug, and it makes the wall player-gated content. Decide whether that is
-        the intent.
+      - ~~**A town can never afford its wall.**~~ **Withdrawn.** That came from
+        force-loaded runs, and force-loading makes a town sprawl into a ring it
+        cannot pay for. Left alone, both measured unwatched towns built their
+        whole ring on their own — 364/364 with 908 coin still banked, and
+        420/420 with 740. The wall was never too expensive; the town was too
+        spread out, because it was siting buildings on ground nobody had looked
+        at.
       - **The gates are unproven.** Nine on one ring, seven on another, and
         `tendGates` opens one for anybody facing it — but a closed fence gate is
         impassable to vanilla pathfinding, so a settler may not be able to path

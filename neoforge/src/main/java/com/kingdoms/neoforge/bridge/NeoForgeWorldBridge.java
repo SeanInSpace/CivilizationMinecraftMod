@@ -219,7 +219,17 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     public boolean isSiteSuitable(SimPos plot, int radius) {
         BlockPos centre = toBlockPos(plot);
         if (!level.isLoaded(centre)) {
-            return true;   // nothing to judge on; the real survey happens later
+            // Not "nothing to judge on", which is what this used to say before
+            // returning true and letting everything through. A town grows mostly
+            // out of sight, so that made the terrain test a no-op for most of
+            // every town ever built: past the loaded edge nothing was ever
+            // refused, and the layout ran unfiltered into lakes and cliffs until
+            // somebody walked out there.
+            //
+            // The generator knows the shape of ground it has not built yet. It
+            // is the same question vanilla asks when it decides where a village
+            // may go, and it costs no chunk loads.
+            return generatorThinksItBuildable(plot, radius);
         }
         // Water first and on its own terms: it is judged across the whole span a
         // building could occupy, where slope is only judged across the plot the
@@ -440,4 +450,55 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         }
         KingdomsMod.LOGGER.info("Raid: {} hostiles spawned around {}", spawned, around);
     }
+
+    /**
+     * Judging ground from the world generator, for plots nobody has loaded.
+     *
+     * <p>Noise, not blocks: this is the terrain before caves are carved, trees
+     * are placed or a player has changed anything, which is exactly what is
+     * available for a chunk that does not exist. It is an estimate and is
+     * treated as one — the real test still runs when the chunk loads, and
+     * {@code relocatePending} still moves a building off ground that turns out
+     * worse than this thought.
+     *
+     * <p>Sampled at five points rather than across the whole plot. This is asked
+     * up to {@link BuildPlanner#PLOT_ATTEMPTS} times per building and noise
+     * sampling is not free, and the difference between a shelf and a cliff face
+     * shows up in five points as clearly as in a hundred.
+     */
+    private boolean generatorThinksItBuildable(SimPos plot, int radius) {
+        int sea = level.getSeaLevel();
+        int lowest = Integer.MAX_VALUE;
+        int highest = Integer.MIN_VALUE;
+        for (int[] at : new int[][] {
+                {0, 0}, {-radius, -radius}, {radius, -radius},
+                {-radius, radius}, {radius, radius}}) {
+            int ground = baseHeight(plot.x() + at[0], plot.z() + at[1]);
+            if (ground < sea) {
+                return false;   // the sea floor is below the sea; this is water
+            }
+            lowest = Math.min(lowest, ground);
+            highest = Math.max(highest, ground);
+        }
+        return highest - lowest <= MAX_SLOPE_UNSEEN;
+    }
+
+    /** The generator's idea of the ground at a column, water not counted. */
+    private int baseHeight(int x, int z) {
+        return level.getChunkSource().getGenerator().getBaseHeight(
+                x, z, net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG,
+                level, level.getChunkSource().randomState());
+    }
+
+    /**
+     * Slope allowed on ground judged from noise alone.
+     *
+     * <p>Looser than {@link #MAX_SLOPE}, deliberately. The estimate is coarse
+     * and refusing on it is cheap to get wrong in the expensive direction: a
+     * settlement that can find no site at all stops examining and takes the next
+     * slot unseen, which is how it ended up in a lake in the first place. This
+     * is meant to turn away cliffs and open water, not to grade a building
+     * plot.
+     */
+    private static final int MAX_SLOPE_UNSEEN = 8;
 }
