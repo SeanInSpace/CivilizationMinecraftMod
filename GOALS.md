@@ -313,11 +313,34 @@ work that cannot be delegated.
       a cliff from a shelf, not good enough for anything finer, and nobody should
       build a finer decision on it.
 
-      **Still open.** Buildings-on-water went 22 to 5 after sampling at the
-      grain, but that is seed 20260828 (half water) and the "0 of 113" it wants
-      comparing against is seed 8675309. Cross-seed comparison is the same error
-      withdrawn elsewhere in this file. Run both versions on one seed before
-      claiming either.
+      **Both estimates run on one seed, and the answer is not the one expected.**
+      Seed 8675309, growth with nothing force-loaded so siting was genuinely
+      judging unseen ground, the square loaded only afterwards so the water count
+      came from the world rather than from the estimate that made the decisions.
+
+      | | people | buildings | spread | on water |
+      | --- | --- | --- | --- | --- |
+      | oracle | 96 | 113 | 189 | **8 of 75 judged** |
+      | five-sample | — | — | — | **cannot finish the run** |
+
+      The five-sample estimate kills the server. Five uncached noise samples
+      times ninety-six candidates a building, at six milliseconds a sample, is a
+      sixty-second tick and the watchdog stops it — confirmed from the crash
+      stack twice. **Its remembered "0 of 113" was measured on runs where chunks
+      were loaded**, so it was taking the cheap path and was never doing
+      unloaded-ground siting at scale at all. The comparison it was in was
+      therefore never valid in either direction.
+
+      So the oracle is not the worse of two options; it is the only one of the
+      two that can do the job, and what makes it viable is exactly the four-block
+      cache grain and the per-tick budget. **8 of 75 judged plots in water on the
+      hard seed is the first honest figure this project has for siting on ground
+      nobody has looked at.** The fail-open baseline on the same seed was 29 of
+      113.
+
+      Still worth doing: the same pair on a gentle seed, and a look at whether
+      those eight are lakes the noise cannot see (feature lakes are placed after
+      the stage the generator answers from) rather than a tuning problem.
 
 - [ ] **Finish the wall.** What the work above left standing, none of it yet
       chased. Open deliberately: the ring went from unusable to good, and good

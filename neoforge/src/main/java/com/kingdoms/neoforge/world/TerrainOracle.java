@@ -211,8 +211,9 @@ public final class TerrainOracle {
                         && (known.get(key) & FROM_CHUNK) != 0) {
                     continue;
                 }
-                if (spent++ >= WARM_CEILING) {
-                    return;
+                boolean cheap = level.hasChunkAt(new BlockPos(x, 0, z));
+                if (!cheap && spent++ >= WARM_CEILING) {
+                    return;   // out of noise; the rest is honestly unread
                 }
                 if (known.size() >= REMEMBERED) {
                     known.clear();
