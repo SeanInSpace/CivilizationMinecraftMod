@@ -474,9 +474,28 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         // replaced. Finer sampling is not the cost it looks: the oracle
         // remembers on a four-block grid, so the first candidate in an area pays
         // for the readings and every candidate after it is answered from memory.
-        int wide = Math.max(radius, WATER_REACH);
-        if (oracle.anyWet(plot.x(), plot.z(), wide, TerrainOracle.GRAIN)) {
-            return false;
+        // Sea level, and only sea level, for the water. Measured on one seed at
+        // equal population and equal spread: this rule alone left NONE of
+        // ninety-three judged plots in water; the exact two-heightmap test alone
+        // left eight of seventy-five; and -- the part worth remembering --
+        // requiring BOTH left fourteen of ninety-eight, which is worse than
+        // either. Refusing more cannot put more houses in lakes on its own, so
+        // something downstream is taking over when the search runs out, and it
+        // is: Settlement.chooseSite, having examined every candidate and refused
+        // them all, takes the next slot UNEXAMINED. A stricter test therefore
+        // buys more blind placements. Until that is fixed, the least strict
+        // adequate rule is the safest one.
+        //
+        // The exact test is kept in the oracle and is the better instrument; it
+        // is simply blind to lakes placed as world features, which arrive after
+        // the stage the generator answers from, and no sampling fixes that.
+        int sea = level.getSeaLevel();
+        for (int[] at : new int[][] {
+                {0, 0}, {-radius, -radius}, {radius, -radius},
+                {-radius, radius}, {radius, radius}}) {
+            if (oracle.height(plot.x() + at[0], plot.z() + at[1]) < sea) {
+                return false;
+            }
         }
         return oracle.roughness(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)
                 <= MAX_SLOPE_UNSEEN;

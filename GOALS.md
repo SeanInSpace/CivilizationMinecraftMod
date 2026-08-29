@@ -313,34 +313,54 @@ work that cannot be delegated.
       a cliff from a shelf, not good enough for anything finer, and nobody should
       build a finer decision on it.
 
-      **Both estimates run on one seed, and the answer is not the one expected.**
-      Seed 8675309, growth with nothing force-loaded so siting was genuinely
-      judging unseen ground, the square loaded only afterwards so the water count
-      came from the world rather than from the estimate that made the decisions.
+      **Both estimates run on one seed, fairly, and the older one wins.** Seed
+      8675309, growth with nothing force-loaded, the square loaded only
+      afterwards so the water count comes from the world and not from the
+      estimate that made the decisions. Identical population, buildings and
+      spread in every case:
 
-      | | people | buildings | spread | on water |
-      | --- | --- | --- | --- | --- |
-      | oracle | 96 | 113 | 189 | **8 of 75 judged** |
-      | five-sample | — | — | — | **cannot finish the run** |
+      | water rule | on water | of judged |
+      | --- | --- | --- |
+      | sea level only (the old five-sample rule) | **0** | 93 |
+      | two heightmaps disagree (the oracle's) | 8 | 75 |
+      | **both required** | **14** | 98 |
 
-      The five-sample estimate kills the server. Five uncached noise samples
-      times ninety-six candidates a building, at six milliseconds a sample, is a
-      sixty-second tick and the watchdog stops it — confirmed from the crash
-      stack twice. **Its remembered "0 of 113" was measured on runs where chunks
-      were loaded**, so it was taking the cheap path and was never doing
-      unloaded-ground siting at scale at all. The comparison it was in was
-      therefore never valid in either direction.
+      An earlier run of this comparison put the old rule through the oracle's
+      *uncached* reading, where it killed the server, and I recorded that as
+      "the five-sample estimate cannot do the job". That was measuring caching,
+      not the estimate. **Withdrawn.** Caching is infrastructure either rule can
+      have; what differs is the sampling pattern and the water test.
 
-      So the oracle is not the worse of two options; it is the only one of the
-      two that can do the job, and what makes it viable is exactly the four-block
-      cache grain and the per-tick budget. **8 of 75 judged plots in water on the
-      hard seed is the first honest figure this project has for siting on ground
-      nobody has looked at.** The fail-open baseline on the same seed was 29 of
-      113.
+      The exact test is the better instrument and is blind to lakes placed as
+      world *features*, which arrive after the stage the generator answers from.
+      No amount of sampling fixes that. The crude sea-level rule catches them by
+      accident, because feature lakes sit in low ground.
 
-      Still worth doing: the same pair on a gentle seed, and a look at whether
-      those eight are lakes the noise cannot see (feature lakes are placed after
-      the stage the generator answers from) rather than a tuning problem.
+- [ ] **Refusing more ground puts more houses in lakes.** The finding that came
+      out of the row above, and it is worth more than the row. Requiring both
+      water tests — strictly more refusals — made siting *worse*, 14 in water
+      against 8 and 0. Stricter refusal cannot do that on its own, so something
+      downstream takes over, and it does:
+
+      ```java
+      // Every candidate examined and none will do. Take the very next slot
+      // rather than stop building altogether...
+      return arrangement().plotFor(centre, nextPlotIndex++);
+      ```
+
+      `Settlement.chooseSite`, having examined all ninety-six candidates and
+      refused them, takes the next slot **with no terrain check at all**. So the
+      better the terrain test, the more often the search exhausts itself, and
+      the more buildings are placed blind — including into the water the test
+      was refusing. Every improvement to siting is partly self-cancelling.
+
+      The comment says a town out of room "builds on poor ground, not one that
+      gives up", and that is the right intention. It is not what the code does:
+      it builds on *unexamined* ground, which is a different and much worse
+      thing. The fix is to remember the least-bad candidate the search already
+      looked at and take that — which needs the bridge to score a site rather
+      than merely pass or fail it. Until then the least strict adequate water
+      rule is the safest, which is why the sea-level test now stands alone.
 
 - [ ] **Finish the wall.** What the work above left standing, none of it yet
       chased. Open deliberately: the ring went from unusable to good, and good
