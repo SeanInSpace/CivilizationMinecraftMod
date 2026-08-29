@@ -218,6 +218,24 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     private static final int WOOD_PROBE_DEPTH = 6;
 
     @Override
+    public boolean standsInWater(SimPos plot, int radius) {
+        if (level.isLoaded(toBlockPos(plot))) {
+            return standsInOpenWater(plot, radius);
+        }
+        int sea = level.getSeaLevel();
+        for (int[] at : new int[][] {
+                {0, 0}, {-radius, -radius}, {radius, -radius},
+                {-radius, radius}, {radius, radius}}) {
+            int x = plot.x() + at[0];
+            int z = plot.z() + at[1];
+            if (oracle.isWet(x, z) || oracle.height(x, z) < sea) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public boolean isSiteSuitable(SimPos plot, int radius) {
         BlockPos centre = toBlockPos(plot);
         if (!level.isLoaded(centre)) {
@@ -238,6 +256,9 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         // caller named. A town that builds in a lake looks like a bug even when
         // it is working.
         if (holdsStandingFluid(plot, Math.max(radius, WATER_REACH))) {
+            return false;
+        }
+        if (standsInOpenWater(plot, radius)) {
             return false;
         }
         return slopeWithin(plot, radius);
@@ -298,27 +319,91 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     /** Whether the plot is level enough that a shelf can be cut into it. */
+    /**
+     * Whether the ground is level enough, allowing for what a builder will fix.
+     *
+     * <p>It used to take the very highest column against the very lowest and
+     * refuse anything over four courses apart. That reads a <em>hole</em> as a
+     * <em>cliff</em>: a flat shelf with one rabbit hole, cave mouth or ravine
+     * corner clipping it was refused outright, when the thing standing there
+     * would have packed the hole with two courses of fill and never noticed.
+     * A settlement should not walk past good ground because of a pit it is
+     * about to floor over anyway.
+     *
+     * <p>So the judgement is made on the <em>bulk</em> of the plot rather than
+     * on its two most extreme columns, and what falls below is left to
+     * {@code BlueprintPlacer.foundation}, which already packs a floor up to its
+     * line and is already bounded at {@code FOUNDATION_DEPTH} courses. Anything
+     * deeper than the foundation can reach still refuses, because a floor the
+     * fill cannot reach is a floor with a hole under it.
+     */
+    /**
+     * Whether this plot stands in a river or the sea, which is never allowed.
+     *
+     * <p>Separate from {@link #holdsStandingFluid} and stricter, because the two
+     * refuse different things for different reasons. That one keeps a floor from
+     * being cut level with a pond it would then flood from; this one is about
+     * what a town looks like. A building standing in open water at sea level
+     * reads as broken however sound its foundation is, and there is always
+     * better ground within a plot or two — the settlement has ninety-six
+     * candidates and only needs one.
+     *
+     * <p>Sea level is the test rather than "any fluid" on purpose. A mountain
+     * tarn or a small pool above sea level is dealt with by the flooding rule
+     * above; it is the river and the ocean that make a town look like it drowned.
+     */
+    private boolean standsInOpenWater(SimPos plot, int radius) {
+        int sea = level.getSeaLevel();
+        for (int dx = -radius; dx <= radius; dx += SAMPLE_STEP) {
+            for (int dz = -radius; dz <= radius; dz += SAMPLE_STEP) {
+                BlockPos at = new BlockPos(plot.x() + dx, sea, plot.z() + dz);
+                if (!level.isLoaded(at)) {
+                    continue;
+                }
+                if (!level.getFluidState(at).isEmpty()
+                        || !level.getFluidState(at.below()).isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private boolean slopeWithin(SimPos plot, int radius) {
-        int lowest = Integer.MAX_VALUE;
-        int highest = Integer.MIN_VALUE;
+        java.util.List<Integer> heights = new java.util.ArrayList<>();
         for (int dx = -radius; dx <= radius; dx += SAMPLE_STEP) {
             for (int dz = -radius; dz <= radius; dz += SAMPLE_STEP) {
                 int x = plot.x() + dx;
                 int z = plot.z() + dz;
-                BlockPos column = new BlockPos(x, plot.y(), z);
-                if (!level.isLoaded(column)) {
+                if (!level.isLoaded(new BlockPos(x, plot.y(), z))) {
                     continue;
                 }
-                int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-                lowest = Math.min(lowest, surface);
-                highest = Math.max(highest, surface);
+                heights.add(level.getHeight(
+                        Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z));
             }
         }
-        if (lowest == Integer.MAX_VALUE) {
+        if (heights.isEmpty()) {
             return true;   // the whole plot was unloaded
         }
-        return highest - lowest <= MAX_SLOPE;
+        java.util.Collections.sort(heights);
+        int low = heights.get(heights.size() / 5);              // a fifth from the bottom
+        int high = heights.get((heights.size() * 4) / 5);       // a fifth from the top
+        if (high - low > MAX_SLOPE) {
+            return false;   // the plot itself falls away; that is a slope, not a pit
+        }
+        // And the outliers: a pit is welcome only as deep as a foundation goes.
+        return low - heights.get(0) <= FILLABLE_DEPTH;
     }
+
+    /**
+     * How deep a hole may be and still count as ground worth building on.
+     *
+     * <p>Matched to {@code BlueprintPlacer.FOUNDATION_DEPTH}, because that is
+     * literally how many courses the builders will lay to reach the floor line.
+     * Refusing shallower than they can fill wastes good ground; accepting deeper
+     * than they can fill leaves a hole under a floor.
+     */
+    private static final int FILLABLE_DEPTH = 3;
 
     @Override
     public void log(String message) {
@@ -494,10 +579,13 @@ public final class NeoForgeWorldBridge implements WorldBridge {
                 {0, 0}, {-radius, -radius}, {radius, -radius},
                 {-radius, radius}, {radius, radius}}) {
             if (oracle.height(plot.x() + at[0], plot.z() + at[1]) < sea) {
-                return false;
+                return false;   // a river or the sea; never, whatever else is true
             }
         }
-        return oracle.roughness(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)
+        // A hole is not a cliff here either. The worst-step reading refuses a
+        // shelf for one pit the builders would floor over, so the estimate reads
+        // the bulk of the plot and leaves the rest to the foundation.
+        return oracle.bulkFall(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)
                 <= MAX_SLOPE_UNSEEN;
     }
 

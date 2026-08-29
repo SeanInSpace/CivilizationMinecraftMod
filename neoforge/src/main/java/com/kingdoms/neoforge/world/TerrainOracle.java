@@ -143,6 +143,29 @@ public final class TerrainOracle {
         return highest - lowest;
     }
 
+    /**
+     * How far the bulk of a square falls, ignoring its few worst columns.
+     *
+     * <p>{@link #roughness} answers with the worst step anywhere, which is the
+     * right question for a cliff and the wrong one for a hole: a flat shelf with
+     * a cave mouth clipping one corner reads as unbuildable when a builder would
+     * pack two courses of fill into it and think nothing of it. This reads the
+     * middle three fifths and lets the foundation deal with the rest.
+     */
+    public int bulkFall(int x, int z, int radius, int stride) {
+        java.util.List<Integer> heights = new java.util.ArrayList<>();
+        for (int dx = -radius; dx <= radius; dx += stride) {
+            for (int dz = -radius; dz <= radius; dz += stride) {
+                heights.add(height(x + dx, z + dz));
+            }
+        }
+        if (heights.isEmpty()) {
+            return 0;
+        }
+        java.util.Collections.sort(heights);
+        return heights.get((heights.size() * 4) / 5) - heights.get(heights.size() / 5);
+    }
+
     /** Whether any column in this square is under water. */
     public boolean anyWet(int x, int z, int radius, int stride) {
         for (int dx = -radius; dx <= radius; dx += stride) {

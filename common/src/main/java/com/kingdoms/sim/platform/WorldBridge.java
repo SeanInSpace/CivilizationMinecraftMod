@@ -40,6 +40,22 @@ public interface WorldBridge {
     int surfaceHeight(SimPos pos);
 
     /**
+     * Whether this ground is a river or the sea.
+     *
+     * <p>Split out from {@link #isSiteSuitable} because it is the one terrain
+     * fact that is never a preference. A site can be steep, or wooded, or a long
+     * way from a road, and a town short of room may still take it — that is what
+     * "builds on poor ground rather than giving up" means. It may not take open
+     * water. A building standing in a river reads as broken whatever else is
+     * true of it, and the settlement always has somewhere else to go.
+     *
+     * <p>Default false, so a platform that cannot tell simply never refuses.
+     */
+    default boolean standsInWater(SimPos pos, int radius) {
+        return false;
+    }
+
+    /**
      * Place a completed building into the world.
      *
      * <p>Safe to call when unobserved: implementations should record the change

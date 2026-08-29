@@ -447,11 +447,36 @@ public final class Settlement {
             nextPlotIndex = firstFree + 1;
             return best;
         }
-        // Every candidate examined and none will do. Take the very next slot
-        // rather than stop building altogether — a town that has run out of room
-        // is a town that builds on poor ground, not one that gives up.
+        // Every candidate examined and none will do. Take the next slot rather
+        // than stop building altogether — a town out of room builds on poor
+        // ground rather than giving up.
+        //
+        // Poor ground, though. Not water, and not unexamined. This used to hand
+        // back the next slot untested, so the better the terrain rules got, the
+        // more often the search exhausted itself and the more buildings were
+        // placed with no check at all — a farm, a lumber camp and a watchtower
+        // standing in a river at y=54, 55 and 62, none of which the rules had
+        // ever been asked about. Every improvement upstream was partly
+        // cancelling itself here.
+        for (int extra = 0; extra < DESPERATE_ATTEMPTS; extra++) {
+            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            if (!ctx.bridge().standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                nextPlotIndex += extra + 1;
+                return candidate;
+            }
+        }
         return arrangement().plotFor(centre, nextPlotIndex++);
     }
+
+    /**
+     * Slots a town will walk past when it is out of good ground.
+     *
+     * <p>Only water is refused this far down; steepness and distance have
+     * already been given up on. Bounded because the answer has to arrive: past
+     * this the town takes what is there, which is the old behaviour and is
+     * reached only by a settlement hemmed in by sea on every side.
+     */
+    private static final int DESPERATE_ATTEMPTS = 128;
 
     /**
      * Whether a plot of this width fouls any building, or any build already ordered.
@@ -503,11 +528,44 @@ public final class Settlement {
      * urgently needs — which still has to land on ground nothing else holds.
      */
     public SimPos takeNextPlot(int span) {
+        return takeNextPlot(span, null);
+    }
+
+    /**
+     * The next free ring slot, and never one standing in a river.
+     *
+     * <p>This is the urgent path — a town out of wood ordering a lumber camp
+     * does not go through {@code chooseSite} and never has. It asked only
+     * whether the plot overlapped another, which meant <strong>producers have
+     * always ignored the ground entirely</strong>: a farm at y=54, a lumber camp
+     * at 55 and a watchtower at 62, all standing in the sea, on a seed where
+     * every civic building had been sited perfectly well around them.
+     *
+     * <p>Terrain quality is still not judged here, and deliberately: an urgent
+     * build is urgent, and a town that will not put a lumber camp on a slope is
+     * a town that runs out of wood. Open water is the exception, because it is
+     * not poor ground, it is not ground.
+     *
+     * @param bridge may be null, for callers with no world to ask
+     */
+    public SimPos takeNextPlot(int span, com.kingdoms.sim.platform.WorldBridge bridge) {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
             SimPos candidate = arrangement().plotFor(centre, index);
-            if (isPlotFree(candidate, span, null)) {
-                nextPlotIndex = index + 1;
+            if (!isPlotFree(candidate, span, null)) {
+                continue;
+            }
+            if (bridge != null
+                    && bridge.standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                continue;
+            }
+            nextPlotIndex = index + 1;
+            return candidate;
+        }
+        for (int extra = 0; bridge != null && extra < DESPERATE_ATTEMPTS; extra++) {
+            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            if (!bridge.standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                nextPlotIndex += extra + 1;
                 return candidate;
             }
         }
@@ -1505,7 +1563,7 @@ public final class Settlement {
                 // back to waiting — the stone that had actually stopped the work
                 // was never once asked about, so no mine was ever ordered.
                 for (String resource : missing) {
-                    if (BuildPlanner.requestProducer(this, resource, ctx.step())) {
+                    if (BuildPlanner.requestProducer(this, resource, ctx.step(), ctx.bridge())) {
                         break;
                     }
                 }

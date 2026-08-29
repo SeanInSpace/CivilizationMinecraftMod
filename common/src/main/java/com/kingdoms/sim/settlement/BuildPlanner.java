@@ -340,6 +340,15 @@ public final class BuildPlanner {
      * @return true if a producer was ordered by this call
      */
     public static boolean requestProducer(Settlement settlement, String resource, long step) {
+        return requestProducer(settlement, resource, step, null);
+    }
+
+    /**
+     * @param bridge the world to ask about ground, or null when there is none.
+     *               Only used to keep an urgent build out of open water.
+     */
+    public static boolean requestProducer(Settlement settlement, String resource, long step,
+                                          com.kingdoms.sim.platform.WorldBridge bridge) {
         String producer = PRODUCER_OF.get(resource);
         if (producer == null) {
             return false;
@@ -381,7 +390,7 @@ public final class BuildPlanner {
         // through the side of the town hall — an urgent build is still a build,
         // and gets the same ground rules as any other.
         int span = plotSpanOf(producer, settlement.catalogue());
-        SimPos plot = settlement.takeNextPlot(span);
+        SimPos plot = settlement.takeNextPlot(span, bridge);
         BuildTask ordered = new BuildTask(producer, plot, work);
         ordered.setFacing(facingToward(plot, settlement.centre()));
         settlement.enqueueUrgent(ordered);
