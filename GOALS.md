@@ -357,10 +357,27 @@ work that cannot be delegated.
       The comment says a town out of room "builds on poor ground, not one that
       gives up", and that is the right intention. It is not what the code does:
       it builds on *unexamined* ground, which is a different and much worse
-      thing. The fix is to remember the least-bad candidate the search already
-      looked at and take that — which needs the bridge to score a site rather
-      than merely pass or fail it. Until then the least strict adequate water
-      rule is the safest, which is why the sea-level test now stands alone.
+      thing.
+
+      **Half fixed.** Both give-up paths now refuse open water before taking a
+      slot, so the one thing that must never happen cannot. They still take
+      whatever they find on every other measure, and remembering the least-bad
+      candidate the search already looked at — which wants the bridge to *score*
+      a site rather than pass or fail it — is still the better answer.
+
+- [ ] **Three plots keep coming back wet, and it is the estimate, not a code
+      path.** On seed 8675309 the same three positions are taken however the
+      rules change — and by <em>different buildings</em> each run, which is what
+      rules out a missing path. Their ground is y=54, 55 and 62 against a sea
+      level of 63, and `/civ oracle` measures the generator estimate's **mean
+      height error at 8.17 courses**. All three sit inside that band: the noise
+      says dry land above sea level, and the world has a river there.
+
+      No amount of sampling or rule-writing fixes an estimate eight courses out.
+      The fix is the one already recorded against the oracle — back it on
+      partial-status chunks (`ChunkStatus.SURFACE`, 256 columns for the price of
+      a handful of noise samples) rather than per-column noise. Until then,
+      three of a hundred and thirteen is the floor.
 
 - [ ] **Finish the wall.** What the work above left standing, none of it yet
       chased. Open deliberately: the ring went from unusable to good, and good
