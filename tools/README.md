@@ -51,9 +51,24 @@ than two screenshots side by side. The bar along the bottom reports what
 changed between them and, importantly, **says so when the two towns are not on
 the same centre** and therefore are not comparable at all.
 
-Layer buttons toggle ground, water, roads, wall and each class of building, so
-"where do the dwellings sit relative to the industry" is a question you can
-actually ask. Hovering a building names it and gives its plot span and facing.
+Layer buttons toggle ground, water, unread, roads, wall and each class of
+building, so "where do the dwellings sit relative to the industry" is a question
+you can actually ask. Hovering a building names it and gives its plot span and
+facing.
+
+**Ground comes in three states and the viewer draws all three.** A survey says
+whether each column was read from a real chunk, estimated from the world
+generator's noise, or never read at all. Certain ground is drawn solid,
+estimated ground at half strength, and unread ground hatched and never
+coloured — because an unread square is not a steep one and must not be able to
+look like one. An early sheet drew unread ground as maximum cost and a tenth of
+the map came out solid red, reading as a cliff face that was not there.
+
+**The panel stats and the comparison bar both count buildings standing in
+water**, with anything on unread ground reported separately rather than assumed
+dry. That number settled every siting argument this project has had, and
+counting unread as dry is exactly how a rule that put nothing in water and a
+rule that put seven once looked identical.
 
 To make a fair pair, hold everything still but the one thing:
 

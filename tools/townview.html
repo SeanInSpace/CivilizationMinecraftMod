@@ -170,6 +170,7 @@ var GROUPS = ["dwelling", "food", "industry", "trade", "civic", "defence"];
 var LAYERS = [
   { id: "ground", label: "ground" },
   { id: "water",  label: "water" },
+  { id: "unread", label: "unread" },
   { id: "roads",  label: "roads" },
   { id: "wall",   label: "wall" },
   { id: "plots",  label: "plots" }
@@ -183,6 +184,19 @@ LAYERS.forEach(function (l) { on[l.id] = true; });
 // entire reason this tool exists rather than two screenshots side by side.
 var cam = { x: 0, z: 0, scale: 1 };
 var locked = true, split = true;
+
+// Four states, not two. A survey says whether a column came from a real chunk
+// ('.'), from the generator's noise (':'), or was never read at all ('?', or a
+// null height). Older surveys have neither marker; those read as certain,
+// which is what they were.
+function groundState(t, r, c) {
+  if (r < 0 || c < 0 || r >= t.grid.length || c >= t.grid[r].length) return "?";
+  if (t.grid[r][c] === null) return "?";
+  var ch = t.wet[r] ? t.wet[r].charAt(c) : "";
+  if (ch === "~" || ch === ":" ) return ch;
+  if (ch === "?" || ch === "") return "?";
+  return ".";
+}
 
 function css(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -277,13 +291,36 @@ Panel.prototype.project = function (wx, wz) {
   return { x: s.w / 2 + (wx - cam.x) * k, y: s.h / 2 + (wz - cam.z) * k };
 };
 
+// Where a town's buildings actually stand. This is the measure that settled
+// every siting argument today, and it has to exclude ground the survey never
+// read -- counting unread as dry is how a rule that put nothing in water and a
+// rule that put eight looked the same.
+function standing(t) {
+  var reach = ((t.grid[0] ? t.grid[0].length : 1) - 1) * t.step / 2;
+  var cx = t.centre[0], cz = t.centre[2];
+  var wet = 0, dry = 0, unjudged = 0;
+  for (var i = 0; i < t.builds.length; i++) {
+    var b = t.builds[i];
+    var c = Math.round((b[1] - cx + reach) / t.step);
+    var r = Math.round((b[3] - cz + reach) / t.step);
+    var state = groundState(t, r, c);
+    if (state === "~") wet++;
+    else if (state === "?") unjudged++;
+    else dry++;
+  }
+  return { wet: wet, dry: dry, unjudged: unjudged, judged: wet + dry };
+}
+
 Panel.prototype.describe = function () {
   var t = this.town;
   this.empty.style.display = t ? "none" : "flex";
   if (!t) { this.stats.textContent = ""; return; }
+  var s = standing(t);
   this.stats.textContent = t.layout + " · " + t.pop + "p · "
     + t.builds.length + "b · " + t.roads.length + "r · "
-    + t.laid + "/" + t.ringlen;
+    + t.laid + "/" + t.ringlen
+    + " · " + s.wet + " in water"
+    + (s.unjudged ? " (" + s.unjudged + " unjudged)" : "");
 };
 
 Panel.prototype.buildingAt = function (wx, wz) {
@@ -324,31 +361,51 @@ Panel.prototype.draw = function () {
   function P(wx, wz) { return self.project(wx, wz); }
   var cx = t.centre[0], cz = t.centre[2];
 
-  if (on.ground || on.water) {
+  if (on.ground || on.water || on.unread) {
     var lo = css("--landLo"), hi = css("--landHi"), water = css("--water");
-    var min = 999, max = -999, r, c, h;
+    var faint = css("--faint"), sunk = css("--sunk");
+    var min = 999, max = -999, r, c, hh;
     for (r = 0; r < t.grid.length; r++)
       for (c = 0; c < t.grid[r].length; c++) {
-        h = t.grid[r][c];
-        if (h === null) continue;
-        if (h < min) min = h;
-        if (h > max) max = h;
+        hh = t.grid[r][c];
+        if (hh === null) continue;
+        if (hh < min) min = hh;
+        if (hh > max) max = hh;
       }
     var cell = t.step * k + 0.8;
     var reach = ((t.grid[0] ? t.grid[0].length : 1) - 1) * t.step / 2;
     for (r = 0; r < t.grid.length; r++) {
       var wz = cz + t.zs[r];
       for (c = 0; c < t.grid[r].length; c++) {
-        h = t.grid[r][c];
-        if (h === null) continue;
-        var wet = t.wet[r][c] === "~";
-        if (wet && !on.water) continue;
-        if (!wet && !on.ground) continue;
+        var state = groundState(t, r, c);
+        hh = t.grid[r][c];
+        if (state === "~" && !on.water) continue;
+        if ((state === "." || state === ":") && !on.ground) continue;
+        if (state === "?" && !on.unread) continue;
         var wx = cx - reach + c * t.step;
         var p = P(wx, wz);
         if (p.x < -cell || p.y < -cell || p.x > s.w + cell || p.y > s.h + cell) continue;
-        g.fillStyle = wet ? water : mix(lo, hi, (h - min) / Math.max(1, max - min));
+        if (state === "?") {
+          // Never read. Hatched, never coloured. An unread square is not a steep
+          // one and must not be able to look like one -- a survey whose southern
+          // tenth had simply not loaded once came out solid red and read as a
+          // cliff face.
+          g.fillStyle = sunk;
+          g.fillRect(p.x - cell / 2, p.y - cell / 2, cell, cell);
+          if (((r + c) % 5) === 0) {
+            g.fillStyle = faint;
+            g.fillRect(p.x - cell / 2, p.y - cell / 2,
+                       Math.max(1, cell * 0.35), Math.max(1, cell * 0.35));
+          }
+          continue;
+        }
+        g.fillStyle = state === "~" ? water
+                    : mix(lo, hi, (hh - min) / Math.max(1, max - min));
+        // An estimate is drawn as an estimate. ':' means the generator's noise
+        // answered, not a loaded chunk, and those differ by about eight courses.
+        g.globalAlpha = state === ":" ? 0.5 : 1;
         g.fillRect(p.x - cell / 2, p.y - cell / 2, cell, cell);
+        g.globalAlpha = 1;
       }
     }
   }
@@ -476,14 +533,21 @@ function describeDiff() {
   }
   function row(label, x, y, unit) {
     var d = y - x;
+    // Up is not good and down is not bad; they are simply directions. The one
+    // place that matters is water, where more is plainly worse.
     var cls = d === 0 ? "" : (d > 0 ? "up" : "down");
     var sign = d > 0 ? "+" : "";
     return "<span>" + label + " <b>" + x + "</b> → <b>" + y + "</b> "
       + "<span class='" + cls + "'>" + sign + d + (unit || "") + "</span></span>";
   }
   var sameGround = a.centre[0] === b.centre[0] && a.centre[2] === b.centre[2];
+  var sa = standing(a), sb = standing(b);
   bar.innerHTML =
     "<span>" + a.label + " vs " + b.label + "</span>"
+    + row("in water", sa.wet, sb.wet)
+    + "<span>judged <b>" + sa.judged + "</b> vs <b>" + sb.judged + "</b>"
+    + (sa.unjudged || sb.unjudged
+        ? " · unjudged " + sa.unjudged + " vs " + sb.unjudged : "") + "</span>"
     + row("people", a.pop, b.pop)
     + row("buildings", a.builds.length, b.builds.length)
     + row("road", roadLength(a), roadLength(b), " blk")
