@@ -161,8 +161,17 @@ class StageProgressionTest {
                             && building.origin().z() > north && building.origin().z() < south,
                     id + " predates the staking and must stand inside the palisade");
         }
-        assertEquals(4, ring.gates().size(),
-                "v1 cuts a gate into each side, midpoints standing in for paths");
+        // Between four and six. Gates are now cut where the roads cross the
+        // ring rather than at the midpoint of each side, so a town with more
+        // ways out gets more gates -- bounded, because a ring riddled with
+        // openings is a fence. Every one of them is a post on the wall, which
+        // the midpoint version was not.
+        assertTrue(ring.gates().size() >= 4 && ring.gates().size() <= 6,
+                "a wall wants a few gates: " + ring.gates().size());
+        java.util.Set<SimPos> onRing = new java.util.HashSet<>(ring.ringPositions());
+        for (SimPos gate : ring.gates()) {
+            assertTrue(onRing.contains(gate), "gate " + gate + " is not on the wall");
+        }
     }
 
     @Test

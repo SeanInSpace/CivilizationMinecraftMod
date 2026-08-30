@@ -55,6 +55,17 @@ public final class Settlement {
     private final Map<Person.Id, Person> residents = new LinkedHashMap<>();
     private final List<BuildTask> buildQueue = new ArrayList<>();
 
+    /**
+     * Work ordered but not yet standing.
+     *
+     * <p>Exposed because ground a building has been ordered onto is occupied,
+     * and more than one thing needs to know: siting already refused to put a
+     * second building there, and the street layer now refuses to pave it.
+     */
+    public List<BuildTask> queued() {
+        return List.copyOf(buildQueue);
+    }
+
     /** Everything this settlement has finished building, in completion order. */
     private final List<Building> buildings = new ArrayList<>();
 
@@ -512,7 +523,66 @@ public final class Settlement {
                 return false;
             }
         }
-        return true;
+        return !standsOnAWay(candidate, span) && !standsOnTheWall(candidate, span);
+    }
+
+    /** Bare ground between a wall and a carriageway, so a door has a doorstep. */
+    private static final int KERB = 1;
+
+    /**
+     * Whether a plot would stand on a street the town has already laid.
+     *
+     * <p>The plan refuses to <em>offer</em> a plot that stands in a road, and
+     * that invariant is real — but it only covers what a {@code Layout} hands
+     * out. Farms, pastures, mines and lumber camps are sited by their own
+     * planners against their own ground, and never asked. Eight buildings in a
+     * measured town stood on an eight-wide carriageway, and every one of them
+     * was a farm or an animal farm.
+     *
+     * <p>So the rule moves to where every siting path already passes. Only
+     * carriageways count: a footpath is a <em>consequence</em> of a building —
+     * the track worn from its door — so refusing a plot for standing on one
+     * would be circular, and would refuse ground the town itself made.
+     */
+    private boolean standsOnAWay(SimPos candidate, int span) {
+        if (paths == null) {
+            return false;
+        }
+        double half = span / 2.0 + KERB;
+        for (PathNetwork.Segment run : paths.segments()) {
+            if (run.width() > PathNetwork.TRACK_WIDTH && run.touches(candidate, half)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a plot would stand on the line the palisade is staked along.
+     *
+     * <p>The ring is staked once, at FORTIFIED, around the buildings that stand
+     * at that moment — and then the town goes on growing. Nothing afterwards
+     * kept a new building off the line, so a measured town of sixty had the wall
+     * running through ten of them, the town hall among them with fourteen posts
+     * inside its plot.
+     *
+     * <p>Refusing the ground is the half of the fix that can be applied to a
+     * town already standing. Re-staking the ring around what the town has
+     * <em>become</em> would abandon posts already raised, so the wall keeps the
+     * line it has and the town stops building across it.
+     */
+    private boolean standsOnTheWall(SimPos candidate, int span) {
+        if (perimeter == null) {
+            return false;
+        }
+        double half = span / 2.0 + KERB;
+        for (SimPos post : perimeter.ringPositions()) {
+            if (Math.abs(post.x() - candidate.x()) <= half
+                    && Math.abs(post.z() - candidate.z()) <= half) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -570,6 +640,11 @@ public final class Settlement {
             nextPlotIndex = index + 1;
             return candidate;
         }
+        // Widening the search, still refusing water. Remember the least-bad
+        // thing seen on the way: free ground that happens to be wet is a poor
+        // site, but it is a site, and it beats the raw next index.
+        SimPos freeButWet = null;
+        int freeButWetAt = 0;
         for (int extra = 0; bridge != null && extra < DESPERATE_ATTEMPTS; extra++) {
             SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
             if (!isPlotFree(candidate, span, null)) {
@@ -579,6 +654,20 @@ public final class Settlement {
                 nextPlotIndex += extra + 1;
                 return candidate;
             }
+            if (freeButWet == null) {
+                freeButWet = candidate;
+                freeButWetAt = extra;
+            }
+        }
+        // The last resort used to be `plotFor(nextPlotIndex++)` with no check of
+        // any kind -- not that the ground was free, not that it was dry. It is
+        // the path that put the last buildings of a town in a river: everything
+        // above it refuses water, and then this handed back whichever index came
+        // next regardless. A house in a river reads as broken however sound it
+        // is, so the fallback now returns the best thing it actually saw.
+        if (freeButWet != null) {
+            nextPlotIndex += freeButWetAt + 1;
+            return freeButWet;
         }
         return arrangement().plotFor(centre, nextPlotIndex++);
     }
@@ -1327,7 +1416,7 @@ public final class Settlement {
                     arrangement().claimMargin());
         }
         BuildTask ordered = new BuildTask(wanted.id(), plot, wanted.workCost());
-        ordered.setFacing(BuildPlanner.facingToward(plot, centre));
+        ordered.setFacing(arrangement().facingFor(centre, plot));
         enqueueUrgent(ordered);
         logEvent(ctx.step(), "Starving — work on a " + readableName(wanted.id())
                 + " goes ahead of everything else");
@@ -1479,7 +1568,7 @@ public final class Settlement {
         }
 
         BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
-        ordered.setFacing(BuildPlanner.facingToward(plot, centre));
+        ordered.setFacing(arrangement().facingFor(centre, plot));
         buildQueue.add(ordered);
     }
 
@@ -1688,7 +1777,7 @@ public final class Settlement {
         }
         SimPos from = building.origin();
         building.setOrigin(new SimPos(moved.x(), ctx.bridge().surfaceHeight(moved), moved.z()));
-        building.setFacing(BuildPlanner.facingToward(moved, centre));
+        building.setFacing(arrangement().facingFor(centre, moved));
         if (!contains(building.origin())) {
             claimRadius = BuildPlanner.claimRadiusFor(centre, building.origin());
         }
@@ -1853,7 +1942,7 @@ public final class Settlement {
         }
         BuildTask replacement = new BuildTask(
                 task.blueprintId(), moved, task.requiredWork());
-        replacement.setFacing(BuildPlanner.facingToward(moved, centre));
+        replacement.setFacing(arrangement().facingFor(centre, moved));
         buildQueue.set(0, replacement);
         logEvent(ctx.step(), "The ground at " + task.origin()
                 + " will not do; the site moves to " + moved);

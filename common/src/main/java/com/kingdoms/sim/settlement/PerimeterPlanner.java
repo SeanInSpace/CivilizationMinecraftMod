@@ -2,6 +2,7 @@ package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.geom.Hull;
+import com.kingdoms.sim.geom.Ways;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
 
@@ -100,7 +101,7 @@ public final class PerimeterPlanner {
                     + staked.length() + " posts will ring " + settlement.name());
             return;
         }
-        resiteGates(settlement);
+        resiteGates(settlement, ctx);
         raise(settlement, ctx);
     }
 
@@ -131,24 +132,23 @@ public final class PerimeterPlanner {
      * its streets — so the gates it is staked with are provisional, and follow
      * the network until the wall closes over them.
      */
-    private static void resiteGates(Settlement settlement) {
+    private static void resiteGates(Settlement settlement, SimContext ctx) {
         Perimeter perimeter = settlement.perimeter();
         if (perimeter.closed() || settlement.paths().isEmpty()) {
             return;
         }
-        int west = Integer.MAX_VALUE;
-        int east = Integer.MIN_VALUE;
-        int north = Integer.MAX_VALUE;
-        int south = Integer.MIN_VALUE;
-        for (SimPos vertex : perimeter.vertices()) {
-            west = Math.min(west, vertex.x());
-            east = Math.max(east, vertex.x());
-            north = Math.min(north, vertex.z());
-            south = Math.max(south, vertex.z());
+        // Reviewed on a cadence rather than every step. Finding where the roads
+        // cross the ring is every run against every post -- three hundred by
+        // nine hundred on a measured town -- which is nothing once in a while
+        // and far too much sixty times a second.
+        if (ctx.step() % GATE_REVIEW != 0) {
+            return;
         }
-        perimeter.setGates(gatesFor(settlement, west, east, north, south,
-                settlement.centre().y()));
+        perimeter.setGates(gatesFor(settlement, perimeter));
     }
+
+    /** How often the gates are reconsidered while the wall is going up. */
+    private static final int GATE_REVIEW = 20;
 
     /**
      * How long a straight run of wall may be before the line is expected to come
@@ -204,19 +204,36 @@ public final class PerimeterPlanner {
         loop = pushOut(loop, centre, MARGIN);
         loop = relax(loop, plots, settlement, ctx);
 
-        int west = Integer.MAX_VALUE;
-        int east = Integer.MIN_VALUE;
-        int north = Integer.MAX_VALUE;
-        int south = Integer.MIN_VALUE;
-        for (SimPos vertex : loop) {
-            west = Math.min(west, vertex.x());
-            east = Math.max(east, vertex.x());
-            north = Math.min(north, vertex.z());
-            south = Math.max(south, vertex.z());
-        }
-        return new Perimeter(loop,
-                gatesFor(settlement, west, east, north, south, centre.y()), 0);
+        // The ring first, then its gates -- a gate is a hole in a wall, so it
+        // can only be chosen once there is a wall to make a hole in.
+        Perimeter ring = new Perimeter(loop, List.of(), 0);
+        ring.setGates(gatesFor(settlement, ring));
+        return ring;
     }
+
+    /** The building a vertex's own stretches of wall would be staked through. */
+    private static Building buildingUnder(List<SimPos> line, int at,
+                                          Settlement settlement) {
+        SimPos here = line.get(at);
+        SimPos before = line.get((at - 1 + line.size()) % line.size());
+        SimPos after = line.get((at + 1) % line.size());
+        for (Building building : settlement.buildings()) {
+            if (!BuildPlanner.holdsGround(building.blueprintId())) {
+                continue;
+            }
+            double half = BuildPlanner.plotSpanOf(
+                    building.blueprintId(), settlement.catalogue()) / 2.0;
+            SimPos origin = building.origin();
+            if (Ways.distanceToSquare(before.x(), before.z(), here.x(), here.z(),
+                        origin.x(), origin.z(), half) < 1
+                    || Ways.distanceToSquare(here.x(), here.z(), after.x(), after.z(),
+                        origin.x(), origin.z(), half) < 1) {
+                return building;
+            }
+        }
+        return null;
+    }
+
 
     /**
      * The corners of every plot the town has taken, plus a minimum yard.
@@ -232,12 +249,61 @@ public final class PerimeterPlanner {
             int half = BuildPlanner.plotSpanOf(building.blueprintId(),
                     settlement.catalogue()) / 2;
             SimPos at = building.origin();
-            points.add(new SimPos(at.x() - half, centre.y(), at.z() - half));
-            points.add(new SimPos(at.x() + half, centre.y(), at.z() - half));
-            points.add(new SimPos(at.x() + half, centre.y(), at.z() + half));
-            points.add(new SimPos(at.x() - half, centre.y(), at.z() + half));
+            // Corners AND the middle of each edge. Four corners are not enough:
+            // a concave hull can hold all four and still cut straight across the
+            // plot between two of them, which is how a measured town of sixty
+            // came to have the wall through ten of its buildings -- the town hall
+            // among them, with fourteen posts inside its plot. Every one of them
+            // predated the ring, so refusing to BUILD across the wall did not
+            // touch it.
+            //
+            // Repairing the line afterwards was the first attempt and it does not
+            // work: pushing a vertex outward swings both of its stretches, and on
+            // a concave line a building sitting in the notch beyond a neighbour
+            // falls out of the wall. Guarding each move with containment then
+            // rejects almost all of them, and ten stayed ten. Giving the hull
+            // more to hold is cheaper and it cannot break containment, because
+            // every added point is a point the line now has to enclose.
+            // Every corner, pushed a yard further out from the middle of town.
+            //
+            // The plain corners are not enough and the reason is what a hull is.
+            // Hull.concave wraps the OUTERMOST points; a building sitting just
+            // inside the edge contributes nothing to the boundary, so a stretch
+            // running between two further-out buildings cuts straight across it.
+            // That is how a measured town came to have the wall through ten of
+            // the sixteen buildings standing when it was raised.
+            //
+            // Offsetting each corner outward makes a near-edge building an
+            // extreme point in its own right, so the line has to go round it
+            // rather than over it. It cannot lose anything either: every offset
+            // point is further out than the corner it came from, so a line that
+            // holds the offsets holds the plots.
+            for (int sx = -1; sx <= 1; sx++) {
+                for (int sz = -1; sz <= 1; sz++) {
+                    if (sx == 0 && sz == 0) {
+                        continue;
+                    }
+                    int cx = at.x() + sx * half;
+                    int cz = at.z() + sz * half;
+                    points.add(new SimPos(cx, centre.y(), cz));
+                    points.add(pushedOut(new SimPos(cx, centre.y(), cz), centre, MARGIN));
+                }
+            }
         }
         return points;
+    }
+
+    /** A point moved this much further from the middle of town. */
+    private static SimPos pushedOut(SimPos point, SimPos centre, int by) {
+        int dx = point.x() - centre.x();
+        int dz = point.z() - centre.z();
+        double away = Math.hypot(dx, dz);
+        if (away < 1) {
+            return point;
+        }
+        return new SimPos(
+                point.x() + (int) Math.round(by * dx / away), point.y(),
+                point.z() + (int) Math.round(by * dz / away));
     }
 
     private static List<SimPos> boxAround(SimPos centre, int half) {
@@ -298,7 +364,14 @@ public final class PerimeterPlanner {
                             continue;
                         }
                         line.set(i, candidate);
-                        boolean holds = holdsEverything(line, plots);
+                        // Containment is not enough, and this is where the wall
+                        // came to be staked through ten buildings. A vertex
+                        // hunting for flatter ground may land squarely on a plot
+                        // and still hold every corner the town asked it to hold —
+                        // enclosing a house and standing on it are different
+                        // questions, and only the first was being asked.
+                        boolean holds = holdsEverything(line, plots)
+                                && buildingUnder(line, i, settlement) == null;
                         line.set(i, here);
                         if (holds) {
                             least = cost;
@@ -361,27 +434,121 @@ public final class PerimeterPlanner {
      * roads have not been drawn yet gets the side midpoints, and is re-sited as
      * soon as they are.
      */
-    private static List<SimPos> gatesFor(Settlement settlement, int west, int east,
-                                         int north, int south, int y) {
-        PathNetwork paths = settlement.paths();
-        SimPos toNorth = paths.reachToward(0, -1);
-        SimPos toSouth = paths.reachToward(0, 1);
-        SimPos toWest = paths.reachToward(-1, 0);
-        SimPos toEast = paths.reachToward(1, 0);
-        if (toNorth == null) {
-            return List.of(
-                    new SimPos((west + east) / 2, y, north),
-                    new SimPos(east, y, (north + south) / 2),
-                    new SimPos((west + east) / 2, y, south),
-                    new SimPos(west, y, (north + south) / 2));
+    /**
+     * Gates: holes in the wall, where the roads go through it.
+     *
+     * <p>This used to put a gate on the town's bounding box — the middle of its
+     * northern extent, its eastern extent and so on — while the ring itself is
+     * staked as a <em>concave hull</em> that comes in wherever the buildings do.
+     * The two shapes only touch at the extremes, so three of a measured town's
+     * four gates stood 9, 10 and 53 blocks away from any wall at all. They were
+     * points in a field. {@code isGateway} matched three posts of the twelve
+     * that four openings should cut, the wall was raised solid across every
+     * road that left town, and one gate opened onto nothing 29 blocks from the
+     * nearest road.
+     *
+     * <p>So a gate is now chosen from the ring itself: the posts where a road
+     * actually crosses the line. That makes it a hole in the wall by
+     * construction, and a hole where somebody wants to walk, which are the two
+     * things a gate has to be. A town whose roads all stop short still gets
+     * gates — the compass extremes of the ring — because a wall with no way
+     * through it is worse than a wall with a gate nobody uses.
+     */
+    private static List<SimPos> gatesFor(Settlement settlement, Perimeter ring) {
+        List<SimPos> posts = ring.ringPositions();
+        if (posts.isEmpty()) {
+            return List.of();
         }
-        // Held off the corners: a gate cut into the turn of a wall is a gap in
-        // two walls at once.
-        return List.of(
-                new SimPos(Math.clamp(toNorth.x(), west + 2, east - 2), y, north),
-                new SimPos(east, y, Math.clamp(toEast.z(), north + 2, south - 2)),
-                new SimPos(Math.clamp(toSouth.x(), west + 2, east - 2), y, south),
-                new SimPos(west, y, Math.clamp(toWest.z(), north + 2, south - 2)));
+        SimPos centre = settlement.centre();
+
+        // Where the ways cross the line, widest road first: a carriageway
+        // deserves a gate more than a footpath worn between two sheds.
+        List<int[]> crossings = new ArrayList<>();   // {postIndex, width}
+        List<PathNetwork.Segment> runs = settlement.paths().segments();
+        for (int i = 0; i < posts.size(); i++) {
+            SimPos post = posts.get(i);
+            int widest = 0;
+            for (PathNetwork.Segment run : runs) {
+                if (run.width() > widest && run.touches(post, 1)) {
+                    widest = run.width();
+                }
+            }
+            if (widest > 0) {
+                crossings.add(new int[] {i, widest});
+            }
+        }
+        crossings.sort((a, b) -> b[1] - a[1]);
+
+        int apart = gatesApartOn(ring);
+        List<SimPos> gates = new ArrayList<>();
+        for (int[] crossing : crossings) {
+            if (gates.size() >= MAX_GATES) {
+                break;
+            }
+            SimPos post = posts.get(crossing[0]);
+            if (farFromAll(post, gates, apart)) {
+                gates.add(post);
+            }
+        }
+
+        // Top up from the compass extremes of the RING, so even a roadless town
+        // has a way in and every gate is still a post on the wall.
+        int[][] compass = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+        for (int[] way : compass) {
+            if (gates.size() >= MIN_GATES) {
+                break;
+            }
+            SimPos best = null;
+            long bestScore = Long.MIN_VALUE;
+            for (SimPos post : posts) {
+                long score = (long) (post.x() - centre.x()) * way[0]
+                        + (long) (post.z() - centre.z()) * way[1];
+                if (score > bestScore && farFromAll(post, gates, apart)) {
+                    bestScore = score;
+                    best = post;
+                }
+            }
+            if (best != null) {
+                gates.add(best);
+            }
+        }
+        return List.copyOf(gates);
+    }
+
+    /** Whether a candidate gate stands clear of the ones already chosen. */
+    private static boolean farFromAll(SimPos candidate, List<SimPos> chosen, int apart) {
+        for (SimPos gate : chosen) {
+            if (Math.max(Math.abs(gate.x() - candidate.x()),
+                         Math.abs(gate.z() - candidate.z())) < apart) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * How many gates a wall may have, and the fewest it will settle for.
+     *
+     * <p>A ring riddled with openings is a fence. Six is enough for the roads
+     * that matter on a town of any size measured here; four is what a wall gets
+     * even when nothing crosses it.
+     */
+    private static final int MAX_GATES = 6;
+
+    private static final int MIN_GATES = 4;
+
+    /**
+     * How far apart two gates must stand, or they are one wide hole.
+     *
+     * <p>Scaled to the wall rather than fixed. Twenty-four blocks is right for a
+     * town whose ring is nine hundred posts round, and on a hamlet's forty-post
+     * ring it is wider than the settlement — the first gate claimed the whole
+     * wall and the top-up could not place a second, so a fortified camp came out
+     * with one way in. A ring gets openings in proportion to how much wall there
+     * is to put them in.
+     */
+    private static int gatesApartOn(Perimeter ring) {
+        return Math.max(6, Math.min(24, ring.length() / 8));
     }
 
 

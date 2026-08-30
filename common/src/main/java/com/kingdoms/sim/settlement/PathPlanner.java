@@ -121,13 +121,63 @@ public final class PathPlanner {
                 SimPos to = path.get(i);
                 SimPos middle = new SimPos((from.x() + to.x()) / 2, from.y(),
                         (from.z() + to.z()) / 2);
-                if (within(middle, centre, FIRST_STREETS)
-                        || nearAny(middle, standing, STREET_NEAR)) {
-                    network.add(new PathNetwork.Segment(from, to, street.width()));
+                if (!within(middle, centre, FIRST_STREETS)
+                        && !nearAny(middle, standing, STREET_NEAR)) {
+                    continue;
+                }
+                PathNetwork.Segment run =
+                        new PathNetwork.Segment(from, to, street.width());
+                // Not through a house that is already there. The siting code
+                // refuses to build on a street, but the two rules have to point
+                // both ways or the town simply does it in the other order: two
+                // animal farms stood on eight-wide carriageways that were laid
+                // straight through them at steps 234 and 435, long after they
+                // were built. A plan is not a warrant to pave somebody's floor.
+                if (!crossesAnything(settlement, run)) {
+                    network.add(run);
                 }
             }
         }
         network.setStreetsLaidFor(standing.size());
+    }
+
+    /**
+     * Whether this run would be laid through ground a building already holds.
+     *
+     * <p>Standing buildings <em>and</em> the build queue, which is the whole
+     * difference between working and nearly working. A building is ordered onto
+     * clear ground and then takes many steps to go up; check only what stands
+     * and the town lays a street across a plot in that gap, and the building
+     * completes in the middle of the road. That is exactly how an animal farm
+     * came to sit on an eight-wide carriageway at step 234: the road was laid
+     * while the farm was still a task rather than a building.
+     *
+     * <p>{@code Settlement.isPlotFree} has always counted the queue for the same
+     * reason. The two rules have to agree about what "occupied" means, or
+     * whichever runs second wins.
+     */
+    private static boolean crossesAnything(Settlement settlement, PathNetwork.Segment run) {
+        for (Building building : settlement.buildings()) {
+            if (!BuildPlanner.holdsGround(building.blueprintId())) {
+                continue;
+            }
+            int span = BuildPlanner.plotSpanOf(
+                    building.blueprintId(), settlement.catalogue());
+            if (run.touches(building.origin(), span / 2.0)) {
+                return true;
+            }
+        }
+        for (BuildTask queued : settlement.queued()) {
+            if (!BuildPlanner.holdsGround(queued.blueprintId())) {
+                continue;
+            }
+            int span = BuildPlanner.plotSpanOf(
+                    queued.blueprintId(), settlement.catalogue());
+            if (run.touches(queued.origin(), span / 2.0)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether a stretch passes close enough to anything the town has built. */

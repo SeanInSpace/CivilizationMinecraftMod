@@ -117,6 +117,25 @@ public interface Layout {
     }
 
     /**
+     * Which way a door on this plot should look, for this arrangement.
+     *
+     * <p>Toward the centre for a lattice, which has nothing else to face. An
+     * arrangement that draws streets knows better and says so.
+     *
+     * <p>This exists because the answer was being computed and thrown away.
+     * {@link TownPlan.Plot} has carried the street a plot fronts and the way its
+     * door should look since streets were planned; the plan was tested on it and
+     * the viewer drew it — and the settlement asked only for a <em>position</em>,
+     * then set the facing itself with the old rule. So every door in every
+     * planned town still turned to face the middle, which is precisely the thing
+     * street-first layout existed to stop. The claim that a planned town's
+     * houses front their street was true of the plan and false of the game.
+     */
+    default int facingFor(SimPos centre, SimPos plot) {
+        return facingToward(plot, centre);
+    }
+
+    /**
      * Which way a building on this plot looks, in quarter turns clockwise.
      *
      * <p>Toward the centre, for an arrangement with no streets to face. Kept

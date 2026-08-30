@@ -134,88 +134,14 @@ public record TownPlan(SimPos centre, List<Street> streets, List<Plot> plots) {
         public boolean touches(SimPos at, double half) {
             double edge = width / 2.0;
             for (int i = 1; i < path.size(); i++) {
-                if (distanceToSquare(path.get(i - 1), path.get(i), at, half) < edge) {
+                SimPos a = path.get(i - 1);
+                SimPos b = path.get(i);
+                if (com.kingdoms.sim.geom.Ways.distanceToSquare(
+                        a.x(), a.z(), b.x(), b.z(), at.x(), at.z(), half) < edge) {
                     return true;
                 }
             }
             return false;
-        }
-
-        /**
-         * How far a run passes from an axis-aligned square, zero if it crosses it.
-         *
-         * <p>Either the run enters the square, or the nearest approach is at one
-         * of the square's corners or at one of the run's own ends.
-         */
-        private static double distanceToSquare(SimPos a, SimPos b, SimPos box, double half) {
-            double x1 = box.x() - half;
-            double x2 = box.x() + half;
-            double z1 = box.z() - half;
-            double z2 = box.z() + half;
-            if (crosses(a, b, x1, x2, z1, z2)) {
-                return 0;
-            }
-            double nearest = Double.MAX_VALUE;
-            double[][] corners = {{x1, z1}, {x2, z1}, {x2, z2}, {x1, z2}};
-            for (double[] corner : corners) {
-                nearest = Math.min(nearest, pointToSegment(corner[0], corner[1], a, b));
-            }
-            nearest = Math.min(nearest, pointToBox(a, x1, x2, z1, z2));
-            nearest = Math.min(nearest, pointToBox(b, x1, x2, z1, z2));
-            return nearest;
-        }
-
-        /** Whether a run enters a box at all: the slab method. */
-        private static boolean crosses(SimPos a, SimPos b,
-                                       double x1, double x2, double z1, double z2) {
-            double enter = 0;
-            double leave = 1;
-            double[][] slabs = {
-                    {b.x() - a.x(), x1 - a.x(), x2 - a.x()},
-                    {b.z() - a.z(), z1 - a.z(), z2 - a.z()},
-            };
-            for (double[] slab : slabs) {
-                double d = slab[0];
-                if (d == 0) {
-                    // Parallel to this pair: either between them or nowhere near.
-                    if (slab[1] > 0 || slab[2] < 0) {
-                        return false;
-                    }
-                    continue;
-                }
-                double near = slab[1] / d;
-                double far = slab[2] / d;
-                if (near > far) {
-                    double swap = near;
-                    near = far;
-                    far = swap;
-                }
-                enter = Math.max(enter, near);
-                leave = Math.min(leave, far);
-                if (enter > leave) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private static double pointToSegment(double px, double pz, SimPos a, SimPos b) {
-            double vx = b.x() - a.x();
-            double vz = b.z() - a.z();
-            double len = vx * vx + vz * vz;
-            if (len == 0) {
-                return Math.hypot(px - a.x(), pz - a.z());
-            }
-            double t = ((px - a.x()) * vx + (pz - a.z()) * vz) / len;
-            t = Math.max(0, Math.min(1, t));
-            return Math.hypot(px - (a.x() + t * vx), pz - (a.z() + t * vz));
-        }
-
-        private static double pointToBox(SimPos p, double x1, double x2,
-                                         double z1, double z2) {
-            double dx = Math.max(Math.max(x1 - p.x(), 0), p.x() - x2);
-            double dz = Math.max(Math.max(z1 - p.z(), 0), p.z() - z2);
-            return Math.hypot(dx, dz);
         }
     }
 

@@ -843,18 +843,33 @@ public final class KingdomsCommand {
 
         for (com.kingdoms.sim.settlement.Building b : settlement.buildings()) {
             SimPos at = b.origin();
-            KingdomsMod.LOGGER.info("PLAN B {} {} {} {} {} {} {}",
+            com.kingdoms.sim.settlement.Footprint print = b.footprint();
+            // Both facings. The plan gives a plot the way it should look -- at
+            // the street it fronts -- while this command has always reported
+            // what the old centre-facing rule would say, and the two now
+            // disagree for every planned town. Printing one of them would hide
+            // whichever is wrong.
+            KingdomsMod.LOGGER.info("PLAN B {} {} {} {} {} {} {} {} {} {}",
                     b.blueprintId(), at.x(), at.y(), at.z(),
                     com.kingdoms.sim.settlement.BuildPlanner.plotSpanOf(
                             b.blueprintId(), settlement.catalogue()),
                     com.kingdoms.sim.settlement.BuildPlanner.facingToward(at, centre),
-                    b.role());
+                    b.role(),
+                    print.isKnown() ? print.width() : -1,
+                    print.isKnown() ? print.depth() : -1,
+                    b.facing());
         }
 
-        for (com.kingdoms.sim.settlement.PathNetwork.Segment seg
-                : settlement.paths().segments()) {
-            KingdomsMod.LOGGER.info("PLAN R {} {} {} {}",
-                    seg.from().x(), seg.from().z(), seg.to().x(), seg.to().z());
+        java.util.List<com.kingdoms.sim.settlement.PathNetwork.Segment> runs =
+                settlement.paths().segments();
+        for (int i = 0; i < runs.size(); i++) {
+            com.kingdoms.sim.settlement.PathNetwork.Segment seg = runs.get(i);
+            // Width and opened state, without which a map cannot tell a planned
+            // carriageway from a trodden footpath, nor a road that exists on the
+            // ground from one that is still only intended.
+            KingdomsMod.LOGGER.info("PLAN R {} {} {} {} {} {}",
+                    seg.from().x(), seg.from().z(), seg.to().x(), seg.to().z(),
+                    seg.width(), settlement.paths().isOpened(i) ? 1 : 0);
         }
 
         com.kingdoms.sim.settlement.Perimeter ring = settlement.perimeter();
@@ -870,6 +885,26 @@ public final class KingdomsCommand {
                 gates.append(g.x()).append(',').append(g.z()).append(' ');
             }
             KingdomsMod.LOGGER.info("PLAN G {}", gates.toString().trim());
+
+            // Every post on the loop, with whether it is an opening and whether
+            // it has been raised yet. The vertices alone describe the shape the
+            // wall is meant to be; these are the blocks it is actually made of,
+            // which is the only way to see a gate that is not where a road is.
+            java.util.List<SimPos> posts = ring.ringPositions();
+            StringBuilder row = new StringBuilder();
+            for (int i = 0; i < posts.size(); i++) {
+                SimPos post = posts.get(i);
+                row.append(post.x()).append(',').append(post.z()).append(',')
+                   .append(ring.isGateway(post) ? 'G' : 'P')
+                   .append(i < ring.laid() ? 'L' : 'u').append(' ');
+                if (row.length() > 3000) {
+                    KingdomsMod.LOGGER.info("PLAN P {}", row.toString().trim());
+                    row.setLength(0);
+                }
+            }
+            if (row.length() > 0) {
+                KingdomsMod.LOGGER.info("PLAN P {}", row.toString().trim());
+            }
         }
 
         // The ground, sampled every PLAN_STEP blocks: surface height, whether

@@ -177,21 +177,65 @@ class PathNetworkTest {
         PerimeterPlanner.advance(s, CTX);   // stakes the ring
         Perimeter ring = s.perimeter();
         assertTrue(ring != null, "a fortified settlement with its program built stakes a ring");
-        int northSide = ring.vertices().stream().mapToInt(SimPos::z).min().orElseThrow();
-        SimPos midpointGate = ring.gates().stream()
-                .filter(gate -> gate.z() == northSide).findFirst().orElseThrow();
 
-        // A street pushing hard north — the way out of town on that side.
+        // A street pushing hard north -- the way out of town on that side.
         s.paths().add(new PathNetwork.Segment(new SimPos(7, 64, 0), new SimPos(7, 64, -40)));
         PerimeterPlanner.advance(s, CTX);
 
-        SimPos movedGate = s.perimeter().gates().stream()
-                .filter(gate -> gate.z() == northSide).findFirst().orElseThrow();
-        assertEquals(7, movedGate.x(),
-                "the north gate should sit on the street that reaches north, not the midpoint");
-        assertFalse(movedGate.equals(midpointGate),
-                "and it should actually have moved off the midpoint it was staked with");
-        assertEquals(4, s.perimeter().gates().size(), "one gate to a side, still");
+        // This used to assert the gate sat at exactly x=7, the street's own
+        // coordinate -- which was the fault rather than the property. Gates were
+        // computed on the town's BOUNDING BOX while the ring is a concave hull,
+        // so the gate was a point in a field: on a measured town three of four
+        // stood 9, 10 and 53 blocks from any wall, and isGateway matched three
+        // posts of the twelve four openings should cut.
+        //
+        // What a gate has to be is a hole in the WALL, at a place somebody wants
+        // to walk. So: on the ring, and near the road.
+        Perimeter moved = s.perimeter();
+        java.util.Set<SimPos> onRing = new java.util.HashSet<>(moved.ringPositions());
+        for (SimPos gate : moved.gates()) {
+            assertTrue(onRing.contains(gate),
+                    "a gate at " + gate + " is not a post on the wall at all");
+        }
+        assertTrue(moved.gates().stream().anyMatch(
+                        gate -> gate.z() < 0 && Math.abs(gate.x() - 7) <= 6),
+                "no gate was cut where the northbound street crosses the ring: "
+                        + moved.gates());
+        assertTrue(moved.gates().size() >= 4 && moved.gates().size() <= 6,
+                "a wall wants a few gates, not none and not a fence: "
+                        + moved.gates().size());
+    }
+
+    @Test
+    void everyGateIsAnOpeningInTheWallItBelongsTo() {
+        // The regression guard for the whole class of fault. A gate that is not
+        // a ring post cuts no opening: Perimeter.isGateway looks for posts
+        // within a block of a gate, finds none, and the wall is raised solid
+        // across the road while the town believes it has a gate there.
+        Settlement s = town();
+        s.setStage(SettlementStage.FORTIFIED);
+        raise(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
+        raise(s, "kingdoms:lumber_camp", new SimPos(12, 64, 0), 1);
+        raise(s, "kingdoms:storehouse", new SimPos(-12, 64, 0), 3);
+        s.paths().add(new PathNetwork.Segment(new SimPos(7, 64, 0), new SimPos(7, 64, -40)));
+        s.paths().add(new PathNetwork.Segment(new SimPos(0, 64, 6), new SimPos(40, 64, 6)));
+        PerimeterPlanner.advance(s, CTX);
+        PerimeterPlanner.advance(s, CTX);
+
+        Perimeter ring = s.perimeter();
+        java.util.Set<SimPos> onRing = new java.util.HashSet<>(ring.ringPositions());
+        int openings = 0;
+        for (SimPos post : ring.ringPositions()) {
+            if (ring.isGateway(post)) {
+                openings++;
+            }
+        }
+        for (SimPos gate : ring.gates()) {
+            assertTrue(onRing.contains(gate), "gate " + gate + " is off the wall");
+        }
+        assertTrue(openings >= 2 * ring.gates().size(),
+                "only " + openings + " posts are gateways for " + ring.gates().size()
+                        + " gates — the wall is solid where it should be open");
     }
 
     @Test

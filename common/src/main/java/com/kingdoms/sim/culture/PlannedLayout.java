@@ -136,6 +136,25 @@ public abstract class PlannedLayout implements Layout {
     }
 
     /**
+     * The way the plan says a door on this plot should look.
+     *
+     * <p>At the street it fronts, which is the whole difference between a street
+     * of houses and a row of buildings that happen to be beside a road. Falls
+     * back to the centre for ground the plan never offered — a farm sited by its
+     * own planner, or an outskirt plot fronting nothing.
+     */
+    @Override
+    public int facingFor(SimPos centre, SimPos plot) {
+        for (TownPlan.Plot offered : fullPlan(centre).plots()) {
+            if (offered.at().x() == plot.x() && offered.at().z() == plot.z()) {
+                return offered.frontsAStreet()
+                        ? offered.facing() : Layout.facingToward(plot, centre);
+            }
+        }
+        return Layout.facingToward(plot, centre);
+    }
+
+    /**
      * Streets first, then the frontage on them, in the order a town fills.
      *
      * <p>Candidates are taken nearest-first and each only if it clears everything

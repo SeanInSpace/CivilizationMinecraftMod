@@ -117,6 +117,20 @@ public final class PathNetwork {
         public boolean isAxisAligned() {
             return from.x() == to.x() || from.z() == to.z();
         }
+
+        /**
+         * Whether a square of this half-width would stand on this way.
+         *
+         * <p>The same question {@code TownPlan.Street} answers, and deliberately
+         * the same arithmetic: a plot refused by the plan for standing in a road
+         * must also be refused by the siting code for standing on the road the
+         * town has actually laid, or the two disagree and the second one wins.
+         */
+        public boolean touches(SimPos at, double half) {
+            return com.kingdoms.sim.geom.Ways.distanceToSquare(
+                    from.x(), from.z(), to.x(), to.z(), at.x(), at.z(), half)
+                    < width / 2.0;
+        }
     }
 
     private final List<Segment> segments = new ArrayList<>();

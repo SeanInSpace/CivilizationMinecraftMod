@@ -55,9 +55,40 @@ public final class Kingdom {
         return cultureId;
     }
 
+    /**
+     * Takes a new settlement into the kingdom, which adopts its people.
+     *
+     * <p>Founding a town, or a daughter budding off one. The town has no culture
+     * of its own yet, so it takes the kingdom's.
+     */
     public void addSettlement(Settlement settlement) {
-        // A town belongs to its kingdom's people; nothing else sets this.
         settlement.setCultureId(cultureId);
+        settlements.put(settlement.id(), settlement);
+    }
+
+    /**
+     * Puts a settlement back into the kingdom without restamping its people.
+     *
+     * <p>Loading a save is not founding a town, and conflating the two silently
+     * undid every per-settlement culture in every world. The codec restored a
+     * settlement's own culture and then handed the list to
+     * {@link #addSettlement}, which overwrote it with the kingdom's — so
+     * {@code /civ culture} appeared to work, survived for as long as the server
+     * stayed up, and reverted on the next load.
+     *
+     * <p>It cost a whole demonstration to catch: a town was set to the vale folk,
+     * grew two hundred and fourteen ring-road carriageways, and came back after
+     * one save as a Norman town laid out in concentric rings — keeping the
+     * streets it had built under the old culture, which is a shape no
+     * arrangement would ever produce. Nothing was wrong with the save; the
+     * culture was written and read correctly and then thrown away one line
+     * later.
+     *
+     * <p>Two methods rather than a flag, because the two callers want genuinely
+     * different things and a boolean at the call site would have to be got right
+     * every time somebody adds a third.
+     */
+    public void restoreSettlement(Settlement settlement) {
         settlements.put(settlement.id(), settlement);
     }
 

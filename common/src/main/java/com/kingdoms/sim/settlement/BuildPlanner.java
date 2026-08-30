@@ -392,7 +392,7 @@ public final class BuildPlanner {
         int span = plotSpanOf(producer, settlement.catalogue());
         SimPos plot = settlement.takeNextPlot(span, bridge);
         BuildTask ordered = new BuildTask(producer, plot, work);
-        ordered.setFacing(facingToward(plot, settlement.centre()));
+        ordered.setFacing(settlement.arrangement().facingFor(settlement.centre(), plot));
         settlement.enqueueUrgent(ordered);
         String announcement = "Out of " + resource + " — work starts on a " + readableName(producer);
         if (hands != null) {

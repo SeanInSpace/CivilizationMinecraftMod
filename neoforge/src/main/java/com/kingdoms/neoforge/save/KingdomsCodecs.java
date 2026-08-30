@@ -459,7 +459,9 @@ public final class KingdomsCodecs {
             Codec.unboundedMap(KINGDOM_ID, STANDING).fieldOf("diplomacy").forGetter(Kingdom::diplomacy)
     ).apply(i, (id, name, culture, settlements, diplomacy) -> {
         Kingdom kingdom = new Kingdom(id, name, culture);
-        settlements.forEach(kingdom::addSettlement);
+        // restore, not add: adding is founding, and founding stamps the
+        // kingdom's culture over the one this settlement was just decoded with.
+        settlements.forEach(kingdom::restoreSettlement);
         diplomacy.forEach(kingdom::setStandingWith);
         return kingdom;
     }));
