@@ -550,11 +550,28 @@ public final class Settlement {
         }
         double half = span / 2.0 + KERB;
         for (PathNetwork.Segment run : paths.segments()) {
-            if (run.width() > PathNetwork.TRACK_WIDTH && run.touches(candidate, half)) {
+            if (run.width() <= PathNetwork.TRACK_WIDTH) {
+                continue;
+            }
+            // A cheap way to say no first. This runs for every candidate on the
+            // give-up path, against every run in a town that has hundreds, and
+            // the real distance is not free.
+            if (farOff(candidate, run.from(), run.to(), half + run.width())) {
+                continue;
+            }
+            if (run.touches(candidate, half)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Whether a run's own extent is nowhere near this plot. */
+    private static boolean farOff(SimPos at, SimPos from, SimPos to, double reach) {
+        return at.x() < Math.min(from.x(), to.x()) - reach
+                || at.x() > Math.max(from.x(), to.x()) + reach
+                || at.z() < Math.min(from.z(), to.z()) - reach
+                || at.z() > Math.max(from.z(), to.z()) + reach;
     }
 
     /**
@@ -669,8 +686,44 @@ public final class Settlement {
             nextPlotIndex += freeButWetAt + 1;
             return freeButWet;
         }
+        // Still nothing. Widen the search rather than give up, because giving up
+        // means handing back an index nobody checked -- and on real ground that
+        // is not a rare path. On the sandbox terrain the tests use, a town of
+        // sixty never reached it; in a world, where slopes and water and unread
+        // chunks refuse far more candidates, it placed five buildings on
+        // carriageways and two in a river.
+        //
+        // Water is the only rule relaxed here, and only after everything dry has
+        // been tried. Standing on somebody else's plot, in the road, or on the
+        // palisade is never the least-bad answer -- those are all somebody's
+        // ground, and there is always more ground further out.
+        for (int extra = DESPERATE_ATTEMPTS; bridge != null && extra < LAST_DITCH; extra++) {
+            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            if (!isPlotFree(candidate, span, null)) {
+                continue;
+            }
+            nextPlotIndex += extra + 1;
+            return candidate;
+        }
+        // Truly nothing, which should mean a town that has run out of world.
+        for (int extra = 0; extra < LAST_DITCH; extra++) {
+            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            if (isPlotFree(candidate, span, null)) {
+                nextPlotIndex += extra + 1;
+                return candidate;
+            }
+        }
         return arrangement().plotFor(centre, nextPlotIndex++);
     }
+
+    /**
+     * How far out the siting will walk before it starts accepting poor ground.
+     *
+     * <p>Larger than it looks: a planned town hands out plots in order of
+     * distance from the middle, so walking a few hundred indices is walking a
+     * ring or two further out, not to the horizon.
+     */
+    private static final int LAST_DITCH = 512;
 
     public int nextPlotIndex() {
         return nextPlotIndex;
