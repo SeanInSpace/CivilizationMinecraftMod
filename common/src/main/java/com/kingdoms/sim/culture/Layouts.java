@@ -292,6 +292,11 @@ public final class Layouts {
         }
 
         @Override
+        public boolean isSameShapeEverywhere() {
+            return false;   // the darts are seeded from the town's own centre
+        }
+
+        @Override
         public SimPos plotFor(SimPos centre, int index) {
             List<SimPos> seq = sequenceFor(centre, Math.max(0, index) + 1);
             return seq.get(Math.max(0, index));

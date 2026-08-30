@@ -132,6 +132,27 @@ public interface Layout {
         return dz >= 0 ? 2 : 0;
     }
 
+    /**
+     * Whether this arrangement draws the same town wherever it is put.
+     *
+     * <p>A lattice does: rings are rings at any coordinate, and that invariance
+     * is most of what makes them read as deliberate. An arrangement seeded from
+     * the town's own centre does not, on purpose — two villages of the same
+     * people should not be the same village twice, and a street that puts its
+     * bend in the same place in every settlement on the map reads worse than a
+     * straight one, because it reads as a repeated asset.
+     *
+     * <p>Declared here rather than tested by name. The invariance rule used to
+     * exempt {@code organic} with a string comparison, which quietly meant the
+     * rule was "every layout except the one that broke it" and would have to be
+     * edited by hand for the next arrangement that varies. What a layout must
+     * keep either way is that it builds around the centre it is <em>handed</em>
+     * rather than one it remembers.
+     */
+    default boolean isSameShapeEverywhere() {
+        return true;
+    }
+
     /** The claim a plot takes when a layout has no opinion about size. */
     int DEFAULT_SPAN = 11;
 

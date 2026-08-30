@@ -13,7 +13,7 @@ import java.util.Map;
  * <p>The first arrangement here that is a <em>plan</em> rather than a sequence.
  * Every other one answers "where does the nth building go" and has no opinion
  * about roads, because it has nowhere to keep one. This builds a
- * {@link TownPlan} — a spine, a market widening on it, a side lane, a back lane
+ * {@link TownPlan} — a spine, a market widening on it, side lanes, a back lane
  * behind the western frontage — and then hands out the plots that front them.
  * {@link #plotFor} is a <em>view</em> of that plan, instead of the plan being an
  * afterthought of {@code plotFor}.
@@ -27,6 +27,13 @@ import java.util.Map;
  * the side toward the crossing runs for centuries and the side toward the moor
  * stops after six houses. Three plots south for every one north is what that
  * looks like from above.
+ *
+ * <p><strong>The streets bend.</strong> How much is a {@link Wander} the culture
+ * hands over, so the same machinery lays a surveyor's grid at amplitude nought
+ * and a cart-track village at seven. Crucially the bend is in the
+ * <em>centreline</em>, which the frontage is measured from — curving the drawn
+ * road and leaving the plots on the straight line closes the setback and puts
+ * houses in the carriageway, which is the fault this layout has already had once.
  *
  * <p><strong>Not burgage plots yet.</strong> A real street town is narrow
  * frontages packed shoulder to shoulder, and that needs a plot which is a
@@ -63,19 +70,6 @@ public final class StreetLayout implements Layout {
      */
     private static final int LANE_SPACING = 40;
 
-    /**
-     * How many plots deep a lane runs, each side, for a town of this size.
-     *
-     * <p>Scaled with the count rather than fixed. At a fixed depth a plan can
-     * only grow by opening more lanes, and lanes sit forty blocks apart: four
-     * hundred plots wanted thirty-four of them and made a town seven hundred
-     * blocks long. Deepening the lanes as they multiply keeps the plan roughly
-     * square, which is the difference between a town and a ribbon.
-     */
-    private static int laneDepthFor(int wanted) {
-        return Math.max(4, (int) Math.ceil(1.43 * lanesFor(wanted)));
-    }
-
     /** How far west of the spine the back lane runs. */
     private static final int BACK_AT = 40;
 
@@ -85,17 +79,53 @@ public final class StreetLayout implements Layout {
     /** Plans kept. More than a handful is a server's worth of towns. */
     private static final int TOWNS_REMEMBERED = 8;
 
-    /** Index into a plan's streets, for the three this arrangement lays. */
-    private static final int SPINE = 0;
-    /** Lanes occupy every index from here; the back lane is appended after them. */
-    private static final int LANE = 1;
-    private static final int BACK = 2;
+    /**
+     * How far apart the points of a bending street are set.
+     *
+     * <p>Eight blocks is short enough that the bend reads as a curve on the
+     * ground rather than a dogleg, and long enough that a town does not carry
+     * three hundred points it has no use for.
+     */
+    private static final int SEGMENT = 8;
 
+    /** Bare ground between a wall and a carriageway, so a door has a doorstep. */
+    private static final int KERB = 1;
+
+    /** The spine is always the plan's first street. */
+    private static final int SPINE = 0;
+
+    /** Lanes occupy every index from here; the back lane is appended after them. */
+    private static final int LANE_FIRST = 1;
+
+    private final String id;
+    private final Wander wander;
     private final Map<String, TownPlan> planned = new LinkedHashMap<>();
+
+    /** The default: a market town whose streets were cart tracks first. */
+    public StreetLayout() {
+        this("high_street", Wander.gentle(11, 0x5EED1EL));
+    }
+
+    public StreetLayout(String id, Wander wander) {
+        this.id = id;
+        this.wander = wander;
+    }
 
     @Override
     public String id() {
-        return "high_street";
+        return id;
+    }
+
+    @Override
+    public boolean isSameShapeEverywhere() {
+        // A straight-edged plan is; a wandering one takes its bends from the
+        // town's own centre so that no two settlements kink alike.
+        return wander.amplitude() == 0;
+    }
+
+    /** How much this arrangement's streets stray, for tests and for the viewer. */
+    public Wander wander() {
+        return wander;
     }
 
     @Override
@@ -126,6 +156,21 @@ public final class StreetLayout implements Layout {
     }
 
     /**
+     * The wander of the nth street of a town, which both the road and its
+     * frontage are read from.
+     *
+     * <p>Phased per street and per town, so no two lanes in a settlement bend in
+     * step and no two settlements bend alike. Deterministic in the centre, which
+     * is what keeps a reloaded town the same town.
+     */
+    private Wander wanderFor(SimPos centre, int street) {
+        long town = (long) centre.x() * 0x9E3779B97F4A7C15L
+                ^ (long) centre.z() * 0xC2B2AE3D27D4EB4FL;
+        return new Wander(wander.amplitude(), wander.wavelength(),
+                wander.seed() ^ town).forStreet(street);
+    }
+
+    /**
      * Streets first, then the frontage on them, in the order a town fills.
      *
      * <p>Candidates are offered in growth order and each is taken only if it
@@ -138,22 +183,30 @@ public final class StreetLayout implements Layout {
      */
     private TownPlan lay(SimPos centre, int wanted) {
         int reach = MARKET_REACH + PITCH * (wanted / 2 + 6);
+        int lanes = lanesFor(wanted);
+        int backIndex = LANE_FIRST + lanes;
 
         List<TownPlan.Street> streets = new ArrayList<>();
-        streets.add(new TownPlan.Street(
-                at(centre, 0, -reach / 3), at(centre, 0, reach),
+
+        // The spine, running north-south, bending as it goes.
+        Wander spine = wanderFor(centre, SPINE);
+        streets.add(northSouth(centre, spine, 0, -reach / 3, reach,
                 ROAD_HALF * 2, TownPlan.Kind.SPINE));
-        for (int lane = 0; lane < lanesFor(wanted); lane++) {
+
+        // Lanes east and west off it, each leaving the spine where the spine
+        // actually is rather than where a straight one would have been.
+        for (int lane = 0; lane < lanes; lane++) {
             int laneZ = laneZ(lane);
             int side = (lane % 2 == 0) ? 1 : -1;
-            streets.add(new TownPlan.Street(
-                    at(centre, 0, laneZ),
-                    at(centre, side * (SETBACK + ROAD_HALF + PITCH * laneDepthFor(wanted)), laneZ),
-                    ROAD_HALF * 2, TownPlan.Kind.LANE));
+            int from = spine.blocksAt(laneZ);
+            int to = side * (SETBACK + ROAD_HALF + PITCH * laneDepthFor(wanted));
+            streets.add(eastWest(centre, wanderFor(centre, LANE_FIRST + lane), laneZ,
+                    from, to, ROAD_HALF * 2, TownPlan.Kind.LANE));
         }
-        streets.add(new TownPlan.Street(
-                at(centre, -BACK_AT, -reach / 4), at(centre, -BACK_AT, reach / 2),
-                ROAD_HALF, TownPlan.Kind.BACK));
+
+        // The back lane, behind the western frontage.
+        streets.add(northSouth(centre, wanderFor(centre, backIndex), -BACK_AT,
+                -reach / 4, reach / 2, ROAD_HALF, TownPlan.Kind.BACK));
 
         // Nearest frontage first.
         //
@@ -168,7 +221,7 @@ public final class StreetLayout implements Layout {
         // The character survives it. The market is nearest and still goes first,
         // the spine next, the lanes outward in turn -- and every plot still
         // fronts the street it was offered on.
-        List<int[]> ordered = new ArrayList<>(offers(wanted));
+        List<int[]> ordered = new ArrayList<>(offers(centre, wanted));
         ordered.sort((a, b) -> {
             long da = (long) a[0] * a[0] + (long) a[1] * a[1];
             long db = (long) b[0] * b[0] + (long) b[1] * b[1];
@@ -191,8 +244,7 @@ public final class StreetLayout implements Layout {
             if (!clear || standsOnAStreet(where, Layout.DEFAULT_SPAN, streets)) {
                 continue;
             }
-            taken.add(new TownPlan.Plot(
-                    where, Layout.DEFAULT_SPAN, facing(offer[2], offer[0], offer[1]), offer[2]));
+            taken.add(new TownPlan.Plot(where, Layout.DEFAULT_SPAN, offer[3], offer[2]));
             if (taken.size() >= wanted) {
                 break;
             }
@@ -229,13 +281,40 @@ public final class StreetLayout implements Layout {
                         break;
                     }
                 }
-                if (clear) {
+                if (clear && !standsOnAStreet(where, Layout.DEFAULT_SPAN, streets)) {
                     taken.add(new TownPlan.Plot(where, Layout.DEFAULT_SPAN,
                             Layout.facingToward(where, centre), -1));
                 }
             }
         }
         return new TownPlan(centre, streets, taken);
+    }
+
+    /**
+     * A north-south street, as the run of points its wander takes it through.
+     *
+     * @param base the straight line's x, which the wander is measured off
+     */
+    private TownPlan.Street northSouth(SimPos centre, Wander how, int base,
+                                       int fromZ, int toZ, int width, TownPlan.Kind kind) {
+        List<SimPos> path = new ArrayList<>();
+        for (int z = fromZ; z < toZ; z += SEGMENT) {
+            path.add(at(centre, base + how.blocksAt(z), z));
+        }
+        path.add(at(centre, base + how.blocksAt(toZ), toZ));
+        return new TownPlan.Street(path, width, kind);
+    }
+
+    /** An east-west street, likewise. */
+    private TownPlan.Street eastWest(SimPos centre, Wander how, int base,
+                                     int fromX, int toX, int width, TownPlan.Kind kind) {
+        List<SimPos> path = new ArrayList<>();
+        int step = fromX <= toX ? SEGMENT : -SEGMENT;
+        for (int x = fromX; step > 0 ? x < toX : x > toX; x += step) {
+            path.add(at(centre, x, base + how.blocksAt(x)));
+        }
+        path.add(at(centre, toX, base + how.blocksAt(toX)));
+        return new TownPlan.Street(path, width, kind);
     }
 
     /**
@@ -251,40 +330,41 @@ public final class StreetLayout implements Layout {
      * layer would have paved through them, and the only report would have been a
      * player wondering why the street went inside somebody's front room.
      *
-     * <p>Streets here are axis-aligned by construction, so this is a rectangle
-     * against a rectangle and nothing cleverer is wanted.
+     * <p>The geometry belongs to {@link TownPlan.Street#touches} so that this and
+     * the invariant that checks the finished plan cannot drift apart.
      */
     private static boolean standsOnAStreet(SimPos at, int span,
                                            List<TownPlan.Street> streets) {
         double half = span / 2.0 + KERB;
         for (TownPlan.Street street : streets) {
-            double edge = street.width() / 2.0;
-            double x1 = Math.min(street.from().x(), street.to().x()) - edge;
-            double x2 = Math.max(street.from().x(), street.to().x()) + edge;
-            double z1 = Math.min(street.from().z(), street.to().z()) - edge;
-            double z2 = Math.max(street.from().z(), street.to().z()) + edge;
-            if (at.x() - half < x2 && at.x() + half > x1
-                    && at.z() - half < z2 && at.z() + half > z1) {
+            if (street.touches(at, half)) {
                 return true;
             }
         }
         return false;
     }
 
-    /** Bare ground between a wall and a carriageway, so a door has a doorstep. */
-    private static final int KERB = 1;
-
-    /** Every frontage this plan offers, in the order a town would take them. */
-    private List<int[]> offers(int wanted) {
+    /**
+     * Every frontage this plan offers, in the order a town would take them.
+     *
+     * <p>Each offer is {@code {dx, dz, street, facing}}. The position is read off
+     * the same wander the street was drawn from, so the setback is a setback from
+     * where the road <em>is</em> rather than from where a straight one would have
+     * been.
+     */
+    private List<int[]> offers(SimPos centre, int wanted) {
         List<int[]> out = new ArrayList<>();
+        int lanes = lanesFor(wanted);
+        Wander spine = wanderFor(centre, SPINE);
 
         // The market widening. The best frontage in the town and taken first,
         // which is why the buildings that matter end up on it.
         for (int k = 0; k * PITCH <= MARKET_REACH; k++) {
             for (int sign : new int[] {1, -1}) {
                 int z = sign * (PITCH / 2 + k * PITCH);
-                out.add(new int[] {-(SETBACK + MARKET_EXTRA), z, SPINE});
-                out.add(new int[] {SETBACK + MARKET_EXTRA, z, SPINE});
+                int bend = spine.blocksAt(z);
+                out.add(new int[] {bend - (SETBACK + MARKET_EXTRA), z, SPINE, 1});
+                out.add(new int[] {bend + SETBACK + MARKET_EXTRA, z, SPINE, 3});
             }
         }
 
@@ -308,20 +388,28 @@ public final class StreetLayout implements Layout {
                 z = MARKET_REACH + PITCH + south * PITCH;
                 south++;
             }
-            out.add(new int[] {-SETBACK, z, SPINE});
-            out.add(new int[] {SETBACK, z, SPINE});
+            int bend = spine.blocksAt(z);
+            out.add(new int[] {bend - SETBACK, z, SPINE, 1});
+            out.add(new int[] {bend + SETBACK, z, SPINE, 3});
         }
 
         // Lanes east off the spine, opened in turn, each filling before the next
         // is wanted. Alternating sides so the town does not grow lopsided in one
         // direction only.
-        for (int lane = 0; lane < lanesFor(wanted); lane++) {
+        //
+        // Each lane is its OWN street index. It used to hand every lane plot the
+        // index 1, so a plan of nine streets reported all of its lane frontage as
+        // fronting the first lane -- which counted as a hundred per cent frontage
+        // and was, but pointed a third of the town at the wrong road.
+        for (int lane = 0; lane < lanes; lane++) {
             int laneZ = laneZ(lane);
             int side = (lane % 2 == 0) ? 1 : -1;
+            Wander how = wanderFor(centre, LANE_FIRST + lane);
             for (int k = 0; k < laneDepthFor(wanted); k++) {
                 int x = side * (SETBACK + ROAD_HALF + PITCH / 2 + k * PITCH);
-                out.add(new int[] {x, laneZ - SETBACK, LANE});
-                out.add(new int[] {x, laneZ + SETBACK, LANE});
+                int bend = laneZ + how.blocksAt(x);
+                out.add(new int[] {x, bend - SETBACK, LANE_FIRST + lane, 2});
+                out.add(new int[] {x, bend + SETBACK, LANE_FIRST + lane, 0});
             }
         }
 
@@ -331,11 +419,27 @@ public final class StreetLayout implements Layout {
         // count would let a town of a hundred take frontage seventeen hundred
         // blocks down a single lane, which measured 451 across and is a road,
         // not a settlement.
-        int depth = (lanesFor(wanted) / 2 + 1) * LANE_SPACING / PITCH + 3;
+        int backIndex = LANE_FIRST + lanes;
+        Wander back = wanderFor(centre, backIndex);
+        int depth = (lanes / 2 + 1) * LANE_SPACING / PITCH + 3;
         for (int k = -depth; k < depth; k++) {
-            out.add(new int[] {-(BACK_AT + SETBACK), PITCH / 2 + k * PITCH, BACK});
+            int z = PITCH / 2 + k * PITCH;
+            out.add(new int[] {-BACK_AT + back.blocksAt(z) - SETBACK, z, backIndex, 1});
         }
         return out;
+    }
+
+    /**
+     * How many plots deep a lane runs, each side, for a town of this size.
+     *
+     * <p>Scaled with the count rather than fixed. At a fixed depth a plan can
+     * only grow by opening more lanes, and lanes sit forty blocks apart: four
+     * hundred plots wanted thirty-four of them and made a town seven hundred
+     * blocks long. Deepening the lanes as they multiply keeps the plan roughly
+     * square, which is the difference between a town and a ribbon.
+     */
+    private static int laneDepthFor(int wanted) {
+        return Math.max(4, (int) Math.ceil(1.43 * lanesFor(wanted)));
     }
 
     /**
@@ -357,16 +461,6 @@ public final class StreetLayout implements Layout {
     private static int laneZ(int lane) {
         int step = (lane / 2 + 1) * LANE_SPACING;
         return (lane % 2 == 0) ? step : -step;
-    }
-
-    /** A door looks at the street it fronts, not at the middle of the town. */
-    private int facing(int street, int dx, int dz) {
-        if (street >= LANE) {
-            // A lane runs east-west, so its frontage faces north or south
-            // depending on which side of the carriageway the plot sits.
-            return (dz % LANE_SPACING + LANE_SPACING) % LANE_SPACING < SETBACK ? 2 : 0;
-        }
-        return dx > 0 ? 3 : 1;
     }
 
     private static SimPos at(SimPos centre, int dx, int dz) {

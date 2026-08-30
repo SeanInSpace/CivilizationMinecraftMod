@@ -3,7 +3,9 @@ package com.kingdoms.sim;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.culture.StreetLayout;
 import com.kingdoms.sim.culture.TownPlan;
+import com.kingdoms.sim.culture.Wander;
 import com.kingdoms.sim.geom.SimPos;
 import org.junit.jupiter.api.Test;
 
@@ -104,13 +106,16 @@ class LayoutTest {
                     layout.id() + " invented a height; that is the survey's job");
 
             // A lattice is the same shape wherever it is put, and that is worth
-            // holding: it is what makes rings rings. ORGANIC is deliberately not
-            // — its throws are seeded from the town's own centre, so two villages
-            // of the same people are not the same village twice. What the rule is
-            // actually for is that a layout must build around the centre it is
-            // HANDED rather than one it remembers, and that is asserted for all
-            // of them below.
-            if (!layout.id().equals("organic")) {
+            // holding: it is what makes rings rings. Some arrangements are
+            // deliberately not — their throws or their bends are seeded from the
+            // town's own centre, so two villages of the same people are not the
+            // same village twice. The layout says which it is, rather than this
+            // test naming the exceptions: as a list of ids it was really the rule
+            // "every layout except the ones that break it", and it would have
+            // silently covered up the next one. What the rule is actually for is
+            // that a layout must build around the centre it is HANDED rather than
+            // one it remembers, and that is asserted for all of them below.
+            if (layout.isSameShapeEverywhere()) {
                 assertEquals(there.x() - elsewhere.x(), here.x() - CENTRE.x(),
                         layout.id() + " is not the same shape somewhere else");
                 assertEquals(there.z() - elsewhere.z(), here.z() - CENTRE.z(),
@@ -154,23 +159,119 @@ class LayoutTest {
         // Fifteen of a hundred and forty did, on the first plan that had streets
         // to check against -- which is a fault that had nowhere to be seen until
         // the plan became a thing that could be looked at.
+        // Walked a segment at a time, because a street bends. Checking only the
+        // two ends of a wandering road tests a straight line the road is not on.
         for (Layout layout : Layouts.all()) {
             TownPlan plan = layout.planFor(CENTRE, 140);
             for (TownPlan.Plot plot : plan.plots()) {
                 for (TownPlan.Street street : plan.streets()) {
-                    double half = plot.span() / 2.0;
-                    double edge = street.width() / 2.0;
-                    double x1 = Math.min(street.from().x(), street.to().x()) - edge;
-                    double x2 = Math.max(street.from().x(), street.to().x()) + edge;
-                    double z1 = Math.min(street.from().z(), street.to().z()) - edge;
-                    double z2 = Math.max(street.from().z(), street.to().z()) + edge;
-                    boolean on = plot.at().x() - half < x2 && plot.at().x() + half > x1
-                            && plot.at().z() - half < z2 && plot.at().z() + half > z1;
-                    assertFalse(on, layout.id() + " put a plot at " + plot.at()
-                            + " standing on a " + street.kind() + " street");
+                    assertFalse(street.touches(plot.at(), plot.span() / 2.0),
+                            layout.id() + " put a plot at " + plot.at()
+                                    + " standing on a " + street.kind() + " street");
                 }
             }
         }
+    }
+
+    @Test
+    void aStreetsFrontageFollowsItsBends() {
+        // The trap in curving a street is curving only the picture. The setback
+        // is measured from the centreline, so if the drawn road bends and the
+        // frontage does not, the gap closes and the house ends up on the kerb --
+        // which is exactly the fault this layout has already had once, from a
+        // different cause. So: every plot that fronts a street must actually be
+        // near that street, however much the street wanders.
+        StreetLayout bendy = new StreetLayout("bendy", new Wander(9, 80, 4242L));
+        TownPlan plan = bendy.planFor(CENTRE, 120);
+        int fronting = 0;
+        for (TownPlan.Plot plot : plan.plots()) {
+            TownPlan.Street street = plan.streetOf(plot);
+            if (street == null) {
+                continue;
+            }
+            fronting++;
+            double nearest = Double.MAX_VALUE;
+            List<SimPos> path = street.path();
+            for (int i = 1; i < path.size(); i++) {
+                nearest = Math.min(nearest, distanceToSegment(
+                        plot.at(), path.get(i - 1), path.get(i)));
+            }
+            // The bar is the deepest setback the plan uses, not the ordinary
+            // one: the market widening deliberately stands SETBACK + MARKET_EXTRA
+            // back -- twenty-five blocks -- because a market is a place with room
+            // in it. Plus the slack a bend introduces between the point the
+            // offset was read at and the nearest point on the road.
+            assertTrue(nearest <= 34,
+                    "a plot at " + plot.at() + " claims to front a " + street.kind()
+                            + " street it stands " + Math.round(nearest) + " blocks from");
+        }
+        assertTrue(fronting >= 60, "only " + fronting + " plots fronted anything");
+    }
+
+    @Test
+    void noArrangementBendsItsStreetsTooSteeplyToBuildOn() {
+        // The failure this catches is quiet and expensive: a street that leans
+        // faster than its plot pitch pushes each plot sideways into the next, the
+        // offers foul each other, and the town keeps its shape while losing its
+        // frontage to the outskirts. At a slope of 0.46 a hundred and forty plots
+        // dropped from every one fronting a street to sixty-nine per cent, and
+        // the town got forty per cent wider doing it. Nothing about that reads as
+        // a bug from the outside -- it just looks like a worse town.
+        for (Layout layout : Layouts.all()) {
+            if (layout instanceof StreetLayout streets) {
+                assertTrue(streets.wander().slope() <= Wander.SAFE_SLOPE + 1e-9,
+                        layout.id() + " bends at " + streets.wander().slope()
+                                + ", past the " + Wander.SAFE_SLOPE + " its frontage survives");
+            }
+        }
+    }
+
+    @Test
+    void aBendingStreetIsStillTheSameStreetOnReload() {
+        // Determinism is the first of the three rules and the wander is the
+        // newest thing that could break it: a town whose streets re-rolled on
+        // load would rebuild its own roads somewhere else every session.
+        StreetLayout a = new StreetLayout("bendy", new Wander(9, 80, 4242L));
+        StreetLayout b = new StreetLayout("bendy", new Wander(9, 80, 4242L));
+        assertEquals(a.planFor(CENTRE, 80).streets(), b.planFor(CENTRE, 80).streets(),
+                "the same town laid different streets on a second run");
+        assertEquals(a.planFor(CENTRE, 80).plots(), b.planFor(CENTRE, 80).plots(),
+                "the same town laid different plots on a second run");
+    }
+
+    @Test
+    void twoTownsDoNotBendAlike() {
+        // A wander seeded only by the layout would give every settlement on the
+        // map the identical kink in the identical place, which reads worse than
+        // a straight road because it reads as a repeated asset.
+        StreetLayout bendy = new StreetLayout("bendy", new Wander(9, 80, 4242L));
+        List<SimPos> here = bendy.planFor(CENTRE, 60).streets().get(0).path();
+        List<SimPos> there = bendy.planFor(new SimPos(2048, 72, -1024), 60)
+                .streets().get(0).path();
+        int same = 0;
+        for (int i = 0; i < Math.min(here.size(), there.size()); i++) {
+            // Compared as offsets from each town's own centre, or every point
+            // differs for the trivial reason that the towns are far apart.
+            if (here.get(i).x() - CENTRE.x() == there.get(i).x() - 2048) {
+                same++;
+            }
+        }
+        assertTrue(same < Math.min(here.size(), there.size()),
+                "two towns bent their spine identically at every one of "
+                        + same + " points");
+    }
+
+    /** How far a point lies from a segment, for the frontage check above. */
+    private static double distanceToSegment(SimPos p, SimPos a, SimPos b) {
+        double vx = b.x() - a.x();
+        double vz = b.z() - a.z();
+        double len = vx * vx + vz * vz;
+        if (len == 0) {
+            return Math.hypot(p.x() - a.x(), p.z() - a.z());
+        }
+        double t = ((p.x() - a.x()) * vx + (p.z() - a.z()) * vz) / len;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(p.x() - (a.x() + t * vx), p.z() - (a.z() + t * vz));
     }
 
     // --- and that they are actually different from each other ---

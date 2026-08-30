@@ -48,26 +48,133 @@ public record TownPlan(SimPos centre, List<Street> streets, List<Plot> plots) {
     }
 
     /**
-     * One straight run of street, from one end to the other.
+     * One street, as the run of points it passes through.
      *
-     * <p>Straight because a bend is two runs. That keeps the type trivial and
-     * matches what the path layer can actually pave; a curve is a polyline of
-     * these and reads as a curve on the ground.
+     * <p>This was a single straight run, on the reasoning that a bend is two
+     * runs and a curve is a polyline of them. That is true of the <em>geometry</em>
+     * and false of the <em>identity</em>: a plot records the street it fronts as
+     * an index, so chopping one road into thirty segments turns one street the
+     * town knows by name into thirty a plot cannot pick between. A bending high
+     * street would have had its frontage attributed to whichever eight-block
+     * fragment happened to be nearest.
+     *
+     * <p>So a street carries its path. A straight one is two points and costs
+     * nothing extra; a wandering one is however many it needs, and either way the
+     * road is one thing with one index, which is what the rest of the plan
+     * assumes.
      */
-    public record Street(SimPos from, SimPos to, int width, Kind kind) {
+    public record Street(List<SimPos> path, int width, Kind kind) {
         public Street {
-            Objects.requireNonNull(from, "from");
-            Objects.requireNonNull(to, "to");
+            path = List.copyOf(path);
+            if (path.size() < 2) {
+                throw new IllegalArgumentException("a street needs at least two points");
+            }
         }
 
-        /** How long this run is, along the ground. */
+        /** A straight street, which is the common case and reads better. */
+        public Street(SimPos from, SimPos to, int width, Kind kind) {
+            this(List.of(from, to), width, kind);
+        }
+
+        public SimPos from() {
+            return path.get(0);
+        }
+
+        public SimPos to() {
+            return path.get(path.size() - 1);
+        }
+
+        /** How long this street is, along the ground, following its bends. */
         public double length() {
-            return Math.hypot(to.x() - from.x(), to.z() - from.z());
+            double total = 0;
+            for (int i = 1; i < path.size(); i++) {
+                total += Math.hypot(path.get(i).x() - path.get(i - 1).x(),
+                                    path.get(i).z() - path.get(i - 1).z());
+            }
+            return total;
         }
 
-        /** Whether this run lies more east-west than north-south. */
+        /** Whether this street lies more east-west than north-south, end to end. */
         public boolean runsEastWest() {
-            return Math.abs(to.x() - from.x()) >= Math.abs(to.z() - from.z());
+            return Math.abs(to().x() - from().x()) >= Math.abs(to().z() - from().z());
+        }
+
+        /** Whether it bends at all, which decides how it can be drawn or paved. */
+        public boolean isStraight() {
+            return path.size() == 2;
+        }
+
+        /**
+         * Whether a square of this half-width would stand on the carriageway.
+         *
+         * <p>Lives here, on the street, because the layout that refuses such a
+         * plot and the invariant that checks none survived have to mean the same
+         * thing by it. This codebase has already paid for a rule with two
+         * definitions once: {@code MIN_PLOT_SEPARATION} was documented as a
+         * distance and enforced as a box, so a layout could keep the stated rule,
+         * pass the test that checked it, and still have its plots thrown away.
+         *
+         * <p>Each run is tested by expanding the plot's square by half the road's
+         * width and asking whether the run crosses it. The corners of that
+         * expanded box are square where the road's end is really round, so the
+         * answer errs by a block or so toward refusing — the right direction.
+         *
+         * <p>It used to compare the run's <em>bounding box</em> instead, which is
+         * exact only while streets are straight. On a road bending nine blocks in
+         * eighty, an eight-block run's box stands about five and a half blocks
+         * wider than the road actually is; that ate most of the setback, refused
+         * frontage that was never near the carriageway, and dropped a hundred and
+         * twenty plots from a hundred fronting streets to fifty.
+         */
+        public boolean touches(SimPos at, double half) {
+            double grow = half + width / 2.0;
+            for (int i = 1; i < path.size(); i++) {
+                if (crosses(path.get(i - 1), path.get(i), at, grow)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /** Whether a run crosses the box of this half-width about a point. */
+        private static boolean crosses(SimPos a, SimPos b, SimPos box, double grow) {
+            double x1 = box.x() - grow;
+            double x2 = box.x() + grow;
+            double z1 = box.z() - grow;
+            double z2 = box.z() + grow;
+            double dx = b.x() - a.x();
+            double dz = b.z() - a.z();
+            // The slab method: clip the run against each pair of parallel edges
+            // and see whether anything of it is left.
+            double enter = 0;
+            double leave = 1;
+            double[][] slabs = {
+                    {dx, x1 - a.x(), x2 - a.x()},
+                    {dz, z1 - a.z(), z2 - a.z()},
+            };
+            for (double[] slab : slabs) {
+                double d = slab[0];
+                if (d == 0) {
+                    // Parallel to this pair: either inside them or nowhere near.
+                    if (slab[1] > 0 || slab[2] < 0) {
+                        return false;
+                    }
+                    continue;
+                }
+                double near = slab[1] / d;
+                double far = slab[2] / d;
+                if (near > far) {
+                    double swap = near;
+                    near = far;
+                    far = swap;
+                }
+                enter = Math.max(enter, near);
+                leave = Math.min(leave, far);
+                if (enter > leave) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
