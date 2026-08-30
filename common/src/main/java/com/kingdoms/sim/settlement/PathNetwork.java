@@ -191,6 +191,39 @@ public final class PathNetwork {
         this.joined.addAll(joined);
     }
 
+    /**
+     * Stretches the ground turned out to be too steep to open.
+     *
+     * <p>Judged at opening rather than at laying, because laying is decided long
+     * before anybody stands there: the oracle answers from the generator's noise,
+     * which is smooth where real ground is jagged, and forty-six streets of a
+     * measured town passed as walkable while climbing two blocks a step or more.
+     *
+     * <p>Remembered rather than re-derived so that both the clock and the builder
+     * agree — one of them has the world to ask and the other does not, and a
+     * stretch the clock refuses must not be one a settler is still walked out to.
+     * Not persisted: a reload asks the ground again, which is the right default
+     * for a judgement made about terrain that may since have been read properly.
+     */
+    private final Set<Integer> unwalkable = new LinkedHashSet<>();
+
+    /** Whether this stretch was found too steep to be worth opening. */
+    public boolean isUnwalkable(int index) {
+        return unwalkable.contains(index);
+    }
+
+    /** Records that this stretch is a stair rather than a street. */
+    public void markUnwalkable(int index) {
+        if (index >= 0) {
+            unwalkable.add(index);
+        }
+    }
+
+    /** How many stretches were refused for being too steep, for reports. */
+    public int unwalkableCount() {
+        return unwalkable.size();
+    }
+
     /** Whether this stretch has been walked out and opened. */
     public boolean isOpened(int index) {
         return opened.contains(index);

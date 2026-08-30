@@ -58,7 +58,7 @@ public final class PublicWorks {
             }
             List<PathNetwork.Segment> segments = paths.segments();
             for (int i = 0; i < segments.size(); i++) {
-                if (!paths.isOpened(i)) {
+                if (!paths.isOpened(i) && !paths.isUnwalkable(i)) {
                     // The middle of the run, so one walk covers a whole stretch
                     // rather than a settler pacing it column by column.
                     return midpointOf(segments.get(i));
@@ -80,7 +80,7 @@ public final class PublicWorks {
             }
             List<PathNetwork.Segment> segments = paths.segments();
             for (int i = 0; i < segments.size(); i++) {
-                if (!paths.isOpened(i)) {
+                if (!paths.isOpened(i) && !paths.isUnwalkable(i)) {
                     paths.markOpened(i);
                     return;
                 }

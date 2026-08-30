@@ -61,6 +61,13 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     @Override
+    public int groundHeight(SimPos pos) {
+        // The oracle, which answers everywhere. This is the question a route
+        // asks, and it must not be answered with the caller's own guess.
+        return oracle.height(pos.x(), pos.z());
+    }
+
+    @Override
     public int surfaceHeight(SimPos pos) {
         if (!level.isLoaded(toBlockPos(pos))) {
             return pos.y();

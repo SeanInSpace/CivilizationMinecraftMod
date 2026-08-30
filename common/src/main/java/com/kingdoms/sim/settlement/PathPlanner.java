@@ -137,9 +137,9 @@ public final class PathPlanner {
      */
     private static boolean tooSteepToWalk(PathNetwork.Segment run, SimContext ctx) {
         List<SimPos> along = run.positions();
-        int last = ctx.bridge().surfaceHeight(along.get(0));
+        int last = ctx.bridge().groundHeight(along.get(0));
         for (int i = 1; i < along.size(); i++) {
-            int here = ctx.bridge().surfaceHeight(along.get(i));
+            int here = ctx.bridge().groundHeight(along.get(i));
             if (Math.abs(here - last) > MAX_ROAD_STEP) {
                 return true;
             }
@@ -306,6 +306,16 @@ public final class PathPlanner {
             if (network.isOpened(i)) {
                 continue;
             }
+            if (network.isUnwalkable(i)) {
+                continue;
+            }
+            if (unwalkable(segments.get(i), ctx)) {
+                // A stair, not a street. Recorded so the builder does not walk
+                // out to it either, and left in the network rather than removed:
+                // the ground may simply be unread today.
+                network.markUnwalkable(i);
+                continue;
+            }
             SimPos where = segments.get(i).from();
             boolean handsThere = settlement.residents().stream()
                     .anyMatch(person -> settlement.laboursAs(person, Profession.BUILDER)
@@ -352,6 +362,27 @@ public final class PathPlanner {
         network.add(new PathNetwork.Segment(door, corner));
         network.add(new PathNetwork.Segment(corner, target));
         return true;
+    }
+
+    /**
+     * Whether a run of way is too steep to be worth opening.
+     *
+     * <p>Asked at opening, which is the only moment the ground is reliably
+     * known: laying happens long before anybody stands there and the oracle
+     * answers from noise. A stretch refused here keeps its place in the network
+     * and can be asked again.
+     */
+    static boolean unwalkable(PathNetwork.Segment run, SimContext ctx) {
+        List<SimPos> along = run.positions();
+        int last = ctx.bridge().groundHeight(along.get(0));
+        for (int i = 1; i < along.size(); i++) {
+            int here = ctx.bridge().groundHeight(along.get(i));
+            if (Math.abs(here - last) > MAX_ROAD_STEP) {
+                return true;
+            }
+            last = here;
+        }
+        return false;
     }
 
     /**

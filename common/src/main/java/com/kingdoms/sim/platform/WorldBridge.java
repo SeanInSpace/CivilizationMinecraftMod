@@ -40,6 +40,25 @@ public interface WorldBridge {
     int surfaceHeight(SimPos pos);
 
     /**
+     * The ground height here, answered even where the world is not loaded.
+     *
+     * <p>{@link #surfaceHeight} deliberately returns the position's own y for an
+     * unloaded column, so a plot keeps the height it was given and the world
+     * snaps it properly at placement. That is right for siting one building and
+     * useless for judging a route: every point of a planned street carries the
+     * town centre's y, so an unloaded hillside reads back as a table top. A
+     * slope check written against it refused nothing at all — 155 runs of a
+     * measured town climbed more than a block a step, one of them by 29.
+     *
+     * <p>This is the estimate instead: certain where the chunk is read, the
+     * generator's own noise everywhere else. An estimate of a cliff is worth
+     * more than a confident report of level ground.
+     */
+    default int groundHeight(SimPos pos) {
+        return surfaceHeight(pos);
+    }
+
+    /**
      * Whether this ground is a river or the sea.
      *
      * <p>Split out from {@link #isSiteSuitable} because it is the one terrain
