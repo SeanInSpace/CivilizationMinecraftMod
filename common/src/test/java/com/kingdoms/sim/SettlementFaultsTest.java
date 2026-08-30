@@ -40,6 +40,12 @@ class SettlementFaultsTest {
     private static final SimPos CENTRE = new SimPos(0, 72, 0);
 
     private static Settlement grow(String cultureId, TerrainFake ground, int steps) {
+        return growOn(cultureId, ground, steps);
+    }
+
+    private static Settlement growOn(String cultureId,
+                                     com.kingdoms.sim.platform.WorldBridge ground,
+                                     int steps) {
         Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTRE, 512);
         town.setCatalogue(BuildCatalogue.DEFAULT);
         town.setStage(SettlementStage.CAMP);
@@ -232,6 +238,103 @@ class SettlementFaultsTest {
             for (PathNetwork.Segment run : town.paths().segments()) {
                 if (run.width() <= PathNetwork.TRACK_WIDTH) {
                     continue;   // a footpath is a consequence of a building
+                }
+                assertFalse(run.touches(b.origin(), span / 2.0),
+                        b.blueprintId() + " at " + b.origin() + " stands on a "
+                                + run.width() + "-wide street");
+            }
+        }
+    }
+
+    /**
+     * Ground that refuses nearly everything, so the give-up paths are reached.
+     *
+     * <p>The reason faults 5 and 7 survived a fix that measured clean. On the
+     * ordinary sandbox terrain a town of sixty never exhausts its candidates,
+     * so both the water rule and the street rule read a perfect zero — and in a
+     * world, where slopes and unread chunks refuse far more, the same town put
+     * five farms on carriageways and two houses in a river.
+     *
+     * <p>A test that only exercises the happy path certifies the happy path. So
+     * this one refuses four sites in five, which drives the search out to its
+     * last resort exactly as real ground does.
+     */
+    private static final class CruelGround
+            implements com.kingdoms.sim.platform.WorldBridge {
+        private final TerrainFake ground;
+
+        CruelGround(long seed) {
+            this.ground = new TerrainFake(seed);
+        }
+
+        boolean wetAt(int x, int z) {
+            return ground.wetAt(x, z);
+        }
+
+        @Override
+        public boolean isSiteSuitable(SimPos plot, int radius) {
+            if (!ground.isSiteSuitable(plot, radius)) {
+                return false;
+            }
+            // Deterministic, and nothing to do with the plot's own merits --
+            // the point is only that most candidates are refused.
+            return Math.floorMod(plot.x() * 31 + plot.z() * 17, 5) == 0;
+        }
+
+        @Override
+        public int surfaceHeight(SimPos pos) {
+            return ground.surfaceHeight(pos);
+        }
+
+        @Override
+        public boolean isLoaded(SimPos pos) {
+            return ground.isLoaded(pos);
+        }
+
+        @Override
+        public boolean playerWithin(SimPos pos, double radius) {
+            return ground.playerWithin(pos, radius);
+        }
+
+        @Override
+        public boolean standsInWater(SimPos pos, int radius) {
+            return ground.standsInWater(pos, radius);
+        }
+
+        @Override
+        public com.kingdoms.sim.settlement.Footprint materializeBlueprint(
+                String id, SimPos origin, boolean surveyed, int facing) {
+            return ground.materializeBlueprint(id, origin, surveyed, facing);
+        }
+
+        @Override
+        public int woodedness(SimPos centre, int radius) {
+            return ground.woodedness(centre, radius);
+        }
+
+        @Override
+        public void log(String message) {
+        }
+    }
+
+    @Test
+    void aTownOnCruelGroundStillRefusesRoadsAndRivers() {
+        // Desperation is a reason to take poor ground. It is never a reason to
+        // take taken ground, the carriageway, or the river -- there is always
+        // more ground further out.
+        CruelGround ground = new CruelGround(11);
+        Settlement town = growOn("kingdoms:vale", ground, 500);
+        List<Building> held = holdingGround(town);
+        assertTrue(held.size() >= 12,
+                "only " + held.size() + " buildings: the ground was too cruel to test with");
+
+        for (Building b : held) {
+            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue());
+            assertFalse(ground.wetAt(b.origin().x(), b.origin().z()),
+                    b.blueprintId() + " at " + b.origin() + " was built in the water");
+            for (PathNetwork.Segment run : town.paths().segments()) {
+                if (run.width() <= PathNetwork.TRACK_WIDTH) {
+                    continue;
                 }
                 assertFalse(run.touches(b.origin(), span / 2.0),
                         b.blueprintId() + " at " + b.origin() + " stands on a "

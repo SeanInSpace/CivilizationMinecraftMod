@@ -469,6 +469,8 @@ public final class Settlement {
         // standing in a river at y=54, 55 and 62, none of which the rules had
         // ever been asked about. Every improvement upstream was partly
         // cancelling itself here.
+        SimPos freeButWet = null;
+        int freeButWetAt = 0;
         for (int extra = 0; extra < DESPERATE_ATTEMPTS; extra++) {
             SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
             // Free ground as well as dry ground. Refusing only water let a
@@ -480,6 +482,35 @@ public final class Settlement {
                 continue;
             }
             if (!ctx.bridge().standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                nextPlotIndex += extra + 1;
+                return candidate;
+            }
+            if (freeButWet == null) {
+                freeButWet = candidate;
+                freeButWetAt = extra;
+            }
+        }
+        // Wet, but free, examined, and out of the road. Better than the last
+        // line below by every measure that matters.
+        if (freeButWet != null) {
+            nextPlotIndex += freeButWetAt + 1;
+            return freeButWet;
+        }
+        // Then keep walking. The comment above says this loop refuses water and
+        // taken ground, and it did — and then fell out of the bottom into a bare
+        // `plotFor(nextPlotIndex++)` that refused nothing at all, which is the
+        // same hole one layer down.
+        //
+        // It is not a rare path. On the sandbox terrain the tests use, a town of
+        // sixty never reaches it and both the water rule and the street rule
+        // measure a clean zero. In a world, where slopes and unread chunks refuse
+        // far more candidates, it is reached often enough to have put five farms
+        // on eight-wide carriageways and two houses in a river — and the fix that
+        // went into takeNextPlot changed none of it, because this is the path the
+        // town actually builds through.
+        for (int extra = DESPERATE_ATTEMPTS; extra < LAST_DITCH; extra++) {
+            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            if (isPlotFree(candidate, span, null)) {
                 nextPlotIndex += extra + 1;
                 return candidate;
             }
