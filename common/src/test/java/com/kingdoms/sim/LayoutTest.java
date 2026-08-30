@@ -3,6 +3,7 @@ package com.kingdoms.sim;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.geom.SimPos;
 import org.junit.jupiter.api.Test;
 
@@ -143,6 +144,33 @@ class LayoutTest {
         }
         assertTrue(same < MANY / 4,
                 "two organic towns came out " + same + " plots identical of " + MANY);
+    }
+
+    @Test
+    void noPlanPutsAPlotInTheRoad() {
+        // A plan that lays houses on its own streets is worse than one with no
+        // streets at all: the path layer paves through the building and the only
+        // report is a player wondering why the road goes through a front room.
+        // Fifteen of a hundred and forty did, on the first plan that had streets
+        // to check against -- which is a fault that had nowhere to be seen until
+        // the plan became a thing that could be looked at.
+        for (Layout layout : Layouts.all()) {
+            TownPlan plan = layout.planFor(CENTRE, 140);
+            for (TownPlan.Plot plot : plan.plots()) {
+                for (TownPlan.Street street : plan.streets()) {
+                    double half = plot.span() / 2.0;
+                    double edge = street.width() / 2.0;
+                    double x1 = Math.min(street.from().x(), street.to().x()) - edge;
+                    double x2 = Math.max(street.from().x(), street.to().x()) + edge;
+                    double z1 = Math.min(street.from().z(), street.to().z()) - edge;
+                    double z2 = Math.max(street.from().z(), street.to().z()) + edge;
+                    boolean on = plot.at().x() - half < x2 && plot.at().x() + half > x1
+                            && plot.at().z() - half < z2 && plot.at().z() + half > z1;
+                    assertFalse(on, layout.id() + " put a plot at " + plot.at()
+                            + " standing on a " + street.kind() + " street");
+                }
+            }
+        }
     }
 
     // --- and that they are actually different from each other ---

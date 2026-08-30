@@ -188,7 +188,7 @@ public final class StreetLayout implements Layout {
                     break;
                 }
             }
-            if (!clear) {
+            if (!clear || standsOnAStreet(where, Layout.DEFAULT_SPAN, streets)) {
                 continue;
             }
             taken.add(new TownPlan.Plot(
@@ -237,6 +237,42 @@ public final class StreetLayout implements Layout {
         }
         return new TownPlan(centre, streets, taken);
     }
+
+    /**
+     * Whether a plot would stand on a carriageway.
+     *
+     * <p>The plan checked plots against each other and never against its own
+     * streets, so it laid houses in the road: a spine plot at z=44 sat on a lane
+     * running through z=36 to 44, and a west lane plot at x=-38 sat on the back
+     * lane at x=-40. Fifteen of a hundred and forty on the largest plan.
+     *
+     * <p>It is the sort of fault that had nowhere to be seen before there was a
+     * plan to look at. A settlement would have built those houses, the path
+     * layer would have paved through them, and the only report would have been a
+     * player wondering why the street went inside somebody's front room.
+     *
+     * <p>Streets here are axis-aligned by construction, so this is a rectangle
+     * against a rectangle and nothing cleverer is wanted.
+     */
+    private static boolean standsOnAStreet(SimPos at, int span,
+                                           List<TownPlan.Street> streets) {
+        double half = span / 2.0 + KERB;
+        for (TownPlan.Street street : streets) {
+            double edge = street.width() / 2.0;
+            double x1 = Math.min(street.from().x(), street.to().x()) - edge;
+            double x2 = Math.max(street.from().x(), street.to().x()) + edge;
+            double z1 = Math.min(street.from().z(), street.to().z()) - edge;
+            double z2 = Math.max(street.from().z(), street.to().z()) + edge;
+            if (at.x() - half < x2 && at.x() + half > x1
+                    && at.z() - half < z2 && at.z() + half > z1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Bare ground between a wall and a carriageway, so a door has a doorstep. */
+    private static final int KERB = 1;
 
     /** Every frontage this plan offers, in the order a town would take them. */
     private List<int[]> offers(int wanted) {
