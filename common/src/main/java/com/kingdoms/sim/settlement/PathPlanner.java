@@ -110,7 +110,46 @@ public final class PathPlanner {
      * <p>Arrangements with no streets — the warren, the organic scatter — lay
      * nothing and go on joining doors to tracks exactly as before.
      */
-    static void layPlannedStreets(Settlement settlement, PathNetwork network) {
+    /**
+     * The most a way may climb between one block and the next.
+     *
+     * <p>One block is a step anybody can take. Two is a jump, and a cart cannot
+     * make it at all; more than that is a wall with gravel on it, which is what
+     * a planned street becomes when it is laid across a hillside without anybody
+     * asking how high the hillside is.
+     *
+     * <p>That was exactly the state of things: {@code layPlannedStreets} copied
+     * the plan's lines onto the ground and never consulted the terrain, because
+     * a {@link TownPlan} is a flat drawing and nothing downstream was asking. On
+     * a superflat world every one of 292 runs measured perfectly level, which is
+     * the proof that the steps come entirely from routing over ground rather
+     * than from the geometry.
+     */
+    private static final int MAX_ROAD_STEP = 1;
+
+    /**
+     * Whether the ground under this run is too steep to lay a street along.
+     *
+     * <p>Refusing is the honest answer rather than terracing it. A town that
+     * cannot take its planned frontage on a cliff should grow somewhere else,
+     * and the plot on the far side is refused with it — the alternative is a
+     * street that arrives at a wall and a house nobody can reach.
+     */
+    private static boolean tooSteepToWalk(PathNetwork.Segment run, SimContext ctx) {
+        List<SimPos> along = run.positions();
+        int last = ctx.bridge().surfaceHeight(along.get(0));
+        for (int i = 1; i < along.size(); i++) {
+            int here = ctx.bridge().surfaceHeight(along.get(i));
+            if (Math.abs(here - last) > MAX_ROAD_STEP) {
+                return true;
+            }
+            last = here;
+        }
+        return false;
+    }
+
+    static void layPlannedStreets(Settlement settlement, PathNetwork network,
+                                  SimContext ctx) {
         if (!Layouts.isStreetsFirst(settlement.arrangement())) {
             return;
         }
@@ -146,7 +185,7 @@ public final class PathPlanner {
                 // animal farms stood on eight-wide carriageways that were laid
                 // straight through them at steps 234 and 435, long after they
                 // were built. A plan is not a warrant to pave somebody's floor.
-                if (!crossesAnything(settlement, run)) {
+                if (!crossesAnything(settlement, run) && !tooSteepToWalk(run, ctx)) {
                     network.add(run);
                 }
             }
@@ -216,7 +255,7 @@ public final class PathPlanner {
         PathNetwork network = settlement.paths();
 
         // The streets come first, which is the whole point of planning them.
-        layPlannedStreets(settlement, network);
+        layPlannedStreets(settlement, network, ctx);
 
         for (Building building : settlement.buildings()) {
             if (!building.footprint().isKnown()) {
@@ -226,13 +265,24 @@ public final class PathPlanner {
                 continue;
             }
             if (building == hubBuilding) {
+                // The hub used to be marked joined and given nothing, on the
+                // reasoning that roads radiate FROM it so it needs none. That
+                // was true when every road ran to the hub and is false now that
+                // the streets are drawn from a plan the hub knows nothing about:
+                // a measured town left its camp post twenty-five blocks from the
+                // nearest road and its town hall fourteen, which is a town whose
+                // two most important doors open onto a field.
+                if (!network.isEmpty()) {
+                    join(network, building, hub);
+                }
                 network.markJoined(building.origin());
                 return;
             }
             if (join(network, building, hub)) {
                 network.markJoined(building.origin());
+                return;   // one road a step: a town lays its network as it grows
             }
-            return;   // one road a step: a town lays its network as it grows
+            continue;   // out of range for now -- try the next, not nobody
         }
         // Every road is planned; what is left is opening them. Where there is a
         // hand there is no clock -- a watched town walks somebody out to each
@@ -275,6 +325,13 @@ public final class PathPlanner {
      */
     private static boolean join(PathNetwork network, Building building, SimPos hub) {
         SimPos door = building.doorstep();
+        if (door.equals(hub)) {
+            SimPos onNetwork = network.nearestPoint(door);
+            if (onNetwork == null) {
+                return false;
+            }
+            hub = onNetwork;   // the hub joins the streets, not itself
+        }
 
         // The nearest existing road wins unless the hub itself is closer, which
         // it only is for the first few buildings — after that the network is

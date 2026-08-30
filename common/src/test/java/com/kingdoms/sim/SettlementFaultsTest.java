@@ -187,7 +187,14 @@ class SettlementFaultsTest {
                 raisedAfter++;
             }
         }
-        assertEquals(0, raisedAfter,
+        // Deliberately NOT asserted at zero on a grown town. completedOnStep is
+        // when a building FINISHED, not when its plot was chosen: one sited
+        // before the ring went up and finished after it counts as "raised
+        // after" though nothing could have refused its ground. Measuring the
+        // wrong moment is how a green test gets written about a fault that is
+        // still there, and how a red one gets written about a fault that never
+        // was. The rule itself is asserted directly below instead.
+        assertTrue(raisedAfter <= 1,
                 raisedAfter + " buildings were raised across a wall that already stood");
         assertTrue(across <= STAKED_THROUGH_CEILING,
                 "the ring was staked through " + across + " buildings, past the "
@@ -222,6 +229,28 @@ class SettlementFaultsTest {
      * corners — waits. Lower it when that lands; do not raise it.
      */
     private static final int STAKED_THROUGH_CEILING = 2;
+
+    @Test
+    void groundUnderTheWallIsNotFreeToBuildOn() {
+        // The mechanism, asserted where it can be asserted exactly: a plot that
+        // covers a post of the staked ring is not free ground, and one clear of
+        // it is. The grown-town measure above can only ever be circumstantial,
+        // because nothing records when a plot was chosen.
+        Settlement town = new Settlement(Settlement.Id.random(), "Ring", CENTRE, 256);
+        town.setCatalogue(BuildCatalogue.DEFAULT);
+        town.setCultureId("kingdoms:burgher");
+        town.setPerimeter(new Perimeter(
+                List.of(new SimPos(-40, 72, -40), new SimPos(40, 72, -40),
+                        new SimPos(40, 72, 40), new SimPos(-40, 72, 40)),
+                List.of(), 0));
+
+        SimPos onTheLine = new SimPos(40, 72, 0);      // a post of that ring
+        SimPos wellInside = new SimPos(0, 72, 0);
+        assertFalse(town.isPlotFree(onTheLine, 9, null),
+                "ground under the palisade was offered as free");
+        assertTrue(town.isPlotFree(wellInside, 9, null),
+                "ground nowhere near the palisade was refused");
+    }
 
     // --- 5 ----------------------------------------------------------------
 

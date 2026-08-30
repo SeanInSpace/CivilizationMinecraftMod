@@ -872,6 +872,21 @@ public final class KingdomsCommand {
                     seg.width(), settlement.paths().isOpened(i) ? 1 : 0);
         }
 
+        // The ground under each run, block by block along it. Without this a
+        // survey can say where a road goes and not whether anybody could walk
+        // it: a stretch that climbs four blocks in one step is a wall with
+        // gravel on it, and reads on a map as a perfectly ordinary street.
+        com.kingdoms.neoforge.world.TerrainOracle roadGround =
+                ((com.kingdoms.neoforge.bridge.NeoForgeWorldBridge)
+                        KingdomsMod.simulationFor(level).bridge()).oracle();
+        for (int i = 0; i < runs.size(); i++) {
+            StringBuilder profile = new StringBuilder();
+            for (SimPos step : runs.get(i).positions()) {
+                profile.append(roadGround.height(step.x(), step.z())).append(',');
+            }
+            KingdomsMod.LOGGER.info("PLAN RS {} {}", i, profile);
+        }
+
         com.kingdoms.sim.settlement.Perimeter ring = settlement.perimeter();
         if (ring != null) {
             StringBuilder line = new StringBuilder();
