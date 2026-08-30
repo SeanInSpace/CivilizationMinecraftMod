@@ -1,6 +1,7 @@
 package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.person.Household;
@@ -515,7 +516,7 @@ public final class Settlement {
                 return candidate;
             }
         }
-        return arrangement().plotFor(centre, nextPlotIndex++);
+        return groundBeyondEverything(span);
     }
 
     /**
@@ -633,6 +634,64 @@ public final class Settlement {
         return false;
     }
 
+
+    /**
+     * Ground past everything the town has, for when nothing else will do.
+     *
+     * <p>The true last resort, and the only one that can promise anything. Every
+     * version of this before it ended with {@code plotFor(nextPlotIndex++)} --
+     * a plot nobody had checked for anything, which is how buildings came to
+     * stand on carriageways, on the palisade, and on each other. Refusing to
+     * answer is not an option: a town that cannot site a building stops building
+     * altogether.
+     *
+     * <p>So it answers with ground that cannot be any of those things. Past the
+     * furthest plot, the furthest wall post and the end of the road network by a
+     * clear margin, nothing is standing, no street runs and no wall is staked --
+     * so the answer is free by construction rather than by search. It is poor
+     * ground and probably a walk from the town, which is the honest cost of
+     * having run out of room, and the settlement's own claim follows it out.
+     *
+     * <p>Turned by the plot index so successive desperate builds do not stack up
+     * in a line, the same trick the organic scatter uses when its darts are
+     * hemmed in.
+     */
+    private SimPos groundBeyondEverything(int span) {
+        int out = MIN_BEYOND;
+        for (Building standing : buildings) {
+            if (!BuildPlanner.holdsGround(standing.blueprintId())) {
+                continue;
+            }
+            out = Math.max(out, Math.max(
+                    Math.abs(standing.origin().x() - centre.x()),
+                    Math.abs(standing.origin().z() - centre.z())));
+        }
+        if (perimeter != null) {
+            for (SimPos post : perimeter.ringPositions()) {
+                out = Math.max(out, Math.max(Math.abs(post.x() - centre.x()),
+                                             Math.abs(post.z() - centre.z())));
+            }
+        }
+        if (paths != null) {
+            for (PathNetwork.Segment run : paths.segments()) {
+                out = Math.max(out, Math.max(
+                        Math.max(Math.abs(run.from().x() - centre.x()),
+                                 Math.abs(run.from().z() - centre.z())),
+                        Math.max(Math.abs(run.to().x() - centre.x()),
+                                 Math.abs(run.to().z() - centre.z()))));
+            }
+        }
+        out += span + Layout.MIN_PLOT_SEPARATION;
+        double angle = nextPlotIndex * 2.399963;   // never repeats a spoke
+        nextPlotIndex++;
+        return new SimPos(
+                centre.x() + (int) Math.round(out * Math.cos(angle)), centre.y(),
+                centre.z() + (int) Math.round(out * Math.sin(angle)));
+    }
+
+    /** The least a desperate plot stands out, before the town's own reach. */
+    private static final int MIN_BEYOND = 48;
+
     /**
      * How much ground a standing building takes.
      *
@@ -744,7 +803,7 @@ public final class Settlement {
                 return candidate;
             }
         }
-        return arrangement().plotFor(centre, nextPlotIndex++);
+        return groundBeyondEverything(span);
     }
 
     /**

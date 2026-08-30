@@ -67,6 +67,19 @@ public final class PathPlanner {
     private static final int STREET_NEAR = 28;
 
     /**
+     * Bare ground between a wall and a carriageway, so a door has a doorstep.
+     *
+     * <p>The same kerb {@code Settlement.isPlotFree} keeps, and it has to be.
+     * Siting refuses a plot within {@code span/2 + KERB} of a street; this
+     * refused to lay a street within {@code span/2} of a plot. One block of
+     * disagreement, and it is enough: a street laid exactly on the kerb line is
+     * ground siting would never have built on, so the survey reports a building
+     * in the road that the building never chose. Whichever rule runs second
+     * wins, and the two must mean the same thing by "clear".
+     */
+    private static final int KERB = 1;
+
+    /**
      * How far round its own centre a town lays streets before it has anything.
      *
      * <p>A founding camp has one post and nothing to measure from, and a plan
@@ -163,7 +176,7 @@ public final class PathPlanner {
             }
             int span = BuildPlanner.plotSpanOf(
                     building.blueprintId(), settlement.catalogue());
-            if (run.touches(building.origin(), span / 2.0)) {
+            if (run.touches(building.origin(), span / 2.0 + KERB)) {
                 return true;
             }
         }
@@ -173,7 +186,7 @@ public final class PathPlanner {
             }
             int span = BuildPlanner.plotSpanOf(
                     queued.blueprintId(), settlement.catalogue());
-            if (run.touches(queued.origin(), span / 2.0)) {
+            if (run.touches(queued.origin(), span / 2.0 + KERB)) {
                 return true;
             }
         }
