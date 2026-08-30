@@ -71,6 +71,9 @@ public final class PathLayer {
      * @return blocks paved — zero for a road that is already sound
      */
     public static int mend(ServerLevel level, PathNetwork.Segment segment) {
+        if (tooSteepToPave(level, segment)) {
+            return 0;
+        }
         int half = halfWidthOf(segment);
         int intact = 0;
         int broken = 0;
@@ -99,6 +102,40 @@ public final class PathLayer {
         }
         return laid;
     }
+
+    /**
+     * Whether the real ground under this run is too steep to be a road.
+     *
+     * <p>The last line, and the only one standing on ground that is certainly
+     * known. The simulation refuses steep runs when it can, but an unwatched
+     * town lays and opens its roads without a single chunk loaded — the terrain
+     * oracle answers from the generator's noise, which is smooth where real
+     * ground is jagged, and forty-eight opened runs of a measured town still
+     * climbed two blocks a step or more, one of them sixteen.
+     *
+     * <p>Here the blocks are in front of us. A run that climbs more than a block
+     * between one column and the next is left unpaved: better a gap in the
+     * network, which the town will route around and a player reads as untrodden
+     * ground, than a gravel stripe up a cliff face that nothing can walk.
+     */
+    private static boolean tooSteepToPave(ServerLevel level, PathNetwork.Segment segment) {
+        int last = Integer.MIN_VALUE;
+        for (SimPos pos : segment.positions()) {
+            BlockPos surface = surfaceOf(level, pos.x(), pos.z());
+            if (surface == null) {
+                last = Integer.MIN_VALUE;   // unloaded: judge the parts we can see
+                continue;
+            }
+            if (last != Integer.MIN_VALUE && Math.abs(surface.getY() - last) > MAX_STEP) {
+                return true;
+            }
+            last = surface.getY();
+        }
+        return false;
+    }
+
+    /** The most a road may climb between one block and the next. */
+    private static final int MAX_STEP = 1;
 
     /** How much of a segment is still road, for reports and audits. */
     public static double soundness(ServerLevel level, PathNetwork.Segment segment) {
