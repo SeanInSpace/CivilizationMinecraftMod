@@ -38,12 +38,19 @@ public final class PathLayer {
      *
      * <p>Read off the run rather than fixed. A footpath between two buildings is
      * three across, because one block wide read as a trail of crumbs and two
-     * people could not pass on it; a planned street is as wide as the plan said,
-     * and the plan kept the plots that far back from the centreline for exactly
-     * this reason.
+     * people could not pass on it.
+     *
+     * <p>A street is paved narrower than the plan reserved, which is the
+     * difference between a right of way and a metalled surface. The plan keeps
+     * plots a setback back from an eight-wide carriageway so that nothing is
+     * ever built in the road; paving all eight of it puts a nine-block ribbon of
+     * gravel through the village, which reads as a runway rather than a street.
+     * A third of the reservation gives a spine five across and a back lane three,
+     * with grass verges between the stones and the doorsteps -- and it is the
+     * verges that make it look like somewhere people live.
      */
     private static int halfWidthOf(PathNetwork.Segment segment) {
-        return Math.max(1, segment.width() / 2);
+        return Math.max(1, segment.width() / 3);
     }
 
     /**

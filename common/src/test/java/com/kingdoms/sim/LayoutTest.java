@@ -224,16 +224,19 @@ class LayoutTest {
         //   plot square expanded into a square, not a disc   25%
         //   spokes that refuse frontage and offer none       62%
         //   with frontage on the spokes                      72%
+        //   asking the design again when too few survive    100%
         //
-        // The bar is a floor against collapse, not a target. Measured today:
-        // 100% for the high street and the grid, 72% for the rings.
+        // The bar is a floor against collapse, not a target. Every planned
+        // arrangement measures 100% today, at every size, because a plan that
+        // comes up short now asks its design for more frontage instead of
+        // trusting an estimate of its own capacity.
         for (Layout layout : Layouts.all()) {
             if (!Layouts.isStreetsFirst(layout)) {
                 continue;
             }
             for (int wanted : new int[] {24, 60, 140}) {
                 TownPlan plan = fresh(layout).planFor(CENTRE, wanted);
-                assertTrue(plan.frontagePercent() >= 65,
+                assertTrue(plan.frontagePercent() >= 95,
                         layout.id() + " at " + wanted + " plots fronted only "
                                 + plan.frontagePercent() + "% of them on its own streets");
             }

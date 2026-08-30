@@ -31,6 +31,8 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
     public static final String LAYOUT_STRONGHOLD = "stronghold";
     public static final String LAYOUT_ORGANIC = "organic";
     public static final String LAYOUT_HIGH_STREET = "high_street";
+    public static final String LAYOUT_RING_STREETS = "ring_streets";
+    public static final String LAYOUT_STRONGHOLD_STREETS = "stronghold_streets";
 
     /** How this people lays a town out on the ground. */
     public Layout arrangement() {
@@ -120,6 +122,35 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
             LAYOUT_HIGH_STREET);
 
+    /**
+     * The vale folk, who build round a green.
+     *
+     * <p>A ring of frontage about an open middle, with lanes striking out
+     * through it — a Rundling, and one of the oldest village forms there is.
+     * Everybody faces the green, so the green is where everything happens; the
+     * houses on the outer face of each ring look across the road at the backs of
+     * the ring beyond, which is what makes the shape read as enclosure rather
+     * than as concentric circles.
+     *
+     * <p>Deliberately a new people rather than a change to {@link #NORMAN},
+     * whose towns are the old concentric lattice. Both arrangements exist and
+     * {@code Layouts.streetsFirst} and {@code Layouts.lattice} swap between them,
+     * so nothing already standing in anybody's world is rearranged by this
+     * entry — it is a people who were not there before, not a new opinion about
+     * the people who were.
+     */
+    public static final Culture VALE = new Culture(
+            "kingdoms:vale",
+            List.of("minecraft:cow", "minecraft:sheep", "minecraft:goat",
+                    "minecraft:chicken"),
+            LAYOUT_RING_STREETS,
+            List.of("Ringmere", "Greenhaugh", "Hollowdean", "Roundwell",
+                    "Thornring", "Elmgarth", "Wilbury", "Combe Dando"),
+            List.of("Hayward", "Reeve", "Shepherd", "Orchard", "Greenway",
+                    "Thatcher", "Bramble", "Fielding"),
+            List.of("Alis", "Bede", "Cwen", "Dunstan", "Edith", "Frith", "Godric",
+                    "Hilda", "Leofa", "Mildred"));
+
     public static final Culture GOBLIN = new Culture(
             "kingdoms:goblin",
             List.of("minecraft:chicken", "minecraft:pig", "minecraft:rabbit",
@@ -154,6 +185,7 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
             BURGHER.id(), BURGHER,
             NORMAN.id(), NORMAN,
             HIGHLAND.id(), HIGHLAND,
+            VALE.id(), VALE,
             GOBLIN.id(), GOBLIN,
             ORC.id(), ORC);
 

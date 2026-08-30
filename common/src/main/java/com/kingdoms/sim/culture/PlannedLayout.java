@@ -153,9 +153,52 @@ public abstract class PlannedLayout implements Layout {
      * out actually does.
      */
     private TownPlan lay(SimPos centre, int wanted) {
+        // Asked for more frontage until enough of it survives.
+        //
+        // A design works out how many streets it needs by estimating how much
+        // frontage they carry, and that estimate is always optimistic: it cannot
+        // know how many of its own offers will be refused for fouling a
+        // neighbour or for standing on one of its other streets. The ring roads
+        // estimated well and still came up 28% short, so a town of a hundred and
+        // forty took a hundred and one plots off its streets and put the other
+        // thirty-nine in the outskirts, fronting nothing.
+        //
+        // Tuning the estimate is the obvious fix and the wrong one -- it is a
+        // constant somebody has to keep right, per arrangement, for every size of
+        // town, which is exactly the kind of arithmetic that has been wrong three
+        // times already in this file's history. Asking again for more needs no
+        // constant and cannot be wrong: the only measure of how much frontage a
+        // plan has is how much of it survives.
         List<TownPlan.Street> streets = new ArrayList<>();
+        List<TownPlan.Plot> taken = new ArrayList<>();
+        int ask = wanted;
+        for (int attempt = 0; attempt < ENOUGH_TRIES; attempt++) {
+            streets = new ArrayList<>();
+            taken = take(centre, wanted, ask, streets);
+            if (taken.size() >= wanted) {
+                break;
+            }
+            ask *= 2;
+        }
+        return finish(centre, wanted, streets, taken);
+    }
+
+    /**
+     * How many times a plan may ask its design for more room before settling.
+     *
+     * <p>Four doublings is sixteen times the frontage, which no arrangement here
+     * has ever needed more than two of. It is a bound rather than a budget: a
+     * design that cannot fill a town is allowed to give up and let the outskirts
+     * take the remainder, because a layout that spins is worse than one that
+     * spreads.
+     */
+    private static final int ENOUGH_TRIES = 4;
+
+    /** Lays a design of this size and takes what fits, nearest frontage first. */
+    private List<TownPlan.Plot> take(SimPos centre, int wanted, int ask,
+                                     List<TownPlan.Street> streets) {
         List<Offer> offers = new ArrayList<>();
-        design(centre, wanted, streets, offers);
+        design(centre, ask, streets, offers);
 
         offers.sort((a, b) -> {
             long da = away(a.at(), centre);
@@ -178,6 +221,13 @@ public abstract class PlannedLayout implements Layout {
                 }
             }
         }
+        return taken;
+    }
+
+    /** Fills out whatever the streets could not, and settles the plan. */
+    private TownPlan finish(SimPos centre, int wanted, List<TownPlan.Street> streets,
+                            List<TownPlan.Plot> from) {
+        List<TownPlan.Plot> taken = new ArrayList<>(from);
 
         // A layout must always be able to answer, and the offers are a finite
         // list a town can outgrow -- plotFor once asked for plot 117 of a plan
