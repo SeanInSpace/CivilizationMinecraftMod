@@ -30,6 +30,7 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
     public static final String LAYOUT_WARREN = "warren";
     public static final String LAYOUT_STRONGHOLD = "stronghold";
     public static final String LAYOUT_ORGANIC = "organic";
+    public static final String LAYOUT_HIGH_STREET = "high_street";
 
     /** How this people lays a town out on the ground. */
     public Layout arrangement() {
@@ -105,6 +106,20 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
      * digging in wherever the digging is good and budding a new knot off the
      * last one; it has no high street and never did.
      */
+    /**
+     * Townsfolk, who lay a street and build along it.
+     *
+     * <p>The first people here whose plan is a plan: a spine with a market
+     * widening on it, a lane off, a back lane behind. Given a culture of their
+     * own rather than handed to the lowlanders, because replacing what every
+     * existing town is would rewrite every settlement already standing in
+     * somebody's world.
+     */
+    public static final Culture BURGHER = new Culture(
+            "kingdoms:burgher",
+            List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
+            LAYOUT_HIGH_STREET);
+
     public static final Culture GOBLIN = new Culture(
             "kingdoms:goblin",
             List.of("minecraft:chicken", "minecraft:pig", "minecraft:rabbit",
@@ -136,6 +151,7 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
 
     private static final Map<String, Culture> KNOWN = Map.of(
             DEFAULT.id(), DEFAULT,
+            BURGHER.id(), BURGHER,
             NORMAN.id(), NORMAN,
             HIGHLAND.id(), HIGHLAND,
             GOBLIN.id(), GOBLIN,

@@ -460,6 +460,14 @@ public final class Settlement {
         // cancelling itself here.
         for (int extra = 0; extra < DESPERATE_ATTEMPTS; extra++) {
             SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            // Free ground as well as dry ground. Refusing only water let a
+            // desperate build land on a plot somebody was already standing on --
+            // an animal farm through the side of a market, caught by the layout
+            // fitness test the day after this loop was written. Desperation is a
+            // reason to take poor ground, never a reason to take taken ground.
+            if (!isPlotFree(candidate, span, null)) {
+                continue;
+            }
             if (!ctx.bridge().standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
                 nextPlotIndex += extra + 1;
                 return candidate;
@@ -564,6 +572,9 @@ public final class Settlement {
         }
         for (int extra = 0; bridge != null && extra < DESPERATE_ATTEMPTS; extra++) {
             SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            if (!isPlotFree(candidate, span, null)) {
+                continue;   // taken ground is not poor ground, it is somebody's
+            }
             if (!bridge.standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
                 nextPlotIndex += extra + 1;
                 return candidate;

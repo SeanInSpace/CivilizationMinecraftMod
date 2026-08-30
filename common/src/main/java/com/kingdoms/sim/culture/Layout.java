@@ -89,6 +89,53 @@ public interface Layout {
     SimPos plotFor(SimPos centre, int index);
 
     /**
+     * This arrangement's whole layout, as one thing, for as many plots as asked.
+     *
+     * <p>{@link #plotFor} answers "where does the nth building go" and is all
+     * the siting code has ever needed. It is not enough to lay a street: a road
+     * has to be known <em>before</em> the buildings that front it, and a
+     * sequence of positions has nowhere to put one.
+     *
+     * <p>So a layout may also describe itself whole. The default derives a plan
+     * from the positions alone — every plot square, facing the centre, fronting
+     * nothing — which is exactly what a lattice arrangement is, honestly
+     * reported. An arrangement built around streets overrides this, and then
+     * {@link #plotFor} is properly a <em>view</em> of the plan rather than the
+     * other way about.
+     *
+     * <p>The three rules still hold and are the plan's to keep: the same centre
+     * and count give the same plan, no two plots share ground, and neighbours
+     * are {@link #MIN_PLOT_SEPARATION} apart.
+     */
+    default TownPlan planFor(SimPos centre, int wanted) {
+        java.util.List<TownPlan.Plot> plots = new java.util.ArrayList<>();
+        for (int i = 0; i < Math.max(0, wanted); i++) {
+            SimPos at = plotFor(centre, i);
+            plots.add(new TownPlan.Plot(at, DEFAULT_SPAN, facingToward(at, centre), -1));
+        }
+        return new TownPlan(centre, java.util.List.of(), plots);
+    }
+
+    /**
+     * Which way a building on this plot looks, in quarter turns clockwise.
+     *
+     * <p>Toward the centre, for an arrangement with no streets to face. Kept
+     * here rather than borrowed from {@code BuildPlanner} so that a layout can
+     * describe itself without reaching into the planners that consume it.
+     */
+    static int facingToward(SimPos plot, SimPos centre) {
+        int dx = centre.x() - plot.x();
+        int dz = centre.z() - plot.z();
+        if (Math.abs(dx) >= Math.abs(dz)) {
+            return dx >= 0 ? 1 : 3;
+        }
+        return dz >= 0 ? 2 : 0;
+    }
+
+    /** The claim a plot takes when a layout has no opinion about size. */
+    int DEFAULT_SPAN = 11;
+
+    /**
      * How far out the town's claim should reach for a plot at this distance.
      *
      * <p>Layouts that sprawl need more margin than layouts that huddle.

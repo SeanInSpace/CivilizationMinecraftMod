@@ -73,7 +73,8 @@ class LayoutTest {
         // months while a third of its plots were being thrown away in play.
         // A test in the wrong units is worse than no test -- it certifies the
         // fault.
-        for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD, Layouts.ORGANIC)) {
+        for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD,
+                Layouts.ORGANIC, Layouts.HIGH_STREET)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTRE, i);

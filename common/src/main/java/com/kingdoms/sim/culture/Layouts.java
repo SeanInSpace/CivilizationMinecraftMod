@@ -353,10 +353,23 @@ public final class Layouts {
                 seq.add(new SimPos(centre.x() + HEART, centre.y(), centre.z()));
                 active.add(0);
             }
+            // Bounded, because the alternative is a hang. The first version
+            // re-added the last plot whenever the active list emptied, threw its
+            // darts, failed, removed it, and re-added the same plot again --
+            // forever, if that plot happened to be hemmed in. A layout that can
+            // spin is worse than one that spreads: this one takes the honest way
+            // out and starts a fresh knot beyond everything placed so far.
+            int stuck = 0;
             while (seq.size() < wanted) {
                 if (active.isEmpty()) {
-                    // Everybody is hemmed in. Start a new quarter at the edge —
-                    // rare, and the only way a scatter can keep growing at all.
+                    if (++stuck > RESTARTS) {
+                        seq.add(beyond(centre, seq));
+                        active.add(seq.size() - 1);
+                        stuck = 0;
+                        continue;
+                    }
+                    // Everybody is hemmed in. Try again from the newest plot,
+                    // whose darts are thrown fresh each time.
                     active.add(seq.size() - 1);
                 }
                 seed = seed * 6364136223846793005L + 1442695040888963407L;
@@ -399,13 +412,43 @@ public final class Layouts {
         /** A plot's own width, which is the radius the scatter packs to. */
         static final int MIN_SEP = Layout.MIN_PLOT_SEPARATION;
 
+        /** How often a hemmed-in scatter retries before it starts somewhere new. */
+        static final int RESTARTS = 8;
+
+        /**
+         * Ground beyond everything placed, for a scatter that has run out of room.
+         *
+         * <p>Clear by construction: past the furthest plot by a whole separation,
+         * so it cannot foul anything however tightly the rest is packed. The town
+         * takes a step outward, which is what a real one does when the good
+         * ground by the green is gone.
+         */
+        private SimPos beyond(SimPos centre, List<SimPos> seq) {
+            int furthest = HEART;
+            for (SimPos placed : seq) {
+                furthest = Math.max(furthest, Math.max(
+                        Math.abs(placed.x() - centre.x()),
+                        Math.abs(placed.z() - centre.z())));
+            }
+            int out = furthest + MIN_SEP;
+            // Turned by the count so successive restarts do not stack up in a line.
+            double angle = seq.size() * 2.399963;
+            return new SimPos(
+                    centre.x() + (int) Math.round(out * Math.cos(angle)),
+                    centre.y(),
+                    centre.z() + (int) Math.round(out * Math.sin(angle)));
+        }
+
         private final Map<String, List<SimPos>> REMEMBERED = new LinkedHashMap<>();
     };
+
+    /** A town laid along a street, with the street known first. */
+    public static final Layout HIGH_STREET = new StreetLayout();
 
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     static {
-        for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC}) {
+        for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC, HIGH_STREET}) {
             KNOWN.put(layout.id(), layout);
         }
     }
