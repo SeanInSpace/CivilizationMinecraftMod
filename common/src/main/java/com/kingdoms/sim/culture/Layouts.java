@@ -450,12 +450,61 @@ public final class Layouts {
     /** A town laid along a street, with the street known first. */
     public static final Layout HIGH_STREET = new StreetLayout();
 
+    /** The ring lattice's streets-first counterpart: ring roads and spokes. */
+    public static final Layout RING_STREETS = new RadialStreetLayout();
+
+    /** The stronghold's: streets ruled both ways, blocks built in the gaps. */
+    public static final Layout STRONGHOLD_STREETS = new GridStreetLayout();
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
+    /**
+     * Which streets-first arrangement replaces which lattice, and the way back.
+     *
+     * <p>Both directions, and both kept, because this is a change to how every
+     * settlement in a world is shaped and nobody should have to take it on faith.
+     * A culture names whichever it wants; a world that preferred the old towns
+     * keeps them by naming the lattice, and no save has to be migrated for either
+     * choice — the id in the save resolves to whatever it always did.
+     *
+     * <p>WARREN and ORGANIC are deliberately absent. A warren is knots of huts
+     * with open ground between them and an organic town is a scatter round a
+     * well; neither has streets, and that is what they <em>are</em> rather than
+     * something not got round to yet. Giving them a high street would not improve
+     * them, it would delete them.
+     */
+    private static final Map<String, String> STREETS_FIRST = new LinkedHashMap<>();
+    private static final Map<String, String> LATTICE = new LinkedHashMap<>();
+
     static {
-        for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC, HIGH_STREET}) {
+        for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
+                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS}) {
             KNOWN.put(layout.id(), layout);
         }
+        STREETS_FIRST.put(RING.id(), RING_STREETS.id());
+        STREETS_FIRST.put(STRONGHOLD.id(), STRONGHOLD_STREETS.id());
+        STREETS_FIRST.forEach((lattice, streets) -> LATTICE.put(streets, lattice));
+    }
+
+    /**
+     * The streets-first version of this arrangement, or the same one back.
+     *
+     * <p>Answers with the input when there is no counterpart, so a caller can
+     * swap a whole table of cultures over without special-casing the ones that
+     * have no streets.
+     */
+    public static Layout streetsFirst(Layout layout) {
+        return of(STREETS_FIRST.getOrDefault(layout.id(), layout.id()));
+    }
+
+    /** The lattice this arrangement replaced, or the same one back. */
+    public static Layout lattice(Layout layout) {
+        return of(LATTICE.getOrDefault(layout.id(), layout.id()));
+    }
+
+    /** Whether this arrangement draws its roads before its buildings. */
+    public static boolean isStreetsFirst(Layout layout) {
+        return layout instanceof PlannedLayout;
     }
 
     /**

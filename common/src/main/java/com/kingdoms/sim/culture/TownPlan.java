@@ -114,48 +114,70 @@ public record TownPlan(SimPos centre, List<Street> streets, List<Plot> plots) {
          * distance and enforced as a box, so a layout could keep the stated rule,
          * pass the test that checked it, and still have its plots thrown away.
          *
-         * <p>Each run is tested by expanding the plot's square by half the road's
-         * width and asking whether the run crosses it. The corners of that
-         * expanded box are square where the road's end is really round, so the
-         * answer errs by a block or so toward refusing — the right direction.
+         * <p>Measured as a real distance from the road to the plot's square. The
+         * two cheaper versions of this were both wrong, and instructively so.
+         * Comparing the run's <em>bounding box</em> is exact only while a street
+         * is straight: on a road bending nine blocks in eighty, an eight-block
+         * run's box stands five and a half blocks wider than the road, which ate
+         * the setback and halved the frontage.
          *
-         * <p>It used to compare the run's <em>bounding box</em> instead, which is
-         * exact only while streets are straight. On a road bending nine blocks in
-         * eighty, an eight-block run's box stands about five and a half blocks
-         * wider than the road actually is; that ate most of the setback, refused
-         * frontage that was never near the carriageway, and dropped a hundred and
-         * twenty plots from a hundred fronting streets to fifty.
+         * <p>Expanding the plot's square by the road's half-width and asking
+         * whether the run crosses it is better, and still wrong on a curve — the
+         * corners of that square reach a factor of root two further than its
+         * sides, so a ring road passing at radius forty clips the corner of a box
+         * centred at radius twenty-seven. On a grid that costs a block; on a
+         * circle it refused a hundred and twenty-five of a hundred and
+         * seventy-seven offers and left a ring town with a quarter of its
+         * frontage. A square expanded into a square is the wrong shape: the right
+         * one is a square expanded by a radius, which has round corners.
          */
         public boolean touches(SimPos at, double half) {
-            double grow = half + width / 2.0;
+            double edge = width / 2.0;
             for (int i = 1; i < path.size(); i++) {
-                if (crosses(path.get(i - 1), path.get(i), at, grow)) {
+                if (distanceToSquare(path.get(i - 1), path.get(i), at, half) < edge) {
                     return true;
                 }
             }
             return false;
         }
 
-        /** Whether a run crosses the box of this half-width about a point. */
-        private static boolean crosses(SimPos a, SimPos b, SimPos box, double grow) {
-            double x1 = box.x() - grow;
-            double x2 = box.x() + grow;
-            double z1 = box.z() - grow;
-            double z2 = box.z() + grow;
-            double dx = b.x() - a.x();
-            double dz = b.z() - a.z();
-            // The slab method: clip the run against each pair of parallel edges
-            // and see whether anything of it is left.
+        /**
+         * How far a run passes from an axis-aligned square, zero if it crosses it.
+         *
+         * <p>Either the run enters the square, or the nearest approach is at one
+         * of the square's corners or at one of the run's own ends.
+         */
+        private static double distanceToSquare(SimPos a, SimPos b, SimPos box, double half) {
+            double x1 = box.x() - half;
+            double x2 = box.x() + half;
+            double z1 = box.z() - half;
+            double z2 = box.z() + half;
+            if (crosses(a, b, x1, x2, z1, z2)) {
+                return 0;
+            }
+            double nearest = Double.MAX_VALUE;
+            double[][] corners = {{x1, z1}, {x2, z1}, {x2, z2}, {x1, z2}};
+            for (double[] corner : corners) {
+                nearest = Math.min(nearest, pointToSegment(corner[0], corner[1], a, b));
+            }
+            nearest = Math.min(nearest, pointToBox(a, x1, x2, z1, z2));
+            nearest = Math.min(nearest, pointToBox(b, x1, x2, z1, z2));
+            return nearest;
+        }
+
+        /** Whether a run enters a box at all: the slab method. */
+        private static boolean crosses(SimPos a, SimPos b,
+                                       double x1, double x2, double z1, double z2) {
             double enter = 0;
             double leave = 1;
             double[][] slabs = {
-                    {dx, x1 - a.x(), x2 - a.x()},
-                    {dz, z1 - a.z(), z2 - a.z()},
+                    {b.x() - a.x(), x1 - a.x(), x2 - a.x()},
+                    {b.z() - a.z(), z1 - a.z(), z2 - a.z()},
             };
             for (double[] slab : slabs) {
                 double d = slab[0];
                 if (d == 0) {
-                    // Parallel to this pair: either inside them or nowhere near.
+                    // Parallel to this pair: either between them or nowhere near.
                     if (slab[1] > 0 || slab[2] < 0) {
                         return false;
                     }
@@ -175,6 +197,25 @@ public record TownPlan(SimPos centre, List<Street> streets, List<Plot> plots) {
                 }
             }
             return true;
+        }
+
+        private static double pointToSegment(double px, double pz, SimPos a, SimPos b) {
+            double vx = b.x() - a.x();
+            double vz = b.z() - a.z();
+            double len = vx * vx + vz * vz;
+            if (len == 0) {
+                return Math.hypot(px - a.x(), pz - a.z());
+            }
+            double t = ((px - a.x()) * vx + (pz - a.z()) * vz) / len;
+            t = Math.max(0, Math.min(1, t));
+            return Math.hypot(px - (a.x() + t * vx), pz - (a.z() + t * vz));
+        }
+
+        private static double pointToBox(SimPos p, double x1, double x2,
+                                         double z1, double z2) {
+            double dx = Math.max(Math.max(x1 - p.x(), 0), p.x() - x2);
+            double dz = Math.max(Math.max(z1 - p.z(), 0), p.z() - z2);
+            return Math.hypot(dx, dz);
         }
     }
 

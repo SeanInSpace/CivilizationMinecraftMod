@@ -3,6 +3,8 @@ package com.kingdoms.sim;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.culture.GridStreetLayout;
+import com.kingdoms.sim.culture.RadialStreetLayout;
 import com.kingdoms.sim.culture.StreetLayout;
 import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.culture.Wander;
@@ -206,6 +208,87 @@ class LayoutTest {
                             + " street it stands " + Math.round(nearest) + " blocks from");
         }
         assertTrue(fronting >= 60, "only " + fronting + " plots fronted anything");
+    }
+
+    @Test
+    void aPlannedTownActuallyFrontsItsStreets() {
+        // The point of drawing streets first is that the buildings stand on
+        // them. A plan that lays roads and then puts its houses in the outskirts
+        // has the cost of streets and none of the benefit -- and it fails
+        // quietly, because the streets are still there in the picture and the
+        // town still reaches its plot count. Every collapse this layout has had
+        // showed up here first and nowhere else:
+        //
+        //   ring roads pitched like a straight street        20%
+        //   ring faces spaced on the centreline              25%
+        //   plot square expanded into a square, not a disc   25%
+        //   spokes that refuse frontage and offer none       62%
+        //   with frontage on the spokes                      72%
+        //
+        // The bar is a floor against collapse, not a target. Measured today:
+        // 100% for the high street and the grid, 72% for the rings.
+        for (Layout layout : Layouts.all()) {
+            if (!Layouts.isStreetsFirst(layout)) {
+                continue;
+            }
+            for (int wanted : new int[] {24, 60, 140}) {
+                TownPlan plan = fresh(layout).planFor(CENTRE, wanted);
+                assertTrue(plan.frontagePercent() >= 65,
+                        layout.id() + " at " + wanted + " plots fronted only "
+                                + plan.frontagePercent() + "% of them on its own streets");
+            }
+        }
+    }
+
+    /**
+     * A layout of the same kind with an empty plan cache.
+     *
+     * <p>Planned layouts remember plans by the town's x and z, and every test in
+     * this JVM shares the one instance the registry holds. Asking the shared one
+     * for a town of twenty-four at the origin returns whatever the largest town
+     * any other test grew there was — which is how a measurement of the plan at
+     * three sizes came back as the same three-hundred-plot answer three times.
+     */
+    private static Layout fresh(Layout like) {
+        if (like instanceof StreetLayout s) {
+            return new StreetLayout(s.id(), s.wander());
+        }
+        if (like instanceof RadialStreetLayout r) {
+            return new RadialStreetLayout(r.id(), r.wander());
+        }
+        if (like instanceof GridStreetLayout g) {
+            return new GridStreetLayout(g.id(), g.wander());
+        }
+        return like;
+    }
+
+    @Test
+    void everyStreetsFirstArrangementCanBeSwappedBackForItsLattice() {
+        // Streets-first changes the shape of every settlement in a world, which
+        // is not a decision to make on anybody's behalf permanently. Both
+        // directions exist and both round-trip, so a culture can name either and
+        // a world that liked its old towns keeps them.
+        for (Layout lattice : List.of(Layouts.RING, Layouts.STRONGHOLD)) {
+            Layout streets = Layouts.streetsFirst(lattice);
+            assertNotEquals(lattice.id(), streets.id(),
+                    lattice.id() + " has no streets-first counterpart");
+            assertTrue(Layouts.isStreetsFirst(streets),
+                    streets.id() + " does not actually draw its streets first");
+            assertFalse(Layouts.isStreetsFirst(lattice),
+                    lattice.id() + " was supposed to be the lattice");
+            assertSame(lattice, Layouts.lattice(streets),
+                    "could not get back from " + streets.id());
+            assertTrue(streets.planFor(CENTRE, 60).frontagePercent() > 0,
+                    streets.id() + " draws streets nothing fronts");
+        }
+
+        // The ones with no counterpart answer with themselves, so a caller can
+        // swap a whole table over without special-casing them.
+        for (Layout alone : List.of(Layouts.WARREN, Layouts.ORGANIC)) {
+            assertSame(alone, Layouts.streetsFirst(alone),
+                    alone.id() + " invented streets it has no business having");
+            assertSame(alone, Layouts.lattice(alone));
+        }
     }
 
     @Test
