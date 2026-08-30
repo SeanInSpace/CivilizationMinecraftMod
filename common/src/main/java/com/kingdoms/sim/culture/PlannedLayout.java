@@ -83,25 +83,56 @@ public abstract class PlannedLayout implements Layout {
         return planFor(centre, at + 1).plot(at).at();
     }
 
+    /**
+     * How big a plan is laid, whatever size is asked for.
+     *
+     * <p>Fixed, and it has to be. Every number in a plan is derived from the
+     * count — how far the spine runs, how many lanes open, how deep they go — so
+     * laying at the size asked meant the <em>same town</em> had different
+     * geometry depending on how much of it anybody had asked about yet. A
+     * settlement that grew past its cached plan had the plan re-laid underneath
+     * it, and plot five moved.
+     *
+     * <p>Nothing had noticed because the determinism rule is checked by asking
+     * twice in a row, which passes: the answer only changes after the town grows.
+     * It surfaced when the streets became something to pave, because a road laid
+     * along a plan that shifts under the houses is a road through the houses.
+     *
+     * <p>So the plan is laid once at a size no settlement reaches and handed out
+     * as a prefix. Two hundred and fifty-six plots is about eight times the
+     * largest town measured, and laying it costs a few milliseconds once per
+     * town.
+     */
+    private static final int PLAN_SIZE = 256;
+
     @Override
     public TownPlan planFor(SimPos centre, int wanted) {
         int want = Math.max(1, wanted);
         synchronized (planned) {
             String key = centre.x() + ":" + centre.z();
             TownPlan held = planned.get(key);
-            if (held != null && held.size() >= want) {
+            if (held == null || held.size() < want) {
+                held = lay(centre, Math.max(want, PLAN_SIZE));
+                if (planned.size() > TOWNS_REMEMBERED) {
+                    planned.clear();
+                }
+                planned.put(key, held);
+            }
+            if (held.size() == want) {
                 return held;
             }
-            // Laid whole and laid again when the town outgrows it. A plan is
-            // cheap and a settlement that has to ask for plot four hundred has
-            // asked for the three hundred and ninety-nine before it anyway.
-            TownPlan made = lay(centre, Math.max(want, 32));
-            if (planned.size() > TOWNS_REMEMBERED) {
-                planned.clear();
-            }
-            planned.put(key, made);
-            return made;
+            // A prefix, not a smaller plan. The streets are the town's streets
+            // whether or not it has filled them yet, and the plots come in the
+            // order the town takes them, so the first n of them ARE the plan for
+            // a town of n -- with the same geometry it will still have later.
+            return new TownPlan(centre, held.streets(),
+                    held.plots().subList(0, Math.min(want, held.size())));
         }
+    }
+
+    /** The whole plan this town will ever have, however little of it is built. */
+    public TownPlan fullPlan(SimPos centre) {
+        return planFor(centre, PLAN_SIZE);
     }
 
     /**

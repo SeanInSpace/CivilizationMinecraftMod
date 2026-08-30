@@ -24,50 +24,98 @@ import java.util.Set;
  */
 public final class PathNetwork {
 
+    /** How wide a trodden way between two buildings is, in blocks. */
+    public static final int TRACK_WIDTH = 3;
+
     /**
-     * One straight run of path. Always axis-aligned: a corner is two segments,
-     * which is what keeps the network at right angles and leaves square ground
-     * between the roads for buildings to sit on.
+     * One straight run of way, from one end to the other.
+     *
+     * <p>A run used to be forbidden from going diagonally, and the reason was
+     * sound for the runs that existed: a track joining a building to the network
+     * that cuts a corner leaves no square ground to put the next building
+     * against. That is a rule about how {@code PathPlanner} <em>routes</em>, and
+     * it still holds there.
+     *
+     * <p>It is not a rule about what a way can be. A planned street bends,
+     * because a settlement with perfectly straight roads reads as a spreadsheet
+     * from the air, and the ground either side of it was reserved by the same
+     * plan that bent it. Forbidding the diagonal here would have meant either
+     * staircasing every street into hundreds of one-block runs, or keeping
+     * streets in a parallel structure that the gates, the siting, the mending
+     * and the save all had to learn about separately.
+     *
+     * <p>Both {@link #length()} and {@link #positions()} give exactly their old
+     * answers for an axis-aligned run, so nothing that existed changes.
+     *
+     * @param width how many blocks across the way is paved; a footpath is
+     *              {@value #TRACK_WIDTH} and a carriageway is whatever the plan
+     *              said
      */
-    public record Segment(SimPos from, SimPos to) {
+    public record Segment(SimPos from, SimPos to, int width) {
 
         public Segment {
-            if (from.x() != to.x() && from.z() != to.z()) {
-                throw new IllegalArgumentException(
-                        "a path segment runs along one axis: " + from + " -> " + to);
+            if (width < 1) {
+                throw new IllegalArgumentException("a way has to be at least one wide");
             }
+        }
+
+        /** An ordinary trodden track, which is what a building joins by. */
+        public Segment(SimPos from, SimPos to) {
+            this(from, to, TRACK_WIDTH);
         }
 
         /** Blocks from end to end, inclusive of both. */
         public int length() {
-            return Math.abs(to.x() - from.x()) + Math.abs(to.z() - from.z()) + 1;
+            return Math.max(Math.abs(to.x() - from.x()), Math.abs(to.z() - from.z())) + 1;
         }
 
-        /** Every column this run covers, in walk order. */
+        /**
+         * Every column this run covers, in walk order.
+         *
+         * <p>Interpolated rather than stepped by sign, or a run that is eight
+         * east and three south would set off at forty-five degrees and stop
+         * short. For an axis-aligned run this is the same walk it always was.
+         */
         public List<SimPos> positions() {
-            List<SimPos> out = new ArrayList<>(length());
-            int stepX = Integer.signum(to.x() - from.x());
-            int stepZ = Integer.signum(to.z() - from.z());
-            int x = from.x();
-            int z = from.z();
-            for (int i = 0; i < length(); i++) {
-                out.add(new SimPos(x, from.y(), z));
-                x += stepX;
-                z += stepZ;
+            int steps = length() - 1;
+            List<SimPos> out = new ArrayList<>(steps + 1);
+            if (steps == 0) {
+                out.add(from);
+                return out;
+            }
+            int dx = to.x() - from.x();
+            int dz = to.z() - from.z();
+            for (int i = 0; i <= steps; i++) {
+                out.add(new SimPos(
+                        from.x() + Math.round((float) dx * i / steps), from.y(),
+                        from.z() + Math.round((float) dz * i / steps)));
             }
             return out;
         }
 
-        /** The point on this run closest to the given position. */
+        /**
+         * The point on this run closest to the given position.
+         *
+         * <p>Projected onto the run and clamped to its ends, which for an
+         * axis-aligned run is the clamp it always did.
+         */
         public SimPos nearestTo(SimPos pos) {
-            if (from.x() == to.x()) {
-                int lo = Math.min(from.z(), to.z());
-                int hi = Math.max(from.z(), to.z());
-                return new SimPos(from.x(), from.y(), Math.clamp(pos.z(), lo, hi));
+            double dx = to.x() - from.x();
+            double dz = to.z() - from.z();
+            double lenSq = dx * dx + dz * dz;
+            if (lenSq == 0) {
+                return from;
             }
-            int lo = Math.min(from.x(), to.x());
-            int hi = Math.max(from.x(), to.x());
-            return new SimPos(Math.clamp(pos.x(), lo, hi), from.y(), from.z());
+            double t = ((pos.x() - from.x()) * dx + (pos.z() - from.z()) * dz) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            return new SimPos(
+                    from.x() + (int) Math.round(dx * t), from.y(),
+                    from.z() + (int) Math.round(dz * t));
+        }
+
+        /** Whether this run keeps the right-angle rule that routing must. */
+        public boolean isAxisAligned() {
+            return from.x() == to.x() || from.z() == to.z();
         }
     }
 
@@ -99,6 +147,27 @@ public final class PathNetwork {
      * means the same stretch for as long as the town stands.
      */
     private final Set<Integer> opened = new LinkedHashSet<>();
+
+    /**
+     * How many buildings the town's planned streets were last laid for.
+     *
+     * <p>Kept so the laying happens when the town has actually grown rather than
+     * on every tick. Checking whether four hundred runs are already present costs
+     * a scan of four hundred runs each, and a settlement steps constantly.
+     *
+     * <p>Minus one rather than nought for a town that has never laid any, so
+     * that a settlement with nothing built yet still lays the streets round its
+     * own market instead of matching nought against nought and never starting.
+     */
+    private int streetsLaidFor = -1;
+
+    public int streetsLaidFor() {
+        return streetsLaidFor;
+    }
+
+    public void setStreetsLaidFor(int buildings) {
+        streetsLaidFor = buildings;
+    }
 
     public PathNetwork() {
     }

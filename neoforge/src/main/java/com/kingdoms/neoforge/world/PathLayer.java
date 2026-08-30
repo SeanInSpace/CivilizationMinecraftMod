@@ -34,12 +34,17 @@ public final class PathLayer {
     private static final int HEADROOM = 2;
 
     /**
-     * Half-width of the track, so a road is {@code 2 * HALF_WIDTH + 1} across.
+     * Half-width of one run, so a way is {@code 2 * half + 1} across.
      *
-     * <p>One block wide read as a trail of crumbs between buildings, and two
-     * people could not pass on it.
+     * <p>Read off the run rather than fixed. A footpath between two buildings is
+     * three across, because one block wide read as a trail of crumbs and two
+     * people could not pass on it; a planned street is as wide as the plan said,
+     * and the plan kept the plots that far back from the centreline for exactly
+     * this reason.
      */
-    private static final int HALF_WIDTH = 1;
+    private static int halfWidthOf(PathNetwork.Segment segment) {
+        return Math.max(1, segment.width() / 2);
+    }
 
     /**
      * How much of a stretch must have gone before it is worth re-laying.
@@ -59,11 +64,12 @@ public final class PathLayer {
      * @return blocks paved — zero for a road that is already sound
      */
     public static int mend(ServerLevel level, PathNetwork.Segment segment) {
+        int half = halfWidthOf(segment);
         int intact = 0;
         int broken = 0;
         for (SimPos pos : segment.positions()) {
-            for (int ox = -HALF_WIDTH; ox <= HALF_WIDTH; ox++) {
-                for (int oz = -HALF_WIDTH; oz <= HALF_WIDTH; oz++) {
+            for (int ox = -half; ox <= half; ox++) {
+                for (int oz = -half; oz <= half; oz++) {
                     switch (state(level, pos.x() + ox, pos.z() + oz)) {
                         case PAVED -> intact++;
                         case BARE -> broken++;
@@ -78,8 +84,8 @@ public final class PathLayer {
         }
         int laid = 0;
         for (SimPos pos : segment.positions()) {
-            for (int ox = -HALF_WIDTH; ox <= HALF_WIDTH; ox++) {
-                for (int oz = -HALF_WIDTH; oz <= HALF_WIDTH; oz++) {
+            for (int ox = -half; ox <= half; ox++) {
+                for (int oz = -half; oz <= half; oz++) {
                     laid += pave(level, pos.x() + ox, pos.z() + oz);
                 }
             }

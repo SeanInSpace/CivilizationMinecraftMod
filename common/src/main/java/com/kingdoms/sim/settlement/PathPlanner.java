@@ -1,5 +1,7 @@
 package com.kingdoms.sim.settlement;
 
+import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
@@ -47,11 +49,111 @@ public final class PathPlanner {
     private PathPlanner() {
     }
 
+    /**
+     * How near a building a planned street has to pass to be worth laying.
+     *
+     * <p>A setback plus a plot pitch: far enough that the stretch in front of a
+     * house is laid along with it and the stretch between two houses joins up,
+     * near enough that a street nobody has built on yet stays a line on a plan.
+     *
+     * <p>Laying the whole plan instead was the first attempt, and it is worth
+     * recording why it was wrong. The plan describes a town of two hundred and
+     * fifty-six; a village has sixty. Taking every street inside the village own
+     * reach gave a settlement of sixty-two buildings <strong>405 stretches of
+     * carriageway and thirty thousand paved columns</strong> — a market town
+     * street grid around a hamlet, most of it running past nothing, and a very
+     * large number of block writes for a town nobody was watching.
+     */
+    private static final int STREET_NEAR = 28;
+
+    /**
+     * How far round its own centre a town lays streets before it has anything.
+     *
+     * <p>A founding camp has one post and nothing to measure from, and a plan
+     * whose streets are all judged against buildings that do not exist would
+     * never lay any. This is the market and the first of the spine, which is
+     * where a town starts and what it builds its first houses along — the route
+     * being there first is the whole point.
+     */
+    private static final int FIRST_STREETS = 40;
+
+    /**
+     * Lays the streets this town has planned, where the town has reached them.
+     *
+     * <p>Roads in this simulation have always been a <em>consequence</em>: a
+     * building went up and afterwards a track was run from its door to whatever
+     * passed nearest. Every real settlement works the other way round — the
+     * route is there first and the buildings take frontage on it — and until
+     * there was a plan carrying streets there was nowhere to keep the route.
+     *
+     * <p>A planned street enters the network as ordinary runs, so everything
+     * downstream needs to know nothing about plans: they are opened by a builder
+     * walking out to them, mended when they grow over, counted by the gates when
+     * the palisade decides where the roads leave town, and consulted by the
+     * siting code so the next building goes up near a street rather than in a
+     * field. The only thing that makes them streets is that they are wider and
+     * they bend.
+     *
+     * <p>Arrangements with no streets — the warren, the organic scatter — lay
+     * nothing and go on joining doors to tracks exactly as before.
+     */
+    static void layPlannedStreets(Settlement settlement, PathNetwork network) {
+        if (!Layouts.isStreetsFirst(settlement.arrangement())) {
+            return;
+        }
+        List<SimPos> standing = new java.util.ArrayList<>();
+        for (Building building : settlement.buildings()) {
+            if (BuildPlanner.holdsGround(building.blueprintId())) {
+                standing.add(building.origin());
+            }
+        }
+        if (standing.size() == network.streetsLaidFor()) {
+            return;   // nothing new has been built; a town steps every tick
+        }
+        SimPos centre = settlement.centre();
+        // The plan streets are the same whatever slice of its plots is asked
+        // for, so this is the cheap call and it is the cached one.
+        TownPlan plan = settlement.arrangement().planFor(centre, 1);
+        for (TownPlan.Street street : plan.streets()) {
+            List<SimPos> path = street.path();
+            for (int i = 1; i < path.size(); i++) {
+                SimPos from = path.get(i - 1);
+                SimPos to = path.get(i);
+                SimPos middle = new SimPos((from.x() + to.x()) / 2, from.y(),
+                        (from.z() + to.z()) / 2);
+                if (within(middle, centre, FIRST_STREETS)
+                        || nearAny(middle, standing, STREET_NEAR)) {
+                    network.add(new PathNetwork.Segment(from, to, street.width()));
+                }
+            }
+        }
+        network.setStreetsLaidFor(standing.size());
+    }
+
+    /** Whether a stretch passes close enough to anything the town has built. */
+    private static boolean nearAny(SimPos where, List<SimPos> standing, int reach) {
+        for (SimPos origin : standing) {
+            if (Math.max(Math.abs(where.x() - origin.x()),
+                         Math.abs(where.z() - origin.z())) <= reach) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean within(SimPos pos, SimPos centre, int reach) {
+        return Math.max(Math.abs(pos.x() - centre.x()),
+                        Math.abs(pos.z() - centre.z())) <= reach;
+    }
+
     /** Joins one more building to the network, if any is waiting. */
     public static void advance(Settlement settlement, SimContext ctx) {
         Building hubBuilding = hubBuilding(settlement);
         SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.centre();
         PathNetwork network = settlement.paths();
+
+        // The streets come first, which is the whole point of planning them.
+        layPlannedStreets(settlement, network);
 
         for (Building building : settlement.buildings()) {
             if (!building.footprint().isKnown()) {

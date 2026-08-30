@@ -223,7 +223,12 @@ public final class KingdomsCodecs {
     private static final Codec<PathNetwork.Segment> PATH_SEGMENT =
             RecordCodecBuilder.create(i -> i.group(
                     SIM_POS.fieldOf("from").forGetter(PathNetwork.Segment::from),
-                    SIM_POS.fieldOf("to").forGetter(PathNetwork.Segment::to)
+                    SIM_POS.fieldOf("to").forGetter(PathNetwork.Segment::to),
+                    // Absent in every world saved before streets were planned,
+                    // and those are all footpaths, so the old width is the
+                    // default rather than a migration.
+                    Codec.INT.optionalFieldOf("width", PathNetwork.TRACK_WIDTH)
+                            .forGetter(PathNetwork.Segment::width)
             ).apply(i, PathNetwork.Segment::new));
 
     /**
@@ -244,10 +249,17 @@ public final class KingdomsCodecs {
             // level down. Optional, so a save from before roads were work loads
             // with none opened and re-opens them as its builders get to them.
             Codec.INT.listOf().optionalFieldOf("opened", List.of())
-                    .forGetter(PathNetwork::openedSegments)
-    ).apply(i, (segments, joined, opened) -> {
+                    .forGetter(PathNetwork::openedSegments),
+            // How many buildings the planned streets were last laid for. Absent
+            // on a world saved before streets existed, and minus one is right for
+            // those: it matches no count, so they lay theirs on the next step
+            // rather than never.
+            Codec.INT.optionalFieldOf("streetsLaidFor", -1)
+                    .forGetter(PathNetwork::streetsLaidFor)
+    ).apply(i, (segments, joined, opened, streetsLaidFor) -> {
         PathNetwork network = new PathNetwork(segments, joined);
         network.restoreOpened(opened);
+        network.setStreetsLaidFor(streetsLaidFor);
         return network;
     }));
 
