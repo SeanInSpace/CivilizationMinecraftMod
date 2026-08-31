@@ -122,6 +122,11 @@ public final class KingdomsCommand {
                 .then(Commands.literal("oracle")
                         .executes(KingdomsCommand::oracle))
 
+                .then(Commands.literal("terrain")
+                        .then(Commands.argument("radius", IntegerArgumentType.integer(32, 512))
+                                .executes(ctx -> terrain(ctx,
+                                        IntegerArgumentType.getInteger(ctx, "radius")))))
+
                 .then(Commands.literal("stores")
                         .executes(KingdomsCommand::stores))
 
@@ -962,6 +967,86 @@ public final class KingdomsCommand {
     }
 
     /** Half-width of ground sampled by {@code /civ plan}, and the sample pitch. */
+    /**
+     * Captures the real ground into a height field, for the test suite to use.
+     *
+     * <p>Run by hand, once, and the output committed. It exists because every
+     * fake terrain this project tests against is smooth — {@code TerrainFake} is
+     * three sine waves whose steepest gradient is about half a block per block,
+     * so a rule that refuses ground climbing more than a block a step can never
+     * fire in the suite at all. Three separate fixes for roads on unclimbable
+     * slopes measured perfectly clean in the simulation and changed nothing in a
+     * world, because the simulation had no unclimbable slopes in it.
+     *
+     * <p>So: real ground, recorded. Not the oracle's estimate — this forces full
+     * chunk generation, which is far too slow to do while a town is running and
+     * exactly right for a one-off capture. What comes back is the same
+     * {@code OCEAN_FLOOR} the live rules read, jagged as it actually is.
+     *
+     * <p>Written at {@value #TERRAIN_GRAIN}-block grain. Grain one doubles the
+     * file for detail no rule looks at; two still shows every two-block step.
+     */
+    private static int terrain(CommandContext<CommandSourceStack> ctx, int radius) {
+        CommandSourceStack source = ctx.getSource();
+        ServerLevel level = source.getLevel();
+        Vec3 at = source.getPosition();
+        int cx = (int) Math.round(at.x);
+        int cz = (int) Math.round(at.z);
+        int x0 = cx - radius;
+        int z0 = cz - radius;
+        int cells = (2 * radius) / TERRAIN_GRAIN + 1;
+
+        StringBuilder out = new StringBuilder();
+        out.append("origin ").append(x0).append(' ').append(z0).append('\n');
+        out.append("grain ").append(TERRAIN_GRAIN).append('\n');
+        out.append("size ").append(cells).append(' ').append(cells).append('\n');
+        out.append("sea ").append(level.getSeaLevel()).append('\n');
+
+        long began = System.currentTimeMillis();
+        for (int iz = 0; iz < cells; iz++) {
+            int z = z0 + iz * TERRAIN_GRAIN;
+            StringBuilder row = new StringBuilder();
+            for (int ix = 0; ix < cells; ix++) {
+                int x = x0 + ix * TERRAIN_GRAIN;
+                // Full generation, forced. A capture may be slow; it may not lie.
+                net.minecraft.world.level.chunk.ChunkAccess chunk =
+                        level.getChunk(x >> 4, z >> 4);
+                int height = chunk.getHeight(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR,
+                        x & 15, z & 15);
+                boolean wet = !level.getFluidState(
+                        new net.minecraft.core.BlockPos(x, height, z)).isEmpty();
+                if (ix > 0) {
+                    row.append(' ');
+                }
+                row.append(height);
+                if (wet) {
+                    row.append('~');
+                }
+            }
+            out.append(row).append('\n');
+        }
+
+        java.nio.file.Path file = level.getServer().getServerDirectory()
+                .resolve("terrain_" + cx + "_" + cz + "_r" + radius + ".hf");
+        try {
+            java.nio.file.Files.writeString(file, out.toString());
+        } catch (java.io.IOException failed) {
+            source.sendFailure(Component.literal("could not write: " + failed.getMessage()));
+            return 0;
+        }
+        long took = System.currentTimeMillis() - began;
+        source.sendSuccess(() -> Component.literal(
+                "  wrote " + cells + "x" + cells + " cells to " + file.getFileName()
+                        + " in " + took + "ms"), true);
+        KingdomsMod.LOGGER.info("TERRAIN wrote {} cells to {} in {}ms",
+                cells * cells, file, took);
+        return 1;
+    }
+
+    /** How far apart the recorded ground is sampled, in blocks. */
+    private static final int TERRAIN_GRAIN = 2;
+
     private static final int PLAN_REACH = 200;
     private static final int PLAN_STEP = 4;
 
