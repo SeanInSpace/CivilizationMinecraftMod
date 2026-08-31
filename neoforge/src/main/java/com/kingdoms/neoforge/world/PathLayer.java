@@ -2,6 +2,8 @@ package com.kingdoms.neoforge.world;
 
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.PathNetwork;
+
+import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
@@ -74,6 +76,11 @@ public final class PathLayer {
         if (tooSteepToPave(level, segment)) {
             return 0;
         }
+        // Earn the steps before laying anything on them. A road that arrives at
+        // a two-block rise and stops is a road with a wall at the end of it; a
+        // spadeful of dirt turns that rise into two steps anybody can take, and
+        // that is what a road crew would do.
+        int moved = grade(level, segment);
         int half = halfWidthOf(segment);
         int intact = 0;
         int broken = 0;
@@ -92,7 +99,7 @@ public final class PathLayer {
         if (ours == 0 || (double) broken / ours < REPAIR_FRACTION) {
             return 0;
         }
-        int laid = 0;
+        int laid = moved;
         for (SimPos pos : segment.positions()) {
             for (int ox = -half; ox <= half; ox++) {
                 for (int oz = -half; oz <= half; oz++) {
@@ -126,7 +133,8 @@ public final class PathLayer {
                 last = Integer.MIN_VALUE;   // unloaded: judge the parts we can see
                 continue;
             }
-            if (last != Integer.MIN_VALUE && Math.abs(surface.getY() - last) > MAX_STEP) {
+            if (last != Integer.MIN_VALUE
+                    && Math.abs(surface.getY() - last) > MAX_STEP_UNGRADED) {
                 return true;
             }
             last = surface.getY();
@@ -134,8 +142,91 @@ public final class PathLayer {
         return false;
     }
 
-    /** The most a road may climb between one block and the next. */
+    /**
+     * The most a road may climb between one block and the next, unaided.
+     *
+     * <p>One block is a step anybody takes without thinking.
+     */
     private static final int MAX_STEP = 1;
+
+    /**
+     * The most a road may climb before no amount of digging will help.
+     *
+     * <p>Two, because two is one spadeful from being one and one: raise the low
+     * side a block, or take a block off the high side, and what was a wall
+     * becomes a pair of steps. Three cannot be fixed by moving one block, and a
+     * road crew that moved three would be terracing the hillside rather than
+     * making a way across it.
+     */
+    private static final int MAX_STEP_UNGRADED = 2;
+
+    /**
+     * Cuts and fills the two-block steps along a way into pairs of one.
+     *
+     * <p>The last piece of the answer to roads nobody can walk. Everything
+     * before it could only <em>choose</em> — a better line, or no line at all —
+     * and a town on rough ground ran out of good lines. This is the part where
+     * the road changes the ground instead of the ground refusing the road.
+     *
+     * <p>Fill before cut, because filling is what a road crew does: a barrow of
+     * earth into the dip is easier than quarrying the rise, and it leaves the
+     * hillside as it was. Cutting is the fallback for a step whose low side is
+     * something that must not be built on.
+     *
+     * <p><strong>Bounded by geometry, not by memory.</strong> It only acts where
+     * acting turns a two-step into two one-steps, so running it again over a way
+     * it has already graded does nothing at all — which matters, because mending
+     * re-runs over every opened way constantly and a rule that could act twice
+     * would terrace a hillside one sweep at a time.
+     */
+    private static int grade(ServerLevel level, PathNetwork.Segment segment) {
+        int half = halfWidthOf(segment);
+        List<SimPos> along = segment.positions();
+        int moved = 0;
+        for (int ox = -half; ox <= half; ox++) {
+            for (int oz = -half; oz <= half; oz++) {
+                for (int i = 1; i < along.size(); i++) {
+                    moved += levelStep(level,
+                            along.get(i - 1).x() + ox, along.get(i - 1).z() + oz,
+                            along.get(i).x() + ox, along.get(i).z() + oz);
+                }
+            }
+        }
+        return moved;
+    }
+
+    /** Turns one two-block step between neighbouring columns into two of one. */
+    private static int levelStep(ServerLevel level, int ax, int az, int bx, int bz) {
+        BlockPos lower = surfaceOf(level, ax, az);
+        BlockPos higher = surfaceOf(level, bx, bz);
+        if (lower == null || higher == null) {
+            return 0;
+        }
+        if (lower.getY() > higher.getY()) {
+            BlockPos swap = lower;
+            lower = higher;
+            higher = swap;
+        }
+        if (higher.getY() - lower.getY() != MAX_STEP_UNGRADED) {
+            return 0;   // level enough already, or past helping
+        }
+        // Fill: a block of earth on the low side, if the low side is ours.
+        if (isPaveable(level.getBlockState(lower))
+                && level.getBlockState(lower.above()).isAir()) {
+            level.setBlock(lower.above(), Blocks.DIRT.defaultBlockState(),
+                    Block.UPDATE_CLIENTS);
+            return 1;
+        }
+        // Cut: take the top off the high side, if there is natural ground under
+        // it and nothing standing on it.
+        if (isPaveable(level.getBlockState(higher))
+                && isPaveable(level.getBlockState(higher.below()))
+                && level.getBlockState(higher.above()).isAir()) {
+            level.setBlock(higher, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            return 1;
+        }
+        return 0;
+    }
 
     /** How much of a segment is still road, for reports and audits. */
     public static double soundness(ServerLevel level, PathNetwork.Segment segment) {

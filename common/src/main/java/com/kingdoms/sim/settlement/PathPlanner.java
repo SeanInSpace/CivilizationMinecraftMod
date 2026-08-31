@@ -128,6 +128,21 @@ public final class PathPlanner {
     private static final int MAX_ROAD_STEP = 1;
 
     /**
+     * The most a way may climb between blocks and still be worth opening.
+     *
+     * <p>Two rather than one, because the paving layer earns the difference: a
+     * two-block rise is one spadeful from being two one-block steps, and that is
+     * what a road crew does with it. Refusing them instead was measured and it
+     * is the wrong trade — the network shrank, doors were stranded from roads
+     * that were merely a little steep, and the town got worse the stricter its
+     * judgement became.
+     *
+     * <p>Three is still refused, here and at the layer, because no single block
+     * moved makes it walkable and a crew that moved more would be terracing.
+     */
+    private static final int GRADABLE_ROAD_STEP = 2;
+
+    /**
      * Whether the ground under this run is too steep to lay a street along.
      *
      * <p>Refusing is the honest answer rather than terracing it. A town that
@@ -140,7 +155,7 @@ public final class PathPlanner {
         int last = ctx.bridge().groundHeight(along.get(0));
         for (int i = 1; i < along.size(); i++) {
             int here = ctx.bridge().groundHeight(along.get(i));
-            if (Math.abs(here - last) > MAX_ROAD_STEP) {
+            if (Math.abs(here - last) > GRADABLE_ROAD_STEP) {
                 return true;
             }
             last = here;
@@ -456,12 +471,17 @@ public final class PathPlanner {
         if (length > MAX_ROUTE) {
             return false;
         }
-        // Routing the door track as well was tried here and measured worse:
-        // stranded doors went from six to nine. A bent track is longer, the town
-        // opens one stretch a step whatever its length, and the extra stretches
-        // simply pushed other doors past the point of being reachable. The
-        // right angle stays; what a track needs is not a cleverer line but the
-        // grading in PathLayer, which is the next piece of work.
+        // The right angle, always. Routing the door track instead was tried
+        // twice -- once before the layer could grade a two-block step and once
+        // after -- and measured worse both times: six stranded doors became nine,
+        // then seven. The reason is not the line. Those doors stand on ground
+        // where no track under two blocks a step exists at all, so a router has
+        // nothing better to find and its longer answer only spends the town's
+        // one-stretch-a-step opening budget.
+        //
+        // What would actually reach them is levelling the ground they stand on,
+        // which is what a town does when it builds somewhere awkward. That is
+        // the plot terraforming, not the road.
         network.add(new PathNetwork.Segment(door, corner));
         network.add(new PathNetwork.Segment(corner, target));
         return true;
