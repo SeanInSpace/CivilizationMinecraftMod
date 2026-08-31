@@ -83,6 +83,11 @@ public final class FoundingCharterItem extends Item {
         // The party itself is simulation, not right-clicking — see Founding,
         // which /civ found now comes through as well, so a scripted run founds
         // what a player's charter founds.
+        // A person chose this spot, so the ground gets a vote and not a veto:
+        // a dozen blocks is enough to step off a cliff edge and not enough to
+        // overrule somebody who wanted the view.
+        site = Founding.bestSiteNear(site, Founding.CHARTER_REACH,
+                KingdomsMod.simulationFor(level).bridge());
         Settlement settlement = Founding.party(site, name);
         kingdom.addSettlement(settlement);
         settlement.logEvent(world.stepsElapsed(), name + " was founded");

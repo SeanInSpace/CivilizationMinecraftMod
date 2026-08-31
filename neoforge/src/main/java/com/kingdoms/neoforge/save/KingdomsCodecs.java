@@ -255,11 +255,21 @@ public final class KingdomsCodecs {
             // those: it matches no count, so they lay theirs on the next step
             // rather than never.
             Codec.INT.optionalFieldOf("streetsLaidFor", -1)
-                    .forGetter(PathNetwork::streetsLaidFor)
-    ).apply(i, (segments, joined, opened, streetsLaidFor) -> {
+                    .forGetter(PathNetwork::streetsLaidFor),
+            // Which planned streets were routed onto the ground and which the
+            // ground refused. Persisted because routing is not cheap and, more
+            // importantly, because its answer is a road: re-deriving it after a
+            // reload could pick a different line through the same hill and lay
+            // the street twice. The network is the authority once a road exists.
+            Codec.INT.listOf().optionalFieldOf("streetsRouted", List.of())
+                    .forGetter(PathNetwork::routedStreets),
+            Codec.INT.listOf().optionalFieldOf("streetsRefused", List.of())
+                    .forGetter(PathNetwork::refusedStreets)
+    ).apply(i, (segments, joined, opened, streetsLaidFor, routed, refused) -> {
         PathNetwork network = new PathNetwork(segments, joined);
         network.restoreOpened(opened);
         network.setStreetsLaidFor(streetsLaidFor);
+        network.restoreStreets(routed, refused);
         return network;
     }));
 

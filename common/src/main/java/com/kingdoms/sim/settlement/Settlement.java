@@ -2,6 +2,8 @@ package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
+import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.person.Household;
@@ -274,7 +276,8 @@ public final class Settlement {
                 SimPos candidate = arrangement().plotFor(centre, index);
                 if (!insideRing(candidate, type.plotSpan())
                         || !ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
-                        || !isPlotFree(candidate, type.plotSpan(), null)) {
+                        || !isPlotFree(candidate, type.plotSpan(), null)
+                        || frontsARefusedStreet(candidate)) {
                     continue;
                 }
                 if (index >= nextPlotIndex) {
@@ -427,7 +430,8 @@ public final class Settlement {
             int index = nextPlotIndex + attempt;
             SimPos candidate = arrangement().plotFor(centre, index);
             if (!ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
-                    || !isPlotFree(candidate, span, null)) {
+                    || !isPlotFree(candidate, span, null)
+                    || frontsARefusedStreet(candidate)) {
                 continue;
             }
             if (firstFree < 0) {
@@ -556,6 +560,33 @@ public final class Settlement {
             }
         }
         return !standsOnAWay(candidate, span) && !standsOnTheWall(candidate, span);
+    }
+
+    /**
+     * Whether this plot fronts a street the ground turned out to refuse.
+     *
+     * <p>The plan is a flat drawing and does not know which of its streets
+     * survived contact with a hillside. A plot whose whole reason for being
+     * where it is was the road in front of it, when that road will never be
+     * built, is a house facing a field — so it is passed over and the town takes
+     * the next offer instead. The plan over-provisions by design, so there is
+     * always a next offer.
+     */
+    /** Mirrors {@code PathPlanner}'s stretch numbering; see its pieceKey. */
+    private static final int PIECES_TO_A_STREET = 4096;
+
+    public boolean frontsARefusedStreet(SimPos candidate) {
+        if (paths == null || !Layouts.isStreetsFirst(arrangement())) {
+            return false;
+        }
+        TownPlan plan = arrangement().planFor(centre, 1);
+        for (TownPlan.Plot plot : plan.plots()) {
+            if (plot.at().x() == candidate.x() && plot.at().z() == candidate.z()) {
+                return plot.frontsAStreet()
+                        && paths.isWhollyRefused(plot.street(), PIECES_TO_A_STREET);
+            }
+        }
+        return false;
     }
 
     /** Bare ground between a wall and a carriageway, so a door has a doorstep. */

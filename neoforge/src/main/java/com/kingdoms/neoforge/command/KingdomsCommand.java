@@ -271,7 +271,16 @@ public final class KingdomsCommand {
         // raise a settlement with a kit and nobody to spend it, so every
         // scripted run had to follow with /civ populate and no test ever
         // exercised what a player actually gets.
-        Settlement settlement = Founding.party(centre, name + " Town");
+        // Look at the ground before planting on it. A town founded across a
+        // ravine fights it forever, and no routing downstream undoes that.
+        SimPos wanted = centre;
+        SimPos chosen = Founding.bestSiteNear(centre, Founding.SITING_REACH,
+                KingdomsMod.simulationFor(level).bridge());
+        if (!chosen.equals(wanted)) {
+            KingdomsMod.LOGGER.info("FOUND moved {} from {} to {} for better ground",
+                    name, wanted, chosen);
+        }
+        Settlement settlement = Founding.party(chosen, name + " Town");
         kingdom.addSettlement(settlement);
 
         // Both, deliberately: the saved data is what persists, the sim world is what ticks.
@@ -279,7 +288,9 @@ public final class KingdomsCommand {
         world.addKingdom(kingdom);
 
         source.sendSuccess(() -> Component.literal(
-                "Founded " + name + " at " + centre + " (claim radius 64)"), true);
+                "Founded " + name + " at " + chosen
+                        + (chosen.equals(wanted) ? "" : " (moved off poor ground)")
+                        + " (claim radius 64)"), true);
         return 1;
     }
 

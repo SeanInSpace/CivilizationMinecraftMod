@@ -30,8 +30,116 @@ public final class Founding {
      */
     public static final int INITIAL_CLAIM = 64;
 
+    /**
+     * How far a town founded by the world itself may be moved to find ground.
+     *
+     * <p>A daughter colony or a generated town has no opinion about where it
+     * lands, so it may look properly.
+     */
+    public static final int SITING_REACH = 64;
+
+    /**
+     * How far a town founded by a person may be moved.
+     *
+     * <p>Much less, and the difference is the whole point. Somebody who plants
+     * a charter has chosen that spot — for the view, for the river, for reasons
+     * the simulation cannot see — and a settlement that appears sixty blocks
+     * away has overruled them. A dozen blocks is the difference between
+     * "shifted off the cliff edge" and "went somewhere else".
+     */
+    public static final int CHARTER_REACH = 12;
+
+    /** How wide a patch is judged when weighing a site. */
+    private static final int SITE_RADIUS = 24;
+
+    /** How far apart the candidate centres are tried. */
+    private static final int SITE_STEP = 8;
+
     private Founding() {
     }
+
+    /**
+     * The best ground for a town within reach of where one was wanted.
+     *
+     * <p>Founding never looked at the ground at all. A town planted across a
+     * ravine fights it forever: every street it plans runs into the cut, every
+     * plot on the far side is refused, and no amount of cleverness downstream
+     * recovers what choosing eight blocks to the left would have given for
+     * nothing. The roads work that prompted this could route around a hillside
+     * and could not undo having been founded on one.
+     *
+     * <p>Judged on the two things that actually stop a town building: standing
+     * water, and how far the ground falls across the patch a town first fills.
+     * Measured on the bulk rather than the extremes — the twentieth and
+     * eightieth percentiles, the same rule the siting code uses — so a single
+     * boulder does not condemn a shelf and a genuine slope is not excused by
+     * flat ground either side of it.
+     *
+     * <p>Ties go to staying put: the score a candidate must beat includes how
+     * far it has strayed, so a town only moves when moving is clearly better.
+     * With no bridge to ask, it does not move at all.
+     */
+    public static SimPos bestSiteNear(SimPos wanted, int reach,
+                                      com.kingdoms.sim.platform.WorldBridge ground) {
+        if (ground == null || reach <= 0) {
+            return wanted;
+        }
+        SimPos best = wanted;
+        double bestScore = scoreSite(wanted, ground);
+        for (int dz = -reach; dz <= reach; dz += SITE_STEP) {
+            for (int dx = -reach; dx <= reach; dx += SITE_STEP) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                double away = Math.hypot(dx, dz);
+                if (away > reach) {
+                    continue;   // a disc, not a box: a corner is not "near"
+                }
+                SimPos candidate = new SimPos(
+                        wanted.x() + dx, wanted.y(), wanted.z() + dz);
+                // Strayed ground has to be better by more than it has strayed.
+                double score = scoreSite(candidate, ground) + away * DRIFT_PENALTY;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = candidate;
+                }
+            }
+        }
+        return best.equals(wanted) ? wanted
+                : new SimPos(best.x(), ground.surfaceHeight(best), best.z());
+    }
+
+    /** What a stretch of ground costs a town, lower being better. */
+    private static double scoreSite(SimPos centre,
+                                    com.kingdoms.sim.platform.WorldBridge ground) {
+        java.util.List<Integer> heights = new java.util.ArrayList<>();
+        int wet = 0;
+        int samples = 0;
+        for (int dz = -SITE_RADIUS; dz <= SITE_RADIUS; dz += SITE_STEP) {
+            for (int dx = -SITE_RADIUS; dx <= SITE_RADIUS; dx += SITE_STEP) {
+                SimPos at = new SimPos(centre.x() + dx, centre.y(), centre.z() + dz);
+                heights.add(ground.groundHeight(at));
+                samples++;
+                if (ground.standsInWater(at, 0)) {
+                    wet++;
+                }
+            }
+        }
+        java.util.Collections.sort(heights);
+        int low = heights.get(heights.size() / 5);
+        int high = heights.get((heights.size() * 4) / 5);
+        double fall = high - low;
+        double drowned = samples == 0 ? 0 : (double) wet / samples;
+        // Water is worse than slope: a town can terrace a hillside and cannot
+        // drain a lake.
+        return fall + drowned * DROWNED_PENALTY;
+    }
+
+    /** What a block of straying costs, against a course of fall. */
+    private static final double DRIFT_PENALTY = 0.06;
+
+    /** What being wholly under water costs, against courses of fall. */
+    private static final double DROWNED_PENALTY = 60;
 
     /**
      * A settlement as a charter makes one: a camp, a party, and rations.

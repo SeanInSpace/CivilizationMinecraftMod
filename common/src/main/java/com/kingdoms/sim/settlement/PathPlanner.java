@@ -163,73 +163,169 @@ public final class PathPlanner {
             return;   // nothing new has been built; a town steps every tick
         }
         SimPos centre = settlement.centre();
-        // The plan streets are the same whatever slice of its plots is asked
-        // for, so this is the cheap call and it is the cached one.
         TownPlan plan = settlement.arrangement().planFor(centre, 1);
-        for (TownPlan.Street street : plan.streets()) {
-            List<SimPos> path = street.path();
-            for (int i = 1; i < path.size(); i++) {
-                SimPos from = path.get(i - 1);
-                SimPos to = path.get(i);
+        com.kingdoms.sim.geom.TerrainSense ground = groundUnder(ctx);
+        RoadRouter.Keepout held = heldGround(settlement, plan);
+
+        for (int i = 0; i < plan.streets().size(); i++) {
+            TownPlan.Street street = plan.streets().get(i);
+            List<SimPos> drawn = street.path();
+            for (int piece = 1; piece < drawn.size(); piece++) {
+                int key = pieceKey(i, piece);
+                if (network.isStreetSettled(key)) {
+                    continue;
+                }
+                SimPos from = drawn.get(piece - 1);
+                SimPos to = drawn.get(piece);
                 SimPos middle = new SimPos((from.x() + to.x()) / 2, from.y(),
                         (from.z() + to.z()) / 2);
                 if (!within(middle, centre, FIRST_STREETS)
                         && !nearAny(middle, standing, STREET_NEAR)) {
+                    continue;   // the town has not grown out to this stretch yet
+                }
+                // A stretch at a time, not a street at a time.
+                //
+                // Routing a whole street as one thing sounds tidier and is much
+                // worse: a spine runs a thousand blocks, so one ravine anywhere
+                // along it condemns the lot. Measured that way, nine streets of
+                // twelve were refused and the town fell from sixty-two buildings
+                // to thirty-nine -- the roads got better judgement and the town
+                // got smaller, which is precisely backwards.
+                //
+                // Each stretch begins and ends on the drawn line, so neighbours
+                // meet exactly whatever either of them did in between, and a
+                // cliff costs the town one stretch instead of one street.
+                List<SimPos> routed = RoadRouter.route(List.of(from, to), ground, held);
+                if (routed == null) {
+                    network.markStreetRefused(key);
                     continue;
                 }
-                PathNetwork.Segment run =
-                        new PathNetwork.Segment(from, to, street.width());
-                // Not through a house that is already there. The siting code
-                // refuses to build on a street, but the two rules have to point
-                // both ways or the town simply does it in the other order: two
-                // animal farms stood on eight-wide carriageways that were laid
-                // straight through them at steps 234 and 435, long after they
-                // were built. A plan is not a warrant to pave somebody's floor.
-                if (!crossesAnything(settlement, run) && !tooSteepToWalk(run, ctx)) {
-                    network.add(run);
+                for (int step = 1; step < routed.size(); step++) {
+                    network.add(new PathNetwork.Segment(
+                            routed.get(step - 1), routed.get(step), street.width()));
                 }
+                network.markStreetRouted(key);
             }
         }
         network.setStreetsLaidFor(standing.size());
     }
 
     /**
-     * Whether this run would be laid through ground a building already holds.
+     * One stretch of one street, as a single number the network can remember.
      *
-     * <p>Standing buildings <em>and</em> the build queue, which is the whole
-     * difference between working and nearly working. A building is ordered onto
-     * clear ground and then takes many steps to go up; check only what stands
-     * and the town lays a street across a plot in that gap, and the building
-     * completes in the middle of the road. That is exactly how an animal farm
-     * came to sit on an eight-wide carriageway at step 234: the road was laid
-     * while the farm was still a task rather than a building.
-     *
-     * <p>{@code Settlement.isPlotFree} has always counted the queue for the same
-     * reason. The two rules have to agree about what "occupied" means, or
-     * whichever runs second wins.
+     * <p>Stretches rather than streets, because that is the unit a town builds
+     * and gives up in. Four thousand and ninety-six of them to a street is far
+     * more than any plan draws.
      */
-    private static boolean crossesAnything(Settlement settlement, PathNetwork.Segment run) {
-        for (Building building : settlement.buildings()) {
-            if (!BuildPlanner.holdsGround(building.blueprintId())) {
-                continue;
+    private static int pieceKey(int street, int piece) {
+        return street * PIECES_TO_A_STREET + piece;
+    }
+
+    /** Which street a remembered stretch belongs to. */
+    static int streetOfPiece(int key) {
+        return key / PIECES_TO_A_STREET;
+    }
+
+    private static final int PIECES_TO_A_STREET = 4096;
+
+    /**
+     * The ground, as the router wants to be asked about it.
+     *
+     * <p>{@code groundHeight} rather than {@code surfaceHeight}: the second
+     * hands back the caller's own y for a column nobody has loaded, and every
+     * point of a planned street carries the town centre's y — so an entire
+     * hillside reads as a table top and a router asking that question would
+     * cheerfully route across a cliff.
+     */
+    private static com.kingdoms.sim.geom.TerrainSense groundUnder(SimContext ctx) {
+        return new com.kingdoms.sim.geom.TerrainSense() {
+            @Override
+            public int heightAt(int x, int z) {
+                return ctx.bridge().groundHeight(new SimPos(x, 0, z));
             }
-            int span = BuildPlanner.plotSpanOf(
-                    building.blueprintId(), settlement.catalogue());
-            if (run.touches(building.origin(), span / 2.0 + KERB)) {
-                return true;
+
+            @Override
+            public boolean wetAt(int x, int z) {
+                return ctx.bridge().standsInWater(new SimPos(x, 0, z), 0);
+            }
+        };
+    }
+
+    /**
+     * Ground a road may not have: everything standing, and everything ordered.
+     *
+     * <p>The queue counts, as it does everywhere else that asks this question. A
+     * building is ordered onto clear ground and takes many steps to go up, and a
+     * road routed through that gap completes underneath it.
+     */
+    /**
+     * How far a road's CENTRELINE must stay from a plot.
+     *
+     * <p>The plot's own half-width, a kerb, and — the part that was missing —
+     * half the road. A keepout that only holds the centreline out of the plot
+     * lets an eight-wide street centred five blocks away pave the garden anyway,
+     * and the routed roads promptly did: a farm came back standing on a
+     * carriageway that had bent politely around its middle.
+     */
+    private static int keepoutRound(int span) {
+        return span / 2 + KERB + WIDEST_ROAD_HALF;
+    }
+
+    /** Half the widest carriageway a plan draws, which the keepout must clear. */
+    private static final int WIDEST_ROAD_HALF = 4;
+
+    private static RoadRouter.Keepout heldGround(Settlement settlement, TownPlan plan) {
+        // Marked onto the router's own lattice once, rather than asked building
+        // by building at every step of the search. A corridor is examined
+        // thousands of times and a town has hundreds of claims; a set lookup is
+        // the difference between routing a street and stalling a tick.
+        java.util.Set<Long> blocked = new java.util.HashSet<>();
+        for (Building building : settlement.buildings()) {
+            if (BuildPlanner.holdsGround(building.blueprintId())) {
+                claim(blocked, building.origin(), keepoutRound(BuildPlanner.plotSpanOf(
+                        building.blueprintId(), settlement.catalogue())));
             }
         }
         for (BuildTask queued : settlement.queued()) {
-            if (!BuildPlanner.holdsGround(queued.blueprintId())) {
-                continue;
-            }
-            int span = BuildPlanner.plotSpanOf(
-                    queued.blueprintId(), settlement.catalogue());
-            if (run.touches(queued.origin(), span / 2.0 + KERB)) {
-                return true;
+            if (BuildPlanner.holdsGround(queued.blueprintId())) {
+                claim(blocked, queued.origin(), keepoutRound(BuildPlanner.plotSpanOf(
+                        queued.blueprintId(), settlement.catalogue())));
             }
         }
-        return false;
+        // And every plot the plan MIGHT still use, not only the ones standing.
+        //
+        // Ordering was the hole. A road routed politely around the houses that
+        // existed, and a house raised afterwards on the plot the plan had always
+        // meant for it found the road already bent across its garden. Siting
+        // refuses such ground and simply built elsewhere, so the town lost the
+        // plot and kept the bad road. The plan's plots do not move, so the road
+        // can be kept off all of them from the start.
+        for (TownPlan.Plot plot : plan.plots()) {
+            claim(blocked, plot.at(), keepoutRound(plot.span()));
+        }
+        return (x, z) -> blocked.contains(cell(x, z));
+    }
+
+    /** Marks every lattice cell within reach of a claim. */
+    private static void claim(java.util.Set<Long> blocked, SimPos at, int reach) {
+        int grain = RoadRouter.GRAIN;
+        for (int dx = -reach - grain; dx <= reach + grain; dx += grain) {
+            for (int dz = -reach - grain; dz <= reach + grain; dz += grain) {
+                int x = at.x() + dx;
+                int z = at.z() + dz;
+                if (Math.abs(x - at.x()) <= reach && Math.abs(z - at.z()) <= reach) {
+                    blocked.add(cell(x, z));
+                }
+            }
+        }
+    }
+
+    /** A lattice cell, rounded the way the router rounds. */
+    private static long cell(int x, int z) {
+        int grain = RoadRouter.GRAIN;
+        long cx = x - Math.floorMod(x, grain);
+        long cz = z - Math.floorMod(z, grain);
+        return (cx << 32) ^ (cz & 0xFFFFFFFFL);
     }
 
     /** Whether a stretch passes close enough to anything the town has built. */
@@ -273,12 +369,12 @@ public final class PathPlanner {
                 // nearest road and its town hall fourteen, which is a town whose
                 // two most important doors open onto a field.
                 if (!network.isEmpty()) {
-                    join(network, building, hub);
+                    join(network, building, hub, groundUnder(ctx));
                 }
                 network.markJoined(building.origin());
                 return;
             }
-            if (join(network, building, hub)) {
+            if (join(network, building, hub, groundUnder(ctx))) {
                 network.markJoined(building.origin());
                 return;   // one road a step: a town lays its network as it grows
             }
@@ -333,7 +429,8 @@ public final class PathPlanner {
      *
      * @return false if the route is too long to lay yet
      */
-    private static boolean join(PathNetwork network, Building building, SimPos hub) {
+    private static boolean join(PathNetwork network, Building building, SimPos hub,
+                                com.kingdoms.sim.geom.TerrainSense ground) {
         SimPos door = building.doorstep();
         if (door.equals(hub)) {
             SimPos onNetwork = network.nearestPoint(door);
@@ -359,6 +456,12 @@ public final class PathPlanner {
         if (length > MAX_ROUTE) {
             return false;
         }
+        // Routing the door track as well was tried here and measured worse:
+        // stranded doors went from six to nine. A bent track is longer, the town
+        // opens one stretch a step whatever its length, and the extra stretches
+        // simply pushed other doors past the point of being reachable. The
+        // right angle stays; what a track needs is not a cleverer line but the
+        // grading in PathLayer, which is the next piece of work.
         network.add(new PathNetwork.Segment(door, corner));
         network.add(new PathNetwork.Segment(corner, target));
         return true;
@@ -367,10 +470,10 @@ public final class PathPlanner {
     /**
      * Whether a run of way is too steep to be worth opening.
      *
-     * <p>Asked at opening, which is the only moment the ground is reliably
-     * known: laying happens long before anybody stands there and the oracle
-     * answers from noise. A stretch refused here keeps its place in the network
-     * and can be asked again.
+     * <p>Asked at opening, which is the moment the ground is most likely to be
+     * known: laying is decided long before anybody stands there. A stretch
+     * refused here keeps its place in the network and can be asked again, so
+     * ground that was merely unread today gets another hearing.
      */
     static boolean unwalkable(PathNetwork.Segment run, SimContext ctx) {
         List<SimPos> along = run.positions();

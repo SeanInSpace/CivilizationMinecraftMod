@@ -224,6 +224,90 @@ public final class PathNetwork {
         return unwalkable.size();
     }
 
+    /**
+     * Planned streets already routed onto the ground, by their index in the plan.
+     *
+     * <p>Routing is not cheap and its answer is persisted as segments, so it
+     * happens once per street. Remembering which are done is also what keeps a
+     * reload from laying every street a second time down a slightly different
+     * line — the network is the authority once a road exists, not the plan.
+     */
+    private final Set<Integer> streetsRouted = new LinkedHashSet<>();
+
+    /**
+     * Planned streets the ground refused, by their index in the plan.
+     *
+     * <p>A street with no walkable way through its corridor is one the town will
+     * never have. That has to be remembered rather than rediscovered, because
+     * something else depends on it: the plots that were to front that street are
+     * fronting a road that will not exist, and siting skips them rather than
+     * building a row of houses along a line on paper.
+     */
+    private final Set<Integer> streetsRefused = new LinkedHashSet<>();
+
+    public boolean isStreetSettled(int street) {
+        return streetsRouted.contains(street) || streetsRefused.contains(street);
+    }
+
+    public boolean isStreetRefused(int street) {
+        return streetsRefused.contains(street);
+    }
+
+    /**
+     * Whether nothing of this street could be built at all.
+     *
+     * <p>The question the siting code actually wants. A street with a gap in it
+     * is still a street and the houses along the rest of it are still on a road;
+     * only a street of which no stretch survived leaves its frontage facing a
+     * field. Judging that per stretch rather than per street is the difference
+     * between a town losing a road and a town losing a quarter of itself.
+     */
+    public boolean isWhollyRefused(int street, int piecesToAStreet) {
+        boolean anyRefused = false;
+        for (int key : streetsRefused) {
+            if (key / piecesToAStreet == street) {
+                anyRefused = true;
+                break;
+            }
+        }
+        if (!anyRefused) {
+            return false;
+        }
+        for (int key : streetsRouted) {
+            if (key / piecesToAStreet == street) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public void markStreetRouted(int street) {
+        streetsRouted.add(street);
+    }
+
+    public void markStreetRefused(int street) {
+        streetsRefused.add(street);
+    }
+
+    public List<Integer> routedStreets() {
+        return List.copyOf(streetsRouted);
+    }
+
+    public List<Integer> refusedStreets() {
+        return List.copyOf(streetsRefused);
+    }
+
+    public void restoreStreets(List<Integer> routed, List<Integer> refused) {
+        streetsRouted.clear();
+        streetsRefused.clear();
+        if (routed != null) {
+            streetsRouted.addAll(routed);
+        }
+        if (refused != null) {
+            streetsRefused.addAll(refused);
+        }
+    }
+
     /** Whether this stretch has been walked out and opened. */
     public boolean isOpened(int index) {
         return opened.contains(index);

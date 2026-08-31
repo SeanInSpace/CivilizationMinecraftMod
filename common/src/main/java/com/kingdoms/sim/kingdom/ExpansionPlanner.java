@@ -113,7 +113,9 @@ public final class ExpansionPlanner {
             return;
         }
 
-        SimPos flat = siteFor(kingdom, parent);
+        SimPos flat = com.kingdoms.sim.settlement.Founding.bestSiteNear(
+                siteFor(kingdom, parent),
+                com.kingdoms.sim.settlement.Founding.SITING_REACH, ctx.bridge());
         int y = ctx.bridge().surfaceHeight(flat);
         SimPos centre = new SimPos(flat.x(), y, flat.z());
 
