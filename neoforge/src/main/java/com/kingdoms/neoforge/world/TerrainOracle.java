@@ -2,6 +2,8 @@ package com.kingdoms.neoforge.world;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 import java.util.HashMap;
@@ -57,6 +59,71 @@ public final class TerrainOracle {
     private static final long FROM_CHUNK = 1L << 21;
 
     /**
+     * The reading came from a chunk generated far enough to have real ground.
+     *
+     * <p>Between the two sources this class had. Noise is a guess: it asks the
+     * generator's density function for a column height without generating
+     * anything, and it is <strong>wrong by about eight courses on average</strong>
+     * — enough that a road judged walkable on it climbs sixteen blocks in a
+     * step when somebody finally stands there. A loaded chunk is the truth but
+     * costs a ticking chunk, with mobs and redstone, for a height.
+     *
+     * <p>A chunk generated to {@link #GROUND_TRUTH} and no further is neither.
+     * It has the real terrain — carved, so ravines are in it, which is exactly
+     * what makes a hillside unwalkable — and it does not tick. One call yields
+     * every column in the chunk, where noise charges per column.
+     */
+    private static final long FROM_SURFACE = 1L << 23;
+
+    /**
+     * How far a chunk must be generated before its ground is worth reading.
+     *
+     * <p>{@code CARVERS} rather than {@code SURFACE}, deliberately. Surface
+     * rules place the grass and the sand, but the carvers cut the caves and the
+     * <em>ravines</em> — and a ravine is precisely the thing that turns a
+     * planned street into a cliff. Reading before them would give a confident
+     * answer with the interesting parts missing.
+     *
+     * <p>And not {@code FEATURES}, which is where the trees go in: the heightmap
+     * this reads counts a log as ground, so a forest would come back as a plateau
+     * eleven blocks up. That mistake has already been made once in this class's
+     * history, from the other direction — comparing WORLD_SURFACE against
+     * OCEAN_FLOOR reported 742 meadows as lakes because it counted the grass.
+     */
+    private static final ChunkStatus GROUND_TRUTH = ChunkStatus.CARVERS;
+
+    /**
+     * Chunks generated to that status in one tick.
+     *
+     * <p>Small on purpose and separate from {@link #SAMPLES_PER_TICK}, because
+     * the two cost nothing alike: a noise sample is one column of Perlin, and
+     * generating a cold chunk pulls every status beneath it — structures,
+     * biomes, noise, surface, carvers. The first version of this class asked for
+     * a hundred noise samples per candidate plot and the watchdog killed the
+     * server twice. This buys sixty-four times more ground per unit of work, so
+     * it can afford to be timid.
+     */
+    private static final int GROUND_CHUNKS_PER_TICK = 2;
+
+    /**
+     * Chunks a deliberate warm may generate.
+     *
+     * <p>Large, and it should be. A warm is not a tick-time question — it is
+     * somebody asking for a survey of a square of the world and willing to wait
+     * for it. Bounding it like a query is how surveys came back mostly empty:
+     * of the ten thousand columns a {@code /civ plan} reports, <strong>seven
+     * thousand eight hundred were the unread sentinel</strong>, which reads as a
+     * height of minus two thousand and forty-eight and was being taken for
+     * ground by everything downstream, this project's own fault surveys
+     * included.
+     *
+     * <p>A thousand chunks is a five-hundred-block square read properly. The
+     * per-tick budget still guards the simulation's own queries, which is where
+     * the watchdog risk actually lives.
+     */
+    private static final int WARM_GROUND_CHUNKS = 1024;
+
+    /**
      * Columns are remembered on a grid this coarse.
      *
      * <p>Sampling the generator is <strong>expensive</strong> — it evaluates a
@@ -97,6 +164,8 @@ public final class TerrainOracle {
     private long sampled;
     private long burstTick = Long.MIN_VALUE;
     private int sampledThisTick;
+    private int groundChunksThisTick;
+    private long generatedChunks;
 
     public TerrainOracle(ServerLevel level) {
         this.level = level;
@@ -112,9 +181,30 @@ public final class TerrainOracle {
         return (read(x, z) & WET) != 0;
     }
 
-    /** Whether the answer came from a real chunk rather than from noise. */
+    /**
+     * Whether the answer came from a loaded chunk, and so knows what players did.
+     *
+     * <p>Deliberately still only the loaded case. A generated-but-not-loaded
+     * chunk has the real <em>terrain</em> and cannot know about the quarry
+     * somebody dug in it, so anything that cares about the world as it stands
+     * rather than as it was made must keep asking this.
+     */
     public boolean isCertain(int x, int z) {
         return (read(x, z) & FROM_CHUNK) != 0;
+    }
+
+    /**
+     * Whether the answer is real ground rather than a guess at it.
+     *
+     * <p>True for a loaded chunk and for one generated to {@link #GROUND_TRUTH}.
+     * This is the question worth asking about <em>terrain</em> — is this the
+     * shape of the land, or the generator's estimate of it — and the answer the
+     * road rules need, which is why they were being misled: the estimate is
+     * smooth by nature and real ground is not.
+     */
+    public boolean isSurveyed(int x, int z) {
+        long value = read(x, z);
+        return (value & (FROM_CHUNK | FROM_SURFACE)) != 0;
     }
 
     /** Whether anything at all is known about this column right now. */
@@ -224,14 +314,38 @@ public final class TerrainOracle {
      * own clock may call it.
      */
     public void warm(int centreX, int centreZ, int radius, int stride) {
+        // Chunk by chunk, not column by column. Somebody asking for a survey
+        // wants the ground, and generating a chunk to CARVERS answers two
+        // hundred and fifty-six columns for about what a handful of noise
+        // samples used to cost -- so the whole square can be had properly
+        // rather than estimated.
+        int chunks = 0;
+        int firstChunkX = (centreX - radius) >> 4;
+        int lastChunkX = (centreX + radius) >> 4;
+        int firstChunkZ = (centreZ - radius) >> 4;
+        int lastChunkZ = (centreZ + radius) >> 4;
+        for (int cz = firstChunkZ; cz <= lastChunkZ; cz++) {
+            for (int cx = firstChunkX; cx <= lastChunkX; cx++) {
+                if (chunkIsKnown(cx, cz)) {
+                    continue;
+                }
+                if (chunks++ >= WARM_GROUND_CHUNKS) {
+                    return;   // enough generation for one request
+                }
+                readGroundChunk(cx, cz);
+            }
+        }
+        // Anything still unread -- past the chunk ceiling, or refused -- falls
+        // back to the old column sweep, so a warm never comes back emptier than
+        // it used to.
         int spent = 0;
         for (int dz = -radius; dz <= radius; dz += stride) {
             for (int dx = -radius; dx <= radius; dx += stride) {
                 int x = centreX + dx;
                 int z = centreZ + dz;
                 long key = key(x, z);
-                if (known.containsKey(key)
-                        && (known.get(key) & FROM_CHUNK) != 0) {
+                Long had = known.get(key);
+                if (had != null && (had & (FROM_CHUNK | FROM_SURFACE)) != 0) {
                     continue;
                 }
                 boolean cheap = level.hasChunkAt(new BlockPos(x, 0, z));
@@ -245,6 +359,21 @@ public final class TerrainOracle {
                                        z - Math.floorMod(z, GRAIN)));
             }
         }
+    }
+
+    /** Whether every grain cell of this chunk already has real ground behind it. */
+    private boolean chunkIsKnown(int chunkX, int chunkZ) {
+        int baseX = chunkX << 4;
+        int baseZ = chunkZ << 4;
+        for (int dx = 0; dx < 16; dx += GRAIN) {
+            for (int dz = 0; dz < 16; dz += GRAIN) {
+                Long had = known.get(key(baseX + dx, baseZ + dz));
+                if (had == null || (had & (FROM_CHUNK | FROM_SURFACE)) == 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -262,6 +391,11 @@ public final class TerrainOracle {
         int gx = x - Math.floorMod(x, GRAIN);
         int gz = z - Math.floorMod(z, GRAIN);
         return (((long) gx) << 32) ^ (gz & 0xFFFFFFFFL);
+    }
+
+    /** Chunks generated to read their ground, for reports. */
+    public long generatedChunks() {
+        return generatedChunks;
     }
 
     /** Forgets everything, for when a world is closing or has been reshaped wholesale. */
@@ -288,6 +422,18 @@ public final class TerrainOracle {
         if (now != burstTick) {
             burstTick = now;
             sampledThisTick = 0;
+            groundChunksThisTick = 0;
+        }
+        // Real ground first, if the budget allows and nothing better is known.
+        // One chunk answers sixty-four of these grain cells, so a miss here
+        // usually pays for its neighbours too.
+        if ((remembered == null || (remembered & FROM_SURFACE) == 0)
+                && groundChunksThisTick++ < GROUND_CHUNKS_PER_TICK
+                && readGroundChunk(x >> 4, z >> 4)) {
+            Long generated = known.get(key);
+            if (generated != null) {
+                return generated;
+            }
         }
         if (sampledThisTick >= SAMPLES_PER_TICK) {
             // Out of budget this tick. Answer from what is remembered, and say
@@ -321,6 +467,115 @@ public final class TerrainOracle {
         }
         return measureFromNoise(x, z);
     }
+
+    /**
+     * Generates one chunk to {@link #GROUND_TRUTH} and remembers all of it.
+     *
+     * <p>The whole point of the class, finally done properly. Every grain cell
+     * in the chunk is filled from one call, so the cost is per chunk rather than
+     * per column — which is the difference between this being affordable and
+     * being the thing that killed the server twice.
+     *
+     * <p>Reads the <em>worldgen</em> heightmaps. The plain {@code OCEAN_FLOOR}
+     * is only primed once a chunk is finished; {@code OCEAN_FLOOR_WG} is the one
+     * that exists during generation, and the gap between it and
+     * {@code WORLD_SURFACE_WG} is standing water — the same test the noise path
+     * makes, so the two sources answer in the same terms and only their accuracy
+     * differs.
+     *
+     * @return whether the chunk was read
+     */
+    private boolean readGroundChunk(int chunkX, int chunkZ) {
+        // Generation joins chunk futures on the main thread. The simulation
+        // steps there, so this holds -- but a stray caller must degrade to noise
+        // rather than deadlock the server.
+        if (!level.getServer().isSameThread()) {
+            return false;
+        }
+        ChunkAccess chunk;
+        try {
+            chunk = level.getChunkSource().getChunk(chunkX, chunkZ, GROUND_TRUTH, true);
+        } catch (RuntimeException beyondUs) {
+            return false;   // a generator that will not answer is not our business
+        }
+        if (chunk == null) {
+            return false;
+        }
+        generatedChunks++;
+        int baseX = chunkX << 4;
+        int baseZ = chunkZ << 4;
+        if (known.size() + 16 >= REMEMBERED) {
+            known.clear();
+        }
+        for (int dx = 0; dx < 16; dx += GRAIN) {
+            for (int dz = 0; dz < 16; dz += GRAIN) {
+                int floor = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, dx, dz);
+                int surface = chunk.getHeight(Heightmap.Types.WORLD_SURFACE_WG, dx, dz);
+                floor = settleOnGround(chunk, baseX + dx, floor, baseZ + dz);
+                long packed = pack(floor, surface > floor, false) | FROM_SURFACE;
+                long cell = (((long) (baseX + dx)) << 32) ^ ((baseZ + dz) & 0xFFFFFFFFL);
+                Long had = known.get(cell);
+                // Never overwrite a loaded-chunk reading with a generated one.
+                if (had == null || (had & FROM_CHUNK) == 0) {
+                    known.put(cell, packed);
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Corrects a worldgen heightmap reading against the blocks actually there.
+     *
+     * <p>The heightmap is a good guess and not the answer. Measured against the
+     * ground the rest of the simulation means — {@code BlueprintPlacer.groundLevel},
+     * which is what the live bridge answers with — the raw worldgen reading sat
+     * <strong>one course low in forty-five per cent of columns</strong> and
+     * fifteen or sixteen low in another eight, and a road judged a block out is
+     * a road with a step in it.
+     *
+     * <p>A constant correction would have fitted the first of those and hidden
+     * the second. So this looks: from the heightmap's guess it walks to the
+     * first air above solid ground, up or down, within a short reach. Sixteen
+     * block reads per grain cell at worst, against a chunk that is already in
+     * hand — cheap next to having generated it.
+     *
+     * <p>Out of reach it keeps the guess. Better a known approximation than a
+     * scan that wanders into a cave.
+     */
+    private static int settleOnGround(ChunkAccess chunk, int x, int from, int z) {
+        BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        int lowest = chunk.getMinY();
+        // Already standing on air with something solid beneath: that is ground.
+        for (int step = 0; step <= GROUND_SEARCH; step++) {
+            int y = from + step;
+            if (isGroundTop(chunk, at, x, y, z)) {
+                return y;
+            }
+            int down = from - step;
+            if (down > lowest && isGroundTop(chunk, at, x, down, z)) {
+                return down;
+            }
+        }
+        return from;
+    }
+
+    /** Whether this is the first empty block above something solid. */
+    private static boolean isGroundTop(ChunkAccess chunk, BlockPos.MutableBlockPos at,
+                                       int x, int y, int z) {
+        if (y <= chunk.getMinY()) {
+            return false;
+        }
+        boolean hereClear = chunk.getBlockState(at.set(x, y, z)).isAir();
+        if (!hereClear) {
+            return false;
+        }
+        var below = chunk.getBlockState(at.set(x, y - 1, z));
+        return !below.isAir() && below.getFluidState().isEmpty();
+    }
+
+    /** How far from the heightmap's guess the real surface is looked for. */
+    private static final int GROUND_SEARCH = 8;
 
     private long measureFromNoise(int x, int z) {
         sampled++;

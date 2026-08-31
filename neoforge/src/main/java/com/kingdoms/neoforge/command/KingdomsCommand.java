@@ -1009,13 +1009,23 @@ public final class KingdomsCommand {
             for (int ix = 0; ix < cells; ix++) {
                 int x = x0 + ix * TERRAIN_GRAIN;
                 // Full generation, forced. A capture may be slow; it may not lie.
-                net.minecraft.world.level.chunk.ChunkAccess chunk =
-                        level.getChunk(x >> 4, z >> 4);
-                int height = chunk.getHeight(
-                        net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR,
-                        x & 15, z & 15);
+                level.getChunk(x >> 4, z >> 4);
+                // The sim's own definition of ground, not a raw heightmap.
+                // OCEAN_FLOOR counts a log as ground, so a forest records as a
+                // plateau eleven blocks up and every road judged against it is
+                // judged against the treetops. groundLevel strips that
+                // overburden, and is what the live bridge answers with.
+                int height = com.kingdoms.neoforge.world.BlueprintPlacer
+                        .groundLevel(level, x, z);
+                // At the ground, and just under it. groundLevel returns the
+                // first empty block ABOVE the surface, so testing the fluid
+                // there tests the air: the first capture recorded not one wet
+                // column in sixty-six thousand, and the fixture's water rules
+                // were therefore never exercised at all.
                 boolean wet = !level.getFluidState(
-                        new net.minecraft.core.BlockPos(x, height, z)).isEmpty();
+                                new net.minecraft.core.BlockPos(x, height, z)).isEmpty()
+                        || !level.getFluidState(
+                                new net.minecraft.core.BlockPos(x, height - 1, z)).isEmpty();
                 if (ix > 0) {
                     row.append(' ');
                 }
