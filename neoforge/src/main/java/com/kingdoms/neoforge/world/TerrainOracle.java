@@ -95,13 +95,26 @@ public final class TerrainOracle {
     /**
      * Chunks generated to that status in one tick.
      *
-     * <p>Small on purpose and separate from {@link #SAMPLES_PER_TICK}, because
-     * the two cost nothing alike: a noise sample is one column of Perlin, and
-     * generating a cold chunk pulls every status beneath it — structures,
-     * biomes, noise, surface, carvers. The first version of this class asked for
-     * a hundred noise samples per candidate plot and the watchdog killed the
-     * server twice. This buys sixty-four times more ground per unit of work, so
-     * it can afford to be timid.
+     * <p>Separate from {@link #SAMPLES_PER_TICK}, because the two cost nothing
+     * alike: a noise sample is one column of Perlin, and generating a cold chunk
+     * pulls every status beneath it — structures, biomes, noise, surface,
+     * carvers. The first version of this class asked for a hundred noise samples
+     * per candidate plot and the watchdog killed the server twice.
+     *
+     * <p>Two, and sixteen was tried. The theory was that a growing town refuses
+     * streets because it has not read the ground yet — fifty-four stretches
+     * refused for steepness in a world against four stranded doors in a suite
+     * where the ground is perfectly known. Raising the budget eightfold tested
+     * that, and refuted it: refusals went <em>up</em>, from fifty-four to
+     * seventy-five, stranded doors did not move, and the server logged three
+     * "can't keep up" warnings it had not before.
+     *
+     * <p>Which is worth knowing. The refusals were not ignorance — with better
+     * sight the town saw more bad ground and correctly refused more of it. What
+     * strands those doors is not what the oracle knows; it is that the PLAN
+     * places plots without consulting the ground at all, and no amount of
+     * routing rescues a plot with no walkable approach. That is a plan problem
+     * and is written up as one.
      */
     private static final int GROUND_CHUNKS_PER_TICK = 2;
 
