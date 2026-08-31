@@ -121,6 +121,29 @@ public final class RecordedTerrain implements WorldBridge {
         return high - low <= MAX_FALL;
     }
 
+    /**
+     * A dip this town could fill, as opposed to a lake or a hillside.
+     *
+     * <p>Mirrors the live rule: dry, and falling no further across its bulk than
+     * an earthwork can make good.
+     */
+    @Override
+    public boolean isSiteLevellable(SimPos plot, int radius) {
+        if (standsInWater(plot, radius)) {
+            return false;
+        }
+        List<Integer> heights = new ArrayList<>();
+        for (int dx = -radius; dx <= radius; dx += 3) {
+            for (int dz = -radius; dz <= radius; dz += 3) {
+                heights.add(groundAt(plot.x() + dx, plot.z() + dz));
+            }
+        }
+        Collections.sort(heights);
+        int low = heights.get(heights.size() / 5);
+        int high = heights.get((heights.size() * 4) / 5);
+        return high - low <= BuildPlanner.LEVELABLE_FALL;
+    }
+
     @Override
     public Footprint materializeBlueprint(String id, SimPos origin, boolean surveyed,
                                           int facing) {

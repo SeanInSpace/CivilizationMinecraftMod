@@ -115,6 +115,25 @@ public interface WorldBridge {
     }
 
     /**
+     * Whether a site this refused could be made buildable by levelling it.
+     *
+     * <p>{@link #isSiteSuitable} says no and does not say why, and the reasons
+     * are not alike: a lake cannot be filled with a barrow of earth and a
+     * hummock can. Only the thing that applied the rule knows which it was, so
+     * it is asked rather than guessed at — the first attempt at this had the
+     * simulation infer "not wet, therefore levellable" and promptly put a house
+     * in a lake, because the ground it was testing against reported water
+     * through {@code isSiteSuitable} and nothing else.
+     *
+     * <p>False by default, deliberately. A bridge that has not thought about
+     * levelling keeps exactly the behaviour it had, and a fake written for some
+     * other purpose cannot accidentally licence a town to flatten the sea.
+     */
+    default boolean isSiteLevellable(SimPos plot, int radius) {
+        return false;
+    }
+
+    /**
      * How wooded this ground is, from 0 to 100.
      *
      * <p>The one thing siting a lumber camp needs and the simulation cannot

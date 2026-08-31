@@ -78,12 +78,19 @@ class RealTerrainRoadsTest {
      * one-stretch-a-step opening budget doing it — six stranded doors became
      * nine, and then seven once the layer could grade.
      *
-     * <p>What reaches them is levelling the ground they stand on, which is the
-     * plot terraforming and not the road. Lower this when that lands; it is a
-     * ceiling to stop the number growing quietly, not a target that has been
-     * met.
+     * <p>Nine when this fixture was written, six after the streets were routed,
+     * four now. The last two came from asking whether a site is FREE before
+     * asking whether the ground will take it — a plot that is somebody else's is
+     * refused whatever the terrain does, and testing terrain first sent the
+     * cursor past ground that was fine.
+     *
+     * <p>What reaches the remaining four is levelling the ground they stand on.
+     * The machinery for that exists and does not yet fire on this terrain,
+     * because siting finds flat ground before it needs to level any — so this
+     * is a ceiling to stop the number growing quietly, not a target that has
+     * been met.
      */
-    private static final int STRANDED_CEILING = 6;
+    private static final int STRANDED_CEILING = 4;
 
     private static RecordedTerrain ground;
     private static Settlement grown;

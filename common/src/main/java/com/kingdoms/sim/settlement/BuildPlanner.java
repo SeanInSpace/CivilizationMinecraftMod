@@ -88,6 +88,85 @@ public final class BuildPlanner {
      * house — the catalogue span already allows for the levels a building may be
      * raised to, precisely so that improving one never has to find new ground.
      */
+    /**
+     * How far a plot may fall and still be worth levelling rather than refusing.
+     *
+     * <p>Beyond this a site is a hillside, and a town that flattened it would be
+     * quarrying. Within it, the fall is a dip or a hummock and a few barrows of
+     * earth make it a building plot — which is what a settlement actually does
+     * with awkward ground, and what refusing everything uneven has been costing:
+     * plots pushed to the outskirts, doors stranded from roads, a town that got
+     * smaller the better its judgement became.
+     */
+    public static final int LEVELABLE_FALL = 8;
+
+    /**
+     * The earth a town must hold before it will level a plot.
+     *
+     * <p>Counted from the fill actually wanted, so a shallow dip is cheap and a
+     * deep one is not. A town with nothing dug yet levels nothing, which is
+     * correct: its first buildings go on ground that was already flat, and the
+     * spoil from those foundations pays for the next.
+     */
+    public static int earthToLevel(SimPos plot, int span,
+                                   com.kingdoms.sim.platform.WorldBridge ground) {
+        int[] heights = heightsAcross(plot, span, ground);
+        if (heights.length == 0) {
+            return 0;
+        }
+        // The median is the bench, because levelling to it moves the least earth
+        // of any height you could choose.
+        int bench = heights[heights.length / 2];
+        // And the price is everything that has to MOVE, cut as well as fill.
+        // Counting only the fill read zero for a plot that is mostly hollow --
+        // the median sits on the floor of the dip, nothing is below it, and a
+        // bowl came back free. Spoil from a cut still has to be barrowed away
+        // and a fill still has to be barrowed in; a town pays for both.
+        int moved = 0;
+        for (int height : heights) {
+            moved += Math.abs(height - bench);
+        }
+        // One sample stands for the ground between samples, so the barrows the
+        // town pays for are the barrows the site actually wants.
+        return moved * SAMPLE_SPACING * SAMPLE_SPACING;
+    }
+
+    /**
+     * How far the ground falls across a plot, measured on its bulk.
+     *
+     * <p>Twentieth to eightieth percentile, the same measure siting uses, so a
+     * single boulder does not condemn a shelf.
+     */
+    public static int fallAcross(SimPos plot, int span,
+                                 com.kingdoms.sim.platform.WorldBridge ground) {
+        int[] heights = heightsAcross(plot, span, ground);
+        if (heights.length == 0) {
+            return 0;
+        }
+        return heights[(heights.length * 4) / 5] - heights[heights.length / 5];
+    }
+
+    private static int[] heightsAcross(SimPos plot, int span,
+                                       com.kingdoms.sim.platform.WorldBridge ground) {
+        int half = Math.max(1, span / 2);
+        java.util.List<Integer> heights = new java.util.ArrayList<>();
+        for (int dx = -half; dx <= half; dx += SAMPLE_SPACING) {
+            for (int dz = -half; dz <= half; dz += SAMPLE_SPACING) {
+                heights.add(ground.groundHeight(
+                        new SimPos(plot.x() + dx, plot.y(), plot.z() + dz)));
+            }
+        }
+        java.util.Collections.sort(heights);
+        int[] sorted = new int[heights.size()];
+        for (int i = 0; i < sorted.length; i++) {
+            sorted[i] = heights.get(i);
+        }
+        return sorted;
+    }
+
+    /** How far apart the ground is sampled when weighing a plot. */
+    private static final int SAMPLE_SPACING = 3;
+
     public static int plotSpanOf(String blueprintId, List<BuildingType> catalogue) {
         String base = baseIdOf(blueprintId);
         if (base.equals(ACCESS_STAIRS)) {

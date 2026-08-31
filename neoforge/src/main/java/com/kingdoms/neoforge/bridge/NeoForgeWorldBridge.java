@@ -61,6 +61,18 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     @Override
+    public boolean isSiteLevellable(SimPos plot, int radius) {
+        // Dry first: no earthwork drains a lake.
+        if (oracle.anyWet(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)) {
+            return false;
+        }
+        // And a dip rather than a hillside, measured on the bulk of the plot as
+        // every other rule here measures it.
+        return oracle.bulkFall(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)
+                <= com.kingdoms.sim.settlement.BuildPlanner.LEVELABLE_FALL;
+    }
+
+    @Override
     public int groundHeight(SimPos pos) {
         // The oracle, which answers everywhere. This is the question a route
         // asks, and it must not be answered with the caller's own guess.

@@ -24,6 +24,18 @@ public final class TownStores implements Stock {
     public static final String WOOD = "wood";
     public static final String STONE = "stone";
     public static final String SAPLINGS = "saplings";
+
+    /**
+     * Earth, dug and kept.
+     *
+     * <p>A town that levels the ground it builds on has to get the earth from
+     * somewhere and put the spoil somewhere, and until now both ends were
+     * imaginary: foundations were dug and the dirt vanished. Making it a stock
+     * is what turns "flatten the site" from a wish into something a settlement
+     * can afford or not afford — which is the whole difference between a rule
+     * and a decision.
+     */
+    public static final String EARTH = "earth";
     public static final String IRON = "iron";
     public static final String TOOLS = "tools";
     public static final String WEAPONS = "weapons";

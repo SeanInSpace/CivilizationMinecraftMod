@@ -429,9 +429,12 @@ public final class Settlement {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
             SimPos candidate = arrangement().plotFor(centre, index);
-            if (!ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
-                    || !isPlotFree(candidate, span, null)
+            if (!isPlotFree(candidate, span, null)
                     || frontsARefusedStreet(candidate)) {
+                continue;
+            }
+            if (!ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
+                    && !worthLevelling(candidate, span, ctx)) {
                 continue;
             }
             if (firstFree < 0) {
@@ -572,6 +575,53 @@ public final class Settlement {
      * the next offer instead. The plan over-provisions by design, so there is
      * always a next offer.
      */
+    /**
+     * Whether a site the ground refuses is one this town could make level.
+     *
+     * <p>Refusing uneven ground was the only answer siting had, and it is the
+     * answer that made a town smaller the better its rules got: plots pushed out
+     * to the ring roads, doors stranded from streets, whole quarters given up
+     * for a dip a few barrows of earth would fill. A settlement does not walk
+     * away from a hummock — it levels it and builds.
+     *
+     * <p>Two conditions, and the second is what makes it a decision rather than
+     * a licence. The fall must be a dip and not a hillside; and the town must
+     * actually hold the earth to fill it. Both matter: without the first a town
+     * would quarry a mountain, and without the second it would flatten ground it
+     * has nothing to flatten it with.
+     */
+    private boolean worthLevelling(SimPos candidate, int span, SimContext ctx) {
+        if (!ctx.bridge().isSiteLevellable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+            return false;   // the ground itself says this is not a dip
+        }
+        return stores().has(TownStores.EARTH,
+                BuildPlanner.earthToLevel(candidate, span, ctx.bridge()));
+    }
+
+    /**
+     * Books the earthwork for a plot that needed levelling.
+     *
+     * <p>Spent when the work is ordered rather than when it finishes, for the
+     * same reason timber is: a town that could order ten levellings on one
+     * barrow of earth would have ten half-dug sites and no way to finish any.
+     */
+    private void payForLevelling(SimPos plot, int span, SimContext ctx) {
+        int earth = BuildPlanner.earthToLevel(plot, span, ctx.bridge());
+        if (earth > 0) {
+            stores().take(TownStores.EARTH, earth);
+        }
+    }
+
+    /**
+     * How deep a foundation is reckoned to be, for the spoil it yields.
+     *
+     * <p>One course over the plot's footprint. Deliberately modest: a town
+     * should be able to level a dip after a few buildings, not the first
+     * hillside it meets, and the number that matters is the ratio between what a
+     * foundation yields and what a levelling costs rather than either alone.
+     */
+    private static final int SPOIL_COURSES = 1;
+
     /** Mirrors {@code PathPlanner}'s stretch numbering; see its pieceKey. */
     private static final int PIECES_TO_A_STREET = 4096;
 
@@ -1743,6 +1793,7 @@ public final class Settlement {
 
         BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
         ordered.setFacing(arrangement().facingFor(centre, plot));
+        payForLevelling(plot, type.plotSpan(), ctx);
         buildQueue.add(ordered);
     }
 
@@ -1887,6 +1938,14 @@ public final class Settlement {
 
         Building raised = new Building(
                 current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete());
+        // The spoil out of its foundations. Excavation has always thrown this
+        // away -- there was nowhere to put it and a site knee-deep in dirt items
+        // is worse than none -- and now there is somewhere: it is what pays to
+        // level the next awkward plot. A town's first buildings stand on ground
+        // that was already flat, and they are what make the uneven ground
+        // afterwards affordable.
+        int span = BuildPlanner.plotSpanOf(current.blueprintId(), catalogue);
+        loosePile.add(TownStores.EARTH, span * span * SPOIL_COURSES);
         // Surveyed sites keep the height the builders actually worked to; only an
         // unsurveyed one may be snapped to the ground at placement time.
         raised.setSurveyed(current.siteY() != BuildTask.UNSET_SITE_Y);
