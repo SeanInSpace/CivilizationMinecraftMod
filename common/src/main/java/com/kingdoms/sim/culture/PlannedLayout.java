@@ -56,16 +56,20 @@ public abstract class PlannedLayout implements Layout {
      *
      * Both worse, and identically so, which is the informative part: the harm
      * does not come from refusing plots or from the order they are offered in.
-     * It comes from the plan being drawn differently at all. A town denied an
-     * awkward plot does not get a better one -- it gets an OUTSKIRT plot, which
-     * fronts no street whatsoever, and a house fronting nothing is further from
-     * a road than a house fronting a hard approach.
+     * It comes from the plan being drawn differently at all.
      *
-     * So the thing to fix first is the outskirt fallback in finish(), which
-     * scatters plots in rings around a town with no thought of roads at all.
-     * While that is where refused plots land, every rule that makes the plan
-     * choosier makes the town worse. A terrain-aware plan on top of a
-     * road-aware fallback might well pay; on top of this one it does not.
+     * The first explanation offered for that was wrong and is worth recording
+     * as such. It said refused plots fell through to the outskirt fallback and
+     * came back fronting nothing. They do not: lay() over-provisions until every
+     * plot has frontage, so on a measured plan of two hundred and fifty-six,
+     * ZERO plots front nothing and the fallback never runs. Fixing the fallback
+     * afterwards changed no measurement at all -- correctly, since it was never
+     * the path being taken.
+     *
+     * So why a differently drawn plan strands more doors is still unknown. What
+     * is known is that it is not the fallback, not the refusal, and not the
+     * ordering. The next attempt should start by finding out which plots the two
+     * plans actually differ on.
      *
      * The seam for it is cheap when it is wanted: TerrainSense already exists,
      * and planFor would take one. The reason this is a comment and not code is
@@ -285,14 +289,90 @@ public abstract class PlannedLayout implements Layout {
     private TownPlan finish(SimPos centre, int wanted, List<TownPlan.Street> streets,
                             List<TownPlan.Plot> from) {
         List<TownPlan.Plot> taken = new ArrayList<>(from);
+        if (taken.size() >= wanted) {
+            return new TownPlan(centre, streets, taken);
+        }
 
-        // A layout must always be able to answer, and the offers are a finite
-        // list a town can outgrow -- plotFor once asked for plot 117 of a plan
-        // holding 117 and ran off the end. What is added past the plan is added
-        // in rings around it rather than along a line: an outskirt, which is what
-        // a town that has used up its streets actually grows. Measured from what
-        // is already taken rather than from a constant, or a town of a hundred
-        // puts its outskirt somewhere it will never reach.
+        // A town that has filled its streets makes more street.
+        //
+        // It used to make rings: leftover plots scattered in circles around the
+        // town, fronting nothing, facing the middle on principle -- a ring of
+        // cottages in a field, which looks like nothing anybody built.
+        //
+        // In practice this path almost never runs. lay() asks its design for
+        // more frontage until every plot has some, so a measured plan of two
+        // hundred and fifty-six has NO plots fronting nothing and the fallback
+        // is never reached. It was changed on the theory that refused plots fell
+        // through to here and came back roadless; that theory was wrong, and
+        // changing this moved no measurement -- which is what a path nobody
+        // takes should do.
+        //
+        // It is still worth having right, for the day a design cannot fill a
+        // town: on that day it should hand back a street rather than a field.
+        //
+        // A real town does not answer growth by ringing itself with cottages. It
+        // carries its high street further out and builds along the new length.
+        List<List<SimPos>> paths = new ArrayList<>();
+        for (TownPlan.Street street : streets) {
+            paths.add(new ArrayList<>(street.path()));
+        }
+        List<Integer> frontage = new ArrayList<>();
+        for (int i = 0; i < streets.size(); i++) {
+            frontage.add(i);
+        }
+
+        int guard = 0;
+        boolean grew = true;
+        while (taken.size() < wanted && grew && guard++ < EXTENSIONS_ALLOWED) {
+            grew = false;
+            for (int i = 0; i < paths.size() && taken.size() < wanted; i++) {
+                List<SimPos> path = paths.get(i);
+                if (path.size() < 2) {
+                    continue;
+                }
+                SimPos end = path.get(path.size() - 1);
+                SimPos before = path.get(path.size() - 2);
+                double dx = end.x() - before.x();
+                double dz = end.z() - before.z();
+                double run = Math.hypot(dx, dz);
+                if (run < 1) {
+                    continue;
+                }
+                dx /= run;
+                dz /= run;
+                SimPos onward = new SimPos(
+                        end.x() + (int) Math.round(dx * PITCH), end.y(),
+                        end.z() + (int) Math.round(dz * PITCH));
+                path.add(onward);
+                grew = true;
+
+                // Frontage either side of the new length, as anywhere else.
+                for (int side : new int[] {-1, 1}) {
+                    SimPos plot = new SimPos(
+                            onward.x() + (int) Math.round(-dz * SETBACK * side), onward.y(),
+                            onward.z() + (int) Math.round(dx * SETBACK * side));
+                    if (taken.size() < wanted && fits(plot, taken, streets)) {
+                        taken.add(new TownPlan.Plot(plot, Layout.DEFAULT_SPAN,
+                                Layout.facingToward(plot, onward), frontage.get(i)));
+                    }
+                }
+            }
+        }
+
+        // The streets, now longer. A plot that fronts an extension fronts a real
+        // street with a real index, so everything downstream -- the router, the
+        // refusal bookkeeping, the door that knows which way to look -- treats it
+        // exactly as it treats the rest of the town.
+        List<TownPlan.Street> grown = new ArrayList<>();
+        for (int i = 0; i < streets.size(); i++) {
+            TownPlan.Street was = streets.get(i);
+            grown.add(paths.get(i).size() == was.path().size() ? was
+                    : new TownPlan.Street(paths.get(i), was.width(), was.kind()));
+        }
+
+        // And if lengthening every street still will not do it, rings after all.
+        // A layout must always be able to answer: plotFor once asked for plot
+        // 117 of a plan holding 117 and ran off the end.
         int edge = OUTSKIRT_START;
         for (TownPlan.Plot placed : taken) {
             edge = Math.max(edge, Math.max(
@@ -307,14 +387,24 @@ public abstract class PlannedLayout implements Layout {
                 SimPos where = new SimPos(
                         centre.x() + (int) Math.round(out * Math.cos(angle)), centre.y(),
                         centre.z() + (int) Math.round(out * Math.sin(angle)));
-                if (fits(where, taken, streets)) {
+                if (fits(where, taken, grown)) {
                     taken.add(new TownPlan.Plot(where, Layout.DEFAULT_SPAN,
                             Layout.facingToward(where, centre), -1));
                 }
             }
         }
-        return new TownPlan(centre, streets, taken);
+        return new TownPlan(centre, grown, taken);
     }
+
+    /**
+     * How many times every street may be carried further out.
+     *
+     * <p>A bound rather than a budget: each pass lengthens every street by one
+     * plot pitch, and a town of two hundred and fifty-six wants far fewer passes
+     * than this. It is here so a plan that cannot place its last plot lengthens
+     * its streets to the horizon rather than forever.
+     */
+    private static final int EXTENSIONS_ALLOWED = 64;
 
     /** Whether a plot may stand here: clear of its neighbours and of the road. */
     private static boolean fits(SimPos where, List<TownPlan.Plot> taken,
