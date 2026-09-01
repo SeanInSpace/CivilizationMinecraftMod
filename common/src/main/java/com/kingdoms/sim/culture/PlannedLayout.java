@@ -35,6 +35,44 @@ import java.util.Map;
  */
 public abstract class PlannedLayout implements Layout {
 
+    /*
+     * On making this plan terrain-aware, which has been tried and is not simply
+     * an improvement waiting to be written.
+     *
+     * The plan is a flat drawing. Everything after it corrects: roads route
+     * round hills it never heard of, plots are refused for ground it put them
+     * on. The obvious next step is to let the plan look at the ground itself,
+     * and the obvious reason to want it is that thirty-one doors of sixty stood
+     * off a road in a measured town because a plot can be cut off from its own
+     * street by a gully that no router may cross -- the corridor a road bends
+     * within is narrower than the setback, deliberately, so a road can never
+     * take a garden and can never reach a garden the hillside has isolated.
+     *
+     * Two versions were built and measured, on recorded ground, against a
+     * baseline of four stranded doors in sixty-two:
+     *
+     *   refuse a plot whose door cannot reach its street      9 stranded
+     *   prefer reachable plots, offer the rest afterwards     9 stranded
+     *
+     * Both worse, and identically so, which is the informative part: the harm
+     * does not come from refusing plots or from the order they are offered in.
+     * It comes from the plan being drawn differently at all. A town denied an
+     * awkward plot does not get a better one -- it gets an OUTSKIRT plot, which
+     * fronts no street whatsoever, and a house fronting nothing is further from
+     * a road than a house fronting a hard approach.
+     *
+     * So the thing to fix first is the outskirt fallback in finish(), which
+     * scatters plots in rings around a town with no thought of roads at all.
+     * While that is where refused plots land, every rule that makes the plan
+     * choosier makes the town worse. A terrain-aware plan on top of a
+     * road-aware fallback might well pay; on top of this one it does not.
+     *
+     * The seam for it is cheap when it is wanted: TerrainSense already exists,
+     * and planFor would take one. The reason this is a comment and not code is
+     * that the measurement said so.
+     */
+
+
     /** Frontage taken by one plot along a street. */
     protected static final int PITCH = 14;
 
