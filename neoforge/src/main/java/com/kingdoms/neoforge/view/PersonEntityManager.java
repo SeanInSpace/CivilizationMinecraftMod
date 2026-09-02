@@ -44,6 +44,7 @@ import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -237,6 +238,11 @@ public final class PersonEntityManager {
     /** Person id â†’ the live view entity for that person. */
     private final Map<UUID, PersonEntity> tracked = new HashMap<>();
 
+    /** Ticks between survey redraws. */
+    private static final int SURVEY_EVERY = 4;
+
+    private int surveyBeat;
+
     public PersonEntityManager(ServerLevel level, SimWorld world) {
         this.level = Objects.requireNonNull(level, "level");
         this.world = Objects.requireNonNull(world, "world");
@@ -244,8 +250,14 @@ public final class PersonEntityManager {
 
     /** One pass: sync positions, release the unwatched, embody the watched, herd stragglers. */
     public void tick() {
-        renderClaimBorders();
-        renderBuildingBorders();
+        // The survey draws every fourth tick rather than every one. Its lines are
+        // solid now, which is roughly eight times the particles of the old dotted
+        // ones, and a spark outlives four ticks many times over -- so the picture
+        // is continuous to look at while costing less than the dots did.
+        if (++surveyBeat % SURVEY_EVERY == 0) {
+            renderClaimBorders();
+            renderBuildingBorders();
+        }
         tendGates();
         boolean changed = false;
         for (Kingdom kingdom : world.kingdoms()) {
@@ -2011,13 +2023,44 @@ public final class PersonEntityManager {
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
+    // --- surveying ---
+
+    /**
+     * Blocks between sparks along a surveyed line.
+     *
+     * <p>A quarter of a block, each mark a little over natural size, so the
+     * marks touch and a surveyed edge reads as a drawn line. It used to be two
+     * blocks apart: that drew a row of separate floating dots, and you could see
+     * that something had been measured but not what shape it was. Tried larger
+     * marks further apart first -- that reads as a line at surveying distance
+     * and as a row of blobs when you stand next to it, so the marks are small
+     * and the step is short instead.
+     */
+    private static final double SPARK_STEP = 0.25;
+
+    /**
+     * What a surveyed line is drawn with.
+     *
+     * <p>Coloured dust rather than end rods. An end rod spark is a point of
+     * light: a row of them half a block apart still reads as a row of dots,
+     * which was the whole complaint. A dust particle takes a size, so at one and
+     * a half it is wider than the gap between two of them and the row closes
+     * into a line. It also takes a colour, which lets the streets be told apart
+     * from the buildings at a glance -- amber ways, white walls.
+     */
+    private static final DustParticleOptions WALL_LINE =
+            new DustParticleOptions(0xFFFFFF, 1.2f);
+
+    private static final DustParticleOptions STREET_LINE =
+            new DustParticleOptions(0xFFA326, 1.2f);
+
     // --- claim borders ---
 
     /** How far from the border line a player still sees it. */
     private static final double BORDER_VIEW_RANGE = 64.0;
 
     /** Blocks between sparkles along the border. */
-    private static final double BORDER_POINT_SPACING = 3.0;
+    private static final double BORDER_POINT_SPACING = SPARK_STEP;
 
     /**
      * Players holding a Founding Charter see every nearby settlement's claim as a
@@ -2066,9 +2109,6 @@ public final class PersonEntityManager {
     /** How far a building's outline is drawn from the player. */
     private static final double OUTLINE_VIEW_RANGE = 48.0;
 
-    /** Blocks between sparkles along an outline edge. */
-    private static final int OUTLINE_SPACING = 2;
-
     /** Tallest outline drawn, so a watchtower does not become a pillar of light. */
     private static final int OUTLINE_MAX_HEIGHT = 12;
 
@@ -2091,6 +2131,7 @@ public final class PersonEntityManager {
             }
             for (Kingdom kingdom : world.kingdoms()) {
                 for (Settlement settlement : kingdom.settlements()) {
+                    surveyStreets(player, settlement);
                     for (Building building : settlement.buildings()) {
                         outline(player, building);
                     }
@@ -2150,20 +2191,20 @@ public final class PersonEntityManager {
         int roof = floor + Math.min(footprint.height(), OUTLINE_MAX_HEIGHT);
 
         // The two rectangles, floor and roof.
-        for (int x = -rx; x <= rx; x += OUTLINE_SPACING) {
+        for (double x = -rx; x <= rx; x += SPARK_STEP) {
             spark(origin.x() + x, floor, origin.z() - rz);
             spark(origin.x() + x, floor, origin.z() + rz);
             spark(origin.x() + x, roof, origin.z() - rz);
             spark(origin.x() + x, roof, origin.z() + rz);
         }
-        for (int z = -rz; z <= rz; z += OUTLINE_SPACING) {
+        for (double z = -rz; z <= rz; z += SPARK_STEP) {
             spark(origin.x() - rx, floor, origin.z() + z);
             spark(origin.x() + rx, floor, origin.z() + z);
             spark(origin.x() - rx, roof, origin.z() + z);
             spark(origin.x() + rx, roof, origin.z() + z);
         }
         // And the four posts joining them, so the box reads as a volume.
-        for (int y = floor; y <= roof; y += OUTLINE_SPACING) {
+        for (double y = floor; y <= roof; y += SPARK_STEP) {
             spark(origin.x() - rx, y, origin.z() - rz);
             spark(origin.x() - rx, y, origin.z() + rz);
             spark(origin.x() + rx, y, origin.z() - rz);
@@ -2171,8 +2212,67 @@ public final class PersonEntityManager {
         }
     }
 
-    private void spark(int x, int y, int z) {
-        level.sendParticles(ParticleTypes.END_ROD,
+    // --- streets ---
+
+    /**
+     * Draws the streets a settlement has opened, as lines along the ground.
+     *
+     * <p>The lamp used to light buildings and nothing else, which showed a town
+     * as a field of unrelated boxes. The streets are what make it a town -- what
+     * the buildings face, what the plan is actually made of -- so a survey that
+     * omits them cannot answer the question anybody picks the lamp up to ask,
+     * which is whether the place hangs together.
+     *
+     * <p>Drawn only where opened: a street that has been planned but not yet
+     * walked out is not somewhere you can go, and drawing it the same as a real
+     * one would be a lie told in light.
+     */
+    private void surveyStreets(ServerPlayer player, Settlement settlement) {
+        PathNetwork paths = settlement.paths();
+        List<PathNetwork.Segment> runs = paths.segments();
+        for (int i = 0; i < runs.size(); i++) {
+            if (!paths.isOpened(i)) {
+                continue;
+            }
+            PathNetwork.Segment run = runs.get(i);
+            if (!withinLamp(player, run.from()) && !withinLamp(player, run.to())) {
+                continue;
+            }
+            traceOnGround(run.from(), run.to());
+        }
+    }
+
+    private boolean withinLamp(ServerPlayer player, SimPos at) {
+        double dx = player.getX() - at.x();
+        double dz = player.getZ() - at.z();
+        return dx * dx + dz * dz <= OUTLINE_VIEW_RANGE * OUTLINE_VIEW_RANGE;
+    }
+
+    /**
+     * A line between two points, laid on whatever the ground turns out to be.
+     *
+     * <p>A street climbs, so a line drawn at one height would sink into a rise
+     * and float over a dip. Each spark asks the world how high the ground is
+     * beneath it -- a heightmap lookup, which is cheap, and only for the stretch
+     * a player is close enough to see.
+     */
+    private void traceOnGround(SimPos from, SimPos to) {
+        double dx = to.x() - from.x();
+        double dz = to.z() - from.z();
+        double run = Math.hypot(dx, dz);
+        int steps = Math.max(1, (int) Math.ceil(run / SPARK_STEP));
+        for (int i = 0; i <= steps; i++) {
+            double x = from.x() + dx * i / steps;
+            double z = from.z() + dz * i / steps;
+            int y = BlueprintPlacer.groundLevel(level,
+                    (int) Math.floor(x), (int) Math.floor(z));
+            level.sendParticles(STREET_LINE,
+                    x + 0.5, y + 0.3, z + 0.5, 1, 0.0, 0.0, 0.0, 0.0);
+        }
+    }
+
+    private void spark(double x, double y, double z) {
+        level.sendParticles(WALL_LINE,
                 x + 0.5, y + 0.5, z + 0.5, 1, 0.0, 0.0, 0.0, 0.0);
     }
 }

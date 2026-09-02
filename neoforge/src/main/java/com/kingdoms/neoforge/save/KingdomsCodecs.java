@@ -205,12 +205,13 @@ public final class KingdomsCodecs {
      */
     private record Flavor(String culture, String stage, int fedStreak,
                           boolean perimeterClosed, Optional<Perimeter> perimeter,
-                          Optional<PathNetwork> paths) {
+                          Optional<PathNetwork> paths, boolean drawnOnly) {
         static Flavor of(Settlement s) {
             return new Flavor(s.cultureId(), s.stage().pretty(), s.fedStreak(),
                     s.perimeterClosed(), Optional.ofNullable(s.perimeter()),
                     s.paths().isEmpty() && s.paths().joined().isEmpty()
-                            ? Optional.empty() : Optional.of(s.paths()));
+                            ? Optional.empty() : Optional.of(s.paths()),
+                    s.isDrawnOnly());
         }
     }
 
@@ -279,7 +280,12 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("fed_streak", 0).forGetter(Flavor::fedStreak),
             Codec.BOOL.optionalFieldOf("perimeter_closed", false).forGetter(Flavor::perimeterClosed),
             PERIMETER.optionalFieldOf("perimeter").forGetter(Flavor::perimeter),
-            PATH_NETWORK.optionalFieldOf("paths").forGetter(Flavor::paths)
+            PATH_NETWORK.optionalFieldOf("paths").forGetter(Flavor::paths),
+            // A town drawn by /civ buildtest, which must stay a drawing across a
+            // save. Without this it reloaded as an ordinary settlement and began
+            // planning on top of the render -- quietly destroying the one thing
+            // the instrument exists to hold still.
+            Codec.BOOL.optionalFieldOf("drawn_only", false).forGetter(Flavor::drawnOnly)
     ).apply(i, Flavor::new));
 
     public static final Codec<Household.Id> HOUSEHOLD_ID =
@@ -445,6 +451,7 @@ public final class KingdomsCodecs {
         // Saves from before stages existed carry no stage; they load as TOWN,
         // which is the behaviour they were built under. Only fresh charters camp.
         settlement.setStage(SettlementStage.parse(flavor.stage(), SettlementStage.TOWN));
+        settlement.setDrawnOnly(flavor.drawnOnly());
         settlement.setFedStreak(flavor.fedStreak());
         settlement.setPerimeterClosed(flavor.perimeterClosed());
         flavor.perimeter().ifPresent(settlement::setPerimeter);

@@ -1,6 +1,7 @@
 package com.kingdoms.neoforge.world;
 
 import com.kingdoms.neoforge.KingdomsMod;
+import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.culture.TownPlan;
@@ -78,7 +79,8 @@ public final class BuildTest {
     private int placed;
     private int paved;
 
-    private record Placement(String blueprintId, SimPos at, int facing) {
+    private record Placement(String blueprintId, SimPos at, int facing,
+                             TownPlan.Street fronts) {
     }
 
     private BuildTest(ServerLevel level, List<Placement> pending,
@@ -105,7 +107,8 @@ public final class BuildTest {
         List<Placement> pending = new ArrayList<>();
         for (int i = 0; i < plan.plots().size() && i < count; i++) {
             TownPlan.Plot plot = plan.plots().get(i);
-            pending.add(new Placement(blueprintFor(i), plot.at(), plot.facing()));
+            pending.add(new Placement(blueprintFor(i), plot.at(), plot.facing(),
+                    plan.streetOf(plot)));
         }
 
         // A real settlement, registered, holding the buildings and the streets --
@@ -125,6 +128,11 @@ public final class BuildTest {
         var world = KingdomsMod.simulationFor(level);
         if (world != null) {
             world.addKingdom(kingdom);
+            // Nothing else in this class touches saved data, so without this the
+            // whole town lives in memory and dies with the session: reopening the
+            // world gave back bare streets and "No kingdoms yet", with the map
+            // and the lamp blind again. Cost one wasted verification pass.
+            KingdomsSavedData.get(level).setDirty();
         }
 
         // The streets, as the network the map already knows how to draw. Every
@@ -191,6 +199,7 @@ public final class BuildTest {
             }
             KingdomsMod.LOGGER.info("BUILDTEST done, {} buildings and {} stretches",
                     placed, paved);
+            KingdomsSavedData.get(level).setDirty();
             return true;
         }
         if (++waited < ticksBetween) {
@@ -198,23 +207,24 @@ public final class BuildTest {
         }
         waited = 0;
         Placement next = pending.remove(0);
+        SimPos where = againstTheKerb(next);
         // The chunk, before the building. materializeBlueprint refuses an
         // unloaded column and a grid spreads well past whatever a player has
         // loaded, so a run left to chance would place its middle and silently
         // drop its edges. One chunk per building at a building a second is a
         // cost this can afford; the simulation cannot, which is why it does not
         // do this and this is not the simulation.
-        level.getChunk(next.at().x() >> 4, next.at().z() >> 4);
+        level.getChunk(where.x() >> 4, where.z() >> 4);
         int y = BlueprintPlacer.baseFor(next.blueprintId(),
-                BlueprintPlacer.groundLevel(level, next.at().x(), next.at().z()));
+                BlueprintPlacer.groundLevel(level, where.x(), where.z()));
         Footprint print = BlueprintPlacer.place(level, next.blueprintId(),
-                new BlockPos(next.at().x(), y, next.at().z()), next.facing());
+                new BlockPos(where.x(), y, where.z()), next.facing());
         placed++;
         // Recorded on the settlement, so the map and the lamp can see it. With
         // the footprint the placer actually laid, not the catalogue guess: a
         // building whose size is unknown never travels to the map.
         Building raised = new Building(next.blueprintId(),
-                new SimPos(next.at().x(), y, next.at().z()), placed, true);
+                new SimPos(where.x(), y, where.z()), placed, true);
         raised.setSurveyed(true);
         raised.setFacing(next.facing());
         raised.setFootprint(print);
@@ -222,11 +232,78 @@ public final class BuildTest {
         // Logged per building, because BlueprintPlacer says nothing and a run
         // that silently placed nothing looked exactly like a run that silently
         // placed everything -- which cost one wasted verification.
-        KingdomsMod.LOGGER.info("BUILDTEST placed {} {} at {},{},{} facing {}",
-                placed, next.blueprintId(), next.at().x(), y, next.at().z(),
-                next.facing());
+        KingdomsMod.LOGGER.info("BUILDTEST placed {} {} at {},{},{} facing {} size {}x{}",
+                placed, next.blueprintId(), where.x(), y, where.z(),
+                next.facing(), print.width(), print.depth());
         return false;
     }
+
+    /**
+     * Moves a building up to the kerb of the street it fronts.
+     *
+     * <p>The plan sets a plot back thirteen blocks from the middle of its street,
+     * which is the right distance for the eleven-block square the plan reserves.
+     * The buildings that actually go there are seven and nine blocks across, and
+     * the paved road is five — so a house sat six blocks of bare grass from the
+     * kerb, and a street of them read as two rows of sheds facing a gap rather
+     * than a street.
+     *
+     * <p>The plan cannot fix this: it reserves ground before anybody knows what
+     * will stand on it, and reserving the largest possible plot is what keeps
+     * buildings off each other. The renderer can, because by then the blueprint
+     * is known — so the building is measured first and set down with its front
+     * wall a fixed verge from the paved edge, whatever its size.
+     *
+     * <p>It only ever moves a building TOWARD its street, and never past the
+     * kerb, so nothing can be pushed onto the road it fronts.
+     */
+    private SimPos againstTheKerb(Placement placement) {
+        if (placement.fronts() == null) {
+            return placement.at();
+        }
+        SimPos plot = placement.at();
+        SimPos onStreet = nearestPointOn(placement.fronts(), plot);
+        if (onStreet == null) {
+            return plot;
+        }
+        double dx = plot.x() - onStreet.x();
+        double dz = plot.z() - onStreet.z();
+        double away = Math.hypot(dx, dz);
+        if (away < 1) {
+            return plot;   // already on the line; leave it where the plan put it
+        }
+        // What the blueprint actually measures, not what the catalogue reserved.
+        Footprint size = BlueprintPlacer.measure(level, placement.blueprintId(),
+                new BlockPos(plot.x(), level.getMinY() + 1, plot.z()));
+        int across = size.isKnown() ? Math.max(size.width(), size.depth())
+                : BuildPlanner.plotSpanOf(placement.blueprintId(), BuildCatalogue.DEFAULT);
+        // Half the paved way, a verge, and half the building.
+        double wanted = Math.max(1, placement.fronts().width() / 3.0) + VERGE + across / 2.0;
+        if (wanted >= away) {
+            return plot;   // already at least that far back; do not push it out
+        }
+        return new SimPos(
+                onStreet.x() + (int) Math.round(dx / away * wanted), plot.y(),
+                onStreet.z() + (int) Math.round(dz / away * wanted));
+    }
+
+    /** The point of a street nearest a plot, along its whole path. */
+    private static SimPos nearestPointOn(TownPlan.Street street, SimPos from) {
+        SimPos best = null;
+        long nearest = Long.MAX_VALUE;
+        for (SimPos point : street.path()) {
+            long away = (long) (point.x() - from.x()) * (point.x() - from.x())
+                    + (long) (point.z() - from.z()) * (point.z() - from.z());
+            if (away < nearest) {
+                nearest = away;
+                best = point;
+            }
+        }
+        return best;
+    }
+
+    /** Bare ground between the paved way and a front wall. */
+    private static final int VERGE = 1;
 
     /**
      * Which building goes on the nth plot.
