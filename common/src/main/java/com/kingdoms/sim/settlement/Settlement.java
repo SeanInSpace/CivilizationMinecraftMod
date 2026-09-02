@@ -1531,7 +1531,33 @@ public final class Settlement {
      * <p>Called from the slow scheduler, not from the 20 Hz game tick. Everything
      * here must be safe to run with no chunks loaded.
      */
+    /**
+     * Whether this settlement is a drawing rather than a living town.
+     *
+     * <p>A town rendered by {@code /civ buildtest} has buildings and streets and
+     * no people, and it must not think: nothing should plan its next build,
+     * stake its wall, or wonder why nobody is farming. But it does need to
+     * <em>exist</em> — the town map and the surveyor's lamp find a town by
+     * walking the kingdoms, so a settlement that is not registered is a town
+     * those tools cannot see, which is exactly what the first version of the
+     * renderer produced: a town you could walk around and not survey.
+     *
+     * <p>So it is registered like any other and skipped when the world steps.
+     */
+    private boolean drawnOnly;
+
+    public boolean isDrawnOnly() {
+        return drawnOnly;
+    }
+
+    public void setDrawnOnly(boolean drawnOnly) {
+        this.drawnOnly = drawnOnly;
+    }
+
     public void step(SimContext ctx) {
+        if (drawnOnly) {
+            return;   // a drawing does not grow
+        }
         putAwayLoosePile();
         advanceStage(ctx);
         planNextBuild(ctx);
