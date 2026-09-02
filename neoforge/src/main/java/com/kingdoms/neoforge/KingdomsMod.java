@@ -116,6 +116,12 @@ public final class KingdomsMod {
     private static long tickCounter;
 
     private static void onServerTick(ServerTickEvent.Post event) {
+        // The plan renderer, if one is running. Independent of the simulation
+        // on purpose: it is an instrument for looking at arrangement, and a
+        // settlement's people are exactly what it leaves out.
+        for (ServerLevel level : event.getServer().getAllLevels()) {
+            com.kingdoms.neoforge.world.BuildTest.tick(level);
+        }
         tickCounter++;
         for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
             if (entry.getValue().onGameTick()) {

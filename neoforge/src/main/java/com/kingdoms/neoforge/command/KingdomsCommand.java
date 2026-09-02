@@ -26,6 +26,7 @@ import com.kingdoms.sim.settlement.SettlementEvent;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.neoforge.world.LevelStoreWorld;
 import com.kingdoms.neoforge.world.Shelves;
+import com.kingdoms.neoforge.world.BuildTest;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.world.SimWorld;
 import com.mojang.brigadier.CommandDispatcher;
@@ -115,6 +116,20 @@ public final class KingdomsCommand {
                                 .executes(KingdomsCommand::wallComplete))
                         .then(Commands.literal("map")
                                 .executes(KingdomsCommand::wallMap)))
+
+                .then(Commands.literal("buildstop")
+                        .executes(KingdomsCommand::buildStop))
+
+                .then(Commands.literal("buildtest")
+                        .executes(ctx -> buildTest(ctx, 1, 64))
+                        .then(Commands.argument("bps", IntegerArgumentType.integer(1, 20))
+                                .executes(ctx -> buildTest(ctx,
+                                        IntegerArgumentType.getInteger(ctx, "bps"), 64))
+                                .then(Commands.argument("count",
+                                                IntegerArgumentType.integer(1, 256))
+                                        .executes(ctx -> buildTest(ctx,
+                                                IntegerArgumentType.getInteger(ctx, "bps"),
+                                                IntegerArgumentType.getInteger(ctx, "count"))))))
 
                 .then(Commands.literal("plan")
                         .executes(KingdomsCommand::plan))
@@ -839,6 +854,47 @@ public final class KingdomsCommand {
                         + "wetAgreePct={} missedWater={} imaginedWater={}",
                 n, 100 * hits / n, String.format("%.2f", total / (double) n), deepest,
                 100 * agreed / n, missedWater, imaginedWater);
+        return 1;
+    }
+
+    /**
+     * Draws a gridiron town here, one building at a time, with nobody in it.
+     *
+     * <p>An instrument rather than a feature. Every question about the shape of
+     * a town has had to be asked of a grown settlement — seven minutes of
+     * simulation, a population deciding what to build, ground that varies — so
+     * a fault in the arrangement arrives tangled with all of it, and the last
+     * three were found only by dumping the result and measuring it afterwards.
+     *
+     * <p>This draws the plan and nothing else. Same {@code TownPlan} the
+     * simulation uses, so the geometry under test is the real geometry; no
+     * people, no stores, no queue, no stages. On flat ground it draws the same
+     * town every time from the same spot, so a difference in the result means a
+     * difference in the code.
+     */
+    private static int buildTest(CommandContext<CommandSourceStack> ctx,
+                                 int buildingsPerSecond, int count) {
+        CommandSourceStack source = ctx.getSource();
+        ServerLevel level = source.getLevel();
+        if (BuildTest.stop(level)) {
+            source.sendSuccess(() -> Component.literal(
+                    "  stopped the run that was already going"), false);
+        }
+        var at = source.getPosition();
+        SimPos centre = new SimPos((int) Math.floor(at.x), (int) Math.floor(at.y),
+                (int) Math.floor(at.z));
+        int placing = BuildTest.start(level, centre, count, buildingsPerSecond);
+        source.sendSuccess(() -> Component.literal(
+                "  drawing a gridiron of " + placing + " buildings at " + centre
+                        + ", " + buildingsPerSecond + " a second"
+                        + " — /civ buildtest again to restart, /civ buildstop to halt"), true);
+        return 1;
+    }
+
+    private static int buildStop(CommandContext<CommandSourceStack> ctx) {
+        boolean was = BuildTest.stop(ctx.getSource().getLevel());
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                was ? "  stopped" : "  nothing was being drawn"), false);
         return 1;
     }
 
