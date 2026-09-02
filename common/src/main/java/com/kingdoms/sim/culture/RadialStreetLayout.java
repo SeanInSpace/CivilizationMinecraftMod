@@ -76,14 +76,23 @@ public final class RadialStreetLayout extends PlannedLayout {
 
     private final String id;
     private final Wander wander;
+    private final boolean hallOnTheGreen;
 
     public RadialStreetLayout() {
-        this("ring_streets", Wander.gentle(9, 0xC1C1EL));
+        this("ring_streets", Wander.gentle(9, 0xC1C1EL), false);
     }
 
     public RadialStreetLayout(String id, Wander wander) {
+        this(id, wander, false);
+    }
+
+    /**
+     * @param hallOnTheGreen whether to offer the middle of the green itself
+     */
+    public RadialStreetLayout(String id, Wander wander, boolean hallOnTheGreen) {
         this.id = id;
         this.wander = wander;
+        this.hallOnTheGreen = hallOnTheGreen;
     }
 
     @Override
@@ -127,6 +136,22 @@ public final class RadialStreetLayout extends PlannedLayout {
         for (int spoke = 0; spoke < SPOKES; spoke++) {
             double angle = spoke * 2 * Math.PI / SPOKES;
             streets.add(spokeRoad(centre, angle, outer + RING_SPACING / 2));
+        }
+
+        // The middle of the green, when this arrangement wants one. Offered
+        // first because it is nearest the centre, and the nearest offer is the
+        // one the first building takes -- so the hall stands in the middle with
+        // the lanes running out from it, which is the whole point of drawing a
+        // town round a centre rather than along a road.
+        //
+        // It fronts no street, and deliberately: the spokes begin a PITCH out
+        // from the middle, so there is nothing here to face, and naming one
+        // would only drag the hall off the centre when a renderer moved it up to
+        // that street's kerb. A town of this shape spends one plot's frontage on
+        // having a middle, and it is worth it.
+        if (hallOnTheGreen) {
+            offers.add(new Offer(centre, Layout.NO_STREET,
+                    Layout.facingToward(centre, round(centre, PITCH, 0))));
         }
 
         // Frontage on both faces of every ring: the inner face looks out across

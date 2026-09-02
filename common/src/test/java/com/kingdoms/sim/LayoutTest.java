@@ -534,4 +534,70 @@ class LayoutTest {
         }
         return lined;
     }
+
+    // --- the compass-drawn town ---
+
+    /**
+     * The radial-concentric arrangement draws true circles, not bent ones.
+     *
+     * <p>It exists precisely because {@code ring_streets} bends its rings by up
+     * to nine blocks to look grown rather than drawn. If somebody gives this one
+     * a wander -- by copying the other's constructor call, which is the obvious
+     * way to make the mistake -- the two arrangements become the same
+     * arrangement and the reason for having both quietly disappears.
+     */
+    @Test
+    void radialConcentricRingsAreTrueCircles() {
+        TownPlan plan = Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC).planFor(CENTRE, MANY);
+        for (TownPlan.Street street : plan.streets()) {
+            if (street.kind() != TownPlan.Kind.LANE) {
+                continue;   // spokes are straight lines, not rings
+            }
+            double first = CENTRE.horizontalDistance(street.path().get(0));
+            for (SimPos point : street.path()) {
+                assertEquals(first, CENTRE.horizontalDistance(point), 1.5,
+                        "a ring road should hold its radius all the way round");
+            }
+        }
+    }
+
+    /**
+     * Something stands in the middle of the green.
+     *
+     * <p>A town drawn round a centre with nothing at the centre reads as a
+     * roundabout. The hall goes on the green because the plan offers the middle
+     * and offers are taken nearest-first, so this is really a test that the
+     * offer survives the sort and the fits check -- both of which have refused
+     * it during development, and both silently.
+     */
+    @Test
+    void radialConcentricPutsSomethingInTheMiddle() {
+        TownPlan plan = Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC).planFor(CENTRE, MANY);
+        assertEquals(CENTRE.x(), plan.plots().get(0).at().x(),
+                "the first plot should be the middle of the green");
+        assertEquals(CENTRE.z(), plan.plots().get(0).at().z(),
+                "the first plot should be the middle of the green");
+        assertFalse(plan.plots().get(0).frontsAStreet(),
+                "the plot on the green fronts nothing, and must say so");
+    }
+
+    /**
+     * Everything else does front a street.
+     *
+     * <p>One unfronted plot is the price of having a middle. Two would mean the
+     * ring faces had stopped being offered, which is the failure this layout's
+     * whole spacing arithmetic exists to prevent and which does not announce
+     * itself -- the town simply grows outward hunting for room.
+     */
+    @Test
+    void radialConcentricFrontsEverythingElse() {
+        TownPlan plan = Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC).planFor(CENTRE, MANY);
+        int adrift = 0;
+        for (TownPlan.Plot plot : plan.plots()) {
+            if (!plot.frontsAStreet()) {
+                adrift++;
+            }
+        }
+        assertEquals(1, adrift, "only the hall on the green should front nothing");
+    }
 }

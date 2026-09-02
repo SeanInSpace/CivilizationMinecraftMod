@@ -28,6 +28,8 @@ import com.kingdoms.neoforge.world.LevelStoreWorld;
 import com.kingdoms.neoforge.world.Shelves;
 import com.kingdoms.neoforge.world.BuildTest;
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.world.SimWorld;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -121,15 +123,29 @@ public final class KingdomsCommand {
                         .executes(KingdomsCommand::buildStop))
 
                 .then(Commands.literal("buildtest")
-                        .executes(ctx -> buildTest(ctx, 1, 64))
+                        .executes(ctx -> buildTest(ctx, 1, 64, DRAWN_BY_DEFAULT))
                         .then(Commands.argument("bps", IntegerArgumentType.integer(1, 20))
                                 .executes(ctx -> buildTest(ctx,
-                                        IntegerArgumentType.getInteger(ctx, "bps"), 64))
+                                        IntegerArgumentType.getInteger(ctx, "bps"), 64,
+                                        DRAWN_BY_DEFAULT))
                                 .then(Commands.argument("count",
                                                 IntegerArgumentType.integer(1, 256))
                                         .executes(ctx -> buildTest(ctx,
                                                 IntegerArgumentType.getInteger(ctx, "bps"),
-                                                IntegerArgumentType.getInteger(ctx, "count"))))))
+                                                IntegerArgumentType.getInteger(ctx, "count"),
+                                                DRAWN_BY_DEFAULT))
+                                        .then(Commands.argument("layout",
+                                                        StringArgumentType.string())
+                                                .suggests((ctx, builder) -> {
+                                                    for (Layout known : Layouts.all()) {
+                                                        builder.suggest(known.id());
+                                                    }
+                                                    return builder.buildFuture();
+                                                })
+                                                .executes(ctx -> buildTest(ctx,
+                                                        IntegerArgumentType.getInteger(ctx, "bps"),
+                                                        IntegerArgumentType.getInteger(ctx, "count"),
+                                                        StringArgumentType.getString(ctx, "layout")))))))
 
                 .then(Commands.literal("plan")
                         .executes(KingdomsCommand::plan))
@@ -872,8 +888,11 @@ public final class KingdomsCommand {
      * town every time from the same spot, so a difference in the result means a
      * difference in the code.
      */
+    /** What /civ buildtest draws when nobody names an arrangement. */
+    private static final String DRAWN_BY_DEFAULT = Culture.LAYOUT_STRONGHOLD_STREETS;
+
     private static int buildTest(CommandContext<CommandSourceStack> ctx,
-                                 int buildingsPerSecond, int count) {
+                                 int buildingsPerSecond, int count, String layoutId) {
         CommandSourceStack source = ctx.getSource();
         ServerLevel level = source.getLevel();
         if (BuildTest.stop(level)) {
@@ -883,7 +902,7 @@ public final class KingdomsCommand {
         var at = source.getPosition();
         SimPos centre = new SimPos((int) Math.floor(at.x), (int) Math.floor(at.y),
                 (int) Math.floor(at.z));
-        int placing = BuildTest.start(level, centre, count, buildingsPerSecond);
+        int placing = BuildTest.start(level, centre, count, buildingsPerSecond, layoutId);
         source.sendSuccess(() -> Component.literal(
                 "  drawing a gridiron of " + placing + " buildings at " + centre
                         + ", " + buildingsPerSecond + " a second"

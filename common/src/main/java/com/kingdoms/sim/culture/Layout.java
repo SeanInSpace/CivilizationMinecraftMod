@@ -37,6 +37,16 @@ import com.kingdoms.sim.geom.SimPos;
 public interface Layout {
 
     /**
+     * The street index of a plot that fronts nothing.
+     *
+     * <p>A monument on a green, mostly. Anything negative has always meant this
+     * -- {@code TownPlan.Plot.frontsAStreet} tests for it -- but it was written
+     * as a bare -1 wherever it came up, which is how you end up with a second
+     * spelling of the same idea that nobody notices is the same.
+     */
+    int NO_STREET = -1;
+
+    /**
      * The closest two plot centres may sit and still both be buildable.
      *
      * <p><strong>Measured on the wider axis, not as a distance.</strong> That

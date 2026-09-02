@@ -94,15 +94,21 @@ public final class BuildTest {
     }
 
     /**
-     * Starts drawing a gridiron town at this centre.
+     * Starts drawing a town at this centre.
+     *
+     * <p>The arrangement is named rather than fixed, because the whole reason
+     * this exists is to be able to look at one: a fault in a gridiron and a
+     * fault in a ring town are not the same fault, and a renderer that can only
+     * draw one shape can only answer questions about that shape.
      *
      * @param buildingsPerSecond how fast to raise them; one is a building a second
+     * @param layoutId which arrangement to draw
      * @return how many buildings the run will place
      */
     public static int start(ServerLevel level, SimPos centre, int count,
-                            int buildingsPerSecond) {
-        Layout gridiron = Layouts.of(com.kingdoms.sim.culture.Culture.LAYOUT_STRONGHOLD_STREETS);
-        TownPlan plan = gridiron.planFor(centre, count);
+                            int buildingsPerSecond, String layoutId) {
+        Layout arrangement = Layouts.of(layoutId);
+        TownPlan plan = arrangement.planFor(centre, count);
 
         List<Placement> pending = new ArrayList<>();
         for (int i = 0; i < plan.plots().size() && i < count; i++) {
@@ -138,12 +144,26 @@ public final class BuildTest {
         // The streets, as the network the map already knows how to draw. Every
         // stretch is opened at once: nobody is walking them out, and a plan being
         // rendered rather than grown has no reason to meter itself.
+        //
+        // Only as far out as the town actually reaches. A plan is drawn for 256
+        // plots however many are asked for, so that a town has somewhere to grow
+        // into -- which is right for a settlement and wrong for a picture of one.
+        // Paved whole, a sixty-four building ring town came out as four ring
+        // roads with houses on the inner two and a quarter mile of empty
+        // carriageway round the outside, which reads as a town that failed
+        // rather than a town that is small.
+        int edge = builtOutTo(centre, pending) + BEYOND_THE_LAST_HOUSE;
         List<PathNetwork.Segment> toPave = new ArrayList<>();
         for (TownPlan.Street street : plan.streets()) {
             List<SimPos> path = street.path();
             for (int i = 1; i < path.size(); i++) {
-                toPave.add(new PathNetwork.Segment(
-                        path.get(i - 1), path.get(i), street.width()));
+                SimPos from = path.get(i - 1);
+                SimPos to = path.get(i);
+                // Either end within reach keeps the stretch, so a road runs out
+                // to the edge rather than stopping one stretch short of it.
+                if (away(centre, from) <= edge || away(centre, to) <= edge) {
+                    toPave.add(new PathNetwork.Segment(from, to, street.width()));
+                }
             }
         }
         for (int i = 0; i < toPave.size(); i++) {
@@ -159,9 +179,12 @@ public final class BuildTest {
         synchronized (RUNNING) {
             RUNNING.put(level, run);
         }
-        KingdomsMod.LOGGER.info("BUILDTEST start centre={} count={} bps={} streets={}",
-                centre, pending.size(), buildingsPerSecond, plan.streets().size());
-        KingdomsMod.LOGGER.info("BUILDTEST street runs to pave: {}", toPave.size());
+        KingdomsMod.LOGGER.info(
+                "BUILDTEST start layout={} centre={} count={} bps={} streets={} frontage={}%",
+                arrangement.id(), centre, pending.size(), buildingsPerSecond,
+                plan.streets().size(), plan.frontagePercent());
+        KingdomsMod.LOGGER.info("BUILDTEST street runs to pave: {} out to {} blocks",
+                toPave.size(), edge);
         return pending.size();
     }
 
@@ -318,6 +341,24 @@ public final class BuildTest {
             return PROGRAMME[index];
         }
         return DWELLINGS[(index - PROGRAMME.length) % DWELLINGS.length];
+    }
+
+    /** How far the paving runs past the outermost building. */
+    private static final int BEYOND_THE_LAST_HOUSE = 24;
+
+    /** How far from the middle the furthest building of this run stands. */
+    private static int builtOutTo(SimPos centre, List<Placement> pending) {
+        int furthest = 0;
+        for (Placement placement : pending) {
+            furthest = Math.max(furthest, away(centre, placement.at()));
+        }
+        return furthest;
+    }
+
+    private static int away(SimPos from, SimPos to) {
+        double dx = to.x() - from.x();
+        double dz = to.z() - from.z();
+        return (int) Math.round(Math.hypot(dx, dz));
     }
 
     /**

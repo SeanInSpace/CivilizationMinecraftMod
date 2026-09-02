@@ -456,6 +456,24 @@ public final class Layouts {
     /** The stronghold's: streets ruled both ways, blocks built in the gaps. */
     public static final Layout STRONGHOLD_STREETS = new GridStreetLayout();
 
+    /**
+     * Ring roads and spokes, drawn true: a town built round a middle.
+     *
+     * <p>The same arrangement as {@link #RING_STREETS} with the wander taken out
+     * and a hall put on the green. RING_STREETS bends its rings by up to nine
+     * blocks on purpose, because a perfectly circular street is the most
+     * obviously computer-generated thing a town can have -- that is right for a
+     * settlement that is supposed to have grown, and wrong for one that is
+     * supposed to have been laid out. A capital, a shrine town, a fortress
+     * suburb: somebody drew these with a compass and it should look like it.
+     *
+     * <p>Kept as a separate arrangement rather than a flag on the old one, so a
+     * culture chooses which it wants and neither town changes shape under a save
+     * that already named the other.
+     */
+    public static final Layout RADIAL_CONCENTRIC =
+            new RadialStreetLayout("radial_concentric", Wander.STRAIGHT, true);
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     /**
@@ -478,7 +496,7 @@ public final class Layouts {
 
     static {
         for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
-                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS}) {
+                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC}) {
             KNOWN.put(layout.id(), layout);
         }
         STREETS_FIRST.put(RING.id(), RING_STREETS.id());
