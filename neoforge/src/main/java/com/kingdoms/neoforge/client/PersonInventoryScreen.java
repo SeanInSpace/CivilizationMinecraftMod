@@ -18,6 +18,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import static com.kingdoms.neoforge.client.KingdomsPanel.AMOUNT;
+import static com.kingdoms.neoforge.client.KingdomsPanel.HEADER;
+import static com.kingdoms.neoforge.client.KingdomsPanel.LABEL;
+import static com.kingdoms.neoforge.client.KingdomsPanel.PADDING;
+import static com.kingdoms.neoforge.client.KingdomsPanel.ROW;
+import static com.kingdoms.neoforge.client.KingdomsPanel.SUBTLE;
+
 /**
  * What one settler is carrying, read over their shoulder.
  *
@@ -38,12 +45,8 @@ import java.util.Locale;
  */
 public final class PersonInventoryScreen extends Screen {
 
+    /** The warehouse bill's width: these two screens are read side by side. */
     private static final int PANEL_WIDTH = 260;
-
-    /** Title, subtitle and the rule under them. */
-    private static final int HEADER = 44;
-
-    private static final int ROW = 20;
 
     /** A line of footer prose. */
     private static final int LINE = 11;
@@ -51,17 +54,7 @@ public final class PersonInventoryScreen extends Screen {
     /** The band a divider rule sits in the middle of. */
     private static final int GAP = 8;
 
-    private static final int PADDING = 14;
     private static final int BOTTOM = 8;
-
-    private static final int PANEL = 0xF0201010;
-    private static final int BORDER = 0xFF6A6A6A;
-    private static final int RULE = 0xFF4A4A4A;
-    private static final int STRIPE = 0x18FFFFFF;
-    private static final int TITLE = 0xFFFFE0A0;
-    private static final int LABEL = 0xFFC8C8C8;
-    private static final int AMOUNT = 0xFFFFFFFF;
-    private static final int SUBTLE = 0xFF9A9A9A;
 
     /** The same ladder of warmth the town overview's distress band uses. */
     private static final int FED_TEXT = 0xFF9A9A9A;
@@ -156,13 +149,9 @@ public final class PersonInventoryScreen extends Screen {
         int top = (height - panelHeight) / 2;
         int centre = x + PANEL_WIDTH / 2;
 
-        graphics.fill(x, top, x + PANEL_WIDTH, top + panelHeight, PANEL);
-        graphics.outline(x, top, PANEL_WIDTH, panelHeight, BORDER);
-
-        graphics.centeredText(font, title, centre, top + 12, TITLE);
-        graphics.centeredText(font, Component.literal(subtitle), centre, top + 26,
-                colourOf(Appetite.of(person.hunger())));
-        graphics.fill(x + PADDING, top + 38, x + PANEL_WIDTH - PADDING, top + 39, RULE);
+        KingdomsPanel.frame(graphics, x, top, PANEL_WIDTH, panelHeight);
+        KingdomsPanel.header(graphics, font, x, top, PANEL_WIDTH, title,
+                Component.literal(subtitle), colourOf(Appetite.of(person.hunger())));
 
         int y = top + HEADER;
         List<Inventory.Slot> slots = person.slots();
@@ -173,8 +162,7 @@ public final class PersonInventoryScreen extends Screen {
             Inventory.Slot slot = slots.get(i);
             int rowY = y + i * ROW;
             if (i % 2 == 1) {
-                graphics.fill(x + PADDING - 4, rowY - 2,
-                        x + PANEL_WIDTH - PADDING + 4, rowY + ROW - 4, STRIPE);
+                KingdomsPanel.stripe(graphics, x, rowY, PANEL_WIDTH);
             }
             Item item = ItemIcons.of(slot.itemId());
             graphics.item(new ItemStack(item), x + PADDING, rowY);
@@ -189,7 +177,7 @@ public final class PersonInventoryScreen extends Screen {
         // town's stores and is spent block by block at a site.
         if (hasLoad) {
             String material = person.carriedMaterial();
-            graphics.fill(x + PADDING, y + 3, x + PANEL_WIDTH - PADDING, y + 4, RULE);
+            KingdomsPanel.rule(graphics, x, y + 3, PANEL_WIDTH);
             y += GAP;
             graphics.item(new ItemStack(materialItem(material)), x + PADDING, y);
             graphics.text(font, Component.literal("Building load"),
@@ -203,7 +191,7 @@ public final class PersonInventoryScreen extends Screen {
             y += ROW;
         }
 
-        graphics.fill(x + PADDING, y + 3, x + PANEL_WIDTH - PADDING, y + 4, RULE);
+        KingdomsPanel.rule(graphics, x, y + 3, PANEL_WIDTH);
         y += GAP;
         for (String line : footer) {
             graphics.centeredText(font, Component.literal(line), centre, y, SUBTLE);

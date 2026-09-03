@@ -12,6 +12,13 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 import java.util.List;
+
+import static com.kingdoms.neoforge.client.KingdomsPanel.AMOUNT;
+import static com.kingdoms.neoforge.client.KingdomsPanel.HEADER;
+import static com.kingdoms.neoforge.client.KingdomsPanel.LABEL;
+import static com.kingdoms.neoforge.client.KingdomsPanel.PADDING;
+import static com.kingdoms.neoforge.client.KingdomsPanel.ROW;
+import static com.kingdoms.neoforge.client.KingdomsPanel.SUBTLE;
 import java.util.Locale;
 
 /**
@@ -37,11 +44,10 @@ import java.util.Locale;
  */
 public final class TownOverviewScreen extends Screen {
 
+    /** Narrower than the warehouse bill's 260: a ledger row is a name and a number. */
     private static final int PANEL_WIDTH = 240;
-    private static final int HEADER_HEIGHT = 46;
-    private static final int ROW_HEIGHT = 20;
+
     private static final int FOOTER_HEIGHT = 14;
-    private static final int PADDING = 14;
 
     /**
      * The distress band, which hangs directly off the header so the space it
@@ -50,15 +56,6 @@ public final class TownOverviewScreen extends Screen {
     private static final int BAND_LINE = 10;
     private static final int BAND_PAD = 4;
     private static final int BAND_GAP = 6;
-
-    private static final int PANEL = 0xF0201010;
-    private static final int BORDER = 0xFF6A6A6A;
-    private static final int RULE = 0xFF4A4A4A;
-    private static final int STRIPE = 0x18FFFFFF;
-    private static final int TITLE = 0xFFFFE0A0;
-    private static final int LABEL = 0xFFC8C8C8;
-    private static final int SUBTLE = 0xFF9A9A9A;
-    private static final int AMOUNT = 0xFFFFFFFF;
 
     /** Warmer as it worsens; the amber matches the short-of-stock rows elsewhere. */
     private static final int ALARM_TEXT_HUNGRY = 0xFFFFE070;
@@ -92,7 +89,7 @@ public final class TownOverviewScreen extends Screen {
 
     private int panelHeight() {
         int rows = Math.max(1, town.lines().size());
-        return HEADER_HEIGHT + distressHeight() + rows * ROW_HEIGHT + FOOTER_HEIGHT;
+        return HEADER + distressHeight() + rows * ROW + FOOTER_HEIGHT;
     }
 
     private int left() {
@@ -109,15 +106,9 @@ public final class TownOverviewScreen extends Screen {
         int y = top();
         int h = panelHeight();
 
-        graphics.fill(x, y, x + PANEL_WIDTH, y + h, PANEL);
-        graphics.outline(x, y, PANEL_WIDTH, h, BORDER);
-
-        graphics.centeredText(font, title, x + PANEL_WIDTH / 2, y + 12, TITLE);
-        graphics.centeredText(font,
-                Component.literal(town.population() + " residents"),
-                x + PANEL_WIDTH / 2, y + 24, SUBTLE);
-
-        graphics.fill(x + PADDING, y + 38, x + PANEL_WIDTH - PADDING, y + 39, RULE);
+        KingdomsPanel.frame(graphics, x, y, PANEL_WIDTH, h);
+        KingdomsPanel.header(graphics, font, x, y, PANEL_WIDTH, title,
+                Component.literal(town.population() + " residents"), SUBTLE);
 
         // The band goes in before the empty-ledger exit below, because an empty
         // ledger is precisely what a dying town has and that is exactly when it
@@ -128,20 +119,19 @@ public final class TownOverviewScreen extends Screen {
         List<TownOverviewPayload.Line> lines = town.lines();
         if (lines.isEmpty()) {
             graphics.centeredText(font, Component.literal("The stores are empty."),
-                    x + PANEL_WIDTH / 2, y + HEADER_HEIGHT + band + 4, SUBTLE);
+                    x + PANEL_WIDTH / 2, y + HEADER + band + 4, SUBTLE);
             super.extractRenderState(graphics, mouseX, mouseY, a);
             return;
         }
 
         for (int i = 0; i < lines.size(); i++) {
             TownOverviewPayload.Line line = lines.get(i);
-            int rowY = y + HEADER_HEIGHT + band + i * ROW_HEIGHT;
+            int rowY = y + HEADER + band + i * ROW;
 
             // Banded rows: at a dozen resources an unbroken list is hard to read
             // across, and a stripe costs nothing.
             if (i % 2 == 1) {
-                graphics.fill(x + PADDING - 4, rowY - 2,
-                        x + PANEL_WIDTH - PADDING + 4, rowY + ROW_HEIGHT - 4, STRIPE);
+                KingdomsPanel.stripe(graphics, x, rowY, PANEL_WIDTH);
             }
 
             graphics.item(new ItemStack(iconFor(line.resource())), x + PADDING, rowY);
@@ -169,7 +159,7 @@ public final class TownOverviewScreen extends Screen {
         }
         Distress distress = town.distress();
         int alarm = distress.alarm();
-        int bandTop = y + HEADER_HEIGHT;
+        int bandTop = y + HEADER;
         int bandBottom = bandTop + BAND_PAD * 2 + lines * BAND_LINE;
 
         graphics.fill(x + 1, bandTop, x + PANEL_WIDTH - 1, bandBottom, alarmBand(alarm));

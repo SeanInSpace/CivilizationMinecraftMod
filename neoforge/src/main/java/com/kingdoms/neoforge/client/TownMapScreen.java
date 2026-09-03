@@ -7,6 +7,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 
+import static com.kingdoms.neoforge.client.KingdomsPanel.BORDER;
+import static com.kingdoms.neoforge.client.KingdomsPanel.SUBTLE;
+import static com.kingdoms.neoforge.client.KingdomsPanel.TITLE;
+
 /**
  * A plan of the town: blank ground, and every building picked out in green.
  *
@@ -39,8 +43,14 @@ public final class TownMapScreen extends Screen {
     private static final int MIN_MAP = 128;
     private static final int MAX_MAP = 640;
 
+    /**
+     * Colder and flatter than the shared panel ground.
+     *
+     * <p>Deliberately not {@link KingdomsPanel#PANEL}: this screen is mostly a
+     * drawing of terrain, and the warm cast that suits a page of text reads as a
+     * stain behind a green plan.
+     */
     private static final int PANEL = 0xF0181818;
-    private static final int BORDER = 0xFF6A6A6A;
     private static final int GROUND = 0xFF101010;
     private static final int CLAIM = 0x30FFFFFF;
     private static final int BUILDING = 0xFF4CD07A;
@@ -52,8 +62,7 @@ public final class TownMapScreen extends Screen {
     /** The roads: dim earth, drawn under the buildings so they read as ground. */
     private static final int ROAD = 0xFF6B5A44;
     private static final int PLAYER = 0xFFFFFFFF;
-    private static final int TITLE = 0xFFFFE0A0;
-    private static final int SUBTLE = 0xFF9A9A9A;
+
 
     /** No building ever draws thinner than this, or a hut vanishes at town scale. */
     private static final int MIN_MARK = 2;
@@ -111,8 +120,7 @@ public final class TownMapScreen extends Screen {
         int y = top();
         int h = panelHeight();
 
-        graphics.fill(x, y, x + panelWidth, y + h, PANEL);
-        graphics.outline(x, y, panelWidth, h, BORDER);
+        KingdomsPanel.frame(graphics, x, y, panelWidth, h, PANEL);
 
         graphics.centeredText(font, title, x + panelWidth / 2, y + 10, TITLE);
 

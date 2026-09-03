@@ -9,6 +9,12 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
+import static com.kingdoms.neoforge.client.KingdomsPanel.HEADER;
+import static com.kingdoms.neoforge.client.KingdomsPanel.LABEL;
+import static com.kingdoms.neoforge.client.KingdomsPanel.PADDING;
+import static com.kingdoms.neoforge.client.KingdomsPanel.ROW;
+import static com.kingdoms.neoforge.client.KingdomsPanel.SUBTLE;
+
 /**
  * The bill for whatever the town is building: what is left to lay, and whether
  * the town can pay for it.
@@ -19,20 +25,17 @@ import java.util.List;
  */
 public final class SupplyScreen extends Screen {
 
+    /**
+     * Wider than the town overview's 240, and deliberately so: a bill line
+     * carries an item name and "12  (town has 3)" beside it, which is more than
+     * a ledger row and did not fit.
+     */
     private static final int PANEL_WIDTH = 260;
-    private static final int HEADER = 44;
-    private static final int ROW = 20;
-    private static final int FOOTER = 22;
-    private static final int PADDING = 14;
 
-    private static final int PANEL = 0xF0201010;
-    private static final int BORDER = 0xFF6A6A6A;
-    private static final int RULE = 0xFF4A4A4A;
-    private static final int STRIPE = 0x18FFFFFF;
-    private static final int TITLE = 0xFFFFE0A0;
-    private static final int LABEL = 0xFFC8C8C8;
+    private static final int FOOTER = 22;
+
+    /** Short of the stock this block is made from: the one colour beyond the shared palette. */
     private static final int SHORT = 0xFFFFAA55;
-    private static final int SUBTLE = 0xFF9A9A9A;
 
     /** Longest bill drawn. A hall's plan is hundreds of lines; nobody reads those. */
     private static final int MAX_ROWS = 10;
@@ -59,13 +62,9 @@ public final class SupplyScreen extends Screen {
         int h = panelHeight();
         int y = (height - h) / 2;
 
-        graphics.fill(x, y, x + PANEL_WIDTH, y + h, PANEL);
-        graphics.outline(x, y, PANEL_WIDTH, h, BORDER);
-
-        graphics.centeredText(font, title, x + PANEL_WIDTH / 2, y + 12, TITLE);
-        graphics.centeredText(font, Component.literal(supply.percent() + "% raised"),
-                x + PANEL_WIDTH / 2, y + 26, SUBTLE);
-        graphics.fill(x + PADDING, y + 38, x + PANEL_WIDTH - PADDING, y + 39, RULE);
+        KingdomsPanel.frame(graphics, x, y, PANEL_WIDTH, h);
+        KingdomsPanel.header(graphics, font, x, y, PANEL_WIDTH, title,
+                Component.literal(supply.percent() + "% raised"), SUBTLE);
 
         List<SupplyPayload.Need> needs = shown();
         if (needs.isEmpty()) {
@@ -79,8 +78,7 @@ public final class SupplyScreen extends Screen {
             SupplyPayload.Need need = needs.get(i);
             int rowY = y + HEADER + i * ROW;
             if (i % 2 == 1) {
-                graphics.fill(x + PADDING - 4, rowY - 2,
-                        x + PANEL_WIDTH - PADDING + 4, rowY + ROW - 4, STRIPE);
+                KingdomsPanel.stripe(graphics, x, rowY, PANEL_WIDTH);
             }
 
             Item item = ItemIcons.of(need.item());
