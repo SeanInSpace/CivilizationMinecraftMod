@@ -1,5 +1,6 @@
 package com.kingdoms.sim;
 
+import com.kingdoms.sim.culture.ThorpLayout;
 import com.kingdoms.sim.culture.BastideLayout;
 import com.kingdoms.sim.culture.CrossroadsLayout;
 import com.kingdoms.sim.culture.Culture;
@@ -82,7 +83,8 @@ class LayoutTest {
         // fault.
         for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD,
                 Layouts.ORGANIC, Layouts.HIGH_STREET,
-                Layouts.CROSSROADS, Layouts.BASTIDE)) {
+                Layouts.CROSSROADS, Layouts.BASTIDE,
+                Layouts.THORP)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTRE, i);
@@ -256,6 +258,9 @@ class LayoutTest {
      * three sizes came back as the same three-hundred-plot answer three times.
      */
     private static Layout fresh(Layout like) {
+        if (like instanceof ThorpLayout t) {
+            return new ThorpLayout(t.id(), t.wander());
+        }
         if (like instanceof StreetLayout s) {
             return new StreetLayout(s.id(), s.wander());
         }
