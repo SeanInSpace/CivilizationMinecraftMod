@@ -13,6 +13,7 @@ import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.BuildCatalogue;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
@@ -41,6 +42,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import com.kingdoms.sim.settlement.Founding;
@@ -69,6 +71,27 @@ public final class KingdomsCommand {
                 .then(Commands.literal("found")
                         .then(Commands.argument("name", StringArgumentType.greedyString())
                                 .executes(ctx -> found(ctx, StringArgumentType.getString(ctx, "name")))))
+
+                // Raises a settlement that is already what /civ found spends
+                // some four hundred steps becoming. The count is the
+                // population, which is the one thing about a seeded town worth
+                // overriding by hand: everything else follows from the stage.
+                .then(Commands.literal("seed")
+                        .then(Commands.argument("stage", StringArgumentType.word())
+                                .suggests((ctx, builder) -> {
+                                    for (SettlementStage known : SettlementStage.values()) {
+                                        builder.suggest(known.pretty());
+                                    }
+                                    return builder.buildFuture();
+                                })
+                                .executes(ctx -> seed(ctx,
+                                        StringArgumentType.getString(ctx, "stage"),
+                                        Founding.AS_THE_STAGE_HOUSES))
+                                .then(Commands.argument("count",
+                                                IntegerArgumentType.integer(1, 200))
+                                        .executes(ctx -> seed(ctx,
+                                                StringArgumentType.getString(ctx, "stage"),
+                                                IntegerArgumentType.getInteger(ctx, "count"))))))
 
                 .then(Commands.literal("info")
                         .executes(KingdomsCommand::info))
@@ -275,6 +298,7 @@ public final class KingdomsCommand {
         ctx.getSource().sendSuccess(() -> Component.literal("""
                 === /civ ===
                   found <name>              found a settlement here, party and all
+                  seed <stage> [pop]        raise one already built at that stage
                   info                      full state of every settlement
                   overview                  open the town overview screen
                   populate <n> <job>        BUILDER/FARMER/GUARD/TRADER/LUMBERJACK/MINER/IDLER
@@ -323,6 +347,119 @@ public final class KingdomsCommand {
                         + (chosen.equals(wanted) ? "" : " (moved off poor ground)")
                         + " (claim radius 64)"), true);
         return 1;
+    }
+
+    /**
+     * The culture a seeded town belongs to.
+     *
+     * <p>The same lowlanders {@code /civ found} plants, so the two commands
+     * produce towns of the same people and a seeded one can be compared
+     * directly with a grown one.
+     */
+    private static final String SEEDED_CULTURE = "kingdoms:norman";
+
+    /**
+     * Raises a settlement that is already built, staffed and stocked at a stage.
+     *
+     * <p>The whole point of the unit this belongs to: what world generation will
+     * place, reachable by hand so it can be walked around and argued with. The
+     * plumbing is {@code /civ found}'s — the ground is judged before anything is
+     * planted, and the kingdom is registered with the saved data as well as the
+     * simulation, because omitting the first is a recorded bug that costs a
+     * whole verification pass and looks exactly like success until the world is
+     * reloaded.
+     *
+     * <p><strong>The kingdom is built before the town, and its culture handed
+     * down.</strong> {@code Kingdom.addSettlement} overwrites a settlement's
+     * culture with the kingdom's, and {@code restoreSettlement} does not — and
+     * for a seeded town that difference is not cosmetic. Every building was
+     * placed on a plot from the culture's own arrangement, so a town stamped
+     * with a <em>different</em> culture afterwards would be standing on one
+     * people's plan while its siting code read another's: its own buildings
+     * would no longer sit on any plot it recognises, and the next thing it built
+     * would go through one of them. So {@code addSettlement} is used, which is
+     * the honest verb here — this is a founding, not a load — and the culture is
+     * taken from the kingdom on the way in so the stamp changes nothing.
+     */
+    private static int seed(CommandContext<CommandSourceStack> ctx, String stageName,
+                            int residents) {
+        CommandSourceStack source = ctx.getSource();
+        ServerLevel level = source.getLevel();
+        SimWorld world = KingdomsMod.simulationFor(level);
+        if (world == null) {
+            source.sendFailure(Component.literal("No simulation for this dimension."));
+            return 0;
+        }
+        SettlementStage stage = SettlementStage.parse(stageName, null);
+        if (stage == null) {
+            source.sendFailure(Component.literal(
+                    "No such stage: " + stageName + ". Try one of "
+                            + Arrays.stream(SettlementStage.values())
+                                    .map(SettlementStage::pretty).toList()));
+            return 0;
+        }
+
+        SimPos wanted = toSimPos(source.getPosition());
+        // A charter's reach, not a generated town's. Somebody typed this
+        // standing somewhere, which is a choice, and Founding.CHARTER_REACH
+        // exists to say how much of that choice may be overruled: a dozen
+        // blocks is "shifted off the cliff edge", sixty is "went somewhere
+        // else". World generation, which has no opinion about where it lands,
+        // is the caller that gets SITING_REACH.
+        SimPos chosen = Founding.bestSiteNear(wanted, Founding.CHARTER_REACH, world.bridge());
+        if (!chosen.equals(wanted)) {
+            KingdomsMod.LOGGER.info("SEED moved from {} to {} for better ground",
+                    wanted, chosen);
+        }
+
+        String name = seededName(world);
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, SEEDED_CULTURE);
+        Settlement settlement = Founding.seeded(chosen, name, stage,
+                BuildCatalogue.DEFAULT,
+                kingdom.cultureId(), residents);
+        kingdom.addSettlement(settlement);
+
+        // Both, deliberately: the saved data is what persists, the sim world is
+        // what ticks.
+        KingdomsSavedData.get(level).addKingdom(kingdom);
+        world.addKingdom(kingdom);
+
+        int population = settlement.population();
+        int buildings = settlement.buildings().size();
+        source.sendSuccess(() -> Component.literal(
+                "Seeded " + name + " at " + chosen + " as a " + stage.pretty()
+                        + (chosen.equals(wanted) ? "" : " (moved off poor ground)")
+                        + ": " + buildings + " buildings, " + population + " residents, "
+                        + "claim radius " + settlement.claimRadius()
+                        + ". Nothing is drawn until somebody is near enough to see it."
+                        // Said out loud because it surprises everybody once. A
+                        // settlement standing the whole of its stage's programme
+                        // has met most of that stage's graduation conditions, so
+                        // it moves up on the next step -- which is what an
+                        // honestly-grown town does too, and is why this is a
+                        // note rather than a fault.
+                        + (stage == SettlementStage.TOWN || stage == SettlementStage.HOMESTEAD
+                                ? ""
+                                : " It has finished this stage, so expect it to reach "
+                                        + stage.next().pretty() + " on the next step.")), true);
+        KingdomsMod.LOGGER.info("SEED {} stage={} at {} buildings={} pop={}",
+                name, stage.pretty(), chosen, buildings, population);
+        return 1;
+    }
+
+    /**
+     * A name from the culture's own list, so seeding twice does not give two
+     * towns the same name.
+     */
+    private static String seededName(SimWorld world) {
+        List<String> pool = Culture.of(SEEDED_CULTURE).townNames();
+        if (pool == null || pool.isEmpty()) {
+            pool = List.of("Seedholt");
+        }
+        int already = world.kingdoms().size();
+        String base = pool.get(already % pool.size());
+        int wrap = already / pool.size();
+        return wrap == 0 ? base : base + " " + (wrap + 1);
     }
 
     private static int info(CommandContext<CommandSourceStack> ctx) {
