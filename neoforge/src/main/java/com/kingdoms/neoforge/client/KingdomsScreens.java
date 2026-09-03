@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.client;
 
+import com.kingdoms.neoforge.net.PersonInventoryPayload;
 import com.kingdoms.neoforge.net.SupplyPayload;
 import com.kingdoms.neoforge.net.TownMapPayload;
 import com.kingdoms.neoforge.net.TownOverviewPayload;
@@ -28,5 +29,9 @@ public final class KingdomsScreens {
 
     public static void openSupply(SupplyPayload supply) {
         Minecraft.getInstance().setScreenAndShow(new SupplyScreen(supply));
+    }
+
+    public static void openPersonInventory(PersonInventoryPayload person) {
+        Minecraft.getInstance().setScreenAndShow(new PersonInventoryScreen(person));
     }
 }

@@ -3,12 +3,9 @@ package com.kingdoms.neoforge.client;
 import com.kingdoms.neoforge.net.SupplyPayload;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 import java.util.List;
 
@@ -86,7 +83,7 @@ public final class SupplyScreen extends Screen {
                         x + PANEL_WIDTH - PADDING + 4, rowY + ROW - 4, STRIPE);
             }
 
-            Item item = itemOf(need.item());
+            Item item = ItemIcons.of(need.item());
             graphics.item(new ItemStack(item), x + PADDING, rowY);
             graphics.text(font, Component.translatable(item.getDescriptionId()),
                     x + PADDING + 22, rowY + 4, LABEL, false);
@@ -106,11 +103,6 @@ public final class SupplyScreen extends Screen {
                 x + PANEL_WIDTH / 2, y + h - 14, SUBTLE);
 
         super.extractRenderState(graphics, mouseX, mouseY, a);
-    }
-
-    /** Falls back rather than throwing if a server names something this client lacks. */
-    private static Item itemOf(String id) {
-        return BuiltInRegistries.ITEM.getOptional(Identifier.parse(id)).orElse(Items.BARRIER);
     }
 
     @Override

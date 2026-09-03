@@ -2,6 +2,8 @@ package com.kingdoms.neoforge.entity;
 
 import com.kingdoms.neoforge.KingdomsAttachments;
 import com.kingdoms.neoforge.KingdomsMod;
+import com.kingdoms.neoforge.net.PersonInventoryPayload;
+import com.kingdoms.sim.person.Appetite;
 import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Inventory;
 import com.kingdoms.sim.person.Person;
@@ -10,6 +12,7 @@ import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
@@ -25,6 +28,7 @@ import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
 import java.util.Optional;
@@ -122,7 +126,8 @@ public final class PersonEntity extends PathfinderMob {
      *       hand it over. They will eat it when hunger bites, so you can save a
      *       starving town yourself.</li>
      *   <li><strong>Sneak right-click</strong> — read their pockets and how
-     *       hungry they are.</li>
+     *       hungry they are. In creative that opens a screen; in survival it is
+     *       a line of chat, as it has always been.</li>
      *   <li><strong>Right-click</strong> — a word in passing.</li>
      * </ul>
      */
@@ -154,6 +159,23 @@ public final class PersonEntity extends PathfinderMob {
         }
 
         if (player.isShiftKeyDown()) {
+            // Third use of isCreative() in the mod, and the first that gates a
+            // capability rather than a cost — the other two (above, and the
+            // founding charter) only decide whether an item is consumed. The
+            // screen is a builder's instrument: it reads a settler's pockets at
+            // a glance, which is exactly what you want while testing a town and
+            // exactly what you should not have while playing one. Survival keeps
+            // the chat line, and so does a body the simulation cannot identify.
+            //
+            // The instanceof is already true — the guard at the top of this
+            // method means the level is a ServerLevel, so a player interacting
+            // with an entity in it is a ServerPlayer. Left as a test rather than
+            // a cast so an unforeseen caller gets the chat line instead of a
+            // ClassCastException.
+            if (person != null && player.isCreative() && player instanceof ServerPlayer viewer) {
+                PacketDistributor.sendToPlayer(viewer, PersonInventoryPayload.of(name, person));
+                return InteractionResult.SUCCESS;
+            }
             player.sendSystemMessage(Component.literal(describe(name, person)));
             return InteractionResult.SUCCESS;
         }
@@ -171,7 +193,7 @@ public final class PersonEntity extends PathfinderMob {
         StringBuilder sb = new StringBuilder();
         sb.append("=== ").append(name).append(" ===");
         sb.append("\nHunger ").append(person.hunger()).append("/").append(Person.HUNGER_MAX)
-                .append(" — ").append(appetite(person.hunger()));
+                .append(" — ").append(Appetite.of(person.hunger()).word());
         sb.append("\nCarrying: ").append(person.inventory());
         if (!person.inventory().isEmpty()) {
             sb.append("\n  (worth ").append(person.inventory().totalNutrition())
@@ -181,19 +203,6 @@ public final class PersonEntity extends PathfinderMob {
             sb.append("\nErrand: ").append(person.haul());
         }
         return sb.toString();
-    }
-
-    private static String appetite(int hunger) {
-        if (hunger >= Person.HUNGER_SEVERE) {
-            return "starving";
-        }
-        if (hunger >= Person.HUNGER_WEAK) {
-            return "weak with hunger";
-        }
-        if (hunger >= Person.HUNGER_HUNGRY) {
-            return "hungry";
-        }
-        return "well fed";
     }
 
     /**
