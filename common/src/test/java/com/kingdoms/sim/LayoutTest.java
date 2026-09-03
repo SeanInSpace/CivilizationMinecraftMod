@@ -1,5 +1,6 @@
 package com.kingdoms.sim;
 
+import com.kingdoms.sim.culture.CrescentLayout;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
@@ -79,7 +80,7 @@ class LayoutTest {
         // A test in the wrong units is worse than no test -- it certifies the
         // fault.
         for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD,
-                Layouts.ORGANIC, Layouts.HIGH_STREET)) {
+                Layouts.ORGANIC, Layouts.HIGH_STREET, Layouts.CRESCENTS)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTRE, i);
@@ -261,6 +262,9 @@ class LayoutTest {
         }
         if (like instanceof GridStreetLayout g) {
             return new GridStreetLayout(g.id(), g.wander());
+        }
+        if (like instanceof CrescentLayout c) {
+            return new CrescentLayout(c.id());
         }
         return like;
     }
