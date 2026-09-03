@@ -128,8 +128,10 @@ class SettlementFaultsTest {
         kingdom.restoreSettlement(town);
         assertEquals("kingdoms:vale", town.cultureId(),
                 "a load restamped the settlement with its kingdom's culture");
-        assertEquals(Culture.LAYOUT_RING_STREETS, town.arrangement().id(),
+        assertTrue(Culture.VALE.layouts().contains(town.arrangement().id()),
                 "and so it came back laid out as somebody else");
+        assertFalse(Culture.NORMAN.layouts().contains(town.arrangement().id()),
+                "specifically, laid out as its kingdom rather than as itself");
 
         // Founding still adopts the kingdom's people, which is the other half of
         // why these are two methods and not one with a flag.

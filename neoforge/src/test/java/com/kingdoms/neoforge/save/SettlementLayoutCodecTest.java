@@ -79,18 +79,20 @@ class SettlementLayoutCodecTest {
 
     @Test
     void arrangementsSurviveAPeopleWithOnlyOne() {
-        // The vale folk build one way, and the point of the compatibility rule is
+        // The goblins build one way, and the point of the compatibility rule is
         // that nothing about them changed. Asserted on the written JSON as well
         // as the decoded town, because Layouts.of answers an id it does not know
-        // with rings -- so a decode that returned ring_streets having read
-        // nothing at all would look exactly like a decode that worked.
-        Settlement town = new Settlement(Settlement.Id.random(), "Ringmere", CENTRE, 256);
-        town.setCultureId(Culture.VALE.id());
+        // with rings -- so a decode that returned a warren having read nothing at
+        // all would look exactly like a decode that worked. That trick needs a
+        // people whose one arrangement is not itself rings, which is why this is
+        // the goblins and not the default folk.
+        Settlement town = new Settlement(Settlement.Id.random(), "Grubhold", CENTRE, 256);
+        town.setCultureId(Culture.GOBLIN.id());
 
         JsonObject written = encode(town).getAsJsonObject();
-        assertEquals(Culture.LAYOUT_RING_STREETS, written.get("layout").getAsString(),
+        assertEquals(Culture.LAYOUT_WARREN, written.get("layout").getAsString(),
                 "a people who build one way did not record which way");
-        assertEquals(Culture.LAYOUT_RING_STREETS, decode(written).arrangement().id());
+        assertEquals(Culture.LAYOUT_WARREN, decode(written).arrangement().id());
     }
 
     private static JsonElement encode(Settlement town) {

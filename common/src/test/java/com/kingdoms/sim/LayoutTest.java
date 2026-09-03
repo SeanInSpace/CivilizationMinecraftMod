@@ -477,7 +477,7 @@ class LayoutTest {
 
     @Test
     void aCulturePicksItsOwnArrangement() {
-        assertSame(Layouts.RING, Culture.NORMAN.arrangementFor(CENTRE));
+        assertSame(Layouts.RING, Layouts.of(Culture.NORMAN.layouts().get(0)));
         assertSame(Layouts.WARREN, Culture.GOBLIN.arrangementFor(CENTRE));
         // The orcs build in two now, so this asks for the one they have always
         // built in rather than for whatever this centre happens to choose.

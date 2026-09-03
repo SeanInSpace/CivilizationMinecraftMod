@@ -151,7 +151,12 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     public static final Culture NORMAN = new Culture(
             "kingdoms:norman",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
-            LAYOUT_RING);
+            // A bastide is a Norman idea in the most literal sense: a town
+            // pegged out whole by somebody with a charter, a market place left
+            // open in the middle and a road round the outside marking where it
+            // stops. The ring stays first -- every Norman town already standing
+            // was laid out in one.
+            List.of(LAYOUT_RING, LAYOUT_BASTIDE));
 
     /**
      * The hill people, who keep different beasts.
@@ -171,7 +176,11 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             // not take a lattice put a house wherever there is room for one, and
             // that is what the organic scatter is -- the only arrangement here
             // whose spacing is a promise rather than a consequence.
-            LAYOUT_ORGANIC);
+            // A thorp is the same instinct with a track through it: yards off a
+            // lane, nothing lining up, and an edge ragged enough that it does not
+            // read as a rectangle cut out of a wood. It is what the organic
+            // scatter would be if these people had ever agreed on a road.
+            List.of(LAYOUT_ORGANIC, LAYOUT_THORP));
 
     /**
      * The goblins, who do not build towns so much as accumulate them.
@@ -210,7 +219,8 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     public static final Culture BURGHER = new Culture(
             "kingdoms:burgher",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
-            List.of(LAYOUT_HIGH_STREET, LAYOUT_RADIAL_CONCENTRIC));
+            List.of(LAYOUT_HIGH_STREET, LAYOUT_RADIAL_CONCENTRIC,
+                    LAYOUT_CROSSROADS));
 
     /**
      * The vale folk, who build round a green.
@@ -233,7 +243,10 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "kingdoms:vale",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:goat",
                     "minecraft:chicken"),
-            List.of(LAYOUT_RING_STREETS),
+            // Crescents are the ring road's mannered cousin: a lane that leaves
+            // the street, bows round a green and comes back to it. A people who
+            // already build in circles are the only ones who would think of it.
+            List.of(LAYOUT_RING_STREETS, LAYOUT_CRESCENTS),
             List.of("Ringmere", "Greenhaugh", "Hollowdean", "Roundwell",
                     "Thornring", "Elmgarth", "Wilbury", "Combe Dando"),
             List.of("Hayward", "Reeve", "Shepherd", "Orchard", "Greenway",
