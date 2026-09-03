@@ -1,5 +1,6 @@
 package com.kingdoms.sim;
 
+import com.kingdoms.sim.culture.BastideLayout;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
@@ -79,7 +80,7 @@ class LayoutTest {
         // A test in the wrong units is worse than no test -- it certifies the
         // fault.
         for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD,
-                Layouts.ORGANIC, Layouts.HIGH_STREET)) {
+                Layouts.ORGANIC, Layouts.HIGH_STREET, Layouts.BASTIDE)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTRE, i);
@@ -261,6 +262,9 @@ class LayoutTest {
         }
         if (like instanceof GridStreetLayout g) {
             return new GridStreetLayout(g.id(), g.wander());
+        }
+        if (like instanceof BastideLayout b) {
+            return new BastideLayout(b.id());
         }
         return like;
     }
@@ -599,5 +603,280 @@ class LayoutTest {
             }
         }
         assertEquals(1, adrift, "only the hall on the green should front nothing");
+    }
+
+    // --- the founder's town ---
+
+    /** How far the place reaches from the middle of the town, either way. */
+    private static final int PLACE_HALF = 19;
+
+    /**
+     * The market place is genuinely open ground, and everything looks at it.
+     *
+     * <p>Both halves matter and only the first is obvious. A square with nothing
+     * facing it is a gap in the plan rather than a place, and the way to end up
+     * with one is to leave the block out and let the neighbouring blocks go on
+     * fronting the streets they always fronted — which turns their backs on it
+     * from two sides out of four. So the eight nearest plots in the town are
+     * asserted to be a ring round the square with their doors on it.
+     *
+     * <p><strong>The door is compared against {@link Layout#facingToward}, not
+     * against a compass written out here.</strong> The first draft of this test
+     * spelled the four quarter turns as a table of steps — {@code 0} is north,
+     * {@code 1} is east — and that is a rule with two definitions, which this
+     * codebase has already paid for once. {@code Layout.facingToward} and
+     * {@code BuildPlanner.facingToward} are today exactly a half turn apart
+     * (Layout answers 2 where BuildPlanner answers 0), so a hand-written compass
+     * necessarily agrees with one and certifies the other as broken. Asking
+     * instead whether a house on the square is turned the way anything told to
+     * look at the middle of town would be turned is true under either
+     * convention, and stays true on the day somebody makes the two agree.
+     */
+    @Test
+    void aBastideLeavesItsPlaceOpenAndFacesTheTownAtIt() {
+        TownPlan plan = new BastideLayout("bastide_place").planFor(CENTRE, MANY);
+        for (TownPlan.Plot plot : plan.plots()) {
+            assertFalse(Math.abs(plot.at().x() - CENTRE.x()) <= PLACE_HALF
+                            && Math.abs(plot.at().z() - CENTRE.z()) <= PLACE_HALF,
+                    "a building at " + plot.at() + " stands in the market place");
+        }
+
+        // Offers are taken nearest-first, so the ring round the square is the
+        // first thing the town builds -- which is the right order for a market
+        // town and the reason the place is worth having at all.
+        Set<SimPos> ring = new HashSet<>();
+        for (int i = 0; i < 8; i++) {
+            TownPlan.Plot plot = plan.plot(i);
+            ring.add(plot.at());
+            assertTrue(plot.frontsAStreet(),
+                    "the plot at " + plot.at() + " stands on the square fronting nothing");
+            assertEquals(Layout.facingToward(plot.at(), CENTRE), plot.facing(),
+                    "the plot at " + plot.at() + " stands on the square with its back to it");
+        }
+        assertEquals(8, ring.size(), "the square should be ringed two to a side");
+        assertEquals(4, sidesFaced(ring), "the square wants frontage on all four sides");
+    }
+
+    /** How many of the four sides of the square carry frontage. */
+    private static int sidesFaced(Set<SimPos> ring) {
+        boolean north = false;
+        boolean south = false;
+        boolean east = false;
+        boolean west = false;
+        for (SimPos at : ring) {
+            int dx = at.x() - CENTRE.x();
+            int dz = at.z() - CENTRE.z();
+            if (Math.abs(dz) > Math.abs(dx)) {
+                north |= dz < 0;
+                south |= dz > 0;
+            } else {
+                west |= dx < 0;
+                east |= dx > 0;
+            }
+        }
+        return (north ? 1 : 0) + (south ? 1 : 0) + (east ? 1 : 0) + (west ? 1 : 0);
+    }
+
+    /**
+     * The circuit is a real street, and the town's edge is where it says.
+     *
+     * <p>The trap here is R6, and it is the expensive one: a road that offers no
+     * frontage costs twice, because it refuses every plot it passes and gives
+     * nothing back. Six bare lanes held a ring town to 62% frontage. A circuit is
+     * the longest road in the town and by far the easiest one to leave bare, so
+     * this asserts it carries houses on every one of its four runs.
+     *
+     * <p>Measured on the whole plan rather than on a town of a hundred and twenty:
+     * the circuit is pegged out at foundation for the town the founder hoped for,
+     * and the houses reach it as the place fills. That is what a bastide is —
+     * Monpazier's walls were built round more town than ever turned up.
+     */
+    @Test
+    void aBastideIsBoundedByACircuitWithHousesOnIt() {
+        TownPlan plan = new BastideLayout("bastide_circuit").fullPlan(CENTRE);
+        TownPlan.Street circuit = null;
+        int spines = 0;
+        for (TownPlan.Street street : plan.streets()) {
+            if (street.kind() == TownPlan.Kind.SPINE) {
+                circuit = street;
+                spines++;
+            }
+        }
+        assertEquals(1, spines, "a bastide has exactly one road round the outside");
+        assertEquals(circuit.from(), circuit.to(), "the circuit does not close");
+
+        int reach = Math.max(Math.abs(circuit.from().x() - CENTRE.x()),
+                Math.abs(circuit.from().z() - CENTRE.z()));
+        for (SimPos point : circuit.path()) {
+            assertEquals(reach, Math.max(Math.abs(point.x() - CENTRE.x()),
+                            Math.abs(point.z() - CENTRE.z())),
+                    "the circuit wanders off its rectangle at " + point);
+        }
+
+        int index = plan.streets().indexOf(circuit);
+        boolean[] run = new boolean[4];
+        int fronting = 0;
+        for (TownPlan.Plot plot : plan.plots()) {
+            if (plot.street() != index) {
+                continue;
+            }
+            fronting++;
+            int dx = plot.at().x() - CENTRE.x();
+            int dz = plot.at().z() - CENTRE.z();
+            run[Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 0 : 1) : (dz > 0 ? 2 : 3)] = true;
+        }
+        // Sixteen rather than the sixty-eight the rim actually offers. A square
+        // grid steps in whole blocks, so the plan pegs eighty-one blocks to hold
+        // a town of two hundred and fifty-six that wants sixty-five of them, and
+        // the plots that never get taken are the furthest out -- the corners of
+        // the rim. What the circuit must not be is bare, and that is the bar.
+        assertTrue(fronting >= 16,
+                "only " + fronting + " houses front the circuit; it is a fence");
+        for (boolean side : run) {
+            assertTrue(side, "one whole run of the circuit carries no frontage at all");
+        }
+
+        // And nothing is built outside it, or the boundary means nothing.
+        for (TownPlan.Plot plot : plan.plots()) {
+            assertTrue(Math.max(Math.abs(plot.at().x() - CENTRE.x()),
+                            Math.abs(plot.at().z() - CENTRE.z())) < reach,
+                    "a building at " + plot.at() + " stands outside the circuit");
+        }
+    }
+
+    /**
+     * A bastide is not the stronghold with the serial numbers filed off.
+     *
+     * <p>Two grids is one grid too many unless they are different towns, and
+     * "it looks different" is not something anybody can check twice. So the same
+     * measure the three original arrangements are held to: fewer than four shared
+     * positions in the first forty.
+     *
+     * <p>The structural half is the more useful one. The stronghold rules its
+     * streets through the middle of the town, so the centre of an orc grid is a
+     * crossroads. The bastide offsets the whole grid by half a block, so the
+     * centre is the middle of a block and that block is the market. Same idea,
+     * opposite decision about the one square in the town that anybody looks at.
+     */
+    @Test
+    void aBastideIsNotTheStronghold() {
+        assertTrue(overlap(plotSet(new BastideLayout("bastide_apart")),
+                        plotSet(new GridStreetLayout("grid_apart", Wander.STRAIGHT))) < 4,
+                "the bastide and the stronghold are the same town");
+
+        TownPlan bastide = new BastideLayout("bastide_middle").planFor(CENTRE, MANY);
+        TownPlan grid = new GridStreetLayout("grid_middle", Wander.STRAIGHT)
+                .planFor(CENTRE, MANY);
+        assertTrue(onARoad(grid, CENTRE),
+                "the stronghold used to put a crossroads in the middle; if it no "
+                        + "longer does, the two arrangements have converged");
+        assertFalse(onARoad(bastide, CENTRE),
+                "the middle of a bastide is its market place, not a junction");
+    }
+
+    /** Whether any street of this plan runs over this point. */
+    private static boolean onARoad(TownPlan plan, SimPos at) {
+        for (TownPlan.Street street : plan.streets()) {
+            if (street.touches(at, 0)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The town, drawn, because every siting fault so far was found by looking.
+     *
+     * <p>Printed at three sizes and beside the stronghold, all in one window and
+     * at one scale, so the claim that these are different towns can be checked by
+     * a person in about four seconds. The assertions are the bars underneath the
+     * picture: frontage, an empty place, and a reach that neither huddles nor
+     * sprawls.
+     */
+    @Test
+    void aBastideDrawsAsARectangleWithAHoleInTheMiddle() {
+        StringBuilder drawn = new StringBuilder();
+        for (int wanted : new int[] {64, 140}) {
+            TownPlan plan = new BastideLayout("bastide_map_" + wanted)
+                    .planFor(CENTRE, wanted);
+            assertTrue(plan.frontagePercent() >= 95,
+                    "bastide at " + wanted + " fronted only "
+                            + plan.frontagePercent() + "%");
+            drawn.append(caption("bastide", wanted, plan)).append(map(plan));
+        }
+
+        TownPlan full = new BastideLayout("bastide_map_full").fullPlan(CENTRE);
+        drawn.append(caption("bastide", full.size(), full)).append(map(full));
+
+        TownPlan grid = new GridStreetLayout("grid_map", Wander.STRAIGHT)
+                .planFor(CENTRE, 140);
+        drawn.append(caption("stronghold_streets", 140, grid)).append(map(grid));
+        System.out.println(drawn);
+
+        TownPlan town = new BastideLayout("bastide_reach").planFor(CENTRE, 140);
+        double reach = furthest(town);
+        assertTrue(reach >= 120 && reach <= 250,
+                "a bastide of 140 reached " + Math.round(reach)
+                        + " blocks, outside the 120..250 a town holds together in");
+    }
+
+    private static String caption(String id, int wanted, TownPlan plan) {
+        return String.format("%n== %s @ %d plots: %d%% fronting, %d streets, "
+                        + "furthest %d blocks ==%n",
+                id, wanted, plan.frontagePercent(), plan.streets().size(),
+                Math.round(furthest(plan)));
+    }
+
+    private static double furthest(TownPlan plan) {
+        double out = 0;
+        for (TownPlan.Plot plot : plan.plots()) {
+            out = Math.max(out, plan.centre().horizontalDistance(plot.at()));
+        }
+        return out;
+    }
+
+    /** How wide a window every map is drawn in, so they can be compared. */
+    private static final int WINDOW = 180;
+
+    /** How many blocks one character of a map stands for. */
+    private static final int CELL = 5;
+
+    /** A plan from above: {@code #} a building, {@code .} a street. */
+    private static String map(TownPlan plan) {
+        int half = WINDOW / CELL;
+        int side = 2 * half + 1;
+        char[][] grid = new char[side][side];
+        for (char[] row : grid) {
+            java.util.Arrays.fill(row, ' ');
+        }
+        for (TownPlan.Street street : plan.streets()) {
+            List<SimPos> path = street.path();
+            for (int i = 1; i < path.size(); i++) {
+                SimPos a = path.get(i - 1);
+                SimPos b = path.get(i);
+                int steps = Math.max(1, (int) Math.hypot(b.x() - a.x(), b.z() - a.z()));
+                for (int t = 0; t <= steps; t++) {
+                    ink(grid, plan.centre(), half,
+                            a.x() + (b.x() - a.x()) * t / steps,
+                            a.z() + (b.z() - a.z()) * t / steps, '.');
+                }
+            }
+        }
+        for (TownPlan.Plot plot : plan.plots()) {
+            ink(grid, plan.centre(), half, plot.at().x(), plot.at().z(), '#');
+        }
+        StringBuilder out = new StringBuilder();
+        for (char[] row : grid) {
+            out.append(new String(row).replaceAll("\\s+$", "")).append('\n');
+        }
+        return out.toString();
+    }
+
+    private static void ink(char[][] grid, SimPos centre, int half, int x, int z, char mark) {
+        int col = Math.floorDiv(x - centre.x() + CELL / 2, CELL) + half;
+        int row = Math.floorDiv(z - centre.z() + CELL / 2, CELL) + half;
+        if (row >= 0 && row < grid.length && col >= 0 && col < grid.length) {
+            grid[row][col] = mark;
+        }
     }
 }
