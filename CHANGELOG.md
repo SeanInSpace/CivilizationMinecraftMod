@@ -8,6 +8,18 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## The mod says the same licence the repository does
+
+### Fixed
+
+- **The built mod declared "All Rights Reserved" while the repository is
+  GPL-3.0.** Both jars carried it, because `mod_license` in `gradle.properties`
+  is expanded into each `neoforge.mods.toml` — so anyone reading the mod list in
+  game was told they had no rights to it at all, while the LICENSE file and the
+  README granted them everything. Now `GPL-3.0-only`, matching the LICENSE text.
+
+---
+
 ## Towns in a generated world, instead of villages
 
 ### New
