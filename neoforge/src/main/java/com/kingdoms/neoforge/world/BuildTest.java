@@ -159,11 +159,28 @@ public final class BuildTest {
             for (int i = 1; i < path.size(); i++) {
                 SimPos from = path.get(i - 1);
                 SimPos to = path.get(i);
-                // Either end within reach keeps the stretch, so a road runs out
-                // to the edge rather than stopping one stretch short of it.
-                if (away(centre, from) <= edge || away(centre, to) <= edge) {
-                    toPave.add(new PathNetwork.Segment(from, to, street.width()));
+                boolean nearIn = away(centre, from) <= edge;
+                boolean farIn = away(centre, to) <= edge;
+                if (!nearIn && !farIn) {
+                    continue;   // wholly beyond the town
                 }
+                // A stretch that crosses the edge is cut at it, not kept whole.
+                //
+                // Keeping it whole was the first version, and it did nothing at
+                // all to the streets that most needed trimming: a ring town's
+                // spoke is a single stretch from the green to the outskirts, so
+                // its near end is fourteen blocks out, always inside the edge,
+                // and the entire hundred-and-ninety-block carriageway paved. The
+                // symptom was six roads shooting past the outermost ring -- which
+                // is exactly what the trim was written to stop, and I looked at
+                // it in a screenshot and talked myself into calling it a road
+                // leaving town.
+                if (!farIn) {
+                    to = whereItCrosses(centre, from, to, edge);
+                } else if (!nearIn) {
+                    from = whereItCrosses(centre, to, from, edge);
+                }
+                toPave.add(new PathNetwork.Segment(from, to, street.width()));
             }
         }
         for (int i = 0; i < toPave.size(); i++) {
@@ -345,6 +362,39 @@ public final class BuildTest {
 
     /** How far the paving runs past the outermost building. */
     private static final int BEYOND_THE_LAST_HOUSE = 24;
+
+    /**
+     * The point where a stretch leaving town crosses a circle of this radius.
+     *
+     * <p>Solved rather than stepped: the stretch is {@code inside + t(outside -
+     * inside)} and the crossing is the root of a quadratic in t, which is exact
+     * and costs nothing. A walk in unit steps would have been fine too, but this
+     * is the kind of arithmetic that is easier to check than to trust.
+     *
+     * @param inside  an end known to be within the radius
+     * @param outside an end known to be beyond it
+     */
+    static SimPos whereItCrosses(SimPos centre, SimPos inside, SimPos outside, int radius) {
+        double ux = inside.x() - centre.x();
+        double uz = inside.z() - centre.z();
+        double dx = outside.x() - inside.x();
+        double dz = outside.z() - inside.z();
+        double a = dx * dx + dz * dz;
+        if (a == 0) {
+            return inside;   // the two ends are the same column
+        }
+        double b = 2 * (ux * dx + uz * dz);
+        double c = ux * ux + uz * uz - (double) radius * radius;
+        double under = b * b - 4 * a * c;
+        if (under < 0) {
+            return outside;   // never actually crosses; nothing to cut
+        }
+        double t = (-b + Math.sqrt(under)) / (2 * a);
+        t = Math.max(0, Math.min(1, t));
+        return new SimPos(
+                (int) Math.round(inside.x() + t * dx), inside.y(),
+                (int) Math.round(inside.z() + t * dz));
+    }
 
     /** How far from the middle the furthest building of this run stands. */
     private static int builtOutTo(SimPos centre, List<Placement> pending) {
