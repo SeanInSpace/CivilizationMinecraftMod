@@ -328,7 +328,8 @@ public final class KingdomsCommand {
         ServerLevel level = source.getLevel();
         SimPos here = toSimPos(source.getPosition());
         List<SettlementSites.Site> found =
-                SettlementSites.near(level.getSeed(), here, reach);
+                SettlementSites.near(level.getSeed(), here, reach,
+                        KingdomsConfig.arrangementWeights());
         SiteLedger ledger = SiteLedger.get(level);
 
         // The dimension is in the heading because the trap is silent otherwise.
@@ -351,6 +352,7 @@ public final class KingdomsCommand {
             sb.append("\n  r(").append(regionX).append(", ").append(regionZ).append(")")
                     .append("  x=").append(centre.x()).append(" z=").append(centre.z())
                     .append("  ").append(site.cultureId())
+                    .append(" ").append(site.layoutId())
                     .append("  ").append(Math.round(centre.horizontalDistance(here)))
                     .append("m  ")
                     .append(ledger.entry(regionX, regionZ)

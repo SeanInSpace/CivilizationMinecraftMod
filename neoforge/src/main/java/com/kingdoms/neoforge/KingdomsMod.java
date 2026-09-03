@@ -123,6 +123,14 @@ public final class KingdomsMod {
             com.kingdoms.neoforge.world.BuildTest.tick(level);
         }
         tickCounter++;
+        // Towns that were always going to be there, raised when somebody first
+        // comes close enough to see them. On its own beat, because it reads
+        // ground rather than stepping people.
+        if (tickCounter % com.kingdoms.neoforge.world.WorldgenSettlements.SWEEP_INTERVAL_TICKS == 0) {
+            for (ServerLevel level : event.getServer().getAllLevels()) {
+                com.kingdoms.neoforge.world.WorldgenSettlements.tick(level);
+            }
+        }
         for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
             if (entry.getValue().onGameTick()) {
                 // A step ran, so the kingdoms changed in place. Nothing else marks

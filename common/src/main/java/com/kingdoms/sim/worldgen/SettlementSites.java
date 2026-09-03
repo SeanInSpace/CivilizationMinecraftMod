@@ -6,6 +6,8 @@ import com.kingdoms.sim.geom.SimPos;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.TreeMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -128,6 +130,7 @@ public final class SettlementSites {
     private static final long SALT_SPAWN = 0x5EED_0001L;
     private static final long SALT_JITTER = 0x5EED_0002L;
     private static final long SALT_CULTURE = 0x5EED_0003L;
+    private static final long SALT_ARRANGEMENT = 0x5EED_0004L;
 
     /**
      * A place a town belongs, and whose it is.
@@ -135,8 +138,10 @@ public final class SettlementSites {
      * @param centre    where, with {@link #UNRESOLVED_Y} for y until the caller
      *                  looks at the ground
      * @param cultureId the {@link Culture#id()} of the people who settled it
+     * @param layoutId  the arrangement they laid it out in, drawn against the
+     *                  weights the world was configured with
      */
-    public record Site(SimPos centre, String cultureId) {
+    public record Site(SimPos centre, String cultureId, String layoutId) {
     }
 
     private SettlementSites() {
@@ -149,6 +154,26 @@ public final class SettlementSites {
      * {@code (seed, region)} key decide whether, where, and who.
      */
     public static Optional<Site> siteIn(long worldSeed, int regionX, int regionZ) {
+        return siteIn(worldSeed, regionX, regionZ, Map.of());
+    }
+
+    /**
+     * The same, with the arrangements this world wants and how often it wants
+     * them.
+     *
+     * <p>The weights are handed in rather than read, because this is the pure
+     * half of the mod and a table of settings is exactly the kind of thing it
+     * must not know how to find. An empty table means every arrangement a people
+     * already builds in is equally likely, which is what a world with no opinion
+     * should get.
+     *
+     * <p>A weight of zero is a refusal, not a rounding: an arrangement nobody
+     * weighted is never drawn. If every weight is zero the table is treated as
+     * absent, since a world where nothing can be built is not what anybody meant
+     * by turning everything off.
+     */
+    public static Optional<Site> siteIn(long worldSeed, int regionX, int regionZ,
+                                        Map<String, Integer> weights) {
         if (unitInterval(hash(worldSeed, regionX, regionZ, SALT_SPAWN)) >= SPAWN_CHANCE) {
             return Optional.empty();
         }
@@ -167,7 +192,84 @@ public final class SettlementSites {
                 (int) ((long) regionX * REGION + offsetX),
                 UNRESOLVED_Y,
                 (int) ((long) regionZ * REGION + offsetZ));
-        return Optional.of(new Site(centre, cultureFor(worldSeed, regionX, regionZ)));
+        String layout = arrangementFor(worldSeed, regionX, regionZ, weights);
+        return Optional.of(new Site(centre,
+                peopleWhoBuild(layout, worldSeed, regionX, regionZ), layout));
+    }
+
+    /**
+     * Which arrangement this region's town is laid out in.
+     *
+     * <p>Drawn against the weights by the usual trick: sum them, take the hash
+     * modulo the sum, and walk. Sorted by id first, because the walk depends on
+     * the order and a map's order is not something to stake a world's shape on.
+     */
+    private static String arrangementFor(long worldSeed, int regionX, int regionZ,
+                                         Map<String, Integer> weights) {
+        List<String> wanted = new ArrayList<>();
+        long total = 0;
+        for (Map.Entry<String, Integer> entry : new TreeMap<>(weights).entrySet()) {
+            if (entry.getValue() != null && entry.getValue() > 0) {
+                wanted.add(entry.getKey());
+                total += entry.getValue();
+            }
+        }
+        if (wanted.isEmpty()) {
+            return anyArrangement(worldSeed, regionX, regionZ);
+        }
+        long draw = Long.remainderUnsigned(
+                hash(worldSeed, regionX, regionZ, SALT_ARRANGEMENT), total);
+        for (String id : wanted) {
+            draw -= weights.get(id);
+            if (draw < 0) {
+                return id;
+            }
+        }
+        return wanted.get(wanted.size() - 1);   // unreachable; total is the sum
+    }
+
+    /** Any arrangement some people already builds in, for a world with no table. */
+    private static String anyArrangement(long worldSeed, int regionX, int regionZ) {
+        List<String> known = new ArrayList<>();
+        for (Culture culture : Culture.all()) {
+            if (!culture.id().equals(Culture.DEFAULT.id())) {
+                known.addAll(culture.layouts());
+            }
+        }
+        known = known.stream().distinct().sorted().toList();
+        int at = (int) Long.remainderUnsigned(
+                hash(worldSeed, regionX, regionZ, SALT_ARRANGEMENT), known.size());
+        return known.get(at);
+    }
+
+    /**
+     * A people who builds in this arrangement.
+     *
+     * <p>The arrangement is chosen first and the people second, which is the
+     * opposite of how a settlement normally works — a town is usually laid out
+     * the way its people build. Here the world has been told what it should look
+     * like, so the shape leads and the culture follows it. Where several peoples
+     * build the same shape the draw picks between them; where none does, the
+     * arrangement is still honoured and the town is simply told to use it.
+     */
+    private static String peopleWhoBuild(String layoutId, long worldSeed,
+                                         int regionX, int regionZ) {
+        // Never the sentinel. Culture.of maps every unknown and null id onto
+        // kingdoms:default, so a town wearing it cannot be told from a town whose
+        // people failed to load -- and it builds rings, so a layout-first draw
+        // reaches it constantly if nothing stops it.
+        List<String> builders = Culture.all().stream()
+                .filter(culture -> !culture.id().equals(Culture.DEFAULT.id()))
+                .filter(culture -> culture.layouts().contains(layoutId))
+                .map(Culture::id)
+                .sorted()
+                .toList();
+        if (builders.isEmpty()) {
+            return cultureFor(worldSeed, regionX, regionZ);
+        }
+        int at = (int) Long.remainderUnsigned(
+                hash(worldSeed, regionX, regionZ, SALT_CULTURE), builders.size());
+        return builders.get(at);
     }
 
     /**
@@ -178,6 +280,12 @@ public final class SettlementSites {
      * hundred blocks up a mountain is still the town you walk to.
      */
     public static List<Site> near(long worldSeed, SimPos at, int reach) {
+        return near(worldSeed, at, reach, Map.of());
+    }
+
+    /** The same, weighted. */
+    public static List<Site> near(long worldSeed, SimPos at, int reach,
+                                  Map<String, Integer> weights) {
         List<Site> found = new ArrayList<>();
         if (reach < 0) {
             return found;
@@ -189,7 +297,7 @@ public final class SettlementSites {
         long limit = (long) reach * reach;
         for (int rz = lowZ; rz <= highZ; rz++) {
             for (int rx = lowX; rx <= highX; rx++) {
-                siteIn(worldSeed, rx, rz)
+                siteIn(worldSeed, rx, rz, weights)
                         .filter(site -> site.centre().horizontalDistanceSq(at) <= limit)
                         .ifPresent(found::add);
             }

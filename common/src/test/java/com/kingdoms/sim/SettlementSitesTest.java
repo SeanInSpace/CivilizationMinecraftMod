@@ -5,6 +5,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.worldgen.SettlementSites;
 
 import org.junit.jupiter.api.Test;
+import java.util.LinkedHashMap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -195,12 +196,16 @@ class SettlementSitesTest {
         // These change if REGION, EDGE_MARGIN or SPAWN_CHANCE are tuned, and are
         // meant to: a tuning pass moves every town in every world, and being
         // told so by a red test is the point.
-        assertEquals(new SettlementSites.Site(
-                        new SimPos(-275, SettlementSites.UNRESOLVED_Y, 224), "kingdoms:goblin"),
-                SettlementSites.siteIn(SEED, -1, 0).orElse(null));
-        assertEquals(new SettlementSites.Site(
-                        new SimPos(-1265, SettlementSites.UNRESOLVED_Y, -1357), "kingdoms:norman"),
-                SettlementSites.siteIn(SEED, -3, -3).orElse(null));
+        // The position is pinned and the people is not. Which people settles a
+        // region stopped being a free draw when arrangements got weights: the
+        // shape is drawn first and the people is then chosen from those who
+        // build in it, so a table that asks for greens gets whoever builds a
+        // green. That is the intended behaviour and would make a pinned culture
+        // a test of the table rather than of the grid.
+        assertEquals(new SimPos(-275, SettlementSites.UNRESOLVED_Y, 224),
+                SettlementSites.siteIn(SEED, -1, 0).orElseThrow().centre());
+        assertEquals(new SimPos(-1265, SettlementSites.UNRESOLVED_Y, -1357),
+                SettlementSites.siteIn(SEED, -3, -3).orElseThrow().centre());
         assertTrue(SettlementSites.siteIn(SEED, 0, 0).isEmpty(),
                 "region (0, 0) has always been empty under this seed");
     }
@@ -270,5 +275,95 @@ class SettlementSitesTest {
         assertEquals(2 * SettlementSites.EDGE_MARGIN, SettlementSites.MIN_SEPARATION);
         assertTrue(SettlementSites.JITTER_SPAN > 0,
                 "the margin has eaten the region; every site would sit on the lattice");
+    }
+
+    // --- which shape of town a world wants ---
+
+    /** Every region in a wide sweep, under a given table. */
+    private static List<SettlementSites.Site> sweep(Map<String, Integer> weights) {
+        List<SettlementSites.Site> found = new ArrayList<>();
+        for (int rx = -8; rx < 8; rx++) {
+            for (int rz = -8; rz < 8; rz++) {
+                SettlementSites.siteIn(SEED, rx, rz, weights).ifPresent(found::add);
+            }
+        }
+        return found;
+    }
+
+    /**
+     * A table of one arrangement gets a world of one arrangement.
+     *
+     * <p>Which is what the mod ships with, so this is the shipped world.
+     */
+    @Test
+    void aWorldThatAsksForOneShapeGetsOnlyThatShape() {
+        List<SettlementSites.Site> sites = sweep(Map.of(Culture.LAYOUT_GREEN, 100));
+        assertFalse(sites.isEmpty(), "the sweep should find towns at all");
+        for (SettlementSites.Site site : sites) {
+            assertEquals(Culture.LAYOUT_GREEN, site.layoutId(),
+                    "a table naming one arrangement should draw nothing else");
+        }
+    }
+
+    /**
+     * A weight of nought is a refusal.
+     *
+     * <p>Written down because the obvious implementation -- divide by the total
+     * and round -- gives a zero-weighted entry a small share rather than none,
+     * and a world that has switched an arrangement off should never see it.
+     */
+    @Test
+    void anArrangementWeightedNoughtNeverAppears() {
+        Map<String, Integer> table = new LinkedHashMap<>();
+        table.put(Culture.LAYOUT_GREEN, 1);
+        table.put(Culture.LAYOUT_CROSSROADS, 0);
+        table.put(Culture.LAYOUT_BASTIDE, 0);
+        for (SettlementSites.Site site : sweep(table)) {
+            assertEquals(Culture.LAYOUT_GREEN, site.layoutId(),
+                    "nought means never, not seldom");
+        }
+    }
+
+    /**
+     * An empty table is no preference, not a ban.
+     *
+     * <p>The config is empty until it loads, and a world that raised no towns
+     * during that window would raise none for the regions the player happened to
+     * be standing in at the time -- permanently, because the ledger would have
+     * written them down as settled.
+     */
+    @Test
+    void aWorldWithNoTableStillBuildsSomething() {
+        List<SettlementSites.Site> sites = sweep(Map.of());
+        assertFalse(sites.isEmpty(), "no table should not mean no towns");
+        for (SettlementSites.Site site : sites) {
+            assertFalse(site.layoutId().isBlank(), "every site names an arrangement");
+        }
+    }
+
+    /**
+     * Two tables place towns in the same places.
+     *
+     * <p>The shape a world wants must not move its towns: whether and where are
+     * drawn from their own hashes, and only which is weighted. Otherwise editing
+     * the table in an existing world would strand every settlement already
+     * standing.
+     */
+    @Test
+    void theTableChangesTheShapeAndNotThePlaces() {
+        List<SimPos> green = sweep(Map.of(Culture.LAYOUT_GREEN, 100)).stream()
+                .map(SettlementSites.Site::centre).toList();
+        List<SimPos> bastide = sweep(Map.of(Culture.LAYOUT_BASTIDE, 100)).stream()
+                .map(SettlementSites.Site::centre).toList();
+        assertEquals(green, bastide, "the table must not move a single town");
+    }
+
+    /** Whoever settles a site builds in the shape it was drawn for. */
+    @Test
+    void thePeopleOfASiteBuildTheShapeItWasDrawnFor() {
+        for (SettlementSites.Site site : sweep(Map.of(Culture.LAYOUT_GREEN, 100))) {
+            assertTrue(Culture.of(site.cultureId()).layouts().contains(site.layoutId()),
+                    site.cultureId() + " does not build a " + site.layoutId());
+        }
     }
 }

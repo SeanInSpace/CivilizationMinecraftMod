@@ -8,6 +8,37 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## Towns in a generated world, instead of villages
+
+### New
+
+- **Settlements generate in a new world.** No vanilla villages: the village
+  structure set is emptied by datapack, and towns of this mod take their place.
+  Where a town belongs is arithmetic on the world seed — a 512-block grid, one
+  candidate per region, at least 320 blocks apart — so the same seed always gives
+  the same world and nothing is stored until it is settled. Nothing is built
+  until a player comes within reach, at which point the ground is scored once, a
+  town is raised already built at village stage, and the region is written down
+  so it never happens twice. A site on water or a cliff is refused and recorded
+  as refused.
+- **`worldgen.arrangements` in the server config** — one weight per arrangement,
+  against each other. **Green is 100 and everything else 0**, so a fresh world is
+  a world of green villages. Zero means never; all-zero means no preference
+  rather than no towns.
+- **`worldgen.enabled`** and **`worldgen.reach`** (default 256 blocks) alongside
+  it. Villages stay suppressed either way — that part is a datapack, not a
+  setting, so a world that wants them back needs a datapack that puts them back.
+- **`/civ sites`** now names the arrangement each site will be built in, and
+  reads the weights the world is actually configured with.
+
+### Notes
+
+- Three of the first four sites on the test seed were refused for ground, all
+  near spawn and all water. That is the siting rule working, but it means a
+  coastal world will be thinner than the grid suggests.
+
+---
+
 ## Town styles, worldgen sites, and builders who carry their bricks
 
 Ten units of work, landed together.
