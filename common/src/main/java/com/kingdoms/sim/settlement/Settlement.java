@@ -2072,6 +2072,13 @@ public final class Settlement {
      * that fixes it — so a shortage the town never names is a shortage it never
      * fixes. See the loop in {@link #advanceBuildQueue}.
      *
+     * <p>No builder has to be holding anything here, and none ever will. A
+     * watched site charges per block against a load a builder walked to the
+     * warehouse to fetch — see {@code BuildLoad} — but this is the other
+     * fidelity, where there are no hands to fill and nowhere to walk. Requiring
+     * a carried load of a town nobody is looking at would mean nothing, so the
+     * clock goes on paying per work unit out of the pooled ledger.
+     *
      * @return the resources that ran out, in the order they are worth asking
      *         about, or empty if the town could pay
      */

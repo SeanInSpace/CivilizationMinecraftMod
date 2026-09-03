@@ -8,6 +8,7 @@ import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -261,6 +263,67 @@ class VisibleConstructionTest {
         s.step(ctx);
         assertEquals(1, bridge.stamped,
                 "and it is stamped into the world whole, since no hand laid it");
+    }
+
+    @Test
+    void theClockNeitherNeedsNorSpendsWhatABuildersHandsHold() {
+        // The carry rule is the watched fidelity and only that. A town nobody is
+        // looking at has no hands to fill and nowhere to walk to fill them, so
+        // requiring a load here would stop unwatched construction outright. The
+        // crew is given loads they were carrying when the player walked away, and
+        // the clock has to ignore them in both directions: it must not wait for
+        // them, and it must not spend them.
+        Settlement s = townWithBuilders(2, false);
+        // Held onto, not re-read from the roster afterwards: a town that raises a
+        // house over twenty-five steps may well have taken somebody in, and a
+        // newcomer carrying nothing says nothing about the rule.
+        List<Person> loaded = List.copyOf(s.residents());
+        for (Person person : loaded) {
+            person.setCarry(TownStores.WOOD, 5);
+        }
+        s.enqueueBuild(surveyedTask(200));
+        SimContext ctx = new SimContext(new SiteBridge(false), 0, SimSettings.SANDBOX);
+
+        for (int step = 0; step < 25; step++) {
+            s.step(ctx);
+        }
+
+        assertEquals(1, s.buildings().size(), "the clock raised it regardless");
+        for (Person person : loaded) {
+            assertEquals(5, person.carriedLoad(),
+                    "and not one block of it came out of anybody's arms");
+            assertEquals(TownStores.WOOD, person.carriedMaterial());
+        }
+    }
+
+    @Test
+    void awatchedCrewThatCanNeverLayABlockDoesNotWedgeTheQueue() {
+        // The regression the carry rule most risks, and the reason the stall
+        // assist was closed rather than deleted. Builders can now refuse to lay
+        // anything at all — an empty town, or shelves they cannot path to — and
+        // the assist no longer papers over it by placing blocks for empty hands.
+        // A watched town that could never finish a building would be a worse bug
+        // than the one the rule fixes, so the simulation's own patience has to be
+        // what ends it: WATCHED_BUILD_GRACE_STEPS of nothing, and then the head
+        // stops being the head.
+        //
+        // Deliberately says nothing about how it resolves. Whether a build the
+        // hands abandoned should be raised free, charged for, or given up on is
+        // an older question than this rule and lives in advanceBuildQueue; all
+        // that is asserted here is that the site does not sit there forever.
+        Settlement s = townWithBuilders(1, true);
+        BuildTask stuck = surveyedTask(200);
+        s.enqueueBuild(stuck);
+        SimContext ctx = new SimContext(new SiteBridge(true), 0, SimSettings.SANDBOX);
+
+        // The view layer stands in as a crew with nothing in hand: it is given
+        // work every step and lays not one block of it.
+        for (int step = 0; step < Settlement.WATCHED_BUILD_GRACE_STEPS + 2; step++) {
+            s.step(ctx);
+        }
+
+        assertFalse(s.buildQueue().contains(stuck),
+                "a site that cannot be worked has to come off the queue eventually");
     }
 
     @Test
