@@ -35,6 +35,7 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
     public static final String LAYOUT_STRONGHOLD_STREETS = "stronghold_streets";
     public static final String LAYOUT_RADIAL_CONCENTRIC = "radial_concentric";
     public static final String LAYOUT_CROSSROADS = "crossroads";
+    public static final String LAYOUT_BASTIDE = "bastide";
 
     /** How this people lays a town out on the ground. */
     public Layout arrangement() {

@@ -487,6 +487,17 @@ public final class Layouts {
      */
     public static final Layout CROSSROADS = new CrossroadsLayout();
 
+    /**
+     * A planned grid round a market place, inside a circuit road.
+     *
+     * <p>The other answer to {@link #STRONGHOLD_STREETS}, and deliberately not a
+     * re-skin of it: a bastide's middle is a market square rather than a
+     * crossroads, its edge is a road rather than the point where the streets run
+     * out, and its blocks are two tighter. A founder's town, laid out at once by
+     * somebody with the authority to do it.
+     */
+    public static final Layout BASTIDE = new BastideLayout();
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     /**
@@ -510,7 +521,7 @@ public final class Layouts {
     static {
         for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
                 HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC,
-                CROSSROADS}) {
+                CROSSROADS, BASTIDE}) {
             KNOWN.put(layout.id(), layout);
         }
         STREETS_FIRST.put(RING.id(), RING_STREETS.id());
