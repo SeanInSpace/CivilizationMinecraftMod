@@ -548,13 +548,23 @@ public final class KingdomsCommand {
             return 0;
         }
         settlement.setCultureId(chosen.id());
+        // Un-settled here rather than inside setCultureId, which leaves a
+        // recorded arrangement alone on purpose. This is the one caller that
+        // means to throw the old shape away: re-badging a town that went on
+        // building as the people it used to be would look like the command had
+        // done nothing.
+        settlement.setLayoutId(null);
+        // The town's own arrangement rather than the culture's, because a people
+        // can build in several and which one this town gets is decided by where
+        // it stands.
+        String arrangement = settlement.arrangement().id();
         markDirty(source);
         source.sendSuccess(() -> Component.literal(
                 settlement.name() + " is now " + chosen.id()
-                        + " — laying out as " + chosen.arrangement().id()
+                        + " — laying out as " + arrangement
                         + " from its next plot on"), true);
         KingdomsMod.LOGGER.info("CULTURE {} -> {} ({})",
-                settlement.name(), chosen.id(), chosen.arrangement().id());
+                settlement.name(), chosen.id(), arrangement);
         return 1;
     }
 

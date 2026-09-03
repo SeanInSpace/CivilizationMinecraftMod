@@ -188,6 +188,12 @@ public final class Settlement {
     /** Named counters of what the town has seen done. See {@link Tallies}. */
     private String cultureId = Culture.DEFAULT.id();
 
+    /** Null until a save records one or somebody names one; see {@link #layoutId()}. */
+    private String layoutId;
+
+    /** {@link #layoutId} resolved. Dropped whenever the id or the culture changes. */
+    private Layout arrangement;
+
     private final Tallies tallies = new Tallies();
 
     /** Everything the town owns, by name. See {@link TownStores}. */
@@ -943,19 +949,65 @@ public final class Settlement {
     }
 
     /**
-     * How this town arranges itself on the ground.
+     * Which of its people's arrangements this town was laid out in.
      *
-     * <p>Read from the culture every time rather than cached: a settlement's
-     * culture can be set after it is built (a save restores it, a founding
-     * party carries one), and a layout captured at construction would be the
-     * default forever.
+     * <p>The recorded id when there is one, and otherwise what this people would
+     * choose for this centre. A people can build in several arrangements now and
+     * the choice is a hash of the centre, so it has to be pinned down somewhere
+     * or a town whose derivation changed under it would have half its streets in
+     * one arrangement and half in another.
+     *
+     * <p>Pinned down by the save rather than by a lazy write here. Saving asks,
+     * and what it asks for is written into the file, so the first autosave after
+     * a town is founded records the answer for good. That keeps this a plain
+     * read: the codec encodes a settlement without altering it, and no
+     * assignment races the planners asking the same question on the sim thread.
      */
-    public com.kingdoms.sim.culture.Layout arrangement() {
-        return Culture.of(cultureId).arrangement();
+    public String layoutId() {
+        return layoutId != null ? layoutId : Culture.of(cultureId).layoutFor(centre);
     }
 
+    /**
+     * Records the arrangement this town is to be laid out in.
+     *
+     * <p>Null puts the choice back to the culture, which is what a save written
+     * before the id existed decodes as, and what {@code /civ culture} asks for
+     * when it re-badges a town.
+     */
+    public void setLayoutId(String layoutId) {
+        this.layoutId = layoutId;
+        this.arrangement = null;
+    }
+
+    /**
+     * How this town arranges itself on the ground.
+     *
+     * <p>Cached, because every planner asks on every step. Both places the
+     * answer can change from — the recorded id and the culture it is derived
+     * from — drop the cache when they are set, and there is no third.
+     */
+    public Layout arrangement() {
+        Layout settled = arrangement;
+        if (settled == null) {
+            settled = Layouts.of(layoutId());
+            arrangement = settled;
+        }
+        return settled;
+    }
+
+    /**
+     * Which people this town belongs to.
+     *
+     * <p>Does not throw away a recorded arrangement, deliberately. Clearing it
+     * here would make the order of two setters load-bearing at every call site —
+     * and getting that order wrong loses the shape a town was actually built in
+     * while still answering with something plausible, which is the one failure
+     * this whole field exists to prevent. {@code /civ culture} un-settles the
+     * layout itself, because it is the only caller that means to.
+     */
     public void setCultureId(String cultureId) {
         this.cultureId = cultureId == null ? Culture.DEFAULT.id() : cultureId;
+        this.arrangement = null;   // an underived layout is read from the culture
     }
 
     public Tallies tallies() {

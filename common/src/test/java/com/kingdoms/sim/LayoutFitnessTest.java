@@ -15,8 +15,10 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,11 +51,21 @@ class LayoutFitnessTest {
     private static final int STEPS = 700;
     private static final SimPos CENTRE = new SimPos(0, 72, 0);
 
-    /** Every arrangement a culture can ask for, by the id the culture names. */
+    /**
+     * Every arrangement a culture can ask for, by the id the culture names.
+     *
+     * <p>Gathered from the table rather than listed, because the list had gone
+     * stale twice over: ring_streets is what every vale town is built in and had
+     * never been grown here at all, and the two arrangements a people had just
+     * been given would have gone the same way. A fitness suite that has to be
+     * remembered is a fitness suite that misses the thing nobody remembered.
+     */
     private static List<String> layouts() {
-        return List.of(Culture.LAYOUT_RING, Culture.LAYOUT_WARREN,
-                Culture.LAYOUT_STRONGHOLD, Culture.LAYOUT_ORGANIC,
-                Culture.LAYOUT_HIGH_STREET);
+        Set<String> named = new LinkedHashSet<>();
+        for (Culture culture : Culture.all()) {
+            named.addAll(culture.layouts());
+        }
+        return List.copyOf(named);
     }
 
     /**
@@ -76,11 +88,16 @@ class LayoutFitnessTest {
         town.setCatalogue(BuildCatalogue.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         for (Culture culture : Culture.all()) {
-            if (culture.layout().equals(layout)) {
+            if (culture.layouts().contains(layout)) {
                 town.setCultureId(culture.id());
                 break;
             }
         }
+        // Named outright, after the culture, because a people builds in several
+        // arrangements now and picks between them by where the town stands.
+        // Leaving that to the hash would grow whichever town this centre happens
+        // to choose and quietly stop testing the rest.
+        town.setLayoutId(layout);
         assertEquals(layout, town.arrangement().id(),
                 "the fixture did not actually select " + layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {

@@ -128,6 +128,10 @@ public final class BuildTest {
         town.setCatalogue(BuildCatalogue.DEFAULT);
         town.setStage(SettlementStage.TOWN);
         town.setCultureId("kingdoms:orc");
+        // The arrangement actually drawn, not whatever the orcs would have
+        // chosen here. A drawing whose recorded layout disagreed with its own
+        // streets would answer /civ info with a shape that is not on the ground.
+        town.setLayoutId(arrangement.id());
         town.setDrawnOnly(true);
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Buildtest", "kingdoms:orc");
         kingdom.restoreSettlement(town);
