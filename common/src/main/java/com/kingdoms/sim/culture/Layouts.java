@@ -512,6 +512,16 @@ public final class Layouts {
      */
     public static final Layout THORP = new ThorpLayout();
 
+    /**
+     * A spine with lobes: crescent lanes looped off one straight road.
+     *
+     * <p>The only arrangement here whose streets come back to where they started.
+     * A lane leaves the spine, bows out and rejoins it further along, and the
+     * ground it loops round is left open â€” so the town reads from the air as a
+     * chain of greens threaded on one road, which nothing else in this list does.
+     */
+    public static final Layout CRESCENTS = new CrescentLayout();
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     /**
@@ -535,7 +545,7 @@ public final class Layouts {
     static {
         for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
                 HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC,
-                CROSSROADS, BASTIDE, THORP}) {
+                CROSSROADS, BASTIDE, THORP, CRESCENTS}) {
             KNOWN.put(layout.id(), layout);
         }
         STREETS_FIRST.put(RING.id(), RING_STREETS.id());
