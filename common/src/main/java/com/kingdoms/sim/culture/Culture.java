@@ -1,5 +1,7 @@
 package com.kingdoms.sim.culture;
 
+import com.kingdoms.sim.geom.SimPos;
+
 import java.util.List;
 import java.util.Map;
 
@@ -16,14 +18,39 @@ import java.util.Map;
  *
  * @param id            the culture's identifier
  * @param pennedAnimals which beasts the animal farm keeps, one pen each, in order
- * @param layout        how the settlement arranges itself; see {@link Layouts}
+ * @param layouts       the arrangements this people builds in, the one it has
+ *                      always built in first; see {@link Layouts}
  * @param townNames     what this people calls its settlements
  * @param familyNames   what it calls its families
  * @param givenNames    what it calls its children
  */
-public record Culture(String id, List<String> pennedAnimals, String layout,
+public record Culture(String id, List<String> pennedAnimals, List<String> layouts,
                       List<String> townNames, List<String> familyNames,
                       List<String> givenNames) {
+
+    /**
+     * Every list copied, and the layouts never empty.
+     *
+     * <p>Copied because a datapack loader is where this is going and it will
+     * hand over whatever it parsed into; a culture that could be edited after it
+     * was defined is a table entry that does not stay put.
+     *
+     * <p>The order of {@code layouts} carries meaning: a settlement restored
+     * from a save written before layouts were recorded takes
+     * {@code layouts.get(0)}, so whatever a people built before this existed has
+     * to stay at the head of its list or every town of theirs already standing
+     * in somebody's world is rearranged under them.
+     */
+    public Culture {
+        pennedAnimals = List.copyOf(pennedAnimals);
+        layouts = List.copyOf(layouts);
+        townNames = List.copyOf(townNames);
+        familyNames = List.copyOf(familyNames);
+        givenNames = List.copyOf(givenNames);
+        if (layouts.isEmpty()) {
+            throw new IllegalArgumentException(id + " lays a town out no way at all");
+        }
+    }
 
     /** Arrangement ids, as {@link Layouts} knows them. */
     public static final String LAYOUT_RING = "ring";
@@ -39,9 +66,46 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
     public static final String LAYOUT_THORP = "thorp";
     public static final String LAYOUT_CRESCENTS = "crescents";
 
-    /** How this people lays a town out on the ground. */
-    public Layout arrangement() {
-        return Layouts.of(layout);
+    /**
+     * Which of this people's arrangements a town centred here is laid out in.
+     *
+     * <p>Chosen from the centre rather than at random, so a town is the same
+     * town on every reload and in every test without anything having to be
+     * written down. The two coordinates are avalanched first because a centre is
+     * not a random number: a charter is planted where somebody happened to be
+     * standing, and a generated town lands on a spacing grid. Reading the low
+     * bits of either coordinate raw would hand a whole world one arrangement, or
+     * put every town on a diagonal in the same one.
+     */
+    public String layoutFor(SimPos centre) {
+        return layouts.get(Math.floorMod(spread(centre), layouts.size()));
+    }
+
+    /** How this people lays a town out on the ground at that centre. */
+    public Layout arrangementFor(SimPos centre) {
+        return Layouts.of(layoutFor(centre));
+    }
+
+    /**
+     * SplitMix64's finaliser over the two coordinates.
+     *
+     * <p>Wanted for its avalanche rather than its speed: one block of difference
+     * in x has to change the choice, or a people's second arrangement only ever
+     * shows up in whole regions of a world at a time.
+     *
+     * <p>The third constant is there because the finaliser maps zero to zero,
+     * and zero is not an ordinary coordinate: it is world spawn, and it is the
+     * centre every fixture in the test suite uses. Without it the origin always
+     * took the head of the list, so a people's other arrangements were unreachable
+     * from the one place a player is most likely to found a town.
+     */
+    private static long spread(SimPos centre) {
+        long h = centre.x() * 0x9E3779B97F4A7C15L
+                ^ centre.z() * 0xC2B2AE3D27D4EB4FL
+                ^ 0x2545F4914F6CDD1DL;
+        h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
+        h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;
+        return h ^ (h >>> 31);
     }
 
     /**
@@ -51,7 +115,12 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
      * culture and every test that builds one.
      */
     public Culture(String id, List<String> pennedAnimals, String layout) {
-        this(id, pennedAnimals, layout, LOWLAND_TOWNS, LOWLAND_FAMILIES, LOWLAND_GIVEN);
+        this(id, pennedAnimals, List.of(layout));
+    }
+
+    /** The same, for a people who build in more than one arrangement. */
+    public Culture(String id, List<String> pennedAnimals, List<String> layouts) {
+        this(id, pennedAnimals, layouts, LOWLAND_TOWNS, LOWLAND_FAMILIES, LOWLAND_GIVEN);
     }
 
     static final List<String> LOWLAND_TOWNS = List.of(
@@ -121,11 +190,27 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
      * own rather than handed to the lowlanders, because replacing what every
      * existing town is would rewrite every settlement already standing in
      * somebody's world.
+     *
+     * <p>They also get the compass-drawn radial town, which had been registered
+     * and reachable from nothing but {@code /civ buildtest}. It belongs here
+     * rather than with the vale folk: a Rundling is a shape a village
+     * <em>grows</em> into round its green, and this one is a shape somebody
+     * ruled — rings that do not wander and a hall set on the middle. The
+     * burghers are the only people in the table who lay a plan out before they
+     * build on it, so they are the only ones a drawn town is honest for.
+     *
+     * <p>One thing it does not do that its own javadoc claims: the plot it keeps
+     * on the green does not get the hall. A town builds shelter, then food, then
+     * safety, and the hall is the capstone of the last of those, so in a grown
+     * town of eighty-three buildings the green took the camp post and the hall
+     * stood 140 blocks out. That is no worse than the arrangements already
+     * shipping — the same town under a high street put its hall at 133 — and the
+     * post is the right thing to have in the middle of a green anyway.
      */
     public static final Culture BURGHER = new Culture(
             "kingdoms:burgher",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
-            LAYOUT_HIGH_STREET);
+            List.of(LAYOUT_HIGH_STREET, LAYOUT_RADIAL_CONCENTRIC));
 
     /**
      * The vale folk, who build round a green.
@@ -148,7 +233,7 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
             "kingdoms:vale",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:goat",
                     "minecraft:chicken"),
-            LAYOUT_RING_STREETS,
+            List.of(LAYOUT_RING_STREETS),
             List.of("Ringmere", "Greenhaugh", "Hollowdean", "Roundwell",
                     "Thornring", "Elmgarth", "Wilbury", "Combe Dando"),
             List.of("Hayward", "Reeve", "Shepherd", "Orchard", "Greenway",
@@ -160,7 +245,7 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
             "kingdoms:goblin",
             List.of("minecraft:chicken", "minecraft:pig", "minecraft:rabbit",
                     "minecraft:chicken"),
-            LAYOUT_WARREN,
+            List.of(LAYOUT_WARREN),
             List.of("Gritmaw", "Snagholt", "Murkdig", "Rotcrag", "Slugwarren",
                     "Cinderhole", "Grubfen", "Thistlemire"),
             List.of("Snag", "Grib", "Mulch", "Skarn", "Wretch", "Gnash", "Bogle", "Nix"),
@@ -173,11 +258,18 @@ public record Culture(String id, List<String> pennedAnimals, String layout,
      * stronghold is a grid on a fixed pitch filled from the middle outward —
      * dense, regimented, and obviously the work of somebody who counts. Same
      * simulation, same planners, same everything: only the table entry differs.
+     *
+     * <p>The ruled gridiron joins it, having been registered and named by
+     * nobody. It is the same discipline with the roads drawn first — streets
+     * ruled both ways and the blocks filled in between them — which is the one
+     * arrangement in the table that could not belong to anybody else. A warren
+     * has no streets on purpose and a village's bend by design; only a people
+     * who count lay a carriageway straight.
      */
     public static final Culture ORC = new Culture(
             "kingdoms:orc",
             List.of("minecraft:pig", "minecraft:cow", "minecraft:goat", "minecraft:wolf"),
-            LAYOUT_STRONGHOLD,
+            List.of(LAYOUT_STRONGHOLD, LAYOUT_STRONGHOLD_STREETS),
             List.of("Karrgurd", "Dromgar", "Ironmaw", "Bloodpost", "Skullwatch",
                     "Grimhold", "Ashfang", "Warmoot"),
             List.of("Gorehand", "Skullsplit", "Ironjaw", "Blacktusk", "Redaxe",

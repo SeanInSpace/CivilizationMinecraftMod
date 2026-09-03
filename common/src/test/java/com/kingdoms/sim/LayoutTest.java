@@ -13,6 +13,7 @@ import com.kingdoms.sim.culture.StreetLayout;
 import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.culture.Wander;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Settlement;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -476,9 +477,11 @@ class LayoutTest {
 
     @Test
     void aCulturePicksItsOwnArrangement() {
-        assertSame(Layouts.RING, Culture.NORMAN.arrangement());
-        assertSame(Layouts.WARREN, Culture.GOBLIN.arrangement());
-        assertSame(Layouts.STRONGHOLD, Culture.ORC.arrangement());
+        assertSame(Layouts.RING, Culture.NORMAN.arrangementFor(CENTRE));
+        assertSame(Layouts.WARREN, Culture.GOBLIN.arrangementFor(CENTRE));
+        // The orcs build in two now, so this asks for the one they have always
+        // built in rather than for whatever this centre happens to choose.
+        assertSame(Layouts.STRONGHOLD, Layouts.of(Culture.ORC.layouts().get(0)));
     }
 
     @Test
@@ -492,12 +495,102 @@ class LayoutTest {
     @Test
     void everyDefinedCultureNamesAnArrangementThatExists() {
         // A culture whose layout id is a typo would silently become a village.
+        // Every name in the list, because a people builds in several now and
+        // Layouts.of answers a name it does not know with rings.
         for (Culture culture : Culture.all()) {
-            assertSame(Layouts.of(culture.layout()), culture.arrangement(),
-                    culture.id() + " names an arrangement nothing provides");
-            assertEquals(culture.layout(), culture.arrangement().id(),
+            for (String named : culture.layouts()) {
+                assertEquals(named, Layouts.of(named).id(),
+                        culture.id() + " names an arrangement nothing provides: " + named);
+            }
+            assertTrue(culture.layouts().contains(culture.layoutFor(CENTRE)),
+                    culture.id() + " lays a town out in an arrangement it does not name");
+            assertSame(Layouts.of(culture.layoutFor(CENTRE)), culture.arrangementFor(CENTRE),
                     culture.id() + " asks for one arrangement and gets another");
         }
+    }
+
+    // --- and how a town remembers which one it got ---
+
+    @Test
+    void aTownSettlesOnOneArrangementAndNeverReconsiders() {
+        // Asked repeatedly and answering the same every time, which is what
+        // makes it safe for the save to record whatever the first ask returned.
+        // A town that answered differently on two ticks would have some of its
+        // streets in one arrangement and some in another, and no way back to
+        // either.
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Settled", new SimPos(2_048, 72, -768), 256);
+        town.setCultureId(Culture.BURGHER.id());
+
+        String settled = town.layoutId();
+        assertTrue(Culture.BURGHER.layouts().contains(settled),
+                "a town laid itself out in an arrangement its people do not build");
+        for (int again = 0; again < 5; again++) {
+            assertEquals(settled, town.layoutId());
+            assertSame(Layouts.of(settled), town.arrangement());
+        }
+    }
+
+    @Test
+    void aTownThatWasToldItsArrangementKeepsIt() {
+        // What the recorded id is for. A save carries the arrangement the town
+        // was actually built in, and it has to win over whatever the culture
+        // would choose for that ground today.
+        SimPos centre = whereTheyBuild(Culture.ORC, Culture.LAYOUT_STRONGHOLD);
+        Settlement town = new Settlement(Settlement.Id.random(), "Told", centre, 256);
+        town.setCultureId(Culture.ORC.id());
+        town.setLayoutId(Culture.LAYOUT_STRONGHOLD_STREETS);
+
+        assertSame(Layouts.STRONGHOLD_STREETS, town.arrangement(),
+                "the town was told which arrangement it was and picked its own anyway");
+        assertEquals(Culture.LAYOUT_STRONGHOLD, Culture.ORC.layoutFor(centre),
+                "the fixture stopped testing anything: both answers now agree");
+    }
+
+    @Test
+    void changingAPeopleChangesATownThatWasNeverToldItsShape() {
+        // A town with nothing recorded reads its arrangement off its people, so
+        // re-badging it re-reads. The cached answer has to go with it, which is
+        // the only reason setCultureId touches the layout at all.
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Rebadged", new SimPos(512, 72, 512), 256);
+        town.setCultureId(Culture.GOBLIN.id());
+        assertSame(Layouts.WARREN, town.arrangement());
+
+        town.setCultureId(Culture.VALE.id());
+        assertSame(Layouts.RING_STREETS, town.arrangement(),
+                "re-badging a town left it laid out as the people it used to be");
+    }
+
+    @Test
+    void changingAPeopleDoesNotThrowAwayAShapeSomebodyRecorded() {
+        // The order of two setters must not be load-bearing. A loader that
+        // stamped the culture after the layout would otherwise lose the
+        // arrangement the town was actually built in and answer with something
+        // plausible instead, which is the failure the recorded id exists to
+        // prevent. /civ culture asks for the old shape to go, in as many words.
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Kept", new SimPos(-3_200, 72, 96), 256);
+        town.setLayoutId(Culture.LAYOUT_STRONGHOLD_STREETS);
+        town.setCultureId(Culture.GOBLIN.id());
+
+        assertSame(Layouts.STRONGHOLD_STREETS, town.arrangement(),
+                "stamping a culture threw away the arrangement on the ground");
+
+        town.setLayoutId(null);
+        assertSame(Layouts.WARREN, town.arrangement(),
+                "asked outright to forget it, the town kept it anyway");
+    }
+
+    /** A centre this people lays out in that arrangement, for a fixture that needs one. */
+    private static SimPos whereTheyBuild(Culture culture, String layout) {
+        for (int i = 0; i < 10_000; i++) {
+            SimPos at = new SimPos(i * 97, 72, i * -53);
+            if (culture.layoutFor(at).equals(layout)) {
+                return at;
+            }
+        }
+        throw new AssertionError(culture.id() + " never lays a town out as " + layout);
     }
 
     @Test

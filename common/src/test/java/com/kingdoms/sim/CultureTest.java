@@ -1,7 +1,12 @@
 package com.kingdoms.sim;
 
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.geom.SimPos;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -76,9 +81,15 @@ class CultureTest {
         // while rings were the only arrangement that existed — the field was a
         // string nothing read. Now the question is the one that was always
         // meant: does the name a culture asks for resolve to something real.
+        //
+        // Every name, not just the first. Layouts.of falls back to rings rather
+        // than throwing, so a typo in the second entry of a list would be a
+        // people who quietly build villages half the time.
         for (Culture culture : Culture.all()) {
-            assertEquals(culture.layout(), culture.arrangement().id(),
-                    culture.id() + " asks for a layout nothing implements");
+            for (String layout : culture.layouts()) {
+                assertEquals(layout, Layouts.of(layout).id(),
+                        culture.id() + " asks for a layout nothing implements: " + layout);
+            }
         }
     }
 
@@ -87,8 +98,79 @@ class CultureTest {
         // The claim the culture type has been making since it was written, and
         // could not back up while every settlement was laid out in rings
         // whatever it called itself.
-        assertNotEquals(Culture.NORMAN.layout(), Culture.GOBLIN.layout());
-        assertNotEquals(Culture.GOBLIN.layout(), Culture.ORC.layout());
+        assertNotEquals(Culture.NORMAN.layouts(), Culture.GOBLIN.layouts());
+        assertNotEquals(Culture.GOBLIN.layouts(), Culture.ORC.layouts());
+    }
+
+    @Test
+    void aPeopleAlwaysBuildsTheSameTownInTheSamePlace() {
+        // The whole reason the choice is a hash of the centre rather than a die
+        // roll: nothing is written down until a settlement exists, so the answer
+        // has to be reconstructible from the ground the town stands on.
+        SimPos centre = new SimPos(1_337, 72, -404);
+        String first = Culture.BURGHER.layoutFor(centre);
+        for (int again = 0; again < 8; again++) {
+            assertEquals(first, Culture.BURGHER.layoutFor(centre),
+                    "the same people at the same centre changed their minds");
+        }
+        assertSame(Layouts.of(first), Culture.BURGHER.arrangementFor(centre));
+    }
+
+    @Test
+    void aPeopleWithSeveralArrangementsUsesAllOfThem() {
+        // A picker that technically varies but lands on one entry ninety-nine
+        // times in a hundred is the bug this whole unit exists to avoid: the
+        // second arrangement would ship and nobody would ever see it.
+        for (Culture culture : Culture.all()) {
+            if (culture.layouts().size() < 2) {
+                continue;
+            }
+            // A grid rather than a line. The first draft walked one diagonal, so
+            // a picker that happened to alternate along it would have passed and
+            // a retuned hash could have failed for having sampled the wrong
+            // thousand blocks rather than for being wrong.
+            Set<String> seen = new HashSet<>();
+            for (int x = -15; x <= 15; x++) {
+                for (int z = -15; z <= 15; z++) {
+                    String picked = culture.layoutFor(new SimPos(x * 617, 72, z * 421));
+                    assertTrue(culture.layouts().contains(picked),
+                            culture.id() + " lays a town out as " + picked
+                                    + ", which is not one of its own");
+                    seen.add(picked);
+                }
+            }
+            assertEquals(Set.copyOf(culture.layouts()), seen,
+                    culture.id() + " never builds some of the arrangements it names");
+        }
+    }
+
+    @Test
+    void everyPeopleKeepsTheArrangementItAlreadyBuiltInFirst() {
+        // A save written before the layout was recorded takes the head of the
+        // list, so reordering one of these rearranges every town of that people
+        // already standing in somebody's world.
+        assertEquals(Culture.LAYOUT_RING, Culture.NORMAN.layouts().get(0));
+        assertEquals(Culture.LAYOUT_RING, Culture.DEFAULT.layouts().get(0));
+        assertEquals(Culture.LAYOUT_ORGANIC, Culture.HIGHLAND.layouts().get(0));
+        assertEquals(Culture.LAYOUT_HIGH_STREET, Culture.BURGHER.layouts().get(0));
+        assertEquals(Culture.LAYOUT_RING_STREETS, Culture.VALE.layouts().get(0));
+        assertEquals(Culture.LAYOUT_WARREN, Culture.GOBLIN.layouts().get(0));
+        assertEquals(Culture.LAYOUT_STRONGHOLD, Culture.ORC.layouts().get(0));
+    }
+
+    @Test
+    void everyArrangementBelongsToSomebody() {
+        // Two of them were registered and named by no culture at all, which made
+        // them unreachable outside /civ buildtest — shipped code that no town
+        // could ever be.
+        Set<String> claimed = new HashSet<>();
+        for (Culture culture : Culture.all()) {
+            claimed.addAll(culture.layouts());
+        }
+        for (var layout : Layouts.all()) {
+            assertTrue(claimed.contains(layout.id()),
+                    layout.id() + " is an arrangement no people builds");
+        }
     }
 
     @Test

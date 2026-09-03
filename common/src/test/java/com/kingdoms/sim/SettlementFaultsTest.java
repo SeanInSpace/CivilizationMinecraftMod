@@ -46,10 +46,17 @@ class SettlementFaultsTest {
     private static Settlement growOn(String cultureId,
                                      com.kingdoms.sim.platform.WorldBridge ground,
                                      int steps) {
+        return growAs(cultureId, surveyedArrangement(cultureId), ground, steps);
+    }
+
+    private static Settlement growAs(String cultureId, String layout,
+                                     com.kingdoms.sim.platform.WorldBridge ground,
+                                     int steps) {
         Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTRE, 512);
         town.setCatalogue(BuildCatalogue.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         town.setCultureId(cultureId);
+        town.setLayoutId(layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
                     Person.Id.random(), name, Profession.PIONEER, CENTRE));
@@ -58,6 +65,39 @@ class SettlementFaultsTest {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
         }
         return town;
+    }
+
+    /**
+     * The arrangement the town these faults were found in was built in.
+     *
+     * <p>Named rather than left to the culture, because a people builds in
+     * several arrangements now and picks between them by hashing the centre.
+     * Every fault below was measured on one grown town and the numbers here are
+     * that town's — the ceiling on posts staked through a building is four
+     * because four is what a burgher high street managed, and the same fixture
+     * left to choose for itself came out as a compass-drawn radial town and
+     * staked through six. Which is worth knowing, and is not what any of these
+     * tests are about.
+     */
+    private static String surveyedArrangement(String cultureId) {
+        return Culture.of(cultureId).layouts().get(0);
+    }
+
+    /** The buildings a staked ring's posts pass through, plot for plot. */
+    private static List<Building> stakedThrough(Settlement town, Perimeter ring) {
+        Set<SimPos> posts = new HashSet<>(ring.ringPositions());
+        List<Building> onTheLine = new java.util.ArrayList<>();
+        for (Building b : holdingGround(town)) {
+            int half = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue()) / 2;
+            for (SimPos post : posts) {
+                if (Math.abs(post.x() - b.origin().x()) <= half
+                        && Math.abs(post.z() - b.origin().z()) <= half) {
+                    onTheLine.add(b);
+                    break;
+                }
+            }
+        }
+        return onTheLine;
     }
 
     private static List<Building> holdingGround(Settlement town) {
@@ -152,6 +192,7 @@ class SettlementFaultsTest {
         town.setCatalogue(BuildCatalogue.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         town.setCultureId("kingdoms:burgher");
+        town.setLayoutId(surveyedArrangement("kingdoms:burgher"));
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
                     Person.Id.random(), name, Profession.PIONEER, CENTRE));
@@ -165,24 +206,11 @@ class SettlementFaultsTest {
         }
         Perimeter ring = town.perimeter();
         assertTrue(ring != null, "five hundred steps is plenty to stake a ring");
-        Set<SimPos> posts = new HashSet<>(ring.ringPositions());
 
-        int across = 0;
+        List<Building> onTheLine = stakedThrough(town, ring);
+        int across = onTheLine.size();
         int raisedAfter = 0;
-        for (Building b : holdingGround(town)) {
-            int half = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue()) / 2;
-            boolean onWall = false;
-            for (SimPos post : posts) {
-                if (Math.abs(post.x() - b.origin().x()) <= half
-                        && Math.abs(post.z() - b.origin().z()) <= half) {
-                    onWall = true;
-                    break;
-                }
-            }
-            if (!onWall) {
-                continue;
-            }
-            across++;
+        for (Building b : onTheLine) {
             if (b.completedOnStep() > staked) {
                 raisedAfter++;
             }
@@ -253,6 +281,37 @@ class SettlementFaultsTest {
      * regression.
      */
     private static final int STAKED_THROUGH_CEILING = 4;
+
+    /**
+     * The same measure for a compass-drawn town, which does worse.
+     *
+     * <p>Six, against the high street's four, on the same seed and the same five
+     * hundred steps. Not a regression in the hull — the fault above is unchanged
+     * — but the arrangement feeds it more to get wrong: a radial town packs
+     * frontage on both faces of every ring road, so far more buildings sit just
+     * inside the outermost course, and every one of them is a point the hull
+     * wraps past rather than round.
+     *
+     * <p>Recorded rather than hidden. The burghers build in this arrangement now,
+     * so about half their towns meet this number in a real world, and pinning the
+     * fault fixture to the high street alone would have made the whole thing
+     * invisible. Comes down with the same fix as the constant above — trace the
+     * ring round the union of the plots — and must not go up.
+     */
+    private static final int RADIAL_STAKED_THROUGH_CEILING = 6;
+
+    @Test
+    void aCompassDrawnTownStakesItsRingThroughMoreThanAHighStreetDoes() {
+        Settlement town = growAs("kingdoms:burgher", Culture.LAYOUT_RADIAL_CONCENTRIC,
+                new TerrainFake(11), 500);
+        Perimeter ring = town.perimeter();
+        assertTrue(ring != null, "five hundred steps is plenty to stake a ring");
+
+        int across = stakedThrough(town, ring).size();
+        assertTrue(across <= RADIAL_STAKED_THROUGH_CEILING,
+                "the ring was staked through " + across + " buildings, past the "
+                        + RADIAL_STAKED_THROUGH_CEILING + " a radial town is allowed");
+    }
 
     @Test
     void groundUnderTheWallIsNotFreeToBuildOn() {

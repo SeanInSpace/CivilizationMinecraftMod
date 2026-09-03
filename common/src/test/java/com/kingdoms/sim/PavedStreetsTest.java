@@ -38,11 +38,15 @@ class PavedStreetsTest {
         town.setCatalogue(BuildCatalogue.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         for (Culture culture : Culture.all()) {
-            if (culture.layout().equals(layout)) {
+            if (culture.layouts().contains(layout)) {
                 town.setCultureId(culture.id());
                 break;
             }
         }
+        // After the culture, which un-settles it: a people builds in several
+        // arrangements now, and the fixture wants the one it asked for rather
+        // than the one this centre happens to hash to.
+        town.setLayoutId(layout);
         assertEquals(layout, town.arrangement().id(), "fixture did not select " + layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(

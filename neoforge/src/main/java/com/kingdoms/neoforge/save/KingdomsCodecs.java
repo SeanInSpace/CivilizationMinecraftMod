@@ -205,13 +205,20 @@ public final class KingdomsCodecs {
      */
     private record Flavor(String culture, String stage, int fedStreak,
                           boolean perimeterClosed, Optional<Perimeter> perimeter,
-                          Optional<PathNetwork> paths, boolean drawnOnly) {
+                          Optional<PathNetwork> paths, boolean drawnOnly,
+                          Optional<String> layout) {
         static Flavor of(Settlement s) {
             return new Flavor(s.cultureId(), s.stage().pretty(), s.fedStreak(),
                     s.perimeterClosed(), Optional.ofNullable(s.perimeter()),
                     s.paths().isEmpty() && s.paths().joined().isEmpty()
                             ? Optional.empty() : Optional.of(s.paths()),
-                    s.isDrawnOnly());
+                    s.isDrawnOnly(),
+                    // Always written, whether the town has been told its
+                    // arrangement or is still reading it off its people: this is
+                    // where the derived answer stops being derived. Only saves
+                    // from before the field existed come back without one, which
+                    // is the whole of the compatibility rule below.
+                    Optional.of(s.layoutId()));
         }
     }
 
@@ -285,7 +292,19 @@ public final class KingdomsCodecs {
             // save. Without this it reloaded as an ordinary settlement and began
             // planning on top of the render -- quietly destroying the one thing
             // the instrument exists to hold still.
-            Codec.BOOL.optionalFieldOf("drawn_only", false).forGetter(Flavor::drawnOnly)
+            Codec.BOOL.optionalFieldOf("drawn_only", false).forGetter(Flavor::drawnOnly),
+            // Which of its people's arrangements this town was laid out in. A
+            // culture carries several now and picks between them by hashing the
+            // centre, so the answer has to be written down rather than worked
+            // out again: a town that grew half its streets under one derivation
+            // and half under another would be neither shape.
+            //
+            // Written as the id the settlement holds rather than the arrangement
+            // it resolves to, the same way "culture" is. Layouts.of answers an
+            // id it does not know with rings, so resolving on the way out would
+            // quietly rewrite a datapack's arrangement -- or one from a newer
+            // build of the mod -- into a village, permanently and in the file.
+            Codec.STRING.optionalFieldOf("layout").forGetter(Flavor::layout)
     ).apply(i, Flavor::new));
 
     public static final Codec<Household.Id> HOUSEHOLD_ID =
@@ -448,6 +467,13 @@ public final class KingdomsCodecs {
         settlement.setTreasury(stores.treasury());
         settlement.tallies().restore(tallies);
         settlement.setCultureId(flavor.culture());
+        // A save written before the layout was recorded takes the head of its
+        // people's list, which is the arrangement that people has always built
+        // in. Deriving one from the centre instead would rearrange every town
+        // already standing in somebody's world, which is exactly what a new
+        // arrangement is not allowed to do.
+        settlement.setLayoutId(flavor.layout()
+                .orElseGet(() -> Culture.of(flavor.culture()).layouts().get(0)));
         // Saves from before stages existed carry no stage; they load as TOWN,
         // which is the behaviour they were built under. Only fresh charters camp.
         settlement.setStage(SettlementStage.parse(flavor.stage(), SettlementStage.TOWN));
