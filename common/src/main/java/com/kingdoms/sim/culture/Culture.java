@@ -65,6 +65,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     public static final String LAYOUT_BASTIDE = "bastide";
     public static final String LAYOUT_THORP = "thorp";
     public static final String LAYOUT_CRESCENTS = "crescents";
+    public static final String LAYOUT_GREEN = "green";
 
     /**
      * Which of this people's arrangements a town centred here is laid out in.
@@ -156,7 +157,10 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             // open in the middle and a road round the outside marking where it
             // stops. The ring stays first -- every Norman town already standing
             // was laid out in one.
-            List.of(LAYOUT_RING, LAYOUT_BASTIDE));
+            // And a green: the village round an open middle is the archetypal
+            // lowland farming settlement, which is what these people are when
+            // they are not founding anything.
+            List.of(LAYOUT_RING, LAYOUT_BASTIDE, LAYOUT_GREEN));
 
     /**
      * The hill people, who keep different beasts.
