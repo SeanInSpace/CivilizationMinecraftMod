@@ -15,11 +15,12 @@ public final class KingdomsNetwork {
 
     /**
      * Bumped whenever a payload's shape changes — "2" when the town overview
-     * gained its distress reading. An optional channel that silently mismatches
-     * does not refuse; it decodes the new bytes with the old codec and shows
-     * nonsense, which is worse than not having the screen at all.
+     * gained its distress reading, "3" when a settler's pockets got a screen of
+     * their own. An optional channel that silently mismatches does not refuse;
+     * it decodes the new bytes with the old codec and shows nonsense, which is
+     * worse than not having the screen at all.
      */
-    private static final String VERSION = "2";
+    private static final String VERSION = "3";
 
     private KingdomsNetwork() {
     }
@@ -38,6 +39,10 @@ public final class KingdomsNetwork {
                 SupplyPayload.TYPE,
                 SupplyPayload.STREAM_CODEC,
                 SupplyPayload::handle);
+        registrar.playToClient(
+                PersonInventoryPayload.TYPE,
+                PersonInventoryPayload.STREAM_CODEC,
+                PersonInventoryPayload::handle);
         KingdomsMod.LOGGER.debug("Kingdoms network channel registered");
     }
 }

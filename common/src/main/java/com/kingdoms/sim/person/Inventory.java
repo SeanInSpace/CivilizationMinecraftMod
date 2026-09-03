@@ -139,6 +139,16 @@ public final class Inventory {
 
     /** How much hunger everything carried could undo, for reports. */
     public int totalNutrition() {
+        return totalNutrition(slots);
+    }
+
+    /**
+     * The same sum over slots that came from somewhere else — a saved settler, a
+     * snapshot on its way to a screen. Static so a surface holding only the slots
+     * does not have to rebuild an {@code Inventory} to ask, and so there is one
+     * answer if nutrition ever stops being a plain item-times-count.
+     */
+    public static int totalNutrition(List<Slot> slots) {
         return slots.stream().mapToInt(s -> Foods.nutrition(s.itemId()) * s.count()).sum();
     }
 
