@@ -20,6 +20,7 @@ import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Tallies;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
+import com.kingdoms.sim.person.BuildLoad;
 import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
@@ -267,7 +268,7 @@ public final class PersonEntityManager {
                 EmbodimentPlanner.Plan plan =
                         EmbodimentPlanner.plan(settlement, world.bridge(), world.settings());
                 for (Person person : plan.toRelease()) {
-                    release(person);
+                    release(settlement, person);
                     changed = true;
                 }
                 for (Person person : plan.toEmbody()) {
@@ -347,14 +348,38 @@ public final class PersonEntityManager {
                     hole.flush(level);
                 }
                 task.creditExcavation();
-                // The plan is a hard ceiling on the loop: placeNextBlock also
-                // stops on its own, but a build that cannot progress must not be
-                // able to spin here.
+                // Deliberately not gated on the carry rule. No game ticks pass
+                // during a step, so nobody can walk anywhere: a builder required
+                // to fetch a load first would never arrive at the warehouse, and
+                // /civ step would build precisely nothing. What the crew is
+                // already holding is spent first all the same, and only then does
+                // the ledger pay — otherwise a load drawn at the warehouse would
+                // be charged for once at pickup and again here, and the same
+                // block would come out of the town twice.
+                //
+                // The plan is a hard ceiling on the loop: completeStep also stops
+                // on its own, but a build that cannot progress must not be able
+                // to spin here.
                 int guard = task.planWork() + 1;
-                while (BlueprintPlacer.nextStep(level, settlement, task) != null && guard-- > 0) {
-                    builders.getFirst().swing(InteractionHand.MAIN_HAND);
-                    if (!BlueprintPlacer.completeStep(level, settlement, task)) {
+                while (guard-- > 0) {
+                    String owed = BlueprintPlacer.materialOwedForStep(level, task);
+                    PersonEntity mason = whoIsCarrying(settlement, builders, owed);
+                    boolean fromHand = mason != null;
+                    if (BlueprintPlacer.nextStep(level, settlement, task,
+                            fromHand ? owed : null) == null) {
                         break;
+                    }
+                    if (!BlueprintPlacer.completeStep(level, settlement, task, fromHand)) {
+                        break;
+                    }
+                    // Whoever paid for it is the one who lays it. Swinging the
+                    // first body in the list while a second one's armful went
+                    // down is a builder miming somebody else's work.
+                    if (fromHand) {
+                        mason.swing(InteractionHand.MAIN_HAND);
+                        personOf(settlement, mason).spendCarry();
+                    } else {
+                        builders.getFirst().swing(InteractionHand.MAIN_HAND);
                     }
                 }
             }
@@ -772,6 +797,14 @@ public final class PersonEntityManager {
                     continue;
                 }
                 // Out of something? Go and build whatever makes it.
+                //
+                // Asked of the ledger and not of the crew's hands, deliberately.
+                // A load a builder is carrying left the books when they picked it
+                // up, so a town whose last stone is in somebody's arms really is
+                // out of stone — it will be visibly out of it a dozen blocks from
+                // now, and ordering the mine a dozen blocks early is the right
+                // answer to that. requestProducer refuses one that already stands
+                // or is queued, so saying it every pass costs nothing.
                 BlueprintPlacer.Shortage shortage =
                         BlueprintPlacer.shortageFor(level, settlement, task);
                 if (shortage != null) {
@@ -780,11 +813,31 @@ public final class PersonEntityManager {
 
                 boolean workedAny = false;
                 for (PersonEntity builder : builders) {
-                    BlueprintPlacer.NextStep next = BlueprintPlacer.nextStep(level, settlement, task);
+                    // What this builder has in hand has to be known before the
+                    // step is asked for: a step the town can no longer pay for is
+                    // still payable by the builder carrying it, because that
+                    // stock left the ledger at the warehouse rather than at the
+                    // wall. Asking without it stranded a loaded builder beside
+                    // the very wall their load had just emptied the store for.
+                    Person carrier = personOf(settlement, builder);
+                    String inHand = carrier == null ? null : carrier.carriedMaterial();
+
+                    BlueprintPlacer.NextStep next =
+                            BlueprintPlacer.nextStep(level, settlement, task, inHand);
                     if (next == null) {
+                        // As far along as the current work allows. A builder
+                        // holding the wrong material waits here rather than
+                        // walking a load back: the shelves are not underfoot, and
+                        // setting stock down where they happen to be standing
+                        // would be a teleport dressed up as tidiness. So a load
+                        // that does not fit the course sits off the town's books
+                        // until the builder is next sent to the stores, or until
+                        // they are released and it goes back into the pool. One
+                        // armful per builder is the whole of the exposure.
                         clearHands(builder);
-                        continue;   // as far along as the current work allows
+                        continue;
                     }
+                    String owed = BlueprintPlacer.materialOwedForStep(level, task);
                     // Hold the right thing for the job: the block about to be laid,
                     // or the tool for the ground about to come out. Either way the
                     // work reads as work rather than blocks blinking in and out.
@@ -796,14 +849,16 @@ public final class PersonEntityManager {
                     // Materials do not appear in a builder's hands. If this step
                     // needs stock they are not carrying, they go and fetch a load
                     // from the stores first — which is what makes the warehouse a
-                    // building rather than a number.
-                    String material = BlueprintPlacer.materialOfStep(level, task);
-                    Person carrier = personOf(settlement, builder);
-                    boolean paying = material != null && carrier != null;
-                    if (paying && !carrier.carries(material)
-                            && !fetchLoad(settlement, carrier, builder, material)) {
-                        continue;   // on the road to the stores
+                    // building rather than a number, and what stops a block going
+                    // down on the strength of stock across the village.
+                    if (owed != null
+                            && !BuildLoad.canLay(owed, carrier)
+                            && !fetchLoad(settlement, carrier, builder, owed)) {
+                        continue;   // on the road to the stores, or nothing to load
                     }
+                    // Past here the rule holds: either the step costs nothing, or
+                    // it is in this builder's hands and was paid for at pickup.
+                    boolean fromHand = owed != null;
 
                     BlockPos pos = next.pos();
                     if (builder.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5)
@@ -815,8 +870,8 @@ public final class PersonEntityManager {
                         // block does not give yet, or a long dig would read as a
                         // stall and get assisted out from under the builder.
                         boolean laid = BlueprintPlacer.swingAtStep(
-                                level, settlement, task, paying);
-                        if (laid && paying) {
+                                level, settlement, task, fromHand);
+                        if (laid && fromHand) {
                             carrier.spendCarry();
                         }
                         workedAny = true;
@@ -829,22 +884,112 @@ public final class PersonEntityManager {
                 UUID key = settlement.id().value();
                 if (workedAny) {
                     constructionStalls.remove(key);
-                } else if (BlueprintPlacer.nextStep(level, settlement, task) != null) {
+                } else if (hasWorkTheCrewCouldDo(settlement, task, builders)) {
                     int stalled = constructionStalls.merge(key, 1, Integer::sum);
                     if (stalled >= STALL_PASSES_BEFORE_ASSIST) {
-                        // Only for a builder who is genuinely at the site and
-                        // simply cannot path to this one block. No hand present,
-                        // no block — a stall is not a licence to build remotely.
-                        List<PersonEntity> present = buildersAtSite(settlement, task);
-                        if (!present.isEmpty()) {
-                            present.getFirst().swing(InteractionHand.MAIN_HAND);
-                            BlueprintPlacer.completeStep(level, settlement, task);
-                        }
+                        // Reset whether or not the assist found hands to lay it.
+                        // Holding the count at the threshold to retry sooner was
+                        // tried and is worse: the map is keyed by settlement, so a
+                        // primed count outlives the task that earned it and the
+                        // next head gets its first block assisted on its first
+                        // idle pass, with no grace at all.
+                        assistStalledSite(settlement, task);
                         constructionStalls.remove(key);
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Whether the site still has a step somebody could actually do.
+     *
+     * <p>Not simply "the town can pay for it". A builder who has walked to the
+     * warehouse and drawn the last of the timber is holding work the town no
+     * longer owns, and a site whose only remaining hope is that armful must
+     * still be allowed to look stalled — otherwise the one case the assist exists
+     * for, a loaded builder who cannot path into reach, silently stops counting.
+     *
+     * <p>The second {@code nextStep} is what keeps this from counting every
+     * ordinary idle tick. Work is granted once per simulation step and this loop
+     * runs several times a second, so most passes have an exhausted budget and no
+     * step to do; asking with the material in hand puts the budget and the plan
+     * back in the question, and only the ledger out of it.
+     */
+    private boolean hasWorkTheCrewCouldDo(Settlement settlement, BuildTask task,
+                                          List<PersonEntity> crew) {
+        if (BlueprintPlacer.nextStep(level, settlement, task) != null) {
+            return true;   // the town can pay for it outright
+        }
+        String owed = BlueprintPlacer.materialOwedForStep(level, task);
+        if (owed == null || BlueprintPlacer.nextStep(level, settlement, task, owed) == null) {
+            // A free step the town cannot start is out of budget, not stalled;
+            // so is a step no load could unlock. Waiting is not stalling.
+            return false;
+        }
+        for (PersonEntity builder : crew) {
+            Person carrier = personOf(settlement, builder);
+            if (carrier != null && carrier.carries(owed)) {
+                return true;   // paid for already, and in somebody's hands
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A site that has gone nowhere for a while, unwedged by hand.
+     *
+     * <p>What this is for: a builder who is genuinely at the site and simply
+     * cannot path into reach of one block — a roof course with nowhere to stand.
+     * Mob navigation cannot climb everything a town builds on, and without this
+     * a site can deadlock on pathfinding, which is not a thing a player can see
+     * or fix.
+     *
+     * <p>What it is not for: building out of nothing. It lays the block out of
+     * somebody's load exactly as the reach path would have, so a crew with empty
+     * hands gets no help here — a town short of materials has a shortage to
+     * report, not a stall to assist, and that shortage already went to
+     * {@link BuildPlanner#requestProducer}. This used to be a hole straight
+     * through the carry rule: twenty unproductive passes and the block appeared
+     * whoever was or was not holding one.
+     *
+     * <p>Refusing rarely costs the case it exists for, because fetching comes
+     * before reaching in the loop above: an empty-handed builder is sent to the
+     * stores long before twenty unproductive passes are up, so by the time the
+     * count trips they are carrying, or the town has nothing to carry. Only a
+     * builder who can reach neither the block nor the shelves loses out, and
+     * that is a builder in a hole rather than a site in a deadlock.
+     *
+     * <p>Nothing wedges forever on the strength of this refusing. A watched build
+     * that lays nothing for {@code Settlement.WATCHED_BUILD_GRACE_STEPS}
+     * simulation steps stops being the queue head on its own, and that backstop
+     * belongs to the simulation rather than to this loop.
+     *
+     * @return true if a block went down
+     */
+    private boolean assistStalledSite(Settlement settlement, BuildTask task) {
+        String owed = BlueprintPlacer.materialOwedForStep(level, task);
+        for (PersonEntity present : buildersAtSite(settlement, task)) {
+            Person carrier = personOf(settlement, present);
+            if (!BuildLoad.canLay(owed, carrier)) {
+                continue;   // nothing in these hands to lay
+            }
+            boolean fromHand = owed != null;
+            if (!BlueprintPlacer.completeStep(level, settlement, task, fromHand)) {
+                // Not this builder's fault and not fixable by trying the next
+                // one: the step is finished, or the work budget has not cleared
+                // it, and neither of those depends on whose hands are asking.
+                return false;
+            }
+            // After the block, not before. A swing at nothing is a builder
+            // miming, which is what the readout used to show on a refused step.
+            present.swing(InteractionHand.MAIN_HAND);
+            if (fromHand) {
+                carrier.spendCarry();
+            }
+            return true;
+        }
+        return false;
     }
 
     // --- footing ---
@@ -1266,9 +1411,6 @@ public final class PersonEntityManager {
         return changed;
     }
 
-    /** How much a builder shoulders in one trip to the stores. */
-    private static final int LOAD_SIZE = 16;
-
     /** How close a builder has to be to the stores to load up. */
     private static final double LOAD_REACH = 4.0;
 
@@ -1277,12 +1419,16 @@ public final class PersonEntityManager {
      *
      * <p>The stock leaves the ledger at the moment it is picked up, not when it is
      * laid — so a load in transit is genuinely out of the stores, and a builder
-     * killed carrying one takes it with them.
+     * killed carrying one takes it with them. This is the only place the watched
+     * path charges a town for a building; see {@link BuildLoad#pickUp}.
      *
      * @return true if they are loaded and can get on with it
      */
     private boolean fetchLoad(Settlement settlement, Person carrier, PersonEntity builder,
                               String material) {
+        if (carrier == null) {
+            return false;   // an entity with no record behind it has no hands to fill
+        }
         // The store that can actually pay, in preference to the closest one:
         // an empty storehouse underfoot must not strand a builder while the
         // full one stands across the village.
@@ -1301,13 +1447,12 @@ public final class PersonEntityManager {
         }
         // Drawn from the building they walked to, not from a town-wide figure.
         // The walk and the withdrawal have to name the same shelves or the trip
-        // is theatre — which is exactly what it used to be.
+        // is theatre — which is exactly what it used to be. Whatever they were
+        // still carrying goes back on those same shelves rather than evaporating.
         Stock from = store == null ? settlement.stores() : store.stores();
-        int drawn = from.takeUpTo(material, LOAD_SIZE);
-        if (drawn <= 0) {
+        if (BuildLoad.pickUp(from, carrier, material) <= 0) {
             return false;   // the stores are empty; the shortage is reported elsewhere
         }
-        carrier.setCarry(material, drawn);
         builder.swing(InteractionHand.MAIN_HAND);
         return true;
     }
@@ -1325,11 +1470,39 @@ public final class PersonEntityManager {
         return store == null ? settlement.centre() : store.origin();
     }
 
-    /** The record behind an embodied builder, or null if they are not tracked. */
+    /**
+     * The record behind an embodied builder, or null if they are not tracked.
+     *
+     * <p>Matched on being <em>this</em> body rather than on an id written into
+     * the entity, so anything that came out of {@link #embodiedBuilders} always
+     * resolves. That matters more than the scan costs: a builder whose record
+     * cannot be found now lays nothing at all, because the carry rule has nobody
+     * to ask what is in their hands.
+     */
     private Person personOf(Settlement settlement, PersonEntity view) {
         for (Person person : settlement.residents()) {
             if (view == tracked.get(person.id().value())) {
                 return person;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whichever of these builders is holding the material, or null if none is.
+     *
+     * <p>Null for a step that costs nothing too: there is nothing to hold and
+     * nothing to spend, so the caller pays the ledger, which will charge nothing.
+     */
+    private PersonEntity whoIsCarrying(Settlement settlement, List<PersonEntity> crew,
+                                       String material) {
+        if (material == null) {
+            return null;
+        }
+        for (PersonEntity builder : crew) {
+            Person carrier = personOf(settlement, builder);
+            if (carrier != null && carrier.carries(material)) {
+                return builder;
             }
         }
         return null;
@@ -1569,8 +1742,15 @@ public final class PersonEntityManager {
         return true;
     }
 
-    private void release(Person person) {
+    private void release(Settlement settlement, Person person) {
         forgetDigger(person.id().value());
+        // Whatever they were carrying goes back on the town's books. It came off
+        // them at the warehouse, and the clock that is about to take over pays
+        // out of the pooled ledger and cannot see a load in somebody's arms — so
+        // a builder released mid-trip used to take up to a full armful of the
+        // town's stone out of its own reckoning every time the player walked
+        // away, and hand it back to nobody.
+        BuildLoad.putBack(settlement.stores(), person);
         PersonEntity view = tracked.remove(person.id().value());
         if (view != null && !view.isRemoved()) {
             person.setPosition(NeoForgeWorldBridge.toSimPos(view.blockPosition()));
@@ -2009,7 +2189,7 @@ public final class PersonEntityManager {
             for (Settlement settlement : kingdom.settlements()) {
                 for (Person person : settlement.residents()) {
                     if (person.isEmbodied()) {
-                        release(person);
+                        release(settlement, person);
                     }
                 }
             }

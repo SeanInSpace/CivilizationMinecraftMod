@@ -520,11 +520,33 @@ public final class BlueprintPlacer {
      * simulation and no remainder is left for a completion pass to stamp in.
      */
     public static NextStep nextStep(ServerLevel level, Settlement settlement, BuildTask task) {
+        return nextStep(level, settlement, task, null);
+    }
+
+    /**
+     * @param inHand what the builder asking is carrying, or null for anybody
+     *               carrying nothing. A step whose material is already in a
+     *               builder's hands is payable however empty the ledger is: that
+     *               stock left the books at the warehouse when it was picked up,
+     *               and asking the town to own it a second time is what stranded
+     *               a loaded builder beside the last wall they could have
+     *               finished — a store emptied by the very trip that filled them.
+     */
+    public static NextStep nextStep(ServerLevel level, Settlement settlement, BuildTask task,
+                                    String inHand) {
         Step step = currentStep(level, task);
-        if (step == null || !task.canAfford(step.cost()) || !canPayFor(settlement, task, step)) {
+        if (step == null || !task.canAfford(step.cost())) {
+            return null;
+        }
+        if (!canPayFor(settlement, task, step) && !isHeld(step, inHand)) {
             return null;
         }
         return new NextStep(step.pos(), step.cost());
+    }
+
+    /** Whether what a builder is carrying is what this step is made of. */
+    private static boolean isHeld(Step step, String inHand) {
+        return inHand != null && inHand.equals(step.material());
     }
 
     /**
@@ -591,10 +613,25 @@ public final class BlueprintPlacer {
         return null;
     }
 
-    /** What the step in front of the builders is made of, or null if it costs nothing. */
-    public static String materialOfStep(ServerLevel level, BuildTask task) {
+    /**
+     * What a builder must have in hand for the step in front of them, or null if
+     * the step costs nothing.
+     *
+     * <p>Null covers both exemptions the ledger already grants, and covers them
+     * for the same reason: a step with no material at all — glass, crops, soil,
+     * things a town does not make — and the bootstrap producers, which are free
+     * everywhere. A step nobody is charged for is a step nobody has to be
+     * holding. Charging the carry rule where the ledger charges nothing would
+     * leave a watched town out of stone unable to raise the mine that fixes it,
+     * because its builders would stand at an empty warehouse waiting for stone
+     * to arrive by no means at all.
+     */
+    public static String materialOwedForStep(ServerLevel level, BuildTask task) {
         Step step = currentStep(level, task);
-        return step == null ? null : step.material();
+        if (step == null || isProducer(task)) {
+            return null;
+        }
+        return step.material();
     }
 
     /** The block a builder should be holding for the course in front of them. */
@@ -609,12 +646,12 @@ public final class BlueprintPlacer {
      * <p>Laying takes a single swing. Excavation does not come through here at
      * all — see {@link Excavation}, which spends real ticks against real block
      * hardness rather than swings against a budget.
-     */
-    public static boolean swingAtStep(ServerLevel level, Settlement settlement, BuildTask task) {
-        return swingAtStep(level, settlement, task, false);
-    }
-
-    /**
+     *
+     * <p>There is deliberately no overload that omits {@code carried}. It would
+     * be the one remaining way to lay a block on the watched path and charge the
+     * ledger at the wall, which is exactly the double-charge the carried load
+     * exists to prevent.
+     *
      * @param carried whether the builder is paying from a load they fetched, in
      *                which case the stores were already debited at the warehouse
      *                and must not be charged a second time here
@@ -640,14 +677,31 @@ public final class BlueprintPlacer {
         return true;
     }
 
-    /** Finishes the step in hand outright, for paths with no ticks to spend on it. */
-    public static boolean completeStep(ServerLevel level, Settlement settlement, BuildTask task) {
+    /**
+     * Finishes the step in hand outright, for paths with no ticks to spend on it.
+     *
+     * <p>As with {@link #swingAtStep}, there is deliberately no overload that
+     * omits {@code carried}: one would be a way to lay a block on the watched
+     * path and charge the ledger at the wall, which is the double-charge a
+     * carried load exists to prevent.
+     *
+     * @param carried the block came out of a builder's load, which the stores
+     *                were charged for at the warehouse and must not be charged
+     *                for again here
+     */
+    public static boolean completeStep(ServerLevel level, Settlement settlement, BuildTask task,
+                                       boolean carried) {
         Step step = currentStep(level, task);
-        if (step == null || !task.canAfford(step.cost()) || !canPayFor(settlement, task, step)) {
+        if (step == null || !task.canAfford(step.cost())) {
+            return false;
+        }
+        if (!carried && !canPayFor(settlement, task, step)) {
             return false;
         }
         execute(level, step);
-        payFor(settlement, task, step);
+        if (!carried) {
+            payFor(settlement, task, step);
+        }
         task.recordStepDone(step.cost());
         return true;
     }
