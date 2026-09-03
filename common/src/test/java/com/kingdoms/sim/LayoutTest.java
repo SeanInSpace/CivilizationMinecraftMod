@@ -1,5 +1,6 @@
 package com.kingdoms.sim;
 
+import com.kingdoms.sim.culture.CrossroadsLayout;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
@@ -79,7 +80,7 @@ class LayoutTest {
         // A test in the wrong units is worse than no test -- it certifies the
         // fault.
         for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD,
-                Layouts.ORGANIC, Layouts.HIGH_STREET)) {
+                Layouts.ORGANIC, Layouts.HIGH_STREET, Layouts.CROSSROADS)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTRE, i);
@@ -257,10 +258,17 @@ class LayoutTest {
             return new StreetLayout(s.id(), s.wander());
         }
         if (like instanceof RadialStreetLayout r) {
-            return new RadialStreetLayout(r.id(), r.wander());
+            // With the hall, which the two-argument constructor drops. Rebuilt
+            // without it, radial_concentric came back as a plain ring_streets
+            // wearing the other one's name, so every rule that runs through here
+            // was certifying an arrangement nobody ships.
+            return new RadialStreetLayout(r.id(), r.wander(), r.hallOnTheGreen());
         }
         if (like instanceof GridStreetLayout g) {
             return new GridStreetLayout(g.id(), g.wander());
+        }
+        if (like instanceof CrossroadsLayout c) {
+            return new CrossroadsLayout(c.id(), c.wander());
         }
         return like;
     }
@@ -548,7 +556,8 @@ class LayoutTest {
      */
     @Test
     void radialConcentricRingsAreTrueCircles() {
-        TownPlan plan = Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC).planFor(CENTRE, MANY);
+        TownPlan plan = fresh(Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC))
+                .planFor(CENTRE, MANY);
         for (TownPlan.Street street : plan.streets()) {
             if (street.kind() != TownPlan.Kind.LANE) {
                 continue;   // spokes are straight lines, not rings
@@ -572,7 +581,8 @@ class LayoutTest {
      */
     @Test
     void radialConcentricPutsSomethingInTheMiddle() {
-        TownPlan plan = Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC).planFor(CENTRE, MANY);
+        TownPlan plan = fresh(Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC))
+                .planFor(CENTRE, MANY);
         assertEquals(CENTRE.x(), plan.plots().get(0).at().x(),
                 "the first plot should be the middle of the green");
         assertEquals(CENTRE.z(), plan.plots().get(0).at().z(),
@@ -591,7 +601,8 @@ class LayoutTest {
      */
     @Test
     void radialConcentricFrontsEverythingElse() {
-        TownPlan plan = Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC).planFor(CENTRE, MANY);
+        TownPlan plan = fresh(Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC))
+                .planFor(CENTRE, MANY);
         int adrift = 0;
         for (TownPlan.Plot plot : plan.plots()) {
             if (!plot.frontsAStreet()) {
@@ -599,5 +610,207 @@ class LayoutTest {
             }
         }
         assertEquals(1, adrift, "only the hall on the green should front nothing");
+    }
+
+    // --- the town where two roads met ---
+
+    /**
+     * Half-width of the open ground the crossroads leaves at its crossing.
+     *
+     * <p>Restated here rather than read off the layout, deliberately: this is the
+     * bar the arrangement is being held to, and a test that reads its expectation
+     * out of the thing under test asserts only that the code agrees with itself.
+     */
+    private static final int MARKET_HALF = 20;
+
+    /**
+     * How far from its own spine anything in a crossroads town may stand.
+     *
+     * <p>The ribs hold two plots a side, the outermost of them forty blocks out,
+     * so no plot is ever further than forty from one spine or the other. Six
+     * blocks of slack on that, and no more: a rib lengthened to hold a third plot
+     * puts it fifty-four out, and that is precisely the change this is here to
+     * catch. It was measured — at fifty-four the arms and the ribs come out 2.3
+     * to one and the town draws as a square with a hole in it; at forty they are
+     * 4.2 to one and it draws as a cross.
+     */
+    private static final int RIB_BAND = 46;
+
+    /**
+     * Nothing stands on the market square.
+     *
+     * <p>The one part of this plan that exists by not being built on, which makes
+     * it the one part nothing else would notice the loss of. Every other
+     * invariant here is satisfied by a town that quietly fills its own middle in:
+     * the plots still front streets, still clear each other, still keep out of
+     * the road. Measured on the building rather than on its centre, because a
+     * market with the corners of four houses in it is not open ground.
+     */
+    @Test
+    void aCrossroadsLeavesItsMarketSquareEmpty() {
+        TownPlan plan = fresh(Layouts.CROSSROADS).planFor(CENTRE, 140);
+        for (TownPlan.Plot plot : plan.plots()) {
+            double clear = Math.max(Math.abs(plot.at().x() - CENTRE.x()),
+                    Math.abs(plot.at().z() - CENTRE.z())) - plot.span() / 2.0;
+            assertTrue(clear >= MARKET_HALF,
+                    "a building at " + plot.at() + " stands "
+                            + Math.round(MARKET_HALF - clear) + " blocks into the market");
+        }
+    }
+
+    /**
+     * It is a cross with ribs, and it is not a grid.
+     *
+     * <p>The whole identity of this arrangement, and the one thing about it that
+     * could be lost without a single other test going red. Let the ribs run on
+     * until they meet the ribs of the other spine and the four quarters between
+     * the arms close up: the frontage would be as good, the plots as far apart,
+     * the roads as clear — and the town would be {@code stronghold_streets} with
+     * a hole in the middle, which is an arrangement that already exists.
+     *
+     * <p>So: every plot is near one spine or the other, and the town runs far
+     * further along the spines than it ever reaches across them. A grid fails the
+     * first line on its very first corner block.
+     */
+    @Test
+    void aCrossroadsIsACrossAndNotAGrid() {
+        CrossroadsLayout town = (CrossroadsLayout) fresh(Layouts.CROSSROADS);
+        // Measured from the middle of the town rather than from the spine, which
+        // is the same thing only while the spines are straight. A bend carries
+        // the whole arm off the axis with it, so the bar has to make room for it
+        // or a wandering crossroads goes red for its wander and not for its shape.
+        int band = RIB_BAND + town.wander().amplitude();
+        TownPlan plan = town.planFor(CENTRE, 140);
+        int along = 0;
+        int across = 0;
+        for (TownPlan.Plot plot : plan.plots()) {
+            int dx = Math.abs(plot.at().x() - CENTRE.x());
+            int dz = Math.abs(plot.at().z() - CENTRE.z());
+            assertTrue(Math.min(dx, dz) <= band,
+                    "a plot at " + plot.at() + " stands " + Math.min(dx, dz)
+                            + " blocks from the nearer spine — the quarters between"
+                            + " the arms have filled in and this is a grid");
+            along = Math.max(along, Math.max(dx, dz));
+            across = Math.max(across, Math.min(dx, dz));
+        }
+        assertTrue(along >= 2 * across,
+                "the arms reach " + along + " blocks and the ribs " + across
+                        + " — that is a blob, not a cross");
+    }
+
+    /**
+     * The town at two sizes, drawn, because a shape is not a number.
+     *
+     * <p>Every fault this package has had was found by a person looking at a
+     * picture, and the pictures cost a five-minute round trip through the game
+     * each. A plan is a flat drawing; it can be printed. The assertions below are
+     * the parts of the picture that can be stated — that the middle is open, that
+     * the arms are long and the ribs short, that the ground between the arms is
+     * empty — and the map itself is for the parts that cannot.
+     */
+    @Test
+    void aCrossroadsMapReadsAsACross() {
+        for (int wanted : new int[] {64, 140}) {
+            TownPlan plan = fresh(Layouts.CROSSROADS).planFor(CENTRE, wanted);
+            double furthest = 0;
+            int along = 0;
+            int across = 0;
+            for (TownPlan.Plot plot : plan.plots()) {
+                furthest = Math.max(furthest, CENTRE.horizontalDistance(plot.at()));
+                int dx = Math.abs(plot.at().x() - CENTRE.x());
+                int dz = Math.abs(plot.at().z() - CENTRE.z());
+                along = Math.max(along, Math.max(dx, dz));
+                across = Math.max(across, Math.min(dx, dz));
+            }
+            // The arm and rib reaches printed alongside the picture, because they
+            // are the numbers this arrangement's constants are documented in and
+            // a recorded measurement nobody can re-read goes stale silently.
+            System.out.println("crossroads at " + wanted + " plots: "
+                    + plan.size() + " plots, " + plan.streets().size() + " streets, "
+                    + plan.frontagePercent() + "% fronting, furthest "
+                    + Math.round(furthest) + " blocks, arms " + along
+                    + " and ribs " + across + " (" + Math.round(10.0 * along / across)
+                    / 10.0 + " to one)");
+            System.out.println(mapOf(plan, CENTRE, 8));
+
+            assertEquals(wanted, plan.size(), "the plan came up short");
+            assertTrue(plan.frontagePercent() >= 95,
+                    "only " + plan.frontagePercent() + "% of it fronted a street");
+            assertTrue(furthest < 250,
+                    "the town sprawled to " + Math.round(furthest) + " blocks");
+        }
+    }
+
+    /**
+     * A plan drawn as text: {@code #} a building, {@code .} a street, space open.
+     *
+     * <p>Bounded by the plots rather than by the streets, so the picture is of
+     * the town rather than of the roads it will one day fill: the plan is always
+     * laid at its full size, so a town of sixty-four has the roads of a town of
+     * two hundred and fifty-six drawn through it and would otherwise be a speck
+     * in the middle of a cross.
+     */
+    private static String mapOf(TownPlan plan, SimPos centre, int scale) {
+        int reach = scale;
+        for (TownPlan.Plot plot : plan.plots()) {
+            reach = Math.max(reach, Math.max(Math.abs(plot.at().x() - centre.x()),
+                    Math.abs(plot.at().z() - centre.z())));
+        }
+        // Cells counted out from the middle rather than from a corner, so the
+        // rounding is symmetric. Counted from a corner, a cell boundary falls
+        // wherever the bounding box happens to start and one arm of a perfectly
+        // symmetric town comes out a cell longer than the other -- which reads as
+        // a fault in the layout and is a fault in the picture.
+        int half = reach / scale + 1;
+        int cells = 2 * half + 1;
+        char[][] grid = new char[cells][cells];
+        for (char[] row : grid) {
+            java.util.Arrays.fill(row, ' ');
+        }
+
+        for (TownPlan.Street street : plan.streets()) {
+            List<SimPos> path = street.path();
+            for (int i = 1; i < path.size(); i++) {
+                SimPos a = path.get(i - 1);
+                SimPos b = path.get(i);
+                int steps = (int) Math.ceil(Math.hypot(b.x() - a.x(), b.z() - a.z()));
+                for (int s = 0; s <= steps; s++) {
+                    double t = steps == 0 ? 0 : (double) s / steps;
+                    mark(grid, centre, scale, half,
+                            (int) Math.round(a.x() + t * (b.x() - a.x())),
+                            (int) Math.round(a.z() + t * (b.z() - a.z())), '.');
+                }
+            }
+        }
+        for (TownPlan.Plot plot : plan.plots()) {
+            mark(grid, centre, scale, half, plot.at().x(), plot.at().z(), '#');
+        }
+
+        // Two characters to a cell, because a terminal's characters are about
+        // twice as tall as they are wide and a town drawn one to a cell comes out
+        // squashed -- which matters when the whole question the picture answers
+        // is what shape the town is.
+        StringBuilder drawn = new StringBuilder();
+        for (char[] row : grid) {
+            StringBuilder line = new StringBuilder();
+            for (char cell : row) {
+                line.append(cell).append(cell == '#' ? '#' : cell == '.' ? '.' : ' ');
+            }
+            drawn.append(line.toString().replaceAll("\\s+$", "")).append('\n');
+        }
+        return drawn.toString();
+    }
+
+    /** One block of the world put into its cell, buildings winning over roads. */
+    private static void mark(char[][] grid, SimPos centre, int scale, int half,
+                             int x, int z, char what) {
+        int col = Math.floorDiv(x - centre.x() + scale / 2, scale) + half;
+        int row = Math.floorDiv(z - centre.z() + scale / 2, scale) + half;
+        if (row < 0 || row >= grid.length || col < 0 || col >= grid.length) {
+            return;
+        }
+        if (grid[row][col] != '#') {
+            grid[row][col] = what;
+        }
     }
 }
