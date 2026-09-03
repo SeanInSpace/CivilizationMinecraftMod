@@ -121,7 +121,8 @@ public interface Layout {
         java.util.List<TownPlan.Plot> plots = new java.util.ArrayList<>();
         for (int i = 0; i < Math.max(0, wanted); i++) {
             SimPos at = plotFor(centre, i);
-            plots.add(new TownPlan.Plot(at, DEFAULT_SPAN, facingToward(at, centre), -1));
+            plots.add(new TownPlan.Plot(
+                    at, DEFAULT_SPAN, facingToward(at, centre), NO_STREET));
         }
         return new TownPlan(centre, java.util.List.of(), plots);
     }

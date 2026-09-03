@@ -389,7 +389,7 @@ public abstract class PlannedLayout implements Layout {
                         centre.z() + (int) Math.round(out * Math.sin(angle)));
                 if (fits(where, taken, grown)) {
                     taken.add(new TownPlan.Plot(where, Layout.DEFAULT_SPAN,
-                            Layout.facingToward(where, centre), -1));
+                            Layout.facingToward(where, centre), Layout.NO_STREET));
                 }
             }
         }

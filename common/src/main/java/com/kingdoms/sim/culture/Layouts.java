@@ -474,6 +474,19 @@ public final class Layouts {
     public static final Layout RADIAL_CONCENTRIC =
             new RadialStreetLayout("radial_concentric", Wander.STRAIGHT, true);
 
+    /**
+     * Two roads crossing, a market on the crossing, and short ribs off the arms.
+     *
+     * <p>The one arrangement here whose shape is a claim about how a town
+     * <em>grew</em> rather than about who surveyed it. Nobody laid out a
+     * crossroads: the routes were there, people built where they met, and the
+     * town spread along the roads because that is where the frontage was. It
+     * answers growth by opening another short rib off a spine, never by widening
+     * into the quarters between the arms — which is what keeps it a cross from
+     * the air and not a grid with a hole in it.
+     */
+    public static final Layout CROSSROADS = new CrossroadsLayout();
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     /**
@@ -496,7 +509,8 @@ public final class Layouts {
 
     static {
         for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
-                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC}) {
+                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC,
+                CROSSROADS}) {
             KNOWN.put(layout.id(), layout);
         }
         STREETS_FIRST.put(RING.id(), RING_STREETS.id());

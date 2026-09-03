@@ -109,6 +109,18 @@ public final class RadialStreetLayout extends PlannedLayout {
         return wander;
     }
 
+    /**
+     * Whether this arrangement offers the middle of its green.
+     *
+     * <p>Readable because it is the whole difference between {@code ring_streets}
+     * and {@code radial_concentric} that the {@link #wander()} does not already
+     * account for, and anything reconstructing one of these from another has to
+     * carry it or it hands back the wrong arrangement wearing the right name.
+     */
+    public boolean hallOnTheGreen() {
+        return hallOnTheGreen;
+    }
+
     @Override
     protected void design(SimPos centre, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
