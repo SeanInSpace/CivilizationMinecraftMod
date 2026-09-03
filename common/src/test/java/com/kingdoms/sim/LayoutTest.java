@@ -6,6 +6,7 @@ import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.culture.GridStreetLayout;
 import com.kingdoms.sim.culture.RadialStreetLayout;
 import com.kingdoms.sim.culture.StreetLayout;
+import com.kingdoms.sim.culture.ThorpLayout;
 import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.culture.Wander;
 import com.kingdoms.sim.geom.SimPos;
@@ -79,7 +80,7 @@ class LayoutTest {
         // A test in the wrong units is worse than no test -- it certifies the
         // fault.
         for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD,
-                Layouts.ORGANIC, Layouts.HIGH_STREET)) {
+                Layouts.ORGANIC, Layouts.HIGH_STREET, Layouts.THORP)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTRE, i);
@@ -261,6 +262,9 @@ class LayoutTest {
         }
         if (like instanceof GridStreetLayout g) {
             return new GridStreetLayout(g.id(), g.wander());
+        }
+        if (like instanceof ThorpLayout t) {
+            return new ThorpLayout(t.id(), t.wander());
         }
         return like;
     }

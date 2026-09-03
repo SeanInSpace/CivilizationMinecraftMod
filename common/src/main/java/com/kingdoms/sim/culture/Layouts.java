@@ -474,6 +474,20 @@ public final class Layouts {
     public static final Layout RADIAL_CONCENTRIC =
             new RadialStreetLayout("radial_concentric", Wander.STRAIGHT, true);
 
+    /**
+     * A track with farmyards hung off it: the loose one.
+     *
+     * <p>Cul-de-sac lanes leaving a through track, alternating sides, each
+     * ending in a yard with buildings on three sides of it. A comb from the air.
+     *
+     * <p>It is the streets-first counterpart to the instinct behind
+     * {@link #WARREN} rather than to the warren itself — knots of buildings with
+     * open ground between them, except that here the knots are reached by a road
+     * and have frontage on it. Deliberately ragged at the edge: a planned town
+     * with a ruled outline looks bulldozed when it lands in a forest.
+     */
+    public static final Layout THORP = new ThorpLayout();
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     /**
@@ -496,7 +510,8 @@ public final class Layouts {
 
     static {
         for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
-                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC}) {
+                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC,
+                THORP}) {
             KNOWN.put(layout.id(), layout);
         }
         STREETS_FIRST.put(RING.id(), RING_STREETS.id());
