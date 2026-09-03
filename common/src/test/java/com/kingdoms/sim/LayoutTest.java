@@ -3,6 +3,7 @@ package com.kingdoms.sim;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.culture.GreenLayout;
 import com.kingdoms.sim.culture.GridStreetLayout;
 import com.kingdoms.sim.culture.RadialStreetLayout;
 import com.kingdoms.sim.culture.StreetLayout;
@@ -79,7 +80,7 @@ class LayoutTest {
         // A test in the wrong units is worse than no test -- it certifies the
         // fault.
         for (Layout layout : List.of(Layouts.WARREN, Layouts.STRONGHOLD,
-                Layouts.ORGANIC, Layouts.HIGH_STREET)) {
+                Layouts.ORGANIC, Layouts.HIGH_STREET, Layouts.GREEN)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTRE, i);
@@ -261,6 +262,9 @@ class LayoutTest {
         }
         if (like instanceof GridStreetLayout g) {
             return new GridStreetLayout(g.id(), g.wander());
+        }
+        if (like instanceof GreenLayout green) {
+            return new GreenLayout(green.id());
         }
         return like;
     }
@@ -599,5 +603,258 @@ class LayoutTest {
             }
         }
         assertEquals(1, adrift, "only the hall on the green should front nothing");
+    }
+
+    // --- the village round a green ---
+
+    /**
+     * The green village is a lens, and specifically is not a circle.
+     *
+     * <p>The whole identity of the arrangement is the shape: a long open middle
+     * with ranks of houses hugging it. It is one constant away from being a lumpy
+     * version of {@code ring_streets} — widen the green toward its own length, or
+     * coarsen the plot pitch, and the plan needs a third course of frontage and
+     * closes up into a circle with a hole in it — and nothing else in the suite
+     * would notice, because a circle passes every rule a lens passes.
+     *
+     * <p>Measured, so the bars below are not guesses: two courses give 126 by 85
+     * at a hundred and forty plots and 243 by 85 for the whole plan; three
+     * courses give 135 by 133 and 206 by 133.
+     */
+    @Test
+    void theGreenVillageIsALensAndNotACircle() {
+        assertSame(Layouts.GREEN, Layouts.of(Culture.LAYOUT_GREEN),
+                "the green village is not registered under the id a culture names");
+
+        // The whole plan, not a prefix of it. What a village of a given size
+        // looks like is decided by the disc it fills, not by the arrangement --
+        // below about eighty plots this one is a knot on a green and is
+        // deliberately not asserted to be anything else. The plan is where the
+        // shape lives, and it is the plan that would quietly become a circle.
+        //
+        // Off a fresh instance, because the shared one caches a plan per centre
+        // and re-lays it BIGGER for whoever asks that centre for a bigger town.
+        // The centre here is the fitness suite's centre bar the height, which
+        // the cache key ignores, and a settlement hunting for room walks its
+        // plot index out to five hundred and twelve. One such call anywhere in
+        // this JVM first turns the plan into a three-lane one and every
+        // assertion below reads a different arrangement -- measured, 147 by 139,
+        // which is a circle.
+        TownPlan plan = fresh(Layouts.GREEN).planFor(CENTRE, 256);
+
+        // Nothing stands on the green. The inner ranks sit nineteen blocks off
+        // the axis at the middle and are still fifteen off it ninety blocks
+        // along, so a plot inside this box is a plot on the common -- which is a
+        // hundred and eighty blocks of it by twenty-four.
+        for (TownPlan.Plot plot : plan.plots()) {
+            int dx = Math.abs(plot.at().x() - CENTRE.x());
+            int dz = Math.abs(plot.at().z() - CENTRE.z());
+            assertFalse(dx <= 90 && dz <= 12,
+                    "a plot at " + plot.at() + " is standing on the green");
+        }
+
+        // And it is a lens rather than a wheel: 243 by 85, so the bar is set at
+        // twice as long as it is wide with about forty per cent to spare.
+        int longWay = 0;
+        int shortWay = 0;
+        for (TownPlan.Plot plot : plan.plots()) {
+            longWay = Math.max(longWay, Math.abs(plot.at().x() - CENTRE.x()));
+            shortWay = Math.max(shortWay, Math.abs(plot.at().z() - CENTRE.z()));
+        }
+        assertTrue(longWay > shortWay * 2,
+                "the village reached " + longWay + " along the green and "
+                        + shortWay + " across it, which is not a lens");
+
+        // The village stops widening once the last rank is reached, which is what
+        // makes the length mean anything: everything after about eighty plots
+        // goes into length. If a third course ever opens, this is the assertion
+        // that catches it, and it catches it at every size rather than at the two
+        // the map below happens to be drawn at.
+        for (int wanted : new int[] {96, 140, 200, 256}) {
+            int across = 0;
+            for (TownPlan.Plot plot : plan.plots().subList(0, wanted)) {
+                across = Math.max(across, Math.abs(plot.at().z() - CENTRE.z()));
+            }
+            assertEquals(85, across,
+                    "a green village of " + wanted + " measured " + across
+                            + " across, so its ranks are not where they were");
+        }
+
+        // The houses on the green look at the green.
+        //
+        // Everywhere else in a planned town a plot turns to face the street it
+        // fronts, and that is the whole reason streets are drawn first. The rank
+        // standing between the green and its street is the one exception, and it
+        // has to be asserted because getting it wrong is invisible from every
+        // other angle: the plan still reports a hundred per cent frontage, the
+        // plots are still in the right places, and the only symptom is that every
+        // house along the common presents it with a back garden.
+        //
+        // Bounded along the green as well as across it, and that is not
+        // belt-and-braces. Towards the tips the flank dives to the axis and takes
+        // its outer rank down with it, so out there a plot thirteen blocks off
+        // the axis can be either rank. Over the middle ninety the inner rank runs
+        // between fifteen and nineteen and the next rank out is past forty, so
+        // this box holds one rank and holds all of it.
+        int looking = 0;
+        for (TownPlan.Plot plot : plan.plots()) {
+            int dx = plot.at().x() - CENTRE.x();
+            int dz = plot.at().z() - CENTRE.z();
+            if (Math.abs(dx) > 90 || Math.abs(dz) > 25) {
+                continue;
+            }
+            looking++;
+            assertEquals(dz > 0 ? 0 : 2, plot.facing(),
+                    "a house at " + plot.at() + " on the green turned away from it");
+        }
+        assertTrue(looking >= 20,
+                "only " + looking + " houses stood on the green at all");
+
+        // The streets round the green are not circles either, and the cheapest
+        // way to say so is that they do not hold a radius: each runs from the
+        // width of the green at its middle out to its full length at the tips.
+        TownPlan.Street round = plan.streets().get(0);
+        double nearest = Double.MAX_VALUE;
+        double furthest = 0;
+        for (SimPos point : round.path()) {
+            nearest = Math.min(nearest, CENTRE.horizontalDistance(point));
+            furthest = Math.max(furthest, CENTRE.horizontalDistance(point));
+        }
+        assertTrue(furthest > nearest * 3,
+                "a street round the green ran between " + Math.round(nearest)
+                        + " and " + Math.round(furthest)
+                        + " from the middle, which is very nearly a ring road");
+    }
+
+    /**
+     * The green village, drawn, at the two sizes the shape has to survive.
+     *
+     * <p>An assertion can say the town is longer than it is wide and still be
+     * true of a sausage. The maps are printed because the only cheap check on
+     * whether a plan reads as the thing it claims to be is a person looking at
+     * one, and every siting fault this project has had was found that way. The
+     * assertions beside them are what stops the picture quietly becoming a
+     * different picture.
+     */
+    @Test
+    void theGreenVillageDrawnAtBothSizes() {
+        // Two courses of frontage, and it must stay two. A third means the plan
+        // could not carry the count on the green it has, and a village with
+        // three courses is round.
+        int[] furthest = new int[2];
+        Layout green = fresh(Layouts.GREEN);   // see the note in the lens test
+        for (int size = 0; size < 2; size++) {
+            int wanted = size == 0 ? 64 : 140;
+            TownPlan plan = green.planFor(CENTRE, wanted);
+            int reach = 0;
+            int wide = 0;
+            int tall = 0;
+            for (TownPlan.Plot plot : plan.plots()) {
+                reach = Math.max(reach, (int) Math.round(
+                        CENTRE.horizontalDistance(plot.at())));
+                wide = Math.max(wide, Math.abs(plot.at().x() - CENTRE.x()));
+                tall = Math.max(tall, Math.abs(plot.at().z() - CENTRE.z()));
+            }
+            furthest[size] = reach;
+            System.out.println();
+            System.out.println("green village, " + wanted + " plots, "
+                    + plan.streets().size() + " streets, "
+                    + plan.frontagePercent() + "% fronting, reach " + reach
+                    + ", built ground " + wide + " x " + tall);
+            System.out.println(drawn(plan, CENTRE));
+
+            assertEquals(wanted, plan.size(), "the plan came up short");
+            assertEquals(4, plan.streets().size(),
+                    "the green village opened " + plan.streets().size()
+                            + " streets, so it needed a third course of frontage");
+            assertTrue(plan.frontagePercent() >= 95,
+                    "only " + plan.frontagePercent() + "% of a " + wanted
+                            + "-plot green village fronted a street");
+        }
+
+        // Loose bars, against a collapse rather than a drift. Measured at 85 and
+        // 132. A village that huddles has lost its green to the outskirt
+        // fallback; one that runs past the upper bar is hunting for room it
+        // should have found on a back lane.
+        assertTrue(furthest[0] >= 60 && furthest[0] <= 150,
+                "a 64-plot green village reached " + furthest[0]);
+        assertTrue(furthest[1] >= 120 && furthest[1] <= 250,
+                "a 140-plot green village reached " + furthest[1]);
+        assertTrue(furthest[1] > furthest[0],
+                "the village did not grow outward at all");
+    }
+
+    /**
+     * A plan as a picture: {@code #} a plot, {@code .} a street, space open ground.
+     *
+     * <p>Six blocks to a column and twelve to a row, because a terminal cell is
+     * about twice as tall as it is wide and a map drawn square comes out squashed
+     * — which matters when the thing being looked at is whether the town is
+     * longer than it is wide. Half a cell of offset so the middle row is the
+     * middle of the town and the two halves come out mirrored, which they are.
+     *
+     * <p>Sized from the <em>streets</em> as well as the plots. Sizing it from the
+     * plots alone drew a tidier picture and quietly cropped the ends off every
+     * street, so the one thing the map is drawn for — whether the two flanks
+     * really do close on each other at the tips — was the one thing it could not
+     * show. A village fills the middle of its plan first, so the plan is always
+     * bigger than the town on it and the crop was total.
+     */
+    private static String drawn(TownPlan plan, SimPos centre) {
+        int across = 6;
+        int down = 12;
+        int wide = 0;
+        int tall = 0;
+        for (TownPlan.Plot plot : plan.plots()) {
+            wide = Math.max(wide, Math.abs(plot.at().x() - centre.x()));
+            tall = Math.max(tall, Math.abs(plot.at().z() - centre.z()));
+        }
+        for (TownPlan.Street street : plan.streets()) {
+            for (SimPos point : street.path()) {
+                wide = Math.max(wide, Math.abs(point.x() - centre.x()));
+                tall = Math.max(tall, Math.abs(point.z() - centre.z()));
+            }
+        }
+        int columns = wide / across + 2;
+        int rows = tall / down + 2;
+        char[][] cells = new char[2 * rows + 1][2 * columns + 1];
+        for (char[] row : cells) {
+            java.util.Arrays.fill(row, ' ');
+        }
+
+        for (TownPlan.Street street : plan.streets()) {
+            List<SimPos> path = street.path();
+            for (int i = 1; i < path.size(); i++) {
+                SimPos a = path.get(i - 1);
+                SimPos b = path.get(i);
+                int steps = Math.max(1, (int) Math.round(a.horizontalDistance(b)));
+                for (int step = 0; step <= steps; step++) {
+                    double part = (double) step / steps;
+                    mark(cells, centre, rows, columns, across, down,
+                            (int) Math.round(a.x() + part * (b.x() - a.x())),
+                            (int) Math.round(a.z() + part * (b.z() - a.z())), '.');
+                }
+            }
+        }
+        for (TownPlan.Plot plot : plan.plots()) {
+            mark(cells, centre, rows, columns, across, down,
+                    plot.at().x(), plot.at().z(), '#');
+        }
+
+        StringBuilder drawing = new StringBuilder();
+        for (char[] row : cells) {
+            drawing.append(new String(row).replaceAll("\\s+$", "")).append('\n');
+        }
+        return drawing.toString();
+    }
+
+    private static void mark(char[][] cells, SimPos centre, int rows, int columns,
+                             int across, int down, int x, int z, char with) {
+        int column = columns + Math.floorDiv(x - centre.x() + across / 2, across);
+        int row = rows + Math.floorDiv(z - centre.z() + down / 2, down);
+        if (row >= 0 && row < cells.length && column >= 0 && column < cells[0].length
+                && (with == '#' || cells[row][column] == ' ')) {
+            cells[row][column] = with;
+        }
     }
 }

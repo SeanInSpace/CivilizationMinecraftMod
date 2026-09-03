@@ -474,6 +474,24 @@ public final class Layouts {
     public static final Layout RADIAL_CONCENTRIC =
             new RadialStreetLayout("radial_concentric", Wander.STRAIGHT, true);
 
+    /**
+     * A long green with a street down each side: the village as a leaf.
+     *
+     * <p>The one arrangement here that is not built round a point. Rings, grids
+     * and the ring streets are all as wide as they are long by construction; this
+     * one has an empty lens down the middle of it and stops getting wider once
+     * its back lanes are reached, so everything after about eighty plots goes
+     * into length. A village of a hundred and forty reaches 126 blocks along the
+     * green and 85 across it, and the whole plan 243 by 85 — reaches from the
+     * middle, so 487 by 171 on the ground.
+     *
+     * <p>Below that it is round, and it is worth knowing which way round the
+     * claim runs: this is not a small town that is longer than it is wide, it is
+     * a town that <em>becomes</em> longer than it is wide. See the table on
+     * {@link GreenLayout} for the shape at every size.
+     */
+    public static final Layout GREEN = new GreenLayout();
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     /**
@@ -496,7 +514,8 @@ public final class Layouts {
 
     static {
         for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
-                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC}) {
+                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC,
+                GREEN}) {
             KNOWN.put(layout.id(), layout);
         }
         STREETS_FIRST.put(RING.id(), RING_STREETS.id());
