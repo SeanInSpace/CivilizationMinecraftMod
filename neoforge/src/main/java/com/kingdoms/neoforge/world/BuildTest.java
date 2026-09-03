@@ -156,35 +156,43 @@ public final class BuildTest {
         // roads with houses on the inner two and a quarter mile of empty
         // carriageway round the outside, which reads as a town that failed
         // rather than a town that is small.
-        int edge = builtOutTo(centre, pending) + BEYOND_THE_LAST_HOUSE;
+        List<SimPos> houses = new ArrayList<>();
+        for (Placement placement : pending) {
+            houses.add(placement.at());
+        }
+        // Lanes first, then the roads they hang off.
+        //
+        // A spine carries the town's frontage only incidentally -- what it
+        // mostly carries is other streets. Judged on houses alone, a thorp's two
+        // outer tracks kept three pieces and none: their own plots were not
+        // among the sixty-four built, so nothing stood near them, so they were
+        // not paved -- and eleven lanes were left correctly drawn from a mouth
+        // that opened onto grass. So where a lane is kept, its mouth is a reason
+        // to pave the road it meets, exactly as a house is.
         List<PathNetwork.Segment> toPave = new ArrayList<>();
+        List<SimPos> served = new ArrayList<>(houses);
         for (TownPlan.Street street : plan.streets()) {
-            List<SimPos> path = street.path();
-            for (int i = 1; i < path.size(); i++) {
-                SimPos from = path.get(i - 1);
-                SimPos to = path.get(i);
-                boolean nearIn = away(centre, from) <= edge;
-                boolean farIn = away(centre, to) <= edge;
-                if (!nearIn && !farIn) {
-                    continue;   // wholly beyond the town
+            if (street.kind() == TownPlan.Kind.SPINE) {
+                continue;
+            }
+            List<PathNetwork.Segment> run = asFarAsItIsUsed(street, houses);
+            if (!run.isEmpty()) {
+                toPave.addAll(run);
+                // Only where the street actually has a mouth. A ring road is a
+                // closed loop whose two ends are the same point, and counting
+                // that point as a junction paved one spoke further than its five
+                // fellows -- a ring crosses every spoke, so singling out the one
+                // where its path happens to begin is arbitrary. A loop hangs off
+                // nothing; its spokes are paved by the houses on them.
+                if (away(street.from(), street.to()) > ROAD_WIDTH) {
+                    served.add(street.from());
+                    served.add(street.to());
                 }
-                // A stretch that crosses the edge is cut at it, not kept whole.
-                //
-                // Keeping it whole was the first version, and it did nothing at
-                // all to the streets that most needed trimming: a ring town's
-                // spoke is a single stretch from the green to the outskirts, so
-                // its near end is fourteen blocks out, always inside the edge,
-                // and the entire hundred-and-ninety-block carriageway paved. The
-                // symptom was six roads shooting past the outermost ring -- which
-                // is exactly what the trim was written to stop, and I looked at
-                // it in a screenshot and talked myself into calling it a road
-                // leaving town.
-                if (!farIn) {
-                    to = whereItCrosses(centre, from, to, edge);
-                } else if (!nearIn) {
-                    from = whereItCrosses(centre, to, from, edge);
-                }
-                toPave.add(new PathNetwork.Segment(from, to, street.width()));
+            }
+        }
+        for (TownPlan.Street street : plan.streets()) {
+            if (street.kind() == TownPlan.Kind.SPINE) {
+                toPave.addAll(asFarAsItIsUsed(street, served));
             }
         }
         for (int i = 0; i < toPave.size(); i++) {
@@ -204,8 +212,8 @@ public final class BuildTest {
                 "BUILDTEST start layout={} centre={} count={} bps={} streets={} frontage={}%",
                 arrangement.id(), centre, pending.size(), buildingsPerSecond,
                 plan.streets().size(), plan.frontagePercent());
-        KingdomsMod.LOGGER.info("BUILDTEST street runs to pave: {} out to {} blocks",
-                toPave.size(), edge);
+        KingdomsMod.LOGGER.info("BUILDTEST street runs to pave: {}, within {} of a house",
+                toPave.size(), SERVES);
         return pending.size();
     }
 
@@ -364,49 +372,109 @@ public final class BuildTest {
         return DWELLINGS[(index - PROGRAMME.length) % DWELLINGS.length];
     }
 
-    /** How far the paving runs past the outermost building. */
-    private static final int BEYOND_THE_LAST_HOUSE = 24;
-
     /**
-     * The point where a stretch leaving town crosses a circle of this radius.
+     * Whether any building of this run stands close enough to want this ground
+     * paved.
      *
-     * <p>Solved rather than stepped: the stretch is {@code inside + t(outside -
-     * inside)} and the crossing is the root of a quadratic in t, which is exact
-     * and costs nothing. A walk in unit steps would have been fine too, but this
-     * is the kind of arithmetic that is easier to check than to trust.
+     * <p>This replaced a radius measured from the town's centre, which managed to
+     * be wrong in both directions at once. A ring town's spokes run straight out
+     * past the last ring, so measuring from the middle kept all hundred and
+     * ninety blocks of them. A thorp's outer tracks run <em>alongside</em> the
+     * town rather than out of it and sit further from the middle than the
+     * furthest house does — so the same measurement threw all three of them away
+     * and left twenty-nine streets' worth of lanes stranded in the grass with
+     * their yards on the end and no road home. Both were photographed before
+     * either was understood.
      *
-     * @param inside  an end known to be within the radius
-     * @param outside an end known to be beyond it
+     * <p>Distance from the houses answers both, because it is the question that
+     * was always being asked. A road is paved where it serves somebody and stops
+     * shortly after it stops doing so, whichever way it runs.
      */
-    static SimPos whereItCrosses(SimPos centre, SimPos inside, SimPos outside, int radius) {
-        double ux = inside.x() - centre.x();
-        double uz = inside.z() - centre.z();
-        double dx = outside.x() - inside.x();
-        double dz = outside.z() - inside.z();
-        double a = dx * dx + dz * dz;
-        if (a == 0) {
-            return inside;   // the two ends are the same column
+    /**
+     * The part of a street worth paving, as an unbroken run.
+     *
+     * <p>Judging each piece on its own merits leaves holes. Only sixty-four of a
+     * plan's two hundred and fifty-six plots get built, so a lane can have its
+     * yard standing and the pair at its mouth not — and a rule that asks "is
+     * anybody near this piece" then paves the far half of the lane and not the
+     * half that joins it to the road, which is how a thorp came out as yards
+     * marooned in grass with a stub of lane attached.
+     *
+     * <p>So the answer is a span, never a scatter: everything between the first
+     * piece that serves somebody and the last. A lane keeps its head as well,
+     * back to the road it hangs off, because a lane that does not reach its road
+     * is not a lane — while a spine is trimmed at both ends, since it is the
+     * thing being hung off and runs the whole width of a plan whether or not the
+     * town has grown that far.
+     */
+    static List<PathNetwork.Segment> asFarAsItIsUsed(TownPlan.Street street,
+                                                             List<SimPos> houses) {
+        List<SimPos> pieces = new ArrayList<>();
+        List<SimPos> path = street.path();
+        for (int i = 1; i < path.size(); i++) {
+            SimPos from = path.get(i - 1);
+            SimPos to = path.get(i);
+            int cuts = Math.max(1, (int) Math.ceil(away(from, to) / (double) PAVE_PIECE));
+            for (int k = 0; k < cuts; k++) {
+                if (pieces.isEmpty()) {
+                    pieces.add(along(from, to, 0));
+                }
+                pieces.add(along(from, to, (k + 1) / (double) cuts));
+            }
         }
-        double b = 2 * (ux * dx + uz * dz);
-        double c = ux * ux + uz * uz - (double) radius * radius;
-        double under = b * b - 4 * a * c;
-        if (under < 0) {
-            return outside;   // never actually crosses; nothing to cut
+        int first = -1;
+        int last = -1;
+        for (int i = 0; i < pieces.size(); i++) {
+            if (servesSomebody(pieces.get(i), houses)) {
+                first = first < 0 ? i : first;
+                last = i;
+            }
         }
-        double t = (-b + Math.sqrt(under)) / (2 * a);
-        t = Math.max(0, Math.min(1, t));
-        return new SimPos(
-                (int) Math.round(inside.x() + t * dx), inside.y(),
-                (int) Math.round(inside.z() + t * dz));
+        if (first < 0) {
+            return List.of();   // serves nobody; not a road this town has
+        }
+        int from = street.kind() == TownPlan.Kind.SPINE ? Math.max(0, first - 1) : 0;
+        int to = Math.min(pieces.size() - 1, last + 1);
+        List<PathNetwork.Segment> run = new ArrayList<>();
+        for (int i = from; i < to; i++) {
+            run.add(new PathNetwork.Segment(pieces.get(i), pieces.get(i + 1),
+                    street.width()));
+        }
+        return run;
     }
 
-    /** How far from the middle the furthest building of this run stands. */
-    private static int builtOutTo(SimPos centre, List<Placement> pending) {
-        int furthest = 0;
-        for (Placement placement : pending) {
-            furthest = Math.max(furthest, away(centre, placement.at()));
+    static boolean servesSomebody(SimPos where, List<SimPos> houses) {
+        for (SimPos house : houses) {
+            if (away(where, house) <= SERVES) {
+                return true;
+            }
         }
-        return furthest;
+        return false;
+    }
+
+    /**
+     * How far a building will reach for a road.
+     *
+     * <p>Wider than the setback of thirteen, and it has to be: a piece of road
+     * halfway between two houses must be kept too, or a street comes out dashed.
+     * At the ordinary pitch of fourteen the midpoint between two neighbours is
+     * about twenty-one blocks from the nearer of them, so thirty-two carries a
+     * continuous road while still stopping a spoke a short way past the last
+     * house on it.
+     */
+    private static final int SERVES = 32;
+
+    /** Two ends closer than this are the same end, and the street is a loop. */
+    private static final int ROAD_WIDTH = 8;
+
+    /** How finely a stretch is cut up before each piece is judged. */
+    private static final int PAVE_PIECE = 8;
+
+    /** A point some fraction of the way along a stretch. */
+    static SimPos along(SimPos from, SimPos to, double fraction) {
+        return new SimPos(
+                (int) Math.round(from.x() + (to.x() - from.x()) * fraction), from.y(),
+                (int) Math.round(from.z() + (to.z() - from.z()) * fraction));
     }
 
     private static int away(SimPos from, SimPos to) {

@@ -3,58 +3,76 @@ package com.kingdoms.neoforge.world;
 import com.kingdoms.sim.geom.SimPos;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Where a street leaving town gets cut.
+ * Which ground the renderer decides to pave.
  *
- * <p>This exists because the first version of the trim was checked by looking at
- * the town from the air and was wrong: a ring town's spokes are a single stretch
- * each, so the test "is either end inside the edge" was true of all six of them
- * and none was trimmed at all. The picture showed six roads running past the
- * outermost ring and that read as roads leaving town rather than as the bug it
- * was. Arithmetic this small should be checked by arithmetic.
+ * <p>This exists because the rule has now been wrong twice and neither time was
+ * caught by looking. The first version kept a stretch when either end was inside
+ * a radius, which cannot trim a street made of one stretch — so a ring town's
+ * spokes paved in full, and the photograph of them running off the frame read as
+ * roads leaving town. The second measured that radius from the town's centre,
+ * which throws away a road running <em>alongside</em> the town: a thorp's outer
+ * tracks sit further from the middle than its furthest house, so all three went,
+ * and their lanes were left in the grass with yards on the end and no road home.
+ *
+ * <p>Both faults are invisible in a screenshot and obvious in a number.
  */
 class BuildTestTrimTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 64, 0);
+    /** A house on a road that runs past the middle of town, and one that does not. */
+    private static final SimPos NEAR_THE_MIDDLE = new SimPos(0, 64, 0);
+    private static final SimPos OUT_ON_A_FLANK = new SimPos(150, 64, 0);
 
     @Test
-    void aStretchIsCutWhereItCrossesTheEdge() {
-        SimPos cut = BuildTest.whereItCrosses(
-                CENTRE, new SimPos(14, 64, 0), new SimPos(200, 64, 0), 143);
-        assertEquals(143, cut.x(), "cut on the circle, due east");
-        assertEquals(0, cut.z());
+    void groundBesideAHouseIsPaved() {
+        assertTrue(BuildTest.servesSomebody(new SimPos(13, 64, 0),
+                List.of(NEAR_THE_MIDDLE)), "a road at the setback serves the house on it");
     }
 
     @Test
-    void theCutKeepsTheHeightOfTheStretch() {
-        SimPos cut = BuildTest.whereItCrosses(
-                CENTRE, new SimPos(0, 71, 14), new SimPos(0, 71, 200), 143);
+    void groundBetweenTwoHousesIsPavedSoAStreetIsNotDashed() {
+        // The midpoint of a street between neighbours a pitch apart, at the
+        // setback: about twenty-one blocks from either. If this fails a street
+        // comes out in pieces.
+        List<SimPos> houses = List.of(new SimPos(0, 64, 0), new SimPos(0, 64, 28));
+        assertTrue(BuildTest.servesSomebody(new SimPos(13, 64, 14), houses),
+                "the road between two houses is still their road");
+    }
+
+    @Test
+    void groundFarPastTheLastHouseIsNotPaved() {
+        assertFalse(BuildTest.servesSomebody(new SimPos(200, 64, 0),
+                List.of(NEAR_THE_MIDDLE)), "a spoke stops a little past the last house");
+    }
+
+    @Test
+    void aRoadRunningAlongsideTheTownIsKeptEvenThoughItIsFarFromTheMiddle() {
+        // The fault that stranded a thorp's lanes. This ground is 150 blocks from
+        // the centre and 3 from a house; the old rule asked the first number.
+        assertTrue(BuildTest.servesSomebody(new SimPos(153, 64, 0),
+                List.of(OUT_ON_A_FLANK)),
+                "a track alongside the town serves the houses on it");
+    }
+
+    @Test
+    void aStretchIsCutIntoPiecesAlongItsLength() {
+        SimPos from = new SimPos(0, 71, 0);
+        SimPos to = new SimPos(100, 71, 0);
+        assertEquals(new SimPos(0, 71, 0), BuildTest.along(from, to, 0.0));
+        assertEquals(new SimPos(50, 71, 0), BuildTest.along(from, to, 0.5));
+        assertEquals(new SimPos(100, 71, 0), BuildTest.along(from, to, 1.0));
+    }
+
+    @Test
+    void aPieceKeepsTheHeightOfTheStretch() {
+        SimPos cut = BuildTest.along(new SimPos(0, 71, 0), new SimPos(0, 71, 80), 0.25);
         assertEquals(71, cut.y(), "y is the plan's, not the ground's");
-    }
-
-    @Test
-    void aDiagonalStretchIsCutOnTheCircleNotTheBox() {
-        SimPos cut = BuildTest.whereItCrosses(
-                CENTRE, new SimPos(10, 64, 10), new SimPos(300, 64, 300), 100);
-        double away = Math.hypot(cut.x(), cut.z());
-        assertTrue(Math.abs(away - 100) <= 1,
-                "a diagonal should be cut at radius 100, was " + away);
-    }
-
-    @Test
-    void aStretchThatNeverLeavesIsNotMoved() {
-        SimPos inside = new SimPos(10, 64, 0);
-        SimPos alsoInside = new SimPos(20, 64, 0);
-        SimPos cut = BuildTest.whereItCrosses(CENTRE, inside, alsoInside, 143);
-        assertEquals(alsoInside, cut, "nothing to cut: hand back the far end");
-    }
-
-    @Test
-    void aStretchOfNoLengthIsHandedBackRatherThanDividedByZero() {
-        SimPos here = new SimPos(30, 64, 30);
-        assertEquals(here, BuildTest.whereItCrosses(CENTRE, here, here, 143));
+        assertEquals(20, cut.z());
     }
 }
