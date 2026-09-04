@@ -4,6 +4,7 @@ import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.client.KingdomsClient;
 import com.kingdoms.neoforge.command.KingdomsCommand;
 import com.kingdoms.neoforge.entity.PersonEntity;
+import com.kingdoms.neoforge.entity.Quarry;
 import com.kingdoms.neoforge.net.KingdomsNetwork;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.view.PersonEntityManager;
@@ -15,8 +16,7 @@ import com.kingdoms.sim.world.SimSettings;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.monster.zombie.Zombie;
+import net.minecraft.world.entity.Mob;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -381,10 +381,13 @@ public final class KingdomsMod {
      * ourselves this session — including villager-bodied views from older versions
      * — is cancelled here and respawned fresh if anyone is watching.
      *
-     * <p><strong>Arming hostiles:</strong> zombies hunt vanilla villagers through a
-     * hardcoded type check they will never extend to our people. Every joining
-     * zombie is given a targeting goal for {@link PersonEntity}, restoring vanilla
-     * menace against the town.
+     * <p><strong>Arming creatures:</strong> vanilla's hostiles hunt players and
+     * {@code AbstractVillager}, and a citizen is neither, so a town read as empty
+     * to everything in the game. Only zombies were told otherwise, by name. Every
+     * joining creature is now handed to {@link Quarry}, which decides by class and
+     * interface what it should make of a citizen — hunt one, hit back at one, or
+     * pay no attention — and so covers whatever a mod has added without knowing
+     * anything about it.
      */
     private static void onEntityJoin(EntityJoinLevelEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) {
@@ -399,10 +402,8 @@ public final class KingdomsMod {
             LOGGER.info("ITEMPOP {} x{} at {}", item.getItem().getItem(),
                     item.getItem().getCount(), item.blockPosition().toShortString());
         }
-        if (event.getEntity() instanceof Zombie zombie) {
-            zombie.targetSelector.addGoal(3,
-                    new NearestAttackableTargetGoal<>(zombie, PersonEntity.class, true));
-            return;
+        if (event.getEntity() instanceof Mob creature) {
+            Quarry.teach(creature);
         }
         if (!(event.getEntity() instanceof LivingEntity living)) {
             return;

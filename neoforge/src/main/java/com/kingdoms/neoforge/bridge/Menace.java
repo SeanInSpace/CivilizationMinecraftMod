@@ -1,10 +1,13 @@
 package com.kingdoms.neoforge.bridge;
 
+import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.sim.settlement.Danger;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.boss.wither.WitherBoss;
 import net.minecraft.world.entity.monster.Blaze;
@@ -52,20 +55,22 @@ import net.neoforged.neoforge.common.Tags;
  * the creature; see {@code unnamed} below, which carries the reasoning for each
  * rung it can hand out.
  *
- * <p><b>The sweep is narrower than this table.</b>
- * {@code NeoForgeWorldBridge.hostilesSeen} collects {@code Monster}, and three
- * of the entries below are not monsters: a ghast, a phantom and the ender dragon
- * are all {@code Mob implements Enemy}. So is a slime, and so — this is the part
- * that matters — is the shape a modded boss is most likely to take, since
- * {@code Monster} is a {@code PathfinderMob} and a thing that flies is not. The
- * boss rung in {@code unnamed} can therefore only fire today for a boss that
- * happens to extend {@code Monster}.
+ * <p><b>The sweep now reaches everything the table has an opinion about.</b> It
+ * used to collect {@code Monster}, which is a {@code PathfinderMob} — so a
+ * ghast, a phantom, a slime, the ender dragon and, the part that mattered, any
+ * modded boss written in vanilla's own boss shape ({@code Mob implements Enemy})
+ * never reached the table however carefully it graded them. The sweep collects
+ * every {@code Mob} now and keeps whatever {@link #inSight} scores above
+ * nothing, so who reaches the reckoning is this table rather than a class name.
+ * Nothing here was re-tuned to do it; a town is simply wary of things it could
+ * always see and was never told about.
  *
- * <p>The entries stay, and the sweep is left alone on purpose: this table is the
- * town's opinion about a creature rather than a list of what the sweep happens
- * to catch, and widening the sweep would make a town wary of phantoms, slimes
- * and swamp weather overnight. That is a change somebody has to watch happen,
- * not one to make while renaming constants.
+ * <p><b>Neutrality is a state, not a species.</b> A {@link NeutralMob} — a wolf,
+ * an enderman, a bee, an iron golem, a mod's own herd beast — is on nobody's
+ * side until somebody makes it pick one, so it reaches the table only while its
+ * quarrel is with a person. That cuts as well as widens: an enderman standing in
+ * a field used to be three points of permanent alarm, and is now worth nothing
+ * until it is angry. See {@link #inSight}.
  */
 public final class Menace {
 
@@ -79,13 +84,13 @@ public final class Menace {
      * thing that can tell a drowned from any other zombie) and what the game has
      * <em>registered</em> it as (its type, which is all there is to go on for a
      * mob nobody has named).
-     */
-    public static int of(Entity hostile) {
-        return of(hostile.getClass(), hostile.getType());
-    }
-
-    /**
-     * The same question with the body taken away.
+     *
+     * <p>This is the table, and nothing in the game asks it directly any more:
+     * what a town is frightened of this moment is {@link #inSight}, which is this
+     * plus the one thing a class cannot say — whether a creature that starts on
+     * nobody's side has picked one. An overload taking a live entity used to sit
+     * here and was deleted rather than left, because a caller reaching for the
+     * obvious name would have got the number without the neutrality rule.
      *
      * <p>The two arguments are the class and the registration of one creature,
      * and asking about a pair that never met is a nonsense question — but it is
@@ -240,6 +245,117 @@ public final class Menace {
     /** Reads as "this creature is a creeper", including a mod's own creeper. */
     private static boolean is(Class<? extends Entity> creature, Class<?> family) {
         return family.isAssignableFrom(creature);
+    }
+
+    // --- who reaches the table at all ---
+
+    /**
+     * What one of these in sight is worth to the town <em>right now</em>.
+     *
+     * <p>The table above answers what a kind of creature is worth. This answers
+     * what one particular creature is worth this moment, which is a different
+     * question for exactly one family: a {@link NeutralMob} is on nobody's side
+     * until somebody makes it pick one. A wolf asleep in the grass is scenery; the
+     * same wolf with a guard's sword in it is a fight. So a neutral is worth
+     * nothing at all until it is {@code provoked}, and everything else is worth
+     * what it always was, awake or asleep, because a zombie does not need
+     * provoking.
+     *
+     * <p>The floor of {@link Danger#ROUTINE} on a provoked neutral is the one
+     * number this adds, and it is the smallest one there is: a creature that has
+     * decided to attack somebody is at minimum one guard's routine afternoon —
+     * he walks up to it and hits it — which is the definition of that rung. It
+     * can only ever fire for a creature the table scores at zero, which is a
+     * creature the table has never been asked about, because until now no
+     * peaceful-category animal could reach the sweep. Nothing that already had a
+     * number gets a different one: an angry enderman is still worth a witch.
+     *
+     * <p>This is also the sweep's rule about <em>who</em> reaches the reckoning,
+     * and deliberately so rather than a second predicate beside it: a creature
+     * counts when it is worth something, which is one rule instead of two that
+     * could disagree. {@link Danger#NONE} is the refusal, and it is what every
+     * cow in the box answers, so widening the sweep from {@code Monster} to every
+     * {@code Mob} costs a town no cows.
+     */
+    public static int inSight(Class<? extends Entity> creature, EntityType<?> kind, boolean provoked) {
+        if (!is(creature, NeutralMob.class)) {
+            return of(creature, kind);
+        }
+        return provoked ? Math.max(of(creature, kind), Danger.ROUTINE) : Danger.NONE;
+    }
+
+    /** {@link #inSight} about a creature that is standing there. */
+    public static int inSight(Entity creature) {
+        return inSight(creature.getClass(), creature.getType(), provoked(creature));
+    }
+
+    /**
+     * Whether this creature's current quarrel is with the town.
+     *
+     * <p>Read from what it is doing rather than from a flag, because "angry" on
+     * its own is not the question a town is asking. An iron golem beating a
+     * zombie in the square is angry and is on the town's side; a wolf tearing
+     * into a sheep is angry and is a wolf being a wolf. Both of those are the
+     * town's afternoon going normally.
+     *
+     * <p>So it is one of the town's own people or it is nothing — not a player
+     * either, deliberately. A wolf chasing somebody through the woods is that
+     * somebody's problem, and a golem chasing the man who punched it is the
+     * town's defender doing its job. Counting either would make a town wary of
+     * fights it is not in, and the golem case would have it counting its own
+     * guard as danger.
+     *
+     * <p>A creature that has lost sight of who it is angry with reads as calm for
+     * as long as that lasts. It is not a hole: the town remembers a sighting for
+     * several steps after it stops seeing it, which is precisely the case this
+     * would otherwise have to handle itself.
+     */
+    private static boolean provoked(Entity creature) {
+        return creature instanceof Mob mob && mob.getTarget() instanceof PersonEntity;
+    }
+
+    // --- how a creature treats a citizen ---
+
+    /**
+     * What a creature will do about a citizen.
+     *
+     * <p>By class and interface only — never by a list of mods — so a creature a
+     * mod added is covered by being what it is. What the game says about it is
+     * all there is to go on and all that is needed.
+     */
+    public enum Regard {
+
+        /** It hunts one, unasked, the way it hunts a player. */
+        HUNTS,
+
+        /** It leaves one alone until struck, and then remembers who struck it. */
+        RETALIATES,
+
+        /** A citizen is nothing to it either way. */
+        IGNORES
+    }
+
+    /**
+     * How this creature should treat a citizen.
+     *
+     * <p>{@link NeutralMob} is asked first and it wins, because the interface is
+     * the game saying "this one starts on nobody's side" and that outranks the
+     * category it was filed under: a zombified piglin is registered as a monster
+     * and graded like one, and still must not hunt a citizen who has not touched
+     * it. Everything else follows the table — anything worth anything at all
+     * hunts, and anything worth nothing does not care.
+     *
+     * <p>Raiders fall out of this rather than being named: a raider is an
+     * {@link Enemy} and is not neutral, so it hunts. That matters more than it
+     * looks, because vanilla's raiders hunt {@code AbstractVillager} and a
+     * citizen is not one — a pillager band would walk through a town without
+     * seeing anybody in it.
+     */
+    public static Regard regards(Class<? extends Entity> creature, EntityType<?> kind) {
+        if (is(creature, NeutralMob.class)) {
+            return Regard.RETALIATES;
+        }
+        return of(creature, kind) > Danger.NONE ? Regard.HUNTS : Regard.IGNORES;
     }
 
     /**
