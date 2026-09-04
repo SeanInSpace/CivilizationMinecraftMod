@@ -7,6 +7,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.BuildCatalogue;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildingType;
+import com.kingdoms.sim.settlement.Danger;
 import com.kingdoms.sim.settlement.Footprint;
 import net.minecraft.world.level.block.state.BlockState;
 import com.kingdoms.sim.platform.Sighting;
@@ -14,7 +15,7 @@ import com.kingdoms.sim.platform.WorldBridge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.zombie.Zombie;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
@@ -575,6 +576,12 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      * danger rather than a head count — four zombies and four creepers read very
      * differently to a town, and now they do here too.
      *
+     * <p>Who counts is {@link Menace#inSight} and nothing else, which is why this
+     * collects every {@code Mob} and lets the table do the whittling. A town is
+     * now wary of phantoms at night and of slimes in a swamp, which it never was,
+     * and it is no longer permanently wary of an enderman standing in a field,
+     * which it always was.
+     *
      * <p>A town with nobody embodied sees nothing, and says so. That is correct
      * rather than a gap — with no citizens loaded there is nobody to be
      * frightened, and the abstract half of the simulation has its own raids.
@@ -594,12 +601,25 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         }
         int seen = 0;
         int danger = 0;
-        for (Monster hostile : level.getEntitiesOfClass(Monster.class, box, LivingEntity::isAlive)) {
+        // Every Mob, whittled by what the town thinks of it, rather than every
+        // Monster. Monster is a PathfinderMob, so the old collection could not
+        // reach a ghast, a phantom, a slime, the dragon or a modded boss in
+        // vanilla's own boss shape, however carefully the table graded them.
+        // Cows are refused by the table rather than by the collection, and they
+        // are refused before anybody looks for them: grading is a chain of class
+        // tests and line of sight is a ray through the world, so the cheap
+        // question goes first even though it now gets asked about every sheep in
+        // the claim.
+        for (Mob creature : level.getEntitiesOfClass(Mob.class, box, LivingEntity::isAlive)) {
+            int worth = Menace.inSight(creature);
+            if (worth <= Danger.NONE) {
+                continue;
+            }
             for (PersonEntity citizen : citizens) {
-                if (citizen.distanceToSqr(hostile) <= CITIZEN_SIGHT * CITIZEN_SIGHT
-                        && citizen.hasLineOfSight(hostile)) {
+                if (citizen.distanceToSqr(creature) <= CITIZEN_SIGHT * CITIZEN_SIGHT
+                        && citizen.hasLineOfSight(creature)) {
                     seen++;
-                    danger += Menace.of(hostile);
+                    danger += worth;
                     break;   // one witness is enough; a mob is not scarier for being seen twice
                 }
             }

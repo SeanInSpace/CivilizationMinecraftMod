@@ -1,19 +1,29 @@
 package com.kingdoms.neoforge.bridge;
 
+import com.kingdoms.neoforge.entity.PersonEntity;
+import com.kingdoms.sim.settlement.Alarm;
 import com.kingdoms.sim.settlement.Danger;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.NeutralMob;
+import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ambient.Bat;
+import net.minecraft.world.entity.animal.bee.Bee;
 import net.minecraft.world.entity.animal.cow.Cow;
 import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.animal.polarbear.PolarBear;
+import net.minecraft.world.entity.animal.wolf.Wolf;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.boss.wither.WitherBoss;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.monster.Endermite;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.monster.Ghast;
 import net.minecraft.world.entity.monster.Guardian;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Phantom;
@@ -34,11 +44,13 @@ import net.minecraft.world.entity.monster.zombie.Drowned;
 import net.minecraft.world.entity.monster.zombie.Husk;
 import net.minecraft.world.entity.monster.zombie.Zombie;
 import net.minecraft.world.entity.monster.zombie.ZombieVillager;
+import net.minecraft.world.entity.monster.zombie.ZombifiedPiglin;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.raid.Raider;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -183,6 +195,172 @@ class MenaceTest {
                         + " means the sweep found nothing and this test proved nothing");
     }
 
+    // --- who reaches the reckoning at all ---
+
+    /**
+     * The sweep's own admission test, written out rather than called.
+     *
+     * <p>{@code hostilesSeen} keeps what scores above nothing and drops the rest,
+     * which is one rule rather than a number and a predicate that could drift
+     * apart. Spelling it here keeps the assertions below readable without adding
+     * a second public way to ask the same question.
+     */
+    private static boolean reaches(Class<? extends Entity> creature, EntityType<?> kind, boolean provoked) {
+        return Menace.inSight(creature, kind, provoked) > Danger.NONE;
+    }
+
+    @Test
+    void aHostileIsOnTheReckoningWhetherOrNotItHasPickedAFight() {
+        // The four the sweep could never reach. None of them is a Monster, and
+        // Monster is what it used to collect.
+        assertTrue(reaches(Ghast.class, EntityTypes.GHAST, false));
+        assertTrue(reaches(Phantom.class, EntityTypes.PHANTOM, false));
+        assertTrue(reaches(Slime.class, EntityTypes.SLIME, false));
+        assertTrue(reaches(EnderDragon.class, EntityTypes.ENDER_DRAGON, false));
+        assertTrue(reaches(HorrorNobodyNamed.class, EntityTypes.COW, false),
+                "the shape a modded boss takes, which is why the gap mattered");
+    }
+
+    @Test
+    void aPassiveCreatureNeverReachesIt() {
+        assertFalse(reaches(Cow.class, EntityTypes.COW, false));
+        assertFalse(reaches(Cow.class, EntityTypes.COW, true),
+                "there is no such thing as a cow that has picked a fight");
+        assertFalse(reaches(Villager.class, EntityTypes.VILLAGER, true));
+    }
+
+    @Test
+    void aNeutralCreatureCountsOnlyWhileItsQuarrelIsWithTheTown() {
+        assertFalse(reaches(Wolf.class, EntityTypes.WOLF, false),
+                "a wolf asleep in the grass is scenery");
+        assertTrue(reaches(Wolf.class, EntityTypes.WOLF, true),
+                "the same wolf with a guard's sword in it is a fight");
+        assertFalse(reaches(Bee.class, EntityTypes.BEE, false));
+        assertTrue(reaches(Bee.class, EntityTypes.BEE, true));
+        assertFalse(reaches(PolarBear.class, EntityTypes.POLAR_BEAR, false));
+        assertFalse(reaches(IronGolem.class, EntityTypes.IRON_GOLEM, false),
+                "the one standing in the square is still on the town's side");
+        assertFalse(reaches(HerdBeastNobodyNamed.class, EntityTypes.COW, false));
+        assertTrue(reaches(HerdBeastNobodyNamed.class, EntityTypes.COW, true));
+    }
+
+    @Test
+    void aMonsterThatIsNeutralIsReadAsNeutral() {
+        // Filed as a monster, graded as one, and still not a threat until
+        // somebody touches it: the interface outranks the filing. This is the
+        // half of the change that makes a town *less* frightened — an enderman
+        // in a field used to be three points of permanent alarm.
+        assertFalse(reaches(EnderMan.class, EntityTypes.ENDERMAN, false));
+        assertTrue(reaches(EnderMan.class, EntityTypes.ENDERMAN, true));
+        assertFalse(reaches(ZombifiedPiglin.class, EntityTypes.ZOMBIFIED_PIGLIN, false));
+        assertTrue(reaches(ZombifiedPiglin.class, EntityTypes.ZOMBIFIED_PIGLIN, true));
+    }
+
+    @Test
+    void aProvokedNeutralIsWorthAtLeastOneGuardsAfternoon() {
+        assertEquals(Danger.NONE, Menace.inSight(Wolf.class, EntityTypes.WOLF, false));
+        assertEquals(Danger.ROUTINE, Menace.inSight(Wolf.class, EntityTypes.WOLF, true),
+                "a guard walks up to it and hits it, which is the definition of the rung");
+        assertEquals(Danger.FULL_ATTENTION, Menace.inSight(EnderMan.class, EntityTypes.ENDERMAN, true),
+                "the floor cannot lift something the table already grades");
+    }
+
+    @Test
+    void theFloorCannotLiftANeutralTheTableAlreadyGrades() {
+        // The floor is a maximum against the table, so it can only ever fire for
+        // a creature the table scores at nothing. Both of these are neutral and
+        // both are graded, and a zombified piglin sits exactly on the floor —
+        // which is where a raised one would be caught first.
+        assertEquals(Menace.of(EnderMan.class, EntityTypes.ENDERMAN),
+                Menace.inSight(EnderMan.class, EntityTypes.ENDERMAN, true));
+        assertEquals(Menace.of(ZombifiedPiglin.class, EntityTypes.ZOMBIFIED_PIGLIN),
+                Menace.inSight(ZombifiedPiglin.class, EntityTypes.ZOMBIFIED_PIGLIN, true));
+        assertEquals(Danger.ROUTINE, Menace.of(ZombifiedPiglin.class, EntityTypes.ZOMBIFIED_PIGLIN),
+                "if this stops being the floor's own rung the test above stops being sharp");
+    }
+
+    @Test
+    void aCreatureThatIsNotNeutralReadsTheTableWhateverItIsDoing() {
+        // The whole registry, class held at Entity, which is not a NeutralMob:
+        // being provoked must make no difference to any of them. This is what
+        // catches a floor applied to everything rather than only to neutrals —
+        // a cow that reads one because somebody kicked it.
+        for (EntityType<?> kind : BuiltInRegistries.ENTITY_TYPE) {
+            String name = String.valueOf(BuiltInRegistries.ENTITY_TYPE.getKey(kind));
+            assertEquals(Menace.of(Entity.class, kind), Menace.inSight(Entity.class, kind, true), name);
+            assertEquals(Menace.of(Entity.class, kind), Menace.inSight(Entity.class, kind, false), name);
+        }
+    }
+
+    @Test
+    void whatTheWidenedSweepDoesToATownsAlarm() {
+        // The downstream effect, in the tiers it lands in. Everything named here
+        // is a creature the town's own eyes could not report until now.
+        // Through inSight rather than through the table, because inSight is what
+        // the sweep adds up: a later rule about phantoms at dawn or about the
+        // size of a slime would go there, and this should notice when it does.
+        assertEquals(Alarm.WARY, Alarm.of(Menace.inSight(Phantom.class, EntityTypes.PHANTOM, false)),
+                "one phantom overhead: the outdoor trades come in");
+        assertEquals(Alarm.ALARMED, Alarm.of(3 * Menace.inSight(Phantom.class, EntityTypes.PHANTOM, false)),
+                "three of them: everybody indoors");
+        assertEquals(Alarm.WARY, Alarm.of(Menace.inSight(Slime.class, EntityTypes.SLIME, false)),
+                "a slime in a swamp");
+        assertEquals(Alarm.CALM, Alarm.of(Menace.inSight(Wolf.class, EntityTypes.WOLF, false)));
+        assertEquals(Alarm.WARY, Alarm.of(Menace.inSight(Wolf.class, EntityTypes.WOLF, true)),
+                "one provoked wolf");
+        assertEquals(Alarm.ALARMED, Alarm.of(6 * Menace.inSight(Wolf.class, EntityTypes.WOLF, true)),
+                "a pack of six");
+    }
+
+    // --- what a creature makes of a citizen ---
+
+    @Test
+    void aHostileHuntsACitizen() {
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Zombie.class, EntityTypes.ZOMBIE));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Skeleton.class, EntityTypes.SKELETON));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Creeper.class, EntityTypes.CREEPER));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Phantom.class, EntityTypes.PHANTOM));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Warden.class, EntityTypes.WARDEN));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(HorrorNobodyNamed.class, EntityTypes.COW),
+                "a mod's own boss, covered by being what it is");
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(ArcherNobodyNamed.class, EntityTypes.CREAKING));
+    }
+
+    @Test
+    void aRaiderHuntsACitizenWithoutBeingNamedARaider() {
+        // The raid answer, and it matters: vanilla's raiders hunt
+        // AbstractVillager and a citizen is not one, so a band used to walk
+        // through a town seeing nobody in it. They arrive here by being Enemy
+        // and not neutral, like anything else would.
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Pillager.class, EntityTypes.PILLAGER));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Vindicator.class, EntityTypes.VINDICATOR));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Evoker.class, EntityTypes.EVOKER));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Ravager.class, EntityTypes.RAVAGER));
+        assertEquals(Menace.Regard.HUNTS, Menace.regards(Raider.class, EntityTypes.PILLAGER));
+    }
+
+    @Test
+    void aNeutralCreatureOnlyHitsBack() {
+        assertEquals(Menace.Regard.RETALIATES, Menace.regards(Wolf.class, EntityTypes.WOLF));
+        assertEquals(Menace.Regard.RETALIATES, Menace.regards(Bee.class, EntityTypes.BEE));
+        assertEquals(Menace.Regard.RETALIATES, Menace.regards(PolarBear.class, EntityTypes.POLAR_BEAR));
+        assertEquals(Menace.Regard.RETALIATES, Menace.regards(IronGolem.class, EntityTypes.IRON_GOLEM));
+        assertEquals(Menace.Regard.RETALIATES, Menace.regards(EnderMan.class, EntityTypes.ENDERMAN));
+        assertEquals(Menace.Regard.RETALIATES,
+                Menace.regards(ZombifiedPiglin.class, EntityTypes.ZOMBIFIED_PIGLIN),
+                "the one creature that loses a hunt it used to have: the old line armed "
+                        + "every Zombie by class, and a zombified piglin is one by descent");
+        assertEquals(Menace.Regard.RETALIATES, Menace.regards(HerdBeastNobodyNamed.class, EntityTypes.COW));
+    }
+
+    @Test
+    void nothingHuntsACitizenThatHasNoReasonTo() {
+        assertEquals(Menace.Regard.IGNORES, Menace.regards(Cow.class, EntityTypes.COW));
+        assertEquals(Menace.Regard.IGNORES, Menace.regards(Villager.class, EntityTypes.VILLAGER));
+        assertEquals(Menace.Regard.IGNORES, Menace.regards(PersonEntity.class, EntityTypes.VILLAGER),
+                "a citizen is not quarry to another citizen");
+    }
+
     /**
      * What a mod adds: a hostile that shoots, which nothing in the table has
      * heard of.
@@ -192,6 +370,27 @@ class MenaceTest {
      */
     private abstract static class ArcherNobodyNamed extends Monster implements RangedAttackMob {
         private ArcherNobodyNamed() {
+            super(null, null);
+        }
+    }
+
+    /**
+     * The shape a modded boss is most likely to take: a {@link Mob} that is an
+     * {@link Enemy} without being a {@code Monster}, because {@code Monster} is a
+     * {@code PathfinderMob} and a thing that flies is not one.
+     *
+     * <p>Asked about with a passive registration on purpose, so that only the
+     * interface can answer.
+     */
+    private abstract static class HorrorNobodyNamed extends Mob implements Enemy {
+        private HorrorNobodyNamed() {
+            super(null, null);
+        }
+    }
+
+    /** What a mod adds at the other end: something that minds its own business. */
+    private abstract static class HerdBeastNobodyNamed extends PathfinderMob implements NeutralMob {
+        private HerdBeastNobodyNamed() {
             super(null, null);
         }
     }

@@ -38,6 +38,34 @@ messages carry the reasoning and the measurements.
 
 ### Changed
 
+- **Everything in the world can see the townspeople, and the town can see
+  everything in the world.** Two halves of the same hole. Vanilla's creatures
+  hunt players and vanilla villagers, and a settler is neither — so a pillager
+  band walked through a town without noticing anybody in it, a skeleton on a
+  roof shot at nothing, and only zombies had ever been told otherwise, by name.
+  Now every creature that enters a level is asked what it is: anything hostile
+  hunts settlers one slot behind the way it hunts a player, which is exactly
+  where vanilla puts its own hunt for villagers, and anything neutral — a wolf,
+  a bee, an enderman, a polar bear — leaves them alone until one of them draws
+  on it and then remembers who did. Asked by what the creature *is*, so a mod's
+  own monster is covered without the mod being named. Two consequences worth
+  saying out loud. The zombified piglin stops hunting settlers: the old line
+  armed every zombie, and a zombified piglin is a zombie by descent, so it used
+  to come for a Nether town unprovoked — which is not what a zombified piglin
+  is, and it now waits to be hit like the rest of its kind. And the only settler
+  who can hit anything is a guard, who still only fights things that walk, so
+  the neutrals that will actually bite a settler back today are endermen and
+  zombified piglins; the wolf is wired and waiting on the watch. The other half
+  is what a town can see: the sweep only ever collected
+  things that walk, so a ghast, a phantom, a slime, the ender dragon and any
+  modded boss that flies were invisible to the alarm however carefully the
+  danger table graded them. They count now. So a town is wary of phantoms on the
+  third night and of slimes in a swamp, which is new and is meant; and it is no
+  longer permanently wary of an enderman standing in a field, which is also new,
+  because a neutral creature only counts while its quarrel is with one of the
+  town's own people. No creature's danger number changed. **The watch has not
+  caught up:** a guard still only picks fights with things that walk, so a town
+  can now be frightened of a phantom overhead that nobody will go out to.
 - **Two blocks between any two walls, everywhere.** A plot used to be a
   building, the doorstep ring around it, and one further block belonging to
   nobody. That block is gone: two doorsteps that touch are two buildings that

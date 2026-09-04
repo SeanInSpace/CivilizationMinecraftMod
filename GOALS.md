@@ -191,25 +191,47 @@ part of the work that cannot be delegated.
 
         Opened in a world by the manager on seed 8675309: right-clicking the market post of a town with two coin in its treasury showed four goods, each with its reason beside the price — "They can spare it" on food, wood and stone, "More than they can store" on iron — and the footer "Prices move with what the town is short of. Paid in emeralds." The post stands a block off centre because the stall is turned to face its street, which is worth knowing before clicking at it from a script.
 
-- [ ] **Settle the danger table.** Two of the three questions this item asked
+- [ ] **Settle the danger table.** Three of the four questions this item asked
       are decided: `Danger` in `common` names the rungs and both thresholds read
-      from it, and an unrecognised creature is no longer read as a zombie — the
+      from it, an unrecognised creature is no longer read as a zombie — the
       default is derived from what the game itself knows (nothing hostile 0, a
       boss 10, a raider or anything ranged 3, any other hostile 2), with drowned
       2, ghast 4, blaze, breeze and piglin brute 3, and the wither and the
-      dragon 10 named outright. Two are left.
+      dragon 10 named outright — and the sweep now reaches everything the table
+      grades rather than only what walks. One is left.
 
       - **Whether a creeper at 4 is right.** It is the number the whole feature
         turns on. Too low and a lone creeper barely registers; too high and a
         pair of them panics a town that could have handled it. This one is only
         answerable by watching a town meet one.
-      - **The sighting sweep only sees things that walk.**
-        `NeoForgeWorldBridge.hostilesSeen` collects `Monster`, which is a
-        `PathfinderMob` — so a ghast, a phantom, a slime, the ender dragon, and
-        a modded boss written in vanilla's own boss shape never reach the table
-        at all, however carefully it grades them. Widening the sweep would make
-        towns wary of phantoms and swamp slimes overnight, which is a change
-        somebody has to watch happen rather than one to make while tidying.
+
+- [ ] **The watch is still narrower than the town's eyes, and it cuts both
+      ways.** `PersonEntityManager.guardCombat` picks its target with
+      `nearestHostile`, which collects `Monster` — the narrowing the sighting
+      sweep has just come out of.
+
+      - **A guard will not go for what the town is afraid of.** A phantom, a
+        ghast, a slime and a provoked wolf all raise the alarm now and none of
+        them is a `Monster`, so the town shuts its doors and the watch stands
+        under the thing with its hands in its pockets.
+      - **A guard will go for what the town is not afraid of.** An enderman and
+        a zombified piglin are `Monster implements NeutralMob`: the sweep reads
+        them at nothing until they are angry, and `nearestHostile` walks a guard
+        into one anyway. The alarm catches up on the next step — hitting it makes
+        the guard its target, which is exactly what `provoked` looks for — but
+        the fight is started by the town, on a creature that was leaving it
+        alone, without anybody being warned first.
+      - **The wolf half of the retaliation is unreachable until this moves.** A
+        wolf, a bee and a polar bear all carry the grudge goal now and no settler
+        can ever provoke one, because the only settler who strikes anything is a
+        guard and a guard only strikes `Monster`.
+
+      The sweep's answer was to ask `Menace` instead of naming a class, and the
+      same answer fits here. It is not a tidy-up: a guard picking fights with
+      everything the table grades changes who dies in a night, and it wants
+      measuring rather than assuming — a guard who walks out under a ghast is a
+      dead guard, and `Menace.blowsUp` already exists because one creature needed
+      fighting differently.
 
 - [ ] **Two holes left in the demolition sweep.** A building can be pulled down
       now and the town notices, but the noticing has a window and a bug.
@@ -282,6 +304,46 @@ and no agent can answer any of it. This list is worked through by playing, not b
 scheduling. Several of these want asking again now that the spacing and frontage
 work has landed, which changes what a street looks like from the middle of it.
 
+- [ ] Is a town wary of the sky now, and is that right? Phantoms, ghasts,
+      slimes and the dragon reach the alarm for the first time. A phantom is
+      worth 2, so three of them overhead empties the streets, and phantoms come
+      three at a time. Watch a town on the third night without sleeping in it:
+      `/civ info` shows the alarm, and the `AUDIT` lines say who went indoors.
+      If a town spends every third night shut, the phantom is the entry to argue
+      about, not the sweep.
+- [ ] Does a ghast come for a Nether town from too far up? The citizen goal
+      copies the slot a creature gives its hunt for players but not the condition
+      on it, which is private to that goal. Vanilla lets a ghast take a player
+      only within four blocks of its own height, and a ghast can see a hundred:
+      so a settler is now fair game from an altitude a player would not be. The
+      danger table already calls a ghast a thing that burns roofs from beyond
+      the watch's reach, so this may simply be that sentence coming true — but
+      it is the one place the "same terms as a player" rule is not kept, and it
+      wants somebody standing in a Nether town to say whether it reads as
+      menace or as harassment.
+- [ ] Does a slime read as three creatures or as thirty-two? The arithmetic was
+      not done when the sweep was widened, and it should be looked at before the
+      number is: a slime is worth 2 whatever its size, a large one splits into
+      four mediums and each of those into four smalls, so one spawn resolves to
+      32 points of danger from sixteen creatures that at the smallest size do no
+      damage at all. `Alarm.ALARMED_AT` is 6. A swamp town may simply live
+      indoors. If it does, the answer is a size-aware entry in `Menace` rather
+      than a narrower sweep — the table can see the entity, it just is not asked
+      to look.
+- [ ] Do creatures hunt citizens as though citizens were people? Every hostile
+      that joins a level is now handed a target goal for our settlers, at the
+      slot it already uses for players — not just zombies. Stand a town in front
+      of a pillager patrol and watch whether the band comes for the people or
+      walks past them; the same for a skeleton on a roof at night. This is the
+      one place a reflective read is relied on (`Quarry`, the goal's
+      `targetType`), and if the module layer refuses it the only symptom is
+      every creature landing in the villager slot instead — which still works,
+      just less deliberately.
+- [ ] Does a provoked wolf read as a threat or as noise? A neutral creature
+      counts only while its quarrel is with a person, and then only at the
+      smallest rung on the scale. One wolf is a `WARY`; a pack of six empties
+      the streets. Hit a wolf beside a town and watch what the town does — and
+      note that the watch will not come, for the reason in the open item above.
 - [ ] Does a repair read as repair? A cottage with its walls taken off came
       back whole within seconds, twenty times in four minutes — the whole
       blueprint re-materialised rather than builders laying courses. It is
