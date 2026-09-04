@@ -25,6 +25,17 @@ public final class Tallies {
     public static final String RAIDS_REPELLED = "raids_repelled";
     public static final String SETTLERS_LOST = "settlers_lost";
     public static final String BUILDINGS_RAISED = "buildings_raised";
+
+    /**
+     * Buildings the town has lost — burnt, blown up, or pulled down.
+     *
+     * <p>Counted rather than only logged because {@link #BUILDINGS_RAISED} on
+     * its own reads as a town's size, and a town that has raised forty and lost
+     * twelve is a very different place from one that has raised twenty-eight.
+     * The event log carries the same news and only holds the last
+     * {@link Settlement#MAX_EVENTS} of it.
+     */
+    public static final String BUILDINGS_LOST = "buildings_lost";
     public static final String TREES_FELLED = "trees_felled";
     public static final String STONE_CUT = "stone_cut";
     public static final String GOODS_TRADED = "goods_traded";

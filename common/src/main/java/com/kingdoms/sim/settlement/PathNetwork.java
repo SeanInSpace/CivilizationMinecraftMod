@@ -372,17 +372,43 @@ public final class PathNetwork {
         return segments.stream().mapToInt(Segment::length).sum();
     }
 
+    /**
+     * Whether a road has already been run to this building.
+     *
+     * <p>The exact position first, which is the answer for nearly every
+     * building and is free. Only on a miss is the set walked for the same plot
+     * at another height — because a building joined before it was drawn was
+     * joined at an estimated height that {@code setOriginY} then corrected, and
+     * asking in full would report it unjoined and have the planner spend a
+     * second step laying the road it already has.
+     */
     public boolean hasJoined(SimPos buildingOrigin) {
-        return joined.contains(buildingOrigin);
+        if (joined.contains(buildingOrigin)) {
+            return true;
+        }
+        return joined.stream().anyMatch(
+                at -> at.x() == buildingOrigin.x() && at.z() == buildingOrigin.z());
     }
 
     public void markJoined(SimPos buildingOrigin) {
         joined.add(buildingOrigin);
     }
 
-    /** Forgets a building, so a demolished plot's road can be re-planned. */
+    /**
+     * Forgets a building, so a demolished plot's road can be re-planned.
+     *
+     * <p>Matched on the plot rather than on the whole position, for the reason
+     * the upgrade path already carries: a building's x and z are its plot and
+     * never move, while its y is wherever the ground turned out to be and is
+     * written again by {@code setOriginY} the first time the structure is
+     * actually drawn. A road is joined to a building before then — the planner
+     * runs ahead of materialization every step — so the height in this set is
+     * routinely the estimate rather than the answer, and forgetting by the whole
+     * position would forget nothing at all and leave the town believing forever
+     * that it had run a way to a door that is gone.
+     */
     public void forget(SimPos buildingOrigin) {
-        joined.remove(buildingOrigin);
+        joined.removeIf(at -> at.x() == buildingOrigin.x() && at.z() == buildingOrigin.z());
     }
 
     public void add(Segment segment) {
