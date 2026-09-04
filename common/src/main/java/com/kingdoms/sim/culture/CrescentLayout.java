@@ -71,36 +71,52 @@ public final class CrescentLayout extends PlannedLayout {
     private static final int FIRST_BOW = 45;
 
     /**
-     * How far apart nested crescents at one station run.
-     *
-     * <p>{@link RadialStreetLayout#RING_SPACING} by another name and for the same
-     * reason. Twice the setback plus the carriageway is a floor of thirty-four on
-     * a straight street; on a curve every clearance is worth {@code sqrt(2)} times
-     * what a straight street needs, because two plots separated radially are
-     * separated on the <em>wider axis</em> by only {@code gap / sqrt(2)} where the
-     * arc runs diagonally. At thirty-four the facing ranks of two nested crescents
-     * measure 5.7 apart on the wider axis on the diagonals and every one of them
-     * is refused. Forty-six leaves twenty blocks between the two facing rows,
-     * which is 14.1 on the diagonal and clears the twelve the siting code demands.
-     */
-    private static final int RANK_GAP = 46;
-
-    /**
      * How much of a crescent one plot takes, measured along its own arc.
      *
      * <p>Wider than the {@link #PITCH} a straight street uses, and it has to be:
      * separation is measured on the wider axis, so two plots a chord apart on a
      * curve are only {@code chord / sqrt(2)} apart where the arc runs diagonally.
-     * At the ordinary pitch of fourteen that is 9.9, inside the twelve the siting
-     * code demands, and every plot on the diagonal quarters of every crescent is
-     * refused. Eighteen is {@code 12 * sqrt(2)} rounded up.
+     * At the ordinary straight pitch that is seven tenths of a separation, and
+     * every plot on the diagonal quarters of every crescent is refused. So
+     * {@link Layout#onACurve} of a separation, and two blocks for the rounding of
+     * each of the two plot centres to whole blocks — see
+     * {@link RadialStreetLayout#ARC_PITCH} for what the second one is worth, which
+     * is measured rather than derived and is worth more here than anywhere.
      *
      * <p>Applied to each face on <em>its own</em> radius, never the lane's. The
      * inner face of the first crescent is a 100-block arc where the lane is a
      * 141-block one; spacing both by the lane packs the inner face at 12.8 along
      * its arc, which is 9.1 on the wider axis and fails.
      */
-    private static final int ARC_PITCH = 18;
+    private static final int ARC_PITCH = Layout.onACurve(MIN_PLOT_SEPARATION) + 2;
+
+    /**
+     * How far apart nested crescents at one station run.
+     *
+     * <p>{@link RadialStreetLayout#RING_SPACING} by another name, for the same
+     * reason, and now written as the same sum. Twice the setback plus the
+     * carriageway is a floor of thirty-four on a straight street; on a curve every
+     * clearance is worth {@code sqrt(2)} times what a straight street needs,
+     * because two plots separated radially are separated on the <em>wider axis</em>
+     * by only {@code gap / sqrt(2)} where the arc runs diagonally. At thirty-four
+     * the facing ranks of two nested crescents measured 5.7 apart on the wider
+     * axis on the diagonals and every one of them was refused.
+     *
+     * <p>So twice the setback plus what the curve wants between the two rows,
+     * which is {@link #ARC_PITCH}, and two blocks more. It held forty-six and
+     * comes to forty-six: the sum has been made honest rather than moved.
+     *
+     * <p><strong>This is a cliff and not a slope.</strong> Taken down to
+     * forty-four the chain of lobes runs to 433 blocks against 358, and to forty
+     * it runs to 390. Not because the lanes are closer — they are — but because a
+     * station that loses one plot to a tighter rank leaves the plan a plot short
+     * of two hundred and fifty-six, and {@code lay} answers that by asking the
+     * design again at twice the size, which nests a third rank at every station
+     * and turns the town into a different town. {@link #FRONTAGE_THAT_SURVIVES}
+     * records the same edge from the other side. Any change to the spacing here
+     * has to be measured against the whole town, never reasoned about locally.
+     */
+    private static final int RANK_GAP = 2 * SETBACK + ARC_PITCH + 2;
 
     /**
      * Spine left clear beyond the outermost crescent's mouth at each station.
@@ -112,8 +128,16 @@ public final class CrescentLayout extends PlannedLayout {
      * a hundred blocks along the spine from its own station; so the two of them
      * sit {@code 2 * MOUTH_ROOM - 19} apart, at the same distance off the spine,
      * which is the wider axis and the one that counts. Twenty gives twenty-one
-     * against the twelve the siting code demands. Twelve gives five and one of
-     * every such pair is thrown away.
+     * against the separation the siting code demands. Twelve gives five and one
+     * of every such pair is thrown away.
+     *
+     * <p>Left where it was when the separation came down, and it is a clearance
+     * along the spine rather than between two ranks: what it buys is that the
+     * mouths of two lanes do not eat each other's frontage, and the plan is
+     * already at nine blocks of margin over the rule. Tightening it would shorten
+     * the chain of lobes, which is the one thing this arrangement's sprawl
+     * ceiling is waiting on — but it would do it by moving the stations, not by
+     * closing up the buildings, and that is a different change.
      */
     private static final int MOUTH_ROOM = 20;
 

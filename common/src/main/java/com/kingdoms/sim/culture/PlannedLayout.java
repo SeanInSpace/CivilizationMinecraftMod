@@ -77,11 +77,73 @@ public abstract class PlannedLayout implements Layout {
      */
 
 
-    /** Frontage taken by one plot along a street. */
-    protected static final int PITCH = 14;
+    /**
+     * Frontage taken by one plot along a street.
+     *
+     * <p>A separation exactly, because a rank of plots along a straight street
+     * differs on one axis only and that axis is the one
+     * {@link Layout#farEnoughApart} reads. Anything more is bare grass between
+     * houses that the plan has decided on in advance and no building can close
+     * up; anything less is an offer {@code fits} refuses on the way past.
+     *
+     * <p>Fourteen before, against a separation of twelve, so the plan was making
+     * its offers two blocks coarser than its own rule wanted — and the rule was
+     * itself a block loose. That is the whole of why a measured street stood its
+     * houses a median six apart when the siting code would have allowed three.
+     */
+    protected static final int PITCH = Layout.MIN_PLOT_SEPARATION;
+
+    /**
+     * Half a pitch, rounded up, for a pair set either side of a middle.
+     *
+     * <p>A row of two is pitched about the middle of its block, so each stands
+     * half a pitch from it and the two of them a pitch apart. Rounding up is what
+     * makes that true of an odd pitch: {@code 2 * (11 / 2)} is ten, inside the
+     * separation, and every such pair would be refused by the plan's own
+     * {@code fits} — a bastide would lose half its frontage without one number in
+     * the file looking wrong. The pitch was even until now and nothing had to
+     * notice.
+     */
+    protected static final int HALF_PITCH = (PITCH + 1) / 2;
 
     /** How far a plot's middle sits from the street's middle. */
     protected static final int SETBACK = 13;
+
+    /**
+     * The tightest two parallel streets may run with two ranks back to back.
+     *
+     * <p>Rule R1 as three arrangements had each worked it out for themselves: a
+     * rank stands {@link #SETBACK} off each street, so what is left between their
+     * backs is {@code spacing - 2 * SETBACK} and that has to be a separation. The
+     * bastide called it thirty-eight and said "the first spacing that clears", the
+     * grid called it forty, the high street called it forty and said "the tightest
+     * that holds", and the green already wrote it as a sum. Four spellings of one
+     * sum, three of them holding a number that stops being right the moment the
+     * separation moves.
+     *
+     * <p>An arrangement whose streets curve wants {@code 2 * SETBACK} plus its own
+     * arc pitch instead, which is this same sum with the curve's separation in it.
+     */
+    protected static final int BACK_TO_BACK = 2 * SETBACK + Layout.MIN_PLOT_SEPARATION;
+
+    /**
+     * A pitch that holds at any bearing, for a run whose direction is not known.
+     *
+     * <p>{@link #PITCH} is a separation exactly, which is right for a street laid
+     * along an axis and wrong for one laid at an angle: two plots a pitch apart
+     * along a run leaning at {@code theta} are only {@code pitch·cos(theta)} apart
+     * on the wider axis, and the worst case over all bearings is the full
+     * diagonal. So {@link Layout#onACurve} of a separation, and a block for the
+     * rounding of each end to whole blocks.
+     *
+     * <p>For the fallbacks in this file, which carry a street onward in whatever
+     * direction it happened to be running and then ring the town in whatever
+     * direction is left. Both were pitched by the straight-street PITCH, which
+     * tolerated a lean of about thirty-five degrees while the pitch stood two
+     * blocks over the separation and tolerates none now.
+     */
+    protected static final int PITCH_ANY_BEARING =
+            Layout.onACurve(Layout.MIN_PLOT_SEPARATION) + 1;
 
     /** Half-width of an ordinary carriageway. */
     protected static final int ROAD_HALF = 4;
@@ -341,8 +403,8 @@ public abstract class PlannedLayout implements Layout {
                 dx /= run;
                 dz /= run;
                 SimPos onward = new SimPos(
-                        end.x() + (int) Math.round(dx * PITCH), end.y(),
-                        end.z() + (int) Math.round(dz * PITCH));
+                        end.x() + (int) Math.round(dx * PITCH_ANY_BEARING), end.y(),
+                        end.z() + (int) Math.round(dz * PITCH_ANY_BEARING));
                 path.add(onward);
                 grew = true;
 
@@ -380,8 +442,8 @@ public abstract class PlannedLayout implements Layout {
                     Math.abs(placed.at().z() - centre.z())));
         }
         for (int ring = 1; taken.size() < wanted; ring++) {
-            int out = edge + ring * PITCH;
-            int around = Math.max(8, (int) (2 * Math.PI * out / PITCH));
+            int out = edge + ring * PITCH_ANY_BEARING;
+            int around = Math.max(8, (int) (2 * Math.PI * out / PITCH_ANY_BEARING));
             for (int i = 0; i < around && taken.size() < wanted; i++) {
                 double angle = i * 2 * Math.PI / around + ring * 0.7;
                 SimPos where = new SimPos(

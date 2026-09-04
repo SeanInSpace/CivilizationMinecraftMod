@@ -67,8 +67,52 @@ public interface Layout {
      * <p>Hence {@link #farEnoughApart}: one predicate, in the metric the code
      * actually applies, for layouts and tests to share. A rule with two
      * definitions has none.
+     *
+     * <p><strong>Eleven, and it is entirely derived.</strong> Two plots of the
+     * {@link #DEFAULT_SPAN} reach five blocks either side of their middles, and
+     * one more block puts the boxes past each other:
+     * {@code 11 / 2 + 11 / 2 + PLOT_GAP + 1}. It was twelve for exactly the same
+     * reason — the bare block that used to be left between two claims. That block
+     * is gone, because a claim is already a building's walls plus the doorstep
+     * ring cleared round them, and two doorsteps that touch are two buildings
+     * with a doorstep each.
+     *
+     * <p>What the one block buys is the whole of this change. Every arrangement
+     * pitches its frontage at this number or at a sum containing it, so a
+     * separation that is a block tight is a block of bare grass between every
+     * pair of walls in every town — and the pitches were rounded up from it as
+     * well, which is how a measured street came out at a median six.
+     *
+     * <p>It is deliberately what the <em>ordinary</em> building needs rather than
+     * what the smallest one needs. Nine, the cottage's, was built and measured:
+     * a plan offering ground at a cottage's separation offers most of its
+     * frontage to buildings that are not cottages, they are refused, and the next
+     * offer along is a whole pitch further on — the high street's median gap went
+     * from five to eight and the bastide's from nine to thirteen. Dense offers
+     * only pay while the offers are ones the town can take.
      */
-    int MIN_PLOT_SEPARATION = 12;
+    int MIN_PLOT_SEPARATION = 11;
+
+    /**
+     * What a clearance has to be on a curve to be worth its straight-line value.
+     *
+     * <p>Rule R2, written once instead of in every layout that draws an arc.
+     * Separation is measured on the wider axis, so two plots a chord apart on a
+     * curve are only {@code chord / sqrt(2)} apart where the arc runs diagonally
+     * — and a circle runs diagonally somewhere on every quarter, so the worst
+     * case is always reached. This is the single mistake that has cost this
+     * project most: the warren put six huts on a circle of thirteen, comfortably
+     * far apart as the crow flies and eleven apart on the wider axis, and threw a
+     * third of every goblin town away for months. The ring roads made it three
+     * separate times in one file.
+     *
+     * <p>Callers that want a block of slack for the roundings between one plot's
+     * centre and the next add it themselves, visibly, rather than having it
+     * baked in here.
+     */
+    static int onACurve(int straight) {
+        return (int) Math.ceil(straight * Math.sqrt(2));
+    }
 
     /**
      * Whether two plot centres are far enough apart to both be built on.
@@ -183,7 +227,28 @@ public interface Layout {
         return true;
     }
 
-    /** The claim a plot takes when a layout has no opinion about size. */
+    /**
+     * The claim a plot takes when a layout has no opinion about size.
+     *
+     * <p><strong>Left at a house's claim, and asked whether it should follow the
+     * smallest building down.</strong> It should not, and the two numbers being
+     * so nearly the same is what makes the question worth answering out loud.
+     * {@link #MIN_PLOT_SEPARATION} asks how close two offers may be <em>made</em>,
+     * and the real check happens afterwards with the real span. This asks how much
+     * ground the plan <em>reserves</em> for an offer it knows nothing about, and
+     * it is read by two things that have no later check:
+     * {@code PlannedLayout.fits} keeps a plot out of its own carriageway with it,
+     * and {@code PathPlanner.heldGround} keeps a routed road off every plot the
+     * plan might still use with it. Reserving a cottage's nine here would let a
+     * road be laid a block closer to ground a house is going to stand on, and the
+     * road is built first.
+     *
+     * <p>So: a house, which is what the plan should assume when it does not know.
+     * A building smaller than that is brought up to its own street afterwards by
+     * {@code Settlement.againstTheKerb}, which knows the real span — the small
+     * case is answered where the size is known rather than by assuming it
+     * everywhere.
+     */
     int DEFAULT_SPAN = 11;
 
     /**

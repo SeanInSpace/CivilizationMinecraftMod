@@ -29,11 +29,17 @@ public final class GridStreetLayout extends PlannedLayout {
     /**
      * How far apart the streets are ruled.
      *
-     * <p>Cannot go below twice the setback plus the width of a road, or the
-     * frontage on one side of a block lands on the frontage of the next. That
-     * floor is thirty-four; forty leaves the blocks room to have backs.
+     * <p>Two blocks over {@link #BACK_TO_BACK}, which is the floor below which
+     * the two rows of houses in a block back onto each other closer than the
+     * siting code allows. The forty this held was that same floor of
+     * thirty-eight plus the same two, written as a literal beside a comment
+     * naming a different and looser floor — twice the setback plus a
+     * carriageway, thirty-four — that has never been the binding one.
+     *
+     * <p>The two spare are what keeps this arrangement distinguishable from the
+     * bastide, which takes the floor exactly and is a tighter town for it.
      */
-    private static final int BLOCK = 40;
+    private static final int BLOCK = BACK_TO_BACK + 2;
 
     private final String id;
     private final Wander wander;
@@ -91,7 +97,7 @@ public final class GridStreetLayout extends PlannedLayout {
             Wander how = wanderFor(wander, centre, street);
             int baseZ = line * BLOCK;
             for (int k = -lines * 3; k <= lines * 3; k++) {
-                int x = PITCH / 2 + k * PITCH;
+                int x = HALF_PITCH + k * PITCH;
                 int z = baseZ + how.blocksAt(x);
                 if (Math.abs(x) > reach || Math.abs(baseZ) > reach) {
                     continue;

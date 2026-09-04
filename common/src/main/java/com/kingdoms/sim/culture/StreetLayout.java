@@ -51,12 +51,23 @@ public final class StreetLayout extends PlannedLayout {
      *
      * <p>Cannot go below twice the setback plus a separation: plots on adjacent
      * lanes face each other across the gap, and at thirty they land four blocks
-     * apart and foul. Forty is the tightest that holds.
+     * apart and foul. That sum is {@link #BACK_TO_BACK}: twice the setback and a
+     * separation, which is where the forty this held came from and where the
+     * thirty-seven it holds now comes from. It was written as a literal with the
+     * sum in its own comment, which is a number that goes stale silently the day
+     * the separation moves.
      */
-    private static final int LANE_SPACING = 40;
+    private static final int LANE_SPACING = BACK_TO_BACK;
 
-    /** How far west of the spine the back lane runs. */
-    private static final int BACK_AT = 40;
+    /**
+     * How far west of the spine the back lane runs.
+     *
+     * <p>The same sum again, and not a coincidence that it was the same number:
+     * the back lane's own frontage stands a setback west of it and the spine's
+     * western rank stands a setback east of it, so the two ranks are back to
+     * back across exactly the gap {@link #BACK_TO_BACK} names.
+     */
+    private static final int BACK_AT = BACK_TO_BACK;
 
     /** The spine is always the plan's first street. */
     private static final int SPINE = 0;
@@ -128,7 +139,7 @@ public final class StreetLayout extends PlannedLayout {
         // up on it.
         for (int k = 0; k * PITCH <= MARKET_REACH; k++) {
             for (int sign : new int[] {1, -1}) {
-                int z = sign * (PITCH / 2 + k * PITCH);
+                int z = sign * (HALF_PITCH + k * PITCH);
                 int bend = spine.blocksAt(z);
                 offers.add(new Offer(at(centre, bend - (SETBACK + MARKET_EXTRA), z), SPINE, 1));
                 offers.add(new Offer(at(centre, bend + SETBACK + MARKET_EXTRA, z), SPINE, 3));
@@ -170,7 +181,7 @@ public final class StreetLayout extends PlannedLayout {
             int side = (lane % 2 == 0) ? 1 : -1;
             Wander how = wanderFor(wander, centre, LANE_FIRST + lane);
             for (int k = 0; k < depth; k++) {
-                int x = side * (SETBACK + ROAD_HALF + PITCH / 2 + k * PITCH);
+                int x = side * (SETBACK + ROAD_HALF + HALF_PITCH + k * PITCH);
                 int bend = laneZ + how.blocksAt(x);
                 offers.add(new Offer(at(centre, x, bend - SETBACK), LANE_FIRST + lane, 2));
                 offers.add(new Offer(at(centre, x, bend + SETBACK), LANE_FIRST + lane, 0));
@@ -183,7 +194,7 @@ public final class StreetLayout extends PlannedLayout {
         // down one lane, which measured 451 across and is a road, not a town.
         int along = (lanes / 2 + 1) * LANE_SPACING / PITCH + 3;
         for (int k = -along; k < along; k++) {
-            int z = PITCH / 2 + k * PITCH;
+            int z = HALF_PITCH + k * PITCH;
             offers.add(new Offer(
                     at(centre, -BACK_AT + back.blocksAt(z) - SETBACK, z), backIndex, 1));
         }

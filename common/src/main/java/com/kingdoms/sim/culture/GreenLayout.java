@@ -140,16 +140,16 @@ public final class GreenLayout extends PlannedLayout {
      *
      * <p>Separation is Chebyshev, so two plots a chord apart along a run leaning
      * at {@code theta} are only {@code chord·cos(theta)} apart on the wider axis.
-     * The ring roads answer that with a blanket root two — {@code ARC_PITCH = 18}
-     * there, being {@code 12·sqrt(2)} rounded up and rounded up again — because a
-     * circle runs at 45 degrees somewhere on every quarter and the worst case is
-     * the full diagonal.
+     * The ring roads answer that with a blanket root two — {@link Layout#onACurve}
+     * and a block — because a circle runs at 45 degrees somewhere on every quarter
+     * and the worst case is the full diagonal.
      *
      * <p>A lens never reaches 45 degrees, and this one never reaches eleven. The
-     * worst case on the wider axis is {@code 12 / cos(10.2) = 12.2}, so the
-     * ordinary straight-street {@link #PITCH} of fourteen clears it with room to
-     * spare, and the block of margin here is for the two roundings to whole
-     * blocks between one plot's centre and the next rather than for the curve.
+     * worst case on the wider axis is a separation over {@code cos(10.2)}, which
+     * is a fiftieth more than a separation — so this sits barely over the ordinary
+     * straight-street {@link #PITCH}, and the block of margin is for the two
+     * roundings to whole blocks between one plot's centre and the next rather than
+     * for the curve.
      *
      * <p>Carrying the circle's eighteen over is not merely wasteful, which is
      * what it looks like. It thins every flank by a fifth, the plan then needs a
@@ -182,9 +182,11 @@ public final class GreenLayout extends PlannedLayout {
      * factor as along the tangent, for as long as {@code theta} stays under 45
      * degrees. It does everywhere, by {@link #STEEPEST_LEAN}.
      *
-     * <p>Forty, against the arithmetic floor of thirty-four that twice the
-     * setback plus a carriageway imposes, so a lane cannot land on the frontage
-     * of the street it stands behind.
+     * <p>Which is {@link #BACK_TO_BACK} with the lens's own pitch in place of the
+     * straight one, and it is the sum three other arrangements were each holding
+     * as a literal. It clears the arithmetic floor that twice the setback plus a
+     * carriageway imposes, so a lane cannot land on the frontage of the street it
+     * stands behind.
      */
     private static final int LANE_SPACING = 2 * SETBACK + ARC_PITCH;
 
@@ -195,10 +197,10 @@ public final class GreenLayout extends PlannedLayout {
      * towards the tips that normal points substantially <em>along</em> the green
      * — so the inner rank crosses the axis well before the street it fronts
      * reaches the tip, and the north rank would finish up standing on the south
-     * rank's ground. Half a separation and a block keeps the two ranks fourteen
-     * apart where they converge, which is what the siting code wants of them, and
-     * it leaves the taper at each end of the green open, which is what a taper
-     * is.
+     * rank's ground. Half a separation and a block keeps the two ranks a
+     * separation and a block apart where they converge, which is what the siting
+     * code wants of them, and it leaves the taper at each end of the green open,
+     * which is what a taper is.
      */
     private static final int AXIS_CLEARANCE = MIN_PLOT_SEPARATION / 2 + 1;
 

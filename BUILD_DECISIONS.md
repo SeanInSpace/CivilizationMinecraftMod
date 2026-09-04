@@ -69,8 +69,8 @@ Ties are broken by larger shortfall, then alphabetically by id. The alphabetical
 
 Plots are handed out in **expanding rings** around the settlement centre, packed by circumference:
 
-- Ring radii run `12, 22, 32, …` blocks out.
-- Each ring holds as many plots as fit at roughly **10-block spacing** along its circumference (minimum 8) — 8 in the first ring, 13 in the second, 20 in the third, and so on.
+- Ring radii run `12, 28, 44, …` blocks out.
+- Each ring holds as many plots as fit at roughly **16-block spacing** along its circumference (minimum 8) — 8 in the first ring, 10 in the second, 17 in the third, and so on. Sixteen rather than the eleven two plots need of each other, because separation is measured on the wider axis and two plots a chord apart on a circle are only `chord / √2` apart where the ring runs diagonally.
 - Alternate rings are staggered by half a slot, so plots never line up into rays.
 
 Rings fill densely from the inside out — empty space near the town is used before the town expands. *(The first version used a constant eight plots per ring; live playtesting revealed the result was an eight-legged star with ever-growing gaps between spokes.)* Plots are never reused and buildings never overlap.

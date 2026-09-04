@@ -35,11 +35,15 @@ public record Wander(int amplitude, int wavelength, long seed) {
     /**
      * The steepest a street may lean before its own frontage stops fitting.
      *
-     * <p>Measured, not chosen. The plots along a street are pitched fourteen
-     * blocks apart and have to stay twelve apart on the wider axis, so a street
-     * that slides sideways as it runs uses up the gap between one plot and the
-     * next. Past this the offers start fouling each other and drop to the
-     * outskirts, and the town both loses its frontage and gets bigger:
+     * <p>Measured, not chosen, and it stayed where it was when the plots along a
+     * street came in to a separation apart — the pitch has nothing left in hand
+     * and this did not move a block. That is worth knowing rather than assuming:
+     * frontage is stepped along the street's <em>own</em> axis, so two neighbours
+     * are a whole pitch apart on that axis whatever the lean, and the wander only
+     * ever adds to the other one. What a steep lean actually costs is the plot
+     * sliding into its own carriageway and being refused for it, which is what
+     * the table below measures. Past this the offers drop to the outskirts and
+     * the town both loses its frontage and gets bigger:
      *
      * <pre>
      *   slope   frontage at 140 plots   reach

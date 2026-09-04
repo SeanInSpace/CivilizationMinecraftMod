@@ -1973,8 +1973,7 @@ public final class Settlement {
         //
         // So the question is asked of the rank rather than of the one plot: pull
         // this plot and its neighbours by the same fraction, and take the
-        // largest fraction at which they all still clear each other. On a
-        // straight street every fraction clears and it comes all the way in.
+        // largest fraction at which the pull does not crowd the rank.
         for (int step = APPROACH_STEPS; step >= 1; step--) {
             double part = step / (double) APPROACH_STEPS;
             SimPos moved = broughtIn(fronts, plot, span, part);
@@ -1986,7 +1985,7 @@ public final class Settlement {
                 TownPlan.Street theirs = plan.streetOf(near);
                 SimPos alsoMoved = theirs == null
                         ? near.at() : broughtIn(theirs, near.at(), span, part);
-                if (BuildPlanner.plotsOverlap(moved, span, alsoMoved, span)) {
+                if (crowds(plot, near.at(), moved, alsoMoved, span)) {
                     clears = false;
                     break;
                 }
@@ -1999,6 +1998,47 @@ public final class Settlement {
             }
         }
         return plot;
+    }
+
+    /**
+     * Whether pulling a pair of plots in leaves them worse off than it found them.
+     *
+     * <p>Asked as a comparison rather than as a bare "do these two clear the
+     * overlap box", and the difference is the whole of whether the kerb works at
+     * all. The bare question was right while the plan offered frontage far more
+     * coarsely than the siting code demanded: every rank stood a comfortable two
+     * blocks over the separation, so a pair that fouled after a pull had been
+     * made to foul by the pull. The plan now offers frontage at the separation
+     * itself, deliberately — dense offers, real check — and it offers it for a
+     * plot of the default span while the thing standing there may claim more. So
+     * a rank of plan offers routinely fouls the box <em>before</em> anybody moves,
+     * and the bare question answered no at every fraction, for every plot, in
+     * every arrangement. The kerb would have been dead code that still ran.
+     *
+     * <p>What the rank test is actually for is the shrinking arc: a rank moved
+     * inward along its own normals sits on a shorter curve than the one it came
+     * from, so its pitch shrinks with it, and a crescent pulled the whole way in
+     * had every second plot on every lane refused. That is a pull making things
+     * worse, and it is still caught — the pair ends up fouling the box AND closer
+     * than they were. A straight street moves its whole rank sideways by the same
+     * amount, the spacing along it does not change, and the pull is allowed
+     * however tight the rank already was.
+     *
+     * <p>Both are plan offers, not buildings. What is actually standing is asked
+     * separately and by {@code isPlotFree}, which is the check that can refuse
+     * ground for a real reason.
+     */
+    private static boolean crowds(SimPos wasHere, SimPos wasThere,
+                                  SimPos nowHere, SimPos nowThere, int span) {
+        if (!BuildPlanner.plotsOverlap(nowHere, span, nowThere, span)) {
+            return false;   // clear where it lands; nothing to weigh
+        }
+        return apart(nowHere, nowThere) < apart(wasHere, wasThere);
+    }
+
+    /** How far two plots stand on the wider axis, which is the metric siting uses. */
+    private static int apart(SimPos a, SimPos b) {
+        return Math.max(Math.abs(a.x() - b.x()), Math.abs(a.z() - b.z()));
     }
 
     /**

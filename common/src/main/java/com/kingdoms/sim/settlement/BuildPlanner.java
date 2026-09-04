@@ -1,5 +1,6 @@
 package com.kingdoms.sim.settlement;
 
+import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -30,29 +31,32 @@ import java.util.Optional;
  */
 public final class BuildPlanner {
 
-    /** Minimum plots per ring. */
-    static final int MIN_SLOTS_PER_RING = 8;
-
     /** Plot width assumed for anything that does not declare one. */
     public static final int DEFAULT_PLOT_SPAN = 11;
 
-    /** Bare ground left between two plots, so buildings do not share a wall. */
-    public static final int PLOT_GAP = 1;
-
-    /** Distance from the centre to the first ring of plots. */
-    static final int FIRST_RING_RADIUS = 12;
-
     /**
-     * Added to the radius for each subsequent ring.
+     * Bare ground left between two plot claims, over and above the claims.
      *
-     * <p>Wide enough for the buildings that actually go on them. At ten a ring sat
-     * closer together than a house is broad, so every plot proposed overlapped its
-     * neighbours and the town was built through itself.
+     * <p>Nought, and that is the whole of it. A plot is already a building's
+     * walls plus the doorstep ring {@link BuildingSizes#APRON} clears round
+     * them, so two claims that touch are two doorsteps that touch and neither
+     * building is short of ground. A block on top of that was a third apron
+     * belonging to nobody.
+     *
+     * <p>What it bought was three blocks of nothing between every pair of walls
+     * in every town — the arithmetic is in {@link #plotsOverlap} — and the plan
+     * offered frontage so much coarser than that the floor was never reached
+     * anyway. Measured on a grown high street, walls stood a median five and a
+     * tightest three apart. At nought the floor is two, and the plan is pitched
+     * to reach it.
+     *
+     * <p>The margin this gives up is against a building drawn larger than the
+     * table says it is, and that fault is now watched for where it happens:
+     * {@code BlueprintPlacer} logs SIZE MISMATCH when a builder draws something
+     * other than what was declared. A block of slack on every plot in the mod is
+     * an expensive way to not have that check.
      */
-    static final int RING_SPACING = 16;
-
-    /** Aim for roughly this many blocks between neighbouring plots in a ring. */
-    public static final int TARGET_PLOT_SPACING = 16;
+    public static final int PLOT_GAP = 0;
 
     /** Keeps the claim boundary a little beyond the outermost building. */
     static final int CLAIM_MARGIN = 8;
@@ -194,6 +198,23 @@ public final class BuildPlanner {
      * <p>Squares rather than the true rectangles because buildings are turned to
      * face the centre, and a turned building swaps its width and depth. A plot
      * that only fitted at one rotation is not a plot.
+     *
+     * <p><strong>Two blocks between walls, whatever the two buildings are.</strong>
+     * That falls out of the arithmetic rather than being aimed at. A span is the
+     * building's longer side plus two aprons and every side is odd, so
+     * {@code span / 2} is half that side plus one; the closest a pair may stand is
+     * {@code reach + 1}, and taking the two half-sides and the origin block off
+     * that leaves {@code 2 * APRON} however big the two are. A cottage beside a
+     * cottage and a library beside a hall both leave their doorsteps touching,
+     * which is what a street of buildings looks like.
+     *
+     * <p>The longer side, because a plot is a square and a building is turned to
+     * face its street. So a building that is not square stands further off across
+     * its narrow way — a compound is nine wide and seventeen deep and keeps a
+     * seventeen's worth of ground on both — and a kind that declares
+     * {@code ROOM_TO_SPARE} keeps that on top again, which is the point of
+     * declaring it. Two is the floor everything shares, not a promise about every
+     * pair of walls.
      */
     public static boolean plotsOverlap(SimPos a, int spanA, SimPos b, int spanB) {
         int reach = spanA / 2 + spanB / 2 + PLOT_GAP;
@@ -708,41 +729,19 @@ public final class BuildPlanner {
     }
 
     /**
-     * How many plots a ring holds: enough that neighbours sit roughly
-     * {@link #TARGET_PLOT_SPACING} apart along the circumference.
+     * Where the nth building goes, for a town that has not said how it builds.
      *
-     * <p>A constant eight per ring was the first version, and produced an
-     * eight-legged star — the same eight angles repeated at every radius, with
-     * the gaps between spokes growing forever (found in the first live
-     * playtest). Packing by circumference fills the space near the town before
-     * stepping outward.
-     */
-    static int slotsInRing(int ring) {
-        int radius = FIRST_RING_RADIUS + ring * RING_SPACING;
-        int byCircumference = (int) Math.floor(2 * Math.PI * radius / TARGET_PLOT_SPACING);
-        return Math.max(MIN_SLOTS_PER_RING, byCircumference);
-    }
-
-    /**
-     * Where the nth building goes: rings filled densely from the inside out, with
-     * alternate rings staggered by half a slot so plots never line up into spokes.
-     * Deterministic, never reuses a plot.
+     * <p>The ring arrangement, which is what a settlement with no layout named
+     * gets. It used to be spelled out here as well as in {@link Layouts#RING} —
+     * the same rings, the same stagger, the same four constants — from before a
+     * layout was a thing a town could have. Two copies of one lattice is a rule
+     * with two definitions, and the day the ring's spacing was tightened they
+     * would have quietly stopped agreeing: a test that names a plot by index
+     * through this one and hands it to a settlement that goes through the other
+     * would have been refusing ground the town was never offered.
      */
     public static SimPos plotFor(SimPos centre, int index) {
-        int ring = 0;
-        int slot = index;
-        while (slot >= slotsInRing(ring)) {
-            slot -= slotsInRing(ring);
-            ring++;
-        }
-        int slots = slotsInRing(ring);
-        int radius = FIRST_RING_RADIUS + ring * RING_SPACING;
-        double slice = 2 * Math.PI / slots;
-        double angle = slot * slice + (ring % 2) * slice / 2;
-
-        int x = centre.x() + (int) Math.round(radius * Math.cos(angle));
-        int z = centre.z() + (int) Math.round(radius * Math.sin(angle));
-        return new SimPos(x, centre.y(), z);
+        return Layouts.RING.plotFor(centre, index);
     }
 
     /** Claim radius needed to keep the given plot inside the settlement's territory. */

@@ -72,30 +72,33 @@ public final class CrossroadsLayout extends PlannedLayout {
     /**
      * How many frontage slots apart the ribs are set, counted in {@link #PITCH}.
      *
-     * <p>Three, so forty-two blocks — clear of the arithmetic floor of
-     * thirty-four (twice the setback plus the width of a road) below which the
-     * frontage on the far face of one rib lands on the frontage of the next.
+     * <p>As few as clear {@link #BACK_TO_BACK}, below which the frontage on the
+     * far face of one rib lands on the frontage of the next. Three at the old
+     * pitch and four at this one, which is very nearly the same distance either
+     * way — forty-two blocks against forty-four. The constraint is in blocks and
+     * the step it has to be counted in is what changed.
      *
      * <p>Counted in slots rather than in blocks, which is worth more than it
      * looks. A road takes ten and a half blocks of clearance either side of its
-     * centreline, and the spine's own doors are pitched fourteen apart: a rib
-     * laid halfway between two of them stands seven blocks from each and refuses
-     * <em>both</em>, while a rib laid exactly on a slot refuses only the one it
-     * stands on. Aligning the ribs to the spine's slots is the difference between
-     * losing two doors per rib and losing four.
+     * centreline: a rib laid halfway between two of the spine's own doors stands
+     * inside that of each and refuses <em>both</em>, while a rib laid exactly on a
+     * slot refuses only the one it stands on. Aligning the ribs to the spine's
+     * slots is the difference between losing two doors per rib and losing four,
+     * and it is why this is a count of slots that has to be rounded up rather than
+     * a distance.
      */
-    private static final int RIB_EVERY = 3;
+    private static final int RIB_EVERY = (BACK_TO_BACK + PITCH - 1) / PITCH;
 
     /**
      * How far a rib runs either side of the spine it crosses.
      *
-     * <p>Short on purpose, and the silhouette is entirely this number. Fifty
-     * blocks holds two plots a side and no more, which is what the arms and the
-     * ribs come out at three to one — a cross. Sixty was tried first and holds
-     * three, and the picture it draws at a hundred and forty plots is a square
-     * with a hole in it: the arms reached 125 blocks and the ribs 54, and the
-     * four quarters between the arms were filled in by ribs reaching at each
-     * other from both spines.
+     * <p>Short on purpose, and the silhouette is entirely this number. It is the
+     * <em>reach</em> that draws the cross, not the plot count on it: sixty was
+     * tried first and the picture it draws at a hundred and forty plots is a
+     * square with a hole in it, the arms reaching 125 blocks and the ribs 54, with
+     * the four quarters between the arms filled in by ribs reaching at each other
+     * from both spines. Fifty stops ten blocks short of that and the quarters stay
+     * open, however many plots the pitch fits into the fifty.
      *
      * <pre>
      *   rib reach   plots per rib   arms at 140   ribs   arms : ribs
@@ -118,9 +121,9 @@ public final class CrossroadsLayout extends PlannedLayout {
      * spine door for a neighbour one block away <em>along</em> the rib, and
      * separation is Chebyshev — measured on the wider axis, not as a distance —
      * so this has to clear the spine's frontage column by a whole
-     * {@link Layout#MIN_PLOT_SEPARATION} on the other axis. Twenty-five is the
-     * exact floor; twenty-six leaves a block of slack for the rounding a wander
-     * introduces.
+     * {@link Layout#MIN_PLOT_SEPARATION} on the other axis. The setback plus a
+     * separation is the exact floor; the block on top is slack for the rounding a
+     * wander introduces.
      */
     private static final int RIB_FIRST = SETBACK + Layout.MIN_PLOT_SEPARATION + 1;
 
@@ -142,9 +145,10 @@ public final class CrossroadsLayout extends PlannedLayout {
      * Frontage one rib adds to its arm, counting the spine it comes with.
      *
      * <p>{@link #PER_RIB_FACE} plots on each of two faces on each of two sides of
-     * the spine, which is eight, plus the {@link #RIB_EVERY} further slots of
-     * spine the rib brings with it — six doors, less the two standing on the rib
-     * itself. Twelve.
+     * the spine, plus the {@link #RIB_EVERY} further slots of spine the rib brings
+     * with it — two doors a slot, less the two standing on the rib itself.
+     * Written as the sum rather than as the number the sum came to, because both
+     * halves move with the pitch.
      *
      * <p>An estimate, and deliberately not a tuned one. {@code lay()} asks the
      * design again with twice the room whenever too little of it survives, so

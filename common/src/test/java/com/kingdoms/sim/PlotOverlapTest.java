@@ -1,5 +1,6 @@
 package com.kingdoms.sim;
 
+import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -7,6 +8,7 @@ import com.kingdoms.sim.settlement.BuildCatalogue;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingSizes;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimContext;
@@ -72,6 +74,78 @@ class PlotOverlapTest {
                 "two 13-wide plots eight apart still run through each other");
         assertTrue(settlement.isPlotFree(new SimPos(40, 64, 0), house.plotSpan(), null),
                 "far enough away is fine");
+    }
+
+    @Test
+    void theClosestTwoBuildingsMayStandIsTwoDoorstepsTouching() {
+        // The whole of what a plot gap of nought means, asserted on the sizes
+        // rather than on the constant. A span is a building's walls plus the
+        // apron cleared round them, so the closest the overlap check allows two
+        // of anything to stand leaves one apron each between the walls and
+        // nothing else -- a cottage beside a cottage and a library beside a hall
+        // alike. It came out at three before, on every pair, for a bare block
+        // that belonged to neither building.
+        //
+        // Measured against the LONGER side, because a plot is a square: a
+        // building is turned to face its street and a plot that only fitted at
+        // one bearing is not a plot. So a building that is not square stands
+        // further off across its narrow way, and that is the square claim rather
+        // than slack in this rule.
+        //
+        // Every kind in the table, including the two that are not square and the
+        // two that declare room to spare -- a rule stated for a hand-picked list
+        // is a rule that holds for the list.
+        for (String one : BuildCatalogue.DEFAULT.stream().map(BuildingType::id).toList()) {
+            for (String two : BuildCatalogue.DEFAULT.stream()
+                    .map(BuildingType::id).toList()) {
+                BuildingSizes.Size a = BuildingSizes.of(one);
+                BuildingSizes.Size b = BuildingSizes.of(two);
+                if (a == null || b == null) {
+                    continue;   // sized by the fallback, so there is nothing to check
+                }
+                int spanA = BuildingSizes.plotSpanOf(one);
+                int spanB = BuildingSizes.plotSpanOf(two);
+
+                int closest = 0;
+                while (BuildPlanner.plotsOverlap(new SimPos(0, 64, 0), spanA,
+                        new SimPos(closest, 64, 0), spanB)) {
+                    closest++;
+                }
+                // Walls face each other across the axis that separates them, so
+                // the clear blocks between them are the gap less each half-side
+                // and the block the far origin stands on.
+                int between = closest
+                        - Math.max(a.width(), a.depth()) / 2
+                        - Math.max(b.width(), b.depth()) / 2 - 1;
+                // Plus whatever room a kind declared beyond its own walls, as the
+                // reach reads it -- halved, because a reach is half a span.
+                int wanted = 2 * BuildingSizes.APRON
+                        + (spanA / 2 - a.span() / 2) + (spanB / 2 - b.span() / 2);
+                assertEquals(wanted, between,
+                        one + " beside " + two + " leaves " + between
+                                + " blocks of bare ground between their walls, wanting "
+                                + wanted);
+            }
+        }
+    }
+
+    @Test
+    void thePlansSeparationIsWhatTwoOrdinaryPlotsActuallyNeed() {
+        // Two halves of one rule that cannot see each other. A layout may not
+        // import a planner, so Layout.MIN_PLOT_SEPARATION is a number that has to
+        // agree with BuildPlanner.plotsOverlap by hand -- and the last time they
+        // disagreed a third of every warren's plots were thrown away for months.
+        // So the agreement is asserted rather than commented.
+        SimPos here = new SimPos(0, 64, 0);
+        int span = Layout.DEFAULT_SPAN;
+        assertFalse(BuildPlanner.plotsOverlap(here, span,
+                        new SimPos(Layout.MIN_PLOT_SEPARATION, 64, 0), span),
+                "the plan offers frontage at its separation and the siting code "
+                        + "refuses it there, so every second offer is wasted");
+        assertTrue(BuildPlanner.plotsOverlap(here, span,
+                        new SimPos(Layout.MIN_PLOT_SEPARATION - 1, 64, 0), span),
+                "the separation is looser than it needs to be, which is bare grass "
+                        + "between every pair of walls in every town");
     }
 
     @Test

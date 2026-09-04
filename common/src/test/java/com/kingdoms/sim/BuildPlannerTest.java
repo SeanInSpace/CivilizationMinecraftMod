@@ -1,5 +1,6 @@
 package com.kingdoms.sim;
 
+import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
@@ -132,13 +133,18 @@ class BuildPlannerTest {
     void outerRingsPackDenselyInsteadOfFormingSpokes() {
         SimPos centre = new SimPos(0, 64, 0);
 
-        // Ring 0 holds 8 plots, ring 1 (radius 22) holds 13, ring 2 (radius 32)
-        // holds 20 — indices 21 and 22 are neighbours inside ring 2.
+        // Ring 0 holds eight plots and the rings past it hold more, so indices in
+        // the twenties are neighbours inside the third course whatever the ring
+        // is pitched at.
         SimPos a = BuildPlanner.plotFor(centre, 21);
         SimPos b = BuildPlanner.plotFor(centre, 22);
         double gap = a.horizontalDistance(b);
-        assertTrue(gap <= BuildPlanner.TARGET_PLOT_SPACING + 3,
-                "neighbours in an outer ring should stay ~" + BuildPlanner.TARGET_PLOT_SPACING
+        // The bar is the ring's own pitch and a little for the rounding to whole
+        // blocks. Stated from the rule rather than from a constant on this class,
+        // which is where the ring's arithmetic used to be kept in duplicate.
+        int pitch = Layout.onACurve(Layout.MIN_PLOT_SEPARATION) + 1;
+        assertTrue(gap <= pitch + 3,
+                "neighbours in an outer ring should stay ~" + pitch
                         + " apart, not drift into spokes (gap " + gap + ")");
 
         // The constant-8 layout put a plot at angle 0 of every ring. With
