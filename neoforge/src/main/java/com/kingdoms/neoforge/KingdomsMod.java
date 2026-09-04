@@ -156,8 +156,45 @@ public final class KingdomsMod {
         for (PersonEntityManager manager : MANAGERS.values()) {
             manager.tickDigging(tickCounter);
         }
-        if (tickCounter % AUDIT_INTERVAL_TICKS == 0 && KingdomsConfig.debugCommandsEnabled()) {
-            auditTowns();
+        if (tickCounter % AUDIT_INTERVAL_TICKS == 0) {
+            // Ungated, unlike the report below it. A town going on believing in
+            // a cottage a creeper flattened is a fault in the game rather than
+            // in the log, so it has to be put right for the player who never
+            // turns debug commands on.
+            razeRuins();
+            if (KingdomsConfig.debugCommandsEnabled()) {
+                auditTowns();
+            }
+        }
+    }
+
+    /**
+     * Lets every town notice the buildings it no longer has.
+     *
+     * <p>On the audit's beat because it is the audit's measurement — the walls a
+     * building has left — and because a minute is the right cadence for it
+     * either way: this is the only thing in the mod that removes a building, and
+     * it does so after {@link TownAuditor#SWEEPS_BEFORE_WRITTEN_OFF} sweeps in a
+     * row agree, which is three minutes of a shell reading as gone.
+     */
+    private static void razeRuins() {
+        for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
+            for (var kingdom : entry.getValue().kingdoms()) {
+                for (var settlement : kingdom.settlements()) {
+                    var razed = TownAuditor.demolishRuins(entry.getKey(), settlement);
+                    if (razed.isEmpty()) {
+                        continue;
+                    }
+                    for (var lost : razed) {
+                        LOGGER.info("DEMOLISHED {} {} at {}", settlement.name(),
+                                lost.blueprintId(), lost.origin());
+                    }
+                    // The buildings list changed under the save data, and
+                    // nothing else marks it dirty: the simulation mutates these
+                    // objects in place.
+                    KingdomsSavedData.get(entry.getKey()).setDirty();
+                }
+            }
         }
     }
 

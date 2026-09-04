@@ -1464,6 +1464,140 @@ public final class Settlement {
         buildings.add(Objects.requireNonNull(building, "building"));
     }
 
+    /**
+     * Takes a building off the books, because it is not there any more.
+     *
+     * <p>Nothing did this before, and the record being permanent was never a
+     * decision anybody made — it simply did not come up while nothing in the mod
+     * could destroy a building. A creeper can. So a cottage blown flat went on
+     * housing a family, counting toward the town's beds, having roads routed to
+     * its door, and being audited for a way in it no longer had.
+     *
+     * <p>Everything that follows from a building vanishing is gathered here
+     * rather than left to the callers, because each of them is a way for the
+     * town to go on believing in something that is gone:
+     *
+     * <ul>
+     *   <li><strong>Its goods go on the ground</strong> rather than into
+     *       nothing. A store's ledger <em>is</em> part of the town's stock — see
+     *       {@link PooledStock} — so deleting it with the building would take a
+     *       granary's worth of food out of a hungry town's books.</li>
+     *   <li><strong>Its family moves out</strong>, into whatever stands empty,
+     *       and onto the housing queue when nothing does. See
+     *       {@link PopulationPlanner#evict}.</li>
+     *   <li><strong>The road forgets it</strong>, so the way to a door that is
+     *       no longer there can be planned again to whatever replaces it. This
+     *       is what {@link PathNetwork#forget} has been waiting for.</li>
+     *   <li><strong>Its ground is free</strong>, and nothing has to be done for
+     *       that: {@link #isPlotFree} asks the buildings that are standing.</li>
+     * </ul>
+     *
+     * <p>The plot cursor is deliberately <em>not</em> wound back to the freed
+     * slot. It only ever moves outward, and walking it backward would re-offer
+     * every plot the siting rules refused between there and here — a town would
+     * spend its whole search budget re-examining ground it walked past on
+     * purpose. A walled town's civic rescan already starts from the centre and
+     * will find the gap; anywhere else it stays a gap in the ranks, which is
+     * what a burnt-out plot looks like anyway.
+     *
+     * @param reason what to write in the town's history beside the loss
+     * @return whether this building was one of ours
+     */
+    public boolean removeBuilding(Building lost, long step, String reason) {
+        if (lost == null || !buildings.remove(lost)) {
+            return false;
+        }
+        paths.forget(lost.origin());
+        cancelWorkOn(lost.origin());
+        salvage(lost);
+        PopulationPlanner.evict(this, lost.origin());
+        forgetWorkArea(lost);
+        tallies.record(Tallies.BUILDINGS_LOST);
+        logEvent(step, "The " + readableName(lost.blueprintId()) + " at " + lost.origin()
+                + " is gone — " + reason);
+        return true;
+    }
+
+    /**
+     * Drops work booked against a building that is no longer there.
+     *
+     * <p>{@link RepairPlanner} will have queued some. Anything hurt badly enough
+     * to be written off passed {@code SEVERE_DAMAGE} on the way down, and a
+     * repair is queued as an upgrade to the building's own level and pushed to
+     * the <em>head</em> of the queue. Left there it is worse than wasted work:
+     * the queue is head-blocking, so a repair the town cannot pay for stops it
+     * ever ordering the replacement house the eviction has just made it want,
+     * and {@link #isPlotFree} counts a queued task's ground as taken — so the
+     * plot this was all supposed to free is not free either.
+     *
+     * <p>Only work aimed at <em>this</em> building. A fresh build ordered onto
+     * the same plot is somebody's plan for the ground rather than a claim about
+     * a structure that has stopped existing, and it stays.
+     */
+    private void cancelWorkOn(SimPos plot) {
+        buildQueue.removeIf(queued -> samePlot(queued.upgradeOf(), plot));
+    }
+
+    /**
+     * Moves what a lost building was holding out into the open.
+     *
+     * <p>Goods are only ever in one place, and a building's shelves are one of
+     * those places rather than a copy of a town-wide figure — so letting them go
+     * with the building destroys stock the town owns. The loose pile is exactly
+     * where goods with nowhere to be belong, and {@link #putAwayLoosePile}
+     * carries them into the next store that is standing.
+     *
+     * <p>The food a farm or a market stall holds moves too. It is counted in a
+     * different column — {@link FoodPlanner#totalFood} adds the fields and the
+     * stalls to the granary — and moving it here is what keeps the total the
+     * same either side of a demolition, which is the only property that matters.
+     */
+    private void salvage(Building lost) {
+        if (lost.hasStores()) {
+            for (Map.Entry<String, Integer> held : Map.copyOf(lost.stores().all()).entrySet()) {
+                loosePile.add(held.getKey(),
+                        lost.stores().takeUpTo(held.getKey(), held.getValue()));
+            }
+        }
+        if (lost.foodStored() > 0) {
+            loosePile.add(TownStores.FOOD, lost.foodStored());
+            lost.setFoodStored(0);
+        }
+    }
+
+    /**
+     * Gives up ground that was claimed on behalf of a building that is gone.
+     *
+     * <p>A work area is staked by a camp — {@link LumberPlanner} claims the
+     * woodland round the lumber camp, {@link MinePlanner} the stone round the
+     * mine — so it is a claim made for that building rather than a standing fact
+     * about the town. Left behind, it is a licence to fell trees for a camp that
+     * burnt down; cleared, the next camp the town raises claims its own.
+     *
+     * <p>Only the claim this building actually made. Asking whether it was the
+     * last of its kind is the wrong question and gets both cases wrong: a town
+     * with two camps that loses the one the woodland was staked around goes on
+     * sending its remaining lumberjacks to ground claimed for a building that is
+     * not there, and a player who has pointed the camp block at a different
+     * wood — see {@code LumberCampBlock} — would have their choice thrown away
+     * because a camp somewhere else burnt down. Cleared, {@link LumberPlanner}
+     * re-stakes on whichever camp is still standing on its very next pass, and
+     * says so in the town's history.
+     */
+    private void forgetWorkArea(Building lost) {
+        if (lost.role() == BuildingRole.LUMBER_CAMP && claimedBy(lumberArea, lost)) {
+            lumberArea = null;
+        }
+        if (lost.role() == BuildingRole.MINE && claimedBy(mineArea, lost)) {
+            mineArea = null;
+        }
+    }
+
+    /** Whether this ground was staked out around this building. */
+    private static boolean claimedBy(WorkArea area, Building building) {
+        return area != null && samePlot(area.centre(), building.origin());
+    }
+
     public List<Building> buildings() {
         return Collections.unmodifiableList(buildings);
     }
@@ -1598,7 +1732,12 @@ public final class Settlement {
             return false;
         }
         for (Building building : buildings) {
-            if (building.origin().equals(home)) {
+            // On the plot, because a family housed before its cottage was drawn
+            // holds the estimated height and setOriginY writes the real one into
+            // the building alone. Comparing in full answers about a building
+            // this town does not have and falls through to the line below, which
+            // would let a family in a bunkhouse start having children.
+            if (samePlot(building.origin(), home)) {
                 return !BuildPlanner.baseIdOf(building.blueprintId())
                         .equals("kingdoms:bunkhouse");
             }

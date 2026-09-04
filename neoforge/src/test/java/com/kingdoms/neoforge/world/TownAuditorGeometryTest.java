@@ -4,6 +4,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -21,6 +22,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the doorway check's own javadoc makes, now actually asked.
  */
 class TownAuditorGeometryTest {
+
+    /**
+     * The auditor remembers things between sweeps, and every fixture in this
+     * class stands at the same origin — so without this a house walled all round
+     * in one test is the same shell, at the same address, as the open field in
+     * the next. Several cases below already said {@code forget()} by hand for
+     * exactly that reason; saying it once covers the ones that did not know they
+     * needed to.
+     */
+    @BeforeEach
+    void startWithNoMemory() {
+        TownAuditor.forget();
+    }
 
     private static final int FLOOR = 64;
 

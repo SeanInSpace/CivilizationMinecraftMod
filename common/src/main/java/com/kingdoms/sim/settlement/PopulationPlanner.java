@@ -123,6 +123,78 @@ public final class PopulationPlanner {
         }
     }
 
+    /**
+     * Turns out whoever was living at a home that is no longer there.
+     *
+     * <p>The mirror of {@link #retireEmptyHouseholds}: that one has a house with
+     * nobody left in it, this one has a family with no house left. Both exist to
+     * leave the same thing behind — housing books that describe buildings which
+     * actually stand. Called by {@link Settlement#removeBuilding}, because a
+     * demolition is the only way a home disappears out from under a family.
+     *
+     * <p>Rehomed where the town has somewhere to put them, and made homeless
+     * where it does not. Homeless is not a failure state and is deliberately not
+     * dressed up as one: an unhoused family is what housing demand is made of —
+     * see {@link Settlement#unhousedHouseholds} — so a town that loses a cottage
+     * wants another cottage, which is the whole behaviour a demolition ought to
+     * produce. Dissolving the family instead would scatter its members back
+     * through {@link #groupUnassignedResidents} and throw away the name, the
+     * pantry and the growth they had between them.
+     *
+     * <p>A household that was already empty is retired outright, exactly as it
+     * would have been at the top of the next population step. That is the one
+     * case where the family really does end here rather than move.
+     */
+    public static void evict(Settlement settlement, SimPos home) {
+        if (home == null) {
+            return;
+        }
+        for (Household household : List.copyOf(settlement.households())) {
+            if (!samePlot(home, household.home())) {
+                continue;
+            }
+            if (household.members().isEmpty()) {
+                settlement.removeHousehold(household);
+                continue;
+            }
+            // Asked afresh per family, so two households out of one longhouse do
+            // not both claim the same empty cottage: the first is recorded in it
+            // before the second is asked.
+            SimPos moved = firstVacantHome(settlement);
+            household.setHome(moved);
+            if (moved == null) {
+                continue;   // homeless where they stand; there is nowhere to send them
+            }
+            // Their bodies as well as their address, exactly as every other move
+            // in this class does it. Without this a family is recorded as living
+            // across town while every member is still standing in the crater,
+            // which is where the view layer would put them back.
+            for (Person.Id member : household.members()) {
+                Person person = settlement.resident(member);
+                if (person != null) {
+                    person.setPosition(moved);
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether two addresses name the same plot, whatever height each was read at.
+     *
+     * <p>The same rule the upgrade path keeps, and for the same reason: a
+     * building's x and z are its plot and never move, while its y is wherever
+     * the ground turned out to be. A house finished in an unloaded chunk carries
+     * an estimated height, a family can be housed in it before anybody has been
+     * near it, and {@code setOriginY} then writes the real height when it is
+     * drawn — after which the family's recorded address and the building's own
+     * differ by a block or two. Matching on all three would quietly fail to
+     * evict exactly those families, which is the state this whole method exists
+     * to prevent.
+     */
+    private static boolean samePlot(SimPos a, SimPos b) {
+        return a != null && b != null && a.x() == b.x() && a.z() == b.z();
+    }
+
     // --- 1. newcomers ---
 
     /**
@@ -214,16 +286,11 @@ public final class PopulationPlanner {
 
     /** First unclaimed home a family may grow in, or null. */
     private static SimPos firstVacantFamilyHome(Settlement settlement) {
-        Set<SimPos> taken = new HashSet<>();
-        for (Household household : settlement.households()) {
-            if (household.isHoused()) {
-                taken.add(household.home());
-            }
-        }
+        Set<SimPos> taken = spokenFor(settlement);
         for (Building building : settlement.buildings()) {
             if (capacityOf(settlement, building.blueprintId()) <= 0
                     || !settlement.isFamilyHome(building.origin())
-                    || taken.contains(building.origin())) {
+                    || taken.contains(plotOf(building.origin()))) {
                 continue;
             }
             return building.origin();
@@ -231,10 +298,41 @@ public final class PopulationPlanner {
         return null;
     }
 
+    /**
+     * The plots families have already claimed.
+     *
+     * <p>Plots, not positions, and that is the whole of it — see
+     * {@link #samePlot}. A family housed in a cottage the world had not yet
+     * drawn holds the estimated height; drawing the cottage writes the real one
+     * into the building and not into the family. Comparing the two in full then
+     * reports an occupied house as empty, and the next family to want one is
+     * moved in on top of the one already living there — with the older family's
+     * capacity reading zero afterwards, which reads as permanently overcrowded
+     * and stops it growing.
+     *
+     * <p>A set rather than a scan, because {@link #assignHomes} asks once per
+     * unhoused family per step and a scan makes that quadratic in the size of
+     * the town.
+     */
+    private static Set<SimPos> spokenFor(Settlement settlement) {
+        Set<SimPos> taken = new HashSet<>();
+        for (Household household : settlement.households()) {
+            if (household.isHoused()) {
+                taken.add(plotOf(household.home()));
+            }
+        }
+        return taken;
+    }
+
+    /** An address with its height dropped, so two of them compare as plots. */
+    private static SimPos plotOf(SimPos at) {
+        return new SimPos(at.x(), 0, at.z());
+    }
+
     /** The blueprint standing at this home, or an empty id. */
     private static String homeBlueprint(Settlement settlement, SimPos home) {
         for (Building building : settlement.buildings()) {
-            if (building.origin().equals(home)) {
+            if (samePlot(building.origin(), home)) {
                 return building.blueprintId();
             }
         }
@@ -378,7 +476,7 @@ public final class PopulationPlanner {
             return 0;
         }
         return settlement.buildings().stream()
-                .filter(building -> building.origin().equals(household.home()))
+                .filter(building -> samePlot(building.origin(), household.home()))
                 .mapToInt(building -> capacityOf(settlement, building.blueprintId()))
                 .findFirst()
                 .orElse(0);
@@ -386,17 +484,12 @@ public final class PopulationPlanner {
 
     /** First house nobody has claimed, or null if the settlement is fully occupied. */
     public static SimPos firstVacantHome(Settlement settlement) {
-        Set<SimPos> taken = new HashSet<>();
-        for (Household household : settlement.households()) {
-            if (household.isHoused()) {
-                taken.add(household.home());
-            }
-        }
+        Set<SimPos> taken = spokenFor(settlement);
         for (Building building : settlement.buildings()) {
             if (capacityOf(settlement, building.blueprintId()) <= 0) {
                 continue;
             }
-            if (!taken.contains(building.origin())) {
+            if (!taken.contains(plotOf(building.origin()))) {
                 return building.origin();
             }
         }

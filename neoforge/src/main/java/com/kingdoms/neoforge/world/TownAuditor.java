@@ -186,6 +186,106 @@ public final class TownAuditor {
     /** Filled during a sweep, and swapped into {@link #LAST_UNDRAWN} at the end of it. */
     private static final java.util.Set<BlockPos> UNDRAWN_THIS_SWEEP = new java.util.HashSet<>();
 
+    /**
+     * The share of its wall ring, in percent, a building has to keep to still be
+     * a building.
+     *
+     * <p>Damage and demolition are different things, and this number is what
+     * separates them. A missing door is one column of two dozen. A creeper hole
+     * in one wall is four or five. A whole wall blown out of a seven-by-seven
+     * cottage is seven of twenty-four — still seventy per cent standing, and
+     * emphatically a building in need of repair rather than a building that has
+     * stopped existing. Three walls gone is where the argument ends: there is
+     * nothing left to walk into, and a town that "repaired" it would be building
+     * the whole thing again.
+     *
+     * <p>{@link com.kingdoms.sim.settlement.RepairPlanner#SEVERE_DAMAGE} is the
+     * other end of the same scale and is deliberately left where it is. A
+     * quarter missing is when the town spends timber on it; three quarters of
+     * the walls missing is when the town admits there is no it.
+     */
+    public static final int STILL_A_BUILDING = 25;
+
+    /**
+     * The share of its wall ring, in percent, a structure has to have been seen
+     * with before anything here will call it a building at all.
+     *
+     * <p>You cannot say a thing has been demolished unless you saw it standing.
+     * That is not caution, it is the difference between this check working and
+     * this check razing half of every town: <strong>plenty of what a settlement
+     * builds has no wall at head height and never did</strong>. A field is a
+     * one-block fence round tilled soil, a pen is the same, a watchtower is a
+     * narrow shaft on a broad plinth, a cache is a platform. Every one of them
+     * reads as a building with its walls missing from the day it was finished.
+     *
+     * <p>Stating it as a share of the same measurement, rather than as a list of
+     * the buildings that are exempt, is what makes it hold for the structures
+     * nobody has written yet — the same argument
+     * {@link #hasSomethingToEnter} makes about height.
+     *
+     * <p>Three quarters, so that a house whose door is a gap and whose gable is
+     * open still qualifies, and nothing whose ring was mostly air on the day it
+     * was drawn ever does.
+     */
+    public static final int WAS_A_BUILDING = 75;
+
+    /**
+     * Consecutive demolition sweeps a building must read as gone before the town
+     * writes it off.
+     *
+     * <p>Three, at a sweep a minute. The two things this must never do are
+     * demolish a building somebody is in the middle of rebuilding by hand and
+     * demolish one the town has already queued its own repair for — and both put
+     * blocks back within a couple of minutes, on a shell that would have to read
+     * as gone throughout. It is the same argument {@link #LAST_UNDRAWN} makes
+     * for two sweeps rather than one, with a third sweep of margin because the
+     * cost of being wrong is not a spurious line in a log: a building written
+     * off wrongly is a family evicted from a house that was standing.
+     */
+    public static final int SWEEPS_BEFORE_WRITTEN_OFF = 3;
+
+    /**
+     * How many demolition sweeps in a row each building has read as gone, by
+     * settlement.
+     *
+     * <p>Per settlement rather than one map for the world, because the count is
+     * rebuilt from what a sweep actually looked at and a sweep looks at one
+     * town. A single shared map would have each town's sweep throw away the
+     * previous town's evidence, so nothing would ever reach three.
+     */
+    private static final java.util.Map<Settlement.Id, java.util.Map<BlockPos, Integer>>
+            SEEN_RUINED = new java.util.HashMap<>();
+
+    /**
+     * The best each shell has ever looked, by position. See
+     * {@link #WAS_A_BUILDING}.
+     *
+     * <p>One map for the world rather than one per settlement, which is safe
+     * here and is not safe for {@link #SEEN_RUINED}: this one is only ever
+     * raised, entry by entry, so nothing a second town's sweep does can throw
+     * away what a first town's sweep learned. Positions are unique in a world,
+     * so no two buildings share a key.
+     *
+     * <p><strong>The mark is only ever taken by a sweep, so there is a window in
+     * which a building can be destroyed before this has any record of it
+     * standing</strong> — and then it never can be written off, because the low
+     * reading it is first seen with becomes its own high-water mark. The window
+     * is one sweep wide and it is a real one: a cottage drawn as a player walks
+     * into town and blown up half a minute later falls in it, as does anything
+     * knocked down in the minute before the server stops. Closing it properly
+     * means taking the mark where the structure is drawn rather than where it is
+     * next looked at — at both fidelities, since a building laid by hand never
+     * passes through {@code materializeBlueprint} — which is a seam worth
+     * cutting and is not this.
+     *
+     * <p>Standing in it is deliberate rather than cheap. Every failure here is a
+     * ruin left on the books, which is the state the whole mod was in until this
+     * existed; the failure in the other direction evicts a family from a house
+     * that was still there.
+     */
+    private static final java.util.Map<BlockPos, Integer> WALLS_SEEN =
+            new java.util.HashMap<>();
+
     private TownAuditor() {
     }
 
@@ -204,6 +304,8 @@ public final class TownAuditor {
         LAST_PLANTED.clear();
         LAST_UNDRAWN.clear();
         UNDRAWN_THIS_SWEEP.clear();
+        SEEN_RUINED.clear();
+        WALLS_SEEN.clear();
     }
 
     /**
@@ -421,6 +523,16 @@ public final class TownAuditor {
         if (!plot.isKnown()) {
             return;   // an old record with no measurements; nothing to judge against
         }
+        int walls = wallsStanding(world, building, origin);
+        if (walls >= 0 && walls < STILL_A_BUILDING) {
+            faults.add(new Fault(building.blueprintId(), origin,
+                    "mostly gone — " + walls + "% of its walls still standing"));
+            // And nothing else is worth saying about it. A crater has no
+            // doorway to be shut out of, no rooms to be damp, and no rows to be
+            // bare, so every other check below would only report the same
+            // demolition three more times in language about something else.
+            return;
+        }
         int floor = plot.y();
         int wallHalfW = Math.max(1, plot.width() / 2 - BlueprintPlacer.APRON_MARGIN);
         int wallHalfD = Math.max(1, plot.depth() / 2 - BlueprintPlacer.APRON_MARGIN);
@@ -433,6 +545,133 @@ public final class TownAuditor {
         if (isCropFarm(building.blueprintId())) {
             checkField(world, building, origin, floor, wallHalfW, wallHalfD, faults);
         }
+    }
+
+    /**
+     * What share of a building's wall ring is still standing, or -1 when the
+     * question does not apply to this building at all.
+     *
+     * <p>Measured at the two courses a doorway takes — {@code floor + 1} and
+     * {@code floor + 2} — because those are the walls a person walks between,
+     * and they are what a demolition takes away. The floor course is left out on
+     * purpose: a cabin lays its floor across the whole plan in the same block as
+     * its walls, so a house flattened to its slab would otherwise read as fully
+     * walled.
+     *
+     * <p>The notch is skipped, so the yard in the crook of a croft's L is not
+     * counted as three missing walls. It travels in the {@link Footprint}, which
+     * is the whole reason this can be asked of a shape rather than of a box.
+     *
+     * <p><strong>Only of something this has already seen standing</strong> — see
+     * {@link #WAS_A_BUILDING}, which is the gate that keeps the whole check from
+     * convicting every field, pen and platform in the town. The high-water mark
+     * is raised here rather than in the sweep that acts on it, so that a report
+     * asked for by hand keeps it current too; what a report must not do is
+     * advance the demolition clock, and that lives in {@link #SEEN_RUINED}
+     * instead.
+     *
+     * @return the share standing now, or -1 for a building this cannot judge
+     */
+    private static int wallsStanding(WorldView world, Building building, BlockPos origin) {
+        Footprint plot = building.footprint();
+        if (!building.isMaterialized() || !plot.isKnown() || !hasSomethingToEnter(plot)) {
+            return -1;
+        }
+        int columns = 0;
+        int standing = 0;
+        for (BlockPos wall : ring(origin, wallHalf(plot.width()), wallHalf(plot.depth()), 1)) {
+            if (plot.inNotch(wall.getX() - origin.getX(), wall.getZ() - origin.getZ())) {
+                continue;
+            }
+            if (!world.isLoaded(wall)) {
+                // The whole ring or none of it. A building straddling the edge
+                // of the loaded area, with its standing half away and its blown
+                // out half in view, would otherwise read as a ruin on every
+                // sweep and be written off while most of it was still up — and
+                // a lucky partial view of something that never had a wall ring
+                // would let it past the WAS_A_BUILDING gate the other way. Half
+                // a count is worse than no count, which is the rule the block
+                // census already keeps.
+                return -1;
+            }
+            columns++;
+            BlockPos feet = new BlockPos(wall.getX(), plot.y() + 1, wall.getZ());
+            if (!world.isPassable(feet) || !world.isPassable(feet.above())) {
+                standing++;
+            }
+        }
+        if (columns == 0) {
+            return -1;   // a shape with no ring outside its own notch
+        }
+        int share = standing * 100 / columns;
+        int best = Math.max(share, WALLS_SEEN.getOrDefault(origin, 0));
+        WALLS_SEEN.put(origin, best);
+        return best >= WAS_A_BUILDING ? share : -1;
+    }
+
+    /**
+     * Writes off the buildings the world no longer has, and says which.
+     *
+     * <p>The one thing the auditor is allowed to change, and it is a separate
+     * entry point from {@link #audit} for two reasons. The audit is read-only
+     * and has to stay that way: it is run by a command, twice in a second if
+     * somebody types it twice, and a report that demolishes what it reports on
+     * is not a report. And the clock below must only run where somebody is in a
+     * position to act on what it says, or {@code /civ audit} would be a way to
+     * knock a town down by asking about it.
+     *
+     * <p>Cheaper than the audit on purpose. It walks wall rings and nothing
+     * else, because unlike the audit it runs for every town on every sweep
+     * whether or not anybody has asked for a report.
+     *
+     * <p>An <em>unbuilt</em> building is not a demolished one and is never
+     * touched here: {@link #wallsStanding} refuses anything the world has not
+     * drawn, which the audit reports in its own words. Confusing the two would
+     * have the town tear up the record of a building it had simply not got round
+     * to painting in yet.
+     *
+     * @return the buildings actually taken off the books this sweep
+     */
+    public static List<Building> demolishRuins(WorldView world, Settlement settlement) {
+        java.util.Map<BlockPos, Integer> before =
+                SEEN_RUINED.getOrDefault(settlement.id(), java.util.Map.of());
+        java.util.Map<BlockPos, Integer> stillGone = new java.util.HashMap<>();
+        List<Building> razed = new ArrayList<>();
+        for (Building building : List.copyOf(settlement.buildings())) {
+            if (isPath(building.blueprintId())) {
+                continue;   // steps are a path, not a building with walls to lose
+            }
+            BlockPos origin = new BlockPos(building.origin().x(),
+                    building.origin().y(), building.origin().z());
+            if (!world.isLoaded(origin)) {
+                // Not evidence either way, so the count is neither advanced nor
+                // kept. A building nobody has walked past for an hour has not
+                // been a ruin for an hour — the same rule LAST_UNDRAWN follows.
+                continue;
+            }
+            int walls = wallsStanding(world, building, origin);
+            if (walls < 0 || walls >= STILL_A_BUILDING) {
+                continue;
+            }
+            int sweeps = before.getOrDefault(origin, 0) + 1;
+            if (sweeps < SWEEPS_BEFORE_WRITTEN_OFF) {
+                stillGone.put(origin, sweeps);
+                continue;
+            }
+            if (settlement.removeBuilding(building, world.stepsElapsed(),
+                    "only " + walls + "% of its walls were left standing, "
+                            + "on " + sweeps + " sweeps running")) {
+                WALLS_SEEN.remove(origin);   // whatever is built here next is its own building
+                razed.add(building);
+            }
+        }
+        SEEN_RUINED.put(settlement.id(), stillGone);
+        return razed;
+    }
+
+    /** Convenience for callers holding a live level. */
+    public static List<Building> demolishRuins(ServerLevel level, Settlement settlement) {
+        return demolishRuins(new LevelWorldView(level), settlement);
     }
 
     /**
