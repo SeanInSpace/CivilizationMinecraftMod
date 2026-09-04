@@ -73,8 +73,14 @@ public final class PathLayer {
      * @return blocks paved — zero for a road that is already sound
      */
     public static int mend(ServerLevel level, PathNetwork.Segment segment) {
+        // Before the steepness check and before anything else, because a
+        // crossing is the one part of a way that is not paving at all: there is
+        // no ground under it to be too steep, and the columns it covers read as
+        // OTHER to every count below -- water is not a road with holes in it, it
+        // is a road with a river across it.
+        int decked = Bridge.span(level, segment);
         if (tooSteepToPave(level, segment)) {
-            return 0;
+            return decked;
         }
         // Earn the steps before laying anything on them. A road that arrives at
         // a two-block rise and stops is a road with a wall at the end of it; a
@@ -97,9 +103,9 @@ public final class PathLayer {
         }
         int ours = intact + broken;
         if (ours == 0 || (double) broken / ours < REPAIR_FRACTION) {
-            return 0;
+            return decked;
         }
-        int laid = moved;
+        int laid = moved + decked;
         for (SimPos pos : segment.positions()) {
             for (int ox = -half; ox <= half; ox++) {
                 for (int oz = -half; oz <= half; oz++) {

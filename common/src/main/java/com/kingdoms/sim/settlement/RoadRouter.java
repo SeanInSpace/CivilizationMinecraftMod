@@ -60,6 +60,24 @@ public final class RoadRouter {
      */
     public static final int GRAIN = 4;
 
+    /**
+     * The longest stretch of water one road may cross.
+     *
+     * <p>Water used to be refused outright, everywhere, by both the search and
+     * the fine check that follows it — so a river severed a town's network
+     * absolutely and a settlement that happened to be founded on two banks was
+     * two settlements that shared a name. That was never a decision; it was what
+     * you get when the only answer available is no.
+     *
+     * <p>Twenty-four blocks is a bridge somebody could build: a vanilla river is
+     * five to twelve across at its widest and a lake inlet a good deal more, so
+     * this crosses every river and refuses the open water it would be silly to
+     * span. It is a bound rather than a budget — a road takes the narrowest
+     * crossing it can find long before it reaches this, because every wet block
+     * is priced.
+     */
+    public static final int LONGEST_BRIDGE = 24;
+
     /** Ground this route may not cross at all. */
     public interface Keepout {
         boolean blocked(int x, int z);
@@ -126,11 +144,23 @@ public final class RoadRouter {
             for (int[] step : NEIGHBOURS) {
                 int nx = x + step[0] * GRAIN;
                 int nz = z + step[1] * GRAIN;
-                if (!withinCorridor(nx, nz, ideal) || keepout.blocked(nx, nz)
-                        || ground.wetAt(nx, nz)) {
+                if (!withinCorridor(nx, nz, ideal) || keepout.blocked(nx, nz)) {
                     continue;
                 }
-                int climb = Math.abs(ground.heightAt(nx, nz) - ground.heightAt(x, z));
+                // A wet cell is dear rather than forbidden, and a step with
+                // water at EITHER end has no climb: what a road does over water
+                // is carried on a deck, and a deck is level whatever the
+                // riverbed underneath it is doing.
+                //
+                // Either end, not just the far one. Getting on to the water was
+                // the obvious half and getting off it is the half that decides
+                // whether a crossing exists at all -- a channel ten blocks deep
+                // reads as a ten-block climb the moment the road reaches the
+                // far bank, which is over the impassable limit, so every
+                // crossing on the map was refused one step from finishing.
+                boolean wet = ground.wetAt(nx, nz);
+                int climb = wet || ground.wetAt(x, z) ? 0
+                        : Math.abs(ground.heightAt(nx, nz) - ground.heightAt(x, z));
                 if (climb > IMPASSABLE_CLIMB) {
                     continue;   // no arrangement of blocks makes this walkable
                 }
@@ -150,6 +180,7 @@ public final class RoadRouter {
                 // wins is checked column by column afterwards, where a real
                 // step can be seen.
                 int next = cost + move + climb * CLIMB_PRICE
+                        + (wet ? BRIDGE_PRICE : 0)
                         + (int) Math.round(strayed(nx, nz, ideal)) * STRAY_PRICE;
                 long there = key(nx, nz);
                 Integer had = best.get(there);
@@ -178,17 +209,31 @@ public final class RoadRouter {
      */
     public static boolean walkable(List<SimPos> line, TerrainSense ground, int gradable) {
         int steep = 0;
+        int wetRun = 0;
+        int last = NO_HEIGHT_YET;
         for (int i = 1; i < line.size(); i++) {
             List<SimPos> run = between(line.get(i - 1), line.get(i));
-            int last = ground.heightAt(run.get(0).x(), run.get(0).z());
             for (SimPos at : run) {
-                int height = ground.heightAt(at.x(), at.z());
-                int climb = Math.abs(height - last);
-                if (climb > GRADABLE_CLIMB) {
-                    return false;
+                // A crossing is judged as a crossing: how far the deck has to
+                // reach, not how far the bed falls away under it. The climb
+                // either side of the water is still judged, because the deck has
+                // to meet a bank somebody can walk up.
+                if (ground.wetAt(at.x(), at.z())) {
+                    if (++wetRun > LONGEST_BRIDGE) {
+                        return false;   // not a river; open water
+                    }
+                    continue;
                 }
-                if (climb == GRADABLE_CLIMB && ++steep > gradable) {
-                    return false;
+                wetRun = 0;
+                int height = ground.heightAt(at.x(), at.z());
+                if (last != NO_HEIGHT_YET) {
+                    int climb = Math.abs(height - last);
+                    if (climb > GRADABLE_CLIMB) {
+                        return false;
+                    }
+                    if (climb == GRADABLE_CLIMB && ++steep > gradable) {
+                        return false;
+                    }
                 }
                 last = height;
             }
@@ -279,22 +324,42 @@ public final class RoadRouter {
         return kept;
     }
 
+    /**
+     * What a road pays per grain cell of water it crosses.
+     *
+     * <p>Dear enough that a route takes any dry way round it that is not
+     * absurdly longer — a cell costs ten straight or fourteen diagonal, so this
+     * is worth about twenty cells of detour per cell of water, which is the
+     * right trade for a river a road can walk around the head of. Not so dear
+     * that a crossing is never worth it, because a town on two banks with no
+     * bridge is two towns.
+     */
+    private static final int BRIDGE_PRICE = 200;
+
     /** Whether a straight run between two points crosses only ground a road may have. */
     private static boolean clearRun(SimPos from, SimPos to, TerrainSense ground,
                                     Keepout keepout) {
-        int last = ground.heightAt(from.x(), from.z());
+        // Deliberately not seeded from the first column: it may be water, and
+        // the bed of a channel is not a height anything is compared against.
+        int last = NO_HEIGHT_YET;
         for (SimPos at : between(from, to)) {
-            if (keepout.blocked(at.x(), at.z()) || ground.wetAt(at.x(), at.z())) {
+            if (keepout.blocked(at.x(), at.z())) {
                 return false;
             }
+            if (ground.wetAt(at.x(), at.z())) {
+                continue;   // carried over on a deck; the span is checked whole
+            }
             int height = ground.heightAt(at.x(), at.z());
-            if (Math.abs(height - last) > GRADABLE_CLIMB) {
+            if (last != NO_HEIGHT_YET && Math.abs(height - last) > GRADABLE_CLIMB) {
                 return false;
             }
             last = height;
         }
         return true;
     }
+
+    /** No dry column has been seen yet, so there is nothing to compare against. */
+    private static final int NO_HEIGHT_YET = Integer.MIN_VALUE;
 
     /** How many gradable steps a whole street may carry before it is not worth it. */
     private static final int GRADABLE_ALLOWANCE = 4;
