@@ -8,6 +8,150 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## Two blocks between walls, and nine things a town could not do
+
+### New
+
+- **A building can be pulled down, and the town notices.** Nothing in the mod
+  had ever removed a building, so a cottage a creeper flattened went on housing
+  a family, counting toward the beds that gate every birth, and having roads
+  routed to a door that was not there. A structure found with less than a
+  quarter of its walls standing, three sweeps running, is written off: its goods
+  go on the loose pile rather than out of the town's books, its family moves
+  into whatever is empty or joins the housing queue, its repair order is
+  cancelled and its road forgotten. A town that loses a cottage now wants
+  another one. Nothing is written off unless the town saw it standing first —
+  otherwise every field, pen and watchtower in the mod, none of which has a wall
+  at head height, would be condemned the day it was built.
+- **A market with prices that say why.** The stall was vanilla's villager
+  trading screen, which has room for a number and nowhere at all for "they are
+  starving". It is the mod's own screen now, and every row carries the reason
+  beside the price — *they are starving*, *more than they can store* — so a
+  shortage is legible from the road, which is the whole of what makes a moving
+  price a game rather than a table. The price is re-derived from the town as it
+  is when you press the button, not as it was when the screen opened.
+- **`/civ info` and the `AUDIT` line say how fast the town is being run.** Three
+  figures — passes a minute, the worst single gap in the last minute, and how
+  much history that is — printed beside the rate the town is meant to get.
+  Measured per world, so the Nether's empty one can never be mistaken for the
+  overworld's.
+
+### Changed
+
+- **Two blocks between any two walls, everywhere.** A plot used to be a
+  building, the doorstep ring around it, and one further block belonging to
+  nobody. That block is gone: two doorsteps that touch are two buildings that
+  each have one. Across the thirteen arrangements the gap from a wall to its
+  nearest neighbour's went from a median of six blocks to four, and every
+  arrangement now touches two somewhere where the tightest used to be three. No
+  town sprawls further for it — the stronghold pulled in from 191 blocks across
+  to 134 and the bastide from 208 to 184. Nine, the cottage's own separation,
+  was built and measured and is worse: a plan that offers at the smallest
+  building's floor offers most of its frontage to buildings that are refused.
+- **The wall moves with the town, and the old line comes down.** A settlement
+  that grew past its palisade stayed past it for the rest of the world's life —
+  measured on rough ground at seven hundred steps, 58 of 85 buildings stood
+  outside their own wall. The ring is reviewed every hundredth step and re-staked
+  when a plot lies outside it, but only adopted when the new line is at least an
+  eighth longer, so one shed a few blocks out is tolerated rather than chased.
+  The old line is pulled up as the new one goes up — a wall left inside a wall is
+  a fence through the middle of a town, and it shuts a settler out of their bed
+  the same as any other. Only two courses of fence or a gate come down, so pens,
+  field boundaries and bridge railings survive. The posts already raised travel
+  with the town: a wall moved outward is the same wall, and nobody is charged
+  twice.
+- **A town out of good ground takes the least bad plot it looked at.** Having
+  examined ninety-six candidate plots and refused every one, a town used to take
+  the next slot on the ring with no terrain check at all — so the better the
+  siting rules got, the more often the search exhausted itself and the more
+  buildings were placed on ground nobody had looked at. Ground is scored now
+  rather than passed or failed, and the best of what was examined is taken. On
+  ground that refuses in families — a lake, a hillside, a quarter nobody has
+  loaded — a town that managed nine buildings in five hundred steps now builds
+  forty-five, on less than half the fault and never worse than three courses
+  where it used to accept eight. On the rough test seed: 47 buildings against 46,
+  the plot cursor at 166 rather than 195, and three doorsteps off a road rather
+  than four.
+- **The danger scale has rungs, and a stranger is no longer a zombie.** Anything
+  the table had not named read as the mildest thing in it, so an unrecognised
+  horror was a shambling corpse until it was inside the walls. What is not named
+  is now read off what the game itself says — whether it is hostile, a raider,
+  ranged, a boss — so a modded boss reads at the top of the scale and an archer
+  nobody named reads above a skeleton. Three unnamed hostiles now reach the panic
+  tier where six shambling ones were needed. Naming a creature is what earns it a
+  *lower* number. Seven vanilla hostiles are named at last, the drowned among
+  them: it was a zombie by descent and read as one, trident and all.
+- **The wall draws by real seconds rather than by sweeps.** Its post budget was
+  per pass of the town manager, which is a budget per second only while the
+  passes arrive once a second. It earns posts from the time actually elapsed
+  now, capped at five seconds of arrears — so ten minutes away lays a hundred and
+  twenty posts on the sweep you come back to, not fourteen thousand four
+  hundred. The looking is deliberately not paced: a scan that did not happen is
+  owed to nobody, and looking is the expensive half.
+
+### Fixed
+
+- **A family in a house the town cannot name is left alone.** A home whose
+  blueprint matched no catalogue entry — a renamed cottage, a building from a mod
+  no longer loaded, an older save — reported a capacity of zero, and every caller
+  read zero as *full*. The family counted as permanently overcrowded and shed a
+  member into every vacancy that appeared until there was nobody left: three
+  members gone in seventy-two steps, measured. Unknown is a different answer from
+  zero now, and it means no opinion — nobody sheds, nobody is born, and the house
+  is not offered to anyone hunting for one. Three members still three at two
+  hundred steps.
+- **A building is drawn the size its plot was reserved for.** The market was
+  converted to read its size from the shared table, kept an old literal, and went
+  on being drawn five blocks across where nine had been set aside for it —
+  through a whole in-world run. Every one of the twenty-four kinds is now
+  measured against the table without needing a world to draw it in.
+- **A town's armoury could be bought at a coin an ingot** by anyone who knew what
+  the ledger called it. The stall answered for any word in the books, and weapons
+  and armour had no price and no reserve, so the fallback price fell out as a
+  single coin and the whole holding read as spare.
+- **Buying logs and selling planks minted money**, at four planks the log against
+  a spread of three to two.
+- **A town refused to sell goods it demonstrably owned.** The counter drew from
+  the nearest store and gave up if that one was empty, so a market beside the
+  granary would not sell timber sitting in a storehouse across the village —
+  silently, because a deal declined and a deal unreachable look identical from
+  outside.
+- **The storehouse destroyed emeralds.** It took a player's coin and handed out
+  logs without the town's treasury moving, so trading with a town made money
+  vanish out of the world.
+- **A wall is never staked through a house.** The line may now not be dug across
+  a plot at all — the two rules that were there guard the loop against itself and
+  the plots against being left outside, and a building's corners sit happily
+  inside a line that runs over its floor.
+
+### Notes
+
+- Measured in a world on the rough test seed, 8675309: **0 of 80 drawn buildings
+  standing in water**, and the audit reported none. The town re-staked its wall
+  at step 400 and again after, 688 posts to 1134 to 1292.
+- The town manager is **not** starved of ticks, which had been the standing
+  theory for six runs. Unwatched under `/civ step` load it runs 57.8 passes a
+  minute with a worst gap of 4.8 seconds; with a player standing in the town,
+  60.0 against the 60 intended.
+- **A town grown 511 steps unwatched inside a force-loaded box materialised
+  nothing at all** — all 120 of its buildings still pending placement, the wall
+  reporting nothing even looked at — and then drew 80 buildings within a hundred
+  and fifty seconds of a player standing in it. Nothing was slow; nothing was
+  drawn. So the unwatched path does not treat force-loaded ground as ground it
+  may build on, and that is the open item this round leaves behind.
+- **The storehouse and the market disagree about timber by a factor of sixteen.**
+  The storehouse sells eight logs the emerald and the market buys at two emeralds
+  the log, so a town holding both can be pumped for about fifteen coin a click.
+  It predates this work and closing it means choosing between the founding arc's
+  helping hand and the market being a town's only counter.
+- Verified in a world by the manager:
+
+  Tried in a world by the manager and NOT seen firing, for a reason worth more than a tick: a cottage with its walls and roof taken off was reported by the auditor as "mostly gone — 0% of its walls still standing" on three sweeps, but the town rebuilt it after every flattening — twenty fills over four minutes, twenty `Materialized` lines — so no three sweeps in a row ever agreed and the write-off count kept resetting. That is the repair planner doing what it is for, and the design defers to it on purpose; the write-off itself is held by thirty-four tests and has not been watched in a world. To see it, flatten a house in a town that has no timber to mend it with.
+
+  Opened in a world by the manager on seed 8675309: right-clicking the market post of a town with two coin in its treasury showed four goods, each with its reason beside the price — "They can spare it" on food, wood and stone, "More than they can store" on iron — and the footer "Prices move with what the town is short of. Paid in emeralds." The post stands a block off centre because the stall is turned to face its street, which is worth knowing before clicking at it from a script.
+
+---
+
 ## Buildings the size of their plots, and roads that cross water
 
 ### Changed
