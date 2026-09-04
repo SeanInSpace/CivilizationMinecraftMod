@@ -89,6 +89,13 @@ class RealTerrainRoadsTest {
      * because siting finds flat ground before it needs to level any — so this
      * is a ceiling to stop the number growing quietly, not a target that has
      * been met.
+     *
+     * <p><strong>Three now</strong>, and the ceiling is deliberately left at
+     * four. A relocation check that decides a site cannot be bettered no longer
+     * spends a ring slot doing it, and that alone brought the town in: 47
+     * buildings against 46, the plot cursor at 166 against 195, one doorstep
+     * recovered. Left at four because three is measured on one seed and the
+     * distance between them is a single house.
      */
     private static final int STRANDED_CEILING = 4;
 

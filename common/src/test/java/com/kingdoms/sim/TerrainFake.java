@@ -101,11 +101,32 @@ public final class TerrainFake implements WorldBridge {
 
     @Override
     public boolean isSiteSuitable(SimPos plot, int radius) {
+        return siteFault(plot, radius) == SITE_FAULT_NONE;
+    }
+
+    /**
+     * The same judgement, in courses of fall past what a builder will cut.
+     *
+     * <p>Written as the scored answer and the veto derived from it rather than
+     * the other way round, because the two must agree exactly: a plot the town
+     * would accept has to score zero, or a search that falls back on the
+     * least-bad candidate treats good ground as a compromise.
+     */
+    @Override
+    public int siteFault(SimPos plot, int radius) {
         if (standsInWater(plot, radius)) {
-            return false;
+            return SITE_FAULT_OPEN_WATER;
         }
-        // The bulk of the plot, not its extremes: a pit the builders would fill
-        // is not a reason to walk away from a shelf. Mirrors the live rule.
+        return Math.max(0, bulkFall(plot, radius) - MAX_FALL);
+    }
+
+    /**
+     * How far the bulk of a plot falls: the middle three fifths of its columns.
+     *
+     * <p>The bulk, not the extremes: a pit the builders would fill is not a
+     * reason to walk away from a shelf. Mirrors the live rule.
+     */
+    private int bulkFall(SimPos plot, int radius) {
         java.util.List<Integer> heights = new java.util.ArrayList<>();
         for (int dx = -radius; dx <= radius; dx += 3) {
             for (int dz = -radius; dz <= radius; dz += 3) {
@@ -115,7 +136,7 @@ public final class TerrainFake implements WorldBridge {
         java.util.Collections.sort(heights);
         int low = heights.get(heights.size() / 5);
         int high = heights.get((heights.size() * 4) / 5);
-        return high - low <= MAX_FALL;
+        return high - low;
     }
 
     /**

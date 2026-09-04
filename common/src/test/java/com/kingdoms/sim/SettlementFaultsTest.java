@@ -370,8 +370,16 @@ class SettlementFaultsTest {
      * five farms on carriageways and two houses in a river.
      *
      * <p>A test that only exercises the happy path certifies the happy path. So
-     * this one refuses four sites in five, which drives the search out to its
-     * last resort exactly as real ground does.
+     * this one refuses four sites in five, which is a great deal of refusing.
+     *
+     * <p>It is <strong>not</strong> enough to reach the give-up path, and that
+     * is worth writing down because this class used to claim it was. Refusing
+     * four in five means ninety-six candidates in a row are all refused about
+     * once in every two hundred million buildings: measured, a town grown here
+     * ends up with not one building on ground it had refused. Real ground
+     * refuses in <em>families</em> — a lake, a hillside, a quarter nobody has
+     * loaded — and it is that, not the rate, that empties a search.
+     * {@code LeastBadSiteTest} has the ground that does.
      */
     private static final class CruelGround
             implements com.kingdoms.sim.platform.WorldBridge {
@@ -387,12 +395,26 @@ class SettlementFaultsTest {
 
         @Override
         public boolean isSiteSuitable(SimPos plot, int radius) {
-            if (!ground.isSiteSuitable(plot, radius)) {
-                return false;
+            return siteFault(plot, radius) == SITE_FAULT_NONE;
+        }
+
+        /**
+         * The cruelty, scored: a spread of grudges rather than one flat refusal.
+         *
+         * <p>Four candidates in five are refused for nothing to do with their
+         * own merits, which is the whole point of this ground — but they are
+         * refused by <em>different amounts</em>, so a town falling back on the
+         * least-bad plot it examined has something to prefer. A single flat
+         * charge would make every refused plot identical and the fallback would
+         * be testing its tie-break rather than its ranking.
+         */
+        @Override
+        public int siteFault(SimPos plot, int radius) {
+            int fault = ground.siteFault(plot, radius);
+            if (fault == SITE_FAULT_OPEN_WATER) {
+                return fault;   // never a quantity, so never added to
             }
-            // Deterministic, and nothing to do with the plot's own merits --
-            // the point is only that most candidates are refused.
-            return Math.floorMod(plot.x() * 31 + plot.z() * 17, 5) == 0;
+            return fault + Math.floorMod(plot.x() * 31 + plot.z() * 17, 5);
         }
 
         @Override
@@ -442,10 +464,14 @@ class SettlementFaultsTest {
         assertTrue(held.size() >= 12,
                 "only " + held.size() + " buildings: the ground was too cruel to test with");
 
+        int refusedGround = 0;
         for (Building b : held) {
             int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue());
             assertFalse(ground.wetAt(b.origin().x(), b.origin().z()),
                     b.blueprintId() + " at " + b.origin() + " was built in the water");
+            if (ground.siteFault(b.origin(), BuildPlanner.PLOT_PROBE_RADIUS) > 0) {
+                refusedGround++;
+            }
             for (PathNetwork.Segment run : town.paths().segments()) {
                 if (run.width() <= PathNetwork.TRACK_WIDTH) {
                     continue;
@@ -455,6 +481,15 @@ class SettlementFaultsTest {
                                 + run.width() + "-wide street");
             }
         }
+        // And what this ground does NOT reach, measured rather than assumed.
+        // Zero of twenty-two, which is the finding recorded against the fixture
+        // above: a refusal rate, however high, does not exhaust a search of
+        // ninety-six independent candidates. Allowed a couple so this reads as
+        // a fact about the fixture and not a bar somebody has to keep.
+        assertTrue(refusedGround <= 2,
+                refusedGround + " of " + held.size() + " buildings stand on ground "
+                        + "this town refused, so the give-up path is being reached "
+                        + "here after all and this fixture means something new");
     }
 
     // --- 6 ----------------------------------------------------------------

@@ -254,6 +254,84 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         return false;
     }
 
+    /**
+     * The same judgement as {@link #isSiteSuitable}, scored rather than vetoed.
+     *
+     * <p>Zero exactly where that returns true, which is what makes the two safe
+     * to use together: the settlement asks this once per candidate and reads a
+     * zero as the veto passing. Above zero it is a quantity — courses of fall
+     * beyond what the builders will cut, plus what a plot under standing water
+     * is worth — so a town that has refused every candidate can still say which
+     * one it disliked least, instead of walking off to unexamined ground.
+     *
+     * <p>Costs what the veto costs, plot for plot, which it has to: the
+     * settlement asks this of every candidate it weighs, and there are
+     * ninety-six of those for one building.
+     */
+    @Override
+    public int siteFault(SimPos plot, int radius) {
+        BlockPos at = toBlockPos(plot);
+        if (!level.isLoaded(at)) {
+            return generatorFault(plot, radius);
+        }
+        if (standsInOpenWater(plot, radius)) {
+            return SITE_FAULT_OPEN_WATER;
+        }
+        int fault = holdsStandingFluid(plot, Math.max(radius, WATER_REACH))
+                ? FLOODED_GROUND : 0;
+        return fault + slopeFault(plot, radius);
+    }
+
+    /**
+     * What standing water in a plot is worth, in courses.
+     *
+     * <p>Flat rather than proportioned to how much of the plot is under it, and
+     * that is a cost decision written down rather than a shrug. Counting the wet
+     * columns means walking every column of the reach — about eight hundred and
+     * forty, each of them a heightmap read, a walk down to the bed and a fluid
+     * scan — where {@link #holdsStandingFluid} stops at the first one it finds.
+     * This is asked of up to ninety-six candidates for one building, in one
+     * tick, and the last thing here that sampled without counting the cost
+     * stalled a tick for sixty seconds and had the watchdog kill the server.
+     * With a flat charge, scoring a plot costs exactly what vetoing it costs.
+     *
+     * <p>Thirty-two: above any slope real ground produces, because the two
+     * faults are not alike — a builder cuts a shelf into a hillside and lives
+     * with it, and a floor cut level with a pond is a flooded room. Below
+     * {@link WorldBridge#SITE_FAULT_OPEN_WATER}, which is not a quantity at all:
+     * a pond at the edge of a plot is poor ground, a river is not ground.
+     */
+    private static final int FLOODED_GROUND = 32;
+
+    /**
+     * Judging unread ground by degree, through the same estimate the veto uses.
+     *
+     * <p>Water is still absolute here. What is <em>not</em> the same is the
+     * scale: the estimate refuses at {@link #MAX_SLOPE_UNSEEN} because it is
+     * coarse, but a caller ranking one plot against another is comparing this
+     * against faults measured past {@link #MAX_SLOPE}, and charging unread
+     * ground by the looser allowance would make it read four courses better
+     * than identical ground somebody had actually looked at — so a search
+     * falling back on the least bad would reliably pick the plot nobody has
+     * seen, which is the exact bias the ranking exists to remove. The veto
+     * keeps its own allowance; the score is quoted in the other one.
+     */
+    private int generatorFault(SimPos plot, int radius) {
+        int sea = level.getSeaLevel();
+        for (int[] at : new int[][] {
+                {0, 0}, {-radius, -radius}, {radius, -radius},
+                {-radius, radius}, {radius, radius}}) {
+            if (oracle.height(plot.x() + at[0], plot.z() + at[1]) < sea) {
+                return SITE_FAULT_OPEN_WATER;
+            }
+        }
+        int fall = oracle.bulkFall(plot.x(), plot.z(), radius, TerrainOracle.GRAIN);
+        if (fall <= MAX_SLOPE_UNSEEN) {
+            return SITE_FAULT_NONE;
+        }
+        return fall - MAX_SLOPE;
+    }
+
     @Override
     public boolean isSiteSuitable(SimPos plot, int radius) {
         BlockPos centre = toBlockPos(plot);
@@ -389,6 +467,11 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     private boolean slopeWithin(SimPos plot, int radius) {
+        return slopeFault(plot, radius) == SITE_FAULT_NONE;
+    }
+
+    /** How many courses past the allowance this ground falls, pit included. */
+    private int slopeFault(SimPos plot, int radius) {
         java.util.List<Integer> heights = new java.util.ArrayList<>();
         for (int dx = -radius; dx <= radius; dx += SAMPLE_STEP) {
             for (int dz = -radius; dz <= radius; dz += SAMPLE_STEP) {
@@ -402,16 +485,17 @@ public final class NeoForgeWorldBridge implements WorldBridge {
             }
         }
         if (heights.isEmpty()) {
-            return true;   // the whole plot was unloaded
+            return SITE_FAULT_NONE;   // the whole plot was unloaded
         }
         java.util.Collections.sort(heights);
         int low = heights.get(heights.size() / 5);              // a fifth from the bottom
         int high = heights.get((heights.size() * 4) / 5);       // a fifth from the top
-        if (high - low > MAX_SLOPE) {
-            return false;   // the plot itself falls away; that is a slope, not a pit
-        }
-        // And the outliers: a pit is welcome only as deep as a foundation goes.
-        return low - heights.get(0) <= FILLABLE_DEPTH;
+        // The plot's own fall — a slope, as against a pit — and then the
+        // outliers, since a pit is welcome only as deep as a foundation goes.
+        // Added rather than taken one at a time: a plot that is both is worse
+        // than one that is either, and the caller is comparing them.
+        return Math.max(0, high - low - MAX_SLOPE)
+                + Math.max(0, low - heights.get(0) - FILLABLE_DEPTH);
     }
 
     /**

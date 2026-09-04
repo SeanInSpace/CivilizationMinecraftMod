@@ -115,6 +115,69 @@ public interface WorldBridge {
     }
 
     /**
+     * A plot the strict test passes outright.
+     *
+     * <p>Zero, so that a bare {@code fault == SITE_FAULT_NONE} reads as "this
+     * ground is fine" everywhere it is written.
+     */
+    int SITE_FAULT_NONE = 0;
+
+    /**
+     * Ground that is not poor, but is not ground.
+     *
+     * <p>A sentinel rather than a large number, and it has to be one: every
+     * other fault is a quantity a desperate town may weigh against another
+     * quantity, and this is the one answer that is never comparable. A building
+     * in a river reads as broken however sound it is, so a caller ranking
+     * candidates drops these rather than sorting them.
+     *
+     * <p>{@code MAX_VALUE} also means arithmetic on a fault must check for it
+     * before adding anything — see the tests' cruel ground, which adds its own
+     * charge on top of the terrain's.
+     */
+    int SITE_FAULT_OPEN_WATER = Integer.MAX_VALUE;
+
+    /**
+     * How badly this ground fails, rather than whether it fails.
+     *
+     * <p>{@link #isSiteSuitable} is a veto, and a veto is all a settlement had.
+     * When every candidate is vetoed the search has nothing left to prefer, so
+     * it used to walk past all ninety-six examined plots and take an unexamined
+     * one — which meant every improvement to the terrain rules bought more blind
+     * placements, and a stricter water test measurably put <em>more</em> houses
+     * in lakes. A town out of good ground should take the least-bad plot it
+     * looked at; to do that it has to be able to say which one that was.
+     *
+     * <p>So this is the same judgement, scored. Zero exactly when
+     * {@code isSiteSuitable} passes — implementations must keep the two in step,
+     * or a settlement treats perfectly good ground as a compromise, or walks
+     * onto ground the veto would have refused. Above zero it is a quantity in
+     * courses: how far past what a builder will cut the ground falls, plus what
+     * standing water in the plot is worth. {@link #SITE_FAULT_OPEN_WATER} for
+     * the one thing that is never a preference.
+     *
+     * <p>Derived from the veto by default, so a bridge that has never thought
+     * about degrees still answers usefully: the ground it refuses all scores the
+     * same, and a caller ranking candidates falls back to the nearest of them.
+     */
+    default int siteFault(SimPos plot, int radius) {
+        if (standsInWater(plot, radius)) {
+            return SITE_FAULT_OPEN_WATER;
+        }
+        return isSiteSuitable(plot, radius) ? SITE_FAULT_NONE : SITE_FAULT_UNGRADED;
+    }
+
+    /**
+     * What a refusal is worth when the bridge cannot say how bad it was.
+     *
+     * <p>Any positive number does the job — a bridge either grades every plot or
+     * grades none of them, so this is never compared against a real score. It is
+     * a course of fall so that a reader meeting it in a log has the right unit
+     * in mind.
+     */
+    int SITE_FAULT_UNGRADED = 1;
+
+    /**
      * Whether a site this refused could be made buildable by levelling it.
      *
      * <p>{@link #isSiteSuitable} says no and does not say why, and the reasons
