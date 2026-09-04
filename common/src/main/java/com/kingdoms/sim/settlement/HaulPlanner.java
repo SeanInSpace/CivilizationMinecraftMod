@@ -56,7 +56,11 @@ public final class HaulPlanner {
             // at once, so every hauler crosses the weakness line within a step or
             // two of every other — and a town whose carriers all put their grain
             // back down at the farm gate on the same afternoon never eats again.
-            if (FoodPlanner.heldBackByHunger(person, starving)) {
+            //
+            // And never a meal. Somebody walking to their dinner is walking
+            // *because* they are too weak to work, so the weakness test would
+            // cancel the one errand it exists to make room for.
+            if (!haul.isMeal() && FoodPlanner.heldBackByHunger(settlement, person, starving)) {
                 abandon(settlement, person, haul);
                 continue;
             }
@@ -72,6 +76,15 @@ public final class HaulPlanner {
                 continue;
             }
             haul.resetStalled();
+
+            if (haul.isMeal()) {
+                // One leg, and it ends in a mouth. Nothing goes on their back,
+                // so there is no delivery to wait for and the job they stepped
+                // away from is theirs again the moment this returns.
+                FoodPlanner.serveMeal(settlement, person, haul);
+                person.setHaul(null);
+                continue;
+            }
 
             if (!haul.isLoaded()) {
                 int taken = pickUp(settlement, haul);

@@ -24,7 +24,16 @@ public final class HaulTask {
         MARKET,
         HOME,
         /** A building's own bulk shelves — timber, stone, saplings, iron. */
-        STORE
+        STORE,
+        /**
+         * The carrier themselves: the errand ends in a mouth, not a store.
+         *
+         * <p>Only ever a destination. Somebody weak with hunger walks to the
+         * nearest food and eats it there, so there is no second leg and nothing
+         * is ever set down — which is what keeps a meal from looking like a
+         * delivery to every rule that asks what a hauler is carrying.
+         */
+        SELF
     }
 
     /**
@@ -114,6 +123,18 @@ public final class HaulTask {
 
     public boolean isLoaded() {
         return carried > 0;
+    }
+
+    /**
+     * Whether this errand is somebody going to eat rather than goods moving.
+     *
+     * <p>Asked wherever hunger and hauling meet. A hauler too weak to carry puts
+     * their load down and gives the errand up — which is right for a sack of
+     * grain and fatal for a dinner, since the whole reason they are walking is
+     * that they are too weak to work.
+     */
+    public boolean isMeal() {
+        return toStore == Store.SELF;
     }
 
     /** Where this person is walking right now. */

@@ -96,6 +96,21 @@ class UnwatchedFeedingTest {
     }
 
     @Test
+    void theClockStillDoesTheFeedingAndNobodyHasToFetchTheirOwn() {
+        // Somebody past the weak line now walks to the nearest food themselves.
+        // That is a last resort for a settler the chain has failed, and an
+        // unwatched town must not quietly come to depend on it: out of sight the
+        // last leg is the clock's, exactly as it was. If the meal errand were
+        // doing the feeding here, this would catch people out on one.
+        Settlement town = steppedTown(900);
+
+        assertEquals(0, town.residents().stream().filter(FoodPlanner::isGoingToEat).count(),
+                "nobody in a fed town has had to go and get their own dinner");
+        assertEquals(0, countAtLeast(town, Person.HUNGER_WEAK),
+                "which is only worth saying because nobody was weak enough to");
+    }
+
+    @Test
     void aTownWithNoFoodIsStillAllowedToStarve() {
         // The distribution moves food; it must never invent any. Without this
         // the fix would read as "nobody ever goes hungry", which is not a

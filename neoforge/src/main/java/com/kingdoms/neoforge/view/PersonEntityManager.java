@@ -20,6 +20,7 @@ import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Tallies;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
+import com.kingdoms.sim.person.Appetite;
 import com.kingdoms.sim.person.BuildLoad;
 import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Household;
@@ -37,6 +38,7 @@ import com.kingdoms.sim.settlement.Alarm;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.FieldRoster;
+import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Settlement;
@@ -128,6 +130,36 @@ public final class PersonEntityManager {
 
     /** Sites that have made no progress recently, by settlement id. */
     private final Map<UUID, Integer> constructionStalls = new HashMap<>();
+
+    /**
+     * Builders the construction pass actually took charge of, this pass.
+     *
+     * <p>{@link #dailyRoutine} used to stand aside for every builder whenever
+     * anything at all was queued, on the reasoning that construction was
+     * steering them. Construction gives up before it reaches a single builder
+     * for half a dozen reasons — the site is not buildable by hand, the ground
+     * is not out of the way yet, a clearance order is running, the plot is
+     * blocked — and in every one of those the crew was steered by nobody at
+     * all, which is one of the ways a builder ends up standing on a roof.
+     */
+    private final Set<UUID> steeredByBuild = new HashSet<>();
+
+    /**
+     * Builders with no route to the block they were sent for, by person id.
+     *
+     * <p>Vanilla navigation drops whatever path it was running when it is asked
+     * for one it cannot make, so re-asking every pass for a block on an
+     * unreachable course does not merely fail — it holds the body perfectly
+     * still, wiping the stroll path a hundred times a minute. Counted here so
+     * the asking can stop, and so {@code /civ info} can name the state.
+     */
+    private final Map<UUID, Integer> pathlessPasses = new HashMap<>();
+
+    /** Failed routings before a boxed-out builder's body is left to itself. */
+    private static final int PATHLESS_BEFORE_RELEASE = 4;
+
+    /** How long a released builder is left alone before the route is tried again. */
+    private static final int PATHLESS_REST_PASSES = 20;
 
     /** Gates we swung open for somebody, and when. The town closes its gates. */
     private final Map<BlockPos, Long> heldOpenGates = new HashMap<>();
@@ -238,6 +270,30 @@ public final class PersonEntityManager {
 
     /** Person id â†’ the live view entity for that person. */
     private final Map<UUID, PersonEntity> tracked = new HashMap<>();
+
+    /**
+     * Seconds of standing perfectly still, with a trade, before somebody is worth
+     * reporting.
+     *
+     * <p>Long enough that ordinary business never trips it: the longest thing a
+     * settler does in one place is dig, and the deepest single block in the game
+     * is well under this. Anything past it is a body nobody is steering.
+     */
+    public static final int IDLE_REPORT_SECONDS = 15;
+
+    /** Where a body was last seen, and the tick it was last seen somewhere else. */
+    private static final class IdleWatch {
+        BlockPos where;
+        long movedAt;
+
+        IdleWatch(BlockPos where, long movedAt) {
+            this.where = where;
+            this.movedAt = movedAt;
+        }
+    }
+
+    /** How long each embodied body has been standing where it stands, by person id. */
+    private final Map<UUID, IdleWatch> idleWatch = new HashMap<>();
 
     /** Ticks between survey redraws. */
     private static final int SURVEY_EVERY = 4;
@@ -610,6 +666,17 @@ public final class PersonEntityManager {
         }
         for (PersonEntity digger : embodiedBuilders(settlement)) {
             yard.serve(level, digger, tick);
+            // The hole has them, and it makes the same claim on the body that
+            // laying a block does. Construction bails out above the builder loop
+            // while there is ground in the way, so without this the day's
+            // routine would take over the whole crew mid-dig: a second steering
+            // hand fighting the excavation's own repathing, taking the tool out
+            // of their hands every pass, and walking a digger far enough from
+            // their cell to make them give it up.
+            UUID hands = digger.getData(KingdomsAttachments.PERSON_ID.get());
+            if (hands != null) {
+                steeredByBuild.add(hands);
+            }
         }
         return !yard.isComplete();
     }
@@ -786,7 +853,15 @@ public final class PersonEntityManager {
                 settlement.name(), done.cleared());
     }
 
-    /** Drops any cell and any half-dug block this person was holding. */
+    /**
+     * Drops any cell and any half-dug block this person was holding, and every
+     * other note this manager keeps under their name.
+     *
+     * <p>Called from all three ways a body leaves — released, reaped, killed —
+     * so it is the one place that has to be complete. A per-person note left
+     * behind under an id that can never come round again is a slow leak on a
+     * server that runs for weeks.
+     */
     private void forgetDigger(UUID personId) {
         for (SiteDig dig : siteDigs.values()) {
             dig.yard.forget(level, personId);
@@ -794,9 +869,16 @@ public final class PersonEntityManager {
         for (Excavation ordered : clearOrders.values()) {
             ordered.forget(level, personId);
         }
+        idleWatch.remove(personId);
+        pathlessPasses.remove(personId);
+        strandedPasses.remove(personId);
+        repathTries.remove(personId);
+        homeAccessFailures.remove(personId);
+        steeredByBuild.remove(personId);
     }
 
     public void tickConstruction() {
+        steeredByBuild.clear();
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
                 if (settlement.buildQueue().isEmpty()) {
@@ -886,6 +968,7 @@ public final class PersonEntityManager {
                     boolean fromHand = owed != null;
 
                     BlockPos pos = next.pos();
+                    UUID hands = carrier == null ? null : carrier.id().value();
                     if (builder.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5)
                             <= PLACE_REACH * PLACE_REACH) {
                         builder.getLookControl().setLookAt(
@@ -900,9 +983,14 @@ public final class PersonEntityManager {
                             carrier.spendCarry();
                         }
                         workedAny = true;
-                    } else {
-                        builder.getNavigation().moveTo(
-                                pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, WALK_SPEED);
+                        pathlessPasses.remove(hands);
+                        if (hands != null) {
+                            steeredByBuild.add(hands);
+                        }
+                    } else if (walkTo(builder, hands, pos)) {
+                        if (hands != null) {
+                            steeredByBuild.add(hands);
+                        }
                     }
                 }
 
@@ -924,6 +1012,46 @@ public final class PersonEntityManager {
                 }
             }
         }
+    }
+
+    /**
+     * Walks a builder toward the block they are wanted at, and knows when to stop
+     * asking.
+     *
+     * <p>An unmakeable route is not a failed instruction, it is a destructive
+     * one: navigation throws away the path it was running before it answers no.
+     * A roof course a builder cannot climb to therefore pins them in place — the
+     * stroll goal starts a walk, this cancels it a quarter of a second later,
+     * and they stand exactly still on top of the building they raised while the
+     * stall assist lays the rest of it around them.
+     *
+     * <p>So after {@link #PATHLESS_BEFORE_RELEASE} refusals the body is let go
+     * for a while and left to mill about like anybody else. The site is not
+     * abandoned: {@link #assistStalledSite} is precisely the answer to a block
+     * nobody can reach, and it needs no one standing anywhere in particular.
+     *
+     * @return true if this builder is now under the site's orders
+     */
+    private boolean walkTo(PersonEntity builder, UUID personId, BlockPos pos) {
+        int failed = personId == null ? 0 : pathlessPasses.getOrDefault(personId, 0);
+        if (failed >= PATHLESS_BEFORE_RELEASE) {
+            // Resting. Counted up rather than held, so the route is tried afresh
+            // once the world has had a chance to change -- a course laid by the
+            // assist can be the very thing that makes the next one reachable.
+            pathlessPasses.put(personId,
+                    failed + 1 >= PATHLESS_BEFORE_RELEASE + PATHLESS_REST_PASSES ? 0 : failed + 1);
+            return false;
+        }
+        boolean routed = builder.getNavigation().moveTo(
+                pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, WALK_SPEED);
+        if (personId != null) {
+            if (routed) {
+                pathlessPasses.remove(personId);
+            } else {
+                pathlessPasses.put(personId, failed + 1);
+            }
+        }
+        return routed;
     }
 
     /**
@@ -1468,6 +1596,7 @@ public final class PersonEntityManager {
         double dz = builder.getZ() - (stores.z() + 0.5);
         if (dx * dx + dz * dz > LOAD_REACH * LOAD_REACH) {
             builder.getNavigation().moveTo(stores.x() + 0.5, stores.y(), stores.z() + 0.5, WALK_SPEED);
+            steeredByBuild.add(carrier.id().value());
             return false;
         }
         // Drawn from the building they walked to, not from a town-wide figure.
@@ -1476,7 +1605,12 @@ public final class PersonEntityManager {
         // still carrying goes back on those same shelves rather than evaporating.
         Stock from = store == null ? settlement.stores() : store.stores();
         if (BuildLoad.pickUp(from, carrier, material) <= 0) {
-            return false;   // the stores are empty; the shortage is reported elsewhere
+            // Empty shelves, so they wait at them. The site still has them: send
+            // them back to the plot and the next construction pass sends them
+            // straight here again, which is a walk with no work at either end of
+            // it. The shortage itself is reported elsewhere.
+            steeredByBuild.add(carrier.id().value());
+            return false;
         }
         builder.swing(InteractionHand.MAIN_HAND);
         return true;
@@ -1597,6 +1731,7 @@ public final class PersonEntityManager {
             }
             PersonEntity view = entry.getValue();
             tracked.remove(entry.getKey());
+            forgetDigger(entry.getKey());
             if (view != null && !view.isRemoved()) {
                 view.hurtServer(level, level.damageSources().starve(), Float.MAX_VALUE);
                 if (!view.isRemoved() && !view.isDeadOrDying()) {
@@ -1737,14 +1872,94 @@ public final class PersonEntityManager {
                 // another mod removed it). The person is unharmed; drop the view
                 // and let the next plan respawn it if anyone is still watching.
                 tracked.remove(person.id().value());
+                forgetDigger(person.id().value());
                 person.setEmbodied(false);
                 changed = true;
                 continue;
             }
             person.setPosition(NeoForgeWorldBridge.toSimPos(view.blockPosition()));
+            noteMovement(person.id().value(), view.blockPosition());
             changed = true;
         }
         return changed;
+    }
+
+    /**
+     * Remembers whether this body has got anywhere since the last pass.
+     *
+     * <p>Kept here rather than on the entity because the question outlives any
+     * one entity's opinion of itself: a settler standing still is a settler
+     * nobody is steering, and the steering is all done from outside.
+     */
+    private void noteMovement(UUID personId, BlockPos at) {
+        IdleWatch watch = idleWatch.get(personId);
+        if (watch == null) {
+            idleWatch.put(personId, new IdleWatch(at.immutable(), level.getGameTime()));
+            return;
+        }
+        if (!watch.where.equals(at)) {
+            watch.where = at.immutable();
+            watch.movedAt = level.getGameTime();
+        }
+    }
+
+    /**
+     * Everybody with a trade who has not moved a block in
+     * {@link #IDLE_REPORT_SECONDS}, and enough about them to name the state.
+     *
+     * <p>Read by {@code /civ info}. The faults this exists for cannot be decided
+     * without a world — a block no navigation can reach, a plot the ground will
+     * not give, a load nobody can fetch — so what it does is put the person, the
+     * job, the errand, the hunger and the place on one line, and say which of
+     * the two things the manager knows about is true of them: whether the
+     * construction pass took charge of them, and whether it could find a route.
+     */
+    public List<String> idleReport(Settlement settlement) {
+        long now = level.getGameTime();
+        List<String> lines = new ArrayList<>();
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied() || person.profession() == Profession.IDLER) {
+                continue;
+            }
+            IdleWatch watch = idleWatch.get(person.id().value());
+            if (watch == null) {
+                continue;
+            }
+            long stillFor = (now - watch.movedAt) / 20L;
+            if (stillFor < IDLE_REPORT_SECONDS) {
+                continue;
+            }
+            StringBuilder line = new StringBuilder();
+            line.append(person.name())
+                    .append(" [").append(person.profession().name().toLowerCase(Locale.ROOT))
+                    .append("] still ").append(stillFor).append("s at ")
+                    .append(watch.where.getX()).append(",").append(watch.where.getY())
+                    .append(",").append(watch.where.getZ())
+                    .append(", hunger ").append(person.hunger())
+                    .append(" ").append(Appetite.of(person.hunger()).word())
+                    .append(", errand ").append(errandOf(person));
+            if (settlement.laboursAs(person, Profession.BUILDER)) {
+                line.append(steeredByBuild.contains(person.id().value())
+                        ? ", site has them" : ", SITE STEERING NOBODY");
+                if (pathlessPasses.containsKey(person.id().value())) {
+                    line.append(", NO ROUTE to the next block");
+                }
+            }
+            lines.add(line.toString());
+        }
+        return lines;
+    }
+
+    /** What somebody is out doing, in the words the report uses. */
+    private static String errandOf(Person person) {
+        HaulTask haul = person.haul();
+        if (haul == null) {
+            return "none";
+        }
+        if (haul.isMeal()) {
+            return "MEAL from " + haul.fromStore() + " at " + haul.fromPos();
+        }
+        return haul.resource() + " " + haul + ", heading for " + haul.target();
     }
 
     private boolean embody(Person person) {
@@ -2016,9 +2231,16 @@ public final class PersonEntityManager {
 
             // Builders on an active site are steered block by block by
             // tickConstruction; overriding them here would tug them off the wall.
+            //
+            // "On an active site" is what the construction pass says it is, not
+            // what the queue implies. A queued job it bailed out of steers
+            // nobody, and standing aside for it left the crew with no orders
+            // from anybody -- which is a builder standing still on a finished
+            // roof, exactly as reported.
             if (settlement.laboursAs(person, Profession.BUILDER)
                     && !alarm.callsIn(person.profession()) && !night
-                    && (!settlement.buildQueue().isEmpty() || isClearing(settlement))
+                    && (steeredByBuild.contains(person.id().value())
+                            || isClearing(settlement))
                     && !person.isTooWeakToWork()) {
                 continue;
             }
@@ -2057,6 +2279,12 @@ public final class PersonEntityManager {
                 // town that strolls through a raid reads as asleep.
                 target = home != null ? home : settlement.centre();
                 speed = alarm == Alarm.ALARMED ? SHELTER_SPEED : WALK_SPEED;
+            } else if (FoodPlanner.isGoingToEat(person)) {
+                // Dinner outranks the end of the day. Somebody weak with hunger
+                // who turns in to an empty larder only wakes up weaker, and the
+                // granary keeps no hours.
+                target = person.haul().target();
+                speed = WALK_SPEED;
             } else if (night && !guard) {
                 target = home != null ? home : settlement.centre();
                 speed = WALK_SPEED;
