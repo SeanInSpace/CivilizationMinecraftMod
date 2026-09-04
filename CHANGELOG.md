@@ -30,6 +30,15 @@ messages carry the reasoning and the measurements.
   shortage is legible from the road, which is the whole of what makes a moving
   price a game rather than a table. The price is re-derived from the town as it
   is when you press the button, not as it was when the screen opened.
+- **`/civ info` names anybody standing still with a job to do.** One line per
+  settler who has a trade and has not moved a block in fifteen seconds: their
+  name, their trade, how long they have stood there, where, how hungry they are
+  in both the number and the word, and what errand they are on. Builders get two
+  more facts, because they are the ones this was written for — whether the
+  construction pass has taken charge of them at all, and whether it could find a
+  route to the block it wants them at. The several ways a settler ends up frozen
+  look identical from inside the simulation; this is what tells them apart in a
+  world. The food line also says how many people are currently off to eat.
 - **`/civ info` and the `AUDIT` line say how fast the town is being run.** Three
   figures — passes a minute, the worst single gap in the last minute, and how
   much history that is — printed beside the rate the town is meant to get.
@@ -91,6 +100,35 @@ messages carry the reasoning and the measurements.
 
 ### Fixed
 
+- **Somebody weak with hunger goes and eats.** Between hunger 60 and 89 a
+  settler was barred from working and barred from shopping at the same time —
+  the errand that fills a family's larder is only ever given to somebody who is
+  *not* too weak to run it — so a person with empty pockets and an empty larder
+  stood exactly still, getting hungrier, until 90, when the town finally reached
+  into the granary on their behalf. Guards and builders were never shoppers at
+  any hunger at all. Now anyone past 60 puts the job down, walks to the nearest
+  thing they can eat — the family larder, a market stall, a field, the granary —
+  eats it there, and takes the job back up. Nobody's trade changes and no work
+  in progress is lost, because the errand is the whole of the suspension. Two
+  exceptions: the watch does not leave the wall for dinner while the town is
+  alarmed, and somebody with nowhere at all to walk to stays on the job, because
+  a starving idler is worse off than a starving worker. An unwatched town is fed
+  exactly as it was — out of sight the last leg is still the clock's.
+- **A builder is not left standing on the roof they just finished.** The day's
+  routine used to stand aside for every builder whenever anything at all was
+  queued, on the reasoning that the construction pass had them. It gives up
+  before it reaches a single builder for half a dozen reasons — the plot is
+  blocked, the hole is not dug, a clearance order is running, there is nothing
+  the crew can lay this second — and in every one of those the crew was being
+  steered by nobody. They are handed back to the day's routine now, which is
+  what turns a frozen figure into somebody milling about a site.
+- **A builder boxed out of the next block can move again.** Asking vanilla
+  navigation for a route it cannot make does not merely fail: it throws away the
+  path the settler was already walking. A roof course with nowhere to stand was
+  therefore asked for four times a second, and the asking held the builder
+  perfectly still while the site's stall assist laid the rest of the wall around
+  them. After four refusals the body is left to itself for a few seconds before
+  the route is tried again.
 - **A family in a house the town cannot name is left alone.** A home whose
   blueprint matched no catalogue entry — a renamed cottage, a building from a mod
   no longer loaded, an older save — reported a capacity of zero, and every caller

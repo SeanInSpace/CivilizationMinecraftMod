@@ -624,8 +624,24 @@ public final class KingdomsCommand {
                 int worstHunger = s.residents().stream().mapToInt(Person::hunger).max().orElse(0);
                 long starving = s.residents().stream()
                         .filter(p -> p.hunger() >= Person.HUNGER_SEVERE).count();
+                long eating = s.residents().stream()
+                        .filter(FoodPlanner::isGoingToEat).count();
                 sb.append("\n      hunger: worst ").append(worstHunger)
-                        .append(starving > 0 ? " (" + starving + " STARVING)" : "");
+                        .append(starving > 0 ? " (" + starving + " STARVING)" : "")
+                        .append(eating > 0 ? ", " + eating + " off to eat" : "");
+                // The line the roof report is for. A body with a trade that has
+                // not moved a block in a quarter of a minute is being steered by
+                // nobody, and which of the several ways that happens cannot be
+                // told apart from inside the simulation -- so say who, where,
+                // doing what, and how hungry, and let the world settle it.
+                List<String> idle = digger == null ? List.of() : digger.idleReport(s);
+                if (!idle.isEmpty()) {
+                    sb.append("\n      idle (").append(idle.size()).append(" over ")
+                            .append(PersonEntityManager.IDLE_REPORT_SECONDS).append("s):");
+                    for (String line : idle) {
+                        sb.append("\n        ").append(line);
+                    }
+                }
                 List<SettlementEvent> events = s.events();
                 if (!events.isEmpty()) {
                     sb.append("\n      history:");

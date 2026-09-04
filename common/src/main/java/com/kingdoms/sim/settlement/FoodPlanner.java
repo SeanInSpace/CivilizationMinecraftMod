@@ -14,7 +14,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The food chain, from field to mouth:
+ * The food chain, from field to mouth. Hunger is the one thing that outranks a
+ * job: past {@link Person#HUNGER_WEAK} a settler puts the work down and walks to
+ * the nearest food themselves — see {@link #assignMealErrands} — and picks the
+ * work back up when they have eaten.
+ *
+ * <p>The chain that is supposed to make that unnecessary:
  *
  * <pre>
  *   fields grow → FARMERS haul → granary pool → TRADERS stock → market
@@ -32,8 +37,10 @@ import java.util.Map;
  * <ul>
  *   <li><b>0–29</b> — fed;</li>
  *   <li><b>30–59</b> — hungry (eats at 30 when there is anything to eat);</li>
- *   <li><b>60–89</b> — weak: stops farming, hauling and building; visibly
- *       debuffed in the world;</li>
+ *   <li><b>60–89</b> — weak: stops farming, hauling and building and goes to
+ *       eat instead; visibly debuffed in the world. Nowhere to go and they keep
+ *       working, because a starving idler is worse off than a starving
+ *       worker;</li>
  *   <li><b>90–99</b> — severe: heavier debuffs, and after
  *       {@link #STARVATION_GRACE_STEPS} steps held at the cap, death. Starvation
  *       deaths are permanent and enter the town's history.</li>
@@ -174,9 +181,28 @@ public final class FoodPlanner {
      * building. That rule is also precisely how a town dies: weak hands bring in
      * no food, so more hands go weak. While the town is starving it is suspended,
      * and the hungry are allowed to go and fetch their own dinner.
+     *
+     * <p>The second escape is the one a player reported: a settler at hunger 88,
+     * reading "weak", standing on a roof doing nothing whatever. Downing tools is
+     * only worth anything if there is somewhere to go — so somebody with no meal
+     * within reach keeps working. A starving idler is worse off than a starving
+     * worker, and the work in question is often the field that would end it.
+     *
+     * @param starving the town's answer for this whole step, asked once in
+     *                 {@link #advance} so a harvest that lifts it back over the
+     *                 floor cannot leave the fields and the haulers disagreeing
      */
-    static boolean heldBackByHunger(Person person, boolean starving) {
-        return person.isTooWeakToWork() && !starving;
+    public static boolean heldBackByHunger(Settlement settlement, Person person,
+                                           boolean starving) {
+        if (!person.isTooWeakToWork() || starving) {
+            return false;
+        }
+        return isGoingToEat(person) || nearestMeal(settlement, person) != null;
+    }
+
+    /** Whether this person is already on their way to something to eat. */
+    public static boolean isGoingToEat(Person person) {
+        return person.haul() != null && person.haul().isMeal();
     }
 
     /**
@@ -211,6 +237,10 @@ public final class FoodPlanner {
 
         forage(settlement);
         growHarvest(settlement, ctx, starving);
+        // Dinner before the day's errands, because that is the whole rule: a
+        // person past the weak line is going to eat, and assignHauls skips
+        // anybody who already has somewhere to be.
+        assignMealErrands(settlement);
         assignHauls(settlement, starving);
         carryItHomeUnwatched(settlement);
         eatAndHunger(settlement, ctx);
@@ -292,6 +322,154 @@ public final class FoodPlanner {
         return false;
     }
 
+    // --- dinner first ---
+
+    /** A place somebody could walk to and eat at, and which books it comes out of. */
+    private record Meal(HaulTask.Store store, SimPos where) {
+    }
+
+    /**
+     * Sends anybody past the weak line to the nearest thing they can eat.
+     *
+     * <p>The rule the player asked for, in one sentence: <strong>a person too
+     * weak to work stops working and goes to eat, and picks the job back up
+     * afterwards.</strong> There is nothing to save and restore — a profession is
+     * a standing fact and the build queue belongs to the town — so suspending is
+     * an errand and resuming is that errand ending. Every worker loop on both
+     * fidelities already stands aside for somebody with a haul, so this reaches
+     * builders, haulers, farmers and off-alarm guards through machinery that was
+     * already there.
+     *
+     * <p>Four refusals. Somebody already out on an errand keeps it for the one
+     * step it takes to put the load down. Somebody carrying food eats where
+     * they stand and needs no walk. A guard leaves the wall for dinner only
+     * while the town is calm, because a hungry watch beats no watch. And a
+     * settler with nothing to walk to is left on the job: see
+     * {@link #heldBackByHunger}.
+     */
+    private static void assignMealErrands(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            if (person.hunger() < Person.HUNGER_WEAK) {
+                continue;
+            }
+            if (person.haul() != null) {
+                // Somebody already out on an errand is left alone for one more
+                // step. A load in transit lives on its carrier's back and
+                // nowhere else, so handing them a meal over the top of it would
+                // delete the goods -- HaulPlanner runs later in the same step,
+                // sets the load down where it came from because they are too
+                // weak to carry it, and the meal is given out the step after.
+                continue;
+            }
+            if (person.inventory().bestFood() != null) {
+                continue;   // already holding a meal; eatAndHunger serves it
+            }
+            if (person.profession() == Profession.GUARD
+                    && settlement.alarm() != Alarm.CALM) {
+                continue;
+            }
+            Meal meal = nearestMeal(settlement, person);
+            if (meal == null) {
+                continue;   // nowhere to go, so nothing is gained by stopping
+            }
+            // Both ends are the food itself: there is no delivery leg, and
+            // target() therefore points at the meal for the whole walk.
+            person.setHaul(new HaulTask(TownStores.FOOD, meal.store(), meal.where(),
+                    HaulTask.Store.SELF, meal.where(), CARRY_WHEN_EATING));
+        }
+    }
+
+    /**
+     * The closest place this person could actually get a mouthful, or null.
+     *
+     * <p>Their own family larder counts, and is usually the nearest thing there
+     * is — but a larder is reached by arithmetic every step in
+     * {@link #eatAndHunger}, so somebody weak with a stocked pantry has already
+     * eaten and never gets here. It is listed all the same for the case that put
+     * this on the report: pockets so full of picked-up weeds that the larder
+     * could not hand them anything. Walking to it lets the food be eaten on the
+     * spot instead of needing a free slot first.
+     */
+    private static Meal nearestMeal(Settlement settlement, Person person) {
+        Meal best = null;
+        long nearest = Long.MAX_VALUE;
+        for (Household household : settlement.households()) {
+            if (household.isHoused() && household.pantry() > 0
+                    && household.contains(person.id())) {
+                nearest = person.position().horizontalDistanceSq(household.home());
+                best = new Meal(HaulTask.Store.HOME, household.home());
+                break;   // nobody belongs to two families
+            }
+        }
+        // Stalls and fields keep their own stock; the granary is the town's pool
+        // and is reached at granaryPos, which falls back to the square when
+        // nothing has been raised to hold it. Two kinds of book, so two lookups.
+        for (HaulTask.Store store : new HaulTask.Store[] {
+                HaulTask.Store.MARKET, HaulTask.Store.FARM}) {
+            for (Building holder : buildingsOf(settlement,
+                    store == HaulTask.Store.MARKET ? "market" : "farm")) {
+                long d = person.position().horizontalDistanceSq(holder.origin());
+                if (holder.foodStored() > 0 && d < nearest) {
+                    nearest = d;
+                    best = new Meal(store, holder.origin());
+                }
+            }
+        }
+        if (settlement.foodStock() > 0) {
+            SimPos granary = granaryPos(settlement);
+            if (person.position().horizontalDistanceSq(granary) < nearest) {
+                best = new Meal(HaulTask.Store.GRANARY, granary);
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Somebody has walked to the food their errand was for. Feed them.
+     *
+     * <p>Into their pockets, so the next few steps are covered by what they
+     * carry and the walk was worth making. If their pockets will not take it,
+     * one goes down on the spot and the rest goes back on the shelf it came off
+     * — for the same reason {@link #eatWhereItStands} exists, and because goods
+     * only ever sit in one place.
+     */
+    static void serveMeal(Settlement settlement, Person person, HaulTask errand) {
+        int got = takeMeal(settlement, errand.fromStore(), errand.fromPos(), errand.requested());
+        if (got <= 0) {
+            return;   // somebody got there first; hunger will send them out again
+        }
+        int stowed = person.inventory().add(Foods.PROVISION, got);
+        int spare = got - stowed;
+        if (spare > 0) {
+            person.setHunger(person.hunger() - Foods.nutrition(Foods.PROVISION));
+            if (--spare > 0) {
+                deposit(settlement, errand.fromStore(), errand.fromPos(), spare);
+            }
+        }
+    }
+
+    /**
+     * Takes a meal out of whatever holds it, the family larder included.
+     *
+     * <p>{@link #withdraw} deliberately refuses a home, because a pantry is
+     * where a haul ends rather than a place goods are fetched from. Eating is
+     * the one exception, and it is kept here rather than loosening that rule.
+     */
+    private static int takeMeal(Settlement settlement, HaulTask.Store store, SimPos pos,
+                                int amount) {
+        if (store != HaulTask.Store.HOME) {
+            return withdraw(settlement, store, pos, amount);
+        }
+        for (Household household : settlement.households()) {
+            if (pos.equals(household.home())) {
+                int take = Math.min(amount, household.pantry());
+                household.setPantry(household.pantry() - take);
+                return take;
+            }
+        }
+        return 0;
+    }
+
     // --- who fetches what ---
 
     /**
@@ -304,7 +482,7 @@ public final class FoodPlanner {
         SimPos granary = granaryPos(settlement);
 
         for (Person person : settlement.residents()) {
-            if (person.haul() != null || heldBackByHunger(person, starving)) {
+            if (person.haul() != null || heldBackByHunger(settlement, person, starving)) {
                 continue;
             }
             // A pioneer takes the farmer's errands while generalists labour --
@@ -388,7 +566,7 @@ public final class FoodPlanner {
         for (Person.Id id : household.members()) {
             Person member = settlement.resident(id);
             if (member == null || member.haul() != null
-                    || heldBackByHunger(member, starving)) {
+                    || heldBackByHunger(settlement, member, starving)) {
                 continue;
             }
             if (member.profession() == Profession.IDLER) {
@@ -736,7 +914,7 @@ public final class FoodPlanner {
         // nothing until the staffing table woke up.
         return (int) settlement.residents().stream()
                 .filter(p -> settlement.laboursAs(p, Profession.FARMER)
-                        && !heldBackByHunger(p, starving))
+                        && !heldBackByHunger(settlement, p, starving))
                 .count();
     }
 

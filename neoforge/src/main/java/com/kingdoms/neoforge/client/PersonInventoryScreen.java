@@ -114,6 +114,12 @@ public final class PersonInventoryScreen extends Screen {
     private static String errandLine(PersonInventoryPayload.Errand errand) {
         String what = errand.resource().replace('_', ' ');
         boolean sameKind = errand.from().equals(errand.to());
+        if (HaulTask.Store.SELF.name().equals(errand.to())) {
+            // A meal has one leg and no delivery, so the fetching wording would
+            // read as an errand for somebody else's dinner.
+            return "Errand: too weak to work — gone to the "
+                    + place(errand.from()) + " to eat";
+        }
         return errand.carried() > 0
                 ? "Errand: walking " + errand.carried() + " " + what
                         + " to " + (sameKind ? "another " : "the ") + place(errand.to())
@@ -140,6 +146,7 @@ public final class PersonInventoryScreen extends Screen {
             case MARKET -> "market stall";
             case HOME -> "pantry";
             case STORE -> "storehouse";
+            case SELF -> "hand";
         };
     }
 
