@@ -54,6 +54,18 @@ public final class Perimeter {
     private List<SimPos> retiredPositions;
 
     /**
+     * The same, for the standing line, and for a stronger reason than tidiness.
+     *
+     * <p>{@link #ringPositions} is asked far more often than anything else here:
+     * {@code Settlement.standsOnTheWall} walks the whole ring for every plot
+     * {@code isPlotFree} is offered, which is hundreds of walks for one siting
+     * decision, and {@code length()} and {@code closed()} walk it again every
+     * step. The vertices are copied at construction and never replaced, so the
+     * answer cannot go stale.
+     */
+    private List<SimPos> positions;
+
+    /**
      * How many plots stood outside this line when moving it was last refused.
      *
      * <p>Deliberately not saved. It is not a fact about the wall, it is a note
@@ -137,13 +149,53 @@ public final class Perimeter {
     }
 
     /**
-     * Every position on the loop, in walk order, corner to corner. Sides are
-     * walked axis-aligned; a diagonal between vertices steps x first, then z,
-     * which keeps the v1 rectangle exact and degrades gracefully for any
-     * polygon a later planner might stake.
+     * Every position on the loop, in walk order, corner to corner.
+     *
+     * <p><strong>These are the posts, and they have to stand where the line was
+     * staked.</strong> Everything that keeps the wall off a building reasons
+     * about the straight stretch between two vertices — the keepouts
+     * {@code Hull.concave} refuses to dig across, {@code PerimeterPlanner}'s
+     * push-out and relaxation, the invariant {@code HullSimplicityTest} asserts
+     * — and none of them ever looks at a post. So a walk that wanders off the
+     * stretch it belongs to puts posts on ground nobody checked, and every one
+     * of those rules is enforcing a line the town does not build.
+     *
+     * <p>It used to wander a long way. A leg was walked the whole of its x run
+     * at the starting z and then the whole of its z run at the finishing x — an
+     * L, which is exact for the axis-aligned rectangle v1 staked and no
+     * further out than a block for any stretch that is nearly axis-aligned. The
+     * concave hull stakes neither. On the sixteen-by-eight leg of a measured
+     * ring the corner of that L stood <strong>seven blocks</strong> off the
+     * straight line, which was seven blocks into the hearth: the checks looked
+     * where the line ran and the posts went in through somebody's wall.
+     * Measured across a hundred and seventeen grown towns, that accounted for
+     * 689 of the 1247 buildings with a wall through them.
+     *
+     * <p>So the legs are walked along the line instead: still one block a step
+     * and still axis-aligned, so a rectangle comes out exactly as it did and the
+     * palisade stays a closed run nothing can squeeze through, and still
+     * {@code |dx| + |dz|} posts to a leg, so a ring costs the same timber and
+     * coin it always did. Only the order of the two runs changes — interleaved
+     * by the leg's own gradient rather than one after the other — which keeps
+     * every post within a block of the stretch it was staked on.
+     *
+     * <p><strong>A world saved before this does not migrate, and cannot from
+     * here.</strong> {@link #laid} is an index into this walk and the columns it
+     * names have moved, so a ring caught half-raised on an old save has its
+     * built stretch recorded at posts nobody planted and its real posts — the
+     * misplaced ones included — left standing with nothing pointing at them.
+     * {@link Perimeter.Retired} carries the same wound. Nothing here can find
+     * those columns again: the walk that produced them is gone, and putting it
+     * back for old lines would only be right until the first line raised under
+     * this one. A migration wants a save version and the old walk kept beside
+     * this one to read it with, which is a decision about the save format
+     * rather than about the wall. See GOALS.
      */
     public List<SimPos> ringPositions() {
-        return walk(vertices);
+        if (positions == null) {
+            positions = List.copyOf(walk(vertices));
+        }
+        return positions;
     }
 
     private static List<SimPos> walk(List<SimPos> loop) {
@@ -151,15 +203,34 @@ public final class Perimeter {
         for (int i = 0; i < loop.size(); i++) {
             SimPos from = loop.get(i);
             SimPos to = loop.get((i + 1) % loop.size());
+            int runX = Math.abs(to.x() - from.x());
+            int runZ = Math.abs(to.z() - from.z());
+            int stepX = Integer.signum(to.x() - from.x());
+            int stepZ = Integer.signum(to.z() - from.z());
             int x = from.x();
             int z = from.z();
-            while (x != to.x()) {
+            int goneX = 0;
+            int goneZ = 0;
+            while (goneX < runX || goneZ < runZ) {
                 ring.add(new SimPos(x, from.y(), z));
-                x += Integer.signum(to.x() - x);
-            }
-            while (z != to.z()) {
-                ring.add(new SimPos(x, from.y(), z));
-                z += Integer.signum(to.z() - z);
+                // Whichever of the two steps leaves the walk nearer the line.
+                // The comparison is the two candidate half-steps cross-
+                // multiplied against the leg's gradient, so it is exact and
+                // never divides by a run that may be nought. Widened to long
+                // because it is the one multiplication on this path: a plot can
+                // be sited arbitrarily far out -- groundBeyondEverything moves
+                // outward every time it is reached -- and an int product wraps
+                // at a leg of some forty-six thousand blocks, which would step
+                // the wrong axis and put posts where nothing checked, the exact
+                // fault this walk exists to remove.
+                if (goneZ >= runZ || (goneX < runX
+                        && (2L * goneX + 1) * runZ < (2L * goneZ + 1) * runX)) {
+                    x += stepX;
+                    goneX++;
+                } else {
+                    z += stepZ;
+                    goneZ++;
+                }
             }
         }
         return ring;

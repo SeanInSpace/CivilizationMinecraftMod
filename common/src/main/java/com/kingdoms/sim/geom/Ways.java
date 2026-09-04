@@ -81,6 +81,19 @@ public final class Ways {
         return true;
     }
 
+    /**
+     * How far a point lies from the run {@code a→b}.
+     *
+     * <p>Public because it had begun to be written out again elsewhere, which
+     * is the fault this class's own comment describes: the wall has to be able
+     * to ask whether a post it planted stands on the stretch it was staked on,
+     * and that question deserves the same answer as every other distance here.
+     */
+    public static double distanceToSegment(double px, double pz,
+                                           int ax, int az, int bx, int bz) {
+        return pointToSegment(px, pz, ax, az, bx, bz);
+    }
+
     private static double pointToSegment(double px, double pz,
                                          int ax, int az, int bx, int bz) {
         double vx = bx - ax;

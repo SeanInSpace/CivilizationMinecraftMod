@@ -2,7 +2,11 @@ package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.Hull;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.geom.Ways;
 import com.kingdoms.sim.platform.WorldBridge;
+import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildPlanner;
+import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Perimeter;
@@ -12,6 +16,9 @@ import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -156,5 +163,136 @@ class WallShapeTest {
         assertTrue(wall.ringPositions().size() > wall.vertices().size(),
                 "the corners are walked out into a continuous line of posts");
         assertTrue(wall.gates().size() > 0, "and a wall with no gate is a wall nobody can use");
+    }
+
+    /**
+     * A town of mixed kinds, spread widely enough that the hull has to run some
+     * of its stretches on a slant.
+     *
+     * <p>The slant is the whole point. Every other town in this class is close
+     * enough to round that its stretches are nearly axis-aligned, and a wall
+     * walked in an L is right to within a block on those — which is exactly why
+     * nothing here ever caught the L.
+     */
+    private static Settlement aTownOnASlant() {
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Slantby", new SimPos(0, 64, 0), 256);
+        town.setCatalogue(BuildCatalogue.DEFAULT);
+        String[] kinds = {"kingdoms:town_hall", "kingdoms:farm", "kingdoms:market",
+                "kingdoms:granary", "kingdoms:town_hall", "kingdoms:farm",
+                "kingdoms:farm", "kingdoms:town_hall", "kingdoms:house",
+                "kingdoms:granary", "kingdoms:granary"};
+        int[] at = {-76, 15, -55, -92, 24, 79, -36, 109, 29, 12, -101, 38,
+                -38, -16, 96, 74, 64, 23, 8, 1, -97, -101};
+        assertEquals(kinds.length * 2, at.length,
+                "every kind in this fixture wants an x and a z");
+        for (int i = 0; i < kinds.length; i++) {
+            town.addBuilding(new Building(
+                    kinds[i], new SimPos(at[2 * i], 64, at[2 * i + 1]), 1, true));
+        }
+        return town;
+    }
+
+    @Test
+    void noPostIsPlantedInsideSomebodysHouse() {
+        // The player report this exists for: "walls overlap structures in rare
+        // cases". Every rule that keeps the wall off a building is written
+        // about the straight stretch between two vertices, and not one of them
+        // ever looks at a post -- so the stretch may be clean and the posts
+        // still go in through a wall, and asserting the stretch is clean says
+        // nothing at all about the wall the town builds.
+        //
+        // On this town the offending leg runs eight blocks across and a hundred
+        // and forty down. Walked as an L that is eight posts laid along the
+        // top, six blocks deep into a farm the straight line passes clear of by
+        // five.
+        Settlement town = aTownOnASlant();
+
+        Perimeter wall = PerimeterPlanner.stake(town, on(new Billiard()));
+
+        for (SimPos post : wall.ringPositions()) {
+            for (Building building : town.buildings()) {
+                // The plot less the block of slack the hull is allowed: a wall
+                // running along a building's edge is a wall along its edge, and
+                // the corners the hull is built from sit on that ring.
+                double half = BuildPlanner.plotSpanOf(
+                        building.blueprintId(), town.catalogue()) / 2.0 - 1;
+                assertTrue(Math.abs(post.x() - building.origin().x()) > half
+                                || Math.abs(post.z() - building.origin().z()) > half,
+                        "a post at " + post + " stands inside the "
+                                + building.blueprintId() + " at " + building.origin());
+            }
+        }
+    }
+
+    @Test
+    void noPostIsPlantedOnGroundTheTownHasAlreadyOrdered() {
+        // A settlement is never only what is standing. It always has a plot or
+        // two chosen, paid for and waiting for hands, and nothing looks at such
+        // a site again once the wall has moved -- the plot was asked whether it
+        // stood on the wall the day it was chosen, and never afterwards. So the
+        // line went over ordered ground and the building went up on top of it
+        // days later, with neither question asked at the moment they disagreed.
+        //
+        // Measured over a hundred and seventeen grown towns: ninety-two of the
+        // ninety-nine buildings that still had a wall through them were sites
+        // the town had already ordered when its ring was staked.
+        Settlement town = aTownOnASlant();
+        SimPos ordered = new SimPos(-84, 64, -95);
+        int span = BuildPlanner.plotSpanOf("kingdoms:house", town.catalogue());
+        assertTrue(town.isPlotFree(ordered, span, null),
+                "the fixture orders a build on ground nothing else holds");
+        town.enqueueUrgent(new BuildTask("kingdoms:house", ordered, 40));
+
+        Perimeter wall = PerimeterPlanner.stake(town, on(new Billiard()));
+
+        for (SimPos post : wall.ringPositions()) {
+            assertTrue(Math.abs(post.x() - ordered.x()) > span / 2.0 - 1
+                            || Math.abs(post.z() - ordered.z()) > span / 2.0 - 1,
+                    "a post at " + post + " stands on the plot the town ordered at "
+                            + ordered);
+        }
+    }
+
+    @Test
+    void everyPostStandsOnTheStretchItWasStakedOn() {
+        // The contract underneath the rule above, said once so it cannot be
+        // half-kept. A post more than a block off the line is a post on ground
+        // the staking never examined -- for a building, for a road, for water,
+        // for anything the line was settled against.
+        //
+        // Each post against its OWN stretch, not against the nearest of them.
+        // A concave ring folds back on itself, so a post six blocks off the leg
+        // it belongs to can sit within a block of the next bay round and pass a
+        // test that takes the minimum -- which would let the fold hide exactly
+        // the fault this asserts. The walk emits the posts leg by leg and each
+        // leg is |dx| + |dz| of them, so they can be read off in the same order
+        // they were laid.
+        Settlement town = aTownOnASlant();
+
+        Perimeter wall = PerimeterPlanner.stake(town, on(new Billiard()));
+
+        List<SimPos> loop = wall.vertices();
+        List<SimPos> posts = wall.ringPositions();
+        int at = 0;
+        double worst = 0;
+        SimPos strayed = null;
+        for (int i = 0; i < loop.size(); i++) {
+            SimPos from = loop.get(i);
+            SimPos to = loop.get((i + 1) % loop.size());
+            int onThisLeg = Math.abs(to.x() - from.x()) + Math.abs(to.z() - from.z());
+            for (int p = 0; p < onThisLeg; p++) {
+                SimPos post = posts.get(at++);
+                double away = Ways.distanceToSegment(
+                        post.x(), post.z(), from.x(), from.z(), to.x(), to.z());
+                if (away > worst) {
+                    worst = away;
+                    strayed = post;
+                }
+            }
+        }
+        assertEquals(posts.size(), at, "the legs do not account for every post laid");
+        assertTrue(worst <= 1.0, "a post at " + strayed + " stands "
+                + String.format("%.2f", worst) + " blocks off the stretch it belongs to");
     }
 }

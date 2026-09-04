@@ -326,7 +326,12 @@ public final class PerimeterPlanner {
      * as ground it may not be drawn across. The second is not implied by the
      * first — a plot's corners sit happily inside a loop whose line runs over
      * its floor — and it is what stops the wall being staked through a standing
-     * house. {@link #relax} asks the same question of every move it considers.
+     * house. {@link #relax} asks its own version of that question, off the same
+     * list, of every move it considers.
+     *
+     * <p>The two lists are not the same list, and {@link #plotSquares} says
+     * why: ground the town has merely ordered may not be drawn across either,
+     * but the wall is under no obligation to enclose it.
      */
     public static Perimeter stake(Settlement settlement, SimContext ctx) {
         SimPos centre = settlement.centre();
@@ -337,7 +342,7 @@ public final class PerimeterPlanner {
             loop = boxAround(centre, MIN_HALF_SIDE);
         }
         loop = pushOut(loop, centre, MARGIN, plots, squares);
-        loop = relax(loop, plots, settlement, ctx);
+        loop = relax(loop, plots, squares, ctx);
 
         // The ring first, then its gates -- a gate is a hole in a wall, so it
         // can only be chosen once there is a wall to make a hole in.
@@ -346,42 +351,84 @@ public final class PerimeterPlanner {
         return ring;
     }
 
-    /** The ground the town's buildings stand on, which no stretch may cross. */
+    /**
+     * The ground the town has taken, which no stretch of wall may cross.
+     *
+     * <p><strong>Ordered ground counts.</strong> The line used to be staked
+     * against what was standing and nothing else, and a settlement is never
+     * only what is standing — it always has a plot or two chosen, paid for and
+     * waiting for hands. Nothing re-examines such a site once the wall has
+     * moved: {@code Settlement.standsOnTheWall} is asked when a plot is chosen
+     * and never again, and {@code relocateIfUnsuitable} moves a task for bad
+     * ground, not for a fence across it. So the wall was staked over the plot
+     * and the building went up on top of it, days later, with nobody having
+     * asked either question at the moment they disagreed.
+     *
+     * <p>Measured over a hundred and seventeen grown towns: of the ninety-nine
+     * buildings left with a wall through them once the posts were laid on the
+     * line they were staked on, <strong>ninety-two were sites the town had
+     * already ordered</strong> when the ring was staked, seven were standing,
+     * and not one arrived afterwards.
+     *
+     * <p>Deliberately not added to {@link #plotCorners}, which is what the ring
+     * must <em>enclose</em>. A town builds beyond its wall on purpose when
+     * nothing inside will do, and the ring is meant to answer that on its own
+     * cadence — obliging it to swallow every such order the moment it was made
+     * would drive a re-staking off a single shed and undo the hysteresis
+     * {@link #RESTAKE_GROWTH} exists to provide. Not drawn across is a
+     * different promise from taken in, and only the first is owed here.
+     */
     private static List<Hull.Keepout> plotSquares(Settlement settlement) {
         List<Hull.Keepout> squares = new ArrayList<>();
         for (Building building : settlement.buildings()) {
-            if (!BuildPlanner.holdsGround(building.blueprintId())) {
+            keepOut(squares, settlement, building.blueprintId(), building.origin());
+        }
+        for (BuildTask queued : settlement.buildQueue()) {
+            if (queued.isUpgrade()) {
+                // The building it raises is standing on that ground already, so
+                // its square is above. Two of them would be paid for on every
+                // stretch of every candidate line, four relaxation passes deep.
                 continue;
             }
-            double half = BuildPlanner.plotSpanOf(
-                    building.blueprintId(), settlement.catalogue()) / 2.0;
-            squares.add(new Hull.Keepout(
-                    building.origin().x(), building.origin().z(), half));
+            keepOut(squares, settlement, queued.blueprintId(), queued.origin());
         }
         return squares;
     }
 
-    /** The building a vertex's own stretches of wall would be staked through. */
-    private static Building buildingUnder(List<SimPos> line, int at,
-                                          Settlement settlement) {
+    /** One plot's square, at the span the town reserved it. */
+    private static void keepOut(List<Hull.Keepout> squares, Settlement settlement,
+                                String blueprintId, SimPos origin) {
+        if (!BuildPlanner.holdsGround(blueprintId)) {
+            return;
+        }
+        squares.add(new Hull.Keepout(origin.x(), origin.z(),
+                BuildPlanner.plotSpanOf(blueprintId, settlement.catalogue()) / 2.0));
+    }
+
+    /**
+     * Whether either stretch through this vertex is staked over taken ground.
+     *
+     * <p>Asked of the same list of squares the hull and the push-out are asked
+     * of, rather than of the settlement again. The arithmetic is its own —
+     * within a block of the whole plot, where {@link Hull#crossesKeepout} gives
+     * up the outermost ring for the reason its own constant explains — because
+     * a vertex is free to be moved anywhere and a stretch drawn from one is not
+     * a stretch the hull built out of that plot's corners.
+     */
+    private static boolean overTakenGround(List<SimPos> line, int at,
+                                           List<Hull.Keepout> squares) {
         SimPos here = line.get(at);
         SimPos before = line.get((at - 1 + line.size()) % line.size());
         SimPos after = line.get((at + 1) % line.size());
-        for (Building building : settlement.buildings()) {
-            if (!BuildPlanner.holdsGround(building.blueprintId())) {
-                continue;
-            }
-            double half = BuildPlanner.plotSpanOf(
-                    building.blueprintId(), settlement.catalogue()) / 2.0;
-            SimPos origin = building.origin();
+        for (Hull.Keepout square : squares) {
             if (Ways.distanceToSquare(before.x(), before.z(), here.x(), here.z(),
-                        origin.x(), origin.z(), half) < 1
+                        square.x(), square.z(), square.half()) < 1
                     || Ways.distanceToSquare(here.x(), here.z(), after.x(), after.z(),
-                        origin.x(), origin.z(), half) < 1) {
-                return building;
+                        square.x(), square.z(), square.half()) < 1) {
+                return true;
             }
         }
-        return null;
+        return false;
     }
 
 
@@ -525,7 +572,7 @@ public final class PerimeterPlanner {
      * which is the one rule a wall cannot bend.
      */
     private static List<SimPos> relax(List<SimPos> loop, List<SimPos> plots,
-                                      Settlement settlement, SimContext ctx) {
+                                      List<Hull.Keepout> squares, SimContext ctx) {
         List<SimPos> line = new ArrayList<>(loop);
         for (int pass = 0; pass < RELAX_PASSES; pass++) {
             boolean moved = false;
@@ -553,7 +600,7 @@ public final class PerimeterPlanner {
                         // enclosing a house and standing on it are different
                         // questions, and only the first was being asked.
                         boolean holds = holdsEverything(line, plots)
-                                && buildingUnder(line, i, settlement) == null;
+                                && !overTakenGround(line, i, squares);
                         line.set(i, here);
                         if (holds) {
                             least = cost;

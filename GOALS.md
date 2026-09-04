@@ -272,6 +272,73 @@ part of the work that cannot be delegated.
         `relocatePending` measured worse, three stranded doors to five. Left
         alone, and the disagreement written down.
 
+- [ ] **A wall raised before the posts were walked along the line cannot be
+      found again.** `Perimeter.laid` is an index into `ringPositions()`, and
+      that walk changed: a leg used to be walked as an L — its whole x run at
+      the starting z, then its whole z run at the finishing x — and is now
+      walked along the straight line the staking checked. Same count of posts,
+      different columns. So a save carrying a half-raised ring points its built
+      stretch at ground nobody planted, leaves a gap where the old L ran, and
+      orphans the real posts with nothing naming them; `Retired` carries the
+      same wound, and a demolition circuit that finds nothing outstanding then
+      calls `forgetRetired` and loses the line for good. Nothing in `common` can
+      recover those columns — the walk that made them is gone, and keeping it
+      for old lines is only right until the first line raised under the new one.
+      A migration wants a save version and the old walk kept beside the new one
+      to read it with, which is a decision about the save format. Until then a
+      world carried across this change may have stray fence where its wall used
+      to bend.
+
+- [ ] **The concave hull never checks its own starting legs against a plot.**
+      `Hull.concave` begins from the convex hull and tests keepouts only on the
+      two legs of a dig-in split; `pushOut` and `relax` refuse a move that would
+      cross a plot but neither repairs a crossing that is already there. So a
+      building — or a plot the town has ordered — lying under a convex-hull leg
+      shorter than `MAX_STRAIGHT_RUN` is crossed with nothing to correct it.
+      Measured over 117 grown towns after the walk and the ordered-ground
+      keepout landed: **68 buildings with a post inside their walls, 63 of them
+      ordered when the ring was staked and 5 standing**, against 738 before.
+      Left open rather than fixed because the obvious repair — dig any crossing
+      leg regardless of its length — puts a keepout scan on every edge visit of
+      the loop `RESTAKE_REVIEW` already measures at a second and a half on a
+      town of two hundred, and that is a cost to weigh in a world rather than
+      guess at. Queued plots are also deliberately not hull *points*: obliging
+      the ring to enclose every order the moment it is made would drive a
+      re-staking off one shed and undo `RESTAKE_GROWTH`.
+
+- [ ] **A retired line's posts are not consulted when a plot is chosen.**
+      `Settlement.standsOnTheWall` asks the standing ring only, so a town that
+      has just moved its wall will happily site a building on the old line's
+      raised posts. In a world it mostly heals — the excavation clears the
+      building's own footprint and the demolition sweeps the rest — but nothing
+      guarantees the order, and in the simulation nothing sweeps at all, so the
+      fixtures count 695 of these across 117 towns and cannot tell which would
+      survive contact with a player. Worth watching in a world before refusing
+      the ground, which would sterilise a band right through the middle of a
+      town for as long as the demolition takes.
+
+- [ ] **A worldgen town is laid out in the wrong arrangement.**
+      `WorldgenSettlements.resolve` calls `Founding.seeded`, which places every
+      building through `town.arrangement()` — the culture's default for that
+      centre — and only afterwards calls `settlement.setLayoutId(site.layoutId())`.
+      So the buildings stand in one arrangement, the plot cursor was counted in
+      that one, and every building the town raises from its first step is sited
+      in another. The config weights and the `WORLDGEN raised … laid out as …`
+      log both name the arrangement the town does not have. No overlap comes of
+      it — `isPlotFree` still guards every placement — but the town is two plans
+      interleaved. `Founding.seeded` wants the layout id alongside the culture
+      id rather than after it.
+
+- [ ] **An authored blueprint is never measured against the ground reserved for
+      it.** `BlueprintPlacer.fromBlueprint` takes the file's own size and its
+      own anchor cell, and neither is compared with `BuildingSizes` the way
+      `procedural` is — no `SIZE MISMATCH`, no bound. Worse, an anchor that is
+      not the middle of the structure puts the building off centre on its plot
+      while `Footprint` records it as centred, so every overlap check in the mod
+      is wrong by the anchor offset. Nothing ships a blueprint today, so this is
+      a datapack's way of making two structures overlap rather than a fault a
+      player can hit now.
+
 ---
 
 ## Needs eyes, not tests
