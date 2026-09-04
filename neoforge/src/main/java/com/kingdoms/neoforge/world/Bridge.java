@@ -134,31 +134,41 @@ public final class Bridge {
         // Gathered before anything is laid, because the railings are decided by
         // which columns turned out to have a neighbour and which did not, and
         // that cannot be known one column at a time.
-        Map<Long, int[]> deck = new LinkedHashMap<>();
+        //
+        // Held as real positions rather than as three loose numbers. They were
+        // three loose numbers, in the order {x, z, y}, and every one of them was
+        // then handed to a method whose parameters read (x, y, z) -- so the
+        // entire deck of a measured crossing went in at y=31 and z=64, sixty
+        // blocks underground and thirty to one side. It reported laying
+        // eighty-one blocks and it had; there was simply nothing over the water.
+        // Nothing threw, the arithmetic was right, and a photograph of the
+        // river showed a road stopping at the bank exactly as it had before the
+        // bridge existed. What found it was asking the world what block was
+        // where, one y at a time.
+        Map<Long, BlockPos> deck = new LinkedHashMap<>();
         for (int i = first; i <= last; i++) {
             int lift = Math.min(RISE, Math.min(i - first, last - i) / RUN_PER_RISE);
             SimPos at = line.get(i);
             for (int ox = -half; ox <= half; ox++) {
                 for (int oz = -half; oz <= half; oz++) {
-                    int x = at.x() + ox;
-                    int z = at.z() + oz;
-                    long column = column(x, z);
-                    int[] had = deck.get(column);
+                    BlockPos on = new BlockPos(at.x() + ox, base + lift, at.z() + oz);
+                    long column = column(on.getX(), on.getZ());
+                    BlockPos had = deck.get(column);
                     // The highest of the lifts that reach a column, so an arch
                     // shared between two centreline points does not have a step
                     // cut out of it where their square footprints overlap.
-                    if (had == null || base + lift > had[2]) {
-                        deck.put(column, new int[] {x, z, base + lift});
+                    if (had == null || on.getY() > had.getY()) {
+                        deck.put(column, on);
                     }
                 }
             }
         }
 
         int laid = 0;
-        for (int[] cell : deck.values()) {
-            laid += lay(level, cell[0], cell[1], cell[2], Blocks.OAK_PLANKS.defaultBlockState());
+        for (BlockPos on : deck.values()) {
+            laid += lay(level, on, Blocks.OAK_PLANKS.defaultBlockState());
             for (int dy = 1; dy <= HEADROOM; dy++) {
-                BlockPos above = new BlockPos(cell[0], cell[2] + dy, cell[1]);
+                BlockPos above = on.above(dy);
                 if (level.isLoaded(above) && !level.getFluidState(above).isEmpty()) {
                     level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
                     laid++;
@@ -168,18 +178,17 @@ public final class Bridge {
 
         // Railings where the deck ends over water, and nowhere else. A rail
         // across the mouth of the bridge is a fence somebody has to jump.
-        for (int[] cell : deck.values()) {
+        for (BlockPos on : deck.values()) {
             for (int[] step : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
-                int nx = cell[0] + step[0];
-                int nz = cell[1] + step[1];
+                int nx = on.getX() + step[0];
+                int nz = on.getZ() + step[1];
                 if (deck.containsKey(column(nx, nz))) {
                     continue;
                 }
                 if (waterTopAt(level, nx, nz) == NO_WATER) {
                     continue;   // the bank: this is where people get on and off
                 }
-                laid += lay(level, cell[0], cell[1], cell[2] + 1,
-                        Blocks.OAK_FENCE.defaultBlockState());
+                laid += lay(level, on.above(), Blocks.OAK_FENCE.defaultBlockState());
                 break;
             }
         }
@@ -191,11 +200,11 @@ public final class Bridge {
                 continue;
             }
             SimPos at = line.get(i);
-            int[] cell = deck.get(column(at.x(), at.z()));
-            if (cell == null) {
+            BlockPos on = deck.get(column(at.x(), at.z()));
+            if (on == null) {
                 continue;
             }
-            for (int y = cell[2] - 1; y > cell[2] - 1 - PIER_DEPTH; y--) {
+            for (int y = on.getY() - 1; y > on.getY() - 1 - PIER_DEPTH; y--) {
                 BlockPos pos = new BlockPos(at.x(), y, at.z());
                 if (!level.isLoaded(pos)) {
                     break;
@@ -214,8 +223,7 @@ public final class Bridge {
     }
 
     /** Puts one block down, unless it is already there. */
-    private static int lay(ServerLevel level, int x, int y, int z, BlockState want) {
-        BlockPos pos = new BlockPos(x, y, z);
+    private static int lay(ServerLevel level, BlockPos pos, BlockState want) {
         if (!level.isLoaded(pos) || level.getBlockState(pos).is(want.getBlock())) {
             return 0;
         }

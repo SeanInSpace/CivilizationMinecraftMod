@@ -209,6 +209,20 @@ public final class BuildingSizes {
             // and the compound must not have to be resited when one is.
             "animal_farm", 2);
 
+    /**
+     * Whether this kind is drawn at whatever size the culture asks for, up to
+     * the declared one.
+     *
+     * <p>Exactly one, and it is worth being explicit rather than letting the
+     * check that watches for drift quietly tolerate anything smaller. A
+     * compound is a strip of pens and a people that keeps three beasts wants
+     * three of them; the ground is reserved for the most any people keeps, so
+     * the pens can be added to without the whole farm being resited.
+     */
+    public static boolean variesWithCulture(String blueprintId) {
+        return "animal_farm".equals(pathOf(blueprintId));
+    }
+
     /** What is drawn for this blueprint, or null if nothing here draws it. */
     public static Size of(String blueprintId) {
         return DRAWN.get(pathOf(blueprintId));

@@ -62,12 +62,13 @@ public final class BuildTest {
             "kingdoms:town_hall", "kingdoms:market", "kingdoms:granary",
             "kingdoms:storehouse", "kingdoms:smith", "kingdoms:carpentry",
             "kingdoms:inn", "kingdoms:mill", "kingdoms:workshop",
-            "kingdoms:watchtower",
+            "kingdoms:watchtower", "kingdoms:library",
     };
 
     /** What fills the rest of the grid once the civic buildings are placed. */
     private static final String[] DWELLINGS = {
-            "kingdoms:house", "kingdoms:house", "kingdoms:cottage", "kingdoms:bunkhouse",
+            "kingdoms:house", "kingdoms:house", "kingdoms:cottage", "kingdoms:longhouse",
+            "kingdoms:house", "kingdoms:cottage", "kingdoms:croft", "kingdoms:bunkhouse",
     };
 
     private final ServerLevel level;
@@ -329,8 +330,13 @@ public final class BuildTest {
                 new BlockPos(plot.x(), level.getMinY() + 1, plot.z()));
         int across = size.isKnown() ? Math.max(size.width(), size.depth())
                 : BuildPlanner.plotSpanOf(placement.blueprintId(), BuildCatalogue.DEFAULT);
-        // Half the paved way, a verge, and half the building.
-        double wanted = Math.max(1, placement.fronts().width() / 3.0) + VERGE + across / 2.0;
+        // The same distance a town that actually grows now stands its buildings
+        // off their streets, borrowed from the router that decides it, so what
+        // this renders is what a settlement does. It measured to the PAVED strip
+        // -- a third of the width rather than half of it -- which brought a
+        // building inside the three blocks a street reserves without surfacing,
+        // and a road laid there later is refused or run through the wall.
+        double wanted = com.kingdoms.sim.settlement.PathPlanner.keepoutRound(across);
         if (wanted >= away) {
             return plot;   // already at least that far back; do not push it out
         }
@@ -353,9 +359,6 @@ public final class BuildTest {
         }
         return best;
     }
-
-    /** Bare ground between the paved way and a front wall. */
-    private static final int VERGE = 1;
 
     /**
      * Which building goes on the nth plot.

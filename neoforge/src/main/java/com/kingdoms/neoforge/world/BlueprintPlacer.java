@@ -1215,6 +1215,26 @@ public final class BlueprintPlacer {
         BuildingSizes.Size declared = BuildingSizes.of(path);
         BuildingSizes.Notch notch = declared == null
                 ? BuildingSizes.Notch.NONE : declared.notch();
+        // Says so, loudly, when a drawing method and the table disagree.
+        //
+        // The table is what reserves the ground, so a builder that draws
+        // something else is the original fault wearing a new hat -- and it can
+        // only be caught here, because drawing needs a level and so cannot be
+        // reached from the unit tests that check everything else about a size.
+        // It has already happened once since the table existed: the market was
+        // converted to read its size, kept a literal in its return statement,
+        // and went on being drawn five wide on nine blocks of reserved ground.
+        // Nothing threw. It was found by diffing a run's log against the table.
+        boolean over = declared != null
+                && (dims[0] > declared.width() || dims[1] > declared.depth());
+        boolean under = declared != null && !BuildingSizes.variesWithCulture(path)
+                && (dims[0] < declared.width() || dims[1] < declared.depth());
+        if (over || under) {
+            KingdomsMod.LOGGER.error(
+                    "SIZE MISMATCH {} is declared {}x{} and drawn {}x{}: the plan has"
+                            + " reserved the wrong amount of ground for it",
+                    path, declared.width(), declared.depth(), dims[0], dims[1]);
+        }
         return finish(level, base, blocks,
                 quarter ? dims[1] : dims[0], quarter ? dims[0] : dims[1], dims[2],
                 quarter ? turned(notch, rotation) : notch);
@@ -1834,7 +1854,7 @@ public final class BlueprintPlacer {
         add(blocks, base.offset(0, 1, 0), Blocks.BARREL);
         add(blocks, base.offset(1, 1, 0), Blocks.HAY_BLOCK);
         add(blocks, base.offset(0, 2, 0), Blocks.LANTERN);
-        return new int[]{5, 5, 4};
+        return new int[]{size.width(), size.depth(), 4};
     }
 
     private static int[] farm(ServerLevel level, List<Placement> blocks, BlockPos base) {
