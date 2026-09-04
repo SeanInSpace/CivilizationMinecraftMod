@@ -982,11 +982,12 @@ public final class BlueprintPlacer {
                                          int facing) {
         Identifier id = Identifier.parse(blueprintId);
         Rotation rotation = rotationOf(facing);
+        Site site = siteAt(level, base);
 
         Optional<LoadedBlueprint> authored = Blueprints.loadFirst(level, base,
-                styleCandidates(id, cultureAt(level, base)), rotation, Mirror.NONE);
+                styleCandidates(id, site.culture()), rotation, Mirror.NONE);
         if (authored.isPresent()) {
-            return fromBlueprint(level, authored.get(), base,
+            return fromBlueprint(level, site, authored.get(), base,
                     BuildPlanner.baseIdOf(id.getPath()));
         }
         // Styles degrade too: with no norman/house drawn, a norman town still
@@ -994,7 +995,8 @@ public final class BlueprintPlacer {
         // a level nobody has drawn — it falls back to the plain shape, grown.
         String path = BuildPlanner.baseIdOf(id.getPath());
         int tier = BuildPlanner.levelOf(id.getPath());
-        return procedural(level, path.substring(path.lastIndexOf('/') + 1), base, rotation, tier);
+        return procedural(level, site, path.substring(path.lastIndexOf('/') + 1),
+                base, rotation, tier);
     }
 
     /**
@@ -1046,7 +1048,8 @@ public final class BlueprintPlacer {
      * cobble underpinning the procedural shapes get is laid beneath it, which is
      * what stops an authored building floating over a slope.
      */
-    private static StructurePlan fromBlueprint(ServerLevel level, LoadedBlueprint blueprint,
+    private static StructurePlan fromBlueprint(ServerLevel level, Site site,
+                                               LoadedBlueprint blueprint,
                                                BlockPos base, String path) {
         Vec3i size = blueprint.size();
         // The origin that puts the blueprint's own anchor cell on the plot.
@@ -1061,7 +1064,7 @@ public final class BlueprintPlacer {
         BlockPos anchor = base.offset(-stated.getX(), 0, -stated.getZ());
 
         List<Placement> blocks = new ArrayList<>(blueprint.blockCount() + 32);
-        foundation(level, blocks, base, size.getX(), size.getZ());
+        foundation(site, blocks, base, size.getX(), size.getZ());
         Set<BlockPos> filled = new HashSet<>();
         boolean hasPost = false;
         for (PlannedBlock block : blueprint.sequence()) {
@@ -1116,7 +1119,7 @@ public final class BlueprintPlacer {
     }
 
     /** The post that belongs to a building, by its blueprint path. */
-    private static Block postFor(String path) {
+    static Block postFor(String path) {
         String name = path.substring(path.lastIndexOf('/') + 1);
         return switch (name) {
             case "town_hall" -> KingdomsBlocks.TOWN_HALL.get();
@@ -1148,6 +1151,71 @@ public final class BlueprintPlacer {
     }
 
     /**
+     * Draws one built-in shape, facing south, and says how big it came out.
+     *
+     * <p>Split out of {@link #procedural} so that the size a shape reports can be
+     * had without a world. Everything a builder needs to know about where it is
+     * standing goes through {@link Site}, and none of it can move a wall: the
+     * ground decides how much cobble is packed in underneath and how far a
+     * flight of steps runs, the culture decides how many pens a compound has,
+     * and the width and depth come from {@link BuildingSizes} either way. So the
+     * numbers this returns against a flat fake site are the numbers it returns
+     * on a hillside, which is what {@code BlueprintPlacerSizeTest} relies on to
+     * compare all twenty-five of these against the table the catalogue reserves
+     * ground from.
+     *
+     * <p>The style folder is stripped the same way {@link #postFor} strips it,
+     * rather than being left as a precondition on the caller: an id that reached
+     * here as {@code norman/house} would otherwise fall through to the
+     * unknown-blueprint marker and be built as a five-by-five slab of stone
+     * bricks, silently, while everything else in this file went on calling it a
+     * house.
+     *
+     * @return {@code {width, depth, height}}, before any rotation
+     */
+    static int[] draw(Site site, List<Placement> blocks, String blueprintPath, BlockPos base) {
+        String path = blueprintPath.substring(blueprintPath.lastIndexOf('/') + 1);
+        int[] dims = switch (path) {
+            case "town_hall" -> cabin(site, blocks, base, sized("town_hall"), 5, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
+            case "house" -> cabin(site, blocks, base, sized("house"), 4, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
+            case "granary" -> granary(site, blocks, base);
+            case "farm" -> farm(site, blocks, base);
+            case "market" -> market(site, blocks, base);
+            case "lumber_camp" -> lumberCamp(site, blocks, base);
+            case "mine" -> mine(site, blocks, base);
+            case "warehouse" -> warehouse(site, blocks, base);
+            case "smith" -> smith(site, blocks, base);
+            case "animal_farm" -> animalFarm(site, blocks, base);
+            case "stairs" -> accessStairs(site, blocks, base);
+            case "watchtower" -> watchtower(site, blocks, base);
+            case "storehouse" -> storehouse(site, blocks, base);
+            case "camp_post" -> campPost(site, blocks, base);
+            case "cache" -> cache(site, blocks, base);
+            case "bunkhouse" -> bunkhouse(site, blocks, base);
+            case "hearth" -> hearth(site, blocks, base);
+            case "cottage" -> cottage(site, blocks, base);
+            case "longhouse" -> longhouse(site, blocks, base);
+            case "croft" -> croft(site, blocks, base);
+            case "library" -> library(site, blocks, base);
+            case "mill" -> mill(site, blocks, base);
+            case "carpentry" -> carpentry(site, blocks, base);
+            case "inn" -> inn(site, blocks, base);
+            case "workshop" -> workshop(site, blocks, base);
+            default -> marker(blocks, base);
+        };
+        if (path.equals("town_hall")) {
+            add(blocks, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);
+            add(blocks, base.offset(0, 1, -1), KingdomsBlocks.TOWN_HALL.get());
+            // The board hangs in the hall: one place to read what the town wants.
+            add(blocks, base.offset(-2, 1, -2), KingdomsBlocks.QUEST_BOARD.get());
+        }
+        if (path.equals("house")) {
+            add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.HOUSE.get());
+        }
+        return dims;
+    }
+
+    /**
      * The built-in shapes. One size each, whatever level the record claims.
      *
      * <p>They used to grow with tier — two blocks broader per level — and that
@@ -1167,47 +1235,15 @@ public final class BlueprintPlacer {
      * <p>If levels ever come back, the size drawn here must be checked against
      * {@code BuildPlanner.plotSpanOf} rather than assumed to fit. That is the
      * whole lesson and it is why this comment is longer than the line it guards.
+     * The check itself is no longer a hope: {@code BlueprintPlacerSizeTest} draws
+     * every one of these against a fake site and compares its width and depth
+     * with {@link BuildingSizes}, so a shape that outgrows its plot fails a build
+     * rather than waiting to be noticed from the air.
      */
-    private static StructurePlan procedural(ServerLevel level, String path, BlockPos base,
-                                            Rotation rotation, int tier) {
+    private static StructurePlan procedural(ServerLevel level, Site site, String path,
+                                            BlockPos base, Rotation rotation, int tier) {
         List<Placement> blocks = new ArrayList<>();
-        int[] dims = switch (path) {
-            case "town_hall" -> cabin(level, blocks, base, sized("town_hall"), 5, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
-            case "house" -> cabin(level, blocks, base, sized("house"), 4, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
-            case "granary" -> granary(level, blocks, base);
-            case "farm" -> farm(level, blocks, base);
-            case "market" -> market(level, blocks, base);
-            case "lumber_camp" -> lumberCamp(level, blocks, base);
-            case "mine" -> mine(level, blocks, base);
-            case "warehouse" -> warehouse(level, blocks, base);
-            case "smith" -> smith(level, blocks, base);
-            case "animal_farm" -> animalFarm(level, blocks, base);
-            case "stairs" -> accessStairs(level, blocks, base);
-            case "watchtower" -> watchtower(level, blocks, base);
-            case "storehouse" -> storehouse(level, blocks, base);
-            case "camp_post" -> campPost(level, blocks, base);
-            case "cache" -> cache(level, blocks, base);
-            case "bunkhouse" -> bunkhouse(level, blocks, base);
-            case "hearth" -> hearth(level, blocks, base);
-            case "cottage" -> cottage(level, blocks, base);
-            case "longhouse" -> longhouse(level, blocks, base);
-            case "croft" -> croft(level, blocks, base);
-            case "library" -> library(level, blocks, base);
-            case "mill" -> mill(level, blocks, base);
-            case "carpentry" -> carpentry(level, blocks, base);
-            case "inn" -> inn(level, blocks, base);
-            case "workshop" -> workshop(level, blocks, base);
-            default -> marker(blocks, base);
-        };
-        if (path.equals("town_hall")) {
-            add(blocks, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);
-            add(blocks, base.offset(0, 1, -1), KingdomsBlocks.TOWN_HALL.get());
-            // The board hangs in the hall: one place to read what the town wants.
-            add(blocks, base.offset(-2, 1, -2), KingdomsBlocks.QUEST_BOARD.get());
-        }
-        if (path.equals("house")) {
-            add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.HOUSE.get());
-        }
+        int[] dims = draw(site, blocks, path, base);
         turn(blocks, base, rotation);
         // A quarter turn swaps the footprint's axes along with it.
         boolean quarter = rotation == Rotation.CLOCKWISE_90
@@ -1218,13 +1254,19 @@ public final class BlueprintPlacer {
         // Says so, loudly, when a drawing method and the table disagree.
         //
         // The table is what reserves the ground, so a builder that draws
-        // something else is the original fault wearing a new hat -- and it can
-        // only be caught here, because drawing needs a level and so cannot be
-        // reached from the unit tests that check everything else about a size.
-        // It has already happened once since the table existed: the market was
-        // converted to read its size, kept a literal in its return statement,
-        // and went on being drawn five wide on nine blocks of reserved ground.
-        // Nothing threw. It was found by diffing a run's log against the table.
+        // something else is the original fault wearing a new hat. It has already
+        // happened once since the table existed: the market was converted to read
+        // its size, kept a literal in its return statement, and went on being
+        // drawn five wide on nine blocks of reserved ground. Nothing threw. It
+        // was found by diffing a run's log against the table.
+        //
+        // BlueprintPlacerSizeTest now makes the same comparison at build time for
+        // every shape in the switch, so this is no longer the only thing standing
+        // between that fault and a live world. It stays because it can see one
+        // thing the test cannot: a size that came out wrong because of where the
+        // building was put -- a culture nobody thought to try, a site that made
+        // some future shape answer differently -- rather than because of what
+        // was written in the switch.
         boolean over = declared != null
                 && (dims[0] > declared.width() || dims[1] > declared.depth());
         boolean under = declared != null && !BuildingSizes.variesWithCulture(path)
@@ -1469,8 +1511,8 @@ public final class BlueprintPlacer {
      * <p>No shaft is dug at build time — the miners cut where the mine post tells
      * them to, which is the point of the post.
      */
-    private static int[] mine(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("mine"), 3, Blocks.COBBLESTONE, Blocks.STONE_BRICKS);
+    private static int[] mine(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("mine"), 3, Blocks.COBBLESTONE, Blocks.STONE_BRICKS);
         add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.MINE.get());
         add(blocks, base.offset(1, 1, -1), Blocks.FURNACE);
         add(blocks, base.offset(1, 2, -1), Blocks.COBBLESTONE_SLAB);
@@ -1478,8 +1520,8 @@ public final class BlueprintPlacer {
     }
 
     /** A long store shed: the town's ledger made of barrels. */
-    private static int[] warehouse(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("warehouse"), 4, Blocks.DARK_OAK_PLANKS, Blocks.DARK_OAK_LOG);
+    private static int[] warehouse(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("warehouse"), 4, Blocks.DARK_OAK_PLANKS, Blocks.DARK_OAK_LOG);
         add(blocks, base.offset(0, 1, -2), KingdomsBlocks.WAREHOUSE.get());
         for (int dx = -2; dx <= 2; dx += 2) {
             add(blocks, base.offset(dx, 1, 2), Blocks.BARREL);
@@ -1490,8 +1532,8 @@ public final class BlueprintPlacer {
     }
 
     /** A smithy: forge, anvil, bench. */
-    private static int[] smith(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("smith"), 3, Blocks.STONE_BRICKS, Blocks.DEEPSLATE_BRICKS);
+    private static int[] smith(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("smith"), 3, Blocks.STONE_BRICKS, Blocks.DEEPSLATE_BRICKS);
         add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.SMITH.get());
         add(blocks, base.offset(0, 1, -1), Blocks.FURNACE);
         add(blocks, base.offset(1, 1, -1), Blocks.ANVIL);
@@ -1507,7 +1549,7 @@ public final class BlueprintPlacer {
      * single run of fence, and separation is the whole requirement — cows must
      * not end up in with the chickens.
      */
-    private static int[] animalFarm(ServerLevel level, List<Placement> blocks, BlockPos base) {
+    private static int[] animalFarm(Site site, List<Placement> blocks, BlockPos base) {
         // The culture of the town whose ground this is, not the default one.
         // ShepherdWorker has always stocked these pens from the settlement's own
         // culture while this sized them from the default — which agreed only for
@@ -1521,13 +1563,13 @@ public final class BlueprintPlacer {
         BuildingSizes.Size size = sized("animal_farm");
         int penDepth = 3;
         int room = (size.depth() - 1) / (penDepth + 1);
-        int pens = Math.min(room, Math.max(1, cultureAt(level, base).penCount()));
+        int pens = Math.min(room, Math.max(1, site.culture().penCount()));
         int width = size.width();
         int depth = pens * penDepth + pens + 1;
         int rx = width / 2;
         int rz = depth / 2;
 
-        foundation(level, blocks, base, width, depth);
+        foundation(site, blocks, base, width, depth);
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
                 add(blocks, base.offset(dx, 0, dz), Blocks.GRASS_BLOCK);
@@ -1548,8 +1590,8 @@ public final class BlueprintPlacer {
         return new int[]{width, depth, 3};
     }
 
-    private static int[] granary(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("granary"), 3, Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
+    private static int[] granary(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("granary"), 3, Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.GRANARY.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.HAY_BLOCK);
         add(blocks, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
@@ -1559,8 +1601,8 @@ public final class BlueprintPlacer {
     }
 
     /** A woodcutters hut: the control post stands on the floor, axe-side out. */
-    private static int[] lumberCamp(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("lumber_camp"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+    private static int[] lumberCamp(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("lumber_camp"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
         add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.LUMBER_CAMP.get());
         add(blocks, base.offset(1, 1, -1), Blocks.OAK_LOG);
         add(blocks, base.offset(1, 2, -1), Blocks.OAK_LOG);
@@ -1568,8 +1610,8 @@ public final class BlueprintPlacer {
     }
 
     /** A family's own house: the smallest roof a household can grow under. */
-    private static int[] cottage(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("cottage"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+    private static int[] cottage(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("cottage"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.COTTAGE.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
         add(blocks, base.offset(1, 1, -1), Blocks.WOOL.white());
@@ -1600,9 +1642,9 @@ public final class BlueprintPlacer {
      * three cottages take three, and it is what a village with a long green and
      * a short high street actually did.
      */
-    private static int[] longhouse(ServerLevel level, List<Placement> blocks, BlockPos base) {
+    private static int[] longhouse(Site site, List<Placement> blocks, BlockPos base) {
         BuildingSizes.Size size = sized("longhouse");
-        int[] dims = cabin(level, blocks, base, size, 4,
+        int[] dims = cabin(site, blocks, base, size, 4,
                 Blocks.DARK_OAK_PLANKS, Blocks.DARK_OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.LONGHOUSE.get());
         // Six beds down the cold wall, a bay apiece.
@@ -1630,9 +1672,9 @@ public final class BlueprintPlacer {
      * claimed — so the crook of the L is a yard somebody could keep a pig in
      * rather than a notch in a floor plan.
      */
-    private static int[] croft(ServerLevel level, List<Placement> blocks, BlockPos base) {
+    private static int[] croft(Site site, List<Placement> blocks, BlockPos base) {
         BuildingSizes.Size size = sized("croft");
-        int[] dims = hall(level, blocks, base, size, 4,
+        int[] dims = hall(site, blocks, base, size, 4,
                 Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
         add(blocks, base.offset(0, 1, 3), KingdomsBlocks.CROFT.get());
         // Three beds up the wing, three along the range: six, and the household
@@ -1668,9 +1710,9 @@ public final class BlueprintPlacer {
      * was next to it, because the ground was reserved from a number in the
      * catalogue and the walls were drawn from a literal in this file.
      */
-    private static int[] library(ServerLevel level, List<Placement> blocks, BlockPos base) {
+    private static int[] library(Site site, List<Placement> blocks, BlockPos base) {
         BuildingSizes.Size size = sized("library");
-        int[] dims = cabin(level, blocks, base, size, 6,
+        int[] dims = cabin(site, blocks, base, size, 6,
                 Blocks.STONE_BRICKS, Blocks.POLISHED_ANDESITE);
         int rx = size.width() / 2;
         int rz = size.depth() / 2;
@@ -1708,8 +1750,8 @@ public final class BlueprintPlacer {
     }
 
     /** The mill: a grindstone under a spruce roof, hay in every corner. */
-    private static int[] mill(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("mill"), 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
+    private static int[] mill(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("mill"), 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.MILL.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.GRINDSTONE);
         add(blocks, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
@@ -1719,8 +1761,8 @@ public final class BlueprintPlacer {
     }
 
     /** The carpentry: benches, a saw pit's worth of planks, stacked stock. */
-    private static int[] carpentry(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("carpentry"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+    private static int[] carpentry(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("carpentry"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.CARPENTRY.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.CRAFTING_TABLE);
         add(blocks, base.offset(1, 1, -1), Blocks.STRIPPED_OAK_LOG);
@@ -1730,8 +1772,8 @@ public final class BlueprintPlacer {
     }
 
     /** The inn: the village's biggest roof, lanterns lit for the road. */
-    private static int[] inn(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("inn"), 4, Blocks.SPRUCE_PLANKS, Blocks.OAK_LOG);
+    private static int[] inn(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("inn"), 4, Blocks.SPRUCE_PLANKS, Blocks.OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.INN.get());
         add(blocks, base.offset(-2, 1, -1), Blocks.WOOL.white());
         add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
@@ -1742,8 +1784,8 @@ public final class BlueprintPlacer {
     }
 
     /** The staked claim: a flag of a building, the first thing a founding party raises. */
-    private static int[] campPost(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        foundation(level, blocks, base, 3, 3);
+    private static int[] campPost(Site site, List<Placement> blocks, BlockPos base) {
+        foundation(site, blocks, base, 3, 3);
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 // Coarse dirt under the post itself: a path block converts to
@@ -1760,8 +1802,8 @@ public final class BlueprintPlacer {
     }
 
     /** The pooled supplies: barrels on boards, out in the weather. */
-    private static int[] cache(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        foundation(level, blocks, base, 3, 3);
+    private static int[] cache(Site site, List<Placement> blocks, BlockPos base) {
+        foundation(site, blocks, base, 3, 3);
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 add(blocks, base.offset(dx, 0, dz), Blocks.SPRUCE_PLANKS);
@@ -1775,8 +1817,8 @@ public final class BlueprintPlacer {
     }
 
     /** One room the whole party sleeps in — housing before there are families. */
-    private static int[] bunkhouse(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("bunkhouse"), 3, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
+    private static int[] bunkhouse(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("bunkhouse"), 3, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.BUNKHOUSE.get());
         // Bedrolls in a row along the north wall; the mod cannot place real
         // beds, whose two halves need paired states.
@@ -1789,8 +1831,8 @@ public final class BlueprintPlacer {
     }
 
     /** The open fire the camp cooks on: a cobble pad, log seats, nothing overhead. */
-    private static int[] hearth(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        foundation(level, blocks, base, 5, 5);
+    private static int[] hearth(Site site, List<Placement> blocks, BlockPos base) {
+        foundation(site, blocks, base, 5, 5);
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 boolean pad = Math.abs(dx) <= 1 && Math.abs(dz) <= 1;
@@ -1808,8 +1850,8 @@ public final class BlueprintPlacer {
         return new int[]{5, 5, 2};
     }
 
-    private static int[] storehouse(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("storehouse"), 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
+    private static int[] storehouse(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("storehouse"), 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.STOREHOUSE.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.BARREL);
         add(blocks, base.offset(1, 1, -1), Blocks.BARREL);
@@ -1817,8 +1859,8 @@ public final class BlueprintPlacer {
         return dims;
     }
 
-    private static int[] workshop(ServerLevel level, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(level, blocks, base, sized("workshop"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+    private static int[] workshop(Site site, List<Placement> blocks, BlockPos base) {
+        int[] dims = cabin(site, blocks, base, sized("workshop"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.WORKSHOP.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.CRAFTING_TABLE);
         add(blocks, base.offset(1, 1, -1), Blocks.SMITHING_TABLE);
@@ -1826,11 +1868,11 @@ public final class BlueprintPlacer {
         return dims;
     }
 
-    private static int[] market(ServerLevel level, List<Placement> blocks, BlockPos base) {
+    private static int[] market(Site site, List<Placement> blocks, BlockPos base) {
         BuildingSizes.Size size = sized("market");
         int rx = size.width() / 2;
         int rz = size.depth() / 2;
-        foundation(level, blocks, base, size.width(), size.depth());
+        foundation(site, blocks, base, size.width(), size.depth());
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.MARKET.get());
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
@@ -1857,10 +1899,10 @@ public final class BlueprintPlacer {
         return new int[]{size.width(), size.depth(), 4};
     }
 
-    private static int[] farm(ServerLevel level, List<Placement> blocks, BlockPos base) {
+    private static int[] farm(Site site, List<Placement> blocks, BlockPos base) {
         int r = 5;
         // A field's soil is its floor, and that is drawn one below the base.
-        foundation(level, blocks, base, 2 * r + 1, 2 * r + 1, -1);
+        foundation(site, blocks, base, 2 * r + 1, 2 * r + 1, -1);
         for (int dx = -r; dx <= r; dx++) {
             for (int dz = -r; dz <= r; dz++) {
                 boolean edge = Math.abs(dx) == r || Math.abs(dz) == r;
@@ -1896,14 +1938,14 @@ public final class BlueprintPlacer {
         return new int[]{2 * r + 1, 2 * r + 1, 3};
     }
 
-    private static int[] watchtower(ServerLevel level, List<Placement> blocks, BlockPos base) {
+    private static int[] watchtower(Site site, List<Placement> blocks, BlockPos base) {
         // A plinth, and the tower proper standing on the middle of it. A
         // three-wide shaft straight out of the grass reads as a chimney; the
         // step-in at the base is what makes it a tower.
         BuildingSizes.Size size = sized("watchtower");
         int rx = size.width() / 2;
         int rz = size.depth() / 2;
-        foundation(level, blocks, base, size.width(), size.depth());
+        foundation(site, blocks, base, size.width(), size.depth());
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
                 add(blocks, base.offset(dx, 0, dz), Blocks.COBBLESTONE);
@@ -1953,12 +1995,12 @@ public final class BlueprintPlacer {
      * chew through the house it is meant to serve. The clearing this plan needs
      * it does itself, tread by tread.
      */
-    private static int[] accessStairs(ServerLevel level, List<Placement> blocks, BlockPos base) {
+    private static int[] accessStairs(Site site, List<Placement> blocks, BlockPos base) {
         for (int i = 1; i <= MAX_STAIR_RUN; i++) {
             int x = base.getX();
             int z = base.getZ() + i;
             int treadY = base.getY() - i;
-            int ground = groundLevel(level, x, z) - 1;
+            int ground = site.groundLevel(x, z) - 1;
             if (treadY <= ground) {
                 break;   // the steps have met the hillside
             }
@@ -1999,11 +2041,11 @@ public final class BlueprintPlacer {
      * of an L, including the inner one, which is the corner a rectangle does not
      * have and the one a hand-written wall loop always forgets.
      */
-    private static int[] hall(ServerLevel level, List<Placement> blocks, BlockPos base,
+    private static int[] hall(Site site, List<Placement> blocks, BlockPos base,
                               BuildingSizes.Size size, int wallHeight, Block wall, Block frame) {
         int rx = size.width() / 2;
         int rz = size.depth() / 2;
-        foundation(level, blocks, base, size.width(), size.depth());
+        foundation(site, blocks, base, size.width(), size.depth());
 
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
@@ -2070,17 +2112,17 @@ public final class BlueprintPlacer {
     }
 
     /** A rectangular building: floor, log corners, walls with door gap and windows, rimmed roof. */
-    private static int[] cabin(ServerLevel level, List<Placement> blocks, BlockPos base,
+    private static int[] cabin(Site site, List<Placement> blocks, BlockPos base,
                                BuildingSizes.Size size, int wallHeight, Block wall, Block frame) {
-        return cabin(level, blocks, base, size.width(), size.depth(), wallHeight, wall, frame);
+        return cabin(site, blocks, base, size.width(), size.depth(), wallHeight, wall, frame);
     }
 
     /** A rectangular building, at a size given outright rather than declared. */
-    private static int[] cabin(ServerLevel level, List<Placement> blocks, BlockPos base,
+    private static int[] cabin(Site site, List<Placement> blocks, BlockPos base,
                                int width, int depth, int wallHeight, Block wall, Block frame) {
         int rx = width / 2;
         int rz = depth / 2;
-        foundation(level, blocks, base, width, depth);
+        foundation(site, blocks, base, width, depth);
 
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
@@ -2143,9 +2185,9 @@ public final class BlueprintPlacer {
      * already has ground in it. The cost is paid only by the buildings that are
      * actually on a slope, which is the point.
      */
-    private static void foundation(ServerLevel level, List<Placement> blocks, BlockPos base,
+    private static void foundation(Site site, List<Placement> blocks, BlockPos base,
                                    int width, int depth) {
-        foundation(level, blocks, base, width, depth, 0);
+        foundation(site, blocks, base, width, depth, 0);
     }
 
     /**
@@ -2156,9 +2198,9 @@ public final class BlueprintPlacer {
      *                    too, or every field on flat ground gets a cobble kerb
      *                    standing a block proud of the grass all the way round.
      */
-    private static void foundation(ServerLevel level, List<Placement> blocks, BlockPos base,
+    private static void foundation(Site site, List<Placement> blocks, BlockPos base,
                                    int width, int depth, int floorCourse) {
-        foundation(blocks, base, width, depth, floorCourse, groundOf(level));
+        foundation(blocks, base, width, depth, floorCourse, site);
     }
 
     /**
@@ -2179,8 +2221,43 @@ public final class BlueprintPlacer {
         boolean unsupported(BlockPos pos);
     }
 
-    private static Ground groundOf(ServerLevel level) {
-        return new Ground() {
+    /**
+     * Everything a drawing method may ask about where it is standing.
+     *
+     * <p>Three questions and no more, which is the whole point of the type: the
+     * <em>size</em> a builder draws is a property of the declared shape and the
+     * people building it, never of the hillside, so a plan drawn against a fake
+     * site reports exactly the width and depth a real one would. That is what
+     * lets {@code BlueprintPlacerSizeTest} compare what every shape draws against
+     * {@link BuildingSizes} without a running game — the comparison the
+     * {@code SIZE MISMATCH} log in {@link #procedural} had to make at runtime
+     * because there was nowhere else it could be made.
+     *
+     * <p>{@link Ground} was already most of it. The two additions are the two
+     * other things a shape has ever wanted: the culture, because a compound is
+     * as many pens as the people keep beasts, and the surface height, because a
+     * flight of steps runs until it meets the hill.
+     */
+    interface Site extends Ground {
+
+        /** The people whose town this is, whose habits some shapes answer to. */
+        Culture culture();
+
+        /** The first free block over this column; see {@link #groundLevel}. */
+        int groundLevel(int x, int z);
+    }
+
+    /**
+     * The real world, asked the three questions a shape is allowed to ask it.
+     *
+     * <p>The culture is resolved once, here, rather than looked up again inside
+     * whichever shape wants it: {@link #planFor} already needs it to pick a
+     * blueprint style, and scanning every settlement of every kingdom twice for
+     * the same answer is a scan too many.
+     */
+    private static Site siteAt(ServerLevel level, BlockPos base) {
+        Culture culture = cultureAt(level, base);
+        return new Site() {
             @Override
             public boolean loaded(BlockPos pos) {
                 return level.isLoaded(pos);
@@ -2189,6 +2266,16 @@ public final class BlueprintPlacer {
             @Override
             public boolean unsupported(BlockPos pos) {
                 return isUnsupported(level, pos);
+            }
+
+            @Override
+            public Culture culture() {
+                return culture;
+            }
+
+            @Override
+            public int groundLevel(int x, int z) {
+                return BlueprintPlacer.groundLevel(level, x, z);
             }
         };
     }
