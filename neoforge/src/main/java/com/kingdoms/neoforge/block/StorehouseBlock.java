@@ -123,7 +123,10 @@ public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
                     .withStyle(ChatFormatting.GRAY));
             return;
         }
-        int paid = Math.max(1, sold / StorehousePlanner.WOOD_PER_EMERALD);
+        // The same figure the planner banked. Working it out twice is how the
+        // town came to be paid a different number of emeralds from the one that
+        // left the player's hand.
+        int paid = StorehousePlanner.emeraldsFor(sold);
         held.shrink(paid);
         give(player, new ItemStack(Items.OAK_LOG, sold));
         player.sendSystemMessage(Component.literal(

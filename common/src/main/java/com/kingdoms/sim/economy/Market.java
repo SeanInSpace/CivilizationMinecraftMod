@@ -1,5 +1,7 @@
 package com.kingdoms.sim.economy;
 
+import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.LumberPlanner;
 import com.kingdoms.sim.settlement.MinePlanner;
@@ -23,6 +25,12 @@ import java.util.List;
  * {@code isStarving}, the store ceilings, {@code wantsMoreTimber} — and was
  * only ever read by the planners. Exposing it is what turns a settlement's
  * problems into a player's opportunities, which is the whole design.
+ *
+ * <p><strong>Every deal carries its reason.</strong> {@link Reason} is a
+ * component of {@link Deal} rather than something a screen can work out for
+ * itself, because a price and an explanation derived separately are two things
+ * that can disagree — and the explanation is the whole reason the town has a
+ * screen of its own instead of a merchant's.
  *
  * <p>Nothing here touches the world. It answers what the deals are; handing
  * over emeralds is the platform's job.
@@ -66,12 +74,42 @@ public final class Market {
     /** How many units a single deal covers, so a screen shows sane numbers. */
     public static final int LOT = 8;
 
-    /** One thing the town is willing to do, in one direction, at one price. */
-    public record Deal(String resource, boolean townBuys, int unitPrice, int lots) {
+    /**
+     * Why a price is what it is.
+     *
+     * <p>The whole argument for the town having a screen of its own rather than
+     * a merchant's. A merchant screen can show that grain costs six; it has
+     * nowhere to put <em>they are starving</em>, and the reason is the town's
+     * entire character. Decided here, where it can be tested, and worded by
+     * whatever is drawing it — the simulation has never known what language the
+     * player reads.
+     */
+    public enum Reason {
 
-        /** Total coin for taking every lot of this deal. */
-        public int totalPrice() {
-            return unitPrice * LOT * lots;
+        /** It is in real trouble and paying accordingly. {@link #DESPERATE}. */
+        DESPERATE,
+
+        /** Short of this, and paying over the odds to fix that. {@link #SHORT}. */
+        SHORT,
+
+        /** Neither short nor overflowing. The price is the plain one. */
+        ORDINARY,
+
+        /**
+         * It has nowhere left to put this, which is why it will not buy any and
+         * is glad to see the back of what it has. The same arithmetic answers
+         * both: no room is exactly the condition {@link #buyOffer} refuses on.
+         */
+        GLUT
+    }
+
+    /** One thing the town is willing to do, in one direction, at one price. */
+    public record Deal(String resource, boolean townBuys, int unitPrice, int lots,
+                       Reason reason) {
+
+        /** Coin for one lot, which is what a single press of a button costs. */
+        public int lotPrice() {
+            return unitPrice * LOT;
         }
     }
 
@@ -117,6 +155,9 @@ public final class Market {
      * treasury being finite.
      */
     public static Deal buyOffer(Settlement settlement, String resource) {
+        if (!TRADED.contains(resource)) {
+            return null;
+        }
         int room = ceilingFor(settlement, resource) - held(settlement, resource);
         if (room < LOT) {
             return null;   // nowhere to put it; a full town wants nothing at any price
@@ -130,7 +171,8 @@ public final class Market {
         if (lots <= 0) {
             return null;   // it wants this and cannot pay for it, which is its own story
         }
-        return new Deal(resource, true, price, Math.min(lots, 8));
+        return new Deal(resource, true, price, Math.min(lots, 8),
+                reasonFor(settlement, resource, true));
     }
 
     /**
@@ -141,6 +183,15 @@ public final class Market {
      * surplus and nothing else.
      */
     public static Deal sellOffer(Settlement settlement, String resource) {
+        // The list is checked here and not only where the board is built,
+        // because the board is not what a request is answered against. A
+        // settlement's ledger takes any word at all: the smith stocks "weapons"
+        // and "armour", they have no base price, and a sell price of "at least
+        // base plus one" and a reserve of "nothing" would have sold a town's
+        // whole armoury at a coin an ingot to anyone who could name it.
+        if (!TRADED.contains(resource)) {
+            return null;
+        }
         if (needFactor(settlement, resource) > 1) {
             return null;   // it is short of this; it is certainly not selling it
         }
@@ -157,7 +208,48 @@ public final class Market {
         // has to survive cheap goods.
         int price = Math.max(basePrice(resource) + 1,
                 basePrice(resource) * SELL_NUMERATOR / SELL_DENOMINATOR);
-        return new Deal(resource, false, price, Math.min(spare / LOT, 8));
+        return new Deal(resource, false, price, Math.min(spare / LOT, 8),
+                reasonFor(settlement, resource, false));
+    }
+
+    /**
+     * What the town would say about this price if it could talk.
+     *
+     * <p>Read off the same two rules the offers themselves are built from — the
+     * need factor and the room left on the shelves — so the reason and the
+     * price can never tell a player different stories.
+     *
+     * <p>A glut deliberately does not make the goods cheaper. {@code TRADE.md}
+     * would have a full town sell at a discount, and it cannot: the sell price
+     * has to stay strictly above the base or a player buys a lot cheap, the
+     * shelves come down by exactly that lot, the town wants it again at base
+     * and the treasury is a fountain — and with stone's base at one there is no
+     * room below "base plus one" to discount into. So a glut shows up in what
+     * the town says rather than in what it charges, which is the part of the
+     * design that was actually load-bearing.
+     */
+    public static Reason reasonFor(Settlement settlement, String resource,
+                                   boolean townBuys) {
+        if (!townBuys) {
+            return isGlutted(settlement, resource) ? Reason.GLUT : Reason.ORDINARY;
+        }
+        int need = needFactor(settlement, resource);
+        if (need >= DESPERATE) {
+            return Reason.DESPERATE;
+        }
+        return need >= SHORT ? Reason.SHORT : Reason.ORDINARY;
+    }
+
+    /**
+     * Whether the town has run out of room for this.
+     *
+     * <p>Stated as "one more lot would not fit" rather than as a fraction of the
+     * ceiling, because that is precisely the test {@link #buyOffer} refuses on.
+     * Two thresholds for one idea would let a town say it was overflowing while
+     * still buying, which is the kind of disagreement a player reads as a lie.
+     */
+    public static boolean isGlutted(Settlement settlement, String resource) {
+        return ceilingFor(settlement, resource) - held(settlement, resource) < LOT;
     }
 
     /**
@@ -220,7 +312,7 @@ public final class Market {
      *
      * @return coin paid, or zero if the deal could not be honoured
      */
-    public static int townBuys(Settlement settlement, com.kingdoms.sim.geom.SimPos at,
+    public static int townBuys(Settlement settlement, SimPos at,
                                String resource, int units) {
         Deal deal = buyOffer(settlement, resource);
         if (deal == null || units <= 0 || units > deal.lots() * LOT) {
@@ -230,6 +322,8 @@ public final class Market {
         if (!settlement.spend(cost)) {
             return 0;
         }
+        // No ceiling check here, and none is missing: the offer's lots were cut
+        // to the room the town had, so anything this deal covers fits.
         settlement.storeNear(at).add(resource, units);
         return cost;
     }
@@ -239,7 +333,7 @@ public final class Market {
      *
      * @return coin taken, or zero if the deal could not be honoured
      */
-    public static int townSells(Settlement settlement, com.kingdoms.sim.geom.SimPos at,
+    public static int townSells(Settlement settlement, SimPos at,
                                 String resource, int units) {
         Deal deal = sellOffer(settlement, resource);
         if (deal == null || units <= 0 || units > deal.lots() * LOT) {
@@ -249,13 +343,55 @@ public final class Market {
                 - units < reserveFor(settlement, resource)) {
             return 0;   // that would eat into the reserve
         }
-        int taken = settlement.storeNear(at).takeUpTo(resource, units);
+        int taken = drawNearest(settlement, at, resource, units);
         if (taken < units) {
+            // Unreachable while a reserve cannot be negative: passing the check
+            // above means the town owns at least this much somewhere, and the
+            // draw walks every holder it has. Kept because the alternative to
+            // an impossible branch is a silent short delivery.
             settlement.storeNear(at).add(resource, taken);   // put back; all or nothing
             return 0;
         }
         int price = deal.unitPrice() * units;
         settlement.bank(price);
         return price;
+    }
+
+    /**
+     * Takes goods off the shelves that actually hold them, nearest first.
+     *
+     * <p>The store nearest the counter is not necessarily a store with anything
+     * in it. Asking only that one and giving up was a town refusing to sell
+     * timber it demonstrably owned because the market happened to be built
+     * beside the granary — and the refusal was silent, because a deal the town
+     * declines and a deal it cannot reach look the same from outside.
+     *
+     * <p>So locality decides the <em>order</em> the shelves come down in, not
+     * whether the sale happens at all. That is the same rule
+     * {@link Settlement#nearestStore(SimPos, String)} already gives a builder
+     * who would otherwise be stranded by an empty store underfoot.
+     *
+     * <p>The loose pile is drawn last because a town with a storehouse should
+     * be selling out of it, and a camp with none keeps everything it owns lying
+     * in the open — where it is still the town's to sell.
+     */
+    private static int drawNearest(Settlement settlement, SimPos at,
+                                   String resource, int units) {
+        int drawn = 0;
+        while (drawn < units) {
+            Building holder = settlement.nearestStore(at, resource);
+            if (holder == null) {
+                break;
+            }
+            int took = holder.stores().takeUpTo(resource, units - drawn);
+            if (took <= 0) {
+                break;   // nearestStore only answers holders, and a loop trusting that could hang
+            }
+            drawn += took;
+        }
+        if (drawn < units) {
+            drawn += settlement.loosePile().takeUpTo(resource, units - drawn);
+        }
+        return drawn;
     }
 }

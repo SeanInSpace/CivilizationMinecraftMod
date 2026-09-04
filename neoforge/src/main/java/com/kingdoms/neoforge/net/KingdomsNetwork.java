@@ -16,11 +16,12 @@ public final class KingdomsNetwork {
     /**
      * Bumped whenever a payload's shape changes — "2" when the town overview
      * gained its distress reading, "3" when a settler's pockets got a screen of
-     * their own. An optional channel that silently mismatches does not refuse;
-     * it decodes the new bytes with the old codec and shows nonsense, which is
-     * worse than not having the screen at all.
+     * their own, "4" when the market got a board and, with it, the first thing
+     * this mod's client ever says back. An optional channel that silently
+     * mismatches does not refuse; it decodes the new bytes with the old codec
+     * and shows nonsense, which is worse than not having the screen at all.
      */
-    private static final String VERSION = "3";
+    private static final String VERSION = "4";
 
     private KingdomsNetwork() {
     }
@@ -43,6 +44,16 @@ public final class KingdomsNetwork {
                 PersonInventoryPayload.TYPE,
                 PersonInventoryPayload.STREAM_CODEC,
                 PersonInventoryPayload::handle);
+        registrar.playToClient(
+                MarketPayload.TYPE,
+                MarketPayload.STREAM_CODEC,
+                MarketPayload::handle);
+        // The only thing that travels the other way. Everything else this mod
+        // sends is a report; a market is the one screen a player can press.
+        registrar.playToServer(
+                MarketDealPayload.TYPE,
+                MarketDealPayload.STREAM_CODEC,
+                MarketDealPayload::handle);
         KingdomsMod.LOGGER.debug("Kingdoms network channel registered");
     }
 }
