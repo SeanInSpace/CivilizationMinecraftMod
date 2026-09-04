@@ -44,9 +44,42 @@ public final class Layouts {
      */
     public static final Layout RING = new Layout() {
         static final int MIN_SLOTS_PER_RING = 8;
+
+        /**
+         * Where the innermost course runs, which is a claim about the hall.
+         *
+         * <p>Left where it was when the spacings came down. It is not a
+         * separation and never was: it is how much ground the middle of a village
+         * keeps for the thing the village is built round, and pulling it in would
+         * put the first course of cottages on the hall's own yard. That the
+         * innermost course cannot hold its own plots at this radius is a defect,
+         * recorded in {@code LayoutTest} and not fixed here, because fixing it
+         * moves the first ring of every town that already exists.
+         */
         static final int FIRST_RING_RADIUS = 12;
-        static final int RING_SPACING = 16;
-        static final int TARGET_PLOT_SPACING = 16;
+
+        /**
+         * How far out each course steps, and how far apart plots sit along one.
+         *
+         * <p>Both the same number and both the same rule: a ring is a curve, so
+         * what it needs is {@link Layout#onACurve} of a separation. The sixteen
+         * they were written as is exactly that, and this is the one lattice whose
+         * spacing was already right — it simply had no way of saying so, and would
+         * have gone on holding sixteen after the separation moved under it.
+         *
+         * <p>Without the block of slack for the roundings that a bending street's
+         * arc pitch carries, which is deliberate and is the innermost course's
+         * recorded defect seen from the other end: this arrangement has never kept
+         * the separation exactly, and adding the block now would move the first
+         * ring of every town that already exists to fix a fault that costs one
+         * refused plot per pair.
+         *
+         * <p>The stagger is why the radial step wants the curve factor too: a
+         * plot on the next course out sits half a slot round, so the pair that has
+         * to clear is on the diagonal rather than on the ray.
+         */
+        static final int RING_SPACING = Layout.onACurve(MIN_PLOT_SEPARATION);
+        static final int TARGET_PLOT_SPACING = RING_SPACING;
 
         @Override
         public String id() {
@@ -142,6 +175,16 @@ public final class Layouts {
          * invariant, worse by the outcome. These numbers are solved for the
          * first thirty plots instead, and span 96 blocks against the original's
          * 104.
+         *
+         * <p><strong>Left alone when the separation came down.</strong> These
+         * three are the one set here that was solved together and against two
+         * objectives at once — clearing the box, and keeping a knot legible from
+         * above — so they are not a spacing that follows a separation and cannot
+         * be moved one at a time. Loosening the rule they were solved under does
+         * not make them wrong; it only means there is now room to solve them
+         * again, more tightly, against the same two objectives. That is a search,
+         * not an edit, and it belongs with the open goal about the void between
+         * knots rather than here.
          */
         static final int FIRST_CLUMP_OUT = 52;
 
@@ -200,7 +243,35 @@ public final class Layouts {
      * hut on its own square.
      */
     public static final Layout STRONGHOLD = new Layout() {
-        static final int PITCH = 18;
+
+        /**
+         * How far apart the rows and columns are ruled.
+         *
+         * <p>A separation, and no curve factor: a square grid puts every
+         * neighbour, diagonal ones included, exactly a pitch away on the wider
+         * axis, which is the metric {@link Layout#farEnoughApart} reads. Nothing
+         * here is ever measured round a corner, so nothing here pays for one.
+         *
+         * <p>Eighteen before, which was undocumented and was half again what the
+         * rule wanted. It bought that no building in the catalogue was ever
+         * refused a cell — and paid for it with a median nine blocks of grass
+         * between neighbouring walls, the loosest of any arrangement here against
+         * a measured three now.
+         *
+         * <p><strong>What it costs is stated plainly, because it is not small.</strong>
+         * At a separation, a cell adjacent to an occupied one holds nothing wider
+         * than a house: an inn or a farm claims thirteen, a hall or a longhouse
+         * fifteen, a compound nineteen and the library twenty-five, and every one
+         * of those wants two cells or three. So a stronghold's civic buildings
+         * stand a cell clear of the houses rather than shoulder to shoulder with
+         * them, which is what they do in a real fortified town and is the same
+         * bargain every planned arrangement in this package now makes: the plan
+         * offers ground densely and {@code Settlement.isPlotFree} refuses it with
+         * the real span. The spiral fills from the middle and has ninety-six
+         * attempts, so nothing goes unbuilt for it — measured on the fixture, an
+         * orc town reached 134 blocks against 191 and lost none of its buildings.
+         */
+        static final int PITCH = MIN_PLOT_SEPARATION;
 
         @Override
         public String id() {
@@ -268,7 +339,7 @@ public final class Layouts {
      * <p>The three rules are kept the way the others keep them. <b>Deterministic:</b>
      * the dart throws come from a hash of the town's own centre, so the same town
      * is the same town on every reload and in every test. <b>Injective:</b> two
-     * plots a clear twelve apart are not the same plot. <b>Roomy:</b> by
+     * plots a clear separation apart are not the same plot. <b>Roomy:</b> by
      * construction, above.
      *
      * <p>It fills outward, because a town does: the radius each dart may land in

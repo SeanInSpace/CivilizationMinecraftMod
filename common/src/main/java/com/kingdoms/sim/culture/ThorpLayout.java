@@ -97,10 +97,18 @@ public final class ThorpLayout extends PlannedLayout {
      * <p>These two are the narrow part, at the ordinary {@link #SETBACK} either
      * side; the yard beyond them stands at {@link #YARD_HALF}. That step from
      * thirteen to twenty is the widening, and it is the whole reason a lane ends
-     * in a place rather than at a wall. Fourteen back is one plot pitch, so the
-     * pair clears the yard's own flanks on the wider axis.
+     * in a place rather than at a wall. A plot pitch back, because the pair is
+     * only seven blocks off the flanks <em>across</em> the lane and so has to
+     * clear them <em>along</em> it instead — which is exactly what a pitch is for.
+     *
+     * <p>Exactly on the floor, with no rounding slack, and that is safe here in a
+     * way it would not be elsewhere: the offset along the lane is this constant
+     * itself rather than anything derived from a wander, so the pair is a whole
+     * pitch apart on that axis whatever the track does. It is the tightest pair in
+     * the arrangement now — the head and the flanks, which used to be, sit at
+     * thirteen.
      */
-    private static final int SHANK_BACK = 14;
+    private static final int SHANK_BACK = PITCH;
 
     /**
      * How far the yard's flanking buildings stand from the lane's centreline.
@@ -114,11 +122,13 @@ public final class ThorpLayout extends PlannedLayout {
     /**
      * How far apart the three buildings across the head of the yard sit.
      *
-     * <p>A plot pitch. It also has to clear the flanks, which stand six further
-     * out in z and thirteen nearer in x: thirteen on the wider axis, which is
-     * the tightest pair in the whole arrangement and still legal.
+     * <p>A plot pitch, and written as one now rather than as the number that
+     * pitch happened to be. It also has to clear the flanks, which stand six
+     * further out in z and thirteen nearer in x: thirteen on the wider axis, which
+     * was the tightest pair in the whole arrangement until the pitch came down and
+     * {@link #SHANK_BACK} took the title.
      */
-    private static final int HEAD_SPREAD = 14;
+    private static final int HEAD_SPREAD = PITCH;
 
     /**
      * How much frontage one lane is reckoned to carry.

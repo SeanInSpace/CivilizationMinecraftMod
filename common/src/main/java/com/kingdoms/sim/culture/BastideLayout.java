@@ -28,8 +28,8 @@ import java.util.List;
  *   <li><strong>The circuit.</strong> A rectangular road round the whole grid,
  *       with the outermost houses fronting its inner face. The stronghold's
  *       streets simply stop, and the town frays at the edge.</li>
- *   <li><strong>The block.</strong> Thirty-eight against the stronghold's forty,
- *       which is the tightest a block can be — see {@link #BLOCK}.</li>
+ *   <li><strong>The block.</strong> The tightest a block can be, where the
+ *       stronghold leaves its blocks room to have backs — see {@link #BLOCK}.</li>
  * </ul>
  *
  * <p>Measured on the first forty plots of each, the two arrangements share none
@@ -44,24 +44,43 @@ public final class BastideLayout extends PlannedLayout {
      * <p>The floor is thirty-four — twice the {@link #SETBACK} plus the width of
      * a road — and it is not the binding constraint. What binds is that the two
      * rows of houses in a block back onto each other at {@code BLOCK - 2 *
-     * SETBACK} apart on the wider axis, and {@link Layout#farEnoughApart} wants
-     * twelve. Thirty-eight is the first spacing that clears: 38 − 26 = 12,
-     * exactly. At thirty-six the backs would be ten apart, every second house in
-     * every block would be refused by the overlap check, and the town would run
-     * outward looking for room while the plan swore it had laid enough streets —
-     * which is precisely how the warren lost three quarters of its people.
+     * SETBACK} apart on the wider axis, and {@link Layout#farEnoughApart} wants a
+     * whole separation of it. That is {@link #BACK_TO_BACK}, and this takes it
+     * exactly bar the parity below: a block tighter and the backs would stand
+     * inside the separation, every second house in every block would be refused by
+     * the overlap check, and the town would run outward looking for room while the
+     * plan swore it had laid enough streets — which is precisely how the warren
+     * lost three quarters of its people.
      *
-     * <p>So the useful floor is thirty-eight, not thirty-four, and the six-block
-     * window between this and the stronghold's forty is really a two-block one.
-     * Two blocks is still worth taking: it puts the whole town nine per cent
-     * closer together, which is what a surveyed town paying for its wall does.
+     * <p>It was written as the thirty-eight that sum came to. The sum has since
+     * moved — the block between two claims is gone and a plot is walls plus a
+     * doorstep — and a literal would now be four blocks of grass in the middle of
+     * every block in every bastide, with nothing in the file looking wrong.
      *
-     * <p>Exactly twelve means <strong>no slack for a wander</strong>. A bent
-     * street would slide its frontage sideways and close the gap, so this
+     * <p>The useful floor being this rather than thirty-four is also what makes
+     * the window between this and the stronghold's block a two-block one rather
+     * than a six-block one. Two blocks is still worth taking: it puts the whole
+     * town closer together, which is what a surveyed town paying for its wall
+     * does.
+     *
+     * <p><strong>Even, because {@link #HALF_BLOCK} halves it.</strong> A block has
+     * to have a middle: its two rows stand {@link #ROW_OFF} either side of one, so
+     * what actually separates them is {@code 2 * (BLOCK / 2 - SETBACK)} and not
+     * {@code BLOCK - 2 * SETBACK}. Those are the same number only while the block
+     * is even, and the odd case loses a whole block to the floor division — which
+     * is a block inside the separation, so every second house in every block is
+     * refused, the plan asks its design for twice the grid, and the circuit ends
+     * up so far out that the rim carries no frontage at all. Measured when the
+     * sum first came out odd: the plan of two hundred and fifty-six reached 229
+     * blocks against 170, and eight houses fronted the circuit against sixty-eight
+     * offered.
+     *
+     * <p>Taking the floor exactly means <strong>no slack for a wander</strong>. A
+     * bent street would slide its frontage sideways and close the gap, so this
      * arrangement is straight by construction rather than by preference — which
      * is also what a bastide is: a town laid out with a rope and a right angle.
      */
-    private static final int BLOCK = 38;
+    private static final int BLOCK = BACK_TO_BACK + (BACK_TO_BACK % 2);
 
     /** Half a block, which is where the streets run relative to a block's middle. */
     private static final int HALF_BLOCK = BLOCK / 2;
@@ -79,10 +98,11 @@ public final class BastideLayout extends PlannedLayout {
     /**
      * How many plots a block carries: two rows of two.
      *
-     * <p>The block is thirty-eight across and a house takes {@link #PITCH}, so
-     * three to a row would stand five blocks from the cross street and be refused
-     * for standing in it. Two to a row leaves twelve either side, and two rows is
-     * all the depth there is. Used only to work out how many streets to peg —
+     * <p>The block is {@link #BLOCK} across and a house takes
+     * {@link #PITCH}, so three to a row would put one within a carriageway of the
+     * cross street and be refused for standing in it. Two to a row stands a dozen
+     * blocks clear either side, and two rows is all the depth there is. Used only
+     * to work out how many streets to peg —
      * {@code lay()} asks again if the estimate is short, so being wrong here is
      * slow rather than broken.
      */
@@ -186,12 +206,12 @@ public final class BastideLayout extends PlannedLayout {
                 int road = line * BLOCK + HALF_BLOCK;
                 int street = crossStreet(line, rings, circuit);
                 for (int end : new int[] {-1, 1}) {
-                    int z = blockZ + end * (PITCH / 2);
+                    int z = blockZ + end * HALF_PITCH;
                     add(offers, centre, blockX + side * ROW_OFF, z, road, z, street);
                 }
             } else {
                 // The ordinary case: a house at each end of the block's two rows.
-                int x = blockX + side * (PITCH / 2);
+                int x = blockX + side * HALF_PITCH;
                 for (int end : new int[] {-1, 1}) {
                     int line = end > 0 ? row : row - 1;
                     int road = line * BLOCK + HALF_BLOCK;

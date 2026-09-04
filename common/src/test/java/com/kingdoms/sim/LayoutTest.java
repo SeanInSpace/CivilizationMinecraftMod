@@ -1267,12 +1267,19 @@ class LayoutTest {
         // goes into length. If a third course ever opens, this is the assertion
         // that catches it, and it catches it at every size rather than at the two
         // the map below happens to be drawn at.
+        //
+        // Eighty-five until the plot separation came down to what two plots of the
+        // default span actually need of each other. The back lane stands a setback
+        // either side of itself plus whatever the two ranks between want, so it
+        // came in by the block the separation lost and the outer rank came with
+        // it. The number is the measurement; the property is that it is the same
+        // number at all four sizes.
         for (int wanted : new int[] {96, 140, 200, 256}) {
             int across = 0;
             for (TownPlan.Plot plot : plan.plots().subList(0, wanted)) {
                 across = Math.max(across, Math.abs(plot.at().z() - CENTRE.z()));
             }
-            assertEquals(85, across,
+            assertEquals(84, across,
                     "a green village of " + wanted + " measured " + across
                             + " across, so its ranks are not where they were");
         }

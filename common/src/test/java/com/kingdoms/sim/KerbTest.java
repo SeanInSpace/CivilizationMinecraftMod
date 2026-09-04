@@ -109,6 +109,52 @@ class KerbTest {
     }
 
     @Test
+    void theKerbStillFiresWhenThePlanOffersAtTheSeparation() {
+        // The way this rule dies is silently, and it nearly did.
+        //
+        // Coming up to the kerb is asked of the whole rank: pull this plot and
+        // its plan neighbours by the same fraction, and refuse the fraction where
+        // they foul each other. That was a fair question while the plan offered
+        // frontage two blocks wider than the siting code demanded -- a pair that
+        // fouled after a pull had been made to foul by it. The plan now offers at
+        // the separation itself and reserves a house's span for a plot that may
+        // hold a hall, so a rank of plan offers routinely fouls the overlap box
+        // BEFORE anybody moves. Asked as a bare "do these clear", the answer is
+        // no at every fraction, for every plot, in every arrangement: the kerb
+        // becomes dead code that still runs, every test above still passes, and
+        // every house in the mod quietly steps back to the setback drawn for
+        // something twice its size.
+        //
+        // So: it has to actually move buildings. A plot that has been brought in
+        // no longer stands where the plan offered it, which is a thing this test
+        // can see and the distance measures above cannot.
+        Settlement town = grow(Culture.LAYOUT_HIGH_STREET, 400);
+        TownPlan plan = town.arrangement().fullPlan(town.centre());
+        List<Building> beside = onStreets(town);
+        assertTrue(beside.size() >= 8,
+                "the town built too little to say anything about its streets");
+
+        int moved = 0;
+        for (Building b : beside) {
+            boolean whereThePlanPutIt = false;
+            for (TownPlan.Plot offered : plan.plots()) {
+                if (offered.at().x() == b.origin().x()
+                        && offered.at().z() == b.origin().z()) {
+                    whereThePlanPutIt = true;
+                    break;
+                }
+            }
+            if (!whereThePlanPutIt) {
+                moved++;
+            }
+        }
+        assertTrue(moved * 2 >= beside.size(),
+                "only " + moved + " of " + beside.size() + " buildings beside a street"
+                        + " were brought in off the plot the plan offered them; the"
+                        + " approach is refusing every fraction and doing nothing");
+    }
+
+    @Test
     void nothingIsPulledIntoTheCarriageway() {
         // The rule that makes the approach safe, and the one it got wrong first
         // time round. The renderer's version measured to the PAVED strip, which

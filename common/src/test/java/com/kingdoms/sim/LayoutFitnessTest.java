@@ -1,12 +1,14 @@
 package com.kingdoms.sim;
 
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildCatalogue;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingSizes;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.world.SimContext;
@@ -193,6 +195,111 @@ class LayoutFitnessTest {
     }
 
     @Test
+    void noLayoutLeavesAFieldBetweenNeighbouringWalls() {
+        // What a street of buildings looks like, which nothing was watching.
+        //
+        // Every other rule here catches a town that has fallen apart. This one
+        // catches a town that never came together: buildings a plot apart on
+        // ground that would take them at a doorstep, because the plan offered its
+        // frontage more coarsely than the siting code demanded and the siting
+        // code demanded more than the buildings did. Nothing about it reads as a
+        // fault from the inside -- every plot is legal, every door faces its
+        // street, the town simply looks like huts in a field.
+        //
+        // Measured on this fixture before the spacing was derived and after, as
+        // the median over every building of the clear blocks to its nearest
+        // neighbour's wall, and the tightest of them:
+        //
+        //   layout                median   tightest
+        //   ring                    5  5      3  2
+        //   warren                  5  5      3  2
+        //   stronghold              9  3      5  2
+        //   organic                 5  4      3  2
+        //   high_street             5  3      3  2
+        //   ring_streets            8  8      3  2
+        //   stronghold_streets      7  4      4  2
+        //   radial_concentric       9  9      4  2
+        //   crossroads              5  4      3  2
+        //   bastide                 6  4      3  2
+        //   thorp                   5  4      3  2
+        //   crescents               7  7      3  2
+        //   green                   5  4      3  2
+        //
+        // Every arrangement now touches the floor of two somewhere, which is two
+        // doorsteps meeting and is what the overlap check allows at its tightest.
+        //
+        // The bar is a floor against a collapse back to the old numbers, not a
+        // target. The three circular arrangements barely move, and that is a known
+        // and stated cost rather than an oversight: an arc spaced evenly along
+        // itself has to clear the wider axis on the diagonal, so it stands root
+        // two too wide at the cardinal points. Spacing an arc by the wider axis
+        // instead would fix it, and it is a change to how offers are generated
+        // rather than to a constant.
+        TerrainFake ground = new TerrainFake(11);
+        for (String layout : layouts()) {
+            Settlement town = town(layout, ground);
+            List<Integer> nearest = new ArrayList<>();
+            List<Building> holding = onGround(town);
+            for (Building a : holding) {
+                int closest = Integer.MAX_VALUE;
+                for (Building b : holding) {
+                    if (a != b) {
+                        closest = Math.min(closest, wallGap(a, b));
+                    }
+                }
+                if (closest != Integer.MAX_VALUE) {
+                    nearest.add(closest);
+                }
+            }
+            assertTrue(nearest.size() >= MIN_BUILDINGS,
+                    layout + " built too little to say anything about its spacing");
+            java.util.Collections.sort(nearest);
+            int median = nearest.get(nearest.size() / 2);
+            assertTrue(median <= CROWDING_LIMIT,
+                    layout + " left a median " + median + " blocks between a wall and"
+                            + " its nearest neighbour's, past the " + CROWDING_LIMIT
+                            + " a town reads as a town at");
+        }
+    }
+
+    /**
+     * The clear blocks between two buildings' walls, on the axis that parts them.
+     *
+     * <p>The same measure the overlap check uses, in the same metric: two boxes
+     * are kept apart on one axis and may overlap freely on the other, so what
+     * anybody standing between them sees is the gap on the axis that separates
+     * them. Read off {@link BuildingSizes} and the way the building was turned,
+     * because a plot span is a claim and this is about walls.
+     */
+    private static int wallGap(Building a, Building b) {
+        int[] one = halfWalls(a);
+        int[] two = halfWalls(b);
+        int alongX = Math.abs(a.origin().x() - b.origin().x()) - one[0] - two[0] - 1;
+        int alongZ = Math.abs(a.origin().z() - b.origin().z()) - one[1] - two[1] - 1;
+        return Math.max(alongX, alongZ);
+    }
+
+    /** How far a building's walls reach either side of its origin, as it stands. */
+    private static int[] halfWalls(Building of) {
+        BuildingSizes.Size size = BuildingSizes.of(of.blueprintId());
+        int width = size == null ? Layout.DEFAULT_SPAN - 2 : size.width();
+        int depth = size == null ? Layout.DEFAULT_SPAN - 2 : size.depth();
+        boolean turned = of.facing() % 2 != 0;   // a quarter turn swaps the two
+        return new int[] {(turned ? depth : width) / 2, (turned ? width : depth) / 2};
+    }
+
+    /**
+     * How much bare ground may stand between neighbouring walls before a town
+     * stops reading as one.
+     *
+     * <p>Ten, against a measured worst of nine and a median of four across the
+     * thirteen arrangements. Loose on purpose, like every bar in this file: it is
+     * here to catch a plan that has gone back to offering frontage at a pitch
+     * nothing can close up, not to pin a number somebody has to keep right.
+     */
+    private static final int CROWDING_LIMIT = 10;
+
+    @Test
     void everyLayoutActuallyGrowsATown() {
         // The floor under all of it. A layout that refuses everything passes
         // every rule above by building nothing, and this is what stops that
@@ -277,6 +384,17 @@ class LayoutFitnessTest {
      * the same reason the warren's is: the number is what it measures today, so
      * the layout cannot quietly get worse. Lower it when the chain is shortened;
      * do not raise it.
+     *
+     * <p><strong>345 now</strong>, thirteen better, from the plot separation
+     * coming down to what two plots of the default span actually need. Left at
+     * 380 rather than pulled down to what that measures, and the reason is worth
+     * recording: this arrangement's spread is a <em>cliff</em>, not a slope. The
+     * same change with the crescents' rank gap two blocks tighter measured 433,
+     * and six tighter 390 — not because the lanes are closer but because a
+     * station that loses one plot leaves the plan short of its count, and a short
+     * plan is re-laid at twice the size with a third rank nested at every station.
+     * A ceiling set on the sunny side of a cliff is a ceiling that goes red for
+     * reasons nobody can read. The note is on {@code CrescentLayout.RANK_GAP}.
      */
     private static final int CRESCENTS_SPRAWL_CEILING = 380;
 

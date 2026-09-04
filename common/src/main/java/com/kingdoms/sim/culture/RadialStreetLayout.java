@@ -30,49 +30,94 @@ public final class RadialStreetLayout extends PlannedLayout {
     private static final int FIRST_RING = 40;
 
     /**
-     * How far apart the rings run.
-     *
-     * <p>Twice the setback puts twenty-six blocks between the outer face of one
-     * ring and the inner face of the next, and the remainder is the gap those two
-     * rows of houses look across. On a straight street twelve would do. On a
-     * circle it will not: two plots separated radially are separated on the wider
-     * axis by only {@code gap / sqrt(2)} where the ring runs diagonally, so a gap
-     * of fourteen is a separation of 9.9 and the whole diagonal quarter of every
-     * ring is refused.
-     *
-     * <p>That is the third place on this one layout where a circle laid out in
-     * straight-line distances was quietly wrong — along a face, between the two
-     * faces of a ring, and now between neighbouring rings. Each cost about the
-     * same: frontage fell to a fifth and the town ran outward hunting for room.
-     * The rule is the same every time and worth stating once: on a curve, every
-     * clearance must be the square root of two times what a straight street needs.
-     */
-    private static final int RING_SPACING = 46;
-
-    /** How many lanes strike outward from the green. */
-    private static final int SPOKES = 6;
-
-    /**
      * How much of a ring one plot takes, measured along the arc.
      *
      * <p>Wider than the {@link #PITCH} used on a straight street, and it has to
      * be. Separation is measured on the wider axis, so two plots a chord apart on
      * a circle are only {@code chord / sqrt(2)} apart where the ring runs
-     * diagonally — at the ordinary pitch of fourteen that is 9.9, inside the
-     * twelve the siting code demands, and every plot on the diagonal quarters of
-     * every ring was being refused.
+     * diagonally — at the ordinary straight pitch that is seven tenths of a
+     * separation, and every plot on the diagonal quarters of every ring was being
+     * refused.
      *
      * <p>This is precisely the fault that cost the warren three quarters of its
      * population for months: six huts on a circle of thirteen, comfortably far
      * apart as the crow flies and eleven apart on the wider axis. A circle laid
-     * out in straight-line distances will always make it. Eighteen is twelve
-     * times the root of two, rounded up, so the worst case on the diagonal still
-     * clears.
+     * out in straight-line distances will always make it. So:
+     * {@link Layout#onACurve} of a separation, and two blocks for the rounding of
+     * each of the two plot centres to whole blocks.
      *
-     * <p>Measured, before and after: the town reached 248 blocks holding a
-     * hundred and forty plots, against 199 once the pitch was right.
+     * <p>Measured, before and after the curve rule was applied at all: the town
+     * reached 248 blocks holding a hundred and forty plots, against 199 once the
+     * pitch was right.
+     *
+     * <p><strong>Two rather than one, and the second is measured.</strong> When
+     * the separation came down, every straight pitch in the mod came down with it
+     * and this was tried at a single block of slack, which is what the sum came to
+     * at the old separation. It holds the rule on paper and costs a real town: on
+     * the recorded rough seed a vale settlement stranded six doors of forty-six
+     * against four, because a ring road has to be <em>opened</em> between two
+     * ranks whose road keepouts already meet, and every block of arc taken out is
+     * a block of corridor taken out with it. The curve is the one place in this
+     * change where tightening measured worse.
      */
-    private static final int ARC_PITCH = 18;
+    private static final int ARC_PITCH = Layout.onACurve(MIN_PLOT_SEPARATION) + 2;
+
+    /**
+     * How far apart the rings run.
+     *
+     * <p>Twice the setback puts twenty-six blocks between the outer face of one
+     * ring and the inner face of the next, and the remainder is the gap those two
+     * rows of houses look across. On a straight street a bare separation would do.
+     * On a circle it will not: two plots separated radially are separated on the
+     * wider axis by only {@code gap / sqrt(2)} where the ring runs diagonally, so
+     * a gap of a separation is a separation of seven tenths of one, and the whole
+     * diagonal quarter of every ring is refused.
+     *
+     * <p>That is the third place on this one layout where a circle laid out in
+     * straight-line distances was quietly wrong — along a face, between the two
+     * faces of a ring, and now between neighbouring rings. Each cost about the
+     * same: frontage fell to a fifth and the town ran outward hunting for room.
+     * The rule is the same every time and is stated once now, in
+     * {@link Layout#onACurve}.
+     *
+     * <p>So: twice the setback plus what the curve wants between the two rows,
+     * which is {@link #ARC_PITCH}, and two blocks more. It was written as the
+     * forty-six that comes to, and comes to the same forty-six now — the sum has
+     * been made honest rather than moved.
+     *
+     * <p>The two blocks are measured and not derived, like the pair inside the arc
+     * pitch and for the same reason. Taken out, the ring roads run forty apart
+     * instead of forty-six and both circular arrangements get worse rather than
+     * denser: the crescents' chain of lobes ran to 433 blocks against 358, because
+     * a plan that loses one plot to a tighter rank asks its design again at twice
+     * the size and nests a third rank at every station. A curve is where this
+     * arrangement's spacing is a cliff rather than a slope.
+     */
+    private static final int RING_SPACING = 2 * SETBACK + ARC_PITCH + 2;
+
+    /** How many lanes strike outward from the green. */
+    private static final int SPOKES = 6;
+
+    /**
+     * How far out from the middle a spoke begins.
+     *
+     * <p>Clear of the plot on the green, corner and all. The plan refuses a plot
+     * within {@code DEFAULT_SPAN / 2 + KERB} of a carriageway and that clearance
+     * is a <em>square</em>, so a lane leaving on a diagonal has to clear a corner
+     * standing root two further out than a face — {@link Layout#onACurve} of the
+     * clearance, plus the half-carriageway, and a block for the rounding of the
+     * lane's own endpoint to whole blocks.
+     *
+     * <p>It was written as {@link #PITCH}, which is what it happened to equal.
+     * The pitch has since come down and the six spokes promptly cut the corner of
+     * the hall's own square: the middle of the green was refused as standing in a
+     * road, and {@code radial_concentric} — the arrangement whose entire point is
+     * having a middle — quietly stopped having one. Nothing else changed by a
+     * block; a plot pitch and a road clearance are two different quantities that
+     * had been the same number.
+     */
+    private static final int SPOKE_START =
+            Layout.onACurve(Layout.DEFAULT_SPAN / 2 + KERB) + ROAD_HALF + 1;
 
     private final String id;
     private final Wander wander;
@@ -156,14 +201,14 @@ public final class RadialStreetLayout extends PlannedLayout {
         // the lanes running out from it, which is the whole point of drawing a
         // town round a centre rather than along a road.
         //
-        // It fronts no street, and deliberately: the spokes begin a PITCH out
-        // from the middle, so there is nothing here to face, and naming one
+        // It fronts no street, and deliberately: the spokes begin a SPOKE_START
+        // out from the middle, so there is nothing here to face, and naming one
         // would only drag the hall off the centre when a renderer moved it up to
         // that street's kerb. A town of this shape spends one plot's frontage on
         // having a middle, and it is worth it.
         if (hallOnTheGreen) {
             offers.add(new Offer(centre, Layout.NO_STREET,
-                    Layout.facingToward(centre, round(centre, PITCH, 0))));
+                    Layout.facingToward(centre, round(centre, SPOKE_START, 0))));
         }
 
         // Frontage on both faces of every ring: the inner face looks out across
@@ -181,7 +226,7 @@ public final class RadialStreetLayout extends PlannedLayout {
             Wander how = wanderFor(wander, centre, ring);
             for (int side : new int[] {-1, 1}) {
                 int face = radius + side * SETBACK;
-                if (face < PITCH) {
+                if (face < SPOKE_START) {
                     continue;   // inside the green, where nothing is offered
                 }
                 int around = Math.max(8, (int) (2 * Math.PI * face / ARC_PITCH));
@@ -200,11 +245,26 @@ public final class RadialStreetLayout extends PlannedLayout {
         // every ring plot they cross AND offer nothing back, which held a ring
         // town to 62% frontage with six lanes running through it earning their
         // keep as fences.
+        //
+        // Pitched for the spoke's own bearing, not by the straight-street PITCH.
+        // A spoke IS straight, which is why it was, and straight is not the same
+        // as axis-aligned: two offers a pitch apart along a lane leaving at sixty
+        // degrees are only pitch times the cosine apart on the wider axis. At
+        // fourteen against a separation of twelve that came to 12.1 and cleared
+        // by a tenth of a block, which is the kind of margin that is luck rather
+        // than a rule -- and the moment the pitch came down to a separation the
+        // luck ran out and the four diagonal spokes lost 22 of their 46 offers
+        // while the two on the axes kept all of theirs. Same fault as the ring
+        // faces, same rule, and it belongs to the bearing rather than to the
+        // curve: what a lean costs is exactly Layout.onACurve at 45 degrees and
+        // nothing at 0.
         for (int spoke = 0; spoke < SPOKES; spoke++) {
             double angle = spoke * 2 * Math.PI / SPOKES;
             double outX = Math.cos(angle);
             double outZ = Math.sin(angle);
-            for (int t = FIRST_RING; t < outer + RING_SPACING / 2; t += PITCH) {
+            int along = (int) Math.ceil(
+                    MIN_PLOT_SEPARATION / Math.max(Math.abs(outX), Math.abs(outZ)));
+            for (int t = FIRST_RING; t < outer + RING_SPACING / 2; t += along) {
                 for (int side : new int[] {-1, 1}) {
                     SimPos where = new SimPos(
                             centre.x() + (int) Math.round(t * outX - side * SETBACK * outZ),
@@ -234,7 +294,7 @@ public final class RadialStreetLayout extends PlannedLayout {
     /** A lane striking outward from the green. */
     private static TownPlan.Street spokeRoad(SimPos centre, double angle, int out) {
         return new TownPlan.Street(
-                round(centre, PITCH, angle), round(centre, out, angle),
+                round(centre, SPOKE_START, angle), round(centre, out, angle),
                 ROAD_HALF * 2, TownPlan.Kind.SPINE);
     }
 
