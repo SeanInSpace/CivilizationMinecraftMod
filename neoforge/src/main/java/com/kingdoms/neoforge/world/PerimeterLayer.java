@@ -25,13 +25,27 @@ import java.util.List;
  * player can walk up to must be the same wall.
  *
  * <p>Idempotent by inspection: a position already carrying its post is skipped,
- * so redrawing every sweep costs almost nothing. Slices cap the work per tick
- * so a freshly loaded town does not stamp two hundred posts in one frame.
+ * so redrawing every sweep costs almost nothing. The posts are paced by the real
+ * clock — so many a second however often the sweeps happen to arrive — and
+ * capped, so a town nobody has looked at for ten minutes does not stamp its
+ * whole ring in one frame. The looking stays bounded per sweep, because that is
+ * a cost rather than a debt.
  */
 public final class PerimeterLayer {
 
-    /** Posts drawn per settlement per tick, at most. */
-    private static final int SLICE = 24;
+    /**
+     * Posts drawn per settlement per real second.
+     *
+     * <p>Per <em>second</em>, not per sweep, and that is the point. This was a
+     * per-sweep slice, which is the same thing only while the sweeps arrive once
+     * a second. On a server behind on its ticks they arrive about once every
+     * five — {@code Can't keep up! Running 19429ms or 388 ticks behind} — so a
+     * wall written for twenty-four posts a second went up at about five, and a
+     * town grown unwatched had almost nothing standing when somebody arrived to
+     * look at it. The number below has not changed; what changed is that it is
+     * now true.
+     */
+    static final int POSTS_PER_SECOND = 24;
 
     /** What the wall is made of. Two of these stand three high to anything jumping. */
     private static final Block POST = Blocks.OAK_FENCE;
@@ -65,6 +79,16 @@ public final class PerimeterLayer {
         }
         List<SimPos> ring = perimeter.ringPositions();
         int limit = Math.min(perimeter.laid(), ring.size());
+        // What this sweep has earned since the last one, in real time rather
+        // than in sweeps. The clock is only read here, where the drawing is; the
+        // arithmetic that turns an interval into an allowance is in DrawBudget,
+        // which is the half a test can reach.
+        long now = System.nanoTime();
+        Long previous = LAST_DRAW.put(settlement.id(), now);
+        // A first sweep has nothing to measure from, so it is given one nominal
+        // interval's worth -- exactly what this drew per sweep before pacing.
+        long elapsed = previous == null ? DrawBudget.NANOS_PER_SECOND : now - previous;
+        int posts = DrawBudget.forElapsed(elapsed, POSTS_PER_SECOND, CATCH_UP_SECONDS);
         // Where the last sweep stopped, so the budget travels round the ring
         // instead of being spent on the same opening stretch every second.
         int start = CURSOR.getOrDefault(settlement.id(), 0);
@@ -80,8 +104,14 @@ public final class PerimeterLayer {
         // a sweep whose cursor sat in that arc did nothing at all, then handed the
         // same arc to the next sweep. The wall appeared to have stopped when it
         // had simply spent every look on ground it was never allowed to touch.
+        //
+        // Neither bound on the looking is paced, and only the placing is. However
+        // far behind the sweeps have fallen, an entirely unloaded ring still
+        // costs one lap and no more -- there is no second lap to be earned,
+        // because nothing on the first one could be drawn on -- and a loaded one
+        // still costs the same SCAN it cost yesterday.
         int examined = 0;
-        while (looked < SCAN && examined < limit && drawn < SLICE) {
+        while (looked < SCAN && examined < limit && drawn < posts) {
             SimPos pos = ring.get(i);
             if (level.isLoaded(new BlockPos(pos.x(), pos.y(), pos.z()))) {
                 drawn += perimeter.isGateway(pos)
@@ -98,13 +128,29 @@ public final class PerimeterLayer {
         CURSOR.put(settlement.id(), i);
     }
 
+    /**
+     * Drops what the sweep remembers about a world that is closing.
+     *
+     * <p>The same housekeeping as {@code TownAuditor.forget} and its neighbours,
+     * and it now matters more than a stale cursor did. A quit to the title
+     * screen and a fresh world would otherwise leave a timestamp from the last
+     * session in here, so the first sweep of the new one would read an elapsed
+     * time measured in minutes. The cap makes that harmless rather than
+     * catastrophic — but "harmless because something else catches it" is not a
+     * reason to leave a wrong reading lying about in the one class whose whole
+     * job is now measuring time.
+     */
+    public static void forget() {
+        CURSOR.clear();
+        LAST_DRAW.clear();
+    }
 
     /**
      * How far round the ring each settlement's sweep had got.
      *
      * <p>The sweep used to start at the first post every time and stop once it
-     * had placed {@link #SLICE} blocks. That is fine only while every position
-     * it touches settles down afterwards, and one that never settles turns the
+     * had placed {@link #POSTS_PER_SECOND} blocks. That is fine only while every
+     * position it touches settles down afterwards, and one that never settles turns the
      * budget into a treadmill: the torches were re-placed every single second,
      * twenty-four of them came up before index 185 of a 666-post ring, and the
      * remaining four hundred and eighty posts were never once reached. The wall
@@ -119,14 +165,70 @@ public final class PerimeterLayer {
             CURSOR = new java.util.HashMap<>();
 
     /**
-     * Positions examined per sweep, placed or not.
+     * When each settlement's ring was last swept, by the wall clock.
+     *
+     * <p>Real time, not ticks, because ticks are the thing that stopped being
+     * regular. {@code System.nanoTime} rather than the level clock or the
+     * simulation's step count: both of those freeze with the server, and a
+     * server that has frozen is precisely the case being measured.
+     */
+    private static final java.util.Map<com.kingdoms.sim.settlement.Settlement.Id, Long>
+            LAST_DRAW = new java.util.HashMap<>();
+
+    /**
+     * Loaded positions looked at per sweep, placed or not.
      *
      * <p>The second half of the same lesson. A budget counted only in blocks
      * laid is not a budget at all when nothing can be laid — a stretch of ring
      * running through a cliff face would spin the whole ring every tick looking
      * for work it cannot do. This bounds the looking as well as the doing.
+     *
+     * <p><strong>Per sweep, and deliberately not paced by the clock like the
+     * posts are.</strong> Arrears are a thing you can owe on work; a scan that
+     * did not happen is not owed to anybody. And the asymmetry is where the cost
+     * lives: {@link #drawPost} sweeps a five-by-five-by-four box for growth at
+     * every loaded position it looks at, whether or not a post goes up, so a
+     * look is about two hundred block reads and a placement is three. Pacing
+     * this as well would have multiplied the expensive half by the catch-up cap
+     * — on every settlement at once, since they are all drawn from the same
+     * manager pass — and fed the starvation it was meant to answer.
+     *
+     * <p>What it costs to leave fixed: a sweep that finds more than
+     * {@code SCAN - posts} of its positions already standing runs out of looks
+     * before it runs out of allowance. That is the case where there was little
+     * to catch up on anyway, so it is the right thing to give up. It does mean
+     * this must stay at least a full capped allowance wide or the catch-up could
+     * never be spent at all, which is the one thing about it a test can pin —
+     * hence package-private rather than private.
      */
-    private static final int SCAN = 256;
+    static final int SCAN = 256;
+
+    /**
+     * The most arrears one sweep may repay, in seconds.
+     *
+     * <p>Five, and the number is chosen from the measurement rather than picked.
+     * The starvation actually seen is a manager pass about once every five
+     * seconds, so five seconds is what has to be repayable for
+     * {@link #POSTS_PER_SECOND} to mean what it says; and it is as far as it is
+     * worth going, because a
+     * gap longer than five seconds is a server that is already failing to finish
+     * its ticks, and the right answer there is for the wall to fall behind
+     * rather than for that tick to be handed a two-hundred-post build.
+     *
+     * <p>What a capped sweep costs, since it is the tick this lands on that
+     * pays — and it lands on a tick shared with every other settlement, because
+     * they are all drawn from the one manager pass. The looking, which is the
+     * expensive half, is not paced at all and is bounded by {@link #SCAN} exactly
+     * as it was before: a sweep reads no more of the world than it read
+     * yesterday. What can rise is the placing, to at most 120 posts and so 360
+     * block placements, and only where a post is genuinely owed. So a world of
+     * eight towns coming out of a stall costs eight sweeps of unchanged scanning
+     * and whatever masonry was actually outstanding.
+     *
+     * <p>Ten minutes away therefore lays 120 posts on the sweep you come back
+     * to, not fourteen thousand four hundred.
+     */
+    static final int CATCH_UP_SECONDS = 5;
 
     /**
      * One post: fence two high on the surface, a torch on every eighth.

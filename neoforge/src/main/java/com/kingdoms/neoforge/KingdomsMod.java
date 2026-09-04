@@ -7,6 +7,7 @@ import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.net.KingdomsNetwork;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.view.PersonEntityManager;
+import com.kingdoms.neoforge.view.TickRate;
 import com.kingdoms.neoforge.world.StoreSync;
 import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.neoforge.world.TownAuditor;
@@ -110,6 +111,10 @@ public final class KingdomsMod {
         // Crack overlays belong to entity ids in a world about to close.
         HandDig.forget();
         StoreSync.forget();
+        // And the wall's cursor and its clock, which are about a ring that is
+        // going away — a timestamp from a closed world would have the next one's
+        // first sweep measuring an interval that spans the two.
+        com.kingdoms.neoforge.world.PerimeterLayer.forget();
     }
 
     /** Our own tick count — the level clock is not trusted for cadence (it can freeze). */
@@ -197,9 +202,29 @@ public final class KingdomsMod {
      * out every sweep like the vitals, because a famine standing still <em>is</em>
      * the news, and deduplicating it would silence it exactly while the town was
      * dying fastest.
+     *
+     * <p>The vitals also carry {@code pace}, {@code pacegap} and {@code paceover}:
+     * how often the dimension's manager really ran, the worst single gap in that
+     * reading, and how much real time it is measured over. They belong on a
+     * per-town line because every figure beside them was produced at that
+     * cadence — a wall at {@code 96/640} means one thing at sixty passes a
+     * minute and something else entirely at twelve.
+     *
+     * <p>{@code paceover} is worth reading rather than assuming. This sweep is
+     * scheduled by game ticks and the pace is measured in real seconds, so on a
+     * server behind on its ticks these lines are minutes apart while the pace
+     * describes only the last minute of that. It is a reading of the server as
+     * the line was printed, not a summary of the interval between lines.
      */
     private static void auditTowns() {
         for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
+            // This dimension's manager, not any other's. Everything paced per
+            // pass — the wall, the paths, the litter — runs at whatever cadence
+            // this reports, so a vitals line that did not carry it was
+            // describing work without saying how often anybody was asked to do
+            // it. Sixty a minute is the intended rate.
+            PersonEntityManager manager = MANAGERS.get(entry.getKey());
+            String pace = manager == null ? TickRate.NO_READING : manager.rate().describe();
             for (var kingdom : entry.getValue().kingdoms()) {
                 for (var settlement : kingdom.settlements()) {
                     // No skipping a town with nothing loaded. Geometry needs
@@ -246,7 +271,7 @@ public final class KingdomsMod {
                     LOGGER.info("AUDIT {} vitals stage={} pop={} hunger={} total={} granary={} "
                                     + "fields={} market={} pantries={} hauls={} "
                                     + "reserve={} distress={} seen={} roads={}/{} "
-                                    + "coin={} wood={} stone={} wall={}/{} opened={}",
+                                    + "coin={} wood={} stone={} wall={}/{} opened={} {}",
                             settlement.name(), settlement.stage().pretty(),
                             settlement.population(), worstHunger,
                             total, settlement.foodStock(), fields, stalls, pantries, hauls,
@@ -260,7 +285,7 @@ public final class KingdomsMod {
                                     : settlement.perimeter().laid(),
                             settlement.perimeter() == null ? 0
                                     : settlement.perimeter().length(),
-                            settlement.paths().openedCount());
+                            settlement.paths().openedCount(), pace);
 
                     List<TownAuditor.Fault> standing = new ArrayList<>();
                     boolean townFault = false;
