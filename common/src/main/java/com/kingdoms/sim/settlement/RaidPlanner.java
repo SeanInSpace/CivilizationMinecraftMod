@@ -87,20 +87,23 @@ public final class RaidPlanner {
     /**
      * How much danger one guard is reckoned able to hold.
      *
-     * <p>Three: a guard handles three zombies, or one witch, but not a creeper
-     * and a skeleton at once.
+     * <p>{@link Danger#FULL_ATTENTION}, and the same number by definition rather
+     * than by coincidence: the scale's unit <em>is</em> one guard's whole
+     * attention, so a guard handles three zombies, or one witch, but not a
+     * creeper and a skeleton at once.
      */
-    public static final int GUARD_CAPACITY = 3;
+    public static final int GUARD_CAPACITY = Danger.FULL_ATTENTION;
 
     /**
      * Below this much danger the bell stays quiet however thin the watch is.
      *
      * <p>Without a floor, a town whose only guard was hungry would ring over two
-     * zombies. Set below {@link Alarm#ALARMED_AT} on purpose: the bell's job is
+     * zombies. {@link Danger#DANGEROUS} — more than one guard should meet alone
+     * — which sits below {@link Alarm#ALARMED_AT} on purpose: the bell's job is
      * to panic a badly defended town <em>earlier</em> than the tiers would, not
      * to panic it over nothing.
      */
-    public static final int BELL_FLOOR = 4;
+    public static final int BELL_FLOOR = Danger.DANGEROUS;
 
     /**
      * Whether what has been seen is more than the watch can be expected to hold.

@@ -17,8 +17,9 @@ import com.kingdoms.sim.person.Profession;
  * response is graduated. A little is a thing for the guards. A lot is everybody
  * indoors.
  *
- * <p>These are danger totals, not head counts. The scale is the platform's
- * danger table: an ordinary zombie is 1, a skeleton 2, a creeper 4.
+ * <p>These are danger totals, not head counts. The scale is {@link Danger},
+ * whose unit is one guard: an ordinary zombie is a routine afternoon, a skeleton
+ * an awkward one, a creeper more than one guard should meet alone.
  */
 public enum Alarm {
 
@@ -39,18 +40,24 @@ public enum Alarm {
     /** Enough of them that everybody but the watch goes home. */
     ALARMED;
 
-    /** This much danger in sight and the town is wary. */
-    public static final int WARY_AT = 1;
+    /**
+     * This much danger in sight and the town is wary.
+     *
+     * <p>The smallest thing on the scale, so anything at all makes a town look
+     * up — which is the point of a watch that is worth keeping.
+     */
+    public static final int WARY_AT = Danger.ROUTINE;
 
     /**
      * This much danger and it stops pretending everything is fine.
      *
-     * <p>Six: six zombies, or three skeletons, or a creeper with company. Set
-     * deliberately above what any one ordinary creature is worth, so that the
-     * only way to reach it is for there to be several of them — see
+     * <p>{@link Danger#OVERMATCH}: two guards' full attention, which is six
+     * zombies, or three skeletons, or a creeper with company. Set deliberately
+     * above what any one ordinary creature is worth, so that the only way to
+     * reach it is for there to be several of them — see
      * {@link Settlement#sighted}, which enforces that from the other end.
      */
-    public static final int ALARMED_AT = 6;
+    public static final int ALARMED_AT = Danger.OVERMATCH;
 
     /** What a town does about this much danger in sight. */
     public static Alarm of(int danger) {
