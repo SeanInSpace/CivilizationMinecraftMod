@@ -99,7 +99,7 @@ public class BuildingPostBlock extends Block {
                     role + " of " + settlement.name() + " — " + explains));
             player.sendSystemMessage(Component.literal(summary));
         }
-        extraReport(player, settlement);
+        extraReport(player, settlement, pos);
         return InteractionResult.SUCCESS;
     }
 
@@ -146,8 +146,15 @@ public class BuildingPostBlock extends Block {
         };
     }
 
-    /** The build this post stands on, if its site is still under construction. */
-    private static BuildTask taskAt(Settlement settlement, BlockPos pos) {
+    /**
+     * The build this post stands on, if its site is still under construction.
+     *
+     * <p>Visible to the market, which has to ask it a second time: a board can
+     * be opened at a finished stall and the stall put back under scaffolding by
+     * an upgrade while it is still on screen, and a screen is not evidence that
+     * the building behind it is still standing.
+     */
+    protected static BuildTask taskAt(Settlement settlement, BlockPos pos) {
         for (BuildTask task : settlement.buildQueue()) {
             SimPos site = task.site();
             int reach = BuildPlanner.plotSpanOf(
@@ -172,6 +179,25 @@ public class BuildingPostBlock extends Block {
 
     /** Anything this post wants to say beyond the one-line summary. */
     protected void extraReport(Player player, Settlement settlement) {
+    }
+
+    /**
+     * The same hook, told which block was clicked.
+     *
+     * <p>An overload rather than a wider signature on the one above, because a
+     * post that only talks does not care where it is standing and four of them
+     * do not. A post that opens a <em>screen</em> does: the screen has to name
+     * the counter, so that a button pressed on it can say which market it
+     * belongs to.
+     *
+     * <p>{@link StorehouseBlock} and {@link WarehouseBlock} both reach past this
+     * hook into {@code useWithoutItem} for the same reason — they need the
+     * position to open a container — and both say so in a comment. This is that
+     * comment answered, for the case where the extra thing to do is not a
+     * container.
+     */
+    protected void extraReport(Player player, Settlement settlement, BlockPos pos) {
+        extraReport(player, settlement);
     }
 
     /**

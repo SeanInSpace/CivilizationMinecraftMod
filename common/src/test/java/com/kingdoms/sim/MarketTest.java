@@ -4,6 +4,7 @@ import com.kingdoms.sim.economy.Market;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.TownStores;
@@ -42,6 +43,10 @@ class MarketTest {
         if (amount > 0) {
             town.stores().add(resource, amount);
         }
+    }
+
+    private static Building storehouseAt(int x, int z) {
+        return new Building("kingdoms:storehouse", new SimPos(x, 64, z), 1, true);
     }
 
     // --- you cannot trade with a town that has nobody to trade with ---
@@ -250,6 +255,215 @@ class MarketTest {
                         deal.lots() * Market.LOT + 1),
                 "asking for more than the deal covers is refused rather than trimmed");
         assertEquals(0, town.stores().get(TownStores.STONE));
+    }
+
+    /**
+     * The price signal, walked all the way down and back up again.
+     *
+     * <p>The individual thresholds are covered above; what none of them says is
+     * that the thing is <em>monotone</em> — that a granary emptying makes the
+     * price rise every time and a granary filling makes it fall back to exactly
+     * where it started. A price that ratcheted, or that stuck at desperate once
+     * it had been there, would pass every one of the cases above.
+     */
+    @Test
+    void thePriceRisesAsTheGranaryEmptiesAndFallsBackAsItFills() {
+        Settlement town = town();
+        // Comfortably inside the granary's 200: an offer needs a lot of room
+        // left, so "well stocked" cannot mean "at the ceiling" here.
+        int comfortable = 160;
+
+        setStock(town, TownStores.FOOD, comfortable);
+        int easy = Market.buyOffer(town, TownStores.FOOD).unitPrice();
+
+        setStock(town, TownStores.FOOD, FoodPlanner.STARTING_PROVISIONS - 4);
+        int short_ = Market.buyOffer(town, TownStores.FOOD).unitPrice();
+
+        setStock(town, TownStores.FOOD, 0);
+        int desperate = Market.buyOffer(town, TownStores.FOOD).unitPrice();
+
+        setStock(town, TownStores.FOOD, comfortable);
+        int recovered = Market.buyOffer(town, TownStores.FOOD).unitPrice();
+
+        assertTrue(short_ > easy, "running low is worth more than being well stocked");
+        assertTrue(desperate > short_, "and starving is worth more than running low");
+        assertEquals(easy, recovered,
+                "a town that has been fed pays what it paid before it was hungry");
+    }
+
+    /**
+     * A town that has just been fed stops paying the emergency price, which is
+     * what makes a second lot of grain a different trade from the first.
+     */
+    @Test
+    void feedingATownIsWhatEndsTheEmergencyPrice() {
+        Settlement town = town();
+        setStock(town, TownStores.FOOD, 0);
+        assertEquals(Market.DESPERATE, Market.needFactor(town, TownStores.FOOD));
+
+        int dear = Market.buyOffer(town, TownStores.FOOD).unitPrice();
+        Market.townBuys(town, HERE, TownStores.FOOD, Market.LOT * 8);
+        int after = Market.buyOffer(town, TownStores.FOOD).unitPrice();
+
+        assertTrue(after < dear,
+                "sixty-four loaves is the difference between starving and merely short");
+    }
+
+    // --- the reason, which is why the town has a screen of its own ---
+
+    @Test
+    void everyDealSaysWhyItIsPricedAsItIs() {
+        Settlement town = town();
+        setStock(town, TownStores.FOOD, 0);
+
+        assertEquals(Market.Reason.DESPERATE,
+                Market.buyOffer(town, TownStores.FOOD).reason());
+
+        setStock(town, TownStores.FOOD, FoodPlanner.STARTING_PROVISIONS - 4);
+        assertEquals(Market.Reason.SHORT,
+                Market.buyOffer(town, TownStores.FOOD).reason());
+
+        setStock(town, TownStores.FOOD, 160);
+        assertEquals(Market.Reason.ORDINARY,
+                Market.buyOffer(town, TownStores.FOOD).reason());
+    }
+
+    @Test
+    void aTownWithNoRoomLeftSaysSoOnEveryOfferItStillMakes() {
+        // The two halves of a glut are one fact: no room is exactly why it will
+        // not buy, and exactly why it is glad to sell. Two thresholds for that
+        // would let a town claim to be overflowing while still buying, which a
+        // player would be right to read as a lie.
+        Settlement town = town();
+        setStock(town, TownStores.STONE, 1_000_000);
+
+        assertTrue(Market.isGlutted(town, TownStores.STONE));
+        assertNull(Market.buyOffer(town, TownStores.STONE),
+                "glutted and still buying would be the disagreement");
+        assertEquals(Market.Reason.GLUT,
+                Market.sellOffer(town, TownStores.STONE).reason());
+    }
+
+    @Test
+    void aGlutDoesNotMakeTheGoodsCheaperThanTheTownWillBuyThemBack() {
+        // TRADE.md would have a full town sell at a discount and it cannot: buy
+        // a lot cheap and the shelves come down by exactly that lot, the town
+        // wants it again at base, and the treasury is a fountain. With stone's
+        // base at one there is no room below "base plus one" to discount into.
+        Settlement town = town();
+        setStock(town, TownStores.STONE, 1_000_000);
+
+        Market.Deal glutted = Market.sellOffer(town, TownStores.STONE);
+        assertEquals(Market.Reason.GLUT, glutted.reason(), "it says it is overflowing");
+        assertTrue(glutted.unitPrice() > Market.basePrice(TownStores.STONE),
+                "and still sells dearer than the base it would buy the lot back at");
+    }
+
+    // --- which shelves a sale actually comes off ---
+
+    @Test
+    void aSaleComesOffTheShelvesThatActuallyHaveTheGoods() {
+        // The refusal this ends. The store nearest the counter is not
+        // necessarily a store with anything in it, and asking only that one and
+        // giving up was a town refusing to sell stone it demonstrably owned
+        // because the market happened to be built beside the granary — silently,
+        // because a deal declined and a deal unreachable look the same.
+        Settlement town = town();
+        Building byTheStall = storehouseAt(0, 0);
+        Building acrossTown = storehouseAt(200, 0);
+        town.addBuilding(byTheStall);
+        town.addBuilding(acrossTown);
+        town.putAwayLoosePile();
+
+        byTheStall.stores().set(TownStores.STONE, 0);
+        acrossTown.stores().set(TownStores.STONE, 4_000);
+        int treasury = town.treasury();
+
+        int paid = Market.townSells(town, HERE, TownStores.STONE, Market.LOT);
+
+        assertTrue(paid > 0, "the town owns four thousand stone; it can sell eight");
+        assertEquals(treasury + paid, town.treasury(), "and the coin arrived");
+        assertEquals(4_000 - Market.LOT, acrossTown.stores().get(TownStores.STONE),
+                "off the shelves that had it");
+        assertEquals(0, byTheStall.stores().get(TownStores.STONE),
+                "and the empty ones beside the counter are no worse off than empty");
+    }
+
+    @Test
+    void aSaleTooBigForOneStoreEmptiesTheNearestFirst() {
+        // Locality decides the order the shelves come down in, not whether the
+        // sale happens at all — the same rule that stops an empty store
+        // underfoot stranding a builder.
+        Settlement town = town();
+        Building byTheStall = storehouseAt(0, 0);
+        Building acrossTown = storehouseAt(200, 0);
+        town.addBuilding(byTheStall);
+        town.addBuilding(acrossTown);
+        town.putAwayLoosePile();
+
+        int reserve = Market.reserveFor(town, TownStores.STONE);
+        byTheStall.stores().set(TownStores.STONE, Market.LOT);
+        acrossTown.stores().set(TownStores.STONE, reserve + Market.LOT * 4);
+
+        assertTrue(Market.townSells(town, HERE, TownStores.STONE, Market.LOT * 2) > 0);
+
+        assertEquals(0, byTheStall.stores().get(TownStores.STONE),
+                "the shelves you are standing at go first");
+        assertEquals(reserve + Market.LOT * 3, acrossTown.stores().get(TownStores.STONE),
+                "and the rest of the lot comes from across the village");
+    }
+
+    /**
+     * The armoury the stall would otherwise have sold.
+     *
+     * <p>A settlement's ledger takes any word at all, and the smith stocks
+     * {@code weapons} and {@code armour} under two of them. Neither has a base
+     * price, so the sell price fell out as "at least base plus one" — a coin —
+     * and neither has a reserve, so the whole holding read as spare. The board
+     * never listed those rows, but the board is not what a request is answered
+     * against: a message naming the word is answered by the offer, so anyone who
+     * could name it could buy a town's armoury at a coin an ingot.
+     */
+    @Test
+    void aTownDealsInTheFourThingsItDealsInAndNothingElse() {
+        Settlement town = town();
+        town.stores().add(TownStores.WEAPONS, 64);
+        town.stores().add(TownStores.ARMOUR, 64);
+        town.stores().add(TownStores.SAPLINGS, 64);
+
+        for (String hoard : new String[] {
+                TownStores.WEAPONS, TownStores.ARMOUR, TownStores.TOOLS,
+                TownStores.SAPLINGS, TownStores.EARTH, "not_a_resource"}) {
+            assertNull(Market.sellOffer(town, hoard), hoard + " is not merchandise");
+            assertNull(Market.buyOffer(town, hoard), hoard + " is not merchandise");
+            assertEquals(0, Market.townSells(town, HERE, hoard, Market.LOT), hoard);
+        }
+        assertEquals(64, town.stores().get(TownStores.WEAPONS), "the armoury is intact");
+        assertEquals(64, town.stores().get(TownStores.ARMOUR));
+    }
+
+    // --- the levy, which this changes nothing about ---
+
+    @Test
+    void tradingIsStillTheOnlyWayCoinEntersATown() {
+        // The open question TRADE.md records is whether a town nobody trades
+        // with should grow rich on its own. This is not the answer to it: it is
+        // the assertion that the answer has not been quietly changed by
+        // building the market. Production mints nothing, the endowment is what
+        // it was, and every coin above it came off a player.
+        assertEquals(2000, Settlement.FOUNDING_TREASURY,
+                "the whole money supply of a town nobody has traded with");
+
+        Settlement town = town();
+        setStock(town, TownStores.STONE, 100_000);
+        town.produceNear(HERE, TownStores.WOOD, 4_000, 1_000_000);
+
+        assertEquals(Settlement.FOUNDING_TREASURY, town.treasury(),
+                "four thousand logs is not a levy and never was");
+
+        int sold = Market.townSells(town, HERE, TownStores.STONE, Market.LOT);
+        assertEquals(Settlement.FOUNDING_TREASURY + sold, town.treasury(),
+                "and the only coin the town has ever gained came out of a pocket");
     }
 
     @Test

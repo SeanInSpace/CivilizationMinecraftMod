@@ -131,6 +131,14 @@ public class WarehouseBlock extends BuildingPostBlock implements EntityBlock {
      * <p>Keyed off the same tags the builders use to decide which tool digs a
      * block, so what a player hands over is measured the same way the town spends
      * it. Anything else is refused rather than silently swallowed.
+     *
+     * <p><strong>Deliberately not shared with the market.</strong> It is right
+     * for a one-way door and wrong for a counter that pays: any pickaxe-mineable
+     * block item reads as stone, which at a warehouse means a player's shulker
+     * box is refused as a gift and at a stall would mean it was bought off them
+     * for two coin. The stall asks {@code Resources.resourceOf}, which names the
+     * items it will take. Two classifiers, because there are genuinely two
+     * questions — what will you accept as a gift, and what will you pay for.
      */
     private static String resourceOf(ItemStack stack) {
         if (stack.is(Items.IRON_INGOT)) {

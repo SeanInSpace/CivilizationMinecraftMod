@@ -1,8 +1,10 @@
 # Trading with a settlement
 
-**Status:** the internal half is built — settlers own nothing and hand in what they carry. The player-facing trade below is designed, not built. Companion to [POPULATION.md](POPULATION.md) (who lives there) and [DEFENSE.md](DEFENSE.md) (who attacks). This one covers the only thing a player can currently *do* with a town, which today is nothing.
+**Status:** built. Settlers own nothing and hand in what they carry; a town with a living trader now buys and sells at its market at prices its own shortages set, and each row of the stall says why. Companion to [POPULATION.md](POPULATION.md) (who lives there) and [DEFENSE.md](DEFENSE.md) (who attacks). This is the one thing a player can *do* with a town.
 
-Code it would touch: `MarketBlock`, `Economy`, `Valuation`, `Settlement` (treasury), `Profession.TRADER`.
+Code: `Market` and `Valuation` (what the deals are, and why), `MarketBlock` and `MarketCounter` (the counter), `MarketPayload` and `MarketScreen` (the board), `Settlement` (treasury), `Profession.TRADER`.
+
+Still open, and deliberately not settled here: whether a town nobody ever trades with should be able to grow rich on its own — see *Where coin comes from* below.
 
 ---
 
@@ -51,7 +53,7 @@ This is worth stating plainly because it is the one place the two representation
 
 The invariant: **every emerald that enters the world came out of a treasury, and every emerald that leaves it went into one.** A test can assert exactly that.
 
-Using vanilla's `MerchantMenu` gets the familiar villager-trading screen for free, and players already understand its stock limits and restocking.
+Vanilla's `MerchantMenu` got the familiar villager-trading screen for free and was the right first move. It was outgrown for one reason: it can show that grain costs six and has nowhere to put *they are starving*. The stall is now the mod's own screen, and every row carries its reason — see [GUI_GUIDE.md](GUI_GUIDE.md).
 
 ---
 
@@ -72,7 +74,9 @@ price = base × need
 | **Starving / distress** | pays **double** for food | will not sell food at all |
 | Below what a queued build wants | pays **1.5×** | will not sell it |
 | Ordinary stock | pays base | sells at base + margin |
-| At or near its ceiling | **refuses to buy** | sells cheap, and is glad to |
+| At or near its ceiling | **refuses to buy** | says so, and is glad to sell |
+
+The one line of that table not built as written is the glut discount, and it cannot be. A sell price has to stay strictly above the base or a player buys a lot cheap, the shelves come down by exactly that lot, the town wants it again at base, and the treasury is a fountain — and with stone's base at one there is no room below *base plus one* to discount into. A glut shows in what the town **says** instead, which is the half that was actually load-bearing: `Market.Reason.GLUT`, and *more than they can store* on the row.
 
 The town already knows all of this: `FoodPlanner.isStarving`, `BuildPlanner.requestProducer`, `MinePlanner.wantsMoreStone`, `LumberPlanner.wantsMoreTimber`, and the store ceilings. None of it needs inventing — it needs exposing.
 

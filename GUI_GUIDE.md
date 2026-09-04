@@ -1,6 +1,6 @@
 # Building a screen in this mod
 
-**Status:** written before the first custom screen exists, so that writing one is a matter of following steps rather than discovering them. The market currently borrows vanilla's villager trading screen — see [TRADE.md](TRADE.md) — which is why this guide exists rather than a custom screen.
+**Status:** written before the first custom screen existed. Several exist now, and **none of them is built the way the "five pieces" section below describes.** There is no registered `MenuType` in this mod and there should not be one: every screen here is opened by sending a payload the client turns into a `Screen`, because none of them is a grid of items and a menu's whole purpose is syncing slots. Read the payload recipe first; the menu recipe is kept because a screen that really does hold items would still want it.
 
 ---
 
@@ -12,18 +12,38 @@ Borrow one when it fits:
 
 | You want | Borrow |
 |---|---|
-| Buy and sell at prices you control | `Merchant` — implement it and call `openTradingScreen`. **This is what the market does.** |
-| Show a container of items | `ChestMenu.threeRows(...)` or a `SimpleContainer` |
+| Buy and sell at prices you control | `Merchant` — implement it and call `openTradingScreen`. **The market did this first, and outgrew it; see the last section.** |
+| Show a container of items | `ChestMenu.threeRows(...)` or a `SimpleContainer` — the storehouse and warehouse do exactly this |
 | One line of information | `player.sendSystemMessage(...)` — every `BuildingPostBlock` already does this |
 | A yes/no from the player | Two blocks, or a shift-click on one |
 
-Build a custom one when the thing you are showing genuinely is not a grid of items — a town's vitals, a build queue with progress bars, a map. That is when the cost is worth paying.
+Build a custom one when the thing you are showing genuinely is not a grid of items — a town's vitals, a build queue with progress bars, a map, a price with a reason beside it. That is when the cost is worth paying.
+
+### How the screens in this mod are actually built
+
+Not as menus. Four pieces, none of them registered:
+
+```
+common/            nothing. The simulation must not know a screen exists.
+neoforge/
+  net/ThingPayload.java     the record, its stream codec, and a handle() that
+                            calls KingdomsScreens — never Minecraft directly
+  net/KingdomsNetwork.java  registration, and bump VERSION when a shape changes
+  client/KingdomsScreens.java  the one class allowed to name Minecraft
+  client/ThingScreen.java   a Screen, drawn with KingdomsPanel's chrome
+```
+
+The block sends the payload with `PacketDistributor.sendToPlayer`; the payload's `handle` calls `KingdomsScreens`; `KingdomsScreens` builds the screen. **The payload handler must not name `Minecraft`** — that is what `KingdomsScreens` is for, and it is the only reason that class exists.
+
+A screen that needs to send something *back* — so far only the market's buttons — adds a second payload registered with `playToServer` and sent with `ClientPacketDistributor.sendToServer`. Everything in it is a claim by a client and none of it is evidence: re-derive the price, the stock and the player's reach on the server.
 
 ---
 
-## What a custom screen is made of
+## What a screen that really does hold items is made of
 
 Five pieces, in the order you should write them. Nothing works until all five exist, which is why the first one is confusing.
+
+**Nothing in this mod is built this way.** Slots syncing themselves is the entire benefit of a menu, and no screen here has a slot in it. Reach for this only when one genuinely does.
 
 ```
 common/            nothing. The simulation must not know a screen exists.
@@ -208,10 +228,16 @@ The harness in the scratchpad drives a client into a staged world; `drive_client
 
 ## For the market specifically
 
-If the trading screen is ever replaced with a custom one, the thing it should show that vanilla cannot is **why** the price is what it is:
+This section used to say what a custom trading screen *would* be for. It is built, and it is for exactly that: **why** the price is what it is.
 
-> *Grain — 6 emeralds for 8. **They are starving.***
+> *8 food — **They are starving.** [ Sell 48 ]*
 
-That single line is the entire argument for building one. The vanilla screen shows a price; the town's whole character is in the reason behind it, and there is nowhere in a merchant screen to put it.
+That single line is the whole argument. A merchant screen shows a price and has nowhere at all to put the reason, and the reason is the town's entire character — a price that moves with a shortage is only a game if the shortage is legible.
 
-Everything needed is already there: `Market.needFactor` gives the reason, and `Market.Deal` carries the price. The gap is presentation, not logic — which is the right way round, and the reason borrowing the vanilla screen first was not wasted work.
+The logic was already there when the presentation caught up, which is the right way round and the reason borrowing vanilla's screen first was not wasted work. `Market.Reason` is now a component of `Market.Deal` rather than something the screen works out for itself: a price and an explanation derived separately are two things that can disagree, and the explanation is the part being sold.
+
+Worth knowing if you touch it:
+
+- The board is re-sent after **every** trade, and `KingdomsScreens.openMarket` folds it into the open screen instead of replacing it. A stall still showing the price that was true before the town stopped starving is worse than no stall; reopening the screen for each lot throws the player's place away eight units at a time.
+- One lot per press. The alternative is a count the server has to bound anyway, and a button that means exactly one thing is a button whose price the player has already read.
+- Emeralds exist only at the counter, one to the coin. Every emerald in the world came out of a treasury and every one that leaves goes into one, which is why `MarketCounter` counts the payment before touching the ledger and removes it after.

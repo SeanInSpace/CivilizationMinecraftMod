@@ -37,6 +37,42 @@ class StorehouseTradeTest {
                 "at the reserve the answer is no");
     }
 
+    /**
+     * The leak this closes.
+     *
+     * <p>Emeralds are the physical form of a town's coin and exist only at the
+     * counter: every one in the world came out of a treasury and every one that
+     * leaves goes into one. The storehouse used to take a player's emeralds and
+     * hand out logs without the books moving by so much as a coin, so trading
+     * with a town made money vanish out of the world — and enough of it would
+     * empty the supply of a save.
+     */
+    @Test
+    void theEmeraldsPaidForTimberGoIntoTheTreasury() {
+        Settlement s = town();
+        s.setStock(TownStores.WOOD, StorehousePlanner.RESERVE_WOOD + 20);
+        int before = s.treasury();
+
+        assertEquals(16, StorehousePlanner.sellTimber(s, 2));
+        assertEquals(before + 2, s.treasury(), "two emeralds, two coin");
+
+        assertEquals(4, StorehousePlanner.sellTimber(s, 5),
+                "a rich buyer still only gets what is above the reserve");
+        assertEquals(before + 3, s.treasury(),
+                "and is charged the one coin the block shrinks their stack by");
+    }
+
+    @Test
+    void aRefusedSaleChargesNothing() {
+        Settlement s = town();
+        s.setStock(TownStores.WOOD, StorehousePlanner.RESERVE_WOOD);
+        int before = s.treasury();
+
+        assertEquals(0, StorehousePlanner.sellTimber(s, 4));
+        assertEquals(before, s.treasury(), "no logs, no coin");
+        assertEquals(0, StorehousePlanner.emeraldsFor(0));
+    }
+
     @Test
     void donationsFillTheStoreAndStopAtItsCapacity() {
         Settlement s = town();
