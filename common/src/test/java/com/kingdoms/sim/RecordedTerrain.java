@@ -103,12 +103,26 @@ public final class RecordedTerrain implements WorldBridge {
 
     @Override
     public boolean isSiteSuitable(SimPos plot, int radius) {
+        return siteFault(plot, radius) == SITE_FAULT_NONE;
+    }
+
+    /**
+     * The same judgement scored, exactly as {@code TerrainFake} scores it.
+     *
+     * <p>The two fakes have to answer the same question the same way or the
+     * recording stops being the same rules on different ground, which is the
+     * only thing it is for.
+     */
+    @Override
+    public int siteFault(SimPos plot, int radius) {
         if (standsInWater(plot, radius)) {
-            return false;
+            return SITE_FAULT_OPEN_WATER;
         }
-        // The bulk of the plot, not its extremes: a pit the builders would fill
-        // is not a reason to walk away from a shelf. Mirrors the live rule and
-        // TerrainFake's copy of it.
+        return Math.max(0, bulkFall(plot, radius) - MAX_FALL);
+    }
+
+    /** The middle three fifths of a plot's columns: a pit is not a cliff. */
+    private int bulkFall(SimPos plot, int radius) {
         List<Integer> heights = new ArrayList<>();
         for (int dx = -radius; dx <= radius; dx += 3) {
             for (int dz = -radius; dz <= radius; dz += 3) {
@@ -118,7 +132,7 @@ public final class RecordedTerrain implements WorldBridge {
         Collections.sort(heights);
         int low = heights.get(heights.size() / 5);
         int high = heights.get((heights.size() * 4) / 5);
-        return high - low <= MAX_FALL;
+        return high - low;
     }
 
     /**
@@ -132,16 +146,7 @@ public final class RecordedTerrain implements WorldBridge {
         if (standsInWater(plot, radius)) {
             return false;
         }
-        List<Integer> heights = new ArrayList<>();
-        for (int dx = -radius; dx <= radius; dx += 3) {
-            for (int dz = -radius; dz <= radius; dz += 3) {
-                heights.add(groundAt(plot.x() + dx, plot.z() + dz));
-            }
-        }
-        Collections.sort(heights);
-        int low = heights.get(heights.size() / 5);
-        int high = heights.get((heights.size() * 4) / 5);
-        return high - low <= BuildPlanner.LEVELABLE_FALL;
+        return bulkFall(plot, radius) <= BuildPlanner.LEVELABLE_FALL;
     }
 
     @Override

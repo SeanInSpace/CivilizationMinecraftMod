@@ -192,6 +192,56 @@ class LayoutFitnessTest {
         }
     }
 
+    /**
+     * Nothing stands on ground the town itself had already refused.
+     *
+     * <p>The water rule above is absolute and reads a clean zero, which is
+     * exactly why it cannot see this: between "fit" and "in the river" there is
+     * a whole band of ground the settlement refuses while searching and used to
+     * build on anyway, because the search ran out of candidates and took the
+     * next slot without asking. That band is invisible to a pass-or-fail rule,
+     * and it is where the give-up paths live.
+     *
+     * <p>Measured here at <strong>0 of 1113</strong> buildings across thirteen
+     * arrangements, before this work and after it. That is not a null result:
+     * it says the ordinary search never has to compromise on this ground, so
+     * every one of those 1113 plots was one the town positively wanted. Ground
+     * that does exhaust a search needs to refuse in families rather than one
+     * plot at a time — see {@code LeastBadSiteTest}, which builds it.
+     */
+    @Test
+    void noLayoutFillsItsTownWithGroundItHadAlreadyRefused() {
+        TerrainFake ground = new TerrainFake(11);
+        int faulted = 0;
+        int standing = 0;
+        int worst = 0;
+        for (String layout : layouts()) {
+            Settlement town = town(layout, ground);
+            for (Building b : onGround(town)) {
+                standing++;
+                int fault = ground.siteFault(b.origin(), BuildPlanner.PLOT_PROBE_RADIUS);
+                if (fault > 0) {
+                    faulted++;
+                    worst = Math.max(worst, fault);
+                }
+            }
+        }
+        assertTrue(faulted <= REFUSED_GROUND_CEILING,
+                faulted + " of " + standing + " buildings stand on ground the town "
+                        + "itself judged unfit -- worst " + worst + " courses -- past "
+                        + "the " + REFUSED_GROUND_CEILING + " allowed");
+    }
+
+    /**
+     * Buildings allowed to stand on ground the search had refused.
+     *
+     * <p>Zero measured, and eight allowed, which is under a per cent of the
+     * town. The slack is the same slack every bar in this class carries: it is
+     * here to catch a give-up path becoming the normal way a town is sited, not
+     * to fail on one building shifting a plot.
+     */
+    private static final int REFUSED_GROUND_CEILING = 8;
+
     @Test
     void everyLayoutActuallyGrowsATown() {
         // The floor under all of it. A layout that refuses everything passes

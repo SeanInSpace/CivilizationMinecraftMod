@@ -458,15 +458,27 @@ public final class Settlement {
         SimPos best = null;
         double bestCost = Double.MAX_VALUE;
         int firstFree = -1;
+        int firstOffered = -1;
         int considered = 0;
+        LeastBad leastBad = new LeastBad(centre);
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
             SimPos candidate = arrangement().plotFor(centre, index);
             if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
-            if (!ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
+            if (firstOffered < 0) {
+                firstOffered = index;   // where the cursor stops if it has to settle
+            }
+            int fault = ctx.bridge().siteFault(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
+            if (fault != WorldBridge.SITE_FAULT_NONE
                     && !worthLevelling(candidate, span, ctx)) {
+                // Refused, and remembered anyway. This is the whole of the fix:
+                // a town that refuses all ninety-six of these used to walk off
+                // and take an unexamined slot, so the sharper the terrain rules
+                // got the more often it did — and a stricter water test measured
+                // MORE houses in lakes than a looser one.
+                leastBad.offer(candidate, index, fault, ctx.bridge());
                 continue;
             }
             if (firstFree < 0) {
@@ -505,19 +517,38 @@ public final class Settlement {
             nextPlotIndex = firstFree + 1;
             return best;
         }
-        // Every candidate examined and none will do. Take the next slot rather
+        // Every candidate examined and none will do. Take one of them rather
         // than stop building altogether — a town out of room builds on poor
         // ground rather than giving up.
         //
-        // Poor ground, though. Not water, and not unexamined. This used to hand
-        // back the next slot untested, so the better the terrain rules got, the
-        // more often the search exhausted itself and the more buildings were
-        // placed with no check at all — a farm, a lumber camp and a watchtower
-        // standing in a river at y=54, 55 and 62, none of which the rules had
-        // ever been asked about. Every improvement upstream was partly
-        // cancelling itself here.
+        // The least bad of them, and that is the point. Poor ground the town
+        // has actually looked at and ranked is a different thing from the next
+        // slot along, which is what this used to hand back: untested, so the
+        // better the terrain rules got, the more often the search exhausted
+        // itself and the more buildings were placed with no check at all — a
+        // farm, a lumber camp and a watchtower standing in a river at y=54, 55
+        // and 62, none of which the rules had ever been asked about. Every
+        // improvement upstream was partly cancelling itself here.
+        if (leastBad.found()) {
+            // Advanced by one offered slot, not past the plot taken, for exactly
+            // the reason the branch above gives: a town that chooses more
+            // carefully must not creep outward faster. It matters more here than
+            // there. Every relocation check runs this while a site sits on
+            // ground the rules refuse, and jumping to the chosen index each time
+            // marched the cursor past fourteen hundred slots in a hundred steps
+            // on ground where nothing passes — a town of ten buildings staking
+            // its plots a quarter of a mile out.
+            nextPlotIndex = firstOffered + 1;
+            return leastBad.at();
+        }
+        // Not one of the ninety-six was free, dry ground — so there is nothing
+        // examined to fall back on and the search has to widen. Water and taken
+        // ground are still refused; among what is left, the least bad still wins.
         SimPos freeButWet = null;
         int freeButWetAt = 0;
+        int firstOut = -1;
+        int graded = 0;
+        LeastBad furtherOut = new LeastBad(centre);
         for (int extra = 0; extra < DESPERATE_ATTEMPTS; extra++) {
             SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
             // Free ground as well as dry ground. Refusing only water let a
@@ -528,14 +559,45 @@ public final class Settlement {
             if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
-            if (!ctx.bridge().standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+            if (firstOut < 0) {
+                firstOut = nextPlotIndex + extra;
+            }
+            // The cheap veto first and the whole grade only after it. Water is
+            // one comparison against sea level; a grade reads the plot's every
+            // column for fluid, and this loop walks a hundred and twenty-eight
+            // candidates in one tick. Asking the expensive question of ground
+            // that is going to be refused for being a river is how a siting pass
+            // comes to take sixty seconds.
+            if (ctx.bridge().standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                if (freeButWet == null) {
+                    freeButWet = candidate;
+                    freeButWetAt = extra;
+                }
+                continue;
+            }
+            int fault = ctx.bridge().siteFault(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
+            if (fault == WorldBridge.SITE_FAULT_NONE) {
+                // Ground the ordinary search would have been glad of. Nothing
+                // is gained by walking further to compare it with worse.
                 nextPlotIndex += extra + 1;
                 return candidate;
             }
-            if (freeButWet == null) {
-                freeButWet = candidate;
-                freeButWetAt = extra;
+            furtherOut.offer(candidate, nextPlotIndex + extra, fault, ctx.bridge());
+            if (++graded >= SITE_CHOICES) {
+                // A choice, not an exhaustive search — the same bound and the
+                // same reason as the ordinary walk above. A dozen graded plots
+                // out here already contain the best this town is going to be
+                // offered, and grading all hundred and twenty-eight would cost
+                // more than the building.
+                break;
             }
+        }
+        if (furtherOut.found()) {
+            // One offered slot, as above. The old line here jumped the cursor to
+            // whichever of the hundred and twenty-eight it settled on, which is
+            // the outward creep the branch above exists to avoid.
+            nextPlotIndex = firstOut + 1;
+            return furtherOut.at();
         }
         // Wet, but free, examined, and out of the road. Better than the last
         // line below by every measure that matters.
@@ -574,6 +636,78 @@ public final class Settlement {
      * reached only by a settlement hemmed in by sea on every side.
      */
     private static final int DESPERATE_ATTEMPTS = 128;
+
+    /**
+     * The best of a bad lot: the plot a finished search disliked least.
+     *
+     * <p>A search that refuses every candidate still knows a great deal about
+     * them, and used to throw all of it away — it walked past ninety-six plots
+     * it had measured and took an unmeasured one, which is why a stricter
+     * terrain rule could put <em>more</em> buildings in water than a loose one.
+     * This is that knowledge, kept.
+     *
+     * <p>Open water is never taken here, and it is refused twice over: once by
+     * the score's own sentinel, and once by putting the water veto itself to
+     * the bridge. Both, because the two need not agree. A platform is free to
+     * grade unread ground more loosely than it refuses it — the live one does
+     * exactly that, since the estimate that decides a plot is buildable tests
+     * sea level and the one that decides it is wet also asks the generator
+     * whether there is water there, which catches a tarn above the sea. Every
+     * other give-up path in this class asks both; this one is the path that now
+     * runs instead of them, so it has to ask both as well.
+     *
+     * <p>The veto is asked only of a candidate that would otherwise become the
+     * new best, which is a handful of the ninety-six rather than all of them.
+     *
+     * <p>Ties go to the plot nearer the middle of the town, which is the only
+     * tie-break that means anything: two plots equally poor differ in whether
+     * anybody will walk to them, and a bridge that grades nothing at all
+     * reports every refusal as the same fault, so this is the rule that decides
+     * for the whole of that case.
+     */
+    private static final class LeastBad {
+        private final SimPos centre;
+        private SimPos at;
+        private int index = -1;
+        private int fault = Integer.MAX_VALUE;
+        private long away = Long.MAX_VALUE;
+
+        LeastBad(SimPos centre) {
+            this.centre = centre;
+        }
+
+        void offer(SimPos candidate, int atIndex, int candidateFault, WorldBridge world) {
+            if (candidateFault == WorldBridge.SITE_FAULT_OPEN_WATER) {
+                return;   // not poor ground; not ground
+            }
+            long distance = candidate.horizontalDistanceSq(centre);
+            if (candidateFault > fault
+                    || (candidateFault == fault && distance >= away)) {
+                return;
+            }
+            if (world.standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                return;
+            }
+            at = candidate;
+            index = atIndex;
+            fault = candidateFault;
+            away = distance;
+        }
+
+        boolean found() {
+            return at != null;
+        }
+
+        /** Where it stands. Null until something has been offered. */
+        SimPos at() {
+            return at;
+        }
+
+        /** Which ring slot it came from, so the cursor can be moved past it. */
+        int index() {
+            return index;
+        }
+    }
 
     /**
      * Whether a plot of this width fouls any building, or any build already ordered.
@@ -846,10 +980,15 @@ public final class Settlement {
      * at 55 and a watchtower at 62, all standing in the sea, on a seed where
      * every civic building had been sited perfectly well around them.
      *
-     * <p>Terrain quality is still not judged here, and deliberately: an urgent
-     * build is urgent, and a town that will not put a lumber camp on a slope is
-     * a town that runs out of wood. Open water is the exception, because it is
-     * not poor ground, it is not ground.
+     * <p>Terrain quality is still not judged while a slot can simply be had,
+     * and deliberately: an urgent build is urgent, and a town that will not put
+     * a lumber camp on a slope is a town that runs out of wood. Open water is
+     * the exception, because it is not poor ground, it is not ground.
+     *
+     * <p>Once the first ninety-six are gone the ground is graded after all, and
+     * the town takes the least bad of what it looked at rather than the first
+     * thing that was merely dry. That is not a change of mind about urgency: it
+     * is the same walk, ranked instead of thrown away.
      *
      * @param bridge may be null, for callers with no world to ask
      */
@@ -870,21 +1009,50 @@ public final class Settlement {
         // Widening the search, still refusing water. Remember the least-bad
         // thing seen on the way: free ground that happens to be wet is a poor
         // site, but it is a site, and it beats the raw next index.
+        //
+        // Terrain is graded here where the loop above would not judge it at
+        // all, and the difference is not inconsistency. Above, the town is
+        // taking the first slot it can have and the ground is not allowed to
+        // slow that down; here it has already walked past ninety-six of them
+        // and is choosing between what is left rather than accepting the first
+        // thing it trips over.
+        //
+        // Water first and the grade after, and at most a dozen grades, for the
+        // reasons the same loop in chooseSite gives: the veto is cheap, the
+        // grade is not, and this is an urgent build.
         SimPos freeButWet = null;
         int freeButWetAt = 0;
+        int firstOut = -1;
+        int graded = 0;
+        LeastBad furtherOut = new LeastBad(centre);
         for (int extra = 0; bridge != null && extra < DESPERATE_ATTEMPTS; extra++) {
             SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
             if (!isPlotFree(candidate, span, null)) {
                 continue;   // taken ground is not poor ground, it is somebody's
             }
-            if (!bridge.standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+            if (firstOut < 0) {
+                firstOut = nextPlotIndex + extra;
+            }
+            if (bridge.standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                if (freeButWet == null) {
+                    freeButWet = candidate;
+                    freeButWetAt = extra;
+                }
+                continue;
+            }
+            int fault = bridge.siteFault(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
+            if (fault == WorldBridge.SITE_FAULT_NONE) {
                 nextPlotIndex += extra + 1;
-                return candidate;
+                return candidate;   // nothing further out can beat sound ground
             }
-            if (freeButWet == null) {
-                freeButWet = candidate;
-                freeButWetAt = extra;
+            furtherOut.offer(candidate, nextPlotIndex + extra, fault, bridge);
+            if (++graded >= SITE_CHOICES) {
+                break;
             }
+        }
+        if (furtherOut.found()) {
+            nextPlotIndex = firstOut + 1;
+            return furtherOut.at();
         }
         // The last resort used to be `plotFor(nextPlotIndex++)` with no check of
         // any kind -- not that the ground was free, not that it was dry. It is
@@ -2306,9 +2474,29 @@ public final class Settlement {
         }
         int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalogue);
         SimPos moved = chooseSite(ctx, span, building.role());
+        // The third clause is new and only ever refuses more: a site that scores
+        // no better than the one it would replace is not somewhere better, it is
+        // somewhere else. Without it, a building on unfit ground whose only
+        // alternatives are unread chunks was moved onto a fresh one every single
+        // step -- the isLoaded guard cannot fire on a plot nobody has looked at
+        // -- and never got drawn at all.
+        //
+        // What is deliberately NOT here is the cursor being handed back when
+        // nothing moves, which its sibling relocateIfUnsuitable now does. Both
+        // spend a ring slot to decide to stay put and neither should; but the
+        // two were measured on the recorded ground and they do not behave
+        // alike. There it was worth a doorstep (four doors off a road became
+        // three, and the town gained a building); here the same edit took it
+        // the other way, three to five. That is a real effect and it is not
+        // understood -- this runs for every un-materialized building and its
+        // sibling for the head of the queue only -- so it is left as it was and
+        // written down rather than changed on a hunch.
         if (moved.equals(building.origin())
                 || (ctx.bridge().isLoaded(moved)
-                        && !ctx.bridge().isSiteSuitable(moved, BuildPlanner.PLOT_PROBE_RADIUS))) {
+                        && !ctx.bridge().isSiteSuitable(moved, BuildPlanner.PLOT_PROBE_RADIUS))
+                || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
+                        >= ctx.bridge().siteFault(building.origin(),
+                                BuildPlanner.PLOT_PROBE_RADIUS)) {
             return false;   // nowhere better; draw it here and make the best of it
         }
         SimPos from = building.origin();
@@ -2479,8 +2667,30 @@ public final class Settlement {
         }
 
         int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalogue);
+        int spentTo = nextPlotIndex;
         SimPos moved = chooseSite(ctx, span, BuildingRole.of(task.blueprintId()));
-        if (moved.equals(task.origin())) {
+        // Better, or stay. The identity test alone was not enough, and on ground
+        // where the search exhausts it was the difference between a town and no
+        // town: chooseSite hands back the least-bad plot it could find, this
+        // read "unsuitable" and moved off it, and next step it did the same
+        // again from a cursor one slot further out. The site walked outward for
+        // as long as the town lived and not one block was ever laid, because a
+        // task that keeps being replaced never starts. Its sibling
+        // relocatePending has said "nowhere better; draw it here and make the
+        // best of it" since it was written; this is that sentence, with better
+        // meaning measurably better rather than merely different.
+        if (moved.equals(task.origin())
+                || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
+                        >= ctx.bridge().siteFault(task.origin(),
+                                BuildPlanner.PLOT_PROBE_RADIUS)) {
+            // And give the slot back. A check that decided not to move has not
+            // used a plot, and leaving the cursor past it means every step of
+            // sitting on unfit ground costs the town a ring slot it never built
+            // on -- which is the same leak the class comment on chooseSite
+            // describes, arriving by a different door. Measured on the
+            // recorded ground: three doors off a road with the slot handed
+            // back, six with it spent, and four before any of this.
+            nextPlotIndex = spentTo;
             return false;   // nowhere better; build it here and make the best of it
         }
         BuildTask replacement = new BuildTask(
