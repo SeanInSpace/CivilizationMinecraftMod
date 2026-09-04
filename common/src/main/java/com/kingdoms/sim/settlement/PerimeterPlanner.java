@@ -82,8 +82,9 @@ public final class PerimeterPlanner {
     }
 
     /**
-     * One step of perimeter work: stake it when the stage calls for it, then
-     * raise it as timber and hands allow.
+     * One step of perimeter work: stake it when the stage calls for it, re-stake
+     * it when the town has grown past it, then raise it as timber and hands
+     * allow.
      */
     public static void advance(Settlement settlement, SimContext ctx) {
         if (settlement.stage().before(SettlementStage.FORTIFIED)) {
@@ -101,8 +102,135 @@ public final class PerimeterPlanner {
                     + staked.length() + " posts will ring " + settlement.name());
             return;
         }
+        restakeIfOutgrown(settlement, ctx);
         resiteGates(settlement, ctx);
         raise(settlement, ctx);
+    }
+
+    /**
+     * How often a standing ring is measured against the town inside it.
+     *
+     * <p>Asking the question is cheap — every plot's corners against the loop,
+     * a few thousand comparisons on the largest town measured here. Answering
+     * it is not: deciding whether to move the wall means staking a candidate
+     * ring, and that is a concave hull over every corner of every plot followed
+     * by four relaxation sweeps reading the terrain around each vertex.
+     * Measured on this simulation's own thread: <strong>a tenth of a second on
+     * a town of eighty-six buildings and a second and a half on one of two
+     * hundred</strong>. A step is five seconds of game time, so once in a
+     * hundred of them is once every eight minutes; every step would make this
+     * far and away the most expensive thing a settlement does.
+     *
+     * <p>That second number is the one to watch. It is the cost of
+     * {@code stake} itself, which a town used to pay exactly once, and it grows
+     * faster than the town does. If re-staking ever needs to be cheaper, the
+     * thing to make cheaper is {@link Hull#concave} — sixteen points per
+     * building is what it is being handed.
+     */
+    private static final int RESTAKE_REVIEW = 100;
+
+    /**
+     * How much longer a new ring must be before it is worth replacing the old.
+     *
+     * <p>This is the hysteresis, and without it a growing town would move its
+     * wall at every review for the rest of its life. The trigger — a plot
+     * outside the line — goes true the moment one shed is raised beyond the
+     * gate and stays true until something is done about it, so a trigger on its
+     * own is a latch, not a control.
+     *
+     * <p>An eighth longer is the band. Below it the town is tolerating an
+     * overspill, which is the honest answer for one building a few blocks past
+     * the line: a wall is not worth re-staking to collect a shed. Above it the
+     * wall is simply in the wrong place. Because each re-stake must clear the
+     * band, the ring grows geometrically and the number of re-stakes a town can
+     * ever make is bounded by how much it grows, not by how long it lives.
+     */
+    private static final double RESTAKE_GROWTH = 1.125;
+
+    /**
+     * Moves the wall out when the town has spread past it.
+     *
+     * <p>{@code chooseSite} prefers ground inside the ring and builds beyond it
+     * when nothing inside will do — and until now nothing ever answered that,
+     * so a town that outgrew its wall stayed outgrown for good. Measured on the
+     * rough-terrain seed at seven hundred steps: 58 of 85 buildings stood
+     * outside a ring that had closed at 648 posts. That is not a walled town
+     * with some outbuildings; it is a fenced-off old quarter with a town round
+     * it.
+     *
+     * <p>The trigger is a building whose reserved plot is not wholly inside the
+     * line — the corners, not the origin, because a wall that clips the back of
+     * a farm has not enclosed it. The old line is retired rather than kept: see
+     * {@link Perimeter#retired()}.
+     */
+    private static void restakeIfOutgrown(Settlement settlement, SimContext ctx) {
+        if (ctx.step() % RESTAKE_REVIEW != 0) {
+            return;
+        }
+        Perimeter standing = settlement.perimeter();
+        int spilled = plotsOutside(settlement, standing);
+        // Nothing has spilled out since the last time moving the wall was
+        // considered and refused, so the answer would be the same answer. Worth
+        // counting rather than merely asking whether ANY plot is outside,
+        // because that question is a latch -- one shed past the line leaves it
+        // true for ever, including for a town that has stopped growing
+        // entirely. Such a settlement used to pay a whole candidate staking,
+        // the tenth of a second above, every hundredth step for the rest of the
+        // world's life; and since every settlement in a dimension is stepped
+        // with the same clock, they all paid it on the same step.
+        if (spilled <= standing.refusedAt()) {
+            return;
+        }
+        Perimeter wider = stake(settlement, ctx);
+        if (wider.length() < standing.length() * RESTAKE_GROWTH) {
+            standing.setRefusedAt(spilled);
+            return;
+        }
+        List<Perimeter.Retired> retired = new ArrayList<>(standing.retired());
+        retired.add(new Perimeter.Retired(standing.vertices(), standing.laid()));
+        // The posts raised so far travel with the town. A wall moved outward is
+        // the same wall: the timber and the coin already spent bought posts,
+        // and a settlement carrying its palisade out to a wider line is
+        // re-using them rather than buying a second one. Charging for the whole
+        // ring again would fall hardest exactly where it is least affordable --
+        // on the grown town that has the most ring to pay for -- and would
+        // leave it standing in the open for the hundreds of steps it took to
+        // pay the first time.
+        settlement.setPerimeter(new Perimeter(wider.vertices(), wider.gates(),
+                Math.min(standing.laid(), wider.length()), retired));
+        settlement.logEvent(ctx.step(), settlement.name()
+                + " has outgrown its wall — the line is re-staked at "
+                + wider.length() + " posts, from " + standing.length());
+    }
+
+    /** How many plots the town holds have ended up outside its own wall. */
+    private static int plotsOutside(Settlement settlement, Perimeter ring) {
+        int spilled = 0;
+        for (Building building : settlement.buildings()) {
+            if (!BuildPlanner.holdsGround(building.blueprintId())) {
+                continue;
+            }
+            int half = BuildPlanner.plotSpanOf(
+                    building.blueprintId(), settlement.catalogue()) / 2;
+            SimPos at = building.origin();
+            if (!whollyInside(ring, at, half)) {
+                spilled++;
+            }
+        }
+        return spilled;
+    }
+
+    /** Whether every corner of this plot is inside the line. */
+    private static boolean whollyInside(Perimeter ring, SimPos at, int half) {
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sz = -1; sz <= 1; sz += 2) {
+                if (!Hull.contains(ring.vertices(), new SimPos(
+                        at.x() + sx * half, at.y(), at.z() + sz * half))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -193,15 +321,22 @@ public final class PerimeterPlanner {
      * an integer grid and the expensive version buys nothing at that size.
      * Every candidate move is checked against containment before it is taken,
      * so the terrain can never talk the line into abandoning a farm.
+     *
+     * <p>The plots go to the hull twice over: as corners it must enclose, and
+     * as ground it may not be drawn across. The second is not implied by the
+     * first — a plot's corners sit happily inside a loop whose line runs over
+     * its floor — and it is what stops the wall being staked through a standing
+     * house. {@link #relax} asks the same question of every move it considers.
      */
     public static Perimeter stake(Settlement settlement, SimContext ctx) {
         SimPos centre = settlement.centre();
         List<SimPos> plots = plotCorners(settlement);
-        List<SimPos> loop = Hull.concave(plots, MAX_STRAIGHT_RUN);
+        List<Hull.Keepout> squares = plotSquares(settlement);
+        List<SimPos> loop = Hull.concave(plots, MAX_STRAIGHT_RUN, squares);
         if (loop.size() < 3) {
             loop = boxAround(centre, MIN_HALF_SIDE);
         }
-        loop = pushOut(loop, centre, MARGIN);
+        loop = pushOut(loop, centre, MARGIN, plots, squares);
         loop = relax(loop, plots, settlement, ctx);
 
         // The ring first, then its gates -- a gate is a hole in a wall, so it
@@ -209,6 +344,21 @@ public final class PerimeterPlanner {
         Perimeter ring = new Perimeter(loop, List.of(), 0);
         ring.setGates(gatesFor(settlement, ring));
         return ring;
+    }
+
+    /** The ground the town's buildings stand on, which no stretch may cross. */
+    private static List<Hull.Keepout> plotSquares(Settlement settlement) {
+        List<Hull.Keepout> squares = new ArrayList<>();
+        for (Building building : settlement.buildings()) {
+            if (!BuildPlanner.holdsGround(building.blueprintId())) {
+                continue;
+            }
+            double half = BuildPlanner.plotSpanOf(
+                    building.blueprintId(), settlement.catalogue()) / 2.0;
+            squares.add(new Hull.Keepout(
+                    building.origin().x(), building.origin().z(), half));
+        }
+        return squares;
     }
 
     /** The building a vertex's own stretches of wall would be staked through. */
@@ -314,23 +464,55 @@ public final class PerimeterPlanner {
                 new SimPos(centre.x() - half, centre.y(), centre.z() + half));
     }
 
-    /** Moves every vertex directly away from the middle, to clear the buildings. */
-    private static List<SimPos> pushOut(List<SimPos> loop, SimPos centre, int margin) {
-        List<SimPos> out = new ArrayList<>(loop.size());
-        for (SimPos vertex : loop) {
+    /**
+     * Moves every vertex it safely can directly away from the middle, to leave
+     * clear ground between the wall and the buildings.
+     *
+     * <p>One vertex at a time and each move checked, which is not fussiness.
+     * Away from the middle is only the same direction as away from the town on
+     * a round town: on a concave line a bay's vertex is pushed roughly
+     * <em>along</em> its own stretches rather than square to them, which swings
+     * both of them, and a plot sitting just beyond the next vertex round falls
+     * out of the wall. Measured on a re-staked ring of a grown town: a bunkhouse
+     * left outside the line the whole town was inside, and a stretch drawn
+     * across somebody's floor — both after a concave hull that had put every
+     * corner inside and crossed nothing.
+     *
+     * <p>So the margin is a preference and containment is the rule, exactly as
+     * it is in {@link #relax}. A vertex that cannot take its margin without
+     * letting a plot out or drawing a stretch through one keeps the ground it
+     * has, and the wall runs a little closer to the houses just there.
+     */
+    private static List<SimPos> pushOut(List<SimPos> loop, SimPos centre, int margin,
+                                        List<SimPos> plots, List<Hull.Keepout> squares) {
+        List<SimPos> line = new ArrayList<>(loop);
+        for (int i = 0; i < line.size(); i++) {
+            SimPos vertex = line.get(i);
             double dx = vertex.x() - centre.x();
             double dz = vertex.z() - centre.z();
             double away = Math.sqrt(dx * dx + dz * dz);
             if (away < 1e-6) {
-                out.add(vertex);
                 continue;
             }
-            out.add(new SimPos(
+            line.set(i, new SimPos(
                     vertex.x() + (int) Math.round(dx / away * margin),
                     vertex.y(),
                     vertex.z() + (int) Math.round(dz / away * margin)));
+            if (!holdsEverything(line, plots) || crossesAt(line, i, squares)) {
+                line.set(i, vertex);
+            }
         }
-        return out;
+        return line;
+    }
+
+    /** Whether either stretch through this vertex is drawn across a plot. */
+    private static boolean crossesAt(List<SimPos> line, int at,
+                                     List<Hull.Keepout> squares) {
+        SimPos here = line.get(at);
+        SimPos before = line.get((at - 1 + line.size()) % line.size());
+        SimPos after = line.get((at + 1) % line.size());
+        return Hull.crossesKeepout(before, here, squares)
+                || Hull.crossesKeepout(here, after, squares);
     }
 
     /**
@@ -556,6 +738,11 @@ public final class PerimeterPlanner {
     private static void raise(Settlement settlement, SimContext ctx) {
         Perimeter perimeter = settlement.perimeter();
         if (perimeter.closed()) {
+            // The settlement's own flag latches, and now that a ring can be
+            // superseded that matters: re-staking opens the line again, and a
+            // town must not be demoted out of FORTIFIED -- or have its camp post
+            // start advertising an unfinished wall -- because it grew. It closed
+            // a wall once; what it is doing now is moving it.
             if (!settlement.perimeterClosed()) {
                 settlement.setPerimeterClosed(true);
                 settlement.logEvent(ctx.step(), "The palisade closes around "

@@ -111,6 +111,142 @@ class HullSimplicityTest {
         }
     }
 
+    /** A building's reserved ground: a span about an origin, as the town keeps it. */
+    private record Plot(int x, int z, int span) { }
+
+    /**
+     * The points the planner hands the hull, for a town of these plots.
+     *
+     * <p>Copied in shape from {@code PerimeterPlanner.plotCorners} rather than
+     * invented: every plot's eight boundary points and each of those pushed a
+     * margin further out from the middle of town. A fixture that fed the hull
+     * bare origins would be testing a hull nothing stakes.
+     */
+    private static List<SimPos> cornersOf(List<Plot> plots, int margin) {
+        List<SimPos> points = new ArrayList<>();
+        for (Plot plot : plots) {
+            int half = plot.span() / 2;
+            for (int sx = -1; sx <= 1; sx++) {
+                for (int sz = -1; sz <= 1; sz++) {
+                    if (sx == 0 && sz == 0) {
+                        continue;
+                    }
+                    int cx = plot.x() + sx * half;
+                    int cz = plot.z() + sz * half;
+                    points.add(at(cx, cz));
+                    double away = Math.hypot(cx, cz);
+                    if (away < 1) {
+                        continue;
+                    }
+                    points.add(at(cx + (int) Math.round(margin * cx / away),
+                            cz + (int) Math.round(margin * cz / away)));
+                }
+            }
+        }
+        return points;
+    }
+
+    /** Whether two plots foul one another, as {@code Layout.farEnoughApart} has it. */
+    private static boolean overlap(Plot a, Plot b) {
+        double apart = a.span() / 2.0 + b.span() / 2.0 + 2;
+        return Math.abs(a.x() - b.x()) < apart && Math.abs(a.z() - b.z()) < apart;
+    }
+
+    private static List<Hull.Keepout> keepoutsOf(List<Plot> plots) {
+        List<Hull.Keepout> squares = new ArrayList<>();
+        for (Plot plot : plots) {
+            squares.add(new Hull.Keepout(plot.x(), plot.z(), plot.span() / 2.0));
+        }
+        return squares;
+    }
+
+    /** The first stretch of loop drawn across somebody's ground, or nothing. */
+    private static String throughAPlot(List<SimPos> loop, List<Plot> plots) {
+        List<Hull.Keepout> squares = keepoutsOf(plots);
+        for (int i = 0; i < loop.size(); i++) {
+            SimPos from = loop.get(i);
+            SimPos to = loop.get((i + 1) % loop.size());
+            for (int p = 0; p < plots.size(); p++) {
+                if (Hull.crossesKeepout(from, to, List.of(squares.get(p)))) {
+                    Plot plot = plots.get(p);
+                    return "stretch " + i + " (" + from + "->" + to
+                            + ") is drawn through the " + plot.span() + "-wide plot at "
+                            + plot.x() + "," + plot.z();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A town whose plots are the sizes the catalogue reserves, arranged so the
+     * near-edge ones are what a long stretch would cut across: a ring of
+     * outliers with a dense middle, which is the arrangement that put a
+     * measured town's wall through ten of its sixteen buildings.
+     */
+    private static List<Plot> aTownOfPlots() {
+        List<Plot> plots = new ArrayList<>();
+        int[] spans = {11, 13, 7, 15, 23};
+        int n = 0;
+        // Thirty apart, because no town ever offers two plots that overlap --
+        // Layout.farEnoughApart refuses them -- and a fixture that did would be
+        // asking the wall to reach a corner standing inside somebody else's
+        // floor, which is unanswerable rather than merely hard.
+        for (int x = -60; x <= 60; x += 30) {
+            for (int z = -60; z <= 60; z += 30) {
+                plots.add(new Plot(x, z, spans[n++ % spans.length]));
+            }
+        }
+        plots.add(new Plot(-130, 10, 13));
+        plots.add(new Plot(140, -20, 11));
+        plots.add(new Plot(20, 135, 15));
+        plots.add(new Plot(-30, -140, 23));
+        return plots;
+    }
+
+    @Test
+    void noStretchOfWallIsDrawnThroughABuildingsPlot() {
+        // The third rule of the wall. "Nothing may cross" is the loop against
+        // itself and "nothing may end up outside" is about the points; a
+        // building is neither, and its corners sit happily inside a line that
+        // runs across its floor. That fence in the kitchen only ever read as a
+        // closed wall because a building's own wall stops people walking
+        // through it -- which is what `shutByBuilding` was quietly forgiving.
+        List<Plot> plots = aTownOfPlots();
+
+        List<SimPos> loop = Hull.concave(
+                cornersOf(plots, 4), 24, keepoutsOf(plots));
+
+        assertTrue(loop.size() >= 3, "a town of twenty-eight plots has a hull");
+        String fault = throughAPlot(loop, plots);
+        assertTrue(fault == null, "the palisade is staked through a house: " + fault);
+        assertTrue(selfIntersection(loop) == null,
+                "and the keepouts must not have bought that at the price of a knot");
+    }
+
+    @Test
+    void randomTownsNeverGetAWallThroughAHouse() {
+        // Sixty arrangements rather than one, for the reason the knot test
+        // gives: this is a property of the hull on any town with an interior,
+        // and a single lucky fixture would hide the cases it is not.
+        Random random = new Random(20260904L);
+        for (int trial = 0; trial < 60; trial++) {
+            List<Plot> plots = new ArrayList<>();
+            int[] spans = {7, 11, 13, 15, 23};
+            for (int i = 0; i < 200 && plots.size() < 24; i++) {
+                Plot candidate = new Plot(random.nextInt(300) - 150,
+                        random.nextInt(300) - 150, spans[random.nextInt(spans.length)]);
+                if (plots.stream().noneMatch(other -> overlap(candidate, other))) {
+                    plots.add(candidate);
+                }
+            }
+            List<SimPos> loop = Hull.concave(
+                    cornersOf(plots, 4), 20 + random.nextInt(30), keepoutsOf(plots));
+            String fault = throughAPlot(loop, plots);
+            assertTrue(fault == null, "trial " + trial + ": " + fault);
+        }
+    }
+
     @Test
     void theLoopStillFollowsTheTownRatherThanBoxingIt() {
         // The guard must not have simply turned the concave hull back into the

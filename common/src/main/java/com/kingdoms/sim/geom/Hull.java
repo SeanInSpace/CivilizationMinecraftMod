@@ -23,6 +23,38 @@ public final class Hull {
     }
 
     /**
+     * A square of ground the loop may not be drawn across — a building's plot.
+     *
+     * <p>A half-width about an origin rather than four corners, because that is
+     * the shape the town reserves ground in: {@code BuildPlanner.plotSpanOf}
+     * gives a span and a building stands in the middle of it.
+     */
+    public record Keepout(int x, int z, double half) {
+    }
+
+    /**
+     * How far inside a keepout's edge the line has to come before it counts as
+     * crossing the plot rather than running along it.
+     *
+     * <p>A whole block, and it is not a fudge. The points this hull wraps
+     * <em>are</em> the plots' corners, so a loop drawn through them touches
+     * every square it is built from — testing for contact would refuse the
+     * hull its own vertices. What a wall must not do is pass through the ground
+     * a building stands on, and that is a crossing of the interior.
+     *
+     * <p>A block rather than half of one because of where those corners sit. A
+     * plot is an odd span about an origin, so its true half-width is something
+     * and a half, while the corner offered to the hull is the whole number
+     * below — half a block of slack lands exactly on the corner ring and
+     * {@code Ways.distanceToSquare} counts a run along a face as entering it,
+     * which is the refusal this constant exists to avoid. The block of ground
+     * given up is the outermost ring of the plot, where a wall running along a
+     * building's edge is a wall along a building's edge and not a fence through
+     * its floor.
+     */
+    private static final double KEEPOUT_SLACK = 1.0;
+
+    /**
      * The tightest loop containing every point, corners only.
      *
      * <p>Andrew's monotone chain: sort by x then z, sweep once for the lower
@@ -71,6 +103,26 @@ public final class Hull {
      *                to come in and follow the points; smaller is tighter
      */
     public static List<SimPos> concave(List<SimPos> points, int maxEdge) {
+        return concave(points, maxEdge, List.of());
+    }
+
+    /**
+     * The same loop, forbidden to be drawn across any of these squares.
+     *
+     * <p>The third rule of the wall, and the one the other two only nearly
+     * imply. "Nothing may cross" is about the loop against itself and "nothing
+     * may end up outside" is about the points; between them a leg may still be
+     * dug straight through a building, because the plot's corners stay inside
+     * the loop while its middle is under the line. A wall staked through
+     * somebody's house is not a wall with a thick bit in it — it is a house
+     * with a fence in the kitchen, and the only reason it has ever read as
+     * closed is that a building's own wall stops people walking through it.
+     *
+     * @param keepouts ground the line may not cross — the plots the town has
+     *                 reserved, at the spans it reserved them
+     */
+    public static List<SimPos> concave(List<SimPos> points, int maxEdge,
+                                       List<Keepout> keepouts) {
         List<SimPos> loop = convex(points);
         if (loop.size() < 3 || maxEdge <= 0) {
             return loop;
@@ -113,6 +165,15 @@ public final class Hull {
                 if (wouldCross(loop, i, best)) {
                     continue;
                 }
+                // And only if neither leg is drawn through somebody's plot.
+                // See the overload's javadoc: the two rules above are about the
+                // loop and about the points, and a building is neither -- its
+                // corners can sit happily inside a line that runs across its
+                // floor.
+                if (crossesKeepout(from, best, keepouts)
+                        || crossesKeepout(best, to, keepouts)) {
+                    continue;
+                }
                 // And only if nothing ends up outside. This is the rule that
                 // makes the loop a wall rather than a tracing of the plots: a
                 // point already inside the line does not want visiting, and
@@ -136,6 +197,28 @@ public final class Hull {
             }
         }
         return loop;
+    }
+
+    /**
+     * Whether this leg is drawn across the ground any of these plots stands on.
+     *
+     * <p>Visible beyond the dig loop because this property is asserted of a
+     * finished line as well as enforced while one is drawn, and a rule with two
+     * spellings is a rule with a gap between them.
+     */
+    public static boolean crossesKeepout(SimPos from, SimPos to,
+                                         List<Keepout> keepouts) {
+        for (Keepout square : keepouts) {
+            double half = square.half() - KEEPOUT_SLACK;
+            if (half <= 0) {
+                continue;   // a plot narrower than a block cannot be crossed
+            }
+            if (Ways.distanceToSquare(from.x(), from.z(), to.x(), to.z(),
+                    square.x(), square.z(), half) == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether a point lies inside the loop, edges counting as inside. */

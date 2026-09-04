@@ -222,10 +222,31 @@ public final class KingdomsCodecs {
         }
     }
 
+    /**
+     * A wall a town has replaced. The raised count travels with the line
+     * because it is what says where there is anything to pull down: the tail a
+     * ring never reached is ordinary ground, and whatever stands on it now
+     * belongs to somebody else.
+     */
+    private static final Codec<Perimeter.Retired> RETIRED_LINE =
+            RecordCodecBuilder.create(i -> i.group(
+                    SIM_POS.listOf().fieldOf("vertices").forGetter(Perimeter.Retired::vertices),
+                    Codec.INT.optionalFieldOf("laid", 0).forGetter(Perimeter.Retired::laid)
+            ).apply(i, Perimeter.Retired::new));
+
     private static final Codec<Perimeter> PERIMETER = RecordCodecBuilder.create(i -> i.group(
             SIM_POS.listOf().fieldOf("vertices").forGetter(Perimeter::vertices),
             SIM_POS.listOf().fieldOf("gates").forGetter(Perimeter::gates),
-            Codec.INT.optionalFieldOf("laid", 0).forGetter(Perimeter::laid)
+            Codec.INT.optionalFieldOf("laid", 0).forGetter(Perimeter::laid),
+            // The lines a re-staked wall has superseded, which are still posts
+            // in the ground until the layer has pulled them down. It has to
+            // survive a save or a town reloaded mid-demolition keeps its old
+            // wall for ever, with the new one outside it -- two walls, which is
+            // the one thing this must not leave behind. Absent from every world
+            // saved before a town could outgrow its ring, and an empty list is
+            // exactly right for those: they have one wall and always had.
+            RETIRED_LINE.listOf().optionalFieldOf("retired", List.of())
+                    .forGetter(Perimeter::retired)
     ).apply(i, Perimeter::new));
 
     private static final Codec<PathNetwork.Segment> PATH_SEGMENT =

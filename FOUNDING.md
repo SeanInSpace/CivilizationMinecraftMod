@@ -307,3 +307,16 @@ corner to corner), and keep gates ON the loop (gateways are recognised by
 proximity to ring positions). The α-wall is for settlements that can afford
 it — small villages keep the palisade, which is why the tiers share the
 interface instead of replacing it.
+
+One thing has since been added to that surface, and it is the only thing that
+had to be: `retired()`. A ring is no longer staked once and kept for ever. A
+town that spreads past its wall stakes a wider one — the trigger is a reserved
+plot outside the line, reviewed on a cadence, and taken only when the new ring
+is at least an eighth longer than the old, which is what stops a growing town
+moving its wall for every shed. The superseded loop travels on the new
+`Perimeter` in `retired()` until whatever draws the world has pulled its posts
+down, because a settlement has one wall at a time and an old ring left standing
+inside a new one is the partition that shuts a settler out of their own bed.
+Everything else on the interface is unchanged: the raised count travels with
+the town rather than being reset, the closed flag latches, and the gates are
+re-sited by the rule that was already there.

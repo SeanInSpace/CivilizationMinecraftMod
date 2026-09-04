@@ -18,23 +18,79 @@ import java.util.Objects;
  *
  * <p>The vertices double as the sentry's patrol nodes; the positions along the
  * loop are what the palisade layer stamps into the world.
+ *
+ * <p>A ring is not for ever. A town that spreads past its own wall re-stakes,
+ * and the wider ring carries the lines it replaced in {@link #retired()} until
+ * the world has taken their posts down — a settlement has one wall at a time.
  */
 public final class Perimeter {
 
     /** Blocks of clear opening cut around each gate's centre. */
     public static final int GATE_HALF_WIDTH = 1;
 
+    /**
+     * A line the town has replaced: where it ran, and how much of it stood.
+     *
+     * <p>The raised count is the half that keeps the demolition honest. Only
+     * the first {@code laid} positions of a ring ever had a post put in them,
+     * so those are the only ones there is anything to pull down at — and the
+     * rest is ordinary ground that may since have had somebody's fence, field
+     * or bridge built on it. A demolition that swept the whole loop would take
+     * those away, having never put anything there.
+     */
+    public record Retired(List<SimPos> vertices, int laid) {
+        public Retired {
+            vertices = List.copyOf(vertices);
+            laid = Math.max(0, laid);
+        }
+    }
+
     private final List<SimPos> vertices;
     private List<SimPos> gates;
     private int laid;
+    private List<Retired> retired;
+
+    /** Worked out once: a ring's shape never changes after it is staked. */
+    private List<SimPos> retiredPositions;
+
+    /**
+     * How many plots stood outside this line when moving it was last refused.
+     *
+     * <p>Deliberately not saved. It is not a fact about the wall, it is a note
+     * about work already done — see {@code PerimeterPlanner.restakeIfOutgrown},
+     * which uses it to avoid staking the same candidate ring over and over for
+     * a town that has stopped growing. A reload forgets it and pays for one
+     * more candidate, which is the right price for not carrying a scratch note
+     * in every save file.
+     */
+    private int refusedAt;
+
+    public int refusedAt() {
+        return refusedAt;
+    }
+
+    public void setRefusedAt(int spilled) {
+        this.refusedAt = Math.max(0, spilled);
+    }
 
     public Perimeter(List<SimPos> vertices, List<SimPos> gates, int laid) {
+        this(vertices, gates, laid, List.of());
+    }
+
+    /**
+     * A ring that replaced others, carrying them until they are pulled down.
+     *
+     * @param retired the lines this ring supersedes, oldest first
+     */
+    public Perimeter(List<SimPos> vertices, List<SimPos> gates, int laid,
+                     List<Retired> retired) {
         if (vertices.size() < 3) {
             throw new IllegalArgumentException("a perimeter is a loop, not a line");
         }
         this.vertices = List.copyOf(vertices);
         this.gates = List.copyOf(gates);
         this.laid = Math.max(0, laid);
+        this.retired = List.copyOf(retired);
     }
 
     /** The loop's corners in walk order. Patrol nodes, verbatim. */
@@ -87,10 +143,14 @@ public final class Perimeter {
      * polygon a later planner might stake.
      */
     public List<SimPos> ringPositions() {
+        return walk(vertices);
+    }
+
+    private static List<SimPos> walk(List<SimPos> loop) {
         List<SimPos> ring = new ArrayList<>();
-        for (int i = 0; i < vertices.size(); i++) {
-            SimPos from = vertices.get(i);
-            SimPos to = vertices.get((i + 1) % vertices.size());
+        for (int i = 0; i < loop.size(); i++) {
+            SimPos from = loop.get(i);
+            SimPos to = loop.get((i + 1) % loop.size());
             int x = from.x();
             int z = from.z();
             while (x != to.x()) {
@@ -103,6 +163,73 @@ public final class Perimeter {
             }
         }
         return ring;
+    }
+
+    /**
+     * The lines this ring replaced, which are still standing in the world.
+     *
+     * <p>A town does not keep two walls. When a settlement outgrows its
+     * palisade the wider ring supersedes the old one rather than joining it —
+     * an inner fence line through the middle of a town is exactly the partition
+     * that the concave hull work was done to remove, and it would be no better
+     * for having been a wall once. So the old line travels with the new one
+     * until whatever draws the world has pulled its posts down.
+     *
+     * <p>The list cannot run away with itself. A ring is only replaced by one
+     * substantially longer than it — see {@code PerimeterPlanner} — so the
+     * lengths grow geometrically and a settlement has only so many re-stakings
+     * in it however long it lives. Three on a seven-hundred-step town, four on
+     * the founding ladder.
+     */
+    public List<Retired> retired() {
+        return retired;
+    }
+
+    /**
+     * Every position a retired line actually raised that the standing ring is
+     * not itself built on.
+     *
+     * <p>Two exclusions, and both are the difference between a demolition and
+     * vandalism. The unraised tail of an old ring is ground the wall never
+     * touched, so there is nothing of its there to take down and anything that
+     * <em>is</em> there is somebody else's. And a superseded ring can share
+     * ground with the one that replaced it: pulling down a post the drawing
+     * puts straight back is the treadmill that has halted this wall twice
+     * already.
+     */
+    public List<SimPos> retiredPositions() {
+        if (retired.isEmpty()) {
+            return List.of();
+        }
+        if (retiredPositions == null) {
+            java.util.Set<Long> seen = new java.util.HashSet<>();
+            for (SimPos post : ringPositions()) {
+                seen.add(column(post));
+            }
+            List<SimPos> out = new ArrayList<>();
+            for (Retired line : retired) {
+                List<SimPos> walked = walk(line.vertices());
+                int raised = Math.min(line.laid(), walked.size());
+                for (int i = 0; i < raised; i++) {
+                    SimPos post = walked.get(i);
+                    if (seen.add(column(post))) {
+                        out.add(post);   // and never twice, where two old lines met
+                    }
+                }
+            }
+            retiredPositions = List.copyOf(out);
+        }
+        return retiredPositions;
+    }
+
+    private static long column(SimPos at) {
+        return ((long) at.x() << 32) ^ (at.z() & 0xffffffffL);
+    }
+
+    /** The old lines are down; stop carrying them. */
+    public void forgetRetired() {
+        retired = List.of();
+        retiredPositions = List.of();
     }
 
     /** Whether this ring position is inside a gate's opening. */
@@ -121,11 +248,12 @@ public final class Perimeter {
         return o instanceof Perimeter other
                 && vertices.equals(other.vertices)
                 && gates.equals(other.gates)
-                && laid == other.laid;
+                && laid == other.laid
+                && retired.equals(other.retired);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(vertices, gates, laid);
+        return Objects.hash(vertices, gates, laid, retired);
     }
 }
