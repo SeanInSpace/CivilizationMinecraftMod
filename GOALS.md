@@ -282,6 +282,12 @@ and no agent can answer any of it. This list is worked through by playing, not b
 scheduling. Several of these want asking again now that the spacing and frontage
 work has landed, which changes what a street looks like from the middle of it.
 
+- [ ] Does a repair read as repair? A cottage with its walls taken off came
+      back whole within seconds, twenty times in four minutes — the whole
+      blueprint re-materialised rather than builders laying courses. It is
+      what kept the demolition write-off from ever firing, and whether it
+      looks like a town mending a house or a house un-happening is a
+      question for somebody watching it.
 - [ ] The larder's ceiling counts granaries and storehouses but not warehouses,
       while the timber and stone ceilings count every store. Preserved rather
       than changed while making capacity scale with level, because it may well
