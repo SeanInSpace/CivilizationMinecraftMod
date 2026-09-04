@@ -145,7 +145,7 @@ public abstract class PlannedLayout implements Layout {
      * largest town measured, and laying it costs a few milliseconds once per
      * town.
      */
-    private static final int PLAN_SIZE = 256;
+    private static final int PLAN_SIZE = Layout.WHOLE_PLAN;
 
     @Override
     public TownPlan planFor(SimPos centre, int wanted) {

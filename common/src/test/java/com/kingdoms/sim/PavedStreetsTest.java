@@ -112,7 +112,15 @@ class PavedStreetsTest {
         // Measured early, while it is still happening. A settled town catches up
         // with its own plan (266 of 268 open by five hundred steps), so a test
         // that waited would be asserting the opposite of what it means to.
-        Settlement town = town(Culture.LAYOUT_HIGH_STREET, new TerrainFake(11), 50);
+        //
+        // Twenty-five steps rather than fifty. Buildings are bigger and so cost
+        // more work, so a town of the same age has raised fewer of them and
+        // planned fewer streets — and the opener, which lays one stretch a step
+        // whatever else is happening, catches up with a shorter plan sooner.
+        // Measured: 20 of 40 open at step 25, 43 of 45 at step 50, level from
+        // step 75 on. Fifty is no longer early; it is the moment the two curves
+        // cross, which is a coin toss rather than a test.
+        Settlement town = town(Culture.LAYOUT_HIGH_STREET, new TerrainFake(11), 25);
         int opened = town.paths().openedCount();
         int total = town.paths().segments().size();
         assertTrue(total > 0, "the town planned nothing to open");

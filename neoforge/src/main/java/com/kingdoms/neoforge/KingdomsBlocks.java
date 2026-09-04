@@ -86,6 +86,21 @@ public final class KingdomsBlocks {
             "house",
             properties -> new BuildingPostBlock("Dwelling", "a family lives here; housing is what lets the town grow.", properties),
             KingdomsBlocks::postProperties);
+    /** Longhouse: one long roof over three households, for a town short of ground. */
+    public static final DeferredBlock<BuildingPostBlock> LONGHOUSE = BLOCKS.registerBlock(
+            "longhouse",
+            properties -> new BuildingPostBlock("Longhouse", "three households under one long roof — how a town houses six people on the ground a house takes.", properties),
+            KingdomsBlocks::postProperties);
+    /** Croft: a house wrapped round its own yard, six under the roof. */
+    public static final DeferredBlock<BuildingPostBlock> CROFT = BLOCKS.registerBlock(
+            "croft",
+            properties -> new BuildingPostBlock("Croft", "a house built round two sides of its own yard; six live here and the corner is theirs.", properties),
+            KingdomsBlocks::postProperties);
+    /** Library: what a town builds once it has more than it needs. */
+    public static final DeferredBlock<BuildingPostBlock> LIBRARY = BLOCKS.registerBlock(
+            "library",
+            properties -> new BuildingPostBlock("Library", "the town's record and its learning — the building a settlement raises only once it can afford to.", properties),
+            KingdomsBlocks::postProperties);
     /** Granary: harvest is carried here from the fields and kept. */
     public static final DeferredBlock<BuildingPostBlock> GRANARY = BLOCKS.registerBlock(
             "granary",

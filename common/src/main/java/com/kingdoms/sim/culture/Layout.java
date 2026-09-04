@@ -187,6 +187,28 @@ public interface Layout {
     int DEFAULT_SPAN = 11;
 
     /**
+     * How many plots a plan is laid at, whatever size is asked for.
+     *
+     * <p>Lives here rather than in {@link TownPlan} or in one implementation
+     * because callers need it: asking a layout for the plan of a town of one
+     * gives back a plan with one plot in it, and anything hunting through
+     * {@code plots()} for the plot it is holding will find it only if that plot
+     * happens to be the first. {@code frontsARefusedStreet} did exactly that and
+     * so answered for plot zero and no other.
+     */
+    int WHOLE_PLAN = 256;
+
+    /**
+     * Every plot this town will ever have, however few of them are built.
+     *
+     * <p>For callers that have a position and want to know what the plan says
+     * about it. Never for callers that want to know how big the town is.
+     */
+    default TownPlan fullPlan(SimPos centre) {
+        return planFor(centre, WHOLE_PLAN);
+    }
+
+    /**
      * How far out the town's claim should reach for a plot at this distance.
      *
      * <p>Layouts that sprawl need more margin than layouts that huddle.

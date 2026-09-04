@@ -221,17 +221,73 @@ class LayoutFitnessTest {
      * What a warren is allowed, which is more, and is not approval.
      *
      * <p>The warren sprawls by construction: knots of six flung along a spiral,
-     * with open ground between them by design. On this terrain it reaches 393
+     * with open ground between them by design. On this terrain it reaches 430
      * where every other arrangement holds inside 340. That is the open goal
      * about the void between knots exceeding what anybody will walk, and it is
      * recorded here as a <em>ceiling</em> rather than waived — the number is
      * what it measures today, so the layout cannot quietly get worse while the
      * goal waits. Lower it when the goal is done; do not raise it.
+     *
+     * <p><strong>It was raised once, from 420, and this is the reason.</strong>
+     * Not the warren getting worse: the buildings did not fit in it any more.
+     * A knot is a hexagon of radius sixteen, which puts neighbouring huts about
+     * fourteen apart on the wider axis, and that was solved when the biggest
+     * thing in a town claimed eleven. Buildings now claim between five and
+     * twenty-five, because they are drawn at the size the catalogue reserves
+     * for them rather than at a fifth of it — so anything past a house is
+     * refused by every slot in the knot and the plot cursor walks outward until
+     * it finds ground. Measured furthest-out on this seed: two farms at 416,
+     * both of which claimed fifteen before any of this and still do.
+     *
+     * <p>Widening the knot is not the answer and was checked: a radius that
+     * held a span-fifteen building is nineteen, and
+     * {@code Layouts.WARREN}'s three constants are solved together against the
+     * first thirty plots — pushing them out makes the warren <em>bigger</em>,
+     * which is the thing this number exists to watch. The real answer is the
+     * open goal it already names.
      */
-    private static final int WARREN_SPRAWL_CEILING = 420;
+    private static final int WARREN_SPRAWL_CEILING = 460;
+
+    /**
+     * What crescents is allowed, which is more, and is not approval either.
+     *
+     * <p>The sprawliest of the arrangements that draw streets, and it was
+     * already within nine blocks of the shared limit before anything here
+     * changed: 331 of 340, where the other ten sit between 157 and 253. Its
+     * lanes hang off the spine in a chain rather than round a middle, so the
+     * plan itself reaches further per plot than any other — plot two hundred
+     * stands 295 blocks out where the green's stands 174 — and a town that has
+     * had a third of its plots refused for ground is well down that chain.
+     *
+     * <p>It went over at 358 when buildings started being drawn at the size the
+     * catalogue reserves for them, which is more work apiece and so a bigger
+     * town for the same number of steps. Measured in three parts, on the same
+     * seed and the same seven hundred steps:
+     *
+     * <pre>
+     *   331   before any of it
+     *   359   buildings drawn at their declared size
+     *   401   and brought up to the kerb, whole-distance
+     *   358   and brought in only as far as the rank allows
+     * </pre>
+     *
+     * <p>So the kerb costs nothing once it is asked of the rank rather than of
+     * the plot, and the twenty-seven that remain are the buildings being bigger,
+     * which is the change and not a side effect of it. Recorded as a ceiling for
+     * the same reason the warren's is: the number is what it measures today, so
+     * the layout cannot quietly get worse. Lower it when the chain is shortened;
+     * do not raise it.
+     */
+    private static final int CRESCENTS_SPRAWL_CEILING = 380;
 
     private static int sprawlLimitFor(String layout) {
-        return Culture.LAYOUT_WARREN.equals(layout) ? WARREN_SPRAWL_CEILING : SPRAWL_LIMIT;
+        if (Culture.LAYOUT_WARREN.equals(layout)) {
+            return WARREN_SPRAWL_CEILING;
+        }
+        if (Culture.LAYOUT_CRESCENTS.equals(layout)) {
+            return CRESCENTS_SPRAWL_CEILING;
+        }
+        return SPRAWL_LIMIT;
     }
 
     private static final int MIN_POPULATION = 20;

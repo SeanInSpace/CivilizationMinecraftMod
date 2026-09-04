@@ -427,6 +427,33 @@ public final class Settlement {
      */
     private static final int SITE_CHOICES = 12;
 
+    /**
+     * What it is worth to a building not to front a road that was never built.
+     *
+     * <p>A preference, and it has to be one. Refusing such a plot outright is
+     * what this did, and it reads perfectly sensibly — a house whose only reason
+     * for standing there was a street the hillside refused is a house facing a
+     * field, so pass it over and take the next offer. The flaw is in the last
+     * clause. It assumed the next offer is nearby, and on an arrangement whose
+     * lanes are refused in whole families it is not: the town walks past every
+     * plot on every refused lane, and the plot cursor is what walks.
+     *
+     * <p>Measured on the crescents arrangement, whose curved lanes the router
+     * refuses often: a town of eighty-five buildings stood inside a plan
+     * reaching a hundred and twenty-six blocks and was spread over three
+     * hundred and ninety-seven, because the cursor had run to plot two hundred
+     * and seventy. Every other arrangement was doing the same thing more
+     * quietly. The rule had been dormant for its whole life — it looked the plot
+     * up in a plan of ONE plot and so answered for plot zero and no other — and
+     * it only did this once the lookup was fixed.
+     *
+     * <p>Priced above any distance-to-road a town of this size produces, so a
+     * plot on a real street beats one on a refused street whenever there is one
+     * in the dozen candidates weighed. Below infinity, so a town with nothing
+     * better builds where it stands instead of marching off to find better.
+     */
+    private static final double FACING_A_FIELD = 256;
+
     private SimPos chooseSite(SimContext ctx, int span, BuildingRole role) {
         SimPos best = null;
         double bestCost = Double.MAX_VALUE;
@@ -435,8 +462,7 @@ public final class Settlement {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
             SimPos candidate = arrangement().plotFor(centre, index);
-            if (!isPlotFree(candidate, span, null)
-                    || frontsARefusedStreet(candidate)) {
+            if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
             if (!ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
@@ -447,6 +473,13 @@ public final class Settlement {
                 firstFree = index;
             }
             double cost = siteCost(candidate, role, ctx);
+            if (frontsARefusedStreet(candidate)) {
+                // Weighed rather than refused. A negative cost means the town
+                // has no opinion and takes the first fit, and a plot fronting a
+                // street that will never exist is precisely an opinion -- so the
+                // shortcut below must not be reached for one.
+                cost = Math.max(0, cost) + FACING_A_FIELD;
+            }
             if (cost < 0) {
                 // Nothing to prefer — no streets and no partner standing yet —
                 // so the first fit wins, which is what this did before there was
@@ -635,7 +668,7 @@ public final class Settlement {
         if (paths == null || !Layouts.isStreetsFirst(arrangement())) {
             return false;
         }
-        TownPlan plan = arrangement().planFor(centre, 1);
+        TownPlan plan = arrangement().fullPlan(centre);
         for (TownPlan.Plot plot : plan.plots()) {
             if (plot.at().x() == candidate.x() && plot.at().z() == candidate.z()) {
                 return plot.frontsAStreet()
@@ -1858,6 +1891,14 @@ public final class Settlement {
     private void orderBuild(SimContext ctx, BuildingType type) {
         SimPos flat = chooseSite(ctx, type);
 
+        // Read the way it should look BEFORE moving it. The plan answers that
+        // by finding the plot among its own offers, and a plot that has been
+        // shifted off its offer is not among them any more -- it falls through
+        // to "face the middle of the town", which is what a lattice does and is
+        // precisely the thing drawing streets first was for.
+        int facing = arrangement().facingFor(centre, flat);
+        flat = againstTheKerb(flat, type.plotSpan());
+
         // Snap to the terrain when the chunk is available; otherwise the
         // centre's height stands in and the world snaps again at placement.
         SimPos plot = new SimPos(flat.x(), ctx.bridge().surfaceHeight(flat), flat.z());
@@ -1870,10 +1911,194 @@ public final class Settlement {
         }
 
         BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
-        ordered.setFacing(arrangement().facingFor(centre, plot));
+        ordered.setFacing(facing);
         payForLevelling(plot, type.plotSpan(), ctx);
         buildQueue.add(ordered);
     }
+
+    /**
+     * Moves a plot up to the kerb of the street it fronts.
+     *
+     * <p>The plan sets a plot back far enough for the largest building that
+     * might stand on it, and it has to: it reserves ground before anybody knows
+     * what is going there, and reserving for the smallest would put a hall in
+     * the road. What that costs is that a cottage — the commonest building in
+     * any town — takes a setback drawn for something twice its size and ends up
+     * standing in the middle of its own field.
+     *
+     * <p>Measured on a grown town before this existed: seven blocks of bare
+     * grass between a front wall and the kerb, on every house, in every
+     * arrangement. A street of them reads as two rows of sheds facing a gap.
+     *
+     * <p>This has existed for a while and only ever ran in {@code /civ
+     * buildtest}, whose own comment says "the plan cannot fix this, the renderer
+     * can" — and the renderer is not what builds a town. Every settlement that
+     * actually grew, every settlement world generation raised, kept the full
+     * setback. The rule belongs here, where towns are built.
+     *
+     * <p>It only ever moves a building TOWARD its street and never past the
+     * kerb, so nothing can be pushed onto the road it fronts. A plot that is
+     * already close enough is left exactly where the plan put it.
+     */
+    private SimPos againstTheKerb(SimPos plot, int span) {
+        if (!Layouts.isStreetsFirst(arrangement())) {
+            return plot;   // a lattice has no street to come up to
+        }
+        TownPlan plan = arrangement().fullPlan(centre);
+        TownPlan.Plot offered = null;
+        for (TownPlan.Plot candidate : plan.plots()) {
+            if (candidate.at().x() == plot.x() && candidate.at().z() == plot.z()) {
+                offered = candidate;
+                break;
+            }
+        }
+        if (offered == null || plan.streetOf(offered) == null) {
+            return plot;   // sited by its own planner, not off the plan
+        }
+        TownPlan.Street fronts = plan.streetOf(offered);
+        List<TownPlan.Plot> beside = nextDoor(plan, offered);
+
+        // As far in as the rank can go, and no further.
+        //
+        // Coming up to the kerb by the whole distance is right on a straight
+        // street and wrong on a curved one, for the reason that has cost this
+        // project more than any other: a rank moved inward along its own normals
+        // sits on a SHORTER arc than the rank it came from, so its pitch shrinks
+        // with it. Crescents draws lanes of a radius where four blocks of
+        // approach takes fourteen blocks of pitch down to about twelve and a
+        // half -- under what the overlap check wants of two houses -- so every
+        // second plot on every lane was refused and the plot cursor ran out
+        // past the town. Measured: 331 blocks of spread before any of this, 359
+        // once the buildings grew, 401 once they came to the kerb.
+        //
+        // So the question is asked of the rank rather than of the one plot: pull
+        // this plot and its neighbours by the same fraction, and take the
+        // largest fraction at which they all still clear each other. On a
+        // straight street every fraction clears and it comes all the way in.
+        for (int step = APPROACH_STEPS; step >= 1; step--) {
+            double part = step / (double) APPROACH_STEPS;
+            SimPos moved = broughtIn(fronts, plot, span, part);
+            if (moved.equals(plot)) {
+                continue;
+            }
+            boolean clears = true;
+            for (TownPlan.Plot near : beside) {
+                TownPlan.Street theirs = plan.streetOf(near);
+                SimPos alsoMoved = theirs == null
+                        ? near.at() : broughtIn(theirs, near.at(), span, part);
+                if (BuildPlanner.plotsOverlap(moved, span, alsoMoved, span)) {
+                    clears = false;
+                    break;
+                }
+            }
+            // And then the ordinary question, of what is actually standing.
+            // The rank test is about plots that may never be built; this is
+            // about the neighbour that already is.
+            if (clears && isPlotFree(moved, span, null)) {
+                return moved;
+            }
+        }
+        return plot;
+    }
+
+    /**
+     * How many fractions of the approach are tried before giving up on it.
+     *
+     * <p>Four, from the whole way in to a quarter of it. A gently curved lane
+     * takes most of the approach and a tight one takes some of it, which is
+     * better than the all-or-nothing that leaves a whole crescent standing back
+     * at the setback drawn for a building three times its size.
+     */
+    private static final int APPROACH_STEPS = 4;
+
+    /** How many of a plot's plan neighbours are asked whether it may come in. */
+    private static final int NEIGHBOURS_CONSULTED = 4;
+
+    /**
+     * Where this plot stands when brought part of the way to its kerb.
+     *
+     * <p>Both directions. Coming in is what a cottage needs, because the plan
+     * sets every plot back far enough for the largest thing that might stand on
+     * it. Backing off is what the largest thing itself needs: without it a
+     * building broader than twice the setback can never front a street at all —
+     * every offer it is made stands in the carriageway and is refused, and it
+     * ends up in the outskirts facing nothing. The library is exactly that
+     * building.
+     *
+     * <p>The distance it settles at is the one the road router would keep
+     * between that street and this plot, borrowed from the router itself so the
+     * two cannot come to differ. Not the width of the PAVED strip, which is a
+     * third of the carriageway rather than half of it and is what the renderer's
+     * version of this used: a street reserves eight blocks and surfaces five,
+     * and the three it reserves without surfacing are still the street. A
+     * building brought up to the tarmac stands in the reservation, and the road
+     * laid there later is refused, routed round, or run through the wall.
+     */
+    private static SimPos broughtIn(TownPlan.Street street, SimPos plot, int span,
+                                    double part) {
+        SimPos onStreet = nearestPointOn(street, plot);
+        double dx = plot.x() - onStreet.x();
+        double dz = plot.z() - onStreet.z();
+        double away = Math.hypot(dx, dz);
+        if (away < 1) {
+            return plot;   // already on the line; leave it alone
+        }
+        double wanted = PathPlanner.keepoutRound(span);
+        double to = away + (wanted - away) * part;
+        return new SimPos(
+                onStreet.x() + (int) Math.round(dx / away * to), plot.y(),
+                onStreet.z() + (int) Math.round(dz / away * to));
+    }
+
+    /**
+     * The handful of plots this one has to stay clear of.
+     *
+     * <p>The nearest few rather than every plot on the street, because the ones
+     * that decide whether a rank can close up are its immediate neighbours and
+     * scanning two hundred and fifty-six of them on every build to learn that
+     * twice over is a waste. Four covers both plots along the rank and the two
+     * across the way.
+     */
+    private static List<TownPlan.Plot> nextDoor(TownPlan plan, TownPlan.Plot of) {
+        List<TownPlan.Plot> near = new ArrayList<>(plan.plots());
+        near.remove(of);
+        near.sort((a, b) -> Long.compare(
+                a.at().horizontalDistanceSq(of.at()), b.at().horizontalDistanceSq(of.at())));
+        return near.subList(0, Math.min(NEIGHBOURS_CONSULTED, near.size()));
+    }
+
+    /** The point on a street's centreline nearest a plot, walked piece by piece. */
+    private static SimPos nearestPointOn(TownPlan.Street street, SimPos from) {
+        SimPos nearest = street.path().get(0);
+        double best = Double.MAX_VALUE;
+        List<SimPos> path = street.path();
+        for (int i = 0; i < path.size(); i++) {
+            SimPos a = path.get(i);
+            // The ends of a piece are not enough: a street is drawn every eight
+            // blocks and a plot standing opposite the middle of a run would be
+            // measured to a corner, which puts it down at an angle to its own
+            // street.
+            for (int step = 0; step <= PIECES_ALONG; step++) {
+                SimPos at = a;
+                if (i + 1 < path.size()) {
+                    SimPos b = path.get(i + 1);
+                    double part = step / (double) PIECES_ALONG;
+                    at = new SimPos(
+                            (int) Math.round(a.x() + (b.x() - a.x()) * part), a.y(),
+                            (int) Math.round(a.z() + (b.z() - a.z()) * part));
+                }
+                double away = Math.hypot(at.x() - from.x(), at.z() - from.z());
+                if (away < best) {
+                    best = away;
+                    nearest = at;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    /** How finely a drawn street piece is walked when measuring to it. */
+    private static final int PIECES_ALONG = 8;
 
     /** Graduates the settlement when its stage's conditions are met. */
     private void advanceStage(SimContext ctx) {

@@ -282,7 +282,7 @@ public final class PathPlanner {
      * and the routed roads promptly did: a farm came back standing on a
      * carriageway that had bent politely around its middle.
      */
-    private static int keepoutRound(int span) {
+    public static int keepoutRound(int span) {
         return span / 2 + KERB + WIDEST_ROAD_HALF;
     }
 

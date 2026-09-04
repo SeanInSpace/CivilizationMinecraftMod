@@ -42,8 +42,14 @@ public final class LumberPlanner {
      *
      * <p>Sized above what a founding party carries in, and well above it since
      * construction started spending timber rather than merely accruing it.
+     *
+     * <p>It has to stay above the kit and not merely near it: {@code Founding}
+     * clamps the stock it grants to this, so a ceiling below
+     * {@link com.kingdoms.sim.settlement.TownStores#FOUNDING_WOOD} does not
+     * refuse the charter, it silently shaves it — and the party finds out by
+     * running out of timber on the roof of its own hall.
      */
-    public static final int BASE_WOOD_STORAGE = 512;
+    public static final int BASE_WOOD_STORAGE = 896;
     public static final int WOOD_PER_STOREHOUSE = 400;
 
     /**

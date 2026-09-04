@@ -119,10 +119,39 @@ public final class TownStores implements Stock {
      * may be up to {@code ExpansionPlanner.FOUNDING_PARTY_MAX}, and the kit is
      * priced against that crew too.
      */
-    public static final int FOUNDING_WOOD = 480;
-    public static final int FOUNDING_STONE = 288;
+    /*
+     * Up again, from 480/288 to 704/384, and for one reason: the buildings the
+     * kit pays for got bigger.
+     *
+     * A hall went from seven by seven to thirteen by eleven and a house from
+     * five to nine, because every street in the mod was spaced for buildings
+     * roughly twice the size of the ones being put on it. The programme those
+     * two head is what the kit exists to buy, and its bill went from 446 timber
+     * to 624 -- so the old kit bought about three quarters of a founding and
+     * then stopped, with the party standing on an unfinished hall.
+     *
+     * Nothing here was reasoned differently; the same reasoning was applied to
+     * a bigger number. Everything the paragraphs above say about the shape of
+     * the kit -- why stone keeps the fatter reserve, why the provisions are
+     * priced against the road to the first field -- still holds.
+     *
+     * The ceilings moved with it. LumberPlanner.BASE_WOOD_STORAGE was 512 and
+     * Founding clamps the kit to it, so a kit of 704 would have been quietly
+     * cut to 512 on arrival and the party would have been short without
+     * anything saying so.
+     */
+    public static final int FOUNDING_WOOD = 704;
+    public static final int FOUNDING_STONE = 384;
     public static final int FOUNDING_SETTLERS = 4;
-    public static final int FOUNDING_PROVISIONS_EACH = 8;
+    /*
+     * Nine loaves, not eight. One provision feeds a settler fifteen steps, and
+     * the hall and the first house now want a hundred and twenty-five of them
+     * from a lone builder -- five more than eight loaves last. A settler who
+     * runs out of food while raising the roof they will live under falls back
+     * on the granary, which at that point holds what the charter granted and
+     * nothing else.
+     */
+    public static final int FOUNDING_PROVISIONS_EACH = 9;
 
     private final Map<String, Integer> amounts = new LinkedHashMap<>();
 
