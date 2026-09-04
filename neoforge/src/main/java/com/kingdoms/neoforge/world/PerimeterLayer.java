@@ -60,7 +60,14 @@ public final class PerimeterLayer {
     /** Stamps the laid prefix of the ring into the world. */
     public static void draw(ServerLevel level, Settlement settlement) {
         Perimeter perimeter = settlement.perimeter();
-        if (perimeter == null || perimeter.laid() <= 0) {
+        if (perimeter == null) {
+            return;
+        }
+        // Before the new wall, the old one comes down -- and it comes down even
+        // when nothing is being raised, so a town that re-stakes and then runs
+        // out of timber is not left standing inside two walls indefinitely.
+        takeDownSuperseded(level, settlement, perimeter);
+        if (perimeter.laid() <= 0) {
             return;
         }
         List<SimPos> ring = perimeter.ringPositions();
@@ -98,6 +105,148 @@ public final class PerimeterLayer {
         CURSOR.put(settlement.id(), i);
     }
 
+
+    /**
+     * Pulls down a wall the town has superseded.
+     *
+     * <p>A settlement that outgrows its palisade stakes a wider one, and the
+     * two must never both stand. An old ring left up inside a new one is a
+     * fence line through the middle of a town — precisely the partition the
+     * concave-hull work was done to remove, and no better for having been a
+     * wall once. It shuts settlers out of their beds all the same.
+     *
+     * <p>Swept on the same cursor discipline as the raising — resumed where it
+     * stopped, so no stretch can starve another — on a quarter of its budget,
+     * because a wall going up is what a town is waiting for and a wall coming
+     * down is only untidy. The retired line is forgotten only after one full
+     * circuit that found every position loaded and nothing of ours standing:
+     * anything less writes off a stretch in an unloaded chunk without anybody
+     * having looked at it, and that stretch is precisely where a forgotten
+     * wall would sit for the rest of the world's life.
+     */
+    private static void takeDownSuperseded(ServerLevel level, Settlement settlement,
+                                           Perimeter perimeter) {
+        List<SimPos> retired = perimeter.retiredPositions();
+        if (retired.isEmpty()) {
+            DEMOLITION.remove(settlement.id());
+            return;
+        }
+        Demolition state = DEMOLITION.getOrDefault(settlement.id(), new Demolition(0, false));
+        int i = state.cursor() >= retired.size() ? 0 : state.cursor();
+        // A cursor back at zero is a circuit boundary, so what the last one
+        // found is already spent; anywhere else, this circuit is still running.
+        boolean outstanding = i != 0 && state.outstanding();
+        int taken = 0;
+        int looked = 0;
+        int examined = 0;
+        int reach = Math.min(retired.size(), RETIRED_LOOK);
+        while (looked < RETIRED_SCAN && examined < reach && taken < RETIRED_SLICE) {
+            SimPos pos = retired.get(i);
+            if (!level.isLoaded(new BlockPos(pos.x(), pos.y(), pos.z()))) {
+                outstanding = true;   // nobody has looked at this stretch yet
+            } else {
+                looked++;
+                if (pullDownOurs(level, pos)) {
+                    taken++;
+                    outstanding = true;
+                }
+            }
+            examined++;
+            i++;
+            if (i >= retired.size()) {
+                i = 0;
+                if (!outstanding) {
+                    perimeter.forgetRetired();
+                    DEMOLITION.remove(settlement.id());
+                    return;
+                }
+                outstanding = false;   // a fresh circuit judges itself
+            }
+        }
+        DEMOLITION.put(settlement.id(), new Demolition(i, outstanding));
+    }
+
+    /**
+     * Where a settlement's demolition had got to, and whether this circuit has
+     * found anything at all — a stretch still standing, or one nobody could see.
+     */
+    private record Demolition(int cursor, boolean outstanding) {
+    }
+
+    private static final java.util.Map<com.kingdoms.sim.settlement.Settlement.Id, Demolition>
+            DEMOLITION = new java.util.HashMap<>();
+
+    /**
+     * Takes a superseded post out of a column, if that is what is standing there.
+     *
+     * <p>The signature is checked before anything is broken, and this is the
+     * whole of what keeps a demolition from being vandalism. A fence is not the
+     * wall's private block: a pen is fenced, a field is fenced, a bridge has
+     * railings, and every one of those is a single course. What the wall
+     * uniquely builds is <em>two</em> courses of fence with its lamp above, or
+     * a gate on the line — so a lone fence found on a retired position belongs
+     * to somebody and is left exactly where it is.
+     */
+    private static boolean pullDownOurs(ServerLevel level, SimPos pos) {
+        BlockPos ground = surface(level, pos);
+        if (ground == null) {
+            return false;
+        }
+        boolean post = isPostBlock(level.getBlockState(ground))
+                && isPostBlock(level.getBlockState(ground.above()));
+        if (!post && !level.getBlockState(ground).is(Blocks.OAK_FENCE_GATE)) {
+            return false;
+        }
+        boolean took = false;
+        for (int dy = 0; dy <= RETIRED_REACH; dy++) {
+            BlockPos at = ground.above(dy);
+            if (!level.isLoaded(at)) {
+                break;
+            }
+            if (isOurs(level, at)) {
+                level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                took = true;
+            }
+        }
+        return took;
+    }
+
+    /**
+     * How far up a retired position to pull.
+     *
+     * <p>A post is two courses with a lamp on the third, so three is the whole
+     * of what the wall ever puts in a column. {@code surface} has already
+     * walked down through the wall's own work to find the footing, so this
+     * starts at the bottom of the stack rather than somewhere in the middle
+     * of it.
+     */
+    private static final int RETIRED_REACH = 2;
+
+    /**
+     * What a demolition may do and look at in one sweep.
+     *
+     * <p>A quarter of the drawing's, for the reason given in
+     * {@link #takeDownSuperseded}: a wall going up is what a town is waiting
+     * for, and one coming down is only untidy. It also has to keep looking long
+     * after it has finished, because a stretch nobody has loaded cannot be
+     * called clear — so the cost of the looking is what wants to be small.
+     */
+    private static final int RETIRED_SLICE = 6;
+
+    private static final int RETIRED_SCAN = 64;
+
+    /**
+     * Positions visited per sweep whether or not anybody can see them.
+     *
+     * <p>{@link #RETIRED_SCAN} counts only the ones that could be looked at, so
+     * on its own it is no bound at all for the case this sweep spends most of
+     * its life in: a line whose demolition is finished except for a stretch in
+     * a chunk nobody loads. That never satisfies the forget rule, so the sweep
+     * goes round for ever, and without this it would walk the whole retired
+     * line every second doing nothing. A circuit takes a few sweeps instead of
+     * one, which costs a demolition nobody is waiting on precisely nothing.
+     */
+    private static final int RETIRED_LOOK = 128;
 
     /**
      * How far round the ring each settlement's sweep had got.
@@ -259,6 +408,27 @@ public final class PerimeterLayer {
      * storehouse wall. That is not a hole. A building is a better wall than a
      * fence, and counting those positions as gaps made the wall report read far
      * worse than the wall was.
+     *
+     * <p>This is no longer load-bearing, and it is worth saying so plainly
+     * because it was: the {@code shutByBuilding} count in {@code /civ wall} —
+     * two or three positions on a measured ring — was the only thing standing
+     * between "the wall is complete" and "the wall is staked through somebody's
+     * house", and it forgave both alike. The staking now rules that out at
+     * every stage that draws a line: {@code Hull.concave} digs no leg across a
+     * plot, {@code PerimeterPlanner.pushOut} gives up its margin at a vertex
+     * rather than swing a stretch over one, and {@code relax} refuses any move
+     * onto one. So a position closed by a building is a position where the line
+     * grazes a wall rather than crossing it.
+     *
+     * <p>What is <em>not</em> claimed: the convex hull the concave loop starts
+     * from is not itself checked, and none of the three rules can repair a
+     * stretch that was across a plot before they were asked — they refuse moves,
+     * they do not undo them. Sixty random towns produce no such stretch and
+     * neither does the grown one in {@code WallRestakeTest}, so it is a gap in
+     * the proof rather than an observed fault. Which is exactly why this stays
+     * as a guard rather than being deleted: a report that calls a solid stretch
+     * a hole is a report nobody reads, and the day this count climbs is the day
+     * that gap has stopped being theoretical.
      *
      * <p>Two courses, because that is what a post is. A single step somebody can
      * stand on is not a wall, and half of one is a stile.

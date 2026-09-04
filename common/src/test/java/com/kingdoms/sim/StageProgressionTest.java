@@ -42,6 +42,21 @@ class StageProgressionTest {
 
     private static final SimContext CTX = new SimContext(new QuietBridge(), 0, SimSettings.SANDBOX);
 
+    /**
+     * The same quiet world, told which step it is.
+     *
+     * <p>{@link #CTX} says step zero for ever, which is harmless for the tests
+     * that take one or two steps and quietly wrong for the ones that run a
+     * founding. Several planners do work on a cadence — {@code n % 20} for the
+     * gates, {@code n % 100} for reviewing whether the town has outgrown its
+     * wall — and a clock stuck at zero satisfies every one of them on every
+     * step, so a test that never advances it measures a settlement doing its
+     * periodic work a hundred times more often than any world would.
+     */
+    private static SimContext at(int step) {
+        return new SimContext(new QuietBridge(), step, SimSettings.SANDBOX);
+    }
+
     /** A charter party as the item now lands one: pioneers, staged as a camp. */
     private static Settlement foundingParty() {
         Settlement s = new Settlement(Settlement.Id.random(), "Newholt", new SimPos(0, 64, 0), 128);
@@ -110,8 +125,21 @@ class StageProgressionTest {
         // where it was seven by seven — so every one of them is more work and a
         // town reaches the size that finishes its wall later. Measured at step
         // 463 for the closing on this ground, against 373 before.
-        for (int i = 0; i < 560; i++) {
-            camp.step(CTX);
+        //
+        // 456 now, and re-staking is not why. A town that outgrows its wall
+        // moves it, and this one does — but only once, at step 500, and by then
+        // its first ring has been closed for forty-four steps: staked at 284
+        // with 392 posts, closed at 456, re-staked at 500 to 940, and 666 of
+        // those raised by 700. The wall follows the town without ever costing
+        // it the fortification, because the settlement's closed flag latches.
+        //
+        // What moved the number from 463 to 456 is the clock above. This test
+        // used to hand every step the same {@code CTX}, which says step zero
+        // for ever, so every cadence in the simulation fired on every step; it
+        // is told the truth now, and the founding is seven steps quicker for
+        // it. A hundred and four steps of headroom in the budget.
+        for (int i = 1; i <= 560; i++) {
+            camp.step(at(i));
         }
 
         // The whole founding on the unwatched clock: camp staked, timber
@@ -137,8 +165,8 @@ class StageProgressionTest {
     void theRingEnclosesEveryBuildingWithRoomToWalk() {
         Settlement camp = foundingParty();
 
-        for (int i = 0; i < 300; i++) {
-            camp.step(CTX);
+        for (int i = 1; i <= 300; i++) {
+            camp.step(at(i));
         }
 
         Perimeter ring = camp.perimeter();

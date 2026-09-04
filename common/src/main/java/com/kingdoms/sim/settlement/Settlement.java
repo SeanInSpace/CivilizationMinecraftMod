@@ -292,7 +292,9 @@ public final class Settlement {
                 return candidate;
             }
             // Nothing fits inside: the town has outgrown its wall and builds
-            // beyond it, which is the alpha-wall's cue to re-stake, not ours.
+            // beyond it. That is the wall's cue and not ours -- a plot outside
+            // the line is exactly what PerimeterPlanner.restakeIfOutgrown looks
+            // for, and the wider ring it stakes brings this ground back inside.
         }
         return chooseSite(ctx, type.plotSpan(), BuildingRole.of(type.id()));
     }
@@ -735,10 +737,13 @@ public final class Settlement {
      * running through ten of them, the town hall among them with fourteen posts
      * inside its plot.
      *
-     * <p>Refusing the ground is the half of the fix that can be applied to a
-     * town already standing. Re-staking the ring around what the town has
-     * <em>become</em> would abandon posts already raised, so the wall keeps the
-     * line it has and the town stops building across it.
+     * <p>Refusing the ground is the half of the fix that holds between
+     * stakings, and it is still the half that matters: the ring only moves when
+     * the town has grown past it, and nothing should be raised across the line
+     * it has in the meantime. The other half exists now —
+     * {@code PerimeterPlanner.restakeIfOutgrown} moves the wall out around what
+     * the town has <em>become</em>, carrying its raised posts with it — so this
+     * is asked of the standing line, whichever line that currently is.
      */
     private boolean standsOnTheWall(SimPos candidate, int span) {
         if (perimeter == null) {
