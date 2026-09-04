@@ -8,6 +8,67 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## Buildings the size of their plots, and roads that cross water
+
+### Changed
+
+- **Buildings are two to five times bigger, and a village is dense.** Every
+  building's size was a literal in the method that drew it while its plot was a
+  column in the catalogue, and the two had drifted to about a factor of two
+  apart -- a cottage drawn five blocks across on nine blocks of reserved ground,
+  a house drawn five on eleven. Every street in the mod was laid out for
+  buildings twice the size of the ones put on it, which is the whole of why a
+  village read as huts scattered in a field. One table declares it now and both
+  halves read it. A cottage is seven by seven, a house nine, an inn eleven by
+  nine, a hall thirteen by eleven.
+- **A house comes up to the street it fronts.** There was a rule for this and it
+  only ever ran in `/civ buildtest`, so every settlement that actually grew --
+  and every settlement world generation raised -- kept a setback drawn for the
+  largest building that might have stood there. Measured on a grown town: front
+  wall to kerb down from eight and a half blocks to five, and wall to wall
+  between neighbours from nine to six.
+- **A building too big for its setback backs off instead.** The same rule both
+  ways, because a building broader than twice the setback could otherwise never
+  front a street at all: every offer it was made stood in the carriageway.
+- **`/civ buildtest` shows what a town would actually build.** It kept its own
+  copy of the kerb rule and measured to the wrong edge of the street.
+
+### New
+
+- **A longhouse and a croft**, six beds each, for towns past fourteen and
+  eighteen residents. The croft is the mod's first building that is not a
+  rectangle: a corner is declared cut away, so the yard in the crook is never
+  excavated, never scraped flat and never claimed, and it turns with the house.
+- **A library**, twenty-three by seventeen, one per town and not wanted below
+  forty residents. Wider than the plan's own plot pitch, so it takes two
+  frontages -- which is the behaviour big buildings needed and nothing had
+  proved.
+- **Roads cross rivers.** Water was impassable to a road in three places at
+  once, so a river severed a town's network and a settlement on two banks was
+  two settlements sharing a name. A crossing is now priced rather than refused,
+  up to twenty-four blocks, and where a laid road meets water it gets a planked
+  deck with fence railings, an arch over the middle and piers to the bed.
+
+### Fixed
+
+- **A plot could be looked up in a plan of one plot**, so the rule that passes
+  over a house fronting a road the hillside refused had been answering for plot
+  zero and no other since it was written.
+- **A town no longer walks to the horizon to avoid a poor plot.** That rule was
+  a veto and assumed the next offer was nearby; on an arrangement whose lanes
+  are refused in whole families it is not, and the plot cursor ran out past the
+  town. It is a heavy preference now.
+- The founding kit pays for the bigger buildings it is asked to buy, and the
+  timber ceiling was raised above it so the grant is not silently shaved on
+  arrival.
+
+### Notes
+
+- Bigger buildings are more work, so towns build more slowly: a wall that closed
+  at step 373 now closes at 463. Three test thresholds moved with it.
+
+---
+
 ## The mod says the same licence the repository does
 
 ### Fixed
