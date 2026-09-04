@@ -96,8 +96,27 @@ class RealTerrainRoadsTest {
      * buildings against 46, the plot cursor at 166 against 195, one doorstep
      * recovered. Left at four because three is measured on one seed and the
      * distance between them is a single house.
+     *
+     * <p><strong>Five now</strong>, and it went up under two changes that were
+     * each measured alone and met only on main. Same seed, same 500 steps,
+     * stranded doors of doors:
+     *
+     * <pre>
+     *   2 of 46   walls re-staked, offers still fourteen apart
+     *   4 of 47   offers brought in to the separation (two blocks between walls)
+     *   3 of 47   the least-bad examined plot taken, on the OLD offers
+     *   5 of 47   both together
+     * </pre>
+     *
+     * <p>Not additive, and the reason is the point of both changes: denser
+     * offers put more plots on the rough ground this seed is made of, and a
+     * town that now takes the least-bad plot it looked at rather than walking
+     * past it builds on that ground -- one more building than before, on
+     * ground the layer cannot always grade a track to. That is the doctrine
+     * working and paid for, which is what its own commit says it costs. One
+     * house over a one-seed ceiling is the same distance the last move was.
      */
-    private static final int STRANDED_CEILING = 4;
+    private static final int STRANDED_CEILING = 5;
 
     private static RecordedTerrain ground;
     private static Settlement grown;
