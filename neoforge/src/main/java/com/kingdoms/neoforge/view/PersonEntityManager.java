@@ -244,13 +244,38 @@ public final class PersonEntityManager {
 
     private int surveyBeat;
 
+    /**
+     * How often this manager's own pass really runs.
+     *
+     * <p>Per manager, never static, and the reason is on the record: a static
+     * counter shared across three dimension managers once read the Nether's
+     * empty world as the overworld losing its kingdoms. Each dimension is
+     * scheduled from the same server tick and falls behind together, but a
+     * figure that cannot say which world it came from is not a measurement.
+     */
+    private final TickRate rate = new TickRate(System::nanoTime);
+
     public PersonEntityManager(ServerLevel level, SimWorld world) {
         this.level = Objects.requireNonNull(level, "level");
         this.world = Objects.requireNonNull(world, "world");
     }
 
+    /**
+     * What this manager's real cadence has been over the last minute.
+     *
+     * <p>Read by the audit sweep and by {@code /civ info}. Sixty a minute is
+     * what {@link #TICK_INTERVAL} asks for; anything much below it means the
+     * server never caught up and everything paced per pass is running slow.
+     */
+    public TickRate rate() {
+        return rate;
+    }
+
     /** One pass: sync positions, release the unwatched, embody the watched, herd stragglers. */
     public void tick() {
+        // First thing in the pass, so what is timed is how often the pass
+        // arrives rather than how long it takes.
+        rate.mark();
         // The survey draws every fourth tick rather than every one. Its lines are
         // solid now, which is roughly eight times the particles of the old dotted
         // ones, and a spark outlives four ticks many times over -- so the picture

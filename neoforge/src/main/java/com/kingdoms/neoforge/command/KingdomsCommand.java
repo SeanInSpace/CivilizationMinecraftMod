@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import com.kingdoms.neoforge.net.TownOverviewPayload;
 import com.kingdoms.neoforge.view.PersonEntityManager;
+import com.kingdoms.neoforge.view.TickRate;
 import com.kingdoms.neoforge.world.TownAuditor;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.save.SiteLedger;
@@ -576,6 +577,19 @@ public final class KingdomsCommand {
 
         StringBuilder sb = new StringBuilder();
         sb.append("=== Kingdoms (").append(world.stepsElapsed()).append(" steps elapsed) ===");
+        // Read this line before believing any other line in the report. Every
+        // rate below it — the wall going up, the paths being joined, the litter
+        // being picked up — is paced by the manager's pass, and on a server that
+        // never caught up from a /civ step that pass runs a fifth as often as it
+        // is scheduled to. A town doing a fifth of the work it should looks
+        // exactly like a town with a bug in it.
+        if (digger != null) {
+            sb.append("\n  manager ").append(digger.rate().describe())
+                    .append("  (intended ")
+                    .append(Math.round(TickRate.intendedPerMinute(
+                            PersonEntityManager.TICK_INTERVAL)))
+                    .append("/min)");
+        }
         for (Kingdom kingdom : world.kingdoms()) {
             sb.append("\n").append(kingdom.name())
                     .append(" [").append(kingdom.cultureId()).append("] pop ")
