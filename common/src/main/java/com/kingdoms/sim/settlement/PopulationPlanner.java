@@ -9,6 +9,8 @@ import com.kingdoms.sim.world.SimContext;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 /**
@@ -105,7 +107,9 @@ public final class PopulationPlanner {
      * that empties one. {@link #splitFamilyInto} takes a member out directly,
      * and a family living somewhere that reports a capacity of zero counts as
      * permanently overcrowded, so it sheds a member every birth cycle until
-     * there is nobody left. That household went on existing, and went on being
+     * there is nobody left. A house the catalogue cannot size no longer reports
+     * zero — see {@link #capacityOf} — but a house that really does hold nobody
+     * still does. That household went on existing, and went on being
      * {@code isHoused()}, which meant {@link #firstVacantHome} counted its house
      * as taken — reserved, in perpetuity, for a family that no longer existed.
      * A town could fill up with houses nobody lived in and nobody could move
@@ -176,21 +180,25 @@ public final class PopulationPlanner {
                     || settlement.isFamilyHome(household.home())) {
                 continue;
             }
-            SimPos vacant = firstVacantFamilyHome(settlement);
+            // The building rather than its position, so the beds counted here
+            // are the ones the vacancy search counted. Looking the position back
+            // up would have been a second scan that could answer differently
+            // where two buildings share an origin.
+            Building vacant = firstVacantFamilyHome(settlement);
             if (vacant == null) {
                 return;
             }
-            if (household.size() <= capacityOf(settlement,
-                    homeBlueprint(settlement, vacant))) {
-                household.setHome(vacant);
+            SimPos door = vacant.origin();
+            if (household.size() <= bedsPromisedBy(settlement, vacant.blueprintId())) {
+                household.setHome(door);
                 for (Person.Id member : household.members()) {
                     Person person = settlement.resident(member);
                     if (person != null) {
-                        person.setPosition(vacant);
+                        person.setPosition(door);
                     }
                 }
             } else {
-                moveCoupleInto(settlement, household, vacant);
+                moveCoupleInto(settlement, household, door);
             }
             return;   // one move a step keeps the town legible
         }
@@ -212,8 +220,8 @@ public final class PopulationPlanner {
         settlement.addHousehold(founded);
     }
 
-    /** First unclaimed home a family may grow in, or null. */
-    private static SimPos firstVacantFamilyHome(Settlement settlement) {
+    /** First unclaimed building a family may grow in, or null. */
+    private static Building firstVacantFamilyHome(Settlement settlement) {
         Set<SimPos> taken = new HashSet<>();
         for (Household household : settlement.households()) {
             if (household.isHoused()) {
@@ -221,24 +229,16 @@ public final class PopulationPlanner {
             }
         }
         for (Building building : settlement.buildings()) {
-            if (capacityOf(settlement, building.blueprintId()) <= 0
+            // A shed is not a home, and neither is a house the catalogue cannot
+            // size: an unknown capacity is not a spare bed the town may offer.
+            if (bedsPromisedBy(settlement, building.blueprintId()) <= 0
                     || !settlement.isFamilyHome(building.origin())
                     || taken.contains(building.origin())) {
                 continue;
             }
-            return building.origin();
+            return building;
         }
         return null;
-    }
-
-    /** The blueprint standing at this home, or an empty id. */
-    private static String homeBlueprint(Settlement settlement, SimPos home) {
-        for (Building building : settlement.buildings()) {
-            if (building.origin().equals(home)) {
-                return building.blueprintId();
-            }
-        }
-        return "";
     }
 
     // --- 3. growth ---
@@ -261,19 +261,12 @@ public final class PopulationPlanner {
             // A household nobody is left in is not a family that can grow or
             // split, it is the record of one that died out. Both paths below
             // reach into members() for a first or last member and neither
-            // survives finding none: this crashed the server tick outright,
-            // because a house whose capacity reads zero also reads as full.
-            // A household nobody is left in is not a family that can grow or
-            // split, it is the record of one that died out. Both paths below
-            // reach into members() for a first or last member and neither
-            // survives finding none: this crashed the server tick outright,
-            // because a house whose capacity reads zero also reads as full.
-            // A household nobody is left in is not a family that can grow or
-            // split, it is the record of one that died out. Both paths below
-            // reach into members() for a first or last member and neither
             // survives finding none: this crashed the server tick outright and
-            // every tick after it, because a house whose capacity reads zero
-            // also reads as full, and a full house sends somebody out.
+            // every tick after it, because a house whose capacity read zero
+            // also read as full, and a full house sends somebody out. The
+            // capacity half of that is fixed further down; this guard stays,
+            // because a household can still be emptied by a house that is
+            // genuinely full.
             if (household.members().isEmpty()) {
                 continue;
             }
@@ -302,8 +295,28 @@ public final class PopulationPlanner {
                 continue;
             }
 
-            int capacity = capacityOfHome(settlement, household);
-            if (household.size() < capacity) {
+            // A standing house the catalogue cannot size gets no decision made
+            // about it at all. This used to read zero, and zero reads as full —
+            // `size() < 0` is false — so a family in a renamed cottage, or one
+            // from a mod no longer loaded, or a save older than the entry,
+            // counted as permanently overcrowded and shed a member into every
+            // vacancy that appeared. Measured on the fixture in
+            // UnknownCapacityTest, with four empty houses standing to shed into:
+            // three members at step 0, two at 24, one at 48, the household gone
+            // by 72.
+            //
+            // Neither a birth, then, nor a shedding. Not a birth because a town
+            // that cannot count the beds in a house cannot promise there is a
+            // spare one, which is the same reading that keeps such a house off
+            // the vacancy list. Growth progress is banked and held exactly as it
+            // is for a full house with nowhere to move to, so if the catalogue
+            // entry comes back — a datapack reloaded, a mod put back — the child
+            // arrives on the next step rather than the clock starting again.
+            OptionalInt capacity = capacityOfHome(settlement, household);
+            if (capacity.isEmpty()) {
+                continue;
+            }
+            if (household.size() < capacity.getAsInt()) {
                 household.resetGrowthProgress();
                 bearChild(settlement, household);
                 continue;
@@ -364,24 +377,116 @@ public final class PopulationPlanner {
 
     // --- helpers ---
 
-    public static int capacityOf(Settlement settlement, String blueprintId) {
-        return settlement.catalogue().stream()
-                .filter(type -> type.id().equals(BuildPlanner.baseIdOf(blueprintId)))
-                .mapToInt(BuildingType::capacity)
-                .findFirst()
-                .orElse(0);
+    /**
+     * The catalogue entry that describes this blueprint, or empty when the
+     * catalogue has never heard of it.
+     *
+     * <p>Matched the way {@link BuildingRole} matches: on the building's own
+     * name, with namespace, culture folder and level suffix all stripped, so
+     * {@code kingdoms:house}, {@code kingdoms:house_l2} and
+     * {@code kingdoms:norman/house} are one building at three addresses. That
+     * matters here more than anywhere, because the whole point of the method
+     * below is to say when the catalogue genuinely has nothing — and a raised
+     * or styled house is not nothing, it is the same house written differently.
+     * The exact id is tried first and on its own, so a datapack that really does
+     * list two folders separately keeps them apart — and so the ordinary case,
+     * where every id in play is the plain one, never takes a substring of
+     * anything.
+     *
+     * <p>{@link Settlement#isFamilyHome} was widened to match too, or a culture's
+     * own bunkhouse would have been found here, reported six beds, and been
+     * offered to families as somewhere to breed. Three further places do this
+     * lookup by hand with only {@link BuildPlanner#baseIdOf} —
+     * {@link RaidPlanner#defenseBonusOf}, {@link BuildPlanner#chooseUpgrade} and
+     * {@code upgradePriority}. Those are deliberately left alone: widening what
+     * they match would move defence numbers and upgrade eligibility, which is
+     * not this change.
+     */
+    private static Optional<BuildingType> typeOf(Settlement settlement, String blueprintId) {
+        if (blueprintId == null) {
+            return Optional.empty();
+        }
+        String exactId = BuildPlanner.baseIdOf(blueprintId);
+        for (BuildingType type : settlement.catalogue()) {
+            if (type.id().equals(exactId)) {
+                return Optional.of(type);
+            }
+        }
+        String bareName = BuildingRole.bareName(blueprintId);
+        for (BuildingType type : settlement.catalogue()) {
+            if (BuildingRole.bareName(type.id()).equals(bareName)) {
+                return Optional.of(type);
+            }
+        }
+        return Optional.empty();
     }
 
-    /** Capacity of the house this family lives in, or 0 if unhoused. */
-    public static int capacityOfHome(Settlement settlement, Household household) {
+    /**
+     * How many people the catalogue says live in this blueprint, or empty when
+     * the catalogue cannot say.
+     *
+     * <p><strong>Empty is not zero.</strong> Zero is a shed: the catalogue has
+     * been asked and has answered that nobody lives there. Empty is a renamed
+     * cottage, a building from a mod that is no longer loaded, a save older than
+     * the entry — the town has no opinion, and every caller has to say what it
+     * does about that rather than inherit one from an {@code orElse(0)}.
+     *
+     * <p>An {@link OptionalInt} rather than a sentinel because a sentinel would
+     * not have fixed anything: {@code -1} read through {@code size() < capacity}
+     * is still "full", which is the exact fault, and it would have slipped
+     * silently past every comparison in this file that nobody remembered to
+     * update. This will not compile as a number.
+     */
+    public static OptionalInt capacityOf(Settlement settlement, String blueprintId) {
+        Optional<BuildingType> type = typeOf(settlement, blueprintId);
+        return type.isPresent() ? OptionalInt.of(type.get().capacity()) : OptionalInt.empty();
+    }
+
+    /**
+     * Beds in the house this family lives in, or empty when the catalogue cannot
+     * size the building standing there.
+     *
+     * <p>Empty means one thing only: <em>a building is standing on this spot and
+     * the town cannot say how many live in it.</em> A family with no home at all,
+     * and a family whose recorded home has no building on it, both answer zero,
+     * which is what they answered before and what they still mean — no house, no
+     * beds. Those are facts; the unrecognised blueprint is the shrug.
+     *
+     * <p>The distinction is worth the extra branch. Both zero cases end in the
+     * family shedding a member into real housing and the household eventually
+     * being retired, which is a recovery: the people end up in houses that exist.
+     * Reading them as unknown would freeze such a family at a phantom address
+     * forever — never grown, never split, never rehoused, because
+     * {@link Settlement#isFamilyHome} answers {@code true} for a spot it has no
+     * record of and nothing else ever clears a home. That is a worse answer than
+     * the one being replaced.
+     */
+    public static OptionalInt capacityOfHome(Settlement settlement, Household household) {
         if (!household.isHoused()) {
-            return 0;
+            return OptionalInt.of(0);
         }
-        return settlement.buildings().stream()
-                .filter(building -> building.origin().equals(household.home()))
-                .mapToInt(building -> capacityOf(settlement, building.blueprintId()))
-                .findFirst()
-                .orElse(0);
+        Building standing = settlement.buildingAt(household.home());
+        return standing == null
+                ? OptionalInt.of(0)
+                : capacityOf(settlement, standing.blueprintId());
+    }
+
+    /**
+     * Beds a caller may count on, which is none unless the catalogue said so.
+     *
+     * <p>Reading unknown as zero is safe here for a reason the comparisons in
+     * {@link #growFamilies} do not share: nothing is being done <em>to</em> a
+     * household. It is a count of beds the town can offer, and a house the town
+     * cannot size offers none — the same answer a shed gets, arrived at honestly
+     * rather than by accident.
+     *
+     * <p>Public so {@link Founding} states the policy by name instead of keeping
+     * its own {@code orElse(0)}. That copy is how the next caller would have
+     * learnt the wrong lesson from a change whose whole argument is that callers
+     * must choose.
+     */
+    public static int bedsPromisedBy(Settlement settlement, String blueprintId) {
+        return capacityOf(settlement, blueprintId).orElse(0);
     }
 
     /** First house nobody has claimed, or null if the settlement is fully occupied. */
@@ -393,7 +498,8 @@ public final class PopulationPlanner {
             }
         }
         for (Building building : settlement.buildings()) {
-            if (capacityOf(settlement, building.blueprintId()) <= 0) {
+            // As above: unknown is not an offer of a bed.
+            if (bedsPromisedBy(settlement, building.blueprintId()) <= 0) {
                 continue;
             }
             if (!taken.contains(building.origin())) {
@@ -406,7 +512,7 @@ public final class PopulationPlanner {
     /** Total beds in the settlement, housed or not. */
     public static int totalHousingCapacity(Settlement settlement) {
         return settlement.buildings().stream()
-                .mapToInt(building -> capacityOf(settlement, building.blueprintId()))
+                .mapToInt(building -> bedsPromisedBy(settlement, building.blueprintId()))
                 .sum();
     }
 

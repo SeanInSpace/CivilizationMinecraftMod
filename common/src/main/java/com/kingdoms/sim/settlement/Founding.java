@@ -448,7 +448,10 @@ public final class Founding {
         List<String> surnames = namesOr(Culture.of(town.cultureId()).familyNames(), "Baker");
         int born = 0;
         for (Building home : town.buildings()) {
-            int beds = PopulationPlanner.capacityOf(town, home.blueprintId());
+            // A founding raises its buildings from its own catalogue, so nothing
+            // here should be unsizeable; if one ever is, nobody is seeded into
+            // it, which is the same answer a shed gets.
+            int beds = PopulationPlanner.bedsPromisedBy(town, home.blueprintId());
             if (beds <= 0 || born >= souls) {
                 continue;
             }
