@@ -1592,18 +1592,26 @@ public final class Settlement {
      * <p>The bunkhouse shelters everyone and breeds no one — communal bunks are
      * a stage, not a destination. Births gate on this, which is what makes the
      * cottage transition at VILLAGE a real unlock.
+     *
+     * <p>Matched on the building's own name rather than its full id, because
+     * {@link PopulationPlanner#capacityOf} now finds a culture's own bunkhouse
+     * in the catalogue and would otherwise report six beds in a building this
+     * method still called a cottage — a bunkhouse families moved into and bred
+     * in, which is the one thing the rule exists to stop.
+     *
+     * <p>Asked through {@link #buildingAt} rather than by walking the list
+     * again: this was the third hand-rolled copy of that scan, and each of them
+     * silently took a different first match where two buildings share an origin.
      */
     public boolean isFamilyHome(SimPos home) {
         if (home == null) {
             return false;
         }
-        for (Building building : buildings) {
-            if (building.origin().equals(home)) {
-                return !BuildPlanner.baseIdOf(building.blueprintId())
-                        .equals("kingdoms:bunkhouse");
-            }
+        Building standing = buildingAt(home);
+        if (standing == null) {
+            return true;   // no record of the building; do not orphan the household
         }
-        return true;   // no record of the building; do not orphan the household
+        return !BuildingRole.bareName(standing.blueprintId()).equals("bunkhouse");
     }
 
     public boolean contains(SimPos pos) {

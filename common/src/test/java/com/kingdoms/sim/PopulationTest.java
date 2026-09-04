@@ -16,6 +16,7 @@ import com.kingdoms.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -214,7 +215,8 @@ class PopulationTest {
         s.addBuilding(new Building(SHED.id(), new SimPos(50, 64, 0), 0, true));
 
         assertEquals(8, PopulationPlanner.totalHousingCapacity(s), "two houses of four, shed contributes nothing");
-        assertEquals(0, PopulationPlanner.capacityOf(s, SHED.id()));
+        assertEquals(OptionalInt.of(0), PopulationPlanner.capacityOf(s, SHED.id()),
+                "known to hold nobody, which is not the same as unknown");
     }
 
     @Test
