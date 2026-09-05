@@ -35,19 +35,20 @@ You do not manage anything. The town runs itself, on these rules:
 - **It grows through stages, and the hall comes last.** A founding party is a
   camp, not a town. It stakes a camp post and a supply cache, then puts up a
   bunkhouse and a hearth to sleep and cook, then a farm and a granary to feed
-  itself. Only once it is reliably fed does it fortify: a lumber camp, a
-  storehouse, and a palisade. Cottages, a mill, a carpentry, a market and an inn
-  make it a village. The **town hall is the last thing built, not the first** —
-  no real settlement starts by building a government. Every step up is earned by
-  conditions rather than a timer, so a party that is struggling stays where it is
-  until it is not. Buildings go up whether you are there or not; if you are away,
-  they appear when you return.
+  itself. Only once it is reliably fed does it fortify — and fortifying means a
+  watch rather than a wall: a lumber camp, a storehouse, and a sentry standing
+  over them. Cottages, a mill, a carpentry, a market and an inn make it a
+  village. The **town hall is the last thing built, not the first** — no real
+  settlement starts by building a government, and the wall waits for the town
+  alongside it. Every step up is earned by conditions rather than a timer, so a
+  party that is struggling stays where it is until it is not. Buildings go up
+  whether you are there or not; if you are away, they appear when you return.
 - **Early settlers turn their hand to anything.** Below village size there are no
   fixed trades: everyone is a **pioneer** who builds, farms and hauls as the camp
   needs, and forages wild food to keep the party fed before the first field is
   sown. Foraging is hand-to-mouth on purpose — it will keep a camp alive and it
   will never make it prosper. Trades settle as the stages call for them: the
-  sentry and the woodcutter when the wall goes up, the rest when the village
+  sentry and the woodcutter when the camp fortifies, the rest when the village
   opens its workshops.
 - **It feeds itself — or fails to.** Food never teleports: harvest waits in the fields until a farmer walks out, shoulders it and carries it to the granary; market hands carry loads to the stall; one member of each family walks to market and back with the shopping. You can watch grain cross the village in their hands — and a carrier killed on the road takes the load with them. Every settler carries and eats their own food. Hunger is personal now: the underfed grow visibly weak (they stop working and slow down), and the starving die — permanently, with a line in the town's history. Watch the chain in the reports: granary, fields, market, pantries.
 - **It secures its own materials.** Timber and stone come before market stalls and
@@ -55,12 +56,21 @@ You do not manage anything. The town runs itself, on these rules:
   cut stone inside the mine's claim, deepening the workings rather than stripping
   the surface, and stop when the stores are full.
 - **It works the woodland.** Once a town builds a **Lumber Camp**, its lumberjacks fell trees inside the camp's claim, carry the timber to the town's stores, and replant saplings so the wood grows back. They stop when the stores are full rather than clear-cutting, and they never touch a tree outside the claim.
-- **It walls itself.** A fed town stakes a palisade around everything it has
-  built and raises it post by post as its timber allows, pausing whenever a real
-  building needs the crew. One of the founding party takes up the spear as its
-  first sentry and walks the perimeter; another takes up the axe, because a wall
-  drinks more timber than any founding kit carries. Gates are cut where the
-  streets reach, so the ways out of town line up with the ways through it.
+- **It walls itself, once it is a town.** A wall is one of the last things a
+  settlement builds rather than one of the first: a party that has only just
+  learned to feed itself has better uses for its timber than several hundred
+  posts, and nothing below town size builds one. At town stage it stakes a
+  palisade around everything it has built and raises it post by post as its
+  stores allow — a timber and three coin the post — pausing whenever a real
+  building needs the crew. Gates are cut where the streets reach, so the ways out
+  of town line up with the ways through it, and the sentry named long before,
+  when the camp fortified, finally has a line to walk. The town keeps growing
+  past that line afterward and that is normal — a walled town with suburbs is
+  still a walled town. It only moves the wall once the suburbs have become the
+  town: more buildings outside the line than inside it, the standing wall paid
+  for to its last post, and no oftener than once in 500 steps. When it does, the
+  old ring comes down as the new one goes up, so a town never ends up with a
+  fence through its middle.
 - **It wears roads between its doors.** Every building is joined to the town's
   road network, branching off whichever way already passes closest instead of
   running its own line to the middle — which is what gives a town streets and
@@ -95,10 +105,11 @@ You do not manage anything. The town runs itself, on these rules:
   charter's border sparkles.
 
 The early game is the dangerous part. A young camp has neither wall nor watch: the
-first sentry is named when the settlement fortifies, and a watchtower comes later
-still, at 12 residents. Between arriving and fortifying a party is genuinely
-fragile, and a raid that kills the wrong settler is felt. Help it through those
-years — wall it, light it, stand guard yourself — and it will outgrow the danger.
+first sentry is named when the settlement fortifies, a watchtower comes later still
+at 12 residents, and a wall of its own not until it is a town. Between arriving and
+fortifying a party is genuinely fragile, and a raid that kills the wrong settler is
+felt. Help it through those years — wall it, light it, stand guard yourself — and it
+will outgrow the danger.
 
 ## Checking on a town
 
@@ -166,8 +177,8 @@ hall.
 
 ## Trading with the storehouse
 
-The **Storehouse post** is the town's counter, and it arrives exactly when the
-palisade is drinking the town's timber.
+The **Storehouse post** is the town's counter, and it arrives when the settlement
+fortifies — a long while before the wall that will drink everything in it.
 
 | Action | Effect |
 |---|---|
@@ -177,14 +188,14 @@ palisade is drinking the town's timber.
 
 It keeps a reserve of timber back whatever you offer, on the same rule the market
 keeps seed corn: a town cannot be bought out of its own repairs. If you want a
-young settlement walled sooner, carrying logs to this door is the fastest way to
-do it.
+settlement walled sooner, carrying logs to this door is the fastest way to do it —
+the wall waits on town stage, and town stage waits on everything built before it.
 
 ## The town overview
 
 **Right-click the Town Hall post** and the town's books open on screen: its name,
 how many live there, and every resource it owns — food, timber, stone, iron,
-tools, weapons, armour — each with its own icon and count.
+tools, weapons, armor — each with its own icon and count.
 
 `/civ overview` opens the same screen for the nearest settlement, if walking to
 the hall is inconvenient.
