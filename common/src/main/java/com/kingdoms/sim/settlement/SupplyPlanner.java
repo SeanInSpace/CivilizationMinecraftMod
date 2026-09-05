@@ -2,7 +2,6 @@ package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.person.HaulTask;
 import com.kingdoms.sim.person.Person;
-import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
 
 /**
@@ -120,37 +119,21 @@ public final class SupplyPlanner {
     /**
      * Somebody who can be sent, or null.
      *
-     * <p>Anybody not already carrying something and not too weak to lift it —
-     * deliberately not a dedicated profession, because a town that had to staff
-     * a carrier before its stores could talk to each other would spend one of
-     * its four founding settlers on walking.
+     * <p>Deliberately not a dedicated profession: a town that had to staff a
+     * carrier before its stores could talk to each other would spend one of its
+     * four founding settlers on walking. Who is spare is
+     * {@link HaulPlanner#courierFor}'s question, and it is the same question the
+     * porter in {@code docs/HAULERS.md} will one day answer first — which is
+     * exactly why it is asked there and not here.
      *
-     * <p>Builders are passed over, and that is not politeness. The demand this
-     * planner answers to <em>is</em> a build, so sending the person raising it
-     * to fetch its own materials would stop the work in order to supply it —
-     * and on a town with one builder, would stop it every time the store beside
-     * the site ran low. Anyone else goes instead; if the town is nothing but
-     * builders, the shortage waits, which is the right answer because they are
-     * already fetching their own loads a stack at a time.
-     *
-     * <p>Farmers too, for a harder reason. {@code FoodPlanner} runs first and
-     * gives them their errands, so one already carrying grain is safe — but one
-     * merely idle this step is not, and a farmer sent off with a load of timber
-     * is a farmer not in the field when the granary next wants filling. This
-     * project has already killed one town by making a walk take priority over
-     * eating. Timber can wait; nothing else here can.
+     * <p>What this used to be was "anybody who is not a builder and not a
+     * farmer", which reads as a short list of exemptions and is really a long
+     * list of conscripts: on any village past VILLAGE the next person it found
+     * was a craftsman, and a player watched his carpenter walk a stack of
+     * supplies across the town with the carpentry standing empty. Timber can
+     * wait; a workshop that stops does not catch up.
      */
     static Person freeHand(Settlement settlement) {
-        for (Person person : settlement.residents()) {
-            if (person.haul() != null || person.isTooWeakToWork()) {
-                continue;
-            }
-            if (settlement.laboursAs(person, Profession.BUILDER)
-                    || settlement.laboursAs(person, Profession.FARMER)) {
-                continue;
-            }
-            return person;
-        }
-        return null;
+        return HaulPlanner.courierFor(settlement);
     }
 }

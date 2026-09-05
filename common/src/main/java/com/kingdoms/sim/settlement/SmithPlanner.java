@@ -93,6 +93,24 @@ public final class SmithPlanner {
     }
 
     /**
+     * Whether the forge has anything to make right now.
+     *
+     * <p>Asked by {@link HaulPlanner#courierFor} rather than by this class: a
+     * smith standing at a cold forge — no smithy, no ore, no fuel, or every rack
+     * already full — is a spare pair of hands, and a smith with iron in front of
+     * him is not. The three refusals {@link #forgeOne} makes, phrased as a
+     * question, so the ceilings stay knowledge the forge owns.
+     */
+    public static boolean hasWorkInFront(Settlement settlement) {
+        if (!hasSmithy(settlement) || nextWanted(settlement) == null) {
+            return false;
+        }
+        Stock stores = settlement.stores();
+        return stores.has(TownStores.IRON, IRON_PER_ITEM)
+                && stores.has(TownStores.WOOD, FUEL_PER_ITEM);
+    }
+
+    /**
      * Hands a worker a tool from the town's stores.
      *
      * <p>All-or-nothing, like every other payment: a town with an empty rack
