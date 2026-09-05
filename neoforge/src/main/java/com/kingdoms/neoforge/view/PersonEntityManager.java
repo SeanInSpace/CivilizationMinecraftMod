@@ -1081,6 +1081,14 @@ public final class PersonEntityManager {
      * even when it is correct, so a stranded settler is asked to path down several
      * times over before anybody moves them by hand — and only then if the drop is
      * survivable.
+     *
+     * <p><strong>Two ways to be stuck, and only one used to be seen.</strong>
+     * Over a hole, the first solid thing is a long way below and
+     * {@link #floorBelow} finds it. On a roof it is directly underfoot, the drop
+     * reads nought against {@link #MIN_STRANDED_DROP}, and the old test threw the
+     * case away as a kerb — so the crew who had just laid the last course of a
+     * cottage stood on it until something else happened to them. They are not
+     * over a hole; they are on top of the building they finished.
      */
     private void freeStrandedPeople(Settlement settlement) {
         for (Person person : settlement.residents()) {
@@ -1092,7 +1100,9 @@ public final class PersonEntityManager {
             }
             BlockPos at = view.blockPosition();
             int floor = floorBelow(at);
-            if (floor == Integer.MIN_VALUE) {
+            Building under = floor == Integer.MIN_VALUE ? standingOn(settlement, at) : null;
+            boolean perched = under != null;
+            if (floor == Integer.MIN_VALUE && !perched) {
                 strandedPasses.remove(key);
                 repathTries.remove(key);   // not stuck; the patience resets with them
                 continue;
@@ -1101,10 +1111,24 @@ public final class PersonEntityManager {
                 continue;
             }
 
+            // The lateral hunt is deliberately behind the patience count. It reads
+            // a few hundred blocks and this runs for every resident of every town
+            // every sweep; a settler who has been standing still for three of them
+            // is rare, and paying for the search only then costs nothing at all.
+            BlockPos down = perched
+                    ? ledgeNear(at)
+                    : new BlockPos(at.getX(), floor, at.getZ());
+            if (down == null) {
+                strandedPasses.remove(key);
+                repathTries.remove(key);
+                orderStepsDown(settlement, under);
+                continue;
+            }
+
             int tried = repathTries.getOrDefault(key, 0);
             if (tried < REPATH_ATTEMPTS
                     && view.getNavigation().moveTo(
-                            at.getX() + 0.5, floor, at.getZ() + 0.5, WALK_SPEED)) {
+                            down.getX() + 0.5, down.getY(), down.getZ() + 0.5, WALK_SPEED)) {
                 // A route exists. Let them take it, and come back to this if the
                 // walk does not actually get them anywhere.
                 repathTries.put(key, tried + 1);
@@ -1114,10 +1138,167 @@ public final class PersonEntityManager {
 
             strandedPasses.remove(key);
             repathTries.remove(key);
-            if (at.getY() - floor <= SURVIVABLE_DROP) {
-                view.snapTo(at.getX() + 0.5, floor, at.getZ() + 0.5);
+            if (at.getY() - down.getY() <= SURVIVABLE_DROP) {
+                view.snapTo(down.getX() + 0.5, down.getY(), down.getZ() + 0.5);
                 person.setPosition(NeoForgeWorldBridge.toSimPos(view.blockPosition()));
             }
+        }
+    }
+
+    /** How far to either side to look for somewhere to step down onto. */
+    private static final int LATERAL_ESCAPE = 3;
+
+    /**
+     * The building somebody is standing on top of, or null if they are on the ground.
+     *
+     * <p>The question that separates a builder on a roof from a farmer standing in
+     * a field, and it cannot be asked of the blocks: both of them are on something
+     * solid, and the world's own surface height counts a roof <em>as</em> the
+     * surface, so a settler on a ridge reads as standing at grade with a drop of
+     * nought. Every block-level answer says the same thing.
+     *
+     * <p>So it is asked of the town's books instead, which know exactly where each
+     * building's floor is, how much ground it covers and how tall it came out.
+     * Somebody over the walls and at or above the roof line is on the roof. That
+     * is cheap — no block reads at all — and it is exactly the population this is
+     * for: the crew who have just laid the last course of something. Nobody on a
+     * hillside, in a field, or on their own doorstep is ever named.
+     *
+     * <p><strong>The walls, not the recorded plot.</strong> A footprint is saved
+     * as the building plus its doorstep ring — see {@code BlueprintPlacer.plotOf},
+     * which adds {@code APRON_MARGIN} on every side — and two neighbours' rings
+     * are allowed to meet, so recorded plots overlap where the buildings do not.
+     * Asked of the plot, a builder on one cottage's roof standing inside the
+     * next cottage's apron could be attributed to the neighbour, and the flight
+     * of steps would then be ordered onto a roof he is not on.
+     *
+     * <p><strong>The roof line, not three courses.</strong> "Three above the
+     * floor" is also true of somebody indoors on an upper course — a watchtower's
+     * platform, a loft — and being indoors is not being stranded; snapping them
+     * downward would drop them through their own ceiling. The drop test is kept
+     * as well, so a two-course camp post is something you step off rather than
+     * something the town builds stairs for.
+     */
+    static Building standingOn(Settlement settlement, BlockPos at) {
+        for (Building building : settlement.buildings()) {
+            Footprint plot = building.footprint();
+            if (!plot.isKnown() || !overWalls(building, plot, at)) {
+                continue;
+            }
+            if (at.getY() >= plot.y() + plot.height()
+                    && at.getY() - plot.y() >= MIN_STRANDED_DROP) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /** Whether a column falls on the building itself rather than on its doorstep ring. */
+    private static boolean overWalls(Building building, Footprint plot, BlockPos at) {
+        int rx = Math.max(0, plot.width() / 2 - BlueprintPlacer.APRON_MARGIN);
+        int rz = Math.max(0, plot.depth() / 2 - BlueprintPlacer.APRON_MARGIN);
+        return Math.abs(at.getX() - building.origin().x()) <= rx
+                && Math.abs(at.getZ() - building.origin().z()) <= rz
+                && plot.covers(building.origin().x(), building.origin().z(),
+                        at.getX(), at.getZ());
+    }
+
+    private BlockPos ledgeNear(BlockPos from) {
+        return ledgeNear(from, this::fitsBody);
+    }
+
+    /**
+     * The nearest place within reach that is lower than here and holds a body.
+     *
+     * <p>A short search on purpose. This is the eaves, the course of scaffolding,
+     * the step down onto the lean-to — one movement a person could plausibly make
+     * for themselves and would, if their navigation had noticed the edge. Anything
+     * further is not a step down, it is a fall, and the answer to a fall is a
+     * flight of steps rather than a shove.
+     *
+     * <p>Nearest horizontally first and only then lowest, so a settler goes to the
+     * edge they are already standing beside rather than across the whole roof to
+     * the far one. That is the same ordering mistake {@code standCandidates}
+     * documents having made, avoided here rather than repeated.
+     *
+     * <p>Geometry and an ordering, so it takes what a square must be like as a
+     * predicate and needs no world — the part worth testing, left testable.
+     */
+    static BlockPos ledgeNear(BlockPos from, java.util.function.Predicate<BlockPos> fits) {
+        BlockPos best = null;
+        int bestScore = Integer.MAX_VALUE;
+        for (int dx = -LATERAL_ESCAPE; dx <= LATERAL_ESCAPE; dx++) {
+            for (int dz = -LATERAL_ESCAPE; dz <= LATERAL_ESCAPE; dz++) {
+                if (dx == 0 && dz == 0) {
+                    // Their own column, which is straight down through whatever
+                    // they are standing on. That is floorBelow's question and it
+                    // has already been asked; offering it here would score zero
+                    // for distance and beat every real ledge, and the space it
+                    // finds is the room under the roof — no route to it, so the
+                    // walk fails and the fallback drops somebody through their own
+                    // ceiling into a sealed loft.
+                    continue;
+                }
+                for (int drop = 1; drop <= MIN_STRANDED_DROP; drop++) {
+                    BlockPos feet = from.offset(dx, -drop, dz);
+                    if (!fits.test(feet)) {
+                        continue;
+                    }
+                    // Horizontal distance dominates: the deepest step down is
+                    // MIN_STRANDED_DROP, so scaling the reach by it leaves no
+                    // drop able to outrank a nearer square.
+                    int score = (dx * dx + dz * dz) * (MIN_STRANDED_DROP + 1) + drop;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = feet;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Orders a flight down from a perch nobody can step off.
+     *
+     * <p>The fork a crew on a roof leaves: there is no ledge within reach and the
+     * ground is far enough down to hurt. So the town builds, which is what it does
+     * about every other place a person cannot get to — this is the same job
+     * {@code checkHouseAccess} orders for a door a family cannot climb to, from
+     * the other end. The flight runs from the roof to wherever it meets the hill.
+     *
+     * <p><strong>At the eaves, not at the middle of the roof.</strong> That is not
+     * taste. {@code accessStairs} draws its treads outward from the origin it is
+     * given and stops the moment a tread would be at or below
+     * {@code groundLevel}, which is the surface heightmap — and over a building
+     * the surface heightmap <em>is the roof</em>. Anchored at the centre, the very
+     * first tread reads as underground and the flight comes out empty: a job worth
+     * four units of work with a plan of nothing in it, which can never read
+     * complete, pins the head of a head-blocking queue until the watched-build
+     * grace times it out, and then records a phantom flight of steps on the roof
+     * that stops any real one ever being ordered there again. Anchored at the last
+     * wall column, the first tread lands on the doorstep ring beside the house,
+     * where the heightmap is the ground it looks like.
+     *
+     * <p><strong>Anchored on the building, not on the settler — in all three
+     * dimensions.</strong> {@code requestAccessStairs} refuses a duplicate by
+     * comparing the whole origin it is given against the queue and against what
+     * already stands, so a flight ordered from wherever somebody's feet happen to
+     * be is a fresh flight every time they shuffle a block along the ridge or up
+     * onto the chimney — each one urgent, each one at the head of the build queue,
+     * and two settlers standing at two heights on one roof order two of them. Read
+     * off the town's books instead, it is the same place however many of them are
+     * up there and however they move about while they wait for it.
+     */
+    private void orderStepsDown(Settlement settlement, Building roof) {
+        Footprint plot = roof.footprint();
+        int climb = plot.height();
+        SimPos eaves = new SimPos(roof.origin().x(), plot.y() + climb,
+                roof.origin().z() + Math.max(0, plot.depth() / 2 - BlueprintPlacer.APRON_MARGIN));
+        if (BuildPlanner.requestAccessStairs(settlement, eaves, climb, world.stepsElapsed())) {
+            KingdomsSavedData.get(level).setDirty();
+            KingdomsMod.LOGGER.info("{} has somebody stranded on the {} at {}; steps ordered",
+                    settlement.name(), roof.blueprintId(), eaves);
         }
     }
 

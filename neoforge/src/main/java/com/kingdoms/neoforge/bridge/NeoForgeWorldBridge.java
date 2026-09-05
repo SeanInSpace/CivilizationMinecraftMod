@@ -121,6 +121,40 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     /**
+     * Lays the blocks a standing building is short of, and no others.
+     *
+     * <p>The origin is taken as given rather than snapped to the surface the way
+     * an unsurveyed materialization is. A building that can be repaired has been
+     * drawn, so its recorded height is the height it is at; re-measuring would put
+     * the patch a course above the hole.
+     *
+     * <p>Ground nobody has loaded answers {@code -1} rather than "nothing was
+     * missing", exactly as {@link #solidBlocksIn} does and for the same reason —
+     * and, like that count, it is the whole plot that has to be there and not
+     * merely the origin column, which is why {@link BlueprintPlacer#patch} does
+     * the second half of the check.
+     * The clock can finish paying for a repair on a step when the player has
+     * walked out of range, and the two answers are opposite facts: on the first
+     * the town's books are squared and the hole is filled, on the second nothing
+     * was written at all. Reporting the second as the first is what let a town
+     * pay off a repair, clear the damage, re-baseline the census against the
+     * shell, and record the hole as the building's proper size forever.
+     */
+    @Override
+    public int repairBlueprint(String blueprintId, SimPos origin, int facing) {
+        BlockPos base = toBlockPos(origin);
+        if (!level.isLoaded(base)) {
+            return -1;
+        }
+        int mended = BlueprintPlacer.patch(level, blueprintId, base, facing);
+        if (mended > 0) {
+            KingdomsMod.LOGGER.info("Mended {} at {} — {} blocks put back",
+                    blueprintId, base, mended);
+        }
+        return mended;
+    }
+
+    /**
      * How much the ground may rise and fall across a plot before it is refused.
      *
      * <p>Four courses. The builders will cut a shelf for anything up to that; past

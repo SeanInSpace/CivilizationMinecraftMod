@@ -97,6 +97,46 @@ public interface WorldBridge {
                                    int facing);
 
     /**
+     * Puts back the blocks a standing building is missing, and touches nothing else.
+     *
+     * <p><strong>Not {@link #materializeBlueprint}, and the difference is the
+     * whole of this method.</strong> Materializing is the FIRST drawing of a
+     * building that was finished where nobody could see it: the ground is bare,
+     * so the whole blueprint goes down at once and what a player sees is a
+     * building appearing where there was none. A repair is the opposite premise —
+     * the building is there, somebody has knocked a hole in it, and the only
+     * blocks that may be touched are the ones that differ from the plan. Running
+     * the second through the first is what re-stamped an entire cottage to mend
+     * its roof, twenty times in four minutes, with no builder anywhere near it.
+     *
+     * <p>Only ever the unwatched half of a repair. Where there are builders they
+     * lay these same blocks by hand, one at a time, out of loads they fetch from
+     * the stores, and nothing calls this at all — where there is a hand there is
+     * no clock.
+     *
+     * <p>No {@code surveyed} flag, because the question cannot arise: a building
+     * that can be repaired is a building that has been drawn, so its origin is
+     * the height it actually stands at and re-measuring could only move it.
+     *
+     * <p>Default zero rather than {@code -1}: a platform with no world at all
+     * mends nothing and there is no hole for it to lose track of, so a repair
+     * booked against it should finish rather than stand on the books forever.
+     *
+     * @return how many blocks were put back, or {@code -1} where nobody could
+     *         look — the same distinction {@link #solidBlocksIn} draws, and for
+     *         the same reason. "I put nothing back because nothing was missing"
+     *         and "I put nothing back because the ground is not there to be
+     *         written to" are opposite facts, and {@code Settlement.mendInPlace}
+     *         clears the building's damage on the first and must not on the
+     *         second: doing so writes off a hole the town has already paid to
+     *         fill, and re-baselines the census against the shell so the hole
+     *         becomes the building's proper size for good.
+     */
+    default int repairBlueprint(String blueprintId, SimPos origin, int facing) {
+        return 0;
+    }
+
+    /**
      * Whether a plot is fit to build on.
      *
      * <p>Plots are handed out by geometry alone — rings around the centre — which

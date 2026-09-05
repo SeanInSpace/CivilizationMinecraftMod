@@ -162,18 +162,31 @@ public final class KingdomsCodecs {
             Codec.INT.optionalFieldOf("plan_place_work", 0).forGetter(BuildTask::planPlaceWork),
             Codec.INT.optionalFieldOf("pending_work", 0).forGetter(BuildTask::pendingWork),
             Codec.INT.optionalFieldOf("facing", 0).forGetter(BuildTask::facing),
+            // Work booked against a building that already stands, and which kind of
+            // it this is. Both were left out while upgrading was the only thing that
+            // set them and nothing produced one any more; repairs revived the field
+            // and made the omission dangerous. A reloaded repair that had forgotten
+            // it was a repair is an ordinary build of the same blueprint on the same
+            // spot -- so the crew's first act is to excavate the footprint, which is
+            // to say pull down the house they were sent to mend, and on finishing it
+            // the town records a second building on the plot.
+            SIM_POS.optionalFieldOf("upgrade_of").forGetter(
+                    task -> Optional.ofNullable(task.upgradeOf())),
+            Codec.BOOL.optionalFieldOf("repair", false).forGetter(BuildTask::isRepair),
             // Absent means a save from before excavation was split out of the step
             // list. See the rewind below.
             Codec.INT.optionalFieldOf("dig_done", -1).forGetter(BuildTask::digDone)
     ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared,
                 stepsDone, stepProgress, workDone, planWork, planPlaceWork, pending, facing,
-                digDone) -> {
+                upgradeOf, repair, digDone) -> {
         BuildTask task = new BuildTask(blueprint, origin, requiredWork);
         task.addProgress(progress);
         task.setSiteY(siteY);
         task.setSitePrepared(prepared);
         task.setPlan(planWork, planPlaceWork);
         task.setFacing(facing);
+        upgradeOf.ifPresent(task::setUpgradeOf);
+        task.setRepair(repair);
         if (digDone < 0) {
             // An older save. Its step cursor indexed a combined dig-and-lay list;
             // the same number now indexes masonry alone, so resuming from it would

@@ -2595,14 +2595,16 @@ public final class Settlement {
             // had upgraded a building it had not touched.
             for (Building standing : buildings) {
                 if (samePlot(standing.origin(), current.upgradeOf())) {
+                    if (current.isRepair()) {
+                        mendInPlace(ctx, standing, current);
+                        return;
+                    }
                     standing.setLevel(BuildPlanner.levelOf(current.blueprintId()));
                     standing.setBlueprintId(current.blueprintId());
                     standing.setFootprint(current.footprint());
                     standing.setMaterialized(current.isVisuallyComplete());
                     // Rebuilt in place, so it is whole by definition — and its
                     // old census belongs to a structure that no longer stands.
-                    // This is also the repair path: a repair is an upgrade to
-                    // the level the building already had.
                     standing.setDamage(0);
                     standing.clearCensus();
                     tallies.record(Tallies.BUILDINGS_RAISED);
@@ -2646,6 +2648,72 @@ public final class Settlement {
     /** Whether two origins name the same plot, whatever height each was read at. */
     private static boolean samePlot(SimPos a, SimPos b) {
         return a != null && b != null && a.x() == b.x() && a.z() == b.z();
+    }
+
+    /**
+     * Books a finished repair: the building is sound and stays exactly where it
+     * stood.
+     *
+     * <p>Deliberately not the upgrade path above, and the difference is three
+     * lines. An upgrade sets {@code materialized} from whether the builders got
+     * every block down by hand; a repair must never touch it. Its building was
+     * drawn long ago — being drawn is what made it repairable — so clearing that
+     * flag hands it to {@link #materializePending}, which stamps the whole
+     * blueprint back down in a single tick. That is precisely the fault this
+     * exists to remove: a cottage with its walls and roof taken off was re-placed
+     * entire, in seconds, twenty times in four minutes, and no builder was ever
+     * involved.
+     *
+     * <p>The census is cleared, as it is for an upgrade, and the reason is worth
+     * writing down because keeping it looks more honest and is not. The census is
+     * every solid block inside the plot box, which is a good deal more than the
+     * blueprint: the ground under the floor, the apron, a tree in the corner,
+     * snow. A repair puts back the blueprint and nothing else, so a building that
+     * lost an apron block or had its tree felled can never reach its old count
+     * again — and {@code RepairPlanner} only ever raises the baseline. Holding it
+     * would mean booking, paying for and finishing the same repair forever, which
+     * is the runaway this change exists to end, at a crew's pace instead of a
+     * re-stamp's.
+     *
+     * <p>Re-baselining would cost the reverse — a repair whose blocks did not
+     * actually go back written off rather than tried again — and that case is
+     * real rather than theoretical, which is why it is guarded. The clock runs on
+     * a settlement whether or not its ground is loaded, so a player who walks
+     * away mid-repair leaves the last payment landing on a chunk nobody can
+     * write to. The books would then be squared against a shell: damage cleared,
+     * census retaken against the hole, and the hole recorded as the building's
+     * proper size for good. So a bridge that could not look says so, and a
+     * repair nobody could carry out changes nothing at all — the damage stands
+     * and the town books the job again when somebody is there to do it.
+     *
+     * <p>Nor is it a building raised. The tally counts structures the town put up.
+     */
+    private void mendInPlace(SimContext ctx, Building standing, BuildTask done) {
+        if (!done.isVisuallyComplete()) {
+            // Nobody was here to lay them, so the clock has been paying for the
+            // missing blocks a step at a time and this is where they go back — the
+            // difference between plan and world, and nothing else. See
+            // WorldBridge.repairBlueprint for why that is not materialization.
+            //
+            // The task's facing rather than the building's. They start out the
+            // same, and where they differ the task's is the better of the two: a
+            // repair that has been surveyed has had its turn measured against the
+            // wall it is going to be compared with, which is the one thing the
+            // building's own record cannot be trusted about — see
+            // BlueprintPlacer.planOf on structures raised by hand.
+            int mended = ctx.bridge().repairBlueprint(
+                    standing.blueprintId(), standing.origin(), done.facing());
+            if (mended < 0) {
+                return;   // unwritable ground; nothing was mended and nothing is cleared
+            }
+            if (mended > 0) {
+                logEvent(ctx.step(), "The " + readableName(standing.blueprintId()) + " at "
+                        + standing.origin() + " is mended — " + mended
+                        + " blocks back in place");
+            }
+        }
+        standing.setDamage(0);
+        standing.clearCensus();
     }
 
     /**
@@ -2927,6 +2995,18 @@ public final class Settlement {
      * chunk is recorded immediately and painted in on a later step, once the chunk is
      * available. That is why returning to a settlement shows it already grown rather
      * than starting construction on arrival.
+     *
+     * <p><strong>First placement only, and never a repair.</strong> The premise
+     * here is bare ground: the building has never been drawn, so laying the whole
+     * blueprint at once is simply how it comes into existence and there is nothing
+     * standing for it to overwrite. A damaged building fails that premise in
+     * every particular — it is drawn, it is standing, and what is wanted is the
+     * dozen blocks it is short of. Sending one through this loop re-stamps the
+     * entire structure in a tick and calls that a repair, which is what a player
+     * watched happen to a cottage twenty times in four minutes. So a repair never
+     * clears {@code materialized} — see {@link #mendInPlace} — and the unwatched
+     * half of one goes to {@code WorldBridge.repairBlueprint} instead, which lays
+     * the difference and nothing more.
      */
     private void materializePending(SimContext ctx) {
         for (Building building : buildings) {

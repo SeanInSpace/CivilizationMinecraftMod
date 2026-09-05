@@ -39,6 +39,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.TagValueInput;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -85,8 +86,20 @@ import java.util.Set;
  */
 public final class BlueprintPlacer {
 
+    /**
+     * Something a plan writes at one named cell.
+     *
+     * <p>Exists so the one rule both a drawing and a build sequence obey — a
+     * later write at a cell is what actually stands there afterwards — can be
+     * written once and asked of either. See {@link #supersededIn}.
+     */
+    interface Cell {
+
+        BlockPos pos();
+    }
+
     /** One block placement in a plan. */
-    record Placement(BlockPos pos, BlockState state, CompoundTag nbt) {
+    record Placement(BlockPos pos, BlockState state, CompoundTag nbt) implements Cell {
     }
 
     /**
@@ -97,7 +110,7 @@ public final class BlueprintPlacer {
      * and a single ordered queue could express none of that. See {@link Excavation}.
      */
     private record Step(BlockPos pos, BlockState state, CompoundTag nbt,
-                        int cost, String material) {
+                        int cost, String material) implements Cell {
     }
 
     /** What a builder should be doing right now, and what they need in hand for it. */
@@ -458,11 +471,56 @@ public final class BlueprintPlacer {
             task.setSiteY(inPlace ? task.origin().y() : surveyBase(level, task));
             changed = true;
         }
+        if (task.isRepair() && !task.isSitePrepared()) {
+            // Which way round the building actually stands, settled before a
+            // single block is compared against it and then carried on the job.
+            // Everything a repair does is the difference between the plan and the
+            // wall, and a plan drawn the wrong way round makes the whole building
+            // read as missing.
+            task.setFacing(fittedFacing(level, task.blueprintId(), baseOf(task),
+                    task.facing()));
+            changed = true;
+        }
         StructurePlan plan = planOf(level, task);
         if (plan == null) {
             return changed;
         }
-        if (task.planWork() != plan.totalWork()) {
+        if (task.isRepair()) {
+            // What is still owed, plus what has already been laid: the size of the
+            // hole as it was when the crew arrived, held steady while they fill
+            // it. Reading only what is owed would shrink the plan exactly as fast
+            // as the work filled it and the job would read as finished halfway
+            // through. Nothing is dug either, so both halves are the same figure —
+            // a repair is masonry from end to end.
+            //
+            // Raised and never lowered. A plot can straddle a chunk nobody had
+            // loaded when the job opened, and the blocks over there are invisible
+            // rather than sound; when that ground arrives the bill grows to match.
+            // Letting it fall would hand the same building back half mended every
+            // time a player walked away mid-repair.
+            int bill = owedWork(level, plan) + task.workDone();
+            if (bill == 0 && allVisible(plan, standingIn(level))) {
+                // A crew that arrives to find the building whole. Not an exotic
+                // case: the census that books a repair counts every solid block in
+                // the plot box, which is a good deal more than the blueprint, so a
+                // felled tree in the yard or a scraped apron reads as a hole in the
+                // house. There is no masonry in that job at all.
+                //
+                // Booked as one unit already done rather than as no plan at all,
+                // because a task with no plan can never read complete: it would sit
+                // at the head of a head-blocking queue doing nothing until the
+                // watched-build grace timed it out, and while it sat there
+                // TownAuditor would go on sparing the building from demolition on
+                // the strength of a repair nobody was working.
+                task.setPlan(1, 1);
+                task.setWorkDone(1);
+                task.syncProgressToWork();
+                changed = true;
+            } else if (bill > task.planWork()) {
+                task.setPlan(bill, bill);
+                changed = true;
+            }
+        } else if (task.planWork() != plan.totalWork()) {
             task.setPlan(plan.totalWork(), plan.placeWork());
             changed = true;
         }
@@ -726,10 +784,63 @@ public final class BlueprintPlacer {
 
     private static Step currentStep(ServerLevel level, BuildTask task) {
         StructurePlan plan = planOf(level, task);
-        if (plan == null || task.stepsDone() >= plan.steps().size()) {
+        if (plan == null) {
+            return null;
+        }
+        if (task.isRepair()) {
+            skipWhatStillStands(level, task, plan.steps());
+        }
+        if (task.stepsDone() >= plan.steps().size()) {
             return null;
         }
         return plan.steps().get(task.stepsDone());
+    }
+
+    /**
+     * Runs a repair's cursor past every course the building has not lost.
+     *
+     * <p>A repair walks the whole blueprint in the same mason's order as a build,
+     * because that is the only order the crew knows and the only one that puts a
+     * floor back before the wall that stands on it. What makes it a repair rather
+     * than a rebuild is here: a step whose block is already there is not work at
+     * all. It is skipped outright — no swing, no budget spent, no charge to the
+     * stores — so the town pays for the dozen blocks a creeper took and not for
+     * the four hundred it did not.
+     *
+     * <p>Spending a granted work unit to look at each sound block was the
+     * alternative and it is wrong twice over: mending a roof would take as long as
+     * raising the cottage, and the pace would come off the size of the building
+     * instead of the size of the hole.
+     *
+     * <p>This is why the plan a repair holds must be the whole structure rather
+     * than a list of the gaps. The cursor is an index into that list and is
+     * written to disk; a list that shrank as the work was done would leave a
+     * reloaded repair pointing at somebody else's block.
+     *
+     * <p>The cursor stops at a cell nobody can see rather than running past it,
+     * which is the opposite of what {@link #isOwed} does and is right for the
+     * opposite reason. Judging damage on unread ground invents work; skipping
+     * unread ground <em>loses</em> it — the cursor only ever goes forward and it
+     * is saved to disk, so one pass while a chunk was out would step over those
+     * blocks for good and the repair would report itself finished with the hole
+     * still open.
+     */
+    private static void skipWhatStillStands(ServerLevel level, BuildTask task,
+                                            List<Step> steps) {
+        Standing world = standingIn(level);
+        int at = task.stepsDone();
+        while (at < steps.size()) {
+            Step step = steps.get(at);
+            BlockState there = world.at(step.pos());
+            if (there == null || !there.is(step.state().getBlock())) {
+                break;   // owed, or nobody can see whether it is
+            }
+            at++;
+        }
+        if (at != task.stepsDone()) {
+            task.setStepsDone(at);
+            task.setStepProgress(0);
+        }
     }
 
     /** Carries out one step: the block goes down. */
@@ -855,16 +966,26 @@ public final class BlueprintPlacer {
      * on coarse timber and stone, but a player looking at a bill wants to know it
      * needs forty oak planks and eight panes of glass — and glass is exactly the
      * sort of thing a town cannot make for itself.
+     *
+     * <p>A repair is billed for the blocks it is short of rather than for the
+     * courses still ahead of the cursor, which for a repair is most of the
+     * building. A player reading a warehouse sign wants the price of the hole,
+     * and the price of the hole is what the town is actually going to pay.
      */
     public static Map<Item, Integer> billOfMaterials(ServerLevel level, BuildTask task) {
         StructurePlan plan = planOf(level, task);
         if (plan == null) {
             return Map.of();
         }
+        Standing world = task.isRepair() ? standingIn(level) : null;
         Map<Item, Integer> bill = new LinkedHashMap<>();
         List<Step> steps = plan.steps();
         for (int i = Math.min(task.stepsDone(), steps.size()); i < steps.size(); i++) {
-            Item item = steps.get(i).state().getBlock().asItem();
+            Step step = steps.get(i);
+            if (world != null && !isOwed(step, world)) {
+                continue;
+            }
+            Item item = step.state().getBlock().asItem();
             if (item == Items.AIR) {
                 continue;
             }
@@ -934,7 +1055,7 @@ public final class BlueprintPlacer {
     // other's plan on every pass. Server-thread only, so no synchronization.
     private static final int PLAN_CACHE_LIMIT = 8;
 
-    private record PlanKey(String blueprintId, BlockPos base) {
+    private record PlanKey(String blueprintId, BlockPos base, int facing, boolean repair) {
     }
 
     private static final Map<PlanKey, StructurePlan> PLAN_CACHE =
@@ -945,19 +1066,290 @@ public final class BlueprintPlacer {
                 }
             };
 
+    /**
+     * The plan the builders are working to.
+     *
+     * <p>Ordinary construction is drawn unturned, as it always has been, and that
+     * is a defect rather than a decision: {@link #place} honours the facing it is
+     * given, so a building that grew unwatched faces the town centre, while a
+     * hand-built one comes out facing south with its door on whichever side that
+     * puts it. Correcting it here is a one-word change and a save migration —
+     * every structure already standing was laid unturned while its record says
+     * otherwise, and every half-built one would resume in a new orientation on top
+     * of the courses already laid — so it is left alone and written down.
+     *
+     * <p>A repair cannot wait for that, because it compares the plan against what
+     * is actually standing and a plan turned the wrong way makes every block of
+     * the building read as wrong: the "repair" would rotate the cottage. So a
+     * repair carries the facing that <em>fits</em> — see {@link #fittedFacing},
+     * which asks the wall rather than the record — and this uses it.
+     */
     private static StructurePlan planOf(ServerLevel level, BuildTask task) {
         if (task.siteY() == BuildTask.UNSET_SITE_Y) {
             return null;
         }
         BlockPos base = baseOf(task);
-        PlanKey key = new PlanKey(task.blueprintId(), base);
+        int facing = task.isRepair() ? task.facing() : 0;
+        PlanKey key = new PlanKey(task.blueprintId(), base, facing, task.isRepair());
         StructurePlan cached = PLAN_CACHE.get(key);
         if (cached != null) {
             return cached;
         }
-        StructurePlan plan = planFor(level, task.blueprintId(), base);
+        StructurePlan plan = planFor(level, task.blueprintId(), base, facing);
+        if (task.isRepair()) {
+            plan = asRepair(plan);
+        }
         PLAN_CACHE.put(key, plan);
         return plan;
+    }
+
+    // --- the difference between a plan and the world ---
+
+    /**
+     * What is actually standing where a plan says a block should be.
+     *
+     * <p>One question, and the whole of a repair follows from the answers. Asking
+     * it through a seam rather than of a {@code ServerLevel} is what lets the diff
+     * be checked without a running game — see {@code BlueprintPlacerDiffTest} —
+     * for the same reason {@link Site} exists.
+     */
+    interface Standing {
+
+        /** The block at this cell, or null where nobody can see it. */
+        BlockState at(BlockPos pos);
+    }
+
+    /** The real world, asked the one question a repair puts to it. */
+    private static Standing standingIn(ServerLevel level) {
+        return pos -> level.isLoaded(pos) ? level.getBlockState(pos) : null;
+    }
+
+    /**
+     * Whether a planned block still has to be laid.
+     *
+     * <p>Not "is this cell empty": a block that is not the block the plan names is
+     * owed whatever is there instead, so a wall somebody swapped for wool is put
+     * back in stone. That makes the test cheap and total — there is no list of the
+     * ways a block can go missing to keep up to date, which is the same argument
+     * the block census makes about damage.
+     *
+     * <p><strong>The block, not the block state.</strong> A blueprint's state is
+     * what was laid on the day and very little of it stays that way: a crop ages,
+     * farmland dries and wets, leaves recompute their distance, a fence or a wall
+     * or a pane re-joins the moment anything is placed beside it, water fills a
+     * waterloggable slot. Comparing states would call every one of those a missing
+     * block — inflating the bill for a repair, sending a crew to re-lay a sound
+     * wall, and having the unwatched patch reset a field's grown wheat to seed.
+     * What a repair is about is blocks that are gone or made of the wrong thing.
+     * A stair that a player turned around is left turned around, which is the
+     * right trade: it is somebody's decision, not damage.
+     *
+     * <p>A cell nobody can see is never owed. Half a reading is worse than none:
+     * a repair judged across the edge of the loaded area would find the far half
+     * of the building absent and set about rebuilding it out of chunks that simply
+     * were not there to be looked at.
+     */
+    static boolean isOwed(Placement planned, Standing world) {
+        BlockState there = world.at(planned.pos());
+        return there != null && !there.is(planned.state().getBlock());
+    }
+
+    /**
+     * Which entries of a plan a later entry writes over.
+     *
+     * <p><strong>A plan is not a set of cells and never was.</strong> Nearly
+     * every shape in this file lays a course across a wall and then drops the
+     * corner post into the ends of it: the cottage writes oak planks and then an
+     * oak log into the same fourteen cells, the town hall into twenty-six, the
+     * library into forty-six. Laid in order that is correct and invisible — the
+     * log is what stands there afterwards, which is what the shape meant.
+     *
+     * <p>Read as a diff it is a disaster, and every part of a repair reads the
+     * plan as a diff. The planks step can never be satisfied: a log stands in its
+     * cell the moment the building is finished, so a sound cottage owes fourteen
+     * blocks forever. That inflated the price of every repair by more than the
+     * damage that triggered it, sent the crew to knock the corner logs out and
+     * put planks in their place before laying the logs back, and left the job's
+     * bill permanently a few blocks ahead of the work it was possible to do —
+     * so a watched repair could only ever end by timing out against
+     * {@code Settlement.WATCHED_BUILD_GRACE_STEPS}.
+     *
+     * <p>So the rule the world already obeys is applied to the plan before the
+     * plan is compared with the world: at any cell written more than once, only
+     * the last write counts. It is asked of {@link Cell} rather than of a step or
+     * a placement so the drawing and the build sequence answer it the same way.
+     */
+    private static boolean[] supersededIn(List<? extends Cell> cells) {
+        Map<BlockPos, Integer> lastAt = new HashMap<>(cells.size() * 2);
+        for (int i = 0; i < cells.size(); i++) {
+            lastAt.put(cells.get(i).pos(), i);
+        }
+        boolean[] overwritten = new boolean[cells.size()];
+        for (int i = 0; i < cells.size(); i++) {
+            overwritten[i] = lastAt.get(cells.get(i).pos()) != i;
+        }
+        return overwritten;
+    }
+
+    /** The blocks of a drawn plan the world does not already hold: the repair diff. */
+    static List<Placement> owedOf(List<Placement> planned, Standing world) {
+        boolean[] overwritten = supersededIn(planned);
+        List<Placement> owed = new ArrayList<>();
+        for (int i = 0; i < planned.size(); i++) {
+            if (!overwritten[i] && isOwed(planned.get(i), world)) {
+                owed.add(planned.get(i));
+            }
+        }
+        return owed;
+    }
+
+    private static boolean isOwed(Step step, Standing world) {
+        return isOwed(new Placement(step.pos(), step.state(), step.nbt()), world);
+    }
+
+    /**
+     * A plan as a repair reads it: one write per cell, and no digging at all.
+     *
+     * <p>Both halves are the difference between mending a building and building
+     * it. The superseded writes go because a repair is a diff and a cell written
+     * twice can never match a world that holds one block — see
+     * {@link #supersededIn}. The excavation goes because it is every cell of the
+     * footprint that holds something, and for a building still standing that is
+     * the building: a crew sent to mend one wall would open by taking out the
+     * other three, the floor and the roof.
+     *
+     * <p>Collapsed here, once, where the plan is cached, rather than at each of
+     * the half-dozen places that read it. The cursor a repair saves to disk is an
+     * index into this list, so it has to be the same list every time it is asked
+     * for — which is also why it is keyed as its own cache entry.
+     */
+    private static StructurePlan asRepair(StructurePlan plan) {
+        boolean[] overwritten = supersededIn(plan.steps());
+        List<Step> once = new ArrayList<>(plan.steps().size());
+        for (int i = 0; i < plan.steps().size(); i++) {
+            if (!overwritten[i]) {
+                once.add(plan.steps().get(i));
+            }
+        }
+        return new StructurePlan(plan.width(), plan.depth(), plan.height(),
+                List.copyOf(once), List.of(), false, plan.notch());
+    }
+
+    /**
+     * Whether the whole of a plan can be read at all.
+     *
+     * <p>A cell in a chunk nobody has loaded is never owed — see {@link #isOwed}
+     * — which is right for judging a wall and wrong for declaring one finished.
+     * "Nothing is missing" and "nothing can be seen" arrive at the same figure by
+     * opposite routes, and a repair that acted on the first when the second was
+     * true would report a hole as filled and hand the town a shell to re-baseline
+     * its census against. So the two are separated wherever a zero is about to be
+     * treated as good news.
+     */
+    private static boolean allVisible(StructurePlan plan, Standing world) {
+        for (Step step : plan.steps()) {
+            if (world.at(step.pos()) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** What a repair is worth: the cost of the steps the building is short of. */
+    private static int owedWork(ServerLevel level, StructurePlan plan) {
+        Standing world = standingIn(level);
+        int owed = 0;
+        for (Step step : plan.steps()) {
+            if (isOwed(step, world)) {
+                owed += step.cost();
+            }
+        }
+        return owed;
+    }
+
+    /**
+     * The turn of this blueprint that best matches what is standing here.
+     *
+     * <p>A repair is only ever the difference between the plan and the wall, so
+     * everything depends on drawing the plan the way the wall actually runs. The
+     * town's own record cannot be trusted for that: a building raised by hand was
+     * laid unturned while its record says it faces the centre — see
+     * {@link #planOf} — and any save from before that was noticed holds a mixture
+     * of the two.
+     *
+     * <p>So the wall is asked instead of the books. Four turns, four counts of
+     * what would be owed, and the one that owes least is the one the building is
+     * standing in; a wrong turn reads as nearly the whole structure missing, so
+     * on a building that is mostly there the answer is not close.
+     *
+     * <p><strong>And only then.</strong> That argument is exactly as good as the
+     * wall it is made from, and repairs are booked for buildings with holes in
+     * them. At four fifths gone all four turns owe nearly everything and the
+     * winner is decided by whichever handful of blocks happened to survive — so a
+     * near-razed cottage would be put back rotated, which is worse than any hole.
+     * The record is therefore kept unless the wall disagrees with it loudly: half
+     * the work or better. Below that the books win, which is also what happens
+     * for a symmetrical shape, where the question does not matter at all.
+     */
+    private static int fittedFacing(ServerLevel level, String blueprintId, BlockPos base,
+                                    int recorded) {
+        int keep = Math.floorMod(recorded, 4);
+        int best = keep;
+        int fewest = Integer.MAX_VALUE;
+        int owedAsRecorded = 0;
+        for (int turn = 0; turn < 4; turn++) {
+            int facing = Math.floorMod(recorded + turn, 4);
+            int owed = owedWork(level, asRepair(planFor(level, blueprintId, base, facing)));
+            if (turn == 0) {
+                owedAsRecorded = owed;
+            }
+            if (owed < fewest) {
+                fewest = owed;
+                best = facing;
+            }
+        }
+        return fewest * 2 <= owedAsRecorded ? best : keep;
+    }
+
+    /**
+     * Puts back only the blocks a standing structure is missing.
+     *
+     * <p>The unwatched half of a repair, and deliberately not {@link #place}:
+     * nothing is dug, nothing sound is touched, and a building that turns out to
+     * be whole costs a pass of block reads and no writes at all. See
+     * {@code WorldBridge.repairBlueprint} for why the distinction is the point.
+     *
+     * <p><strong>All of the plot or none of it.</strong> A building is eleven or
+     * more across and routinely straddles a chunk boundary, and the caller of this
+     * is the clock, which runs precisely when nobody is standing there — so half a
+     * plot loaded is the ordinary case rather than the exotic one. Laying what can
+     * be reached and reporting a number would be the worst possible answer: the
+     * caller reads any number as "the repair happened", clears the damage, and
+     * retakes the census against a building that is still half open. Whatever is
+     * left of the hole then becomes its recorded sound size for good.
+     *
+     * @return how many blocks went back, or {@code -1} if any part of the plan is
+     *         on ground nobody can see, in which case nothing was laid at all
+     */
+    public static int patch(ServerLevel level, String blueprintId, BlockPos base, int facing) {
+        if (!level.isLoaded(base)) {
+            return -1;
+        }
+        StructurePlan plan = asRepair(planFor(level, blueprintId, base,
+                fittedFacing(level, blueprintId, base, facing)));
+        Standing world = standingIn(level);
+        if (!allVisible(plan, world)) {
+            return -1;
+        }
+        int mended = 0;
+        for (Step step : plan.steps()) {
+            if (!isOwed(step, world)) {
+                continue;
+            }
+            lay(level, new Placement(step.pos(), step.state(), step.nbt()));
+            mended++;
+        }
+        return mended;
     }
 
     /** Drops cached plans. Call when blueprint files or datapacks change. */

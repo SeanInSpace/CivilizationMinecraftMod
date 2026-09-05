@@ -9,6 +9,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.settlement.RepairPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
@@ -641,6 +642,12 @@ public final class TownAuditor {
             if (isPath(building.blueprintId())) {
                 continue;   // steps are a path, not a building with walls to lose
             }
+            if (isBeingMended(settlement, building)) {
+                // Not evidence and not a clock either: the count is dropped
+                // rather than held, so when the crew is finished the shell gets
+                // its full three sweeps from a standing start.
+                continue;
+            }
             BlockPos origin = new BlockPos(building.origin().x(),
                     building.origin().y(), building.origin().z());
             if (!world.isLoaded(origin)) {
@@ -667,6 +674,40 @@ public final class TownAuditor {
         }
         SEEN_RUINED.put(settlement.id(), stillGone);
         return razed;
+    }
+
+    /**
+     * Whether the town already has hands and timber booked for this building.
+     *
+     * <p>The interlock a slow repair needs. A repair used to be a re-stamp of the
+     * whole blueprint and was over within a second, so no sweep could ever catch
+     * one half done; now the crew fetches loads from the stores and lays the
+     * missing blocks one at a time, and a wrecked shell reads as gone throughout.
+     * Three sweeps is a minute or two. Without this the town writes off the very
+     * building its own builders are standing in, evicts the family, and cancels
+     * the repair on the way past — and the plot it just freed is the plot the
+     * crew were working.
+     *
+     * <p>Half of the rule is not here: {@code RepairPlanner} refuses to book a
+     * repair the town cannot begin, so a ruin nobody is mending has no task on
+     * the books, is spared nothing, and is written off. But booking is a decision
+     * taken once and a town changes — a raid that kills the last builder leaves a
+     * job on the queue that nobody will ever work, and the queue is head-blocking,
+     * so a shield that trusted the booking alone would spare that ruin and stop
+     * the town ordering anything else for the rest of the world's life. So the
+     * crew is asked for again here, every sweep. When there is nobody left the
+     * shell is written off, and writing it off is what clears the job.
+     */
+    private static boolean isBeingMended(Settlement settlement, Building building) {
+        if (!RepairPlanner.hasAbleBuilder(settlement)) {
+            return false;
+        }
+        for (BuildTask queued : settlement.buildQueue()) {
+            if (queued.isRepair() && RepairPlanner.isWorkOn(queued, building)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Convenience for callers holding a live level. */
