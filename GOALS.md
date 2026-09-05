@@ -146,9 +146,11 @@ part of the work that cannot be delegated.
       *bigger* rather than denser, which is written on `LayoutFitnessTest`'s
       warren ceiling and in the spacing commit.
 
-- [ ] **Finish the wall.** The ring now follows the town, re-stakes when the
-      town outgrows it and takes the old line down behind it. Good is not done,
-      and three things are left standing.
+- [ ] **Finish the wall.** A town stakes its one wall at TOWN, moves it only
+      when more of its buildings stand outside the line than inside -- never
+      while the standing wall is unfinished, at most once in five hundred steps
+      -- and its builders plant the posts by hand and pull the old line up. Good
+      is not done, and these are left standing.
 
       - **One post in 986 still will not go up.** Stable across every report, at
         a footing reading air — where `put` would succeed, so it is not a
@@ -172,6 +174,35 @@ part of the work that cannot be delegated.
         impassable to vanilla pathfinding, so a settler may not be able to path
         to the gate that would let them through. Never tested. `shut out of bed`
         refusing to settle is evidence that people cross, not proof of how.
+
+- [ ] **The simulation's clock is not saved, and four things are compared
+      against it.** `SimWorld.stepsElapsed` restarts at zero every session while
+      `Perimeter.stakedOn`, `Building.completedOnStep` and the raid schedule come
+      out of the save. The wall's cooldown reads a stake in the future as a
+      restarted clock and runs from the reload; nothing else does. Persisting the
+      counter is one field and its own unit, and it wants doing before the next
+      thing is measured against age.
+
+- [ ] **A booked repair shields a ruin even when nothing is working on it.**
+      The auditor spares a building with a repair in the queue, and the queue is
+      head-blocking: another urgent job can displace the repair from the head and
+      a stalled head then shields the ruin indefinitely. That is the pre-existing
+      head-stall property, whose only escape today is `planSurvivalBuild` during
+      a famine. Settling it is a decision about the queue, not about repairs.
+
+- [ ] **A busy town's wall does not advance at all.** `PerimeterPlanner`'s own
+      clock gate stands aside for any embodied builder, so while the build queue
+      has work the ring sits still -- which is the stated priority (houses before
+      walls) and also means a growing town can stand behind a half-finished line
+      for a long while. Loosening it would let posts appear beside builders
+      working elsewhere, the complaint the hands-on-the-wall unit was written
+      against. A design fork; decide it with a town in view.
+
+- [ ] **The watched loop asks the wrong hunger question in nine places.**
+      `PersonEntityManager` gates on `isTooWeakToWork()` where the clock asks
+      `heldBackByHunger(person, starving)`, so a watched town's fields empty in a
+      famine while an unwatched town's keep working. One predicate substituted;
+      written up in docs/CITIZENS.md section 7.
 
 - [ ] **The market's counters disagree.** The stall is a real screen now and the
       simulation behind it holds, but two things about it are somebody else's
@@ -204,34 +235,6 @@ part of the work that cannot be delegated.
         turns on. Too low and a lone creeper barely registers; too high and a
         pair of them panics a town that could have handled it. This one is only
         answerable by watching a town meet one.
-
-- [ ] **The watch is still narrower than the town's eyes, and it cuts both
-      ways.** `PersonEntityManager.guardCombat` picks its target with
-      `nearestHostile`, which collects `Monster` — the narrowing the sighting
-      sweep has just come out of.
-
-      - **A guard will not go for what the town is afraid of.** A phantom, a
-        ghast, a slime and a provoked wolf all raise the alarm now and none of
-        them is a `Monster`, so the town shuts its doors and the watch stands
-        under the thing with its hands in its pockets.
-      - **A guard will go for what the town is not afraid of.** An enderman and
-        a zombified piglin are `Monster implements NeutralMob`: the sweep reads
-        them at nothing until they are angry, and `nearestHostile` walks a guard
-        into one anyway. The alarm catches up on the next step — hitting it makes
-        the guard its target, which is exactly what `provoked` looks for — but
-        the fight is started by the town, on a creature that was leaving it
-        alone, without anybody being warned first.
-      - **The wolf half of the retaliation is unreachable until this moves.** A
-        wolf, a bee and a polar bear all carry the grudge goal now and no settler
-        can ever provoke one, because the only settler who strikes anything is a
-        guard and a guard only strikes `Monster`.
-
-      The sweep's answer was to ask `Menace` instead of naming a class, and the
-      same answer fits here. It is not a tidy-up: a guard picking fights with
-      everything the table grades changes who dies in a night, and it wants
-      measuring rather than assuming — a guard who walks out under a ghast is a
-      dead guard, and `Menace.blowsUp` already exists because one creature needed
-      fighting differently.
 
 - [ ] **Two holes left in the demolition sweep.** A building can be pulled down
       now and the town notices, but the noticing has a window and a bug.
@@ -503,10 +506,38 @@ work has landed, which changes what a street looks like from the middle of it.
 
 ## Done
 
-*Short on purpose. Everything older than this batch has been dropped — it was
-proven by the endurance and client playtests and it lives in the git history.
-What is left is the nine units just landed, kept only until a run has been
-watched over them.*
+*Two batches, newest first. Everything older has been dropped -- it was proven by
+the endurance and client playtests and lives in the git history. What is here is
+kept only until a run has been watched over it.*
+
+- [x] **A town walls itself once, at TOWN, and moves it only when the suburbs
+      outgrow it.** Re-stakings over 1400 steps went from four to seven per
+      arrangement to zero or one; first staking unchanged; a reloaded clock
+      cannot freeze the rule.
+- [x] **The wall, the roads and every repair are laid by builders.** Posts out of
+      planks somebody carried, streets walked cross-section by cross-section with
+      no load, repairs as the missing blocks only from five percent damage; the
+      unwatched clock untouched on all three.
+- [x] **The wall is built where it was staked.** Posts on a slanted stretch were
+      laid in an L up to seven blocks off the approved line, and staking ignored
+      the build queue. 738 to 68 buildings with a wall through them across 117
+      towns; structure-on-structure overlap: none in 67 million checks.
+- [x] **Somebody weak with hunger goes and eats, and a builder gets down off the
+      roof.** The 60-89 hunger band barred a settler from work and from shopping
+      at once; a meal is an errand now on both fidelities, measured identical to
+      the digit unwatched.
+- [x] **Every creature sees the townspeople and is seen.** Anything the danger
+      table scores hunts citizens one goal-slot behind players -- raiders had
+      never seen a citizen at all -- neutral creatures only when provoked; the
+      sweep and the guard's target list are one list.
+- [x] **The carpenter stays at his bench and the farmer in the rows.** A haul
+      goes to an idler, then to a trade with nothing queued, never to a builder,
+      guard or busy crafter; a field is collected at a full armful.
+      docs/CITIZENS.md says what every citizen does and in what order;
+      docs/HAULERS.md plans the porter's trade.
+- [x] **Every British spelling in the tree is marked** (docs/american-spelling-audit.md:
+      2055 hits, 47 forms, four live save keys that must not change) -- the
+      conversion itself is the batch's last unit.
 
 - [x] **Two blocks between any two walls.** The bare block that belonged to
       neither building is gone, and every literal spacing is the sum it was

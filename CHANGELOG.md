@@ -8,28 +8,15 @@ messages carry the reasoning and the measurements.
 
 ---
 
-## Two blocks between walls, and nine things a town could not do
+## Walls at the charter, hands on the wall, and every creature's true face
+
+Eight units, landed together. A town builds its one wall as a chartered town
+and moves it only when its suburbs outgrow it; its builders plant that wall,
+pave its streets and mend its houses by hand; a hungry settler eats first; and
+every creature in the world, modded or not, sees the townspeople and is seen.
 
 ### New
 
-- **A building can be pulled down, and the town notices.** Nothing in the mod
-  had ever removed a building, so a cottage a creeper flattened went on housing
-  a family, counting toward the beds that gate every birth, and having roads
-  routed to a door that was not there. A structure found with less than a
-  quarter of its walls standing, three sweeps running, is written off: its goods
-  go on the loose pile rather than out of the town's books, its family moves
-  into whatever is empty or joins the housing queue, its repair order is
-  cancelled and its road forgotten. A town that loses a cottage now wants
-  another one. Nothing is written off unless the town saw it standing first —
-  otherwise every field, pen and watchtower in the mod, none of which has a wall
-  at head height, would be condemned the day it was built.
-- **A market with prices that say why.** The stall was vanilla's villager
-  trading screen, which has room for a number and nowhere at all for "they are
-  starving". It is the mod's own screen now, and every row carries the reason
-  beside the price — *they are starving*, *more than they can store* — so a
-  shortage is legible from the road, which is the whole of what makes a moving
-  price a game rather than a table. The price is re-derived from the town as it
-  is when you press the button, not as it was when the screen opened.
 - **`/civ info` names anybody standing still with a job to do.** One line per
   settler who has a trade and has not moved a block in fifteen seconds: their
   name, their trade, how long they have stood there, where, how hungry they are
@@ -39,11 +26,6 @@ messages carry the reasoning and the measurements.
   route to the block it wants them at. The several ways a settler ends up frozen
   look identical from inside the simulation; this is what tells them apart in a
   world. The food line also says how many people are currently off to eat.
-- **`/civ info` and the `AUDIT` line say how fast the town is being run.** Three
-  figures — passes a minute, the worst single gap in the last minute, and how
-  much history that is — printed beside the rate the town is meant to get.
-  Measured per world, so the Nether's empty one can never be mistaken for the
-  overworld's.
 - **Two documents that answer "why is that person doing *that*?"**
   [docs/CITIZENS.md](docs/CITIZENS.md) is every profession as a table — the
   trigger that fires, the action it produces, the constant that gates it, in the
@@ -56,6 +38,16 @@ messages carry the reasoning and the measurements.
   who staffs it and at what ratio, the three flows it takes over, the single
   queue that replaces three planners each picking their own carrier, and twenty
   named tests to write when it is built.
+
+- **Damaged buildings are repaired by builders, from five percent.** A house
+  that lost a wall used to come back whole in a single instant, the entire
+  blueprint re-placed by a command, and only once a quarter of it was gone. A
+  repair is now the missing blocks and nothing else -- the plan is the
+  difference between the drawing and the world, laid by the same crew that
+  raises a house, with the materials for exactly those blocks carried from the
+  store -- and it is booked at five percent of the building missing, or two
+  blocks on a small one. A building with a repair booked is never written off
+  as a ruin; one the town cannot start repairing is left to be.
 
 ### Changed
 
@@ -134,16 +126,6 @@ messages carry the reasoning and the measurements.
   town's own people. No creature's danger number changed. **The watch has not
   caught up:** a guard still only picks fights with things that walk, so a town
   can now be frightened of a phantom overhead that nobody will go out to.
-- **Two blocks between any two walls, everywhere.** A plot used to be a
-  building, the doorstep ring around it, and one further block belonging to
-  nobody. That block is gone: two doorsteps that touch are two buildings that
-  each have one. Across the thirteen arrangements the gap from a wall to its
-  nearest neighbour's went from a median of six blocks to four, and every
-  arrangement now touches two somewhere where the tightest used to be three. No
-  town sprawls further for it — the stronghold pulled in from 191 blocks across
-  to 134 and the bastide from 208 to 184. Nine, the cottage's own separation,
-  was built and measured and is worse: a plan that offers at the smallest
-  building's floor offers most of its frontage to buildings that are refused.
 - **A town walls itself once, at its charter, and lives inside that line.** Two
   faults, at opposite ends. A settlement that grew past its wall stayed past it
   for the rest of the world's life — 58 of 85 buildings outside their own ring at
@@ -166,34 +148,6 @@ messages carry the reasoning and the measurements.
   field boundaries and bridge railings survive, and the posts already raised
   travel with the town: a wall moved outward is the same wall, and nobody is
   charged twice.
-- **A town out of good ground takes the least bad plot it looked at.** Having
-  examined ninety-six candidate plots and refused every one, a town used to take
-  the next slot on the ring with no terrain check at all — so the better the
-  siting rules got, the more often the search exhausted itself and the more
-  buildings were placed on ground nobody had looked at. Ground is scored now
-  rather than passed or failed, and the best of what was examined is taken. On
-  ground that refuses in families — a lake, a hillside, a quarter nobody has
-  loaded — a town that managed nine buildings in five hundred steps now builds
-  forty-five, on less than half the fault and never worse than three courses
-  where it used to accept eight. On the rough test seed: 47 buildings against 46,
-  the plot cursor at 166 rather than 195, and three doorsteps off a road rather
-  than four.
-- **The danger scale has rungs, and a stranger is no longer a zombie.** Anything
-  the table had not named read as the mildest thing in it, so an unrecognised
-  horror was a shambling corpse until it was inside the walls. What is not named
-  is now read off what the game itself says — whether it is hostile, a raider,
-  ranged, a boss — so a modded boss reads at the top of the scale and an archer
-  nobody named reads above a skeleton. Three unnamed hostiles now reach the panic
-  tier where six shambling ones were needed. Naming a creature is what earns it a
-  *lower* number. Seven vanilla hostiles are named at last, the drowned among
-  them: it was a zombie by descent and read as one, trident and all.
-- **The wall draws by real seconds rather than by sweeps.** Its post budget was
-  per pass of the town manager, which is a budget per second only while the
-  passes arrive once a second. It earns posts from the time actually elapsed
-  now, capped at five seconds of arrears — so ten minutes away lays a hundred and
-  twenty posts on the sweep you come back to, not fourteen thousand four
-  hundred. The looking is deliberately not paced: a scan that did not happen is
-  owed to nobody, and looking is the expensive half.
 
 ### Fixed
 
@@ -265,6 +219,101 @@ messages carry the reasoning and the measurements.
   perfectly still while the site's stall assist laid the rest of the wall around
   them. After four refusals the body is left to itself for a few seconds before
   the route is tried again.
+- **The wall is built where it was staked.** On a slanted stretch the posts
+  were laid in an L that could stand seven blocks off the line every check had
+  approved -- through a hearth, a carpentry and a town hall on one measured
+  seed -- and the staking never asked about plots the town had already
+  ordered. Across 117 grown towns, buildings with a wall through them went
+  from 738 to 68, with no town sprawling further for it. Structures
+  overlapping each other: none in 67 million pair checks.
+
+### Notes
+
+- **A watched town's farmers stand still during a famine and an unwatched town's
+  do not**, and this round leaves it open. The clock suspends the weakness rule
+  while a town is starving — precisely so that weak hands go on farming, because
+  weak hands that stop bring in no food and the town never recovers — but the
+  watched loop asks the plain "too weak to work?" question in all nine places it
+  gates on hunger, and so does not suspend anything. The town does not die; the
+  twelve-step harvest floor covers it. But in the exact circumstance the
+  suspension exists for, the player sees the fields abandoned. The fix is one
+  predicate substituted in a file this round's author did not own, and it is
+  written up in [docs/CITIZENS.md](docs/CITIZENS.md) §7.
+
+---
+
+## Two blocks between walls, and nine things a town could not do
+
+### New
+
+- **A building can be pulled down, and the town notices.** Nothing in the mod
+  had ever removed a building, so a cottage a creeper flattened went on housing
+  a family, counting toward the beds that gate every birth, and having roads
+  routed to a door that was not there. A structure found with less than a
+  quarter of its walls standing, three sweeps running, is written off: its goods
+  go on the loose pile rather than out of the town's books, its family moves
+  into whatever is empty or joins the housing queue, its repair order is
+  cancelled and its road forgotten. A town that loses a cottage now wants
+  another one. Nothing is written off unless the town saw it standing first —
+  otherwise every field, pen and watchtower in the mod, none of which has a wall
+  at head height, would be condemned the day it was built.
+- **A market with prices that say why.** The stall was vanilla's villager
+  trading screen, which has room for a number and nowhere at all for "they are
+  starving". It is the mod's own screen now, and every row carries the reason
+  beside the price — *they are starving*, *more than they can store* — so a
+  shortage is legible from the road, which is the whole of what makes a moving
+  price a game rather than a table. The price is re-derived from the town as it
+  is when you press the button, not as it was when the screen opened.
+- **`/civ info` and the `AUDIT` line say how fast the town is being run.** Three
+  figures — passes a minute, the worst single gap in the last minute, and how
+  much history that is — printed beside the rate the town is meant to get.
+  Measured per world, so the Nether's empty one can never be mistaken for the
+  overworld's.
+
+### Changed
+
+- **Two blocks between any two walls, everywhere.** A plot used to be a
+  building, the doorstep ring around it, and one further block belonging to
+  nobody. That block is gone: two doorsteps that touch are two buildings that
+  each have one. Across the thirteen arrangements the gap from a wall to its
+  nearest neighbour's went from a median of six blocks to four, and every
+  arrangement now touches two somewhere where the tightest used to be three. No
+  town sprawls further for it — the stronghold pulled in from 191 blocks across
+  to 134 and the bastide from 208 to 184. Nine, the cottage's own separation,
+  was built and measured and is worse: a plan that offers at the smallest
+  building's floor offers most of its frontage to buildings that are refused.
+- **A town out of good ground takes the least bad plot it looked at.** Having
+  examined ninety-six candidate plots and refused every one, a town used to take
+  the next slot on the ring with no terrain check at all — so the better the
+  siting rules got, the more often the search exhausted itself and the more
+  buildings were placed on ground nobody had looked at. Ground is scored now
+  rather than passed or failed, and the best of what was examined is taken. On
+  ground that refuses in families — a lake, a hillside, a quarter nobody has
+  loaded — a town that managed nine buildings in five hundred steps now builds
+  forty-five, on less than half the fault and never worse than three courses
+  where it used to accept eight. On the rough test seed: 47 buildings against 46,
+  the plot cursor at 166 rather than 195, and three doorsteps off a road rather
+  than four.
+- **The danger scale has rungs, and a stranger is no longer a zombie.** Anything
+  the table had not named read as the mildest thing in it, so an unrecognised
+  horror was a shambling corpse until it was inside the walls. What is not named
+  is now read off what the game itself says — whether it is hostile, a raider,
+  ranged, a boss — so a modded boss reads at the top of the scale and an archer
+  nobody named reads above a skeleton. Three unnamed hostiles now reach the panic
+  tier where six shambling ones were needed. Naming a creature is what earns it a
+  *lower* number. Seven vanilla hostiles are named at last, the drowned among
+  them: it was a zombie by descent and read as one, trident and all.
+- **The wall draws by real seconds rather than by sweeps.** Its post budget was
+  per pass of the town manager, which is a budget per second only while the
+  passes arrive once a second. It earns posts from the time actually elapsed
+  now, capped at five seconds of arrears — so ten minutes away lays a hundred and
+  twenty posts on the sweep you come back to, not fourteen thousand four
+  hundred. The looking is deliberately not paced: a scan that did not happen is
+  owed to nobody, and looking is the expensive half.
+
+
+### Fixed
+
 - **A family in a house the town cannot name is left alone.** A home whose
   blueprint matched no catalogue entry — a renamed cottage, a building from a mod
   no longer loaded, an older save — reported a capacity of zero, and every caller
@@ -298,21 +347,12 @@ messages carry the reasoning and the measurements.
   the plots against being left outside, and a building's corners sit happily
   inside a line that runs over its floor.
 
+
 ### Notes
 
 - Measured in a world on the rough test seed, 8675309: **0 of 80 drawn buildings
   standing in water**, and the audit reported none. The town re-staked its wall
   at step 400 and again after, 688 posts to 1134 to 1292.
-- **A watched town's farmers stand still during a famine and an unwatched town's
-  do not**, and this round leaves it open. The clock suspends the weakness rule
-  while a town is starving — precisely so that weak hands go on farming, because
-  weak hands that stop bring in no food and the town never recovers — but the
-  watched loop asks the plain "too weak to work?" question in all nine places it
-  gates on hunger, and so does not suspend anything. The town does not die; the
-  twelve-step harvest floor covers it. But in the exact circumstance the
-  suspension exists for, the player sees the fields abandoned. The fix is one
-  predicate substituted in a file this round's author did not own, and it is
-  written up in [docs/CITIZENS.md](docs/CITIZENS.md) §7.
 - The town manager is **not** starved of ticks, which had been the standing
   theory for six runs. Unwatched under `/civ step` load it runs 57.8 passes a
   minute with a worst gap of 4.8 seconds; with a player standing in the town,
@@ -335,6 +375,7 @@ messages carry the reasoning and the measurements.
   Opened in a world by the manager on seed 8675309: right-clicking the market post of a town with two coin in its treasury showed four goods, each with its reason beside the price — "They can spare it" on food, wood and stone, "More than they can store" on iron — and the footer "Prices move with what the town is short of. Paid in emeralds." The post stands a block off centre because the stall is turned to face its street, which is worth knowing before clicking at it from a script.
 
 ---
+
 
 ## Buildings the size of their plots, and roads that cross water
 
