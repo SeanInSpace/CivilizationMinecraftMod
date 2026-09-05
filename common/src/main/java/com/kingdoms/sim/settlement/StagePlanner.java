@@ -47,9 +47,9 @@ public final class StagePlanner {
                     new Want("kingdoms:farm", 1),
                     new Want("kingdoms:granary", 1)),
             SettlementStage.FORTIFIED, List.of(
-                    // The lumber camp comes first: the palisade this stage
-                    // exists for drinks more timber than any founding kit
-                    // carries, and until one stands the town fells nothing.
+                    // The lumber camp comes first: everything this settlement
+                    // builds from here on drinks more timber than any founding
+                    // kit carries, and until one stands the town fells nothing.
                     new Want("kingdoms:lumber_camp", 1),
                     new Want("kingdoms:storehouse", 1)),
             SettlementStage.VILLAGE, List.of(
@@ -153,18 +153,18 @@ public final class StagePlanner {
             case CAMP -> programComplete(settlement);
             case HOMESTEAD -> programComplete(settlement)
                     && settlement.fedStreak() >= FED_WINDOW_STEPS;
-            // The wall is deliberately NOT here any more. A palisade is now paid
-            // for in coin as well as timber, and coin comes only from a levy on
-            // production that takes a working town a long while to accumulate --
-            // which is the point, because a wall should be a late thing a
-            // settlement can afford rather than the first thing it does.
+            // The wall is deliberately NOT here, and no longer built here
+            // either. FORTIFIED means a settlement that has a WATCH -- its
+            // program standing and somebody walking it under arms -- which is
+            // what a frontier post actually had. A circuit of walls was a
+            // town's business, raised at its charter and not before, so
+            // PerimeterPlanner stakes nothing until TOWN.
             //
-            // That makes it impossible for the wall to also be the gate out of
-            // FORTIFIED: a town that must wall itself before it may grow can
-            // never grow rich enough to wall itself. It locked at FORTIFIED
-            // forever, which is how this was found. What fortifies a settlement
-            // at this stage is its program and somebody standing watch; the wall
-            // comes when the town is good for it.
+            // The wall could not have been the gate out of FORTIFIED in any
+            // case: it is paid for in coin as well as timber, coin comes only
+            // from a levy on production, and a town that must wall itself
+            // before it may grow can never grow rich enough to wall itself. It
+            // locked at FORTIFIED forever, which is how this was found.
             case FORTIFIED -> programComplete(settlement)
                     && JobPlanner.count(settlement, Profession.GUARD) >= 1;
             case VILLAGE -> programComplete(settlement)
@@ -185,9 +185,10 @@ public final class StagePlanner {
      */
     public static void crystallize(Settlement settlement, SettlementStage reached) {
         if (reached == SettlementStage.FORTIFIED) {
-            // The sentry first, then the woodcutter: the palisade needs an axe
-            // as much as a spear, and every timber path in the mod — watched
-            // and unwatched alike — counts real lumberjacks, not stand-ins.
+            // The sentry first, then the woodcutter: a watch needs a palisade's
+            // worth of timber behind it in stores and shelter either way, and
+            // every timber path in the mod — watched and unwatched alike —
+            // counts real lumberjacks, not stand-ins.
             crystallizeOne(settlement, Profession.GUARD);
             crystallizeOne(settlement, Profession.LUMBERJACK);
         }

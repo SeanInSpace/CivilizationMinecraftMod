@@ -48,6 +48,23 @@ class PathNetworkTest {
         return s;
     }
 
+    /**
+     * A town far enough along to have a wall at all.
+     *
+     * <p>Nothing is staked before TOWN — a settlement walls itself at its
+     * charter and not before — so a fixture that wants a ring to hang gates on
+     * has to be a town with its hall standing, not a fortified camp.
+     */
+    private static Settlement chartered() {
+        Settlement s = town();
+        s.setStage(SettlementStage.TOWN);
+        raise(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
+        raise(s, "kingdoms:lumber_camp", new SimPos(12, 64, 0), 1);
+        raise(s, "kingdoms:storehouse", new SimPos(-12, 64, 0), 3);
+        raise(s, "kingdoms:town_hall", new SimPos(0, 64, 14), 0);
+        return s;
+    }
+
     /** A standing, drawn building of known size — the only kind a road runs to. */
     private static Building raise(Settlement s, String blueprintId, SimPos at, int facing) {
         Building building = new Building(blueprintId, at, 0, true);
@@ -168,15 +185,11 @@ class PathNetworkTest {
 
     @Test
     void theWallPutsItsGatesWhereTheStreetsReach() {
-        Settlement s = town();
-        s.setStage(SettlementStage.FORTIFIED);
-        raise(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
-        raise(s, "kingdoms:lumber_camp", new SimPos(12, 64, 0), 1);
-        raise(s, "kingdoms:storehouse", new SimPos(-12, 64, 0), 3);
+        Settlement s = chartered();
 
         PerimeterPlanner.advance(s, CTX);   // stakes the ring
         Perimeter ring = s.perimeter();
-        assertTrue(ring != null, "a fortified settlement with its program built stakes a ring");
+        assertTrue(ring != null, "a chartered town with its hall standing stakes a ring");
 
         // A street pushing hard north -- the way out of town on that side.
         s.paths().add(new PathNetwork.Segment(new SimPos(7, 64, 0), new SimPos(7, 64, -40)));
@@ -212,11 +225,7 @@ class PathNetworkTest {
         // a ring post cuts no opening: Perimeter.isGateway looks for posts
         // within a block of a gate, finds none, and the wall is raised solid
         // across the road while the town believes it has a gate there.
-        Settlement s = town();
-        s.setStage(SettlementStage.FORTIFIED);
-        raise(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
-        raise(s, "kingdoms:lumber_camp", new SimPos(12, 64, 0), 1);
-        raise(s, "kingdoms:storehouse", new SimPos(-12, 64, 0), 3);
+        Settlement s = chartered();
         s.paths().add(new PathNetwork.Segment(new SimPos(7, 64, 0), new SimPos(7, 64, -40)));
         s.paths().add(new PathNetwork.Segment(new SimPos(0, 64, 6), new SimPos(40, 64, 6)));
         PerimeterPlanner.advance(s, CTX);

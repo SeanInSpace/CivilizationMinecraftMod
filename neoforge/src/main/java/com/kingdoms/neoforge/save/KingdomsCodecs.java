@@ -246,7 +246,15 @@ public final class KingdomsCodecs {
             // saved before a town could outgrow its ring, and an empty list is
             // exactly right for those: they have one wall and always had.
             RETIRED_LINE.listOf().optionalFieldOf("retired", List.of())
-                    .forGetter(Perimeter::retired)
+                    .forGetter(Perimeter::retired),
+            // The step the standing line was staked on, which is what says
+            // whether the town may move it yet. Saved because a restart is not
+            // a generation. Note that the counter it will be compared against
+            // is NOT saved -- SimWorld starts every session at step zero -- so
+            // this comes back looking like a step in the future; Perimeter.ageAt
+            // is where that is read for what it is. Absent means a world saved
+            // before walls had an age, and zero is the honest answer for those.
+            Codec.LONG.optionalFieldOf("staked_on", 0L).forGetter(Perimeter::stakedOn)
     ).apply(i, Perimeter::new));
 
     private static final Codec<PathNetwork.Segment> PATH_SEGMENT =

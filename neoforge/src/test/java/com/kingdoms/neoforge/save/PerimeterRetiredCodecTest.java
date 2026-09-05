@@ -14,14 +14,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The walls a town has replaced, across a save.
+ * The walls a town has replaced, and the age of the one it has, across a save.
  *
- * <p>A settlement that outgrows its palisade stakes a wider one and hands the
- * old line on to be pulled down. That handover is state, not a moment: the
- * demolition walks the old ring a slice at a time and half of it is usually in
- * unloaded chunks. Lose the list on a reload and the old posts stay in the
- * ground for good, with the new wall outside them — two walls, which is the one
- * outcome re-staking exists to avoid.
+ * <p>A settlement whose suburbs come to outnumber the quarter inside its wall
+ * stakes a wider line and hands the old one on to be pulled down. That handover
+ * is state, not a moment: the demolition walks the old ring a slice at a time
+ * and half of it is usually in unloaded chunks. Lose the list on a reload and
+ * the old posts stay in the ground for good, with the new wall outside them —
+ * two walls, which is the one outcome re-staking exists to avoid.
+ *
+ * <p>The age of the standing line has to survive for a different reason: it is
+ * half of what decides whether the town is allowed to move it at all.
  *
  * <p>Read and written through JSON, for the reason
  * {@code SettlementLayoutCodecTest} gives: the codecs are plain
@@ -81,6 +84,29 @@ class PerimeterRetiredCodecTest {
                 "an old save came back owing a demolition it never had");
         assertTrue(back.retiredPositions().isEmpty());
         assertEquals(12, back.laid());
+    }
+
+    @Test
+    void aWallComesBackAsOldAsItWent() {
+        // The wall's age is what says whether the town may move it yet, so a
+        // reload that forgot it would hand every loaded town a wall of no age
+        // at all and let it re-stake on the first review after loading. The
+        // step counter this is measured against is a separate problem, and
+        // Perimeter.ageAt is where it is dealt with; what has to survive the
+        // save is the number itself.
+        Settlement town = walled(new Perimeter(box(60), List.of(), 12, List.of(), 900L));
+
+        JsonObject written = encode(town).getAsJsonObject();
+        JsonObject ring = written.getAsJsonObject("perimeter");
+        assertTrue(ring.has("staked_on"), "the wall's age is not being written at all");
+        assertEquals(900L, decode(written).perimeter().stakedOn(),
+                "a reloaded town forgot when it walled itself");
+
+        // And the worlds saved before walls had an age: absent is zero, which
+        // reads as a wall that has stood since this session began.
+        ring.remove("staked_on");
+        assertEquals(0L, decode(written).perimeter().stakedOn(),
+                "an old save would not load at all for want of a field it never had");
     }
 
     private static JsonElement encode(Settlement town) {
