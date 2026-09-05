@@ -84,19 +84,8 @@ public final class PublicWorks {
      * builds, which is the priority this list states anyway.
      */
     public static Worksite handsAreOn(Settlement settlement, WorldBridge bridge) {
-        if (!settlement.buildQueue().isEmpty()) {
+        if (!settlement.buildQueue().isEmpty() || !hasSpareHands(settlement)) {
             return null;   // shelter and stores before roads and walls
-        }
-        boolean spare = false;
-        for (Person person : settlement.residents()) {
-            if (settlement.laboursAs(person, Profession.BUILDER)
-                    && person.isEmbodied() && !person.isTooWeakToWork()) {
-                spare = true;
-                break;
-            }
-        }
-        if (!spare) {
-            return null;
         }
         for (Worksite work : of(settlement)) {
             if (!work.isWorthStarting(settlement)) {
@@ -113,6 +102,45 @@ public final class PublicWorks {
             return work;
         }
         return null;
+    }
+
+    /** Whether anybody in this town is both able to build and standing in the world. */
+    private static boolean hasSpareHands(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            if (settlement.laboursAs(person, Profession.BUILDER)
+                    && person.isEmbodied() && !person.isTooWeakToWork()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the clock should leave this work to the town's own people.
+     *
+     * <p>Two ways it should. The crew is on it now, which is
+     * {@link #handsAreOn}; or the crew is raising a house, in which case they are
+     * coming back to it — a build queue is a finite thing a town works through,
+     * the foreman defers to it by design, and a clock that opened a street while
+     * the builders were busy would be opening it in front of the very people who
+     * were on their way to open it.
+     *
+     * <p>What it does <em>not</em> wait for is a crew on a public work above this
+     * one. That is the distinction the reordering forced, and it is a real one: a
+     * town with a ring still going up has builders who will not reach the streets
+     * for as long as the wall takes, and waiting for them leaves a street opened
+     * by nobody at all. The old rule made no such distinction because it did not
+     * have to — the roads were the first work a crew was offered, so "is anybody
+     * here a builder" and "is anybody coming to this street" were the same
+     * question.
+     */
+    public static boolean leaveItToTheCrew(Settlement settlement, WorldBridge bridge,
+                                           Worksite work) {
+        Worksite chosen = handsAreOn(settlement, bridge);
+        if (chosen != null && chosen.getClass() == work.getClass()) {
+            return true;
+        }
+        return !settlement.buildQueue().isEmpty() && hasSpareHands(settlement);
     }
 
     /**

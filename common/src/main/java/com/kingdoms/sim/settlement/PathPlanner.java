@@ -427,16 +427,18 @@ public final class PathPlanner {
                 network.markUnwalkable(i);
                 continue;
             }
-            // Hands on the ROADS, rather than hands anywhere in the town. The
+            // Hands on the ROADS, or hands that are coming back to them. The
             // question used to be "is anybody here a builder", which was the
             // same question while the roads were the first work a crew was
             // offered. They are below the wall now, so a town with a ring still
-            // going up has builders who are never coming — and a clock that
-            // stood aside for them would leave a street opened by nobody at all,
-            // for as long as the wall took. See PublicWorks.handsAreOn, which is
-            // the foreman's own choice asked without a world.
-            if (PublicWorks.handsAreOn(settlement, ctx.bridge())
-                    instanceof PublicWorks.RoadWork) {
+            // going up has builders who will not reach the streets for as long
+            // as the wall takes — and a clock that stood aside for them would
+            // leave a street opened by nobody at all. A builder raising a house
+            // is a different case and still stands the clock down: a build queue
+            // is finite and they are on their way. See
+            // PublicWorks.leaveItToTheCrew.
+            if (PublicWorks.leaveItToTheCrew(settlement, ctx.bridge(),
+                    new PublicWorks.RoadWork())) {
                 return;   // somebody is there to walk it out themselves
             }
             network.markOpened(i);

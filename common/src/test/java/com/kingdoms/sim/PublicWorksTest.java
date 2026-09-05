@@ -396,6 +396,9 @@ class PublicWorksTest {
 
         assertNull(PublicWorks.handsAreOn(town, new LoadedBridge()),
                 "shelter and stores before roads and walls");
+        assertTrue(PublicWorks.leaveItToTheCrew(town, new LoadedBridge(), roads()),
+                "and the clock still waits for them, because a house is a finite"
+                        + " thing and they are on their way back to the street");
     }
 
     @Test
@@ -429,6 +432,19 @@ class PublicWorksTest {
         assertFalse(PublicWorks.handsAreOn(town, new LoadedBridge())
                         instanceof PublicWorks.RoadWork,
                 "the wall is above the roads, and that is where the crew goes");
+        assertFalse(PublicWorks.leaveItToTheCrew(town, new LoadedBridge(), roads()),
+                "so the clock must not wait for them: a ring is hundreds of posts"
+                        + " and the street would be opened by nobody at all");
+    }
+
+    @Test
+    void aCrewOnTheRoadsStandsTheRoadClockDown() {
+        Settlement town = town();
+        embodyTheBuilder(town);
+        aRunToOpen(town);
+
+        assertTrue(PublicWorks.leaveItToTheCrew(town, new LoadedBridge(), roads()),
+                "somebody is walking it out, so nothing else should");
     }
 
     @Test
@@ -441,6 +457,8 @@ class PublicWorksTest {
 
         assertNull(PublicWorks.handsAreOn(town, new QuietBridge()),
                 "the street is in a chunk nobody has loaded, so nobody is on it");
+        assertFalse(PublicWorks.leaveItToTheCrew(town, new QuietBridge(), roads()),
+                "and the clock is all the town has");
     }
 
     // --- and the order between them ---

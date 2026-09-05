@@ -145,12 +145,14 @@ public final class Foreman {
                 // because what this returns is what tells the away sweeps to
                 // stand aside, it would pin the work itself along with them.
                 if (!builder.getNavigation().moveTo(at.getX() + 0.5, at.getY(),
-                        at.getZ() + 0.5, WALK_SPEED)) {
-                    skipColumn(settlement, work);
+                        at.getZ() + 0.5, WALK_SPEED)
+                        || !stillWorthWalkingTo(settlement, work, station)) {
+                    giveUpOn(settlement, work);
                     continue;
                 }
                 return work;
             }
+            WALKING.remove(settlement.id());
             // Ground first. A wall used to be built straight through a wood: its
             // footing is found with a heightmap that steps over leaves and not
             // over logs, so a post whose column held a trunk was founded on top
@@ -184,14 +186,19 @@ public final class Foreman {
             if (fresh && !work.pay(settlement)) {
                 continue;   // cannot afford this one; see whether the next is cheaper
             }
-            if (fresh && owed != null) {
-                carrier.spendCarry();   // the plank goes into this post and no other
-            }
             builder.getLookControl().setLookAt(
                     at.getX() + 0.5, at.getY() + 1.0, at.getZ() + 0.5);
             builder.swing(InteractionHand.MAIN_HAND);
             level.playSound(null, at, SoundEvents.WOOD_PLACE, SoundSource.BLOCKS, 0.7F, 1.0F);
             Swing swing = swingAt(level, settlement, work, station);
+            if (fresh && owed != null && swing.worked()) {
+                // Only once a block is actually in the ground. A course the
+                // column refuses -- the line grazing somebody's wall, which
+                // lineIsClosed forgives and counts as wall -- is not a plank
+                // used, and a load emptied into positions nothing was built at
+                // would have a builder walking back to the shelves for nothing.
+                carrier.spendCarry();
+            }
             if (swing.done()) {
                 work.completeOne(settlement, swing.worked());
             }
@@ -275,7 +282,7 @@ public final class Foreman {
     private static Swing swingAt(ServerLevel level, Settlement settlement, Worksite work,
                                  SimPos station) {
         if (work instanceof PublicWorks.WallWork) {
-            return new Swing(plantPost(level, settlement), true);
+            return plantPost(level, settlement);
         }
         if (work instanceof PublicWorks.DismantleWork) {
             // Finished either way. A post that will not come out is one somebody
@@ -310,13 +317,30 @@ public final class Foreman {
     private static final java.util.Map<Settlement.Id, Paving> PAVING =
             new java.util.HashMap<>();
 
-    /** Which run a crew is on and which of its cross-sections is next. */
-    private record Paving(SimPos from, int at) {
+    /**
+     * Which run a crew is on, which of its cross-sections is next, and which
+     * they had to walk past.
+     *
+     * <p>A crew walks a run once and then goes back for what it could not reach
+     * the first time. That second visit is the whole of {@code missed} and it is
+     * needed because nothing else would ever lay those columns: the mending
+     * sweep only re-lays a run once a <em>quarter</em> of it has gone, quite
+     * deliberately — grass creeps back over a corner of a road constantly, and a
+     * layer that repaved every blade would rewrite half the town every second —
+     * so three bare columns in thirty are a road with holes in it that the sweep
+     * will forgive for ever.
+     *
+     * <p>Once. A column still out of reach on the second visit is one nothing can
+     * be done about from here, and a crew laid on it in perpetuity is a town that
+     * opens no more streets.
+     */
+    private record Paving(SimPos from, int at, List<Integer> missed) {
     }
 
     /** Drops what the crews remember, for a world that is closing. */
     public static void forget() {
         PAVING.clear();
+        WALKING.clear();
     }
 
     /**
@@ -338,14 +362,121 @@ public final class Foreman {
         if (index < 0) {
             return null;
         }
-        PathNetwork.Segment run = settlement.paths().segments().get(index);
-        List<SimPos> along = run.positions();
+        List<SimPos> along = settlement.paths().segments().get(index).positions();
+        int column = columnOf(pavingOf(settlement, along), along.size());
+        return column < 0 ? null : along.get(column);
+    }
+
+    /** The crew's place on this run, started fresh if the run is not the one they were on. */
+    private static Paving pavingOf(Settlement settlement, List<SimPos> along) {
         Paving paving = PAVING.get(settlement.id());
         if (paving == null || !paving.from().equals(along.getFirst())) {
-            paving = new Paving(along.getFirst(), 0);
+            paving = new Paving(along.getFirst(), 0, List.of());
             PAVING.put(settlement.id(), paving);
         }
-        return along.get(Math.min(paving.at(), along.size() - 1));
+        return paving;
+    }
+
+    /** Which cross-section is next: along the run, then back for what was walked past. */
+    private static int columnOf(Paving paving, int length) {
+        if (paving.at() < length) {
+            return paving.at();
+        }
+        return paving.missed().isEmpty() ? -1 : paving.missed().getFirst();
+    }
+
+    /**
+     * Moves the crew on from the cross-section they are at.
+     *
+     * @param reached whether they actually worked it, as opposed to walking past
+     *                a column nobody could see or get to
+     */
+    private static void moveOn(Settlement settlement, PublicWorks.RoadWork work,
+                               List<SimPos> along, boolean reached) {
+        Paving paving = pavingOf(settlement, along);
+        List<Integer> missed = new java.util.ArrayList<>(paving.missed());
+        if (paving.at() < along.size()) {
+            if (!reached) {
+                missed.add(paving.at());
+            }
+            paving = new Paving(paving.from(), paving.at() + 1, List.copyOf(missed));
+        } else if (!missed.isEmpty()) {
+            // The second visit, whether or not it got there this time. A column
+            // still out of reach is one nothing can be done about from here.
+            missed.removeFirst();
+            paving = new Paving(paving.from(), paving.at(), List.copyOf(missed));
+        }
+        if (columnOf(paving, along.size()) < 0) {
+            work.finishStretch(settlement);
+            PAVING.remove(settlement.id());
+        } else {
+            PAVING.put(settlement.id(), paving);
+        }
+    }
+
+    /**
+     * How long a crew keeps walking toward one station before giving it up.
+     *
+     * <p>A refused route is not the only way a station can be out of reach, and
+     * it turns out to be the rarer one: vanilla's navigation answers yes to a
+     * <em>partial</em> path, running to the nearest node it can get to, so a post
+     * across a river or walled inside a building is a route made and a walk
+     * begun that never arrives. Nothing about that is visible from here except
+     * how long it has been going on.
+     *
+     * <p>Two minutes at a pass a second, which is far longer than any walk across
+     * a town and short enough that a work is not lost. It matters more than it
+     * sounds, because what the foreman returns is what tells the away sweeps to
+     * stand aside: a crew walking for ever at a retired post is a settlement
+     * standing inside two walls for ever, which is the one thing the work exists
+     * to prevent.
+     */
+    private static final int WALK_PASSES_BEFORE_GIVING_UP = 120;
+
+    /** How long each settlement's crew has been walking to one station. */
+    private static final java.util.Map<Settlement.Id, Walk> WALKING =
+            new java.util.HashMap<>();
+
+    /** Which station a crew is walking to, and for how many passes. */
+    private record Walk(String work, SimPos station, int passes) {
+    }
+
+    /**
+     * Whether this station is still worth walking to, or has swallowed enough.
+     *
+     * <p>Counted rather than measured, because how far along a walk is is not a
+     * question this can ask: a builder herded off by hunger, an alarm or a bed is
+     * making no progress either, and all of those end on their own.
+     */
+    private static boolean stillWorthWalkingTo(Settlement settlement, Worksite work,
+                                               SimPos station) {
+        Walk walk = WALKING.get(settlement.id());
+        if (walk == null || !walk.work().equals(work.name())
+                || !walk.station().equals(station)) {
+            WALKING.put(settlement.id(), new Walk(work.name(), station, 1));
+            return true;
+        }
+        WALKING.put(settlement.id(), new Walk(work.name(), station, walk.passes() + 1));
+        return walk.passes() < WALK_PASSES_BEFORE_GIVING_UP;
+    }
+
+    /**
+     * Writes off a station nobody can get to, so the work can go on past it.
+     *
+     * <p>What "written off" means differs by work and each answer is the honest
+     * one. A post nobody can reach is a position of line the town has whatever is
+     * standing there — the same thing the clock records when it cannot place one,
+     * and what {@code /civ wall} reports as missing. A retired post nobody can
+     * reach is crossed off without salvage and left to the sweep, which has no
+     * legs and does not care. A column of road is walked past.
+     */
+    private static void giveUpOn(Settlement settlement, Worksite work) {
+        WALKING.remove(settlement.id());
+        if (work instanceof PublicWorks.RoadWork) {
+            skipColumn(settlement, work);
+        } else {
+            work.completeOne(settlement, false);
+        }
     }
 
     /**
@@ -356,29 +487,26 @@ public final class Foreman {
      * would otherwise open the street sees only the near end of it — so a crew
      * stopped at the twentieth column of a run whose first is loaded stalls a
      * town's whole network, since every later stretch queues behind the one that
-     * is never opened. Walked past instead, and what is walked past is laid by
-     * the mending sweep on the pass after somebody loads it.
+     * is never opened. Walked past instead.
      *
      * <p>Nothing for any other work. A post is a place the town's own books name,
      * so a wall or a retired line that cannot be reached is simply left to the
      * sweep that owns it.
+     *
+     * <p>What was walked past is not abandoned: it is written into
+     * {@link Paving#missed}, and the crew comes back down the run for it once
+     * before the stretch is opened.
      */
     private static void skipColumn(Settlement settlement, Worksite work) {
         if (!(work instanceof PublicWorks.RoadWork road)) {
             return;
         }
         int index = road.nextRun(settlement);
-        Paving paving = PAVING.get(settlement.id());
-        if (index < 0 || paving == null) {
+        if (index < 0 || PAVING.get(settlement.id()) == null) {
             return;
         }
-        List<SimPos> along = settlement.paths().segments().get(index).positions();
-        if (paving.at() + 1 >= along.size()) {
-            road.finishStretch(settlement);
-            PAVING.remove(settlement.id());
-        } else {
-            PAVING.put(settlement.id(), new Paving(paving.from(), paving.at() + 1));
-        }
+        moveOn(settlement, road,
+                settlement.paths().segments().get(index).positions(), false);
     }
 
     /**
@@ -404,8 +532,10 @@ public final class Foreman {
         }
         PathNetwork.Segment run = settlement.paths().segments().get(index);
         List<SimPos> along = run.positions();
-        Paving paving = PAVING.get(settlement.id());
-        int at = paving == null ? 0 : Math.min(paving.at(), along.size() - 1);
+        int at = columnOf(pavingOf(settlement, along), along.size());
+        if (at < 0) {
+            return false;
+        }
         if (at == 0) {
             if (!PathLayer.canBePaved(level, run)) {
                 work.finishStretch(settlement);
@@ -415,12 +545,7 @@ public final class Foreman {
             Bridge.span(level, run);
         }
         PathLayer.paveAt(level, run, at);
-        if (at + 1 >= along.size()) {
-            work.finishStretch(settlement);
-            PAVING.remove(settlement.id());
-        } else {
-            PAVING.put(settlement.id(), new Paving(along.getFirst(), at + 1));
-        }
+        moveOn(settlement, work, along, true);
         return true;
     }
 
@@ -433,25 +558,30 @@ public final class Foreman {
      * read off the ground rather than counted, so a post interrupted halfway is
      * resumed at the course that is missing.
      *
-     * @return whether nothing more is owed at this position
+     * @return whether nothing more is owed at this position, and whether a block
+     *         actually went into the ground for it
      */
-    private static boolean plantPost(ServerLevel level, Settlement settlement) {
+    private static Swing plantPost(ServerLevel level, Settlement settlement) {
         Perimeter perimeter = settlement.perimeter();
         if (perimeter == null) {
-            return true;
+            return new Swing(true, false);
         }
         List<PerimeterLayer.Course> plan =
                 PerimeterLayer.planAt(level, perimeter, perimeter.laid());
         PerimeterLayer.Course owed = PerimeterLayer.owed(level, plan);
         if (owed == null) {
-            return true;   // the post stands, or this position is a gate's opening
+            // The post stands, or this position is a gate's opening. Either way
+            // there was nothing to do and nothing was spent doing it.
+            return new Swing(true, false);
         }
-        // A course the ground refuses is a course nothing can lay: the line runs
-        // through somebody's wall just here, which is a better wall than a fence
-        // and is exactly what lineIsClosed forgives. Standing here swinging at it
-        // for ever is the one outcome that helps nobody.
-        return !PerimeterLayer.layByHand(level, owed)
-                || PerimeterLayer.owed(level, plan) == null;
+        if (!PerimeterLayer.layByHand(level, owed)) {
+            // A course the column refuses is a course nothing can lay: the line
+            // runs through somebody's wall just here, which is a better wall than
+            // a fence and is exactly what lineIsClosed forgives. Standing here
+            // swinging at it for ever is the one outcome that helps nobody.
+            return new Swing(true, false);
+        }
+        return new Swing(PerimeterLayer.owed(level, plan) == null, true);
     }
 
     /**
