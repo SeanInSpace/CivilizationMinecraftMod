@@ -270,6 +270,25 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   suspension exists for, the player sees the fields abandoned. The fix is one
   predicate substituted in a file this round's author did not own, and it is
   written up in [docs/CITIZENS.md](docs/CITIZENS.md) §7.
+- Measured in a world on the rough test seed, 8675309, grown unwatched to
+  TOWN and past it: no wall at step 100 (the command answers "has not staked a
+  wall yet"), one staking at step 172 of 688 posts, and no second line through
+  step 711 -- the shape the rules promise. The stage at the moment of staking is
+  not in that log (the town history keeps only its last few events); that claim
+  rests on WallRestakeTest and the code path, and is stated as such.
+- With a player standing in the same town for four minutes: the wall went from
+  563 posts standing to 646 -- the builders planted the 83 that were missing,
+  and the count of posts shut by a building fell from 4 to 0. The road count
+  climbed from 312 runs to 428 while the opened count held at 210: the crew was
+  on the wall and the houses, which is the stated order, so paving by hand was
+  not seen in the window and rests on its tests.
+- The meal errand fires in a world: at a worst hunger of 64 the info line read
+  "3 off to eat". The idle line named what a player had watched: two builders
+  still for 49 and 38 seconds at a site that has them, errand none -- the stall
+  assist laying one block in five while the crew stands, which is build pacing
+  and was left alone on purpose. No SIZE MISMATCH, no exception, no ruin.
+- The town manager paced 42 to 60 passes a minute with a player in town, 57.7
+  unwatched under step load -- unchanged by any of this.
 
 ---
 
