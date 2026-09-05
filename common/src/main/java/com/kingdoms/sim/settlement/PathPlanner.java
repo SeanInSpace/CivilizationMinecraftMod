@@ -15,7 +15,7 @@ import java.util.List;
  * of overlapping lines this replaced:
  *
  * <ol>
- *   <li><strong>Join the nearest way, not the centre.</strong> A new building
+ *   <li><strong>Join the nearest way, not the center.</strong> A new building
  *       branches off whatever road already passes closest — only the first one
  *       runs to the hub — so the network grows outward like a village's does
  *       rather than putting one more spoke through the middle of town.</li>
@@ -25,7 +25,7 @@ import java.util.List;
  *   <li><strong>Out of the door first.</strong> The first run leaves along the
  *       way the door actually faces, then turns. The old layer aimed at a fixed
  *       point due south of every building while the placer rotated three
- *       quarters of them to face the centre, so most roads began at a blank
+ *       quarters of them to face the center, so most roads began at a blank
  *       wall.</li>
  * </ol>
  *
@@ -69,18 +69,18 @@ public final class PathPlanner {
     /**
      * Bare ground between a wall and a carriageway, so a door has a doorstep.
      *
-     * <p>The same kerb {@code Settlement.isPlotFree} keeps, and it has to be.
-     * Siting refuses a plot within {@code span/2 + KERB} of a street; this
+     * <p>The same curb {@code Settlement.isPlotFree} keeps, and it has to be.
+     * Siting refuses a plot within {@code span/2 + CURB} of a street; this
      * refused to lay a street within {@code span/2} of a plot. One block of
-     * disagreement, and it is enough: a street laid exactly on the kerb line is
+     * disagreement, and it is enough: a street laid exactly on the curb line is
      * ground siting would never have built on, so the survey reports a building
      * in the road that the building never chose. Whichever rule runs second
      * wins, and the two must mean the same thing by "clear".
      */
-    private static final int KERB = 1;
+    private static final int CURB = 1;
 
     /**
-     * How far round its own centre a town lays streets before it has anything.
+     * How far round its own center a town lays streets before it has anything.
      *
      * <p>A founding camp has one post and nothing to measure from, and a plan
      * whose streets are all judged against buildings that do not exist would
@@ -135,7 +135,7 @@ public final class PathPlanner {
      * what a road crew does with it. Refusing them instead was measured and it
      * is the wrong trade — the network shrank, doors were stranded from roads
      * that were merely a little steep, and the town got worse the stricter its
-     * judgement became.
+     * judgment became.
      *
      * <p>Three is still refused, here and at the layer, because no single block
      * moved makes it walkable and a crew that moved more would be terracing.
@@ -177,8 +177,8 @@ public final class PathPlanner {
         if (standing.size() == network.streetsLaidFor()) {
             return;   // nothing new has been built; a town steps every tick
         }
-        SimPos centre = settlement.centre();
-        TownPlan plan = settlement.arrangement().planFor(centre, 1);
+        SimPos center = settlement.center();
+        TownPlan plan = settlement.arrangement().planFor(center, 1);
         com.kingdoms.sim.geom.TerrainSense ground = groundUnder(ctx);
         RoadRouter.Keepout held = heldGround(settlement, plan);
 
@@ -194,7 +194,7 @@ public final class PathPlanner {
                 SimPos to = drawn.get(piece);
                 SimPos middle = new SimPos((from.x() + to.x()) / 2, from.y(),
                         (from.z() + to.z()) / 2);
-                if (!within(middle, centre, FIRST_STREETS)
+                if (!within(middle, center, FIRST_STREETS)
                         && !nearAny(middle, standing, STREET_NEAR)) {
                     continue;   // the town has not grown out to this stretch yet
                 }
@@ -204,10 +204,10 @@ public final class PathPlanner {
                 // worse: a spine runs a thousand blocks, so one ravine anywhere
                 // along it condemns the lot. Measured that way, nine streets of
                 // twelve were refused and the town fell from sixty-two buildings
-                // to thirty-nine -- the roads got better judgement and the town
+                // to thirty-nine -- the roads got better judgment and the town
                 // got smaller, which is precisely backwards.
                 //
-                // Each stretch begins and ends on the drawn line, so neighbours
+                // Each stretch begins and ends on the drawn line, so neighbors
                 // meet exactly whatever either of them did in between, and a
                 // cliff costs the town one stretch instead of one street.
                 List<SimPos> routed = RoadRouter.route(List.of(from, to), ground, held);
@@ -248,7 +248,7 @@ public final class PathPlanner {
      *
      * <p>{@code groundHeight} rather than {@code surfaceHeight}: the second
      * hands back the caller's own y for a column nobody has loaded, and every
-     * point of a planned street carries the town centre's y — so an entire
+     * point of a planned street carries the town center's y — so an entire
      * hillside reads as a table top and a router asking that question would
      * cheerfully route across a cliff.
      */
@@ -274,16 +274,16 @@ public final class PathPlanner {
      * road routed through that gap completes underneath it.
      */
     /**
-     * How far a road's CENTRELINE must stay from a plot.
+     * How far a road's CENTERLINE must stay from a plot.
      *
-     * <p>The plot's own half-width, a kerb, and — the part that was missing —
-     * half the road. A keepout that only holds the centreline out of the plot
-     * lets an eight-wide street centred five blocks away pave the garden anyway,
+     * <p>The plot's own half-width, a curb, and — the part that was missing —
+     * half the road. A keepout that only holds the centerline out of the plot
+     * lets an eight-wide street centered five blocks away pave the garden anyway,
      * and the routed roads promptly did: a farm came back standing on a
      * carriageway that had bent politely around its middle.
      */
     public static int keepoutRound(int span) {
-        return span / 2 + KERB + WIDEST_ROAD_HALF;
+        return span / 2 + CURB + WIDEST_ROAD_HALF;
     }
 
     /** Half the widest carriageway a plan draws, which the keepout must clear. */
@@ -298,13 +298,13 @@ public final class PathPlanner {
         for (Building building : settlement.buildings()) {
             if (BuildPlanner.holdsGround(building.blueprintId())) {
                 claim(blocked, building.origin(), keepoutRound(BuildPlanner.plotSpanOf(
-                        building.blueprintId(), settlement.catalogue())));
+                        building.blueprintId(), settlement.catalog())));
             }
         }
         for (BuildTask queued : settlement.queued()) {
             if (BuildPlanner.holdsGround(queued.blueprintId())) {
                 claim(blocked, queued.origin(), keepoutRound(BuildPlanner.plotSpanOf(
-                        queued.blueprintId(), settlement.catalogue())));
+                        queued.blueprintId(), settlement.catalog())));
             }
         }
         // And every plot the plan MIGHT still use, not only the ones standing.
@@ -354,15 +354,15 @@ public final class PathPlanner {
         return false;
     }
 
-    private static boolean within(SimPos pos, SimPos centre, int reach) {
-        return Math.max(Math.abs(pos.x() - centre.x()),
-                        Math.abs(pos.z() - centre.z())) <= reach;
+    private static boolean within(SimPos pos, SimPos center, int reach) {
+        return Math.max(Math.abs(pos.x() - center.x()),
+                        Math.abs(pos.z() - center.z())) <= reach;
     }
 
     /** Joins one more building to the network, if any is waiting. */
     public static void advance(Settlement settlement, SimContext ctx) {
         Building hubBuilding = hubBuilding(settlement);
-        SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.centre();
+        SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.center();
         PathNetwork network = settlement.paths();
 
         // The streets come first, which is the whole point of planning them.
@@ -486,7 +486,7 @@ public final class PathPlanner {
         // nothing better to find and its longer answer only spends the town's
         // one-stretch-a-step opening budget.
         //
-        // What would actually reach them is levelling the ground they stand on,
+        // What would actually reach them is leveling the ground they stand on,
         // which is what a town does when it builds somewhere awkward. That is
         // the plot terraforming, not the road.
         network.add(new PathNetwork.Segment(door, corner));
@@ -540,7 +540,7 @@ public final class PathPlanner {
 
     /**
      * What the roads radiate from: the hall, else the camp post, else nothing —
-     * in which case the settlement's own centre stands in.
+     * in which case the settlement's own center stands in.
      */
     private static Building hubBuilding(Settlement settlement) {
         Building campPost = null;

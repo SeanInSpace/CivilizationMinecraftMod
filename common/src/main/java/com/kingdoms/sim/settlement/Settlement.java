@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * A single settlement: a roster of people, a centre, a claim radius, and a
+ * A single settlement: a roster of people, a center, a claim radius, and a
  * build queue that advances whether or not anyone is watching.
  */
 public final class Settlement {
@@ -43,7 +43,7 @@ public final class Settlement {
 
     private final Id id;
     private final String name;
-    private final SimPos centre;
+    private final SimPos center;
     private int claimRadius;
 
     /**
@@ -102,11 +102,11 @@ public final class Settlement {
     private int stalledSteps;
 
     /** Content, not save state — not serialized. */
-    private List<BuildingType> catalogue = BuildCatalogue.DEFAULT;
+    private List<BuildingType> catalog = BuildCatalog.DEFAULT;
 
     /**
      * Where this settlement stands on the founding road. Defaults to TOWN so
-     * every settlement from before stages existed keeps its old behaviour —
+     * every settlement from before stages existed keeps its old behavior —
      * only a fresh charter starts a CAMP. See {@code FOUNDING.md}.
      */
     private SettlementStage stage = SettlementStage.TOWN;
@@ -128,7 +128,7 @@ public final class Settlement {
     private PathNetwork paths = new PathNetwork();
 
     /**
-     * How threatened this settlement currently is, driving guard behaviour and
+     * How threatened this settlement currently is, driving guard behavior and
      * off-screen combat resolution. Rises when hostiles are detected, decays over time.
      */
     /**
@@ -221,10 +221,10 @@ public final class Settlement {
     /** Where the mine may cut, set by the mine post. */
     private WorkArea mineArea;
 
-    public Settlement(Id id, String name, SimPos centre, int claimRadius) {
+    public Settlement(Id id, String name, SimPos center, int claimRadius) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
-        this.centre = Objects.requireNonNull(centre, "centre");
+        this.center = Objects.requireNonNull(center, "center");
         this.claimRadius = claimRadius;
     }
 
@@ -236,8 +236,8 @@ public final class Settlement {
         return name;
     }
 
-    public SimPos centre() {
-        return centre;
+    public SimPos center() {
+        return center;
     }
 
     /**
@@ -272,14 +272,14 @@ public final class Settlement {
         // moves outward, so by the time a village orders its market the cursor
         // is past the palisade and every forward candidate is outside it --
         // the first market this town ever built landed beyond its own gates.
-        // Civic buildings rescan from the centre instead: slots the spiral
+        // Civic buildings rescan from the center instead: slots the spiral
         // skipped on its way out are still empty ground, and the ring was
         // staked around exactly that ground. Producers stay ring-blind;
         // extraction stands where the resource is.
         if (perimeter != null && !BuildPlanner.PRODUCER_OF.containsValue(type.id())) {
             int frontier = nextPlotIndex + BuildPlanner.PLOT_ATTEMPTS;
             for (int index = 0; index < frontier; index++) {
-                SimPos candidate = arrangement().plotFor(centre, index);
+                SimPos candidate = arrangement().plotFor(center, index);
                 if (!insideRing(candidate, type.plotSpan())
                         || !ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
                         || !isPlotFree(candidate, type.plotSpan(), null)
@@ -364,7 +364,7 @@ public final class Settlement {
      *
      * <p>Distance to the town's own streets, plus half the distance to whatever
      * this kind of building likes to stand near. A town with neither a road nor
-     * a relevant neighbour has no opinion at all and says so, so the caller can
+     * a relevant neighbor has no opinion at all and says so, so the caller can
      * fall back to taking the first plot that fits.
      */
     public double siteCost(SimPos candidate, BuildingRole role) {
@@ -462,10 +462,10 @@ public final class Settlement {
         int firstFree = -1;
         int firstOffered = -1;
         int considered = 0;
-        LeastBad leastBad = new LeastBad(centre);
+        LeastBad leastBad = new LeastBad(center);
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
-            SimPos candidate = arrangement().plotFor(centre, index);
+            SimPos candidate = arrangement().plotFor(center, index);
             if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
@@ -474,7 +474,7 @@ public final class Settlement {
             }
             int fault = ctx.bridge().siteFault(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
             if (fault != WorldBridge.SITE_FAULT_NONE
-                    && !worthLevelling(candidate, span, ctx)) {
+                    && !worthLeveling(candidate, span, ctx)) {
                 // Refused, and remembered anyway. This is the whole of the fix:
                 // a town that refuses all ninety-six of these used to walk off
                 // and take an unexamined slot, so the sharper the terrain rules
@@ -530,7 +530,7 @@ public final class Settlement {
         // itself and the more buildings were placed with no check at all — a
         // farm, a lumber camp and a watchtower standing in a river at y=54, 55
         // and 62, none of which the rules had ever been asked about. Every
-        // improvement upstream was partly cancelling itself here.
+        // improvement upstream was partly canceling itself here.
         if (leastBad.found()) {
             // Advanced by one offered slot, not past the plot taken, for exactly
             // the reason the branch above gives: a town that chooses more
@@ -550,9 +550,9 @@ public final class Settlement {
         int freeButWetAt = 0;
         int firstOut = -1;
         int graded = 0;
-        LeastBad furtherOut = new LeastBad(centre);
+        LeastBad furtherOut = new LeastBad(center);
         for (int extra = 0; extra < DESPERATE_ATTEMPTS; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             // Free ground as well as dry ground. Refusing only water let a
             // desperate build land on a plot somebody was already standing on --
             // an animal farm through the side of a market, caught by the layout
@@ -620,7 +620,7 @@ public final class Settlement {
         // went into takeNextPlot changed none of it, because this is the path the
         // town actually builds through.
         for (int extra = DESPERATE_ATTEMPTS; extra < LAST_DITCH; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             if (isPlotFree(candidate, span, null)) {
                 nextPlotIndex += extra + 1;
                 return candidate;
@@ -634,7 +634,7 @@ public final class Settlement {
      *
      * <p>Only water is refused this far down; steepness and distance have
      * already been given up on. Bounded because the answer has to arrive: past
-     * this the town takes what is there, which is the old behaviour and is
+     * this the town takes what is there, which is the old behavior and is
      * reached only by a settlement hemmed in by sea on every side.
      */
     private static final int DESPERATE_ATTEMPTS = 128;
@@ -668,21 +668,21 @@ public final class Settlement {
      * for the whole of that case.
      */
     private static final class LeastBad {
-        private final SimPos centre;
+        private final SimPos center;
         private SimPos at;
         private int index = -1;
         private int fault = Integer.MAX_VALUE;
         private long away = Long.MAX_VALUE;
 
-        LeastBad(SimPos centre) {
-            this.centre = centre;
+        LeastBad(SimPos center) {
+            this.center = center;
         }
 
         void offer(SimPos candidate, int atIndex, int candidateFault, WorldBridge world) {
             if (candidateFault == WorldBridge.SITE_FAULT_OPEN_WATER) {
                 return;   // not poor ground; not ground
             }
-            long distance = candidate.horizontalDistanceSq(centre);
+            long distance = candidate.horizontalDistanceSq(center);
             if (candidateFault > fault
                     || (candidateFault == fault && distance >= away)) {
                 return;
@@ -733,7 +733,7 @@ public final class Settlement {
                 continue;
             }
             if (BuildPlanner.plotsOverlap(candidate, span, queued.origin(),
-                    BuildPlanner.plotSpanOf(queued.blueprintId(), catalogue))) {
+                    BuildPlanner.plotSpanOf(queued.blueprintId(), catalog))) {
                 return false;
             }
         }
@@ -760,13 +760,13 @@ public final class Settlement {
      * away from a hummock — it levels it and builds.
      *
      * <p>Two conditions, and the second is what makes it a decision rather than
-     * a licence. The fall must be a dip and not a hillside; and the town must
+     * a license. The fall must be a dip and not a hillside; and the town must
      * actually hold the earth to fill it. Both matter: without the first a town
      * would quarry a mountain, and without the second it would flatten ground it
      * has nothing to flatten it with.
      */
-    private boolean worthLevelling(SimPos candidate, int span, SimContext ctx) {
-        if (!ctx.bridge().isSiteLevellable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+    private boolean worthLeveling(SimPos candidate, int span, SimContext ctx) {
+        if (!ctx.bridge().isSiteLevelable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
             return false;   // the ground itself says this is not a dip
         }
         return stores().has(TownStores.EARTH,
@@ -774,13 +774,13 @@ public final class Settlement {
     }
 
     /**
-     * Books the earthwork for a plot that needed levelling.
+     * Books the earthwork for a plot that needed leveling.
      *
      * <p>Spent when the work is ordered rather than when it finishes, for the
-     * same reason timber is: a town that could order ten levellings on one
+     * same reason timber is: a town that could order ten levelings on one
      * barrow of earth would have ten half-dug sites and no way to finish any.
      */
-    private void payForLevelling(SimPos plot, int span, SimContext ctx) {
+    private void payForLeveling(SimPos plot, int span, SimContext ctx) {
         int earth = BuildPlanner.earthToLevel(plot, span, ctx.bridge());
         if (earth > 0) {
             stores().take(TownStores.EARTH, earth);
@@ -793,7 +793,7 @@ public final class Settlement {
      * <p>One course over the plot's footprint. Deliberately modest: a town
      * should be able to level a dip after a few buildings, not the first
      * hillside it meets, and the number that matters is the ratio between what a
-     * foundation yields and what a levelling costs rather than either alone.
+     * foundation yields and what a leveling costs rather than either alone.
      */
     private static final int SPOIL_COURSES = 1;
 
@@ -804,7 +804,7 @@ public final class Settlement {
         if (paths == null || !Layouts.isStreetsFirst(arrangement())) {
             return false;
         }
-        TownPlan plan = arrangement().fullPlan(centre);
+        TownPlan plan = arrangement().fullPlan(center);
         for (TownPlan.Plot plot : plan.plots()) {
             if (plot.at().x() == candidate.x() && plot.at().z() == candidate.z()) {
                 return plot.frontsAStreet()
@@ -815,7 +815,7 @@ public final class Settlement {
     }
 
     /** Bare ground between a wall and a carriageway, so a door has a doorstep. */
-    private static final int KERB = 1;
+    private static final int CURB = 1;
 
     /**
      * Whether a plot would stand on a street the town has already laid.
@@ -836,7 +836,7 @@ public final class Settlement {
         if (paths == null) {
             return false;
         }
-        double half = span / 2.0 + KERB;
+        double half = span / 2.0 + CURB;
         for (PathNetwork.Segment run : paths.segments()) {
             if (run.width() <= PathNetwork.TRACK_WIDTH) {
                 continue;
@@ -883,7 +883,7 @@ public final class Settlement {
         if (perimeter == null) {
             return false;
         }
-        double half = span / 2.0 + KERB;
+        double half = span / 2.0 + CURB;
         for (SimPos post : perimeter.ringPositions()) {
             if (Math.abs(post.x() - candidate.x()) <= half
                     && Math.abs(post.z() - candidate.z()) <= half) {
@@ -922,30 +922,30 @@ public final class Settlement {
                 continue;
             }
             out = Math.max(out, Math.max(
-                    Math.abs(standing.origin().x() - centre.x()),
-                    Math.abs(standing.origin().z() - centre.z())));
+                    Math.abs(standing.origin().x() - center.x()),
+                    Math.abs(standing.origin().z() - center.z())));
         }
         if (perimeter != null) {
             for (SimPos post : perimeter.ringPositions()) {
-                out = Math.max(out, Math.max(Math.abs(post.x() - centre.x()),
-                                             Math.abs(post.z() - centre.z())));
+                out = Math.max(out, Math.max(Math.abs(post.x() - center.x()),
+                                             Math.abs(post.z() - center.z())));
             }
         }
         if (paths != null) {
             for (PathNetwork.Segment run : paths.segments()) {
                 out = Math.max(out, Math.max(
-                        Math.max(Math.abs(run.from().x() - centre.x()),
-                                 Math.abs(run.from().z() - centre.z())),
-                        Math.max(Math.abs(run.to().x() - centre.x()),
-                                 Math.abs(run.to().z() - centre.z()))));
+                        Math.max(Math.abs(run.from().x() - center.x()),
+                                 Math.abs(run.from().z() - center.z())),
+                        Math.max(Math.abs(run.to().x() - center.x()),
+                                 Math.abs(run.to().z() - center.z()))));
             }
         }
         out += span + Layout.MIN_PLOT_SEPARATION;
         double angle = nextPlotIndex * 2.399963;   // never repeats a spoke
         nextPlotIndex++;
         return new SimPos(
-                centre.x() + (int) Math.round(out * Math.cos(angle)), centre.y(),
-                centre.z() + (int) Math.round(out * Math.sin(angle)));
+                center.x() + (int) Math.round(out * Math.cos(angle)), center.y(),
+                center.z() + (int) Math.round(out * Math.sin(angle)));
     }
 
     /** The least a desperate plot stands out, before the town's own reach. */
@@ -955,14 +955,14 @@ public final class Settlement {
      * How much ground a standing building takes.
      *
      * <p>Its measured footprint once it has one — that is the real cleared plot,
-     * apron and all — and the catalogue's figure before then.
+     * apron and all — and the catalog's figure before then.
      */
     private int plotSpanOf(Building standing) {
         Footprint measured = standing.footprint();
         if (measured.isKnown()) {
             return Math.max(measured.width(), measured.depth());
         }
-        return BuildPlanner.plotSpanOf(standing.blueprintId(), catalogue);
+        return BuildPlanner.plotSpanOf(standing.blueprintId(), catalog);
     }
 
     /**
@@ -1000,7 +1000,7 @@ public final class Settlement {
     public SimPos takeNextPlot(int span, com.kingdoms.sim.platform.WorldBridge bridge) {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
-            SimPos candidate = arrangement().plotFor(centre, index);
+            SimPos candidate = arrangement().plotFor(center, index);
             if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
@@ -1029,9 +1029,9 @@ public final class Settlement {
         int freeButWetAt = 0;
         int firstOut = -1;
         int graded = 0;
-        LeastBad furtherOut = new LeastBad(centre);
+        LeastBad furtherOut = new LeastBad(center);
         for (int extra = 0; bridge != null && extra < DESPERATE_ATTEMPTS; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             if (!isPlotFree(candidate, span, null)) {
                 continue;   // taken ground is not poor ground, it is somebody's
             }
@@ -1081,7 +1081,7 @@ public final class Settlement {
         // palisade is never the least-bad answer -- those are all somebody's
         // ground, and there is always more ground further out.
         for (int extra = DESPERATE_ATTEMPTS; bridge != null && extra < LAST_DITCH; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
@@ -1090,7 +1090,7 @@ public final class Settlement {
         }
         // Truly nothing, which should mean a town that has run out of world.
         for (int extra = 0; extra < LAST_DITCH; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             if (isPlotFree(candidate, span, null)) {
                 nextPlotIndex += extra + 1;
                 return candidate;
@@ -1158,8 +1158,8 @@ public final class Settlement {
      * Which of its people's arrangements this town was laid out in.
      *
      * <p>The recorded id when there is one, and otherwise what this people would
-     * choose for this centre. A people can build in several arrangements now and
-     * the choice is a hash of the centre, so it has to be pinned down somewhere
+     * choose for this center. A people can build in several arrangements now and
+     * the choice is a hash of the center, so it has to be pinned down somewhere
      * or a town whose derivation changed under it would have half its streets in
      * one arrangement and half in another.
      *
@@ -1170,7 +1170,7 @@ public final class Settlement {
      * assignment races the planners asking the same question on the sim thread.
      */
     public String layoutId() {
-        return layoutId != null ? layoutId : Culture.of(cultureId).layoutFor(centre);
+        return layoutId != null ? layoutId : Culture.of(cultureId).layoutFor(center);
     }
 
     /**
@@ -1428,7 +1428,7 @@ public final class Settlement {
         if (loosePile.all().isEmpty()) {
             return;
         }
-        Building into = nearestStore(centre);
+        Building into = nearestStore(center);
         if (into == null) {
             return;   // nowhere to put it yet; it stays in the open
         }
@@ -1548,7 +1548,7 @@ public final class Settlement {
      * <p><strong>One creature is never a panic.</strong> A lone hostile, however
      * nasty, is capped one rung below {@link Alarm#ALARMED_AT} no matter what it
      * is worth. This is the difference between a town that fears creepers and a
-     * town that is paralysed by them: the danger still registers, the guards
+     * town that is paralyzed by them: the danger still registers, the guards
      * still go, the civilians near it still run — but the streets do not empty
      * over one of anything. That is what a watch is for.
      */
@@ -1682,9 +1682,9 @@ public final class Settlement {
      * slot. It only ever moves outward, and walking it backward would re-offer
      * every plot the siting rules refused between there and here — a town would
      * spend its whole search budget re-examining ground it walked past on
-     * purpose. A walled town's civic rescan already starts from the centre and
+     * purpose. A walled town's civic rescan already starts from the center and
      * will find the gap; anywhere else it stays a gap in the ranks, which is
-     * what a burnt-out plot looks like anyway.
+     * what a burned-out plot looks like anyway.
      *
      * @param reason what to write in the town's history beside the loss
      * @return whether this building was one of ours
@@ -1757,8 +1757,8 @@ public final class Settlement {
      * <p>A work area is staked by a camp — {@link LumberPlanner} claims the
      * woodland round the lumber camp, {@link MinePlanner} the stone round the
      * mine — so it is a claim made for that building rather than a standing fact
-     * about the town. Left behind, it is a licence to fell trees for a camp that
-     * burnt down; cleared, the next camp the town raises claims its own.
+     * about the town. Left behind, it is a license to fell trees for a camp that
+     * burned down; cleared, the next camp the town raises claims its own.
      *
      * <p>Only the claim this building actually made. Asking whether it was the
      * last of its kind is the wrong question and gets both cases wrong: a town
@@ -1766,7 +1766,7 @@ public final class Settlement {
      * sending its remaining lumberjacks to ground claimed for a building that is
      * not there, and a player who has pointed the camp block at a different
      * wood — see {@code LumberCampBlock} — would have their choice thrown away
-     * because a camp somewhere else burnt down. Cleared, {@link LumberPlanner}
+     * because a camp somewhere else burned down. Cleared, {@link LumberPlanner}
      * re-stakes on whichever camp is still standing on its very next pass, and
      * says so in the town's history.
      */
@@ -1781,7 +1781,7 @@ public final class Settlement {
 
     /** Whether this ground was staked out around this building. */
     private static boolean claimedBy(WorkArea area, Building building) {
-        return area != null && samePlot(area.centre(), building.origin());
+        return area != null && samePlot(area.center(), building.origin());
     }
 
     public List<Building> buildings() {
@@ -1793,7 +1793,7 @@ public final class Settlement {
      * progress — safe only because the settlement queues one project at a time.
      */
     public int countBuildings(String blueprintId) {
-        // A levelled building is still one of these. Counting by the plain id is
+        // A leveled building is still one of these. Counting by the plain id is
         // what stops an improved house reading as a house the town no longer has.
         return (int) buildings.stream()
                 .filter(b -> BuildPlanner.baseIdOf(b.blueprintId()).equals(blueprintId))
@@ -1872,15 +1872,15 @@ public final class Settlement {
     }
 
     /**
-     * Whether this person does this kind of labour here, today.
+     * Whether this person does this kind of labor here, today.
      *
      * <p>The seam the pioneer works through: below VILLAGE a pioneer is every
-     * labouring trade at once, so a camp of four can build and farm without a
+     * laboring trade at once, so a camp of four can build and farm without a
      * staffing table that wants zero farmers below population five ever being
      * consulted. From VILLAGE the specialists exist and the answer is simply
      * the profession.
      */
-    public boolean laboursAs(Person person, Profession trade) {
+    public boolean laborsAs(Person person, Profession trade) {
         if (person.profession() == trade) {
             return true;
         }
@@ -1889,16 +1889,16 @@ public final class Settlement {
         // all, so pretending pioneers swing axes would only split the work
         // between a planner that counts professions and a seam that lies.
         return person.profession() == Profession.PIONEER
-                && StagePlanner.pioneersLabour(stage)
+                && StagePlanner.pioneersLabor(stage)
                 && (trade == Profession.BUILDER || trade == Profession.FARMER);
     }
 
-    public List<BuildingType> catalogue() {
-        return catalogue;
+    public List<BuildingType> catalog() {
+        return catalog;
     }
 
-    public void setCatalogue(List<BuildingType> catalogue) {
-        this.catalogue = List.copyOf(Objects.requireNonNull(catalogue, "catalogue"));
+    public void setCatalog(List<BuildingType> catalog) {
+        this.catalog = List.copyOf(Objects.requireNonNull(catalog, "catalog"));
     }
 
     /** Buildings that exist in the simulation but have not been drawn into the world yet. */
@@ -1915,7 +1915,7 @@ public final class Settlement {
      *
      * <p>Matched on the building's own name rather than its full id, because
      * {@link PopulationPlanner#capacityOf} now finds a culture's own bunkhouse
-     * in the catalogue and would otherwise report six beds in a building this
+     * in the catalog and would otherwise report six beds in a building this
      * method still called a cottage — a bunkhouse families moved into and bred
      * in, which is the one thing the rule exists to stop.
      *
@@ -1940,7 +1940,7 @@ public final class Settlement {
     }
 
     public boolean contains(SimPos pos) {
-        return centre.horizontalDistanceSq(pos) <= (long) claimRadius * claimRadius;
+        return center.horizontalDistanceSq(pos) <= (long) claimRadius * claimRadius;
     }
 
     /**
@@ -2011,7 +2011,7 @@ public final class Settlement {
      * Decides what to build next, if anything.
      *
      * <p>One project at a time: if something is already queued, the settlement is
-     * busy and does not reconsider. That keeps behaviour legible — a settlement
+     * busy and does not reconsider. That keeps behavior legible — a settlement
      * finishes what it started — and means {@link #countBuildings} can ignore work
      * in progress without double-counting.
      *
@@ -2080,11 +2080,11 @@ public final class Settlement {
         SimPos flat = chooseSite(ctx, wanted);
         SimPos plot = new SimPos(flat.x(), ctx.bridge().surfaceHeight(flat), flat.z());
         if (!contains(plot)) {
-            claimRadius = BuildPlanner.claimRadiusFor(centre, plot,
+            claimRadius = BuildPlanner.claimRadiusFor(center, plot,
                     arrangement().claimMargin());
         }
         BuildTask ordered = new BuildTask(wanted.id(), plot, wanted.workCost());
-        ordered.setFacing(arrangement().facingFor(centre, plot));
+        ordered.setFacing(arrangement().facingFor(center, plot));
         enqueueUrgent(ordered);
         logEvent(ctx.step(), "Starving — work on a " + readableName(wanted.id())
                 + " goes ahead of everything else");
@@ -2162,7 +2162,7 @@ public final class Settlement {
     }
 
     /**
-     * The catalogue's answer to a role, or null if the town is already raising it.
+     * The catalog's answer to a role, or null if the town is already raising it.
      *
      * <p>The "already ordered, so want nothing" rule is only honest because
      * {@link #promoteQueuedSurvivalBuild} has run first. A farm parked behind a
@@ -2174,13 +2174,13 @@ public final class Settlement {
      * anything found in the queue here is at the head and genuinely under way.
      *
      * @return the type to raise, or null if it is already ordered or the
-     *         catalogue has nothing for the role
+     *         catalog has nothing for the role
      */
     private BuildingType survivalWant(String role) {
         if (buildQueue.stream().anyMatch(t -> FoodPlanner.namesRole(t.blueprintId(), role))) {
             return null;   // already ordered; ordering the next one too would only queue-jump itself
         }
-        for (BuildingType type : catalogue) {
+        for (BuildingType type : catalog) {
             if (FoodPlanner.namesRole(type.id(), role)) {
                 return type;
             }
@@ -2193,16 +2193,16 @@ public final class Settlement {
         if (!buildQueue.isEmpty()) {
             return;
         }
-        // The stage's own program outranks everything the catalogue wants. This
+        // The stage's own program outranks everything the catalog wants. This
         // is the whole founding fix: a camp raises a bunkhouse and a farm in the
-        // program's order, and the catalogue — hall at priority 100 and all —
+        // program's order, and the catalog — hall at priority 100 and all —
         // does not get a word in until VILLAGE.
         Optional<BuildingType> programmed = StagePlanner.nextProgramWant(this);
         if (programmed.isPresent()) {
             orderBuild(ctx, programmed.get());
             return;
         }
-        if (!StagePlanner.catalogueRuns(stage)) {
+        if (!StagePlanner.catalogRuns(stage)) {
             return;   // below VILLAGE the program is the whole of the plan
         }
         // A town no longer improves what already stands. Upgrading raised a
@@ -2214,13 +2214,13 @@ public final class Settlement {
         //
         // Removed rather than gated, because a switch would leave the same
         // geometry waiting to be turned back on. It comes back when a building
-        // that grows can be shown not to eat its neighbour. See GOALS.md.
-        Optional<BuildingType> wanted = BuildPlanner.chooseNext(this, catalogue)
-                .filter(type -> StagePlanner.catalogueAllows(stage, type.id()));
+        // that grows can be shown not to eat its neighbor. See GOALS.md.
+        Optional<BuildingType> wanted = BuildPlanner.chooseNext(this, catalog)
+                .filter(type -> StagePlanner.catalogAllows(stage, type.id()));
         wanted.ifPresent(type -> orderBuild(ctx, type));
     }
 
-    /** Sites and queues one building — the shared tail of program and catalogue. */
+    /** Sites and queues one building — the shared tail of program and catalog. */
     private void orderBuild(SimContext ctx, BuildingType type) {
         SimPos flat = chooseSite(ctx, type);
 
@@ -2229,28 +2229,28 @@ public final class Settlement {
         // shifted off its offer is not among them any more -- it falls through
         // to "face the middle of the town", which is what a lattice does and is
         // precisely the thing drawing streets first was for.
-        int facing = arrangement().facingFor(centre, flat);
-        flat = againstTheKerb(flat, type.plotSpan());
+        int facing = arrangement().facingFor(center, flat);
+        flat = againstTheCurb(flat, type.plotSpan());
 
         // Snap to the terrain when the chunk is available; otherwise the
-        // centre's height stands in and the world snaps again at placement.
+        // center's height stands in and the world snaps again at placement.
         SimPos plot = new SimPos(flat.x(), ctx.bridge().surfaceHeight(flat), flat.z());
 
         // A settlement claims the ground it builds on, so territory grows outward
         // as the town does rather than being fixed at founding.
         if (!contains(plot)) {
-            claimRadius = BuildPlanner.claimRadiusFor(centre, plot,
+            claimRadius = BuildPlanner.claimRadiusFor(center, plot,
                     arrangement().claimMargin());
         }
 
         BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
         ordered.setFacing(facing);
-        payForLevelling(plot, type.plotSpan(), ctx);
+        payForLeveling(plot, type.plotSpan(), ctx);
         buildQueue.add(ordered);
     }
 
     /**
-     * Moves a plot up to the kerb of the street it fronts.
+     * Moves a plot up to the curb of the street it fronts.
      *
      * <p>The plan sets a plot back far enough for the largest building that
      * might stand on it, and it has to: it reserves ground before anybody knows
@@ -2260,7 +2260,7 @@ public final class Settlement {
      * standing in the middle of its own field.
      *
      * <p>Measured on a grown town before this existed: seven blocks of bare
-     * grass between a front wall and the kerb, on every house, in every
+     * grass between a front wall and the curb, on every house, in every
      * arrangement. A street of them reads as two rows of sheds facing a gap.
      *
      * <p>This has existed for a while and only ever ran in {@code /civ
@@ -2270,14 +2270,14 @@ public final class Settlement {
      * setback. The rule belongs here, where towns are built.
      *
      * <p>It only ever moves a building TOWARD its street and never past the
-     * kerb, so nothing can be pushed onto the road it fronts. A plot that is
+     * curb, so nothing can be pushed onto the road it fronts. A plot that is
      * already close enough is left exactly where the plan put it.
      */
-    private SimPos againstTheKerb(SimPos plot, int span) {
+    private SimPos againstTheCurb(SimPos plot, int span) {
         if (!Layouts.isStreetsFirst(arrangement())) {
             return plot;   // a lattice has no street to come up to
         }
-        TownPlan plan = arrangement().fullPlan(centre);
+        TownPlan plan = arrangement().fullPlan(center);
         TownPlan.Plot offered = null;
         for (TownPlan.Plot candidate : plan.plots()) {
             if (candidate.at().x() == plot.x() && candidate.at().z() == plot.z()) {
@@ -2293,7 +2293,7 @@ public final class Settlement {
 
         // As far in as the rank can go, and no further.
         //
-        // Coming up to the kerb by the whole distance is right on a straight
+        // Coming up to the curb by the whole distance is right on a straight
         // street and wrong on a curved one, for the reason that has cost this
         // project more than any other: a rank moved inward along its own normals
         // sits on a SHORTER arc than the rank it came from, so its pitch shrinks
@@ -2302,10 +2302,10 @@ public final class Settlement {
         // half -- under what the overlap check wants of two houses -- so every
         // second plot on every lane was refused and the plot cursor ran out
         // past the town. Measured: 331 blocks of spread before any of this, 359
-        // once the buildings grew, 401 once they came to the kerb.
+        // once the buildings grew, 401 once they came to the curb.
         //
         // So the question is asked of the rank rather than of the one plot: pull
-        // this plot and its neighbours by the same fraction, and take the
+        // this plot and its neighbors by the same fraction, and take the
         // largest fraction at which the pull does not crowd the rank.
         for (int step = APPROACH_STEPS; step >= 1; step--) {
             double part = step / (double) APPROACH_STEPS;
@@ -2325,7 +2325,7 @@ public final class Settlement {
             }
             // And then the ordinary question, of what is actually standing.
             // The rank test is about plots that may never be built; this is
-            // about the neighbour that already is.
+            // about the neighbor that already is.
             if (clears && isPlotFree(moved, span, null)) {
                 return moved;
             }
@@ -2337,7 +2337,7 @@ public final class Settlement {
      * Whether pulling a pair of plots in leaves them worse off than it found them.
      *
      * <p>Asked as a comparison rather than as a bare "do these two clear the
-     * overlap box", and the difference is the whole of whether the kerb works at
+     * overlap box", and the difference is the whole of whether the curb works at
      * all. The bare question was right while the plan offered frontage far more
      * coarsely than the siting code demanded: every rank stood a comfortable two
      * blocks over the separation, so a pair that fouled after a pull had been
@@ -2346,7 +2346,7 @@ public final class Settlement {
      * plot of the default span while the thing standing there may claim more. So
      * a rank of plan offers routinely fouls the box <em>before</em> anybody moves,
      * and the bare question answered no at every fraction, for every plot, in
-     * every arrangement. The kerb would have been dead code that still ran.
+     * every arrangement. The curb would have been dead code that still ran.
      *
      * <p>What the rank test is actually for is the shrinking arc: a rank moved
      * inward along its own normals sits on a shorter curve than the one it came
@@ -2384,11 +2384,11 @@ public final class Settlement {
      */
     private static final int APPROACH_STEPS = 4;
 
-    /** How many of a plot's plan neighbours are asked whether it may come in. */
-    private static final int NEIGHBOURS_CONSULTED = 4;
+    /** How many of a plot's plan neighbors are asked whether it may come in. */
+    private static final int NEIGHBORS_CONSULTED = 4;
 
     /**
-     * Where this plot stands when brought part of the way to its kerb.
+     * Where this plot stands when brought part of the way to its curb.
      *
      * <p>Both directions. Coming in is what a cottage needs, because the plan
      * sets every plot back far enough for the largest thing that might stand on
@@ -2427,7 +2427,7 @@ public final class Settlement {
      * The handful of plots this one has to stay clear of.
      *
      * <p>The nearest few rather than every plot on the street, because the ones
-     * that decide whether a rank can close up are its immediate neighbours and
+     * that decide whether a rank can close up are its immediate neighbors and
      * scanning two hundred and fifty-six of them on every build to learn that
      * twice over is a waste. Four covers both plots along the rank and the two
      * across the way.
@@ -2437,10 +2437,10 @@ public final class Settlement {
         near.remove(of);
         near.sort((a, b) -> Long.compare(
                 a.at().horizontalDistanceSq(of.at()), b.at().horizontalDistanceSq(of.at())));
-        return near.subList(0, Math.min(NEIGHBOURS_CONSULTED, near.size()));
+        return near.subList(0, Math.min(NEIGHBORS_CONSULTED, near.size()));
     }
 
-    /** The point on a street's centreline nearest a plot, walked piece by piece. */
+    /** The point on a street's centerline nearest a plot, walked piece by piece. */
     private static SimPos nearestPointOn(TownPlan.Street street, SimPos from) {
         SimPos nearest = street.path().get(0);
         double best = Double.MAX_VALUE;
@@ -2519,7 +2519,7 @@ public final class Settlement {
             return;
         }
         int present = (int) residents.values().stream()
-                .filter(p -> laboursAs(p, Profession.BUILDER) && !p.isTooWeakToWork()
+                .filter(p -> laborsAs(p, Profession.BUILDER) && !p.isTooWeakToWork()
                         && p.isEmbodied())
                 .count();
         BuildTask current = buildQueue.getFirst();
@@ -2622,7 +2622,7 @@ public final class Settlement {
         // level the next awkward plot. A town's first buildings stand on ground
         // that was already flat, and they are what make the uneven ground
         // afterwards affordable.
-        int span = BuildPlanner.plotSpanOf(current.blueprintId(), catalogue);
+        int span = BuildPlanner.plotSpanOf(current.blueprintId(), catalog);
         loosePile.add(TownStores.EARTH, span * span * SPOIL_COURSES);
         // Surveyed sites keep the height the builders actually worked to; only an
         // unsurveyed one may be snapped to the ground at placement time.
@@ -2634,7 +2634,7 @@ public final class Settlement {
         // doorstep no road can be run to it. That is why a town nobody had
         // visited never laid a single street, and why everything that makes
         // siting intelligent was inert there. The plot span is what the
-        // catalogue set aside for this building, which is the same figure a
+        // catalog set aside for this building, which is the same figure a
         // measured one comes back with; materialization overwrites it with the
         // real thing the moment the structure is actually drawn.
         raised.setFootprint(current.footprint().isKnown()
@@ -2720,12 +2720,12 @@ public final class Settlement {
      * The footprint a building is expected to have, before anybody has measured it.
      *
      * <p>Provisional by construction and replaced by the measured one at
-     * placement. The height is a storey rather than a guess at the real
+     * placement. The height is a story rather than a guess at the real
      * elevation: nothing reads it before the structure is drawn, and claiming a
      * precise number nobody checked would be worse than claiming a plain one.
      */
     private Footprint expectedFootprint(BuildTask task) {
-        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalogue);
+        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalog);
         return new Footprint(task.site().y(), span, span, 4);
     }
 
@@ -2737,7 +2737,7 @@ public final class Settlement {
     private boolean relocatePending(SimContext ctx, Building building) {
         if (building.isSurveyed() || building.level() > 1
                 || !BuildPlanner.holdsGround(building.blueprintId())) {
-            // Surveyed means somebody already built or saw it here; levelled
+            // Surveyed means somebody already built or saw it here; leveled
             // means it grew from something that stood here. Both belong where
             // they are, whatever the ground thinks.
             return false;
@@ -2745,7 +2745,7 @@ public final class Settlement {
         if (ctx.bridge().isSiteSuitable(building.origin(), BuildPlanner.PLOT_PROBE_RADIUS)) {
             return false;
         }
-        int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalogue);
+        int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalog);
         SimPos moved = chooseSite(ctx, span, building.role());
         // The third clause is new and only ever refuses more: a site that scores
         // no better than the one it would replace is not somewhere better, it is
@@ -2774,9 +2774,9 @@ public final class Settlement {
         }
         SimPos from = building.origin();
         building.setOrigin(new SimPos(moved.x(), ctx.bridge().surfaceHeight(moved), moved.z()));
-        building.setFacing(arrangement().facingFor(centre, moved));
+        building.setFacing(arrangement().facingFor(center, moved));
         if (!contains(building.origin())) {
-            claimRadius = BuildPlanner.claimRadiusFor(centre, building.origin());
+            claimRadius = BuildPlanner.claimRadiusFor(center, building.origin());
         }
         logEvent(ctx.step(), "The ground at " + from + " turned out unfit; the "
                 + building.blueprintId().substring(building.blueprintId().indexOf(':') + 1)
@@ -2906,7 +2906,7 @@ public final class Settlement {
 
     private int ableBuilders() {
         return (int) residents.values().stream()
-                .filter(p -> laboursAs(p, Profession.BUILDER) && !p.isTooWeakToWork())
+                .filter(p -> laborsAs(p, Profession.BUILDER) && !p.isTooWeakToWork())
                 .count();
     }
 
@@ -2939,7 +2939,7 @@ public final class Settlement {
             return false;
         }
 
-        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalogue);
+        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalog);
         int spentTo = nextPlotIndex;
         SimPos moved = chooseSite(ctx, span, BuildingRole.of(task.blueprintId()));
         // Better, or stay. The identity test alone was not enough, and on ground
@@ -2968,7 +2968,7 @@ public final class Settlement {
         }
         BuildTask replacement = new BuildTask(
                 task.blueprintId(), moved, task.requiredWork());
-        replacement.setFacing(arrangement().facingFor(centre, moved));
+        replacement.setFacing(arrangement().facingFor(center, moved));
         buildQueue.set(0, replacement);
         logEvent(ctx.step(), "The ground at " + task.origin()
                 + " will not do; the site moves to " + moved);

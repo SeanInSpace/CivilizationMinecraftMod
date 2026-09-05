@@ -93,12 +93,12 @@ class RepairPlannerTest {
     private static Settlement town() {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);
-        town.setCatalogue(List.of(COTTAGE));
+        town.setCatalog(List.of(COTTAGE));
         Building cottage = new Building(COTTAGE.id(), new SimPos(10, 64, 10), 1, true);
         cottage.setFootprint(new Footprint(64, 5, 5, 4));
         town.addBuilding(cottage);
         town.addResident(new Person(
-                Person.Id.random(), "Alder", Profession.BUILDER, town.centre()));
+                Person.Id.random(), "Alder", Profession.BUILDER, town.center()));
         town.setStock(TownStores.WOOD, 4000);
         town.setStock(TownStores.STONE, 4000);
         return town;
@@ -415,7 +415,7 @@ class RepairPlannerTest {
     void aTownWithNobodyToSendDoesNotBookItEither() {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Emptyburg", new SimPos(0, 64, 0), 64);
-        town.setCatalogue(List.of(COTTAGE));
+        town.setCatalog(List.of(COTTAGE));
         Building cottage = new Building(COTTAGE.id(), new SimPos(10, 64, 10), 1, true);
         cottage.setFootprint(new Footprint(64, 5, 5, 4));
         town.addBuilding(cottage);

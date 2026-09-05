@@ -14,7 +14,7 @@ package com.kingdoms.neoforge.world;
  * was being asked five times less often than it was written for.
  *
  * <p>Pacing by the clock rather than by the call makes the rate mean what it
- * says whatever the server is doing. The amortised cost is unchanged — it is
+ * says whatever the server is doing. The amortized cost is unchanged — it is
  * the same posts per second the constants always claimed — only its arrival
  * changes: a starved server does one larger sweep instead of five small ones it
  * never got round to.
@@ -43,7 +43,7 @@ public final class DrawBudget {
      * <p>And a floor of one, which is the opposite hazard. Sweeps arriving
      * faster than the rate would each round to nothing, the timestamp would move
      * on every time, and the job would earn no allowance at all however long it
-     * ran. One is never wrong: it is at worst the old per-sweep behaviour.
+     * ran. One is never wrong: it is at worst the old per-sweep behavior.
      *
      * @param elapsedNanos real time since this job's last sweep; a negative or
      *                     zero reading (a clock that went backwards) earns the floor

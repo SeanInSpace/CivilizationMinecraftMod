@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * A town that grew where two roads met: a market at the crossing, ribs off the arms.
  *
- * <p>Two spines cross at the centre, one north-south and one east-west, and the
+ * <p>Two spines cross at the center, one north-south and one east-west, and the
  * open ground at the crossing is left open — that is the market, and it is the
  * only part of the plan that exists by <em>not</em> being built on. The frontage
  * begins just outside it, so the first eight doors of the town look onto the
@@ -62,7 +62,7 @@ public final class CrossroadsLayout extends PlannedLayout {
      * How far along an arm the first frontage stands, measured from the crossing.
      *
      * <p>Far enough that the <em>building</em> clears the market, not merely its
-     * centre point: a plot centred exactly on the market's edge puts five and a
+     * center point: a plot centered exactly on the market's edge puts five and a
      * half blocks of wall inside the square, and a market with the corners of
      * four houses in it is not open ground. So half a span past the edge, plus a
      * couple of blocks so the clearance does not depend on rounding.
@@ -80,7 +80,7 @@ public final class CrossroadsLayout extends PlannedLayout {
      *
      * <p>Counted in slots rather than in blocks, which is worth more than it
      * looks. A road takes ten and a half blocks of clearance either side of its
-     * centreline: a rib laid halfway between two of the spine's own doors stands
+     * centerline: a rib laid halfway between two of the spine's own doors stands
      * inside that of each and refuses <em>both</em>, while a rib laid exactly on a
      * slot refuses only the one it stands on. Aligning the ribs to the spine's
      * slots is the difference between losing two doors per rib and losing four,
@@ -118,7 +118,7 @@ public final class CrossroadsLayout extends PlannedLayout {
      * How far out along a rib its first frontage stands.
      *
      * <p>Not the rib's own setback, which would be thirteen. A plot here has a
-     * spine door for a neighbour one block away <em>along</em> the rib, and
+     * spine door for a neighbor one block away <em>along</em> the rib, and
      * separation is Chebyshev — measured on the wider axis, not as a distance —
      * so this has to clear the spine's frontage column by a whole
      * {@link Layout#MIN_PLOT_SEPARATION} on the other axis. The setback plus a
@@ -201,7 +201,7 @@ public final class CrossroadsLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int ribs = ribsFor(wanted);
         // The last slot an arm offers, and the road running one pitch past it so
@@ -209,15 +209,15 @@ public final class CrossroadsLayout extends PlannedLayout {
         int lastSlot = ribs * RIB_EVERY + RIB_EVERY - 1;
         int reach = FIRST_FRONT + (lastSlot + 1) * PITCH;
 
-        Wander alongZ = wanderFor(wander, centre, 0);
-        Wander alongX = wanderFor(wander, centre, 1);
+        Wander alongZ = wanderFor(wander, center, 0);
+        Wander alongX = wanderFor(wander, center, 1);
 
         // Both spines before anything else, and they keep indices 0 and 1 for
         // good. A plot records the street it fronts by index, so the two roads
         // the whole town hangs off cannot be allowed to renumber when a rib opens.
-        streets.add(northSouth(centre, alongZ, 0, -reach, reach,
+        streets.add(northSouth(center, alongZ, 0, -reach, reach,
                 ROAD_HALF * 2, TownPlan.Kind.SPINE));
-        streets.add(eastWest(centre, alongX, 0, -reach, reach,
+        streets.add(eastWest(center, alongX, 0, -reach, reach,
                 ROAD_HALF * 2, TownPlan.Kind.SPINE));
 
         // Frontage along both spines, either side, beginning outside the market.
@@ -229,8 +229,8 @@ public final class CrossroadsLayout extends PlannedLayout {
             int along = FIRST_FRONT + slot * PITCH;
             for (int end : new int[] {1, -1}) {
                 int out = along * end;
-                doors(centre, offers, alongZ.blocksAt(out), out, false, 0);
-                doors(centre, offers, out, alongX.blocksAt(out), true, 1);
+                doors(center, offers, alongZ.blocksAt(out), out, false, 0);
+                doors(center, offers, out, alongX.blocksAt(out), true, 1);
             }
         }
 
@@ -240,11 +240,11 @@ public final class CrossroadsLayout extends PlannedLayout {
             int along = FIRST_FRONT + ring * RIB_EVERY * PITCH;
             for (int end : new int[] {1, -1}) {
                 int out = along * end;
-                rib(centre, streets, offers, alongZ.blocksAt(out), out, true);
+                rib(center, streets, offers, alongZ.blocksAt(out), out, true);
             }
             for (int end : new int[] {1, -1}) {
                 int out = along * end;
-                rib(centre, streets, offers, out, alongX.blocksAt(out), false);
+                rib(center, streets, offers, out, alongX.blocksAt(out), false);
             }
         }
     }
@@ -285,19 +285,19 @@ public final class CrossroadsLayout extends PlannedLayout {
      * ribs are where this arrangement is most exposed to it, carrying nearly two
      * thirds of a full town's frontage between them.
      *
-     * @param cx    where the rib crosses its spine, east of the town centre
-     * @param cz    where the rib crosses its spine, south of the town centre
+     * @param cx    where the rib crosses its spine, east of the town center
+     * @param cz    where the rib crosses its spine, south of the town center
      * @param acrossTheNorthSouthSpine whether this rib runs east-west, which it
      *              does when it comes off the north-south spine
      */
-    private static void rib(SimPos centre, List<TownPlan.Street> streets,
+    private static void rib(SimPos center, List<TownPlan.Street> streets,
                             List<Offer> offers, int cx, int cz,
                             boolean acrossTheNorthSouthSpine) {
         int index = streets.size();
         streets.add(acrossTheNorthSouthSpine
-                ? eastWest(centre, Wander.STRAIGHT, cz, cx - RIB_REACH, cx + RIB_REACH,
+                ? eastWest(center, Wander.STRAIGHT, cz, cx - RIB_REACH, cx + RIB_REACH,
                         ROAD_HALF * 2, TownPlan.Kind.LANE)
-                : northSouth(centre, Wander.STRAIGHT, cx, cz - RIB_REACH, cz + RIB_REACH,
+                : northSouth(center, Wander.STRAIGHT, cx, cz - RIB_REACH, cz + RIB_REACH,
                         ROAD_HALF * 2, TownPlan.Kind.LANE));
 
         for (int out = RIB_FIRST;
@@ -305,7 +305,7 @@ public final class CrossroadsLayout extends PlannedLayout {
             for (int end : new int[] {1, -1}) {
                 int onX = acrossTheNorthSouthSpine ? cx + out * end : cx;
                 int onZ = acrossTheNorthSouthSpine ? cz : cz + out * end;
-                doors(centre, offers, onX, onZ, acrossTheNorthSouthSpine, index);
+                doors(center, offers, onX, onZ, acrossTheNorthSouthSpine, index);
             }
         }
     }
@@ -317,18 +317,18 @@ public final class CrossroadsLayout extends PlannedLayout {
      *                     setback is taken: doors stand north and south of an
      *                     east-west street, east and west of a north-south one
      */
-    private static void doors(SimPos centre, List<Offer> offers,
+    private static void doors(SimPos center, List<Offer> offers,
                               int x, int z, boolean runsEastWest, int street) {
-        SimPos onRoad = at(centre, x, z);
+        SimPos onRoad = at(center, x, z);
         for (int side : new int[] {1, -1}) {
             SimPos where = runsEastWest
-                    ? at(centre, x, z + side * SETBACK)
-                    : at(centre, x + side * SETBACK, z);
+                    ? at(center, x, z + side * SETBACK)
+                    : at(center, x + side * SETBACK, z);
             offers.add(new Offer(where, street, Layout.facingToward(where, onRoad)));
         }
     }
 
-    private static SimPos at(SimPos centre, int dx, int dz) {
-        return new SimPos(centre.x() + dx, centre.y(), centre.z() + dz);
+    private static SimPos at(SimPos center, int dx, int dz) {
+        return new SimPos(center.x() + dx, center.y(), center.z() + dz);
     }
 }

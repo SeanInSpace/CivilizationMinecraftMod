@@ -167,10 +167,10 @@ public final class TownMapScreen extends Screen {
         double scale = scale();
         int size = mapSize();
         for (TownMapPayload.Road road : town.roads()) {
-            int x0 = mapX + toPixel(Math.min(road.x1(), road.x2()) - town.centreX(), scale, size);
-            int x1 = mapX + toPixel(Math.max(road.x1(), road.x2()) - town.centreX(), scale, size);
-            int z0 = mapY + toPixel(Math.min(road.z1(), road.z2()) - town.centreZ(), scale, size);
-            int z1 = mapY + toPixel(Math.max(road.z1(), road.z2()) - town.centreZ(), scale, size);
+            int x0 = mapX + toPixel(Math.min(road.x1(), road.x2()) - town.centerX(), scale, size);
+            int x1 = mapX + toPixel(Math.max(road.x1(), road.x2()) - town.centerX(), scale, size);
+            int z0 = mapY + toPixel(Math.min(road.z1(), road.z2()) - town.centerZ(), scale, size);
+            int z1 = mapY + toPixel(Math.max(road.z1(), road.z2()) - town.centerZ(), scale, size);
 
             // A road is a block or three wide, which is under a pixel on a city
             // plan. Draw it thin rather than not at all.
@@ -192,14 +192,14 @@ public final class TownMapScreen extends Screen {
         double scale = scale();
         int size = mapSize();
         for (TownMapPayload.Mark mark : town.marks()) {
-            // Centred on its origin, exactly as the placer builds it.
+            // Centered on its origin, exactly as the placer builds it.
             double halfW = mark.width() / 2.0;
             double halfD = mark.depth() / 2.0;
 
-            int x0 = mapX + toPixel(mark.x() - halfW - town.centreX(), scale, size);
-            int x1 = mapX + toPixel(mark.x() + halfW - town.centreX(), scale, size);
-            int z0 = mapY + toPixel(mark.z() - halfD - town.centreZ(), scale, size);
-            int z1 = mapY + toPixel(mark.z() + halfD - town.centreZ(), scale, size);
+            int x0 = mapX + toPixel(mark.x() - halfW - town.centerX(), scale, size);
+            int x1 = mapX + toPixel(mark.x() + halfW - town.centerX(), scale, size);
+            int z0 = mapY + toPixel(mark.z() - halfD - town.centerZ(), scale, size);
+            int z1 = mapY + toPixel(mark.z() + halfD - town.centerZ(), scale, size);
 
             // A small building at city scale rounds to nothing; give it a floor.
             if (x1 - x0 < MIN_MARK) {
@@ -231,15 +231,15 @@ public final class TownMapScreen extends Screen {
         }
         double scale = scale();
         int size = mapSize();
-        int px = mapX + toPixel(player.getX() - town.centreX(), scale, size);
-        int pz = mapY + toPixel(player.getZ() - town.centreZ(), scale, size);
+        int px = mapX + toPixel(player.getX() - town.centerX(), scale, size);
+        int pz = mapY + toPixel(player.getZ() - town.centerZ(), scale, size);
         if (px < mapX || pz < mapY || px >= mapX + size || pz >= mapY + size) {
             return;   // off the plan entirely
         }
         graphics.fill(px - 1, pz - 1, px + 2, pz + 2, PLAYER);
     }
 
-    /** World offset from the town centre to a pixel offset from the map's middle. */
+    /** World offset from the town center to a pixel offset from the map's middle. */
     private static int toPixel(double offsetBlocks, double scale, int size) {
         return (int) Math.round(size / 2.0 + offsetBlocks * scale);
     }

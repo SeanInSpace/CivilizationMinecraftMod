@@ -5,7 +5,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LeastBadSiteTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 64, 0);
+    private static final SimPos CENTER = new SimPos(0, 64, 0);
 
     /**
      * Long enough to run out of good ground, short enough to run.
@@ -87,15 +87,15 @@ class LeastBadSiteTest {
         }
 
         void fault(int plotIndex, int fault) {
-            faults.put(key(plan.plotFor(CENTRE, plotIndex)), fault);
+            faults.put(key(plan.plotFor(CENTER, plotIndex)), fault);
         }
 
         void flood(int plotIndex) {
-            wet.add(key(plan.plotFor(CENTRE, plotIndex)));
+            wet.add(key(plan.plotFor(CENTER, plotIndex)));
         }
 
         void drain(int plotIndex) {
-            wet.remove(key(plan.plotFor(CENTRE, plotIndex)));
+            wet.remove(key(plan.plotFor(CENTER, plotIndex)));
         }
 
         boolean wasExamined(SimPos at) {
@@ -134,10 +134,10 @@ class LeastBadSiteTest {
     }
 
     private static Settlement town() {
-        Settlement s = new Settlement(Settlement.Id.random(), "Lastditch", CENTRE, 256);
-        s.setCatalogue(List.of(HOUSE));
+        Settlement s = new Settlement(Settlement.Id.random(), "Lastditch", CENTER, 256);
+        s.setCatalog(List.of(HOUSE));
         s.addResident(new Person(
-                Person.Id.random(), "Builder", Profession.BUILDER, CENTRE));
+                Person.Id.random(), "Builder", Profession.BUILDER, CENTER));
         return s;
     }
 
@@ -149,7 +149,7 @@ class LeastBadSiteTest {
     /** Plots are compared by their column; the height is read off the world. */
     private static void assertPlot(Settlement s, int expectedIndex, SimPos actual,
                                    String why) {
-        SimPos want = s.arrangement().plotFor(CENTRE, expectedIndex);
+        SimPos want = s.arrangement().plotFor(CENTER, expectedIndex);
         assertEquals(want.x() + "," + want.z(), actual.x() + "," + actual.z(), why);
     }
 
@@ -305,8 +305,8 @@ class LeastBadSiteTest {
         }
 
         @Override
-        public int woodedness(SimPos centre, int radius) {
-            return ground.woodedness(centre, radius);
+        public int woodedness(SimPos center, int radius) {
+            return ground.woodedness(center, radius);
         }
 
         @Override
@@ -382,13 +382,13 @@ class LeastBadSiteTest {
     @Test
     void aTownThatRunsOutOfGoodGroundSettlesForTheLeastBadOfIt() {
         HemmedIn ground = new HemmedIn();
-        Settlement town = new Settlement(Settlement.Id.random(), "Hemmed", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Hemmed", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         town.setCultureId("kingdoms:vale");
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
-                    Person.Id.random(), name, Profession.PIONEER, CENTRE));
+                    Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         for (int step = 1; step <= STEPS; step++) {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));

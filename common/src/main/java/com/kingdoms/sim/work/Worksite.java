@@ -86,7 +86,7 @@ public interface Worksite {
     }
 
     /**
-     * What one station is made of, or null when the work costs only labour.
+     * What one station is made of, or null when the work costs only labor.
      *
      * <p>The material a builder has to be <em>holding</em>, in the sense
      * {@code BuildLoad} means it: they fetch a load of it from the storehouse

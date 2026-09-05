@@ -7,7 +7,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.PathNetwork;
@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SettlementFaultsTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 72, 0);
+    private static final SimPos CENTER = new SimPos(0, 72, 0);
 
     private static Settlement grow(String cultureId, TerrainFake ground, int steps) {
         return growOn(cultureId, ground, steps);
@@ -52,14 +52,14 @@ class SettlementFaultsTest {
     private static Settlement growAs(String cultureId, String layout,
                                      com.kingdoms.sim.platform.WorldBridge ground,
                                      int steps) {
-        Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         town.setCultureId(cultureId);
         town.setLayoutId(layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
-                    Person.Id.random(), name, Profession.PIONEER, CENTRE));
+                    Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         for (int step = 1; step <= steps; step++) {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
@@ -71,7 +71,7 @@ class SettlementFaultsTest {
      * The arrangement the town these faults were found in was built in.
      *
      * <p>Named rather than left to the culture, because a people builds in
-     * several arrangements now and picks between them by hashing the centre.
+     * several arrangements now and picks between them by hashing the center.
      * Every fault below was measured on one grown town and the numbers here are
      * that town's — the ceiling on posts staked through a building is four
      * because four is what a burgher high street managed, and the same fixture
@@ -88,7 +88,7 @@ class SettlementFaultsTest {
         Set<SimPos> posts = new HashSet<>(ring.ringPositions());
         List<Building> onTheLine = new java.util.ArrayList<>();
         for (Building b : holdingGround(town)) {
-            int half = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue()) / 2;
+            int half = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalog()) / 2;
             for (SimPos post : posts) {
                 if (Math.abs(post.x() - b.origin().x()) <= half
                         && Math.abs(post.z() - b.origin().z()) <= half) {
@@ -122,7 +122,7 @@ class SettlementFaultsTest {
         // Norman town laid out in rings, keeping streets no ring town would ever
         // build.
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Normandy", "kingdoms:norman");
-        Settlement town = new Settlement(Settlement.Id.random(), "Ringmere", CENTRE, 256);
+        Settlement town = new Settlement(Settlement.Id.random(), "Ringmere", CENTER, 256);
         town.setCultureId("kingdoms:vale");
 
         kingdom.restoreSettlement(town);
@@ -135,7 +135,7 @@ class SettlementFaultsTest {
 
         // Founding still adopts the kingdom's people, which is the other half of
         // why these are two methods and not one with a flag.
-        Settlement fresh = new Settlement(Settlement.Id.random(), "New", CENTRE, 256);
+        Settlement fresh = new Settlement(Settlement.Id.random(), "New", CENTER, 256);
         kingdom.addSettlement(fresh);
         assertEquals("kingdoms:norman", fresh.cultureId(),
                 "a newly founded town takes its kingdom's people");
@@ -190,14 +190,14 @@ class SettlementFaultsTest {
         // keep a new building off the line. That half is closed: siting refuses
         // wall ground, and nothing is raised across the palisade ever again.
         TerrainFake ground = new TerrainFake(11);
-        Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         town.setCultureId("kingdoms:burgher");
         town.setLayoutId(surveyedArrangement("kingdoms:burgher"));
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
-                    Person.Id.random(), name, Profession.PIONEER, CENTRE));
+                    Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         long staked = -1;
         for (int step = 1; step <= 500; step++) {
@@ -263,10 +263,10 @@ class SettlementFaultsTest {
      * two. What did <em>not</em> work, and is worth recording so nobody spends
      * the afternoon again: giving the hull the plots' edge midpoints (interior
      * points do not constrain a boundary); pushing fouled vertices outward
-     * (on a concave line that drops a building in the notch beyond a neighbour,
+     * (on a concave line that drops a building in the notch beyond a neighbor,
      * and guarding the move with containment then rejects nearly all of them —
      * ten stayed ten); inserting a detour at the plot's outer corner (the new
-     * stretches cut across its neighbours, and twenty-one fouled stretches
+     * stretches cut across its neighbors, and twenty-one fouled stretches
      * became thirty-two); and simply widening the margin, which plateaus at four
      * and costs timber for it.
      *
@@ -321,8 +321,8 @@ class SettlementFaultsTest {
         // covers a post of the staked ring is not free ground, and one clear of
         // it is. The grown-town measure above can only ever be circumstantial,
         // because nothing records when a plot was chosen.
-        Settlement town = new Settlement(Settlement.Id.random(), "Ring", CENTRE, 256);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Ring", CENTER, 256);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setCultureId("kingdoms:burgher");
         town.setPerimeter(new Perimeter(
                 List.of(new SimPos(-40, 72, -40), new SimPos(40, 72, -40),
@@ -348,7 +348,7 @@ class SettlementFaultsTest {
         // eight-wide street, every one of them a farm.
         Settlement town = grow("kingdoms:burgher", new TerrainFake(11), 500);
         for (Building b : holdingGround(town)) {
-            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue());
+            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalog());
             for (PathNetwork.Segment run : town.paths().segments()) {
                 if (run.width() <= PathNetwork.TRACK_WIDTH) {
                     continue;   // a footpath is a consequence of a building
@@ -444,8 +444,8 @@ class SettlementFaultsTest {
         }
 
         @Override
-        public int woodedness(SimPos centre, int radius) {
-            return ground.woodedness(centre, radius);
+        public int woodedness(SimPos center, int radius) {
+            return ground.woodedness(center, radius);
         }
 
         @Override
@@ -466,7 +466,7 @@ class SettlementFaultsTest {
 
         int refusedGround = 0;
         for (Building b : held) {
-            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue());
+            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalog());
             assertFalse(ground.wetAt(b.origin().x(), b.origin().z()),
                     b.blueprintId() + " at " + b.origin() + " was built in the water");
             if (ground.siteFault(b.origin(), BuildPlanner.PLOT_PROBE_RADIUS) > 0) {
@@ -499,21 +499,21 @@ class SettlementFaultsTest {
         // TownPlan.Plot has carried the street a plot fronts and the way its
         // door should look since streets were planned. Both were discarded:
         // takeNextPlot returned a bare position and BuildPlanner set
-        // facingToward(centre), so every door in every planned town still turned
+        // facingToward(center), so every door in every planned town still turned
         // to the middle. The claim was true of the plan and false of the game.
         Layout planned = Layouts.of(Culture.LAYOUT_HIGH_STREET);
         int differs = 0;
         int fronting = 0;
         for (com.kingdoms.sim.culture.TownPlan.Plot plot
-                : planned.planFor(CENTRE, 120).plots()) {
+                : planned.planFor(CENTER, 120).plots()) {
             if (!plot.frontsAStreet()) {
                 continue;
             }
             fronting++;
-            int fromLayout = planned.facingFor(CENTRE, plot.at());
+            int fromLayout = planned.facingFor(CENTER, plot.at());
             assertEquals(plot.facing(), fromLayout,
                     "the layout disagrees with its own plan at " + plot.at());
-            if (fromLayout != Layout.facingToward(plot.at(), CENTRE)) {
+            if (fromLayout != Layout.facingToward(plot.at(), CENTER)) {
                 differs++;
             }
         }
@@ -525,8 +525,8 @@ class SettlementFaultsTest {
 
         // A lattice has no streets and must still answer, the old way.
         Layout lattice = Layouts.RING;
-        SimPos plot = lattice.plotFor(CENTRE, 4);
-        assertEquals(Layout.facingToward(plot, CENTRE), lattice.facingFor(CENTRE, plot));
+        SimPos plot = lattice.plotFor(CENTER, 4);
+        assertEquals(Layout.facingToward(plot, CENTER), lattice.facingFor(CENTER, plot));
     }
 
     // --- 7 ----------------------------------------------------------------

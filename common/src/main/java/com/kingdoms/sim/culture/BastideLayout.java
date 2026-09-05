@@ -124,7 +124,7 @@ public final class BastideLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int rings = ringsFor(wanted);
         int reach = rings * BLOCK + HALF_BLOCK;
@@ -140,16 +140,16 @@ public final class BastideLayout extends PlannedLayout {
         // numbers moved around: what actually keeps a door pointing at its own
         // street is that the plan is laid once, at a size no settlement reaches.
         for (int line = -rings; line < rings; line++) {
-            streets.add(northSouth(centre, Wander.STRAIGHT, line * BLOCK + HALF_BLOCK,
+            streets.add(northSouth(center, Wander.STRAIGHT, line * BLOCK + HALF_BLOCK,
                     -reach, reach, ROAD_HALF * 2, TownPlan.Kind.LANE));
         }
         int firstEastWest = streets.size();
         for (int line = -rings; line < rings; line++) {
-            streets.add(eastWest(centre, Wander.STRAIGHT, line * BLOCK + HALF_BLOCK,
+            streets.add(eastWest(center, Wander.STRAIGHT, line * BLOCK + HALF_BLOCK,
                     -reach, reach, ROAD_HALF * 2, TownPlan.Kind.LANE));
         }
         int circuit = streets.size();
-        streets.add(circuitRoad(centre, reach));
+        streets.add(circuitRoad(center, reach));
 
         // A block at a time, because every decision here -- which streets a
         // block fronts, whether it turns to face the market -- is a property of
@@ -161,7 +161,7 @@ public final class BastideLayout extends PlannedLayout {
                 if (col == 0 && row == 0) {
                     continue;   // the place: a whole block, offered to nothing
                 }
-                frontage(centre, col, row, rings, firstEastWest, circuit, offers);
+                frontage(center, col, row, rings, firstEastWest, circuit, offers);
             }
         }
     }
@@ -191,7 +191,7 @@ public final class BastideLayout extends PlannedLayout {
      *       hedges.</li>
      * </ul>
      */
-    private static void frontage(SimPos centre, int col, int row, int rings,
+    private static void frontage(SimPos center, int col, int row, int rings,
                                  int firstEastWest, int circuit, List<Offer> offers) {
         int blockX = col * BLOCK;
         int blockZ = row * BLOCK;
@@ -207,7 +207,7 @@ public final class BastideLayout extends PlannedLayout {
                 int street = crossStreet(line, rings, circuit);
                 for (int end : new int[] {-1, 1}) {
                     int z = blockZ + end * HALF_PITCH;
-                    add(offers, centre, blockX + side * ROW_OFF, z, road, z, street);
+                    add(offers, center, blockX + side * ROW_OFF, z, road, z, street);
                 }
             } else {
                 // The ordinary case: a house at each end of the block's two rows.
@@ -215,7 +215,7 @@ public final class BastideLayout extends PlannedLayout {
                 for (int end : new int[] {-1, 1}) {
                     int line = end > 0 ? row : row - 1;
                     int road = line * BLOCK + HALF_BLOCK;
-                    add(offers, centre, x, blockZ + end * ROW_OFF, x, road,
+                    add(offers, center, x, blockZ + end * ROW_OFF, x, road,
                             alongStreet(line, rings, firstEastWest, circuit));
                 }
             }
@@ -223,10 +223,10 @@ public final class BastideLayout extends PlannedLayout {
     }
 
     /** One offer, facing the point on the road it takes its frontage from. */
-    private static void add(List<Offer> offers, SimPos centre, int x, int z,
+    private static void add(List<Offer> offers, SimPos center, int x, int z,
                             int roadX, int roadZ, int street) {
-        SimPos plot = at(centre, x, z);
-        offers.add(new Offer(plot, street, Layout.facingToward(plot, at(centre, roadX, roadZ))));
+        SimPos plot = at(center, x, z);
+        offers.add(new Offer(plot, street, Layout.facingToward(plot, at(center, roadX, roadZ))));
     }
 
     /**
@@ -278,25 +278,25 @@ public final class BastideLayout extends PlannedLayout {
      * day somebody finds that out. The ring roads have the same shape and the
      * same exposure.
      */
-    private static TownPlan.Street circuitRoad(SimPos centre, int reach) {
+    private static TownPlan.Street circuitRoad(SimPos center, int reach) {
         List<SimPos> path = new ArrayList<>();
         for (int x = -reach; x < reach; x += SEGMENT) {
-            path.add(at(centre, x, -reach));
+            path.add(at(center, x, -reach));
         }
         for (int z = -reach; z < reach; z += SEGMENT) {
-            path.add(at(centre, reach, z));
+            path.add(at(center, reach, z));
         }
         for (int x = reach; x > -reach; x -= SEGMENT) {
-            path.add(at(centre, x, reach));
+            path.add(at(center, x, reach));
         }
         for (int z = reach; z > -reach; z -= SEGMENT) {
-            path.add(at(centre, -reach, z));
+            path.add(at(center, -reach, z));
         }
-        path.add(at(centre, -reach, -reach));
+        path.add(at(center, -reach, -reach));
         return new TownPlan.Street(path, ROAD_HALF * 2, TownPlan.Kind.SPINE);
     }
 
-    private static SimPos at(SimPos centre, int dx, int dz) {
-        return new SimPos(centre.x() + dx, centre.y(), centre.z() + dz);
+    private static SimPos at(SimPos center, int dx, int dz) {
+        return new SimPos(center.x() + dx, center.y(), center.z() + dz);
     }
 }

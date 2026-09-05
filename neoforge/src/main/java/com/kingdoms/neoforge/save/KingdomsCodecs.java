@@ -361,7 +361,7 @@ public final class KingdomsCodecs {
             Codec.BOOL.optionalFieldOf("drawn_only", false).forGetter(Flavor::drawnOnly),
             // Which of its people's arrangements this town was laid out in. A
             // culture carries several now and picks between them by hashing the
-            // centre, so the answer has to be written down rather than worked
+            // center, so the answer has to be written down rather than worked
             // out again: a town that grew half its streets under one derivation
             // and half under another would be neither shape.
             //
@@ -393,7 +393,8 @@ public final class KingdomsCodecs {
     }));
 
     public static final Codec<WorkArea> WORK_AREA = RecordCodecBuilder.create(i -> i.group(
-            SIM_POS.fieldOf("centre").forGetter(WorkArea::centre),
+            // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
+            SIM_POS.fieldOf("centre").forGetter(WorkArea::center),
             Codec.INT.fieldOf("radius").forGetter(WorkArea::radius)
     ).apply(i, WorkArea::new));
 
@@ -511,7 +512,8 @@ public final class KingdomsCodecs {
     public static final Codec<Settlement> SETTLEMENT = RecordCodecBuilder.create(i -> i.group(
             SETTLEMENT_ID.fieldOf("id").forGetter(Settlement::id),
             Codec.STRING.fieldOf("name").forGetter(Settlement::name),
-            SIM_POS.fieldOf("centre").forGetter(Settlement::centre),
+            // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
+            SIM_POS.fieldOf("centre").forGetter(Settlement::center),
             Codec.INT.fieldOf("claim_radius").forGetter(Settlement::claimRadius),
             Codec.INT.fieldOf("threat_level").forGetter(Settlement::threatLevel),
             PERSON.listOf().fieldOf("residents").forGetter(s -> List.copyOf(s.residents())),
@@ -526,8 +528,8 @@ public final class KingdomsCodecs {
             WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea())),
             WORK_AREA.optionalFieldOf("mine_area").forGetter(s -> Optional.ofNullable(s.mineArea())),
             Codec.INT.optionalFieldOf("next_plot", -1).forGetter(Settlement::nextPlotIndex)
-    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, flavor, lumberArea, mineArea, nextPlot) -> {
-        Settlement settlement = new Settlement(id, name, centre, claimRadius);
+    ).apply(i, (id, name, center, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, flavor, lumberArea, mineArea, nextPlot) -> {
+        Settlement settlement = new Settlement(id, name, center, claimRadius);
         settlement.setThreatLevel(threatLevel);
         settlement.loosePile().restore(stores.toTownStores().all());
         settlement.setTreasury(stores.treasury());
@@ -535,13 +537,13 @@ public final class KingdomsCodecs {
         settlement.setCultureId(flavor.culture());
         // A save written before the layout was recorded takes the head of its
         // people's list, which is the arrangement that people has always built
-        // in. Deriving one from the centre instead would rearrange every town
+        // in. Deriving one from the center instead would rearrange every town
         // already standing in somebody's world, which is exactly what a new
         // arrangement is not allowed to do.
         settlement.setLayoutId(flavor.layout()
                 .orElseGet(() -> Culture.of(flavor.culture()).layouts().get(0)));
         // Saves from before stages existed carry no stage; they load as TOWN,
-        // which is the behaviour they were built under. Only fresh charters camp.
+        // which is the behavior they were built under. Only fresh charters camp.
         settlement.setStage(SettlementStage.parse(flavor.stage(), SettlementStage.TOWN));
         settlement.setDrawnOnly(flavor.drawnOnly());
         settlement.setFedStreak(flavor.fedStreak());

@@ -2,7 +2,7 @@ package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 
@@ -15,7 +15,7 @@ import java.util.List;
  *
  * <p>{@link TerrainFake} exists so the siting rules are exercised at all;
  * this exists because they were exercised on the wrong ground. Its surface is
- * three sine waves, and the steepest step between neighbouring columns is one
+ * three sine waves, and the steepest step between neighboring columns is one
  * block — so a rule refusing ground that climbs more than a block a step can
  * never fire, and three consecutive fixes for roads on unclimbable slopes
  * measured perfectly clean in this suite while the world they were written for
@@ -34,7 +34,7 @@ import java.util.List;
  */
 public final class RecordedTerrain implements WorldBridge {
 
-    /** The field captured round the centre every survey in this project uses. */
+    /** The field captured round the center every survey in this project uses. */
     public static final String SEED_8675309 = "/terrain/seed8675309_town.hf";
 
     /** How far a plot may fall across its bulk before it is a slope, not a dip. */
@@ -107,7 +107,7 @@ public final class RecordedTerrain implements WorldBridge {
     }
 
     /**
-     * The same judgement scored, exactly as {@code TerrainFake} scores it.
+     * The same judgment scored, exactly as {@code TerrainFake} scores it.
      *
      * <p>The two fakes have to answer the same question the same way or the
      * recording stops being the same rules on different ground, which is the
@@ -142,7 +142,7 @@ public final class RecordedTerrain implements WorldBridge {
      * an earthwork can make good.
      */
     @Override
-    public boolean isSiteLevellable(SimPos plot, int radius) {
+    public boolean isSiteLevelable(SimPos plot, int radius) {
         if (standsInWater(plot, radius)) {
             return false;
         }
@@ -152,13 +152,13 @@ public final class RecordedTerrain implements WorldBridge {
     @Override
     public Footprint materializeBlueprint(String id, SimPos origin, boolean surveyed,
                                           int facing) {
-        int span = BuildPlanner.plotSpanOf(id, BuildCatalogue.DEFAULT);
+        int span = BuildPlanner.plotSpanOf(id, BuildCatalog.DEFAULT);
         return new Footprint(groundAt(origin.x(), origin.z()), span, span, 5);
     }
 
     @Override
-    public int woodedness(SimPos centre, int radius) {
-        return Math.abs((centre.x() * 31 + centre.z() * 17) % 100);
+    public int woodedness(SimPos center, int radius) {
+        return Math.abs((center.x() * 31 + center.z() * 17) % 100);
     }
 
     @Override

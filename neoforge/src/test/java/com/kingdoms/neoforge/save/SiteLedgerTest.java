@@ -34,7 +34,7 @@ class SiteLedgerTest {
     }
 
     @Test
-    void anAcceptedSiteComesBackWithItsCentre() {
+    void anAcceptedSiteComesBackWithItsCenter() {
         SiteLedger ledger = new SiteLedger();
         ledger.accept(3, -7, new SimPos(1898, 71, -3315));
 
@@ -43,7 +43,7 @@ class SiteLedgerTest {
         assertEquals(1, read.size());
         SiteLedger.Entry entry = read.entry(3, -7).orElseThrow();
         assertTrue(entry.accepted());
-        assertEquals(new SimPos(1898, 71, -3315), entry.centre().orElseThrow());
+        assertEquals(new SimPos(1898, 71, -3315), entry.center().orElseThrow());
     }
 
     @Test
@@ -58,7 +58,7 @@ class SiteLedgerTest {
 
         assertTrue(read.isResolved(-2, 5));
         assertFalse(read.entry(-2, 5).orElseThrow().accepted());
-        assertTrue(read.entry(-2, 5).orElseThrow().centre().isEmpty());
+        assertTrue(read.entry(-2, 5).orElseThrow().center().isEmpty());
     }
 
     @Test
@@ -87,9 +87,9 @@ class SiteLedgerTest {
     }
 
     @Test
-    void neighbouringRegionsDoNotShareAKey() {
+    void neighboringRegionsDoNotShareAKey() {
         // Packing two signed ints into a long is the obvious place for a region
-        // to be mistaken for its neighbour, and the symptom would be a town
+        // to be mistaken for its neighbor, and the symptom would be a town
         // silently never founded.
         SiteLedger ledger = new SiteLedger();
         for (int rx = -2; rx <= 2; rx++) {
@@ -102,7 +102,7 @@ class SiteLedgerTest {
         for (int rx = -2; rx <= 2; rx++) {
             for (int rz = -2; rz <= 2; rz++) {
                 assertEquals(new SimPos(rx, 0, rz),
-                        read.entry(rx, rz).orElseThrow().centre().orElseThrow(),
+                        read.entry(rx, rz).orElseThrow().center().orElseThrow(),
                         "region (" + rx + ", " + rz + ") came back as somebody else");
             }
         }
@@ -116,7 +116,7 @@ class SiteLedgerTest {
         assertFalse(ledger.accept(4, 4, new SimPos(900, 70, 900)),
                 "a second acceptance would raise a second town on the same region");
         assertEquals(new SimPos(100, 70, 100),
-                ledger.entry(4, 4).orElseThrow().centre().orElseThrow());
+                ledger.entry(4, 4).orElseThrow().center().orElseThrow());
         assertEquals(1, ledger.size());
     }
 }

@@ -17,8 +17,8 @@ import java.util.Map;
  * <p>Matching is on the bare building name — namespace, culture folder and
  * level suffix all removed — so {@code kingdoms:storehouse},
  * {@code kingdoms:storehouse_l2} and {@code kingdoms:norman/storehouse} are one
- * building at three addresses. Anything unrecognised is {@link #OTHER}, which
- * is a fine thing to be: most buildings have no special behaviour and this
+ * building at three addresses. Anything unrecognized is {@link #OTHER}, which
+ * is a fine thing to be: most buildings have no special behavior and this
  * enum should not grow an entry until one does.
  */
 public enum BuildingRole {
@@ -41,7 +41,7 @@ public enum BuildingRole {
     INN,
     MILL,
     CARPENTRY,
-    /** No special behaviour, which is most of them. */
+    /** No special behavior, which is most of them. */
     OTHER;
 
     private static final Map<String, BuildingRole> BY_NAME = Map.ofEntries(

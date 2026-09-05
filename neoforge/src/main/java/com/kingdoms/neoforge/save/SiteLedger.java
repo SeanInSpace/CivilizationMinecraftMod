@@ -24,12 +24,12 @@ import java.util.Optional;
  * facts do not fit in a pure function:
  *
  * <ul>
- *   <li><strong>A site was refused.</strong> The arithmetic picks a centre
+ *   <li><strong>A site was refused.</strong> The arithmetic picks a center
  *       blind; the terrain check that follows can find a lake or a cliff and
  *       say no. Without a record, the next player to walk past asks again, gets
- *       the same centre, and pays for the same refusal.</li>
+ *       the same center, and pays for the same refusal.</li>
  *   <li><strong>A town was built.</strong> Nothing else can tell. A settlement
- *       moves off its arithmetic centre when the ground is better a few blocks
+ *       moves off its arithmetic center when the ground is better a few blocks
  *       over, grows, and is eventually indistinguishable from one a player
  *       founded — so "is there already a town for this region" is not a
  *       question the settlement list can answer.</li>
@@ -54,24 +54,25 @@ public final class SiteLedger extends SavedData {
      *
      * @param regionX region coordinate, as {@link SettlementSites#regionOf} counts them
      * @param regionZ region coordinate
-     * @param centre  where the town was actually founded, or empty when the
-     *                site was refused. Note this is the <em>final</em> centre,
-     *                after any shift onto better ground — the arithmetic centre
+     * @param center  where the town was actually founded, or empty when the
+     *                site was refused. Note this is the <em>final</em> center,
+     *                after any shift onto better ground — the arithmetic center
      *                is always recoverable from the seed, and the one worth
      *                keeping is the one that cannot be recomputed.
      */
-    public record Entry(int regionX, int regionZ, Optional<SimPos> centre) {
+    public record Entry(int regionX, int regionZ, Optional<SimPos> center) {
 
         public static final Codec<Entry> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.INT.fieldOf("region_x").forGetter(Entry::regionX),
                 Codec.INT.fieldOf("region_z").forGetter(Entry::regionZ),
-                // Absent rather than a flag: "no centre" and "refused" are the
+                // Absent rather than a flag: "no center" and "refused" are the
                 // same statement, and storing both invites them to disagree.
-                KingdomsCodecs.SIM_POS.optionalFieldOf("centre").forGetter(Entry::centre)
+                // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
+                KingdomsCodecs.SIM_POS.optionalFieldOf("centre").forGetter(Entry::center)
         ).apply(i, Entry::new));
 
         public boolean accepted() {
-            return centre.isPresent();
+            return center.isPresent();
         }
     }
 
@@ -125,12 +126,12 @@ public final class SiteLedger extends SavedData {
     }
 
     /**
-     * Records that a town was raised for this region, at this centre.
+     * Records that a town was raised for this region, at this center.
      *
      * @return whether this was a new decision; false leaves the ledger untouched
      */
-    public boolean accept(int regionX, int regionZ, SimPos centre) {
-        return record(new Entry(regionX, regionZ, Optional.of(centre)));
+    public boolean accept(int regionX, int regionZ, SimPos center) {
+        return record(new Entry(regionX, regionZ, Optional.of(center)));
     }
 
     /**
@@ -146,7 +147,7 @@ public final class SiteLedger extends SavedData {
      * First writer wins.
      *
      * <p>Not last, which is the reflex. A region already carrying an accepted
-     * centre has a town standing on it; overwriting that with a later refusal —
+     * center has a town standing on it; overwriting that with a later refusal —
      * or with a second acceptance — is how the same region ends up raising two
      * towns, which is the single thing this class exists to prevent.
      */

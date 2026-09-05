@@ -4,7 +4,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.FoodPlanner;
@@ -65,7 +65,7 @@ class StageProgressionTest {
     /** A charter party as the item now lands one: pioneers, staged as a camp. */
     private static Settlement foundingParty() {
         Settlement s = new Settlement(Settlement.Id.random(), "Newholt", new SimPos(0, 64, 0), 128);
-        s.setCatalogue(BuildCatalogue.DEFAULT);
+        s.setCatalog(BuildCatalog.DEFAULT);
         s.setStage(SettlementStage.CAMP);
         s.setFoodStock(FoodPlanner.STARTING_PROVISIONS);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov"}) {
@@ -85,7 +85,7 @@ class StageProgressionTest {
 
         camp.step(CTX);
 
-        // The full catalogue is on the table and the hall — priority 100, the
+        // The full catalog is on the table and the hall — priority 100, the
         // old first act — is not what four settlers reach for: the program is,
         // and the program starts by staking the claim.
         assertFalse(camp.buildQueue().isEmpty(),
@@ -97,11 +97,11 @@ class StageProgressionTest {
     @Test
     void aCampThatCanBuildNothingLivesOnBerriesAndNeverGraduates() {
         Settlement camp = foundingParty();
-        // An empty catalogue so nothing can ever rise — with the DEFAULT one a
+        // An empty catalog so nothing can ever rise — with the DEFAULT one a
         // camp bootstraps its own timber economy through requestProducer and
         // honestly farms its way out, which the next test pins. Here the party
         // has only its hands, and foraging is the whole of the food supply.
-        camp.setCatalogue(java.util.List.of());
+        camp.setCatalog(java.util.List.of());
         camp.setFoodStock(10);
 
         for (int i = 0; i < 60; i++) {
@@ -126,7 +126,7 @@ class StageProgressionTest {
         // Five hundred and sixty rather than four hundred and fifty, for the
         // same reason it was four hundred and fifty rather than three hundred:
         // the clock got slower, not the ladder. Buildings are drawn at the size
-        // the catalogue reserves for them now — a hall is thirteen by eleven
+        // the catalog reserves for them now — a hall is thirteen by eleven
         // where it was seven by seven — so every one of them is more work and a
         // town reaches the size that finishes its wall later. Measured at step
         // 463 for the closing on this ground, against 373 before.
@@ -226,28 +226,28 @@ class StageProgressionTest {
 
     @Test
     void theHallWaitsForTheTown() {
-        assertFalse(StagePlanner.catalogueAllows(SettlementStage.CAMP, "kingdoms:town_hall"),
+        assertFalse(StagePlanner.catalogAllows(SettlementStage.CAMP, "kingdoms:town_hall"),
                 "a camp has no business ordering civic architecture");
-        assertFalse(StagePlanner.catalogueAllows(SettlementStage.VILLAGE, "kingdoms:town_hall"),
+        assertFalse(StagePlanner.catalogAllows(SettlementStage.VILLAGE, "kingdoms:town_hall"),
                 "even a village has not earned the hall yet");
-        assertTrue(StagePlanner.catalogueAllows(SettlementStage.TOWN, "kingdoms:town_hall"),
+        assertTrue(StagePlanner.catalogAllows(SettlementStage.TOWN, "kingdoms:town_hall"),
                 "the hall is the town's capstone, so TOWN may order it");
-        assertTrue(StagePlanner.catalogueAllows(SettlementStage.CAMP, "kingdoms:house"),
+        assertTrue(StagePlanner.catalogAllows(SettlementStage.CAMP, "kingdoms:house"),
                 "the gate is for the hall alone, not ordinary buildings");
     }
 
     @Test
-    void pioneersLabourEveryTradeUntilTheVillage() {
+    void pioneersLaborEveryTradeUntilTheVillage() {
         Settlement camp = foundingParty();
         Person pioneer = camp.residents().iterator().next();
 
-        assertTrue(camp.laboursAs(pioneer, Profession.BUILDER),
+        assertTrue(camp.laborsAs(pioneer, Profession.BUILDER),
                 "below VILLAGE a pioneer builds");
-        assertTrue(camp.laboursAs(pioneer, Profession.FARMER),
+        assertTrue(camp.laborsAs(pioneer, Profession.FARMER),
                 "below VILLAGE a pioneer farms");
 
         camp.setStage(SettlementStage.VILLAGE);
-        assertFalse(camp.laboursAs(pioneer, Profession.BUILDER),
+        assertFalse(camp.laborsAs(pioneer, Profession.BUILDER),
                 "from VILLAGE the specialists exist and a pioneer is just unassigned");
     }
 
@@ -312,7 +312,7 @@ class StageProgressionTest {
         assertEquals(1, JobPlanner.count(s, Profession.LUMBERJACK),
                 "and one to the axe — the palisade drinks more timber than the kit holds");
         assertEquals(2, JobPlanner.count(s, Profession.PIONEER),
-                "the rest of the party keeps labouring as pioneers");
+                "the rest of the party keeps laboring as pioneers");
     }
 
     @Test
@@ -352,7 +352,7 @@ class StageProgressionTest {
     }
 
     @Test
-    void anOldSaveLoadsAsATownAndKeepsItsBehaviour() {
+    void anOldSaveLoadsAsATownAndKeepsItsBehavior() {
         // Saves from before stages existed carry no stage field; they must come
         // back as TOWN so nothing about an established settlement changes.
         Settlement s = new Settlement(Settlement.Id.random(), "Oldholt",
@@ -360,8 +360,8 @@ class StageProgressionTest {
 
         assertEquals(SettlementStage.TOWN, s.stage(),
                 "the default stage is TOWN so pre-stage saves behave as they always did");
-        assertTrue(StagePlanner.catalogueRuns(s.stage()),
-                "an established town still runs the full catalogue");
+        assertTrue(StagePlanner.catalogRuns(s.stage()),
+                "an established town still runs the full catalog");
         assertEquals(SettlementStage.TOWN, SettlementStage.parse("", SettlementStage.TOWN),
                 "an absent stage field parses to the fallback, not an exception");
     }

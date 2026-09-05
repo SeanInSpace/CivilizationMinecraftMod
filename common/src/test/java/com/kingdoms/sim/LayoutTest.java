@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LayoutTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 64, 0);
+    private static final SimPos CENTER = new SimPos(0, 64, 0);
 
     /** Enough plots to cover several rings, several clumps and several grid legs. */
     private static final int MANY = 120;
@@ -52,7 +52,7 @@ class LayoutTest {
         // itself on reload would rebuild its own streets somewhere else.
         for (Layout layout : Layouts.all()) {
             for (int i = 0; i < MANY; i++) {
-                assertEquals(layout.plotFor(CENTRE, i), layout.plotFor(CENTRE, i),
+                assertEquals(layout.plotFor(CENTER, i), layout.plotFor(CENTER, i),
                         layout.id() + " gave two answers for plot " + i);
             }
         }
@@ -65,7 +65,7 @@ class LayoutTest {
         for (Layout layout : Layouts.all()) {
             Set<SimPos> seen = new HashSet<>();
             for (int i = 0; i < MANY; i++) {
-                assertTrue(seen.add(layout.plotFor(CENTRE, i)),
+                assertTrue(seen.add(layout.plotFor(CENTER, i)),
                         layout.id() + " reused a position at plot " + i);
             }
         }
@@ -92,7 +92,7 @@ class LayoutTest {
                 Layouts.GREEN)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
-                plots[i] = layout.plotFor(CENTRE, i);
+                plots[i] = layout.plotFor(CENTER, i);
             }
             for (int a = 0; a < MANY; a++) {
                 for (int b = a + 1; b < MANY; b++) {
@@ -109,10 +109,10 @@ class LayoutTest {
     }
 
     @Test
-    void everyLayoutBuildsAroundTheCentreItIsGiven() {
+    void everyLayoutBuildsAroundTheCenterItIsGiven() {
         SimPos elsewhere = new SimPos(3000, 70, -1500);
         for (Layout layout : Layouts.all()) {
-            SimPos here = layout.plotFor(CENTRE, 3);
+            SimPos here = layout.plotFor(CENTER, 3);
             SimPos there = layout.plotFor(elsewhere, 3);
             assertEquals(elsewhere.y(), there.y(),
                     layout.id() + " invented a height; that is the survey's job");
@@ -120,29 +120,29 @@ class LayoutTest {
             // A lattice is the same shape wherever it is put, and that is worth
             // holding: it is what makes rings rings. Some arrangements are
             // deliberately not — their throws or their bends are seeded from the
-            // town's own centre, so two villages of the same people are not the
+            // town's own center, so two villages of the same people are not the
             // same village twice. The layout says which it is, rather than this
             // test naming the exceptions: as a list of ids it was really the rule
             // "every layout except the ones that break it", and it would have
             // silently covered up the next one. What the rule is actually for is
-            // that a layout must build around the centre it is HANDED rather than
+            // that a layout must build around the center it is HANDED rather than
             // one it remembers, and that is asserted for all of them below.
             if (layout.isSameShapeEverywhere()) {
-                assertEquals(there.x() - elsewhere.x(), here.x() - CENTRE.x(),
+                assertEquals(there.x() - elsewhere.x(), here.x() - CENTER.x(),
                         layout.id() + " is not the same shape somewhere else");
-                assertEquals(there.z() - elsewhere.z(), here.z() - CENTRE.z(),
+                assertEquals(there.z() - elsewhere.z(), here.z() - CENTER.z(),
                         layout.id() + " is not the same shape somewhere else");
             }
 
-            assertTrue(near(here, CENTRE) && near(there, elsewhere),
-                    layout.id() + " put a plot nowhere near the centre it was given");
+            assertTrue(near(here, CENTER) && near(there, elsewhere),
+                    layout.id() + " put a plot nowhere near the center it was given");
         }
     }
 
-    /** Whether a plot is close enough to be part of that centre's town at all. */
-    private static boolean near(SimPos plot, SimPos centre) {
-        return Math.max(Math.abs(plot.x() - centre.x()),
-                        Math.abs(plot.z() - centre.z())) < 400;
+    /** Whether a plot is close enough to be part of that center's town at all. */
+    private static boolean near(SimPos plot, SimPos center) {
+        return Math.max(Math.abs(plot.x() - center.x()),
+                        Math.abs(plot.z() - center.z())) < 400;
     }
 
     @Test
@@ -152,10 +152,10 @@ class LayoutTest {
         SimPos elsewhere = new SimPos(3000, 70, -1500);
         int same = 0;
         for (int i = 0; i < MANY; i++) {
-            SimPos a = Layouts.ORGANIC.plotFor(CENTRE, i);
+            SimPos a = Layouts.ORGANIC.plotFor(CENTER, i);
             SimPos b = Layouts.ORGANIC.plotFor(elsewhere, i);
-            if (a.x() - CENTRE.x() == b.x() - elsewhere.x()
-                    && a.z() - CENTRE.z() == b.z() - elsewhere.z()) {
+            if (a.x() - CENTER.x() == b.x() - elsewhere.x()
+                    && a.z() - CENTER.z() == b.z() - elsewhere.z()) {
                 same++;
             }
         }
@@ -174,7 +174,7 @@ class LayoutTest {
         // Walked a segment at a time, because a street bends. Checking only the
         // two ends of a wandering road tests a straight line the road is not on.
         for (Layout layout : Layouts.all()) {
-            TownPlan plan = layout.planFor(CENTRE, 140);
+            TownPlan plan = layout.planFor(CENTER, 140);
             for (TownPlan.Plot plot : plan.plots()) {
                 for (TownPlan.Street street : plan.streets()) {
                     assertFalse(street.touches(plot.at(), plot.span() / 2.0),
@@ -188,13 +188,13 @@ class LayoutTest {
     @Test
     void aStreetsFrontageFollowsItsBends() {
         // The trap in curving a street is curving only the picture. The setback
-        // is measured from the centreline, so if the drawn road bends and the
-        // frontage does not, the gap closes and the house ends up on the kerb --
+        // is measured from the centerline, so if the drawn road bends and the
+        // frontage does not, the gap closes and the house ends up on the curb --
         // which is exactly the fault this layout has already had once, from a
         // different cause. So: every plot that fronts a street must actually be
         // near that street, however much the street wanders.
         StreetLayout bendy = new StreetLayout("bendy", new Wander(9, 80, 4242L));
-        TownPlan plan = bendy.planFor(CENTRE, 120);
+        TownPlan plan = bendy.planFor(CENTER, 120);
         int fronting = 0;
         for (TownPlan.Plot plot : plan.plots()) {
             TownPlan.Street street = plan.streetOf(plot);
@@ -230,7 +230,7 @@ class LayoutTest {
         // showed up here first and nowhere else:
         //
         //   ring roads pitched like a straight street        20%
-        //   ring faces spaced on the centreline              25%
+        //   ring faces spaced on the centerline              25%
         //   plot square expanded into a square, not a disc   25%
         //   spokes that refuse frontage and offer none       62%
         //   with frontage on the spokes                      72%
@@ -245,7 +245,7 @@ class LayoutTest {
                 continue;
             }
             for (int wanted : new int[] {24, 60, 140}) {
-                TownPlan plan = fresh(layout).planFor(CENTRE, wanted);
+                TownPlan plan = fresh(layout).planFor(CENTER, wanted);
                 assertTrue(plan.frontagePercent() >= 95,
                         layout.id() + " at " + wanted + " plots fronted only "
                                 + plan.frontagePercent() + "% of them on its own streets");
@@ -310,7 +310,7 @@ class LayoutTest {
                     lattice.id() + " was supposed to be the lattice");
             assertSame(lattice, Layouts.lattice(streets),
                     "could not get back from " + streets.id());
-            assertTrue(streets.planFor(CENTRE, 60).frontagePercent() > 0,
+            assertTrue(streets.planFor(CENTER, 60).frontagePercent() > 0,
                     streets.id() + " draws streets nothing fronts");
         }
 
@@ -348,9 +348,9 @@ class LayoutTest {
         // load would rebuild its own roads somewhere else every session.
         StreetLayout a = new StreetLayout("bendy", new Wander(9, 80, 4242L));
         StreetLayout b = new StreetLayout("bendy", new Wander(9, 80, 4242L));
-        assertEquals(a.planFor(CENTRE, 80).streets(), b.planFor(CENTRE, 80).streets(),
+        assertEquals(a.planFor(CENTER, 80).streets(), b.planFor(CENTER, 80).streets(),
                 "the same town laid different streets on a second run");
-        assertEquals(a.planFor(CENTRE, 80).plots(), b.planFor(CENTRE, 80).plots(),
+        assertEquals(a.planFor(CENTER, 80).plots(), b.planFor(CENTER, 80).plots(),
                 "the same town laid different plots on a second run");
     }
 
@@ -360,14 +360,14 @@ class LayoutTest {
         // map the identical kink in the identical place, which reads worse than
         // a straight road because it reads as a repeated asset.
         StreetLayout bendy = new StreetLayout("bendy", new Wander(9, 80, 4242L));
-        List<SimPos> here = bendy.planFor(CENTRE, 60).streets().get(0).path();
+        List<SimPos> here = bendy.planFor(CENTER, 60).streets().get(0).path();
         List<SimPos> there = bendy.planFor(new SimPos(2048, 72, -1024), 60)
                 .streets().get(0).path();
         int same = 0;
         for (int i = 0; i < Math.min(here.size(), there.size()); i++) {
-            // Compared as offsets from each town's own centre, or every point
+            // Compared as offsets from each town's own center, or every point
             // differs for the trivial reason that the towns are far apart.
-            if (here.get(i).x() - CENTRE.x() == there.get(i).x() - 2048) {
+            if (here.get(i).x() - CENTER.x() == there.get(i).x() - 2048) {
                 same++;
             }
         }
@@ -407,9 +407,9 @@ class LayoutTest {
     @Test
     void theVillagesInnermostRingIsTooTightForItsOwnPlots() {
         // A defect, recorded rather than hidden, and not introduced here: with
-        // eight slots at a radius of twelve, neighbouring plots sit four across
+        // eight slots at a radius of twelve, neighboring plots sit four across
         // and eight deep, and a pair that close on BOTH axes fouls. So the
-        // innermost ring of every human town cannot hold two neighbouring
+        // innermost ring of every human town cannot hold two neighboring
         // buildings, and the overlap check quietly refuses one of each pair.
         //
         // Harmless enough to have gone unnoticed -- an index is only spent when
@@ -417,8 +417,8 @@ class LayoutTest {
         // but it means the first ring never holds what the arithmetic says it
         // holds. Fixing it moves the first ring of every existing town, which is
         // not a thing to do quietly on the way past.
-        SimPos first = Layouts.RING.plotFor(CENTRE, 0);
-        SimPos second = Layouts.RING.plotFor(CENTRE, 1);
+        SimPos first = Layouts.RING.plotFor(CENTER, 0);
+        SimPos second = Layouts.RING.plotFor(CENTER, 1);
         assertFalse(Layout.farEnoughApart(first, second),
                 "if this ever passes, the first ring was widened and this note is stale");
         assertEquals(8, Math.max(Math.abs(first.x() - second.x()),
@@ -431,7 +431,7 @@ class LayoutTest {
         // Separation alone is not enough to describe this layout, and solving
         // for separation alone very nearly destroyed it. Pulling the knots
         // together until every plot cleared the overlap box left huts in
-        // NEIGHBOURING knots sitting closer than huts in the same knot -- which
+        // NEIGHBORING knots sitting closer than huts in the same knot -- which
         // passes every rule and is no longer a warren. It is a scatter with the
         // same plot count.
         //
@@ -442,7 +442,7 @@ class LayoutTest {
         double between = Double.MAX_VALUE;
         SimPos[] plots = new SimPos[60];
         for (int i = 0; i < plots.length; i++) {
-            plots[i] = Layouts.WARREN.plotFor(CENTRE, i);
+            plots[i] = Layouts.WARREN.plotFor(CENTER, i);
         }
         for (int a = 0; a < plots.length; a++) {
             for (int b = a + 1; b < plots.length; b++) {
@@ -465,7 +465,7 @@ class LayoutTest {
         // The structural difference, measured rather than eyeballed. A village
         // puts every plot on one of a handful of radii -- that is what a ring
         // is. A warren's knots sit wherever the last one budded, so its plots
-        // are scattered across many different distances from the centre.
+        // are scattered across many different distances from the center.
         assertTrue(distinctRadii(Layouts.WARREN) > 3 * distinctRadii(Layouts.RING),
                 "a warren has no rings to speak of; a village is nothing but rings");
     }
@@ -483,9 +483,9 @@ class LayoutTest {
     @Test
     void aCulturePicksItsOwnArrangement() {
         assertSame(Layouts.RING, Layouts.of(Culture.NORMAN.layouts().get(0)));
-        assertSame(Layouts.WARREN, Culture.GOBLIN.arrangementFor(CENTRE));
+        assertSame(Layouts.WARREN, Culture.GOBLIN.arrangementFor(CENTER));
         // The orcs build in two now, so this asks for the one they have always
-        // built in rather than for whatever this centre happens to choose.
+        // built in rather than for whatever this center happens to choose.
         assertSame(Layouts.STRONGHOLD, Layouts.of(Culture.ORC.layouts().get(0)));
     }
 
@@ -507,9 +507,9 @@ class LayoutTest {
                 assertEquals(named, Layouts.of(named).id(),
                         culture.id() + " names an arrangement nothing provides: " + named);
             }
-            assertTrue(culture.layouts().contains(culture.layoutFor(CENTRE)),
+            assertTrue(culture.layouts().contains(culture.layoutFor(CENTER)),
                     culture.id() + " lays a town out in an arrangement it does not name");
-            assertSame(Layouts.of(culture.layoutFor(CENTRE)), culture.arrangementFor(CENTRE),
+            assertSame(Layouts.of(culture.layoutFor(CENTER)), culture.arrangementFor(CENTER),
                     culture.id() + " asks for one arrangement and gets another");
         }
     }
@@ -541,14 +541,14 @@ class LayoutTest {
         // What the recorded id is for. A save carries the arrangement the town
         // was actually built in, and it has to win over whatever the culture
         // would choose for that ground today.
-        SimPos centre = whereTheyBuild(Culture.ORC, Culture.LAYOUT_STRONGHOLD);
-        Settlement town = new Settlement(Settlement.Id.random(), "Told", centre, 256);
+        SimPos center = whereTheyBuild(Culture.ORC, Culture.LAYOUT_STRONGHOLD);
+        Settlement town = new Settlement(Settlement.Id.random(), "Told", center, 256);
         town.setCultureId(Culture.ORC.id());
         town.setLayoutId(Culture.LAYOUT_STRONGHOLD_STREETS);
 
         assertSame(Layouts.STRONGHOLD_STREETS, town.arrangement(),
                 "the town was told which arrangement it was and picked its own anyway");
-        assertEquals(Culture.LAYOUT_STRONGHOLD, Culture.ORC.layoutFor(centre),
+        assertEquals(Culture.LAYOUT_STRONGHOLD, Culture.ORC.layoutFor(center),
                 "the fixture stopped testing anything: both answers now agree");
     }
 
@@ -587,7 +587,7 @@ class LayoutTest {
                 "asked outright to forget it, the town kept it anyway");
     }
 
-    /** A centre this people lays out in that arrangement, for a fixture that needs one. */
+    /** A center this people lays out in that arrangement, for a fixture that needs one. */
     private static SimPos whereTheyBuild(Culture culture, String layout) {
         for (int i = 0; i < 10_000; i++) {
             SimPos at = new SimPos(i * 97, 72, i * -53);
@@ -614,7 +614,7 @@ class LayoutTest {
     private static Set<SimPos> plotSet(Layout layout) {
         Set<SimPos> plots = new HashSet<>();
         for (int i = 0; i < 40; i++) {
-            plots.add(layout.plotFor(CENTRE, i));
+            plots.add(layout.plotFor(CENTER, i));
         }
         return plots;
     }
@@ -629,11 +629,11 @@ class LayoutTest {
         return shared;
     }
 
-    /** How many different distances from the centre the first forty plots sit at. */
+    /** How many different distances from the center the first forty plots sit at. */
     private static int distinctRadii(Layout layout) {
         Set<Long> radii = new HashSet<>();
         for (int i = 0; i < 40; i++) {
-            radii.add(Math.round(CENTRE.horizontalDistance(layout.plotFor(CENTRE, i))));
+            radii.add(Math.round(CENTER.horizontalDistance(layout.plotFor(CENTER, i))));
         }
         return radii.size();
     }
@@ -642,7 +642,7 @@ class LayoutTest {
     private static int sharesColumn(Layout layout) {
         int[] xs = new int[40];
         for (int i = 0; i < 40; i++) {
-            xs[i] = layout.plotFor(CENTRE, i).x();
+            xs[i] = layout.plotFor(CENTER, i).x();
         }
         int lined = 0;
         for (int a = 0; a < xs.length; a++) {
@@ -670,14 +670,14 @@ class LayoutTest {
     @Test
     void radialConcentricRingsAreTrueCircles() {
         TownPlan plan = fresh(Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC))
-                .planFor(CENTRE, MANY);
+                .planFor(CENTER, MANY);
         for (TownPlan.Street street : plan.streets()) {
             if (street.kind() != TownPlan.Kind.LANE) {
                 continue;   // spokes are straight lines, not rings
             }
-            double first = CENTRE.horizontalDistance(street.path().get(0));
+            double first = CENTER.horizontalDistance(street.path().get(0));
             for (SimPos point : street.path()) {
-                assertEquals(first, CENTRE.horizontalDistance(point), 1.5,
+                assertEquals(first, CENTER.horizontalDistance(point), 1.5,
                         "a ring road should hold its radius all the way round");
             }
         }
@@ -686,7 +686,7 @@ class LayoutTest {
     /**
      * Something stands in the middle of the green.
      *
-     * <p>A town drawn round a centre with nothing at the centre reads as a
+     * <p>A town drawn round a center with nothing at the center reads as a
      * roundabout. The hall goes on the green because the plan offers the middle
      * and offers are taken nearest-first, so this is really a test that the
      * offer survives the sort and the fits check -- both of which have refused
@@ -695,10 +695,10 @@ class LayoutTest {
     @Test
     void radialConcentricPutsSomethingInTheMiddle() {
         TownPlan plan = fresh(Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC))
-                .planFor(CENTRE, MANY);
-        assertEquals(CENTRE.x(), plan.plots().get(0).at().x(),
+                .planFor(CENTER, MANY);
+        assertEquals(CENTER.x(), plan.plots().get(0).at().x(),
                 "the first plot should be the middle of the green");
-        assertEquals(CENTRE.z(), plan.plots().get(0).at().z(),
+        assertEquals(CENTER.z(), plan.plots().get(0).at().z(),
                 "the first plot should be the middle of the green");
         assertFalse(plan.plots().get(0).frontsAStreet(),
                 "the plot on the green fronts nothing, and must say so");
@@ -715,7 +715,7 @@ class LayoutTest {
     @Test
     void radialConcentricFrontsEverythingElse() {
         TownPlan plan = fresh(Layouts.of(Culture.LAYOUT_RADIAL_CONCENTRIC))
-                .planFor(CENTRE, MANY);
+                .planFor(CENTER, MANY);
         int adrift = 0;
         for (TownPlan.Plot plot : plan.plots()) {
             if (!plot.frontsAStreet()) {
@@ -756,15 +756,15 @@ class LayoutTest {
      * it the one part nothing else would notice the loss of. Every other
      * invariant here is satisfied by a town that quietly fills its own middle in:
      * the plots still front streets, still clear each other, still keep out of
-     * the road. Measured on the building rather than on its centre, because a
+     * the road. Measured on the building rather than on its center, because a
      * market with the corners of four houses in it is not open ground.
      */
     @Test
     void aCrossroadsLeavesItsMarketSquareEmpty() {
-        TownPlan plan = fresh(Layouts.CROSSROADS).planFor(CENTRE, 140);
+        TownPlan plan = fresh(Layouts.CROSSROADS).planFor(CENTER, 140);
         for (TownPlan.Plot plot : plan.plots()) {
-            double clear = Math.max(Math.abs(plot.at().x() - CENTRE.x()),
-                    Math.abs(plot.at().z() - CENTRE.z())) - plot.span() / 2.0;
+            double clear = Math.max(Math.abs(plot.at().x() - CENTER.x()),
+                    Math.abs(plot.at().z() - CENTER.z())) - plot.span() / 2.0;
             assertTrue(clear >= MARKET_HALF,
                     "a building at " + plot.at() + " stands "
                             + Math.round(MARKET_HALF - clear) + " blocks into the market");
@@ -793,12 +793,12 @@ class LayoutTest {
         // the whole arm off the axis with it, so the bar has to make room for it
         // or a wandering crossroads goes red for its wander and not for its shape.
         int band = RIB_BAND + town.wander().amplitude();
-        TownPlan plan = town.planFor(CENTRE, 140);
+        TownPlan plan = town.planFor(CENTER, 140);
         int along = 0;
         int across = 0;
         for (TownPlan.Plot plot : plan.plots()) {
-            int dx = Math.abs(plot.at().x() - CENTRE.x());
-            int dz = Math.abs(plot.at().z() - CENTRE.z());
+            int dx = Math.abs(plot.at().x() - CENTER.x());
+            int dz = Math.abs(plot.at().z() - CENTER.z());
             assertTrue(Math.min(dx, dz) <= band,
                     "a plot at " + plot.at() + " stands " + Math.min(dx, dz)
                             + " blocks from the nearer spine — the quarters between"
@@ -824,14 +824,14 @@ class LayoutTest {
     @Test
     void aCrossroadsMapReadsAsACross() {
         for (int wanted : new int[] {64, 140}) {
-            TownPlan plan = fresh(Layouts.CROSSROADS).planFor(CENTRE, wanted);
+            TownPlan plan = fresh(Layouts.CROSSROADS).planFor(CENTER, wanted);
             double furthest = 0;
             int along = 0;
             int across = 0;
             for (TownPlan.Plot plot : plan.plots()) {
-                furthest = Math.max(furthest, CENTRE.horizontalDistance(plot.at()));
-                int dx = Math.abs(plot.at().x() - CENTRE.x());
-                int dz = Math.abs(plot.at().z() - CENTRE.z());
+                furthest = Math.max(furthest, CENTER.horizontalDistance(plot.at()));
+                int dx = Math.abs(plot.at().x() - CENTER.x());
+                int dz = Math.abs(plot.at().z() - CENTER.z());
                 along = Math.max(along, Math.max(dx, dz));
                 across = Math.max(across, Math.min(dx, dz));
             }
@@ -844,7 +844,7 @@ class LayoutTest {
                     + Math.round(furthest) + " blocks, arms " + along
                     + " and ribs " + across + " (" + Math.round(10.0 * along / across)
                     / 10.0 + " to one)");
-            System.out.println(mapOf(plan, CENTRE, 8));
+            System.out.println(mapOf(plan, CENTER, 8));
 
             assertEquals(wanted, plan.size(), "the plan came up short");
             assertTrue(plan.frontagePercent() >= 95,
@@ -863,11 +863,11 @@ class LayoutTest {
      * two hundred and fifty-six drawn through it and would otherwise be a speck
      * in the middle of a cross.
      */
-    private static String mapOf(TownPlan plan, SimPos centre, int scale) {
+    private static String mapOf(TownPlan plan, SimPos center, int scale) {
         int reach = scale;
         for (TownPlan.Plot plot : plan.plots()) {
-            reach = Math.max(reach, Math.max(Math.abs(plot.at().x() - centre.x()),
-                    Math.abs(plot.at().z() - centre.z())));
+            reach = Math.max(reach, Math.max(Math.abs(plot.at().x() - center.x()),
+                    Math.abs(plot.at().z() - center.z())));
         }
         // Cells counted out from the middle rather than from a corner, so the
         // rounding is symmetric. Counted from a corner, a cell boundary falls
@@ -889,14 +889,14 @@ class LayoutTest {
                 int steps = (int) Math.ceil(Math.hypot(b.x() - a.x(), b.z() - a.z()));
                 for (int s = 0; s <= steps; s++) {
                     double t = steps == 0 ? 0 : (double) s / steps;
-                    mark(grid, centre, scale, half,
+                    mark(grid, center, scale, half,
                             (int) Math.round(a.x() + t * (b.x() - a.x())),
                             (int) Math.round(a.z() + t * (b.z() - a.z())), '.');
                 }
             }
         }
         for (TownPlan.Plot plot : plan.plots()) {
-            mark(grid, centre, scale, half, plot.at().x(), plot.at().z(), '#');
+            mark(grid, center, scale, half, plot.at().x(), plot.at().z(), '#');
         }
 
         // Two characters to a cell, because a terminal's characters are about
@@ -915,10 +915,10 @@ class LayoutTest {
     }
 
     /** One block of the world put into its cell, buildings winning over roads. */
-    private static void mark(char[][] grid, SimPos centre, int scale, int half,
+    private static void mark(char[][] grid, SimPos center, int scale, int half,
                              int x, int z, char what) {
-        int col = Math.floorDiv(x - centre.x() + scale / 2, scale) + half;
-        int row = Math.floorDiv(z - centre.z() + scale / 2, scale) + half;
+        int col = Math.floorDiv(x - center.x() + scale / 2, scale) + half;
+        int row = Math.floorDiv(z - center.z() + scale / 2, scale) + half;
         if (row < 0 || row >= grid.length || col < 0 || col >= grid.length) {
             return;
         }
@@ -937,7 +937,7 @@ class LayoutTest {
      *
      * <p>Both halves matter and only the first is obvious. A square with nothing
      * facing it is a gap in the plan rather than a place, and the way to end up
-     * with one is to leave the block out and let the neighbouring blocks go on
+     * with one is to leave the block out and let the neighboring blocks go on
      * fronting the streets they always fronted — which turns their backs on it
      * from two sides out of four. So the eight nearest plots in the town are
      * asserted to be a ring round the square with their doors on it.
@@ -956,10 +956,10 @@ class LayoutTest {
      */
     @Test
     void aBastideLeavesItsPlaceOpenAndFacesTheTownAtIt() {
-        TownPlan plan = new BastideLayout("bastide_place").planFor(CENTRE, MANY);
+        TownPlan plan = new BastideLayout("bastide_place").planFor(CENTER, MANY);
         for (TownPlan.Plot plot : plan.plots()) {
-            assertFalse(Math.abs(plot.at().x() - CENTRE.x()) <= PLACE_HALF
-                            && Math.abs(plot.at().z() - CENTRE.z()) <= PLACE_HALF,
+            assertFalse(Math.abs(plot.at().x() - CENTER.x()) <= PLACE_HALF
+                            && Math.abs(plot.at().z() - CENTER.z()) <= PLACE_HALF,
                     "a building at " + plot.at() + " stands in the market place");
         }
 
@@ -972,7 +972,7 @@ class LayoutTest {
             ring.add(plot.at());
             assertTrue(plot.frontsAStreet(),
                     "the plot at " + plot.at() + " stands on the square fronting nothing");
-            assertEquals(Layout.facingToward(plot.at(), CENTRE), plot.facing(),
+            assertEquals(Layout.facingToward(plot.at(), CENTER), plot.facing(),
                     "the plot at " + plot.at() + " stands on the square with its back to it");
         }
         assertEquals(8, ring.size(), "the square should be ringed two to a side");
@@ -986,8 +986,8 @@ class LayoutTest {
         boolean east = false;
         boolean west = false;
         for (SimPos at : ring) {
-            int dx = at.x() - CENTRE.x();
-            int dz = at.z() - CENTRE.z();
+            int dx = at.x() - CENTER.x();
+            int dz = at.z() - CENTER.z();
             if (Math.abs(dz) > Math.abs(dx)) {
                 north |= dz < 0;
                 south |= dz > 0;
@@ -1015,7 +1015,7 @@ class LayoutTest {
      */
     @Test
     void aBastideIsBoundedByACircuitWithHousesOnIt() {
-        TownPlan plan = new BastideLayout("bastide_circuit").fullPlan(CENTRE);
+        TownPlan plan = new BastideLayout("bastide_circuit").fullPlan(CENTER);
         TownPlan.Street circuit = null;
         int spines = 0;
         for (TownPlan.Street street : plan.streets()) {
@@ -1027,11 +1027,11 @@ class LayoutTest {
         assertEquals(1, spines, "a bastide has exactly one road round the outside");
         assertEquals(circuit.from(), circuit.to(), "the circuit does not close");
 
-        int reach = Math.max(Math.abs(circuit.from().x() - CENTRE.x()),
-                Math.abs(circuit.from().z() - CENTRE.z()));
+        int reach = Math.max(Math.abs(circuit.from().x() - CENTER.x()),
+                Math.abs(circuit.from().z() - CENTER.z()));
         for (SimPos point : circuit.path()) {
-            assertEquals(reach, Math.max(Math.abs(point.x() - CENTRE.x()),
-                            Math.abs(point.z() - CENTRE.z())),
+            assertEquals(reach, Math.max(Math.abs(point.x() - CENTER.x()),
+                            Math.abs(point.z() - CENTER.z())),
                     "the circuit wanders off its rectangle at " + point);
         }
 
@@ -1043,8 +1043,8 @@ class LayoutTest {
                 continue;
             }
             fronting++;
-            int dx = plot.at().x() - CENTRE.x();
-            int dz = plot.at().z() - CENTRE.z();
+            int dx = plot.at().x() - CENTER.x();
+            int dz = plot.at().z() - CENTER.z();
             run[Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 0 : 1) : (dz > 0 ? 2 : 3)] = true;
         }
         // Sixteen rather than the sixty-eight the rim actually offers. A square
@@ -1060,8 +1060,8 @@ class LayoutTest {
 
         // And nothing is built outside it, or the boundary means nothing.
         for (TownPlan.Plot plot : plan.plots()) {
-            assertTrue(Math.max(Math.abs(plot.at().x() - CENTRE.x()),
-                            Math.abs(plot.at().z() - CENTRE.z())) < reach,
+            assertTrue(Math.max(Math.abs(plot.at().x() - CENTER.x()),
+                            Math.abs(plot.at().z() - CENTER.z())) < reach,
                     "a building at " + plot.at() + " stands outside the circuit");
         }
     }
@@ -1075,9 +1075,9 @@ class LayoutTest {
      * positions in the first forty.
      *
      * <p>The structural half is the more useful one. The stronghold rules its
-     * streets through the middle of the town, so the centre of an orc grid is a
+     * streets through the middle of the town, so the center of an orc grid is a
      * crossroads. The bastide offsets the whole grid by half a block, so the
-     * centre is the middle of a block and that block is the market. Same idea,
+     * center is the middle of a block and that block is the market. Same idea,
      * opposite decision about the one square in the town that anybody looks at.
      */
     @Test
@@ -1086,13 +1086,13 @@ class LayoutTest {
                         plotSet(new GridStreetLayout("grid_apart", Wander.STRAIGHT))) < 4,
                 "the bastide and the stronghold are the same town");
 
-        TownPlan bastide = new BastideLayout("bastide_middle").planFor(CENTRE, MANY);
+        TownPlan bastide = new BastideLayout("bastide_middle").planFor(CENTER, MANY);
         TownPlan grid = new GridStreetLayout("grid_middle", Wander.STRAIGHT)
-                .planFor(CENTRE, MANY);
-        assertTrue(onARoad(grid, CENTRE),
+                .planFor(CENTER, MANY);
+        assertTrue(onARoad(grid, CENTER),
                 "the stronghold used to put a crossroads in the middle; if it no "
                         + "longer does, the two arrangements have converged");
-        assertFalse(onARoad(bastide, CENTRE),
+        assertFalse(onARoad(bastide, CENTER),
                 "the middle of a bastide is its market place, not a junction");
     }
 
@@ -1120,22 +1120,22 @@ class LayoutTest {
         StringBuilder drawn = new StringBuilder();
         for (int wanted : new int[] {64, 140}) {
             TownPlan plan = new BastideLayout("bastide_map_" + wanted)
-                    .planFor(CENTRE, wanted);
+                    .planFor(CENTER, wanted);
             assertTrue(plan.frontagePercent() >= 95,
                     "bastide at " + wanted + " fronted only "
                             + plan.frontagePercent() + "%");
             drawn.append(caption("bastide", wanted, plan)).append(map(plan));
         }
 
-        TownPlan full = new BastideLayout("bastide_map_full").fullPlan(CENTRE);
+        TownPlan full = new BastideLayout("bastide_map_full").fullPlan(CENTER);
         drawn.append(caption("bastide", full.size(), full)).append(map(full));
 
         TownPlan grid = new GridStreetLayout("grid_map", Wander.STRAIGHT)
-                .planFor(CENTRE, 140);
+                .planFor(CENTER, 140);
         drawn.append(caption("stronghold_streets", 140, grid)).append(map(grid));
         System.out.println(drawn);
 
-        TownPlan town = new BastideLayout("bastide_reach").planFor(CENTRE, 140);
+        TownPlan town = new BastideLayout("bastide_reach").planFor(CENTER, 140);
         double reach = furthest(town);
         assertTrue(reach >= 120 && reach <= 250,
                 "a bastide of 140 reached " + Math.round(reach)
@@ -1152,7 +1152,7 @@ class LayoutTest {
     private static double furthest(TownPlan plan) {
         double out = 0;
         for (TownPlan.Plot plot : plan.plots()) {
-            out = Math.max(out, plan.centre().horizontalDistance(plot.at()));
+            out = Math.max(out, plan.center().horizontalDistance(plot.at()));
         }
         return out;
     }
@@ -1178,14 +1178,14 @@ class LayoutTest {
                 SimPos b = path.get(i);
                 int steps = Math.max(1, (int) Math.hypot(b.x() - a.x(), b.z() - a.z()));
                 for (int t = 0; t <= steps; t++) {
-                    ink(grid, plan.centre(), half,
+                    ink(grid, plan.center(), half,
                             a.x() + (b.x() - a.x()) * t / steps,
                             a.z() + (b.z() - a.z()) * t / steps, '.');
                 }
             }
         }
         for (TownPlan.Plot plot : plan.plots()) {
-            ink(grid, plan.centre(), half, plot.at().x(), plot.at().z(), '#');
+            ink(grid, plan.center(), half, plot.at().x(), plot.at().z(), '#');
         }
         StringBuilder out = new StringBuilder();
         for (char[] row : grid) {
@@ -1194,9 +1194,9 @@ class LayoutTest {
         return out.toString();
     }
 
-    private static void ink(char[][] grid, SimPos centre, int half, int x, int z, char mark) {
-        int col = Math.floorDiv(x - centre.x() + CELL / 2, CELL) + half;
-        int row = Math.floorDiv(z - centre.z() + CELL / 2, CELL) + half;
+    private static void ink(char[][] grid, SimPos center, int half, int x, int z, char mark) {
+        int col = Math.floorDiv(x - center.x() + CELL / 2, CELL) + half;
+        int row = Math.floorDiv(z - center.z() + CELL / 2, CELL) + half;
         if (row >= 0 && row < grid.length && col >= 0 && col < grid.length) {
             grid[row][col] = mark;
         }
@@ -1229,23 +1229,23 @@ class LayoutTest {
         // deliberately not asserted to be anything else. The plan is where the
         // shape lives, and it is the plan that would quietly become a circle.
         //
-        // Off a fresh instance, because the shared one caches a plan per centre
-        // and re-lays it BIGGER for whoever asks that centre for a bigger town.
-        // The centre here is the fitness suite's centre bar the height, which
+        // Off a fresh instance, because the shared one caches a plan per center
+        // and re-lays it BIGGER for whoever asks that center for a bigger town.
+        // The center here is the fitness suite's center bar the height, which
         // the cache key ignores, and a settlement hunting for room walks its
         // plot index out to five hundred and twelve. One such call anywhere in
         // this JVM first turns the plan into a three-lane one and every
         // assertion below reads a different arrangement -- measured, 147 by 139,
         // which is a circle.
-        TownPlan plan = fresh(Layouts.GREEN).planFor(CENTRE, 256);
+        TownPlan plan = fresh(Layouts.GREEN).planFor(CENTER, 256);
 
         // Nothing stands on the green. The inner ranks sit nineteen blocks off
         // the axis at the middle and are still fifteen off it ninety blocks
         // along, so a plot inside this box is a plot on the common -- which is a
         // hundred and eighty blocks of it by twenty-four.
         for (TownPlan.Plot plot : plan.plots()) {
-            int dx = Math.abs(plot.at().x() - CENTRE.x());
-            int dz = Math.abs(plot.at().z() - CENTRE.z());
+            int dx = Math.abs(plot.at().x() - CENTER.x());
+            int dz = Math.abs(plot.at().z() - CENTER.z());
             assertFalse(dx <= 90 && dz <= 12,
                     "a plot at " + plot.at() + " is standing on the green");
         }
@@ -1255,8 +1255,8 @@ class LayoutTest {
         int longWay = 0;
         int shortWay = 0;
         for (TownPlan.Plot plot : plan.plots()) {
-            longWay = Math.max(longWay, Math.abs(plot.at().x() - CENTRE.x()));
-            shortWay = Math.max(shortWay, Math.abs(plot.at().z() - CENTRE.z()));
+            longWay = Math.max(longWay, Math.abs(plot.at().x() - CENTER.x()));
+            shortWay = Math.max(shortWay, Math.abs(plot.at().z() - CENTER.z()));
         }
         assertTrue(longWay > shortWay * 2,
                 "the village reached " + longWay + " along the green and "
@@ -1277,7 +1277,7 @@ class LayoutTest {
         for (int wanted : new int[] {96, 140, 200, 256}) {
             int across = 0;
             for (TownPlan.Plot plot : plan.plots().subList(0, wanted)) {
-                across = Math.max(across, Math.abs(plot.at().z() - CENTRE.z()));
+                across = Math.max(across, Math.abs(plot.at().z() - CENTER.z()));
             }
             assertEquals(84, across,
                     "a green village of " + wanted + " measured " + across
@@ -1302,8 +1302,8 @@ class LayoutTest {
         // this box holds one rank and holds all of it.
         int looking = 0;
         for (TownPlan.Plot plot : plan.plots()) {
-            int dx = plot.at().x() - CENTRE.x();
-            int dz = plot.at().z() - CENTRE.z();
+            int dx = plot.at().x() - CENTER.x();
+            int dz = plot.at().z() - CENTER.z();
             if (Math.abs(dx) > 90 || Math.abs(dz) > 25) {
                 continue;
             }
@@ -1321,8 +1321,8 @@ class LayoutTest {
         double nearest = Double.MAX_VALUE;
         double furthest = 0;
         for (SimPos point : round.path()) {
-            nearest = Math.min(nearest, CENTRE.horizontalDistance(point));
-            furthest = Math.max(furthest, CENTRE.horizontalDistance(point));
+            nearest = Math.min(nearest, CENTER.horizontalDistance(point));
+            furthest = Math.max(furthest, CENTER.horizontalDistance(point));
         }
         assertTrue(furthest > nearest * 3,
                 "a street round the green ran between " + Math.round(nearest)
@@ -1349,15 +1349,15 @@ class LayoutTest {
         Layout green = fresh(Layouts.GREEN);   // see the note in the lens test
         for (int size = 0; size < 2; size++) {
             int wanted = size == 0 ? 64 : 140;
-            TownPlan plan = green.planFor(CENTRE, wanted);
+            TownPlan plan = green.planFor(CENTER, wanted);
             int reach = 0;
             int wide = 0;
             int tall = 0;
             for (TownPlan.Plot plot : plan.plots()) {
                 reach = Math.max(reach, (int) Math.round(
-                        CENTRE.horizontalDistance(plot.at())));
-                wide = Math.max(wide, Math.abs(plot.at().x() - CENTRE.x()));
-                tall = Math.max(tall, Math.abs(plot.at().z() - CENTRE.z()));
+                        CENTER.horizontalDistance(plot.at())));
+                wide = Math.max(wide, Math.abs(plot.at().x() - CENTER.x()));
+                tall = Math.max(tall, Math.abs(plot.at().z() - CENTER.z()));
             }
             furthest[size] = reach;
             System.out.println();
@@ -1365,7 +1365,7 @@ class LayoutTest {
                     + plan.streets().size() + " streets, "
                     + plan.frontagePercent() + "% fronting, reach " + reach
                     + ", built ground " + wide + " x " + tall);
-            System.out.println(drawn(plan, CENTRE));
+            System.out.println(drawn(plan, CENTER));
 
             assertEquals(wanted, plan.size(), "the plan came up short");
             assertEquals(4, plan.streets().size(),
@@ -1404,19 +1404,19 @@ class LayoutTest {
      * show. A village fills the middle of its plan first, so the plan is always
      * bigger than the town on it and the crop was total.
      */
-    private static String drawn(TownPlan plan, SimPos centre) {
+    private static String drawn(TownPlan plan, SimPos center) {
         int across = 6;
         int down = 12;
         int wide = 0;
         int tall = 0;
         for (TownPlan.Plot plot : plan.plots()) {
-            wide = Math.max(wide, Math.abs(plot.at().x() - centre.x()));
-            tall = Math.max(tall, Math.abs(plot.at().z() - centre.z()));
+            wide = Math.max(wide, Math.abs(plot.at().x() - center.x()));
+            tall = Math.max(tall, Math.abs(plot.at().z() - center.z()));
         }
         for (TownPlan.Street street : plan.streets()) {
             for (SimPos point : street.path()) {
-                wide = Math.max(wide, Math.abs(point.x() - centre.x()));
-                tall = Math.max(tall, Math.abs(point.z() - centre.z()));
+                wide = Math.max(wide, Math.abs(point.x() - center.x()));
+                tall = Math.max(tall, Math.abs(point.z() - center.z()));
             }
         }
         int columns = wide / across + 2;
@@ -1434,14 +1434,14 @@ class LayoutTest {
                 int steps = Math.max(1, (int) Math.round(a.horizontalDistance(b)));
                 for (int step = 0; step <= steps; step++) {
                     double part = (double) step / steps;
-                    mark(cells, centre, rows, columns, across, down,
+                    mark(cells, center, rows, columns, across, down,
                             (int) Math.round(a.x() + part * (b.x() - a.x())),
                             (int) Math.round(a.z() + part * (b.z() - a.z())), '.');
                 }
             }
         }
         for (TownPlan.Plot plot : plan.plots()) {
-            mark(cells, centre, rows, columns, across, down,
+            mark(cells, center, rows, columns, across, down,
                     plot.at().x(), plot.at().z(), '#');
         }
 
@@ -1452,10 +1452,10 @@ class LayoutTest {
         return drawing.toString();
     }
 
-    private static void mark(char[][] cells, SimPos centre, int rows, int columns,
+    private static void mark(char[][] cells, SimPos center, int rows, int columns,
                              int across, int down, int x, int z, char with) {
-        int column = columns + Math.floorDiv(x - centre.x() + across / 2, across);
-        int row = rows + Math.floorDiv(z - centre.z() + down / 2, down);
+        int column = columns + Math.floorDiv(x - center.x() + across / 2, across);
+        int row = rows + Math.floorDiv(z - center.z() + down / 2, down);
         if (row >= 0 && row < cells.length && column >= 0 && column < cells[0].length
                 && (with == '#' || cells[row][column] == ' ')) {
             cells[row][column] = with;

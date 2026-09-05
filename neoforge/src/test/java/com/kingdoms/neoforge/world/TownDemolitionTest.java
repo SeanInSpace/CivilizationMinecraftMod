@@ -344,7 +344,7 @@ class TownDemolitionTest {
     private static Settlement withBuilder() {
         Settlement town = town();
         town.addResident(new Person(
-                Person.Id.random(), "Alder", Profession.BUILDER, town.centre()));
+                Person.Id.random(), "Alder", Profession.BUILDER, town.center()));
         return town;
     }
 

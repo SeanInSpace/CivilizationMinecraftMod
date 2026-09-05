@@ -15,7 +15,7 @@ plugins {
 neoForge {
     version = project.neoforge_version
 
-    // The transform maths is plain arithmetic over Minecraft's BlockPos/Rotation,
+    // The transform math is plain arithmetic over Minecraft's BlockPos/Rotation,
     // so the tests need Minecraft on their classpath even though they never boot it.
     addModdingDependenciesTo sourceSets.test
 }

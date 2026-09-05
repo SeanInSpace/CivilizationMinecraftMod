@@ -57,7 +57,7 @@ class SiteChoiceTest {
 
     private static Settlement town() {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
-        s.setCatalogue(List.of(HOUSE));
+        s.setCatalog(List.of(HOUSE));
         s.addResident(new Person(
                 Person.Id.random(), "Builder", Profession.BUILDER, new SimPos(0, 64, 0)));
         return s;
@@ -82,7 +82,7 @@ class SiteChoiceTest {
     void aRefusedPlotIsSkippedAndNeverOfferedAgain() {
         Settlement s = town();
         PickyBridge bridge = new PickyBridge();
-        SimPos flooded = BuildPlanner.plotFor(s.centre(), 0);
+        SimPos flooded = BuildPlanner.plotFor(s.center(), 0);
         bridge.refused.add(flooded);
 
         s.step(ctx(bridge, 0));
@@ -125,7 +125,7 @@ class SiteChoiceTest {
         // A lake is wider than a plot. The first ring holds eight of them, and a
         // town beside real water finds several in a row unfit, not just one.
         for (int index = 0; index < 8; index++) {
-            bridge.refused.add(BuildPlanner.plotFor(s.centre(), index));
+            bridge.refused.add(BuildPlanner.plotFor(s.center(), index));
         }
 
         s.step(ctx(bridge, 0));
@@ -162,7 +162,7 @@ class SiteChoiceTest {
         PickyBridge bridge = new PickyBridge();
         bridge.chunksLoaded = true;
         for (int index = 0; index < 6; index++) {
-            bridge.refused.add(BuildPlanner.plotFor(s.centre(), index));
+            bridge.refused.add(BuildPlanner.plotFor(s.center(), index));
         }
 
         for (long step = 0; step < 80; step++) {

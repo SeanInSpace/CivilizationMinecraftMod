@@ -19,7 +19,7 @@ import java.util.List;
  * to get past it on both sides.
  *
  * <p><strong>It is not a ring town.</strong> {@link RadialStreetLayout} draws
- * circles round a centre and both of its arrangements read as a wheel whatever
+ * circles round a center and both of its arrangements read as a wheel whatever
  * size they are. The whole plan here reaches 243 blocks along the green and 85
  * across it, with nothing at all standing on the middle.
  *
@@ -34,7 +34,7 @@ import java.util.List;
  * about because it is the one claim about this arrangement a person could check
  * and find wanting.
  *
- * <p>{@link PlannedLayout} takes its offers <em>nearest the centre first</em>,
+ * <p>{@link PlannedLayout} takes its offers <em>nearest the center first</em>,
  * which is right and is what stops a town marching outward as it grows. What it
  * means for a shape is that a village of {@code n} plots is the plan intersected
  * with a disc, so the built ground is round until the disc is wider than the
@@ -104,7 +104,7 @@ public final class GreenLayout extends PlannedLayout {
     private static final int GREEN_HALF_LENGTH = 280;
 
     /**
-     * How far the street's centreline bows from the axis at the middle.
+     * How far the street's centerline bows from the axis at the middle.
      *
      * <p>The open middle is this less {@link #SETBACK} on each side, so
      * thirty-eight blocks of common at the widest and three hundred and eighty of
@@ -148,7 +148,7 @@ public final class GreenLayout extends PlannedLayout {
      * worst case on the wider axis is a separation over {@code cos(10.2)}, which
      * is a fiftieth more than a separation — so this sits barely over the ordinary
      * straight-street {@link #PITCH}, and the block of margin is for the two
-     * roundings to whole blocks between one plot's centre and the next rather than
+     * roundings to whole blocks between one plot's center and the next rather than
      * for the curve.
      *
      * <p>Carrying the circle's eighteen over is not merely wasteful, which is
@@ -211,7 +211,7 @@ public final class GreenLayout extends PlannedLayout {
      * How many back lanes may be opened before the village stops opening them.
      *
      * <p>A bound rather than a budget. The plan of two hundred and fifty-six
-     * opens one; sixteen is a village half a kilometre wide and nothing has ever
+     * opens one; sixteen is a village half a kilometer wide and nothing has ever
      * asked for it.
      */
     private static final int LANES_ALLOWED = 16;
@@ -248,7 +248,7 @@ public final class GreenLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int lanes = lanesFor(wanted);
 
@@ -257,11 +257,11 @@ public final class GreenLayout extends PlannedLayout {
         // index, so a plan that renumbered its roads as it grew would repoint
         // every door in the village -- and the lanes are the part that grows.
         for (int side : SIDES) {
-            streets.add(flank(centre, side, 0, TownPlan.Kind.SPINE));
+            streets.add(flank(center, side, 0, TownPlan.Kind.SPINE));
         }
         for (int lane = 1; lane <= lanes; lane++) {
             for (int side : SIDES) {
-                streets.add(flank(centre, side, lane * LANE_SPACING, TownPlan.Kind.LANE));
+                streets.add(flank(center, side, lane * LANE_SPACING, TownPlan.Kind.LANE));
             }
         }
 
@@ -270,7 +270,7 @@ public final class GreenLayout extends PlannedLayout {
         // is the only frontage anywhere in the village offered inside the lens --
         // everything else is offered outward. Nothing at all is offered on the
         // green itself: an Angerdorf's middle is common land, and a hall in the
-        // centre of it would make this a ring town with a very long ring.
+        // center of it would make this a ring town with a very long ring.
         //
         // A back lane with no frontage would cost twice over -- it would refuse
         // every plot it crossed and give nothing back -- so both of its faces are
@@ -280,7 +280,7 @@ public final class GreenLayout extends PlannedLayout {
             double middle = lane * LANE_SPACING;
             for (int s = 0; s < SIDES.length; s++) {
                 for (int face : new int[] {-1, 1}) {
-                    frontage(centre, SIDES[s], lane * SIDES.length + s,
+                    frontage(center, SIDES[s], lane * SIDES.length + s,
                             middle, middle + face * SETBACK, lane == 0 && face < 0,
                             offers);
                 }
@@ -349,27 +349,27 @@ public final class GreenLayout extends PlannedLayout {
      *
      * @param acrossTheGreen whether this is that rank
      */
-    private static void frontage(SimPos centre, int side, int street, double middle,
+    private static void frontage(SimPos center, int side, int street, double middle,
                                  double face, boolean acrossTheGreen,
                                  List<Offer> offers) {
         for (double[] point : spaced(side, face, ARC_PITCH)) {
             if (side * point[1] < AXIS_CLEARANCE) {
                 continue;   // in the taper, where the green has run out
             }
-            SimPos where = block(centre, point[0], point[1]);
+            SimPos where = block(center, point[0], point[1]);
             SimPos looksAt;
             if (acrossTheGreen) {
-                looksAt = block(centre, point[0], 0);
+                looksAt = block(center, point[0], 0);
             } else {
                 double[] onRoad = flankPoint(point[2], side, middle);
-                looksAt = block(centre, onRoad[0], onRoad[1]);
+                looksAt = block(center, onRoad[0], onRoad[1]);
             }
             offers.add(new Offer(where, street, Layout.facingToward(where, looksAt)));
         }
     }
 
     /** One flank of the lens, as the run of points a road along it passes through. */
-    private static TownPlan.Street flank(SimPos centre, int side, double out,
+    private static TownPlan.Street flank(SimPos center, int side, double out,
                                          TownPlan.Kind kind) {
         List<SimPos> path = new ArrayList<>();
         double carried = SEGMENT;
@@ -384,7 +384,7 @@ public final class GreenLayout extends PlannedLayout {
                 continue;
             }
             carried = 0;
-            SimPos at = block(centre, point[0], point[1]);
+            SimPos at = block(center, point[0], point[1]);
             if (path.isEmpty() || !path.get(path.size() - 1).equals(at)) {
                 path.add(at);
             }
@@ -404,10 +404,10 @@ public final class GreenLayout extends PlannedLayout {
      * would pack the inner one below the separation the siting code demands and
      * leave the outer one gappy.
      *
-     * <p>Centred on the middle of the green, so the leftover is split between the
+     * <p>Centered on the middle of the green, so the leftover is split between the
      * two tips and the village is symmetrical about both of its axes.
      *
-     * @return {@code {x, z, u}} for each point, in the centre's local coordinates
+     * @return {@code {x, z, u}} for each point, in the center's local coordinates
      */
     private static List<double[]> spaced(int side, double out, double spacing) {
         double[][] sample = new double[FINE + 1][];
@@ -449,7 +449,7 @@ public final class GreenLayout extends PlannedLayout {
      * <p>Along the normal and not straight sideways, which is the difference
      * between a rank that stands thirteen blocks from its street everywhere and
      * one that stands thirteen blocks from it in the middle and less at the tips.
-     * The second kind puts its end houses on the kerb.
+     * The second kind puts its end houses on the curb.
      *
      * @param side 1 for the north flank, -1 for the south, which is its mirror
      * @param out  blocks along the outward normal; negative is into the green
@@ -465,8 +465,8 @@ public final class GreenLayout extends PlannedLayout {
                 u};
     }
 
-    private static SimPos block(SimPos centre, double x, double z) {
-        return new SimPos(centre.x() + (int) Math.round(x), centre.y(),
-                centre.z() + (int) Math.round(z));
+    private static SimPos block(SimPos center, double x, double z) {
+        return new SimPos(center.x() + (int) Math.round(x), center.y(),
+                center.z() + (int) Math.round(z));
     }
 }

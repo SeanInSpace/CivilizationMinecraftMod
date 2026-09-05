@@ -157,7 +157,7 @@ public final class ExcavationStakeItem extends Item {
         long bestDistance = Long.MAX_VALUE;
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
-                long distance = settlement.centre().horizontalDistanceSq(here);
+                long distance = settlement.center().horizontalDistanceSq(here);
                 if (distance < bestDistance) {
                     bestDistance = distance;
                     best = settlement;

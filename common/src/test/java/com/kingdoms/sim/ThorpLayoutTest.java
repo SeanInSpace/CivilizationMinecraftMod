@@ -28,12 +28,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * this class exists to produce and it is the only thing no shared rule protects.
  * The warren has the same test for the same reason and it is worth reading:
  * pulling its knots together until every plot cleared the overlap box left huts
- * in neighbouring knots closer than huts in the same one, which broke nothing
+ * in neighboring knots closer than huts in the same one, which broke nothing
  * and deleted the layout.
  */
 class ThorpLayoutTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 64, 0);
+    private static final SimPos CENTER = new SimPos(0, 64, 0);
 
     /** A layout of its own, so no other test's cached plan answers for it. */
     private static ThorpLayout thorp() {
@@ -71,7 +71,7 @@ class ThorpLayoutTest {
         // into a continuous hedge along the track. The lanes are thirty-four
         // apart now and the gap is twenty-eight against the fourteen inside a
         // yard.
-        TownPlan plan = thorp().planFor(CENTRE, 140);
+        TownPlan plan = thorp().planFor(CENTER, 140);
         Map<Integer, List<SimPos>> yards = yardsOf(plan);
         assertTrue(yards.size() >= 8,
                 "only " + yards.size() + " yards in a hamlet of 140");
@@ -95,7 +95,7 @@ class ThorpLayoutTest {
             }
         }
         System.out.println("thorp yards: " + yards.size() + " of them, "
-                + Math.round(within) + " blocks between neighbours in a yard and "
+                + Math.round(within) + " blocks between neighbors in a yard and "
                 + Math.round(between) + " between yards");
         assertTrue(between > within * 1.5,
                 "buildings in different yards are " + Math.round(between)
@@ -112,7 +112,7 @@ class ThorpLayoutTest {
         // Measured on the complete yards of the whole plan rather than on a
         // hamlet's worth, because a town of a hundred and forty stops partway
         // through its outermost lanes and a half-built yard has no head yet.
-        TownPlan plan = thorp().fullPlan(CENTRE);
+        TownPlan plan = thorp().fullPlan(CENTER);
         int checked = 0;
         for (Map.Entry<Integer, List<SimPos>> yard : yardsOf(plan).entrySet()) {
             TownPlan.Street lane = plan.streets().get(yard.getKey());
@@ -145,7 +145,7 @@ class ThorpLayoutTest {
         // A comb whose teeth all point one way is not a comb, it is a rake -- and
         // a rake grows lopsided, because every yard it opens is on the same side
         // of the route and the track ends up along one edge of its own hamlet.
-        TownPlan plan = thorp().fullPlan(CENTRE);
+        TownPlan plan = thorp().fullPlan(CENTER);
         Map<Integer, TreeMap<Integer, Integer>> byTrack = new LinkedHashMap<>();
         for (TownPlan.Street street : plan.streets()) {
             if (street.kind() != TownPlan.Kind.LANE) {
@@ -198,7 +198,7 @@ class ThorpLayoutTest {
         // A route that begins at the first yard and gives up after the last is a
         // driveway. The track carries on past both ends, which is what makes the
         // hamlet a place on the way to somewhere.
-        TownPlan plan = thorp().fullPlan(CENTRE);
+        TownPlan plan = thorp().fullPlan(CENTER);
         for (int i = 0; i < plan.streets().size(); i++) {
             TownPlan.Street street = plan.streets().get(i);
             if (street.kind() != TownPlan.Kind.SPINE) {
@@ -207,12 +207,12 @@ class ThorpLayoutTest {
             int outermost = 0;
             for (TownPlan.Street lane : plan.streets()) {
                 if (lane.kind() == TownPlan.Kind.LANE && trackOf(plan, lane) == i) {
-                    outermost = Math.max(outermost, Math.abs(lane.from().z() - CENTRE.z()));
+                    outermost = Math.max(outermost, Math.abs(lane.from().z() - CENTER.z()));
                 }
             }
-            assertTrue(Math.abs(street.from().z() - CENTRE.z()) > outermost,
+            assertTrue(Math.abs(street.from().z() - CENTER.z()) > outermost,
                     "the track stops at its outermost lane rather than running on");
-            assertTrue(Math.abs(street.to().z() - CENTRE.z()) > outermost,
+            assertTrue(Math.abs(street.to().z() - CENTER.z()) > outermost,
                     "the track stops at its outermost lane rather than running on");
         }
     }
@@ -231,11 +231,11 @@ class ThorpLayoutTest {
         // LayoutFitnessTest fails a town that sprawls past 340, and a layout built
         // round a through route is exactly the kind that would.
         for (int wanted : new int[] {64, 140}) {
-            TownPlan plan = thorp().planFor(CENTRE, wanted);
+            TownPlan plan = thorp().planFor(CENTER, wanted);
             int reach = 0;
             for (TownPlan.Plot plot : plan.plots()) {
                 reach = Math.max(reach, (int) Math.round(Math.hypot(
-                        plot.at().x() - CENTRE.x(), plot.at().z() - CENTRE.z())));
+                        plot.at().x() - CENTER.x(), plot.at().z() - CENTER.z())));
             }
             System.out.println();
             System.out.println("thorp at " + wanted + " plots: "
@@ -328,7 +328,7 @@ class ThorpLayoutTest {
                 }
             }
         }
-        put(grid, minX, minZ, plan.centre().x(), plan.centre().z(), '+');
+        put(grid, minX, minZ, plan.center().x(), plan.center().z(), '+');
         for (TownPlan.Plot plot : plan.plots()) {
             put(grid, minX, minZ, plot.at().x(), plot.at().z(), '#');
         }
@@ -356,9 +356,9 @@ class ThorpLayoutTest {
         Layout thorp = thorp();
         int shared = 0;
         for (int i = 0; i < 60; i++) {
-            SimPos here = thorp.plotFor(CENTRE, i);
+            SimPos here = thorp.plotFor(CENTER, i);
             for (int j = 0; j < 60; j++) {
-                if (here.equals(Layouts.HIGH_STREET.plotFor(CENTRE, j))) {
+                if (here.equals(Layouts.HIGH_STREET.plotFor(CENTER, j))) {
                     shared++;
                     break;
                 }

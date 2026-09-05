@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * Over a hole, the first solid thing is a long way below and the straight-down
  * search finds it. On a roof it is directly underfoot: the drop reads nought
  * against the three courses that count as stranded, so the old test called it a
- * kerb and threw the case away — and the builder who had laid the last course of
+ * curb and threw the case away — and the builder who had laid the last course of
  * a cottage stood on it until something else happened to them.
  *
  * <p>So the search now also goes sideways, and this is that part of it. Geometry
@@ -209,11 +209,11 @@ class StrandedLedgeTest {
     }
 
     @Test
-    void aRoofIsNeverConfusedWithTheNeighboursDoorstep() {
+    void aRoofIsNeverConfusedWithTheNeighborsDoorstep() {
         // Recorded footprints are the walls plus the doorstep ring, and two
-        // neighbours' rings are allowed to meet — so the plots overlap where the
+        // neighbors' rings are allowed to meet — so the plots overlap where the
         // buildings do not. Asked of the plot, a builder on one roof standing
-        // inside the next cottage's apron is attributed to the neighbour, and the
+        // inside the next cottage's apron is attributed to the neighbor, and the
         // town orders a flight of steps onto a roof he is not on.
         // Walls seven across, so west holds x in [-3, 3] and east, packed against
         // it, holds [4, 10]. Their recorded plots are [-4, 4] and [3, 11], which

@@ -7,7 +7,7 @@ import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
@@ -36,7 +36,7 @@ import java.util.Map;
  * <p>So this renders the plan directly. Same {@link TownPlan} the real code
  * uses — the geometry under test is the production geometry, not a copy — and
  * everything else is gone: no residents, no stores, no build queue, no stages.
- * On flat ground with a fixed centre it draws the same town every time, which
+ * On flat ground with a fixed center it draws the same town every time, which
  * makes a difference in the result mean a difference in the code.
  *
  * <p><strong>It proves nothing about the simulation.</strong> A town that
@@ -55,10 +55,10 @@ public final class BuildTest {
      * <p>A settlement would decide this from its people. With nobody to ask, the
      * order is written down: the hall in the middle, the things that make a town
      * a town around it, then houses out to the edge. Fixed on purpose — a
-     * programme that varied would make two runs incomparable, which is the one
+     * program that varied would make two runs incomparable, which is the one
      * thing this exists to avoid.
      */
-    private static final String[] PROGRAMME = {
+    private static final String[] PROGRAM = {
             "kingdoms:town_hall", "kingdoms:market", "kingdoms:granary",
             "kingdoms:storehouse", "kingdoms:smith", "kingdoms:carpentry",
             "kingdoms:inn", "kingdoms:mill", "kingdoms:workshop",
@@ -95,7 +95,7 @@ public final class BuildTest {
     }
 
     /**
-     * Starts drawing a town at this centre.
+     * Starts drawing a town at this center.
      *
      * <p>The arrangement is named rather than fixed, because the whole reason
      * this exists is to be able to look at one: a fault in a gridiron and a
@@ -106,10 +106,10 @@ public final class BuildTest {
      * @param layoutId which arrangement to draw
      * @return how many buildings the run will place
      */
-    public static int start(ServerLevel level, SimPos centre, int count,
+    public static int start(ServerLevel level, SimPos center, int count,
                             int buildingsPerSecond, String layoutId) {
         Layout arrangement = Layouts.of(layoutId);
-        TownPlan plan = arrangement.planFor(centre, count);
+        TownPlan plan = arrangement.planFor(center, count);
 
         List<Placement> pending = new ArrayList<>();
         for (int i = 0; i < plan.plots().size() && i < count; i++) {
@@ -125,8 +125,8 @@ public final class BuildTest {
         // nothing at all. Registering it costs nothing, because it is marked as a
         // drawing and a drawing does not grow.
         Settlement town = new Settlement(Settlement.Id.random(), "Buildtest",
-                centre, Math.max(96, count * 2));
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+                center, Math.max(96, count * 2));
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.TOWN);
         town.setCultureId("kingdoms:orc");
         // The arrangement actually drawn, not whatever the orcs would have
@@ -210,8 +210,8 @@ public final class BuildTest {
             RUNNING.put(level, run);
         }
         KingdomsMod.LOGGER.info(
-                "BUILDTEST start layout={} centre={} count={} bps={} streets={} frontage={}%",
-                arrangement.id(), centre, pending.size(), buildingsPerSecond,
+                "BUILDTEST start layout={} center={} count={} bps={} streets={} frontage={}%",
+                arrangement.id(), center, pending.size(), buildingsPerSecond,
                 plan.streets().size(), plan.frontagePercent());
         KingdomsMod.LOGGER.info("BUILDTEST street runs to pave: {}, within {} of a house",
                 toPave.size(), SERVES);
@@ -260,7 +260,7 @@ public final class BuildTest {
         }
         waited = 0;
         Placement next = pending.remove(0);
-        SimPos where = againstTheKerb(next);
+        SimPos where = againstTheCurb(next);
         // The chunk, before the building. materializeBlueprint refuses an
         // unloaded column and a grid spreads well past whatever a player has
         // loaded, so a run left to chance would place its middle and silently
@@ -274,7 +274,7 @@ public final class BuildTest {
                 new BlockPos(where.x(), y, where.z()), next.facing());
         placed++;
         // Recorded on the settlement, so the map and the lamp can see it. With
-        // the footprint the placer actually laid, not the catalogue guess: a
+        // the footprint the placer actually laid, not the catalog guess: a
         // building whose size is unknown never travels to the map.
         Building raised = new Building(next.blueprintId(),
                 new SimPos(where.x(), y, where.z()), placed, true);
@@ -292,13 +292,13 @@ public final class BuildTest {
     }
 
     /**
-     * Moves a building up to the kerb of the street it fronts.
+     * Moves a building up to the curb of the street it fronts.
      *
      * <p>The plan sets a plot back thirteen blocks from the middle of its street,
      * which is the right distance for the eleven-block square the plan reserves.
      * The buildings that actually go there are seven and nine blocks across, and
      * the paved road is five — so a house sat six blocks of bare grass from the
-     * kerb, and a street of them read as two rows of sheds facing a gap rather
+     * curb, and a street of them read as two rows of sheds facing a gap rather
      * than a street.
      *
      * <p>The plan cannot fix this: it reserves ground before anybody knows what
@@ -308,9 +308,9 @@ public final class BuildTest {
      * wall a fixed verge from the paved edge, whatever its size.
      *
      * <p>It only ever moves a building TOWARD its street, and never past the
-     * kerb, so nothing can be pushed onto the road it fronts.
+     * curb, so nothing can be pushed onto the road it fronts.
      */
-    private SimPos againstTheKerb(Placement placement) {
+    private SimPos againstTheCurb(Placement placement) {
         if (placement.fronts() == null) {
             return placement.at();
         }
@@ -325,11 +325,11 @@ public final class BuildTest {
         if (away < 1) {
             return plot;   // already on the line; leave it where the plan put it
         }
-        // What the blueprint actually measures, not what the catalogue reserved.
+        // What the blueprint actually measures, not what the catalog reserved.
         Footprint size = BlueprintPlacer.measure(level, placement.blueprintId(),
                 new BlockPos(plot.x(), level.getMinY() + 1, plot.z()));
         int across = size.isKnown() ? Math.max(size.width(), size.depth())
-                : BuildPlanner.plotSpanOf(placement.blueprintId(), BuildCatalogue.DEFAULT);
+                : BuildPlanner.plotSpanOf(placement.blueprintId(), BuildCatalog.DEFAULT);
         // The same distance a town that actually grows now stands its buildings
         // off their streets, borrowed from the router that decides it, so what
         // this renders is what a settlement does. It measured to the PAVED strip
@@ -363,23 +363,23 @@ public final class BuildTest {
     /**
      * Which building goes on the nth plot.
      *
-     * <p>Plots come out of the plan nearest-centre first, so walking them in
+     * <p>Plots come out of the plan nearest-center first, so walking them in
      * order puts the hall and the market in the middle and the houses at the
      * edge without anything having to decide that separately. It is the one
      * thing a settlement's population would otherwise be doing here.
      */
     private static String blueprintFor(int index) {
-        if (index < PROGRAMME.length) {
-            return PROGRAMME[index];
+        if (index < PROGRAM.length) {
+            return PROGRAM[index];
         }
-        return DWELLINGS[(index - PROGRAMME.length) % DWELLINGS.length];
+        return DWELLINGS[(index - PROGRAM.length) % DWELLINGS.length];
     }
 
     /**
      * Whether any building of this run stands close enough to want this ground
      * paved.
      *
-     * <p>This replaced a radius measured from the town's centre, which managed to
+     * <p>This replaced a radius measured from the town's center, which managed to
      * be wrong in both directions at once. A ring town's spokes run straight out
      * past the last ring, so measuring from the middle kept all hundred and
      * ninety blocks of them. A thorp's outer tracks run <em>alongside</em> the
@@ -460,7 +460,7 @@ public final class BuildTest {
      *
      * <p>Wider than the setback of thirteen, and it has to be: a piece of road
      * halfway between two houses must be kept too, or a street comes out dashed.
-     * At the ordinary pitch of fourteen the midpoint between two neighbours is
+     * At the ordinary pitch of fourteen the midpoint between two neighbors is
      * about twenty-one blocks from the nearer of them, so thirty-two carries a
      * continuous road while still stopping a spoke a short way past the last
      * house on it.
@@ -495,9 +495,9 @@ public final class BuildTest {
      */
     private static final int RUNS_PER_TICK = 4;
 
-    /** The catalogue span of what this run places, for reports. */
+    /** The catalog span of what this run places, for reports. */
     public static int spanOf(String blueprintId) {
-        return BuildPlanner.plotSpanOf(blueprintId, BuildCatalogue.DEFAULT);
+        return BuildPlanner.plotSpanOf(blueprintId, BuildCatalog.DEFAULT);
     }
 
 }

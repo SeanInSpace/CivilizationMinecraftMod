@@ -188,7 +188,7 @@ public final class Market {
         // settlement's ledger takes any word at all: the smith stocks "weapons"
         // and "armour", they have no base price, and a sell price of "at least
         // base plus one" and a reserve of "nothing" would have sold a town's
-        // whole armoury at a coin an ingot to anyone who could name it.
+        // whole armory at a coin an ingot to anyone who could name it.
         if (!TRADED.contains(resource)) {
             return null;
         }
@@ -310,7 +310,7 @@ public final class Market {
      * trade happened, and the coin leaves the treasury — the one place in the
      * mod where money moves for something other than public works.
      *
-     * @return coin paid, or zero if the deal could not be honoured
+     * @return coin paid, or zero if the deal could not be honored
      */
     public static int townBuys(Settlement settlement, SimPos at,
                                String resource, int units) {
@@ -331,7 +331,7 @@ public final class Market {
     /**
      * Sells a player goods out of the town's surplus.
      *
-     * @return coin taken, or zero if the deal could not be honoured
+     * @return coin taken, or zero if the deal could not be honored
      */
     public static int townSells(Settlement settlement, SimPos at,
                                 String resource, int units) {

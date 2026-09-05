@@ -100,7 +100,7 @@ public final class Person {
      * Whether this person has been issued a tool from the town's rack.
      *
      * <p>A worker without one still works — an unequipped town should be poorer,
-     * not paralysed — but the forge exists to change that, and the quest board
+     * not paralyzed — but the forge exists to change that, and the quest board
      * counts the shortfall.
      */
     /**

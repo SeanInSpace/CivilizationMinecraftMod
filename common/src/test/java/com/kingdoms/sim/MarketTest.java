@@ -414,7 +414,7 @@ class MarketTest {
     }
 
     /**
-     * The armoury the stall would otherwise have sold.
+     * The armory the stall would otherwise have sold.
      *
      * <p>A settlement's ledger takes any word at all, and the smith stocks
      * {@code weapons} and {@code armour} under two of them. Neither has a base
@@ -422,24 +422,24 @@ class MarketTest {
      * and neither has a reserve, so the whole holding read as spare. The board
      * never listed those rows, but the board is not what a request is answered
      * against: a message naming the word is answered by the offer, so anyone who
-     * could name it could buy a town's armoury at a coin an ingot.
+     * could name it could buy a town's armory at a coin an ingot.
      */
     @Test
     void aTownDealsInTheFourThingsItDealsInAndNothingElse() {
         Settlement town = town();
         town.stores().add(TownStores.WEAPONS, 64);
-        town.stores().add(TownStores.ARMOUR, 64);
+        town.stores().add(TownStores.ARMOR, 64);
         town.stores().add(TownStores.SAPLINGS, 64);
 
         for (String hoard : new String[] {
-                TownStores.WEAPONS, TownStores.ARMOUR, TownStores.TOOLS,
+                TownStores.WEAPONS, TownStores.ARMOR, TownStores.TOOLS,
                 TownStores.SAPLINGS, TownStores.EARTH, "not_a_resource"}) {
             assertNull(Market.sellOffer(town, hoard), hoard + " is not merchandise");
             assertNull(Market.buyOffer(town, hoard), hoard + " is not merchandise");
             assertEquals(0, Market.townSells(town, HERE, hoard, Market.LOT), hoard);
         }
-        assertEquals(64, town.stores().get(TownStores.WEAPONS), "the armoury is intact");
-        assertEquals(64, town.stores().get(TownStores.ARMOUR));
+        assertEquals(64, town.stores().get(TownStores.WEAPONS), "the armory is intact");
+        assertEquals(64, town.stores().get(TownStores.ARMOR));
     }
 
     // --- the levy, which this changes nothing about ---
@@ -479,7 +479,7 @@ class MarketTest {
                     ? Market.townBuys(town, HERE, deal.resource(), Market.LOT)
                     : Market.townSells(town, HERE, deal.resource(), Market.LOT);
             assertTrue(moved > 0,
-                    "offered but not honoured: " + deal.resource()
+                    "offered but not honored: " + deal.resource()
                             + (deal.townBuys() ? " (buying)" : " (selling)"));
         }
     }

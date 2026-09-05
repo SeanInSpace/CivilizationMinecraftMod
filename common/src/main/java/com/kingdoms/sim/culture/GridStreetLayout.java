@@ -68,7 +68,7 @@ public final class GridStreetLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         // Each block of the grid carries roughly six plots once the corners are
         // refused, so the town needs about that many blocks, and a square town
@@ -80,12 +80,12 @@ public final class GridStreetLayout extends PlannedLayout {
         // stable as the town grows -- a plot records the street it fronts by
         // index, and a plan that renumbered its roads would repoint every door.
         for (int i = -lines; i <= lines; i++) {
-            streets.add(northSouth(centre, wanderFor(wander, centre, streets.size()),
+            streets.add(northSouth(center, wanderFor(wander, center, streets.size()),
                     i * BLOCK, -reach, reach, ROAD_HALF * 2, TownPlan.Kind.LANE));
         }
         int firstEastWest = streets.size();
         for (int i = -lines; i <= lines; i++) {
-            streets.add(eastWest(centre, wanderFor(wander, centre, streets.size()),
+            streets.add(eastWest(center, wanderFor(wander, center, streets.size()),
                     i * BLOCK, -reach, reach, ROAD_HALF * 2, TownPlan.Kind.LANE));
         }
 
@@ -94,7 +94,7 @@ public final class GridStreetLayout extends PlannedLayout {
         // and the backs of the blocks.
         for (int line = -lines; line <= lines; line++) {
             int street = firstEastWest + (line + lines);
-            Wander how = wanderFor(wander, centre, street);
+            Wander how = wanderFor(wander, center, street);
             int baseZ = line * BLOCK;
             for (int k = -lines * 3; k <= lines * 3; k++) {
                 int x = HALF_PITCH + k * PITCH;
@@ -102,13 +102,13 @@ public final class GridStreetLayout extends PlannedLayout {
                 if (Math.abs(x) > reach || Math.abs(baseZ) > reach) {
                     continue;
                 }
-                offers.add(new Offer(at(centre, x, z - SETBACK), street, 2));
-                offers.add(new Offer(at(centre, x, z + SETBACK), street, 0));
+                offers.add(new Offer(at(center, x, z - SETBACK), street, 2));
+                offers.add(new Offer(at(center, x, z + SETBACK), street, 0));
             }
         }
     }
 
-    private static SimPos at(SimPos centre, int dx, int dz) {
-        return new SimPos(centre.x() + dx, centre.y(), centre.z() + dz);
+    private static SimPos at(SimPos center, int dx, int dz) {
+        return new SimPos(center.x() + dx, center.y(), center.z() + dz);
     }
 }

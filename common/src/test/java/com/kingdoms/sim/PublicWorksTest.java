@@ -41,7 +41,7 @@ class PublicWorksTest {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
         town.addResident(new Person(
-                Person.Id.random(), "Hand", Profession.BUILDER, town.centre()));
+                Person.Id.random(), "Hand", Profession.BUILDER, town.center()));
         return town;
     }
 

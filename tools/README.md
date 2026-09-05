@@ -7,7 +7,7 @@ Every picture of this simulation before these existed was a **port** of it —
 the layout arithmetic rewritten somewhere else and plotted on blank paper.
 Faithful to the formulas and to nothing else: no ground, no water, no roads, no
 wall, and every plot drawn the same size because the port had never seen the
-catalogue. A port also drifts from what it copied, silently, the first time
+catalog. A port also drifts from what it copied, silently, the first time
 either side moves.
 
 ## The loop
@@ -25,7 +25,7 @@ and run:
 /civ plan
 ```
 
-It writes buildings at their real catalogue spans, the roads the path planner
+It writes buildings at their real catalog spans, the roads the path planner
 actually laid, the ring as staked with its gates, and the ground underneath
 sampled every four blocks across ±200. Thousands of lines, so it goes to the
 log rather than to chat.
@@ -49,7 +49,7 @@ The two panels share one camera. Pan or zoom either and both move, so the same
 ground is under both pictures — which is the entire reason this exists rather
 than two screenshots side by side. The bar along the bottom reports what
 changed between them and, importantly, **says so when the two towns are not on
-the same centre** and therefore are not comparable at all.
+the same center** and therefore are not comparable at all.
 
 Layer buttons toggle ground, water, unread, roads, wall and each class of
 building, so "where do the dwellings sit relative to the industry" is a question
@@ -60,7 +60,7 @@ facing.
 whether each column was read from a real chunk, estimated from the world
 generator's noise, or never read at all. Certain ground is drawn solid,
 estimated ground at half strength, and unread ground hatched and never
-coloured — because an unread square is not a steep one and must not be able to
+colored — because an unread square is not a steep one and must not be able to
 look like one. An early sheet drew unread ground as maximum cost and a tenth of
 the map came out solid red, reading as a cliff face that was not there.
 
@@ -79,7 +79,7 @@ civ step 100  (x9)
 civ plan
 ```
 
-Same seed, same centre, same step count. The layout is the only functional
+Same seed, same center, same step count. The layout is the only functional
 difference a culture carries — it holds an id, its penned animals, its layout
 and its name lists, and nothing else the planners read — so a difference
 between two such runs is a difference the layout caused.
@@ -90,13 +90,13 @@ Worth knowing before trusting one, because a convincing picture is exactly the
 kind that gets believed past its evidence.
 
 - **Ground is sampled every 4 blocks.** A one-block ditch or a narrow stream is
-  invisible, and the slope judgements that actually refuse a plot are finer
+  invisible, and the slope judgments that actually refuse a plot are finer
   than this grid.
-- **Height is a colour, not a contour.** A cliff and a slow rise of the same
+- **Height is a color, not a contour.** A cliff and a slow rise of the same
   total climb look alike; the wall's real trouble is only ever with the former.
 - **Outlines are plot claims, not footprints.** The claim is the ground the
   siting code reserves; the building inside it is smaller and turned to face
-  the centre.
+  the center.
 - **There is no time in it.** A town that grew east because the west flooded
   looks identical to one that simply started east.
 - **It is one town on one seed.** Any claim about a layout in general needs

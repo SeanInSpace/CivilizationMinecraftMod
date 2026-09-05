@@ -22,7 +22,7 @@ WALL = re.compile(r"PLAN W (\d+) (\d+) (.*)")
 GATE = re.compile(r"PLAN G (.*)")
 GROUND = re.compile(r"PLAN H (-?\d+) ([\d,\-]+) ([.~?:]+)")
 
-# What each blueprint is FOR, which is the only grouping worth colouring by.
+# What each blueprint is FOR, which is the only grouping worth coloring by.
 # A town where the dwellings cluster and the industry rings the edge is a
 # different town from one where they are shuffled, and no count shows that.
 GROUPS = {
@@ -31,7 +31,7 @@ GROUPS = {
     "industry": ["workshop", "smith", "carpentry", "lumber_camp", "mine", "kiln"],
     "trade": ["storehouse", "warehouse", "cache", "market", "stall"],
     "civic": ["town_hall", "camp_post", "well", "shrine"],
-    "defence": ["watchtower", "barracks", "guardhouse"],
+    "defense": ["watchtower", "barracks", "guardhouse"],
 }
 KIND_GROUP = {k: g for g, ks in GROUPS.items() for k in ks}
 
@@ -46,7 +46,7 @@ def parse(text):
             name, cx, cy, cz, stage, pop, culture, layout = m.groups()
             current = {
                 "name": name.replace("_", " "),
-                "centre": [int(cx), int(cy), int(cz)],
+                "center": [int(cx), int(cy), int(cz)],
                 "stage": stage, "pop": int(pop),
                 "culture": culture, "layout": layout,
                 "builds": [], "roads": [], "verts": [], "gates": [],

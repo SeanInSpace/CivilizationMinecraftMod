@@ -126,7 +126,7 @@ and it now goes:
 |---|---|---|
 | 1 | `IDLER` | nothing is lost, and only this tier short-circuits the search |
 | 2 | a trade with nothing in front of it — see below | a standing worker is worth less than a walking one |
-| — | **never** a `BUILDER` (or a pioneer labouring as one) | the demand *is* a build |
+| — | **never** a `BUILDER` (or a pioneer laboring as one) | the demand *is* a build |
 | — | **never** a `GUARD` | nothing takes a load off a guard when the bell rings |
 | 3 | **nobody** — the load waits | a waiting haul costs a walk; a stopped workshop costs everything it would have made |
 
@@ -208,14 +208,14 @@ because a town that downs tools over one skeleton never gets anything done. At
 ### PIONEER
 
 The founding generalist. Below VILLAGE a pioneer *is* the builder and the farmer
-(`Settlement.laboursAs`), which is what lets a camp of four function before the
+(`Settlement.laborsAs`), which is what lets a camp of four function before the
 staffing table would give it a single farmer.
 
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
 | 1 | stage below VILLAGE, larder under 5/mouth | forages 1 meal per 3 hands | same (arithmetic only) | `FORAGERS_PER_MEAL` = 3, `FORAGE_CEILING_PER_MOUTH` = 5 |
-| 2 | a build is queued | counts as a builder | walks to the site, lays blocks | `laboursAs(BUILDER)` |
-| 3 | nothing queued | counts as a farmer | walks to the nearest farm | `laboursAs(FARMER)` |
+| 2 | a build is queued | counts as a builder | walks to the site, lays blocks | `laborsAs(BUILDER)` |
+| 3 | nothing queued | counts as a farmer | walks to the nearest farm | `laborsAs(FARMER)` |
 | 4 | VILLAGE reached | becomes an `IDLER` | — | `StagePlanner.crystallize` |
 
 There is no weakness gate on foraging. The weak foraging anyway is exactly what
@@ -271,7 +271,7 @@ fit rather than duplicating it.
 
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
-| 1 | always | counts `GUARD_POWER` = 2 toward the town's defence | — | `RaidPlanner` |
+| 1 | always | counts `GUARD_POWER` = 2 toward the town's defense | — | `RaidPlanner` |
 | 2 | no hostile in sight | — | patrols the perimeter vertices; falls back to the watchtower | `patrolPost` |
 | 3 | hostile in sight | — | arms up, charges, strikes | `GUARD_STRIKE_RANGE` = 2.5, `GUARD_DAMAGE` = 4 |
 | 4 | the hostile blows up | — | one hit, retreat 12 blocks, back in after 45 ticks | `Menace.blowsUp`, `FUSE_RESET_TICKS` = 45 |
@@ -307,7 +307,7 @@ rather than sharing code with it.
 |---|---|---|---|---|
 | 1 | smithy stands, not weak | 1 item per smith per step | *no watched worker* — the clock does it either way | `OUTPUT_PER_SMITH` = 1 |
 | 2 | making something | spends 2 iron + 1 timber | same | `IRON_PER_ITEM`, `FUEL_PER_ITEM` |
-| 3 | choosing what | tools, then weapons, then armour | same | `MAX_TOOLS` 64, `MAX_WEAPONS` 32, `MAX_ARMOUR` 32 |
+| 3 | choosing what | tools, then weapons, then armor | same | `MAX_TOOLS` 64, `MAX_WEAPONS` 32, `MAX_ARMOR` 32 |
 | 4 | every rack full, or no ore | idle | walks to the smithy and stands there | `SmithPlanner.hasWorkInFront` |
 | 5 | idle by #4 | — | — | eligible as a bulk courier (tier 2) |
 
@@ -400,7 +400,7 @@ Everything below is a real difference, not an implementation detail.
 5. **Shepherds and livestock.** Entirely watched. There is no abstract herd; an
    unwatched animal farm produces nothing at all.
 6. **Raids.** Watched, real hostiles spawn and entity combat decides. Unwatched,
-   defence power versus raid strength, resolved into the event log.
+   defense power versus raid strength, resolved into the event log.
 7. **Litter.** Only embodied people pick things up, so an unwatched town never
    acquires anything it did not produce.
 8. **Undrawn buildings.** `FieldRoster.fields` requires `isMaterialized`, so a

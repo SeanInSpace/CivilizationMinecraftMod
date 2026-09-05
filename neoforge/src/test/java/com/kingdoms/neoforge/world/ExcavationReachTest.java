@@ -74,7 +74,7 @@ class ExcavationReachTest {
     }
 
     @Test
-    void aJobOfOneBlockIsCentredOnThatBlock() {
+    void aJobOfOneBlockIsCenteredOnThatBlock() {
         assertEquals(at(7, 70, -3),
                 Excavation.middleOf(List.of(new SimPos(7, 70, -3))));
     }

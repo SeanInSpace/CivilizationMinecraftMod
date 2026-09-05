@@ -7,10 +7,10 @@ import java.util.Map;
  * How big each building actually is.
  *
  * <p>One table, read by the two halves that have to agree about it: the placer
- * draws a building this size, and the catalogue reserves ground for a building
+ * draws a building this size, and the catalog reserves ground for a building
  * this size. They used to be two separate sets of numbers — the size was a
  * literal in each drawing method and the span was a column in
- * {@link BuildCatalogue} — and they had drifted a long way apart. A cottage was
+ * {@link BuildCatalog} — and they had drifted a long way apart. A cottage was
  * drawn five blocks across and given a plot nine wide; a house was drawn five
  * and given eleven. Every street in the mod was spaced for buildings twice the
  * size of the ones standing in it, which is the whole of why a village read as
@@ -18,7 +18,7 @@ import java.util.Map;
  *
  * <p>The drift is not a thing to be fixed once. {@code procedural} carries a
  * comment recording that buildings used to grow two blocks per level while the
- * reserved plot did not, so a fourth-level house grew through its neighbour —
+ * reserved plot did not, so a fourth-level house grew through its neighbor —
  * the same fault, from the same cause, and it was answered by deleting the
  * growth rather than by making the two agree. This is the making-them-agree.
  *
@@ -74,7 +74,7 @@ public final class BuildingSizes {
      * How much ground one building covers, walls only.
      *
      * <p>Both odd, always. Everything is drawn symmetrically about its origin,
-     * so an even span would put the origin off centre and a quarter turn would
+     * so an even span would put the origin off center and a quarter turn would
      * move the building half a block.
      */
     public record Size(int width, int depth, Notch notch) {
@@ -203,7 +203,7 @@ public final class BuildingSizes {
      */
     private static final Map<String, Integer> ROOM_TO_SPARE = Map.of(
             // A field's fence is its wall, and a crop pressed against a
-            // neighbour's doorstep is a crop somebody walks through.
+            // neighbor's doorstep is a crop somebody walks through.
             "farm", 2,
             // Pens are added a strip at a time as a culture keeps more beasts,
             // and the compound must not have to be resited when one is.

@@ -4,7 +4,7 @@ import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
 import com.kingdoms.neoforge.world.TerrainOracle;
 import com.kingdoms.sim.geom.SimPos;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Danger;
@@ -62,7 +62,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     @Override
-    public boolean isSiteLevellable(SimPos plot, int radius) {
+    public boolean isSiteLevelable(SimPos plot, int radius) {
         // Dry first: no earthwork drains a lake.
         if (oracle.anyWet(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)) {
             return false;
@@ -164,11 +164,11 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      */
     private static final int MAX_SLOPE = 4;
 
-    /** Columns sampled for slope across a plot. The corners and centre catch what matters. */
+    /** Columns sampled for slope across a plot. The corners and center catch what matters. */
     private static final int SAMPLE_STEP = 2;
 
-    /** Half the widest plot the catalogue asks for, which is the animal farm's. */
-    private static final int WIDEST_PLOT_HALF = BuildCatalogue.DEFAULT.stream()
+    /** Half the widest plot the catalog asks for, which is the animal farm's. */
+    private static final int WIDEST_PLOT_HALF = BuildCatalog.DEFAULT.stream()
             .mapToInt(BuildingType::plotSpan)
             .max()
             .orElse(BuildPlanner.DEFAULT_PLOT_SPAN) / 2;
@@ -230,8 +230,8 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      * which finds trunks and ignores the leaf litter a single sapling drops.
      */
     @Override
-    public int woodedness(SimPos centre, int radius) {
-        BlockPos at = toBlockPos(centre);
+    public int woodedness(SimPos center, int radius) {
+        BlockPos at = toBlockPos(center);
         if (!level.isLoaded(at)) {
             return 0;   // nothing to judge; no reason to prefer this spot
         }
@@ -290,7 +290,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     /**
-     * The same judgement as {@link #isSiteSuitable}, scored rather than vetoed.
+     * The same judgment as {@link #isSiteSuitable}, scored rather than vetoed.
      *
      * <p>Zero exactly where that returns true, which is what makes the two safe
      * to use together: the settlement asks this once per candidate and reads a
@@ -369,8 +369,8 @@ public final class NeoForgeWorldBridge implements WorldBridge {
 
     @Override
     public boolean isSiteSuitable(SimPos plot, int radius) {
-        BlockPos centre = toBlockPos(plot);
-        if (!level.isLoaded(centre)) {
+        BlockPos center = toBlockPos(plot);
+        if (!level.isLoaded(center)) {
             // Not "nothing to judge on", which is what this used to say before
             // returning true and letting everything through. A town grows mostly
             // out of sight, so that made the terrain test a no-op for most of
@@ -462,7 +462,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      * A settlement should not walk past good ground because of a pit it is
      * about to floor over anyway.
      *
-     * <p>So the judgement is made on the <em>bulk</em> of the plot rather than
+     * <p>So the judgment is made on the <em>bulk</em> of the plot rather than
      * on its two most extreme columns, and what falls below is left to
      * {@code BlueprintPlacer.foundation}, which already packs a floor up to its
      * line and is already bounded at {@code FOUNDATION_DEPTH} courses. Anything
@@ -621,13 +621,13 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      * frightened, and the abstract half of the simulation has its own raids.
      */
     @Override
-    public Sighting hostilesSeen(SimPos centre, double radius) {
-        if (!level.isLoaded(toBlockPos(centre))) {
+    public Sighting hostilesSeen(SimPos center, double radius) {
+        if (!level.isLoaded(toBlockPos(center))) {
             return Sighting.NONE;
         }
         AABB box = new AABB(
-                centre.x() - radius, centre.y() - THREAT_REACH_Y, centre.z() - radius,
-                centre.x() + radius, centre.y() + THREAT_REACH_Y, centre.z() + radius);
+                center.x() - radius, center.y() - THREAT_REACH_Y, center.z() - radius,
+                center.x() + radius, center.y() + THREAT_REACH_Y, center.z() + radius);
         List<PersonEntity> citizens =
                 level.getEntitiesOfClass(PersonEntity.class, box, LivingEntity::isAlive);
         if (citizens.isEmpty()) {
@@ -663,7 +663,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
 
     /**
      * The observed half of a raid: real zombies in a ring at the edge of town,
-     * nudged toward the centre so vanilla targeting (zombies already hunt
+     * nudged toward the center so vanilla targeting (zombies already hunt
      * villagers) takes over. Entity combat decides everything from here — every
      * villager death flows through the normal view-death path.
      */

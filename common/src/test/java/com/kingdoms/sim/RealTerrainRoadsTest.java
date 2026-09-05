@@ -3,7 +3,7 @@ package com.kingdoms.sim;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.PathNetwork;
@@ -27,12 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * each fix measured perfectly clean here and changed nothing there. The reason
  * was not the fixes and not the rules — it was the ground. {@link TerrainFake},
  * which every other test in this project grows its towns on, is three sine waves
- * whose steepest step between neighbouring columns is <strong>one block</strong>.
+ * whose steepest step between neighboring columns is <strong>one block</strong>.
  * A rule that refuses ground climbing more than a block a step cannot fire on
  * it. Ever.
  *
  * <p>The same square of the world the reports came from, recorded, steps by up
- * to <strong>forty-five</strong> blocks, and thirty per cent of its neighbouring
+ * to <strong>forty-five</strong> blocks, and thirty per cent of its neighboring
  * columns differ by two or more. That is the difference between a suite that can
  * see this class of fault and one that certifies it.
  *
@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RealTerrainRoadsTest {
 
-    private static final SimPos CENTRE = new SimPos(16, 64, 80);
+    private static final SimPos CENTER = new SimPos(16, 64, 80);
     private static final int STEPS = 500;
 
     /**
@@ -84,7 +84,7 @@ class RealTerrainRoadsTest {
      * refused whatever the terrain does, and testing terrain first sent the
      * cursor past ground that was fine.
      *
-     * <p>What reaches the remaining four is levelling the ground they stand on.
+     * <p>What reaches the remaining four is leveling the ground they stand on.
      * The machinery for that exists and does not yet fire on this terrain,
      * because siting finds flat ground before it needs to level any — so this
      * is a ceiling to stop the number growing quietly, not a target that has
@@ -126,13 +126,13 @@ class RealTerrainRoadsTest {
             return grown;
         }
         ground = RecordedTerrain.of(RecordedTerrain.SEED_8675309);
-        Settlement town = new Settlement(Settlement.Id.random(), "Rough", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Rough", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         town.setCultureId("kingdoms:vale");
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
-                    Person.Id.random(), name, Profession.PIONEER, CENTRE));
+                    Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         for (int step = 1; step <= STEPS; step++) {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
@@ -153,7 +153,7 @@ class RealTerrainRoadsTest {
 
     /** Exactly {@code Building.doorstep()}: facing 0 steps south, 1 west, 2 north, 3 east. */
     private static SimPos doorstep(Building b, Settlement town) {
-        int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue());
+        int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalog());
         int reach = span / 2 + 1;
         return switch (b.facing()) {
             case 1 -> new SimPos(b.origin().x() - reach, b.origin().y(), b.origin().z());
@@ -172,8 +172,8 @@ class RealTerrainRoadsTest {
         assertTrue(terrain.field().steepestStep() >= 8,
                 "the recorded ground steps by only " + terrain.field().steepestStep()
                         + " blocks, which is too smooth to test a slope rule on");
-        assertTrue(terrain.field().covers(CENTRE.x(), CENTRE.z()),
-                "the recording does not cover the town centre it was captured for");
+        assertTrue(terrain.field().covers(CENTER.x(), CENTER.z()),
+                "the recording does not cover the town center it was captured for");
     }
 
     @Test
@@ -240,7 +240,7 @@ class RealTerrainRoadsTest {
         // sends the siting down give-up paths the smooth fixture never reaches.
         Settlement town = town();
         for (Building b : holdingGround(town)) {
-            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue());
+            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalog());
             for (PathNetwork.Segment run : town.paths().segments()) {
                 if (run.width() <= PathNetwork.TRACK_WIDTH) {
                     continue;   // a footpath is a consequence of a building

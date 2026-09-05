@@ -4,7 +4,7 @@
 replaces "build the hall first."**
 
 The verdict that forced this design: no realistic settlement starts by building
-a government. Today the catalogue puts the town hall at priority 100 above
+a government. Today the catalog puts the town hall at priority 100 above
 everything, so four settlers' first act is civic architecture while they sleep
 in the open and their bread runs out. The founding experience is the core of
 this mod, and it deserves a real progression: camp, then food, then safety,
@@ -61,13 +61,13 @@ so the arrival reads as an arrival.
 - **P1 Bunkhouse.** One communal building that sleeps the whole party. The
   existing cabin shape at minimal cost. Shelter for everyone — but communal
   bunks do **not** count as family housing, so no births yet (see Phase 4).
-- **P2 Hearth.** A campfire at the camp's centre: light against spawns, the
+- **P2 Hearth.** A campfire at the camp's center: light against spawns, the
   cooking point the mill will one day replace.
 - **P3 Cache formalized.** The crate gets a roof if weather ever matters;
   otherwise it simply persists as the pre-storehouse store.
 
 **Staffing:** everyone is a pioneer. The work planners accept pioneers for any
-labour while the settlement is below FORTIFIED.
+labor while the settlement is below FORTIFIED.
 
 **Advance when:** the bunkhouse stands and everyone slept under it.
 
@@ -107,7 +107,7 @@ levy on production, and a settlement that must wall itself before it may grow
 never grows rich enough to wall itself. Gated on the wall, this stage locked
 forever.
 
-## Phase 4 — Structural division of labour and growth (days 9+)
+## Phase 4 — Structural division of labor and growth (days 9+)
 
 *As specified by the player:*
 
@@ -156,13 +156,13 @@ workshops operate.
 
 **The priority core (new, in `common/`).** A `SettlementStage` enum persisted
 on the settlement; a stage program table (ordered build wants + staffing needs
-per stage). `chooseNext` consults the stage program before the catalogue; the
-catalogue's per-resident scaling becomes the VILLAGE+ behaviour it should
+per stage). `chooseNext` consults the stage program before the catalog; the
+catalog's per-resident scaling becomes the VILLAGE+ behavior it should
 always have been. `JobPlanner` reads the stage's staffing program instead of
 one global list, and learns the pioneer.
 
 **The pioneer (change, `common/`).** A profession that is allowed to do any
-early labour. Work planners at CAMP–HOMESTEAD accept pioneers; crystallization
+early labor. Work planners at CAMP–HOMESTEAD accept pioneers; crystallization
 converts them as stages demand.
 
 **The perimeter (new, `common/` shape + `neoforge/` courses).** Curve + gates
@@ -196,7 +196,7 @@ All six steps are built. What each one landed:
 
 1. **Stage machine + programs** — DONE. `SettlementStage` + `StagePlanner`:
    condition-gated advancement, per-stage programs, the hall gated to TOWN,
-   the charter lands a CAMP of pioneers, `laboursAs` carries generalists,
+   the charter lands a CAMP of pioneers, `laborsAs` carries generalists,
    crystallization fills posts and never doubles them. Old saves load as TOWN.
 2. **Camp content** — DONE. Camp post (stage report on right-click), cache,
    bunkhouse, hearth; foraging with the hand-to-mouth ceiling (half the fed
@@ -290,7 +290,7 @@ settlement the kingdom planted itself.
 - **Sites ignore terrain and other kingdoms** — a daughter can be planted near a
   rival's claim. Site *quality* is a later concern.
 - **Nothing links the towns afterward** — no trade, no migration back, no shared
-  defence. The inn's caravan is the seam that will carry it; the kingdom is a
+  defense. The inn's caravan is the seam that will carry it; the kingdom is a
   family tree, not yet an economy.
 
 ---
@@ -305,7 +305,7 @@ the patrol nodes), gate positions (`gates()`), and the ring walk
 counts). Persistence, paid raising, the closed flag, gate drawing, sentry
 patrol and ring-aware siting all work through that surface and need no
 changes. Two care points: keep vertices in walk order (the ring is drawn
-corner to corner), and keep gates ON the loop (gateways are recognised by
+corner to corner), and keep gates ON the loop (gateways are recognized by
 proximity to ring positions). There are no longer two tiers to share the
 interface: nothing is staked before TOWN, so a village has no palisade for an
 α-wall to replace, and what `stake` returns is the settlement's first and

@@ -8,6 +8,37 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## The whole repository spells American now
+
+Nothing in the game is different. 2041 British spellings became American ones,
+across prose, player-facing text and the names in the code itself, following the
+worklist in [docs/american-spelling-audit.md](docs/american-spelling-audit.md).
+The suite is 1072 tests before and after.
+
+The visible part is small: the inn now offers beds for *travelers*, the smithy
+makes *armor*, `/civ` reports a town's *center*, and a town seeded short says its
+*program* wanted a building it could not have. The invisible part is most of it —
+`BuildCatalogue` is `BuildCatalog`, `Settlement.centre()` is `Settlement.center()`,
+`laboursAs` is `laborsAs`, `KERB` is `CURB`. Three files were renamed to match the
+types in them: `BuildCatalogue.java`, `KerbTest.java`, `LevellingTest.java`.
+
+**Existing worlds load unchanged.** Four strings that look like spellings are
+save keys — `"centre"` in three codecs and the value `"armour"` behind
+`TownStores.ARMOR` — and renaming any of them would empty that field out of every
+town on load. They keep the spelling they were first written with, and each now
+carries a comment saying so. The one place this shows is the stores panel, which
+still reads **Armour**, because it capitalizes the key rather than holding a word
+of its own.
+
+The survey viewer's data contract moved as one piece: `tools/survey.py` writes
+`center` and `defense`, `tools/townview.html` reads them, and the four committed
+fixtures in `surveys/` were rewritten to match. A survey JSON captured before
+this will not draw; re-run `survey.py` on the log.
+
+Four words that look British and are not were left alone: `carriageway`,
+`tarmac`, `metalled` and `timber` are vocabulary rather than orthography, and the
+project means them.
+
 ## Walls at the charter, hands on the wall, and every creature's true face
 
 Eight units, landed together. A town builds its one wall as a chartered town
@@ -96,7 +127,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   look up at, and could send the watch out at an enderman standing calmly in a
   field that had frightened nobody. One list now. A guard goes for the nearest
   thing he could actually come to blows with, so a phantom overhead no longer
-  stands between him and the zombie at the gate, and he draws on no neighbour of
+  stands between him and the zombie at the gate, and he draws on no neighbor of
   his. The damage, the reach and the creeper's fuse are untouched.
 - **Everything in the world can see the townspeople, and the town can see
   everything in the world.** Two halves of the same hole. Vanilla's creatures
@@ -253,7 +284,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   quarter of its walls standing, three sweeps running, is written off: its goods
   go on the loose pile rather than out of the town's books, its family moves
   into whatever is empty or joins the housing queue, its repair order is
-  cancelled and its road forgotten. A town that loses a cottage now wants
+  canceled and its road forgotten. A town that loses a cottage now wants
   another one. Nothing is written off unless the town saw it standing first —
   otherwise every field, pen and watchtower in the mod, none of which has a wall
   at head height, would be condemned the day it was built.
@@ -276,7 +307,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   building, the doorstep ring around it, and one further block belonging to
   nobody. That block is gone: two doorsteps that touch are two buildings that
   each have one. Across the thirteen arrangements the gap from a wall to its
-  nearest neighbour's went from a median of six blocks to four, and every
+  nearest neighbor's went from a median of six blocks to four, and every
   arrangement now touches two somewhere where the tightest used to be three. No
   town sprawls further for it — the stronghold pulled in from 191 blocks across
   to 134 and the bastide from 208 to 184. Nine, the cottage's own separation,
@@ -295,7 +326,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   the plot cursor at 166 rather than 195, and three doorsteps off a road rather
   than four.
 - **The danger scale has rungs, and a stranger is no longer a zombie.** Anything
-  the table had not named read as the mildest thing in it, so an unrecognised
+  the table had not named read as the mildest thing in it, so an unrecognized
   horror was a shambling corpse until it was inside the walls. What is not named
   is now read off what the game itself says — whether it is hostile, a raider,
   ranged, a boss — so a modded boss reads at the top of the scale and an archer
@@ -315,7 +346,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
 ### Fixed
 
 - **A family in a house the town cannot name is left alone.** A home whose
-  blueprint matched no catalogue entry — a renamed cottage, a building from a mod
+  blueprint matched no catalog entry — a renamed cottage, a building from a mod
   no longer loaded, an older save — reported a capacity of zero, and every caller
   read zero as *full*. The family counted as permanently overcrowded and shed a
   member into every vacancy that appeared until there was nobody left: three
@@ -328,9 +359,9 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   on being drawn five blocks across where nine had been set aside for it —
   through a whole in-world run. Every one of the twenty-four kinds is now
   measured against the table without needing a world to draw it in.
-- **A town's armoury could be bought at a coin an ingot** by anyone who knew what
+- **A town's armory could be bought at a coin an ingot** by anyone who knew what
   the ledger called it. The stall answered for any word in the books, and weapons
-  and armour had no price and no reserve, so the fallback price fell out as a
+  and armor had no price and no reserve, so the fallback price fell out as a
   single coin and the whole holding read as spare.
 - **Buying logs and selling planks minted money**, at four planks the log against
   a spread of three to two.
@@ -357,7 +388,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   theory for six runs. Unwatched under `/civ step` load it runs 57.8 passes a
   minute with a worst gap of 4.8 seconds; with a player standing in the town,
   60.0 against the 60 intended.
-- **A town grown 511 steps unwatched inside a force-loaded box materialised
+- **A town grown 511 steps unwatched inside a force-loaded box materialized
   nothing at all** — all 120 of its buildings still pending placement, the wall
   reporting nothing even looked at — and then drew 80 buildings within a hundred
   and fifty seconds of a player standing in it. Nothing was slow; nothing was
@@ -372,7 +403,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
 
   Tried in a world by the manager and NOT seen firing, for a reason worth more than a tick: a cottage with its walls and roof taken off was reported by the auditor as "mostly gone — 0% of its walls still standing" on three sweeps, but the town rebuilt it after every flattening — twenty fills over four minutes, twenty `Materialized` lines — so no three sweeps in a row ever agreed and the write-off count kept resetting. That is the repair planner doing what it is for, and the design defers to it on purpose; the write-off itself is held by thirty-four tests and has not been watched in a world. To see it, flatten a house in a town that has no timber to mend it with.
 
-  Opened in a world by the manager on seed 8675309: right-clicking the market post of a town with two coin in its treasury showed four goods, each with its reason beside the price — "They can spare it" on food, wood and stone, "More than they can store" on iron — and the footer "Prices move with what the town is short of. Paid in emeralds." The post stands a block off centre because the stall is turned to face its street, which is worth knowing before clicking at it from a script.
+  Opened in a world by the manager on seed 8675309: right-clicking the market post of a town with two coin in its treasury showed four goods, each with its reason beside the price — "They can spare it" on food, wood and stone, "More than they can store" on iron — and the footer "Prices move with what the town is short of. Paid in emeralds." The post stands a block off center because the stall is turned to face its street, which is worth knowing before clicking at it from a script.
 
 ---
 
@@ -383,7 +414,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
 
 - **Buildings are two to five times bigger, and a village is dense.** Every
   building's size was a literal in the method that drew it while its plot was a
-  column in the catalogue, and the two had drifted to about a factor of two
+  column in the catalog, and the two had drifted to about a factor of two
   apart -- a cottage drawn five blocks across on nine blocks of reserved ground,
   a house drawn five on eleven. Every street in the mod was laid out for
   buildings twice the size of the ones put on it, which is the whole of why a
@@ -394,13 +425,13 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   only ever ran in `/civ buildtest`, so every settlement that actually grew --
   and every settlement world generation raised -- kept a setback drawn for the
   largest building that might have stood there. Measured on a grown town: front
-  wall to kerb down from eight and a half blocks to five, and wall to wall
-  between neighbours from nine to six.
+  wall to curb down from eight and a half blocks to five, and wall to wall
+  between neighbors from nine to six.
 - **A building too big for its setback backs off instead.** The same rule both
   ways, because a building broader than twice the setback could otherwise never
   front a street at all: every offer it was made stood in the carriageway.
 - **`/civ buildtest` shows what a town would actually build.** It kept its own
-  copy of the kerb rule and measured to the wrong edge of the street.
+  copy of the curb rule and measured to the wrong edge of the street.
 
 ### New
 
@@ -410,7 +441,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
   excavated, never scraped flat and never claimed, and it turns with the house.
 - **A library**, twenty-three by seventeen, one per town and not wanted below
   forty residents. Wider than the plan's own plot pitch, so it takes two
-  frontages -- which is the behaviour big buildings needed and nothing had
+  frontages -- which is the behavior big buildings needed and nothing had
   proved.
 - **Roads cross rivers.** Water was impassable to a road in three places at
   once, so a river severed a town's network and a settlement on two banks was
@@ -438,7 +469,7 @@ every creature in the world, modded or not, sees the townspeople and is seen.
 
 ---
 
-## The mod says the same licence the repository does
+## The mod says the same license the repository does
 
 ### Fixed
 
@@ -501,7 +532,7 @@ Ten units of work, landed together.
     meeting at both ends, and back lanes behind.
 - **A people can build more than one shape of town.** `Culture` carries a list
   of arrangements rather than one, and a settlement picks from it by its own
-  centre, then keeps that choice in the save. Every people's historical layout
+  center, then keeps that choice in the save. Every people's historical layout
   stays first, so nothing already standing is rearranged.
 - **`/civ sites`** — lists the settlements world generation would place near
   you: region, position, people, distance. Decided arithmetically from the world
@@ -521,12 +552,12 @@ Ten units of work, landed together.
   ledger is charged once, when the load is picked up, and never again at the
   wall. The stall assist no longer finishes a step for empty hands. The clock —
   what an unwatched town does — is untouched, deliberately.
-- **Buildings come up to the kerb.** They are measured before placing and set
+- **Buildings come up to the curb.** They are measured before placing and set
   down a block off the paved edge, instead of sitting at the plan's setback,
   which left a house six blocks of bare grass back from the road it fronts.
 - **The surveyor's lamp draws lines.** Marks a quarter-block apart instead of
   sparks every two blocks, and it draws the streets as well as the buildings.
-- **Panel chrome lives in one place.** All four screens shared the same colours,
+- **Panel chrome lives in one place.** All four screens shared the same colors,
   header and row banding by copy; the town overview had quietly drifted two
   pixels from the rest.
 
@@ -535,5 +566,5 @@ Ten units of work, landed together.
 - **A rendered town survives the save.** It was never written to disk, so
   reopening the world gave back bare streets and no kingdom.
 - **Roads are paved where they serve somebody**, rather than within a radius of
-  the town centre — which kept a ring town's spokes entire and threw away a
+  the town center — which kept a ring town's spokes entire and threw away a
   thorp's outer tracks, stranding the lanes and yards hung off them.

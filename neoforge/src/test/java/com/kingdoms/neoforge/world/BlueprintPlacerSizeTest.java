@@ -1,7 +1,7 @@
 package com.kingdoms.neoforge.world;
 
 import com.kingdoms.sim.culture.Culture;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildingSizes;
 import com.kingdoms.sim.settlement.BuildingType;
 import net.minecraft.core.BlockPos;
@@ -17,11 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * What the placer draws, against what the catalogue reserves ground for.
+ * What the placer draws, against what the catalog reserves ground for.
  *
  * <p>This is the check the goals list has been asking for since a town was found
  * with its buildings standing through each other. {@link BuildingSizes} is one
- * table and {@code BuildingSizesTest} already pins the catalogue to it, so a plot
+ * table and {@code BuildingSizesTest} already pins the catalog to it, so a plot
  * is the size the table says. Nothing pinned the other half — the drawing methods
  * in {@link BlueprintPlacer} — because drawing wanted a running level, and the
  * only guard was a {@code SIZE MISMATCH} line in the log of a live game.
@@ -85,7 +85,7 @@ class BlueprintPlacerSizeTest {
         };
     }
 
-    /** The blueprint path a catalogue id is drawn by: {@code kingdoms:mill} to {@code mill}. */
+    /** The blueprint path a catalog id is drawn by: {@code kingdoms:mill} to {@code mill}. */
     private static String pathOf(BuildingType type) {
         String id = type.id();
         return id.substring(id.indexOf(':') + 1);
@@ -103,7 +103,7 @@ class BlueprintPlacerSizeTest {
 
     @Test
     void everyBuildingIsDrawnTheSizeItsPlotWasReservedFor() {
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             if (BuildingSizes.variesWithCulture(type.id())) {
                 continue;   // the compound, which has its own test below
             }
@@ -134,10 +134,10 @@ class BlueprintPlacerSizeTest {
         // The post is what actually names a building to the player and to the
         // simulation, so a shape carrying the wrong one is the wrong building
         // whatever it measures.
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             String path = pathOf(type);
             Block post = BlueprintPlacer.postFor(path);
-            assertNotNull(post, path + " is in the catalogue and has no post block");
+            assertNotNull(post, path + " is in the catalog and has no post block");
 
             List<BlueprintPlacer.Placement> blocks = new ArrayList<>();
             BlueprintPlacer.draw(flatFor(Culture.DEFAULT), blocks, path, BASE);
@@ -155,7 +155,7 @@ class BlueprintPlacerSizeTest {
         // The premise the seam rests on, asserted rather than assumed. If a shape
         // ever did size itself off the ground, every number above would be a
         // measurement of the fixture instead of of the building.
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             String path = pathOf(type);
             int[] onGround = drawnOn(flatFor(Culture.DEFAULT), path);
             int[] overAVoid = drawnOn(emptyAir(), path);
@@ -180,7 +180,7 @@ class BlueprintPlacerSizeTest {
             assertTrue(dims[1] <= declared.depth(),
                     culture.id() + " keeps " + culture.penCount() + " beasts and draws "
                             + dims[1] + " deep on ground staked at " + declared.depth()
-                            + ", so a pen runs through the neighbour's wall");
+                            + ", so a pen runs through the neighbor's wall");
         }
     }
 

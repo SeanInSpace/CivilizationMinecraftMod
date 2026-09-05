@@ -218,7 +218,7 @@ class StoreMirrorTest {
     }
 
     @Test
-    void whatTheContainerSpeaksForItStillRecognises() {
+    void whatTheContainerSpeaksForItStillRecognizes() {
         List<String> mirrored = List.of(WOOD, TownStores.STONE);
 
         assertTrue(StoreMirror.mirrors("minecraft:oak_log", mirrored),
@@ -233,6 +233,6 @@ class StoreMirrorTest {
         assertEquals(32, StoreMirror.showable(TownStores.WEAPONS, 32, 32),
                 "thirty-two swords need thirty-two slots");
         assertEquals(8, StoreMirror.showable(TownStores.WEAPONS, 32, 8),
-                "eight slots show eight swords, whatever the armoury holds");
+                "eight slots show eight swords, whatever the armory holds");
     }
 }

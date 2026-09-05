@@ -37,7 +37,7 @@ class EconomyTest {
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);
         for (int i = 0; i < workers; i++) {
             town.addResident(new Person(
-                    Person.Id.random(), "Hand " + i, Profession.FARMER, town.centre()));
+                    Person.Id.random(), "Hand " + i, Profession.FARMER, town.center()));
         }
         return town;
     }
@@ -72,7 +72,7 @@ class EconomyTest {
         Settlement town = town(2);
         int before = town.treasury();
 
-        town.produceNear(town.centre(), TownStores.WOOD, 400, 100000);
+        town.produceNear(town.center(), TownStores.WOOD, 400, 100000);
 
         assertEquals(before, town.treasury(), "goods are not money");
         assertTrue(town.woodStock() > 0, "but the goods are certainly there");
@@ -84,7 +84,7 @@ class EconomyTest {
         // wall has spent it, and no amount of cutting timber brings it back.
         Settlement town = town(2);
         town.spend(1500);
-        town.produceNear(town.centre(), TownStores.STONE, 4000, 100000);
+        town.produceNear(town.center(), TownStores.STONE, 4000, 100000);
 
         assertEquals(Settlement.FOUNDING_TREASURY - 1500, town.treasury());
     }

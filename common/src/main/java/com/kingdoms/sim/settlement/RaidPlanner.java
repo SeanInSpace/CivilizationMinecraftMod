@@ -50,7 +50,7 @@ public final class RaidPlanner {
         // Threat mirrors what the town's people can see, whenever anybody is
         // there to see it. Zero when abstract — there are no eyes and no
         // hostiles, so threat there comes from raid events instead.
-        Sighting seen = ctx.bridge().hostilesSeen(settlement.centre(), settlement.claimRadius());
+        Sighting seen = ctx.bridge().hostilesSeen(settlement.center(), settlement.claimRadius());
         settlement.sighted(seen);
         if (outmatched(settlement, seen)) {
             settlement.soundAlarm();
@@ -142,7 +142,7 @@ public final class RaidPlanner {
     }
 
     public static int defenseBonusOf(Settlement settlement, String blueprintId) {
-        return settlement.catalogue().stream()
+        return settlement.catalog().stream()
                 .filter(type -> type.id().equals(BuildPlanner.baseIdOf(blueprintId)))
                 .mapToInt(BuildingType::defenseBonus)
                 .findFirst()
@@ -158,9 +158,9 @@ public final class RaidPlanner {
             settlement.setThreatLevel(strength);
         }
 
-        if (ctx.bridge().playerWithin(settlement.centre(), ctx.settings().observedRadius())) {
+        if (ctx.bridge().playerWithin(settlement.center(), ctx.settings().observedRadius())) {
             // Someone is watching: make it real and let entity combat decide.
-            ctx.bridge().spawnHostiles(strength, settlement.centre());
+            ctx.bridge().spawnHostiles(strength, settlement.center());
             settlement.logEvent(ctx.step(),
                     "Raiders sighted — " + strength + " attackers approach " + settlement.name());
             return;
@@ -187,7 +187,7 @@ public final class RaidPlanner {
      * Who falls when the line breaks: guards first — they are the line — then
      * others in roster order. Embodied people are never chosen: what a player can
      * see must never die invisibly, and statistical resolution only runs when the
-     * centre is unobserved anyway.
+     * center is unobserved anyway.
      */
     static List<Person> pickCasualties(Settlement settlement, int deficit) {
         List<Person> fallen = new ArrayList<>();

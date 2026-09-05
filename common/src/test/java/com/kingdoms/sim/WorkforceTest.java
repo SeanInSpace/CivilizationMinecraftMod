@@ -57,7 +57,7 @@ class WorkforceTest {
 
     @Test
     void aTownWithNoSitesStillCountsItsCrewOnce() {
-        // Callers fall back to the town centre when there is no camp at all, so
+        // Callers fall back to the town center when there is no camp at all, so
         // "no sites" has to behave as one site or the produce vanishes.
         assertEquals(4, Workforce.shareOf(4, 0, 0));
         assertEquals(4, total(4, 0));

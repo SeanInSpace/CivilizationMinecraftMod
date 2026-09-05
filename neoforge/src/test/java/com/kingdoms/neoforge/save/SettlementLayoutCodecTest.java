@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * A town's arrangement, across a save.
  *
  * <p>A people can build in several arrangements now and picks between them by
- * hashing the town's centre. That is fine for choosing one and hopeless for
+ * hashing the town's center. That is fine for choosing one and hopeless for
  * keeping it: the day the hash changes, every town in every world would be a
  * different shape from the streets it already has on the ground. So the choice
  * is written down, and these are the two halves of what that has to mean —
@@ -28,11 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SettlementLayoutCodecTest {
 
-    private static final SimPos CENTRE = new SimPos(1_024, 72, -1_024);
+    private static final SimPos CENTER = new SimPos(1_024, 72, -1_024);
 
     @Test
     void aTownComesBackInTheArrangementItWasBuiltIn() {
-        Settlement town = new Settlement(Settlement.Id.random(), "Karrgurd", CENTRE, 256);
+        Settlement town = new Settlement(Settlement.Id.random(), "Karrgurd", CENTER, 256);
         town.setCultureId(Culture.ORC.id());
         town.setLayoutId(Culture.LAYOUT_STRONGHOLD_STREETS);
 
@@ -48,9 +48,9 @@ class SettlementLayoutCodecTest {
         // Every world saved before this field existed. The town on the ground is
         // a gridiron of plots and nothing in the file says so, so the only safe
         // answer is the arrangement its people were building in at the time —
-        // the head of the list. Deriving one from the centre instead would
+        // the head of the list. Deriving one from the center instead would
         // re-plan a standing town into streets it does not have.
-        Settlement town = new Settlement(Settlement.Id.random(), "Dromgar", CENTRE, 256);
+        Settlement town = new Settlement(Settlement.Id.random(), "Dromgar", CENTER, 256);
         town.setCultureId(Culture.ORC.id());
         town.setLayoutId(Culture.LAYOUT_STRONGHOLD_STREETS);
 
@@ -68,11 +68,11 @@ class SettlementLayoutCodecTest {
         // it. Saving is an asking: leaving the field out here would mean a town
         // founded and saved in the same tick came back as the head of the list
         // rather than as the arrangement it would have grown into.
-        Settlement town = new Settlement(Settlement.Id.random(), "Ashfang", CENTRE, 256);
+        Settlement town = new Settlement(Settlement.Id.random(), "Ashfang", CENTER, 256);
         town.setCultureId(Culture.ORC.id());
 
         String written = encode(town).getAsJsonObject().get("layout").getAsString();
-        assertEquals(Culture.ORC.layoutFor(CENTRE), written,
+        assertEquals(Culture.ORC.layoutFor(CENTER), written,
                 "the save recorded an arrangement the culture would not have chosen");
         assertEquals(written, decode(encode(town)).arrangement().id());
     }
@@ -86,7 +86,7 @@ class SettlementLayoutCodecTest {
         // all would look exactly like a decode that worked. That trick needs a
         // people whose one arrangement is not itself rings, which is why this is
         // the goblins and not the default folk.
-        Settlement town = new Settlement(Settlement.Id.random(), "Grubhold", CENTRE, 256);
+        Settlement town = new Settlement(Settlement.Id.random(), "Grubhold", CENTER, 256);
         town.setCultureId(Culture.GOBLIN.id());
 
         JsonObject written = encode(town).getAsJsonObject();

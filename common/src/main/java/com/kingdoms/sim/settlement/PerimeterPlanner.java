@@ -28,7 +28,7 @@ import java.util.List;
  * the {@link Perimeter} it returns.
  *
  * <p>Raising is paid work on the abstract clock: posts cost timber and go up as
- * fast as the labouring hands can plant them, pausing whenever the build queue
+ * fast as the laboring hands can plant them, pausing whenever the build queue
  * has a real building in it — walls matter, but shelter and stores matter more.
  */
 public final class PerimeterPlanner {
@@ -251,7 +251,7 @@ public final class PerimeterPlanner {
                 continue;
             }
             int half = BuildPlanner.plotSpanOf(
-                    building.blueprintId(), settlement.catalogue()) / 2;
+                    building.blueprintId(), settlement.catalog()) / 2;
             if (whollyInside(ring, building.origin(), half)) {
                 inside++;
             } else {
@@ -288,7 +288,7 @@ public final class PerimeterPlanner {
             return false;
         }
         boolean anyEmbodied = settlement.residents().stream()
-                .anyMatch(person -> settlement.laboursAs(person, Profession.BUILDER)
+                .anyMatch(person -> settlement.laborsAs(person, Profession.BUILDER)
                         && person.isEmbodied() && !person.isTooWeakToWork());
         return anyEmbodied
                 && ctx.bridge().isLoaded(perimeter.ringPositions().get(perimeter.laid()));
@@ -376,14 +376,14 @@ public final class PerimeterPlanner {
      * but the wall is under no obligation to enclose it.
      */
     public static Perimeter stake(Settlement settlement, SimContext ctx) {
-        SimPos centre = settlement.centre();
+        SimPos center = settlement.center();
         List<SimPos> plots = plotCorners(settlement);
         List<Hull.Keepout> squares = plotSquares(settlement);
         List<SimPos> loop = Hull.concave(plots, MAX_STRAIGHT_RUN, squares);
         if (loop.size() < 3) {
-            loop = boxAround(centre, MIN_HALF_SIDE);
+            loop = boxAround(center, MIN_HALF_SIDE);
         }
-        loop = pushOut(loop, centre, MARGIN, plots, squares);
+        loop = pushOut(loop, center, MARGIN, plots, squares);
         loop = relax(loop, plots, squares, ctx);
 
         // The ring first, then its gates -- a gate is a hole in a wall, so it
@@ -444,7 +444,7 @@ public final class PerimeterPlanner {
             return;
         }
         squares.add(new Hull.Keepout(origin.x(), origin.z(),
-                BuildPlanner.plotSpanOf(blueprintId, settlement.catalogue()) / 2.0));
+                BuildPlanner.plotSpanOf(blueprintId, settlement.catalog()) / 2.0));
     }
 
     /**
@@ -482,11 +482,11 @@ public final class PerimeterPlanner {
      * with one hut a ring worth the name.
      */
     private static List<SimPos> plotCorners(Settlement settlement) {
-        SimPos centre = settlement.centre();
-        List<SimPos> points = new ArrayList<>(boxAround(centre, MIN_HALF_SIDE));
+        SimPos center = settlement.center();
+        List<SimPos> points = new ArrayList<>(boxAround(center, MIN_HALF_SIDE));
         for (Building building : settlement.buildings()) {
             int half = BuildPlanner.plotSpanOf(building.blueprintId(),
-                    settlement.catalogue()) / 2;
+                    settlement.catalog()) / 2;
             SimPos at = building.origin();
             // Corners AND the middle of each edge. Four corners are not enough:
             // a concave hull can hold all four and still cut straight across the
@@ -498,7 +498,7 @@ public final class PerimeterPlanner {
             //
             // Repairing the line afterwards was the first attempt and it does not
             // work: pushing a vertex outward swings both of its stretches, and on
-            // a concave line a building sitting in the notch beyond a neighbour
+            // a concave line a building sitting in the notch beyond a neighbor
             // falls out of the wall. Guarding each move with containment then
             // rejects almost all of them, and ten stayed ten. Giving the hull
             // more to hold is cheaper and it cannot break containment, because
@@ -524,8 +524,8 @@ public final class PerimeterPlanner {
                     }
                     int cx = at.x() + sx * half;
                     int cz = at.z() + sz * half;
-                    points.add(new SimPos(cx, centre.y(), cz));
-                    points.add(pushedOut(new SimPos(cx, centre.y(), cz), centre, MARGIN));
+                    points.add(new SimPos(cx, center.y(), cz));
+                    points.add(pushedOut(new SimPos(cx, center.y(), cz), center, MARGIN));
                 }
             }
         }
@@ -533,9 +533,9 @@ public final class PerimeterPlanner {
     }
 
     /** A point moved this much further from the middle of town. */
-    private static SimPos pushedOut(SimPos point, SimPos centre, int by) {
-        int dx = point.x() - centre.x();
-        int dz = point.z() - centre.z();
+    private static SimPos pushedOut(SimPos point, SimPos center, int by) {
+        int dx = point.x() - center.x();
+        int dz = point.z() - center.z();
         double away = Math.hypot(dx, dz);
         if (away < 1) {
             return point;
@@ -545,12 +545,12 @@ public final class PerimeterPlanner {
                 point.z() + (int) Math.round(by * dz / away));
     }
 
-    private static List<SimPos> boxAround(SimPos centre, int half) {
+    private static List<SimPos> boxAround(SimPos center, int half) {
         return List.of(
-                new SimPos(centre.x() - half, centre.y(), centre.z() - half),
-                new SimPos(centre.x() + half, centre.y(), centre.z() - half),
-                new SimPos(centre.x() + half, centre.y(), centre.z() + half),
-                new SimPos(centre.x() - half, centre.y(), centre.z() + half));
+                new SimPos(center.x() - half, center.y(), center.z() - half),
+                new SimPos(center.x() + half, center.y(), center.z() - half),
+                new SimPos(center.x() + half, center.y(), center.z() + half),
+                new SimPos(center.x() - half, center.y(), center.z() + half));
     }
 
     /**
@@ -572,13 +572,13 @@ public final class PerimeterPlanner {
      * letting a plot out or drawing a stretch through one keeps the ground it
      * has, and the wall runs a little closer to the houses just there.
      */
-    private static List<SimPos> pushOut(List<SimPos> loop, SimPos centre, int margin,
+    private static List<SimPos> pushOut(List<SimPos> loop, SimPos center, int margin,
                                         List<SimPos> plots, List<Hull.Keepout> squares) {
         List<SimPos> line = new ArrayList<>(loop);
         for (int i = 0; i < line.size(); i++) {
             SimPos vertex = line.get(i);
-            double dx = vertex.x() - centre.x();
-            double dz = vertex.z() - centre.z();
+            double dx = vertex.x() - center.x();
+            double dz = vertex.z() - center.z();
             double away = Math.sqrt(dx * dx + dz * dz);
             if (away < 1e-6) {
                 continue;
@@ -609,7 +609,7 @@ public final class PerimeterPlanner {
      *
      * <p>Each vertex looks at the squares within {@link #RELAX_REACH} of itself
      * and takes the one with the least energy — flatter ground, and a shorter
-     * straighter line through its two neighbours. A move that would leave a
+     * straighter line through its two neighbors. A move that would leave a
      * plot corner outside the loop is refused however good the ground is,
      * which is the one rule a wall cannot bend.
      */
@@ -730,7 +730,7 @@ public final class PerimeterPlanner {
         if (posts.isEmpty()) {
             return List.of();
         }
-        SimPos centre = settlement.centre();
+        SimPos center = settlement.center();
 
         // Where the ways cross the line, widest road first: a carriageway
         // deserves a gate more than a footpath worn between two sheds.
@@ -772,8 +772,8 @@ public final class PerimeterPlanner {
             SimPos best = null;
             long bestScore = Long.MIN_VALUE;
             for (SimPos post : posts) {
-                long score = (long) (post.x() - centre.x()) * way[0]
-                        + (long) (post.z() - centre.z()) * way[1];
+                long score = (long) (post.x() - center.x()) * way[0]
+                        + (long) (post.z() - center.z()) * way[1];
                 if (score > bestScore && farFromAll(post, gates, apart)) {
                     bestScore = score;
                     best = post;
@@ -855,7 +855,7 @@ public final class PerimeterPlanner {
             return;
         }
         int hands = (int) settlement.residents().stream()
-                .filter(p -> settlement.laboursAs(p, Profession.BUILDER)
+                .filter(p -> settlement.laborsAs(p, Profession.BUILDER)
                         && !p.isTooWeakToWork())
                 .count();
         if (hands <= 0) {

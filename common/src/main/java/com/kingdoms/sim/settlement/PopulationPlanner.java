@@ -107,7 +107,7 @@ public final class PopulationPlanner {
      * that empties one. {@link #splitFamilyInto} takes a member out directly,
      * and a family living somewhere that reports a capacity of zero counts as
      * permanently overcrowded, so it sheds a member every birth cycle until
-     * there is nobody left. A house the catalogue cannot size no longer reports
+     * there is nobody left. A house the catalog cannot size no longer reports
      * zero — see {@link #capacityOf} — but a house that really does hold nobody
      * still does. That household went on existing, and went on being
      * {@code isHoused()}, which meant {@link #firstVacantHome} counted its house
@@ -140,7 +140,7 @@ public final class PopulationPlanner {
      * where it does not. Homeless is not a failure state and is deliberately not
      * dressed up as one: an unhoused family is what housing demand is made of —
      * see {@link Settlement#unhousedHouseholds} — so a town that loses a cottage
-     * wants another cottage, which is the whole behaviour a demolition ought to
+     * wants another cottage, which is the whole behavior a demolition ought to
      * produce. Dissolving the family instead would scatter its members back
      * through {@link #groupUnassignedResidents} and throw away the name, the
      * pantry and the growth they had between them.
@@ -296,7 +296,7 @@ public final class PopulationPlanner {
     private static Building firstVacantFamilyHome(Settlement settlement) {
         Set<SimPos> taken = spokenFor(settlement);
         for (Building building : settlement.buildings()) {
-            // A shed is not a home, and neither is a house the catalogue cannot
+            // A shed is not a home, and neither is a house the catalog cannot
             // size: an unknown capacity is not a spare bed the town may offer.
             if (bedsPromisedBy(settlement, building.blueprintId()) <= 0
                     || !settlement.isFamilyHome(building.origin())
@@ -393,7 +393,7 @@ public final class PopulationPlanner {
                 continue;
             }
 
-            // A standing house the catalogue cannot size gets no decision made
+            // A standing house the catalog cannot size gets no decision made
             // about it at all. This used to read zero, and zero reads as full —
             // `size() < 0` is false — so a family in a renamed cottage, or one
             // from a mod no longer loaded, or a save older than the entry,
@@ -407,7 +407,7 @@ public final class PopulationPlanner {
             // that cannot count the beds in a house cannot promise there is a
             // spare one, which is the same reading that keeps such a house off
             // the vacancy list. Growth progress is banked and held exactly as it
-            // is for a full house with nowhere to move to, so if the catalogue
+            // is for a full house with nowhere to move to, so if the catalog
             // entry comes back — a datapack reloaded, a mod put back — the child
             // arrives on the next step rather than the clock starting again.
             OptionalInt capacity = capacityOfHome(settlement, household);
@@ -476,15 +476,15 @@ public final class PopulationPlanner {
     // --- helpers ---
 
     /**
-     * The catalogue entry that describes this blueprint, or empty when the
-     * catalogue has never heard of it.
+     * The catalog entry that describes this blueprint, or empty when the
+     * catalog has never heard of it.
      *
      * <p>Matched the way {@link BuildingRole} matches: on the building's own
      * name, with namespace, culture folder and level suffix all stripped, so
      * {@code kingdoms:house}, {@code kingdoms:house_l2} and
      * {@code kingdoms:norman/house} are one building at three addresses. That
      * matters here more than anywhere, because the whole point of the method
-     * below is to say when the catalogue genuinely has nothing — and a raised
+     * below is to say when the catalog genuinely has nothing — and a raised
      * or styled house is not nothing, it is the same house written differently.
      * The exact id is tried first and on its own, so a datapack that really does
      * list two folders separately keeps them apart — and so the ordinary case,
@@ -497,7 +497,7 @@ public final class PopulationPlanner {
      * lookup by hand with only {@link BuildPlanner#baseIdOf} —
      * {@link RaidPlanner#defenseBonusOf}, {@link BuildPlanner#chooseUpgrade} and
      * {@code upgradePriority}. Those are deliberately left alone: widening what
-     * they match would move defence numbers and upgrade eligibility, which is
+     * they match would move defense numbers and upgrade eligibility, which is
      * not this change.
      */
     private static Optional<BuildingType> typeOf(Settlement settlement, String blueprintId) {
@@ -505,13 +505,13 @@ public final class PopulationPlanner {
             return Optional.empty();
         }
         String exactId = BuildPlanner.baseIdOf(blueprintId);
-        for (BuildingType type : settlement.catalogue()) {
+        for (BuildingType type : settlement.catalog()) {
             if (type.id().equals(exactId)) {
                 return Optional.of(type);
             }
         }
         String bareName = BuildingRole.bareName(blueprintId);
-        for (BuildingType type : settlement.catalogue()) {
+        for (BuildingType type : settlement.catalog()) {
             if (BuildingRole.bareName(type.id()).equals(bareName)) {
                 return Optional.of(type);
             }
@@ -520,10 +520,10 @@ public final class PopulationPlanner {
     }
 
     /**
-     * How many people the catalogue says live in this blueprint, or empty when
-     * the catalogue cannot say.
+     * How many people the catalog says live in this blueprint, or empty when
+     * the catalog cannot say.
      *
-     * <p><strong>Empty is not zero.</strong> Zero is a shed: the catalogue has
+     * <p><strong>Empty is not zero.</strong> Zero is a shed: the catalog has
      * been asked and has answered that nobody lives there. Empty is a renamed
      * cottage, a building from a mod that is no longer loaded, a save older than
      * the entry — the town has no opinion, and every caller has to say what it
@@ -541,14 +541,14 @@ public final class PopulationPlanner {
     }
 
     /**
-     * Beds in the house this family lives in, or empty when the catalogue cannot
+     * Beds in the house this family lives in, or empty when the catalog cannot
      * size the building standing there.
      *
      * <p>Empty means one thing only: <em>a building is standing on this spot and
      * the town cannot say how many live in it.</em> A family with no home at all,
      * and a family whose recorded home has no building on it, both answer zero,
      * which is what they answered before and what they still mean — no house, no
-     * beds. Those are facts; the unrecognised blueprint is the shrug.
+     * beds. Those are facts; the unrecognized blueprint is the shrug.
      *
      * <p>The distinction is worth the extra branch. Both zero cases end in the
      * family shedding a member into real housing and the household eventually
@@ -570,7 +570,7 @@ public final class PopulationPlanner {
     }
 
     /**
-     * Beds a caller may count on, which is none unless the catalogue said so.
+     * Beds a caller may count on, which is none unless the catalog said so.
      *
      * <p>Reading unknown as zero is safe here for a reason the comparisons in
      * {@link #growFamilies} do not share: nothing is being done <em>to</em> a
@@ -580,7 +580,7 @@ public final class PopulationPlanner {
      *
      * <p>Public so {@link Founding} states the policy by name instead of keeping
      * its own {@code orElse(0)}. That copy is how the next caller would have
-     * learnt the wrong lesson from a change whose whole argument is that callers
+     * learned the wrong lesson from a change whose whole argument is that callers
      * must choose.
      */
     public static int bedsPromisedBy(Settlement settlement, String blueprintId) {
@@ -610,7 +610,7 @@ public final class PopulationPlanner {
     }
 
     private static int largestHousingCapacity(Settlement settlement) {
-        return settlement.catalogue().stream()
+        return settlement.catalog().stream()
                 .filter(BuildingType::isHousing)
                 .mapToInt(BuildingType::capacity)
                 .max()

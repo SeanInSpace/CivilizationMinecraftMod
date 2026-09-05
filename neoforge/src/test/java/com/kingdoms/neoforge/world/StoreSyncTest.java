@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * code, because there was no way to run it without a chest in a world. The
  * arithmetic underneath has always been covered in {@code :common}; what had
  * never been exercised was everything around it — which building's ledger a set
- * of shelves answers to, what happens to a slot the stores do not recognise,
+ * of shelves answers to, what happens to a slot the stores do not recognize,
  * and whether a rewrite happens at all.
  */
 class StoreSyncTest {
@@ -264,7 +264,7 @@ class StoreSyncTest {
     }
 
     @Test
-    void aRewriteClearsWhatTheStoresRecogniseBeforeLayingOutAgain() {
+    void aRewriteClearsWhatTheStoresRecognizeBeforeLayingOutAgain() {
         // Otherwise the old stacks and the new ones would both be counted on
         // the following pass, which reads as a donation the town never had.
         Settlement s = town();

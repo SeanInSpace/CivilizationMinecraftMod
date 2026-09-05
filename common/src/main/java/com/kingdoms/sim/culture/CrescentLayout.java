@@ -21,13 +21,13 @@ import java.util.List;
  * keep — it carries frontage on both faces and encloses a green nobody drives
  * across.
  *
- * <h2>Why half-circles, centred on the spine</h2>
+ * <h2>Why half-circles, centered on the spine</h2>
  *
  * <p>The lane could be any bow, and a sine bow was tried first. It is worse for
  * one reason that matters: two bows of different depth over the same run are not
  * parallel curves, so the gap between an outer lane and the inner one it encloses
  * narrows toward the mouths, and every plot between them there is refused. A
- * half-circle whose centre sits <em>on</em> the spine makes the ranks properly
+ * half-circle whose center sits <em>on</em> the spine makes the ranks properly
  * concentric — the gap between them is {@link #RANK_GAP} everywhere — and hands
  * the whole of {@link RadialStreetLayout}'s arithmetic over unchanged, which is
  * arithmetic this codebase has already paid to get right three times.
@@ -57,12 +57,12 @@ public final class CrescentLayout extends PlannedLayout {
      * How far the innermost crescent bows out from the spine.
      *
      * <p>Also half its run along the spine, since the lane is a half-circle
-     * centred on the spine: it leaves at {@code zc - 45}, reaches 45 blocks out
+     * centered on the spine: it leaves at {@code zc - 45}, reaches 45 blocks out
      * at {@code zc}, and rejoins at {@code zc + 45}.
      *
      * <p>Bounded below by what has to fit inside the lens. The inner rank of
      * houses stands {@link #SETBACK} inside the lane, so the open ground left in
-     * the middle runs from the spine's kerb out to {@code 45 - 13 - 5} — sixteen
+     * the middle runs from the spine's curb out to {@code 45 - 13 - 5} — sixteen
      * blocks of green, sixty long. Below about forty the inner rank closes on the
      * spine and the lens stops being ground anybody would call a green; above
      * about sixty the lane runs so far along the spine that its two mouths
@@ -79,7 +79,7 @@ public final class CrescentLayout extends PlannedLayout {
      * At the ordinary straight pitch that is seven tenths of a separation, and
      * every plot on the diagonal quarters of every crescent is refused. So
      * {@link Layout#onACurve} of a separation, and two blocks for the rounding of
-     * each of the two plot centres to whole blocks — see
+     * each of the two plot centers to whole blocks — see
      * {@link RadialStreetLayout#ARC_PITCH} for what the second one is worth, which
      * is measured rather than derived and is worth more here than anywhere.
      *
@@ -149,7 +149,7 @@ public final class CrescentLayout extends PlannedLayout {
      * plots into a rounder town — 168 blocks of reach at a hundred and forty plots
      * against 213 — and loses the arrangement doing it. The stride has to grow
      * with the outermost lane, but not as fast as the lane does, so at three ranks
-     * the outer lanes of neighbouring stations overlap along more than a hundred
+     * the outer lanes of neighboring stations overlap along more than a hundred
      * blocks of spine: the chain of lobes closes up into one blob and the town is
      * a worse ring town. The silhouette is the whole of this arrangement's
      * identity and it is not worth fifty blocks of reach.
@@ -180,7 +180,7 @@ public final class CrescentLayout extends PlannedLayout {
      * short is not one plot short: {@code lay} asks its design again at twice the
      * size, which nests a third rank at every station and changes the shape of the
      * town. Guessing low draws an eighth station instead, which costs nothing but
-     * the spine that serves it: offers are taken nearest-centre-first, so a plan
+     * the spine that serves it: offers are taken nearest-center-first, so a plan
      * of 256 takes the same 213 blocks of reach at a hundred and forty either way,
      * and lands on 227 plots off the crescents and 29 off the spine.
      */
@@ -202,7 +202,7 @@ public final class CrescentLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int ranks = ranksFor(wanted);
         int stride = strideFor(ranks);
@@ -229,7 +229,7 @@ public final class CrescentLayout extends PlannedLayout {
         // whole main road of the town is given up permanently. The same points
         // are what lets the dev renderer and the paving layer keep the near end
         // of the spine while a young town has not grown out to the far one.
-        streets.add(northSouth(centre, Wander.STRAIGHT, 0, -reach, reach,
+        streets.add(northSouth(center, Wander.STRAIGHT, 0, -reach, reach,
                 ROAD_HALF * 2, TownPlan.Kind.SPINE));
 
         // Then the crescents, station by station and innermost rank first, so a
@@ -239,7 +239,7 @@ public final class CrescentLayout extends PlannedLayout {
             int zc = stationZ(station, stride);
             int side = sideOf(station);
             for (int rank = 0; rank < ranks; rank++) {
-                streets.add(crescentLane(centre, zc, side, laneRadius(rank)));
+                streets.add(crescentLane(center, zc, side, laneRadius(rank)));
             }
         }
 
@@ -260,8 +260,8 @@ public final class CrescentLayout extends PlannedLayout {
                     int along = Math.max(3, (int) (Math.PI * at / ARC_PITCH));
                     for (int i = 0; i < along; i++) {
                         double turn = -Math.PI / 2 + (i + 0.5) * Math.PI / along;
-                        SimPos where = onArc(centre, zc, side, at, turn);
-                        SimPos onLane = onArc(centre, zc, side, lane, turn);
+                        SimPos where = onArc(center, zc, side, at, turn);
+                        SimPos onLane = onArc(center, zc, side, lane, turn);
                         offers.add(new Offer(where, street,
                                 Layout.facingToward(where, onLane)));
                     }
@@ -278,9 +278,9 @@ public final class CrescentLayout extends PlannedLayout {
         for (int k = -rows; k <= rows; k++) {
             int z = k * PITCH;
             for (int face : new int[] {-1, 1}) {
-                SimPos where = new SimPos(centre.x() + face * SETBACK, centre.y(),
-                        centre.z() + z);
-                if (insideALens(centre, where, stations, stride, face)) {
+                SimPos where = new SimPos(center.x() + face * SETBACK, center.y(),
+                        center.z() + z);
+                if (insideALens(center, where, stations, stride, face)) {
                     continue;
                 }
                 offers.add(new Offer(where, SPINE, face > 0 ? 3 : 1));
@@ -345,9 +345,9 @@ public final class CrescentLayout extends PlannedLayout {
     /**
      * Where the nth station sits along the spine, walking outward from the middle.
      *
-     * <p>Half a stride off centre, so the town's middle is a length of open spine
+     * <p>Half a stride off center, so the town's middle is a length of open spine
      * between two crescents rather than the inside of one. Offers are taken
-     * nearest-centre-first, so that length is where the first houses of a young
+     * nearest-center-first, so that length is where the first houses of a young
      * town stand — a street, before it has grown any lobes.
      */
     private static int stationZ(int station, int stride) {
@@ -376,14 +376,14 @@ public final class CrescentLayout extends PlannedLayout {
      * is for: a green the plan can promise is empty rather than one that happens
      * to be empty today.
      */
-    private static boolean insideALens(SimPos centre, SimPos where, int stations,
+    private static boolean insideALens(SimPos center, SimPos where, int stations,
                                        int stride, int face) {
         for (int station = 0; station < stations; station++) {
             if (sideOf(station) != face) {
                 continue;   // the lens is on the crescent's own side of the spine
             }
-            double dx = where.x() - centre.x();
-            double dz = where.z() - (centre.z() + stationZ(station, stride));
+            double dx = where.x() - center.x();
+            double dz = where.z() - (center.z() + stationZ(station, stride));
             if (Math.hypot(dx, dz) < FIRST_BOW) {
                 return true;
             }
@@ -392,12 +392,12 @@ public final class CrescentLayout extends PlannedLayout {
     }
 
     /** One crescent, as the run of points a lane looping off the spine passes through. */
-    private static TownPlan.Street crescentLane(SimPos centre, int zc, int side, int radius) {
+    private static TownPlan.Street crescentLane(SimPos center, int zc, int side, int radius) {
         List<SimPos> path = new ArrayList<>();
         int steps = Math.max(6, (int) (Math.PI * radius / SEGMENT));
         for (int i = 0; i <= steps; i++) {
             double turn = -Math.PI / 2 + i * Math.PI / steps;
-            path.add(onArc(centre, zc, side, radius, turn));
+            path.add(onArc(center, zc, side, radius, turn));
         }
         return new TownPlan.Street(path, ROAD_HALF * 2, TownPlan.Kind.LANE);
     }
@@ -410,10 +410,10 @@ public final class CrescentLayout extends PlannedLayout {
      * the cosine is nought — so a lane's mouths land exactly on the spine rather
      * than near it, whatever radius it has.
      */
-    private static SimPos onArc(SimPos centre, int zc, int side, double radius, double turn) {
+    private static SimPos onArc(SimPos center, int zc, int side, double radius, double turn) {
         return new SimPos(
-                centre.x() + (int) Math.round(side * radius * Math.cos(turn)),
-                centre.y(),
-                centre.z() + zc + (int) Math.round(radius * Math.sin(turn)));
+                center.x() + (int) Math.round(side * radius * Math.cos(turn)),
+                center.y(),
+                center.z() + zc + (int) Math.round(radius * Math.sin(turn)));
     }
 }

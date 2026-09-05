@@ -153,7 +153,7 @@ public final class HeightField {
     }
 
     /**
-     * The steepest step between neighbouring recorded columns.
+     * The steepest step between neighboring recorded columns.
      *
      * <p>The number this whole fixture exists for. If a recorded field reports
      * one, it is as smooth as the sine waves it was meant to replace and it is

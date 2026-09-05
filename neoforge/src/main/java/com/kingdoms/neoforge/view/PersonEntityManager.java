@@ -218,7 +218,7 @@ public final class PersonEntityManager {
     /** How far to hunt for a spot a body fits when spawning someone in. */
     private static final int FOOTING_SEARCH = 8;
 
-    /** A drop of at least this counts as stranded rather than a kerb. */
+    /** A drop of at least this counts as stranded rather than a curb. */
     private static final int MIN_STRANDED_DROP = 3;
 
     /** How far down to look for a floor to climb to. */
@@ -1215,7 +1215,7 @@ public final class PersonEntityManager {
      * Over a hole, the first solid thing is a long way below and
      * {@link #floorBelow} finds it. On a roof it is directly underfoot, the drop
      * reads nought against {@link #MIN_STRANDED_DROP}, and the old test threw the
-     * case away as a kerb — so the crew who had just laid the last course of a
+     * case away as a curb — so the crew who had just laid the last course of a
      * cottage stood on it until something else happened to them. They are not
      * over a hole; they are on top of the building they finished.
      */
@@ -1295,10 +1295,10 @@ public final class PersonEntityManager {
      *
      * <p><strong>The walls, not the recorded plot.</strong> A footprint is saved
      * as the building plus its doorstep ring — see {@code BlueprintPlacer.plotOf},
-     * which adds {@code APRON_MARGIN} on every side — and two neighbours' rings
+     * which adds {@code APRON_MARGIN} on every side — and two neighbors' rings
      * are allowed to meet, so recorded plots overlap where the buildings do not.
      * Asked of the plot, a builder on one cottage's roof standing inside the
-     * next cottage's apron could be attributed to the neighbour, and the flight
+     * next cottage's apron could be attributed to the neighbor, and the flight
      * of steps would then be ordered onto a roof he is not on.
      *
      * <p><strong>The roof line, not three courses.</strong> "Three above the
@@ -1400,7 +1400,7 @@ public final class PersonEntityManager {
      * taste. {@code accessStairs} draws its treads outward from the origin it is
      * given and stops the moment a tread would be at or below
      * {@code groundLevel}, which is the surface heightmap — and over a building
-     * the surface heightmap <em>is the roof</em>. Anchored at the centre, the very
+     * the surface heightmap <em>is the roof</em>. Anchored at the center, the very
      * first tread reads as underground and the flight comes out empty: a job worth
      * four units of work with a plan of nothing in it, which can never read
      * complete, pins the head of a head-blocking queue until the watched-build
@@ -1542,7 +1542,7 @@ public final class PersonEntityManager {
 
                 // The building's own door, not a guess at one. This used to
                 // assume every door faced south while the placer turned three
-                // houses in four to face the centre, so the flight of steps was
+                // houses in four to face the center, so the flight of steps was
                 // built against a blank wall of the house it was meant to open.
                 SimPos doorway = doorwayOf(settlement, home);
                 if (BuildPlanner.requestAccessStairs(settlement, doorway, climb, world.stepsElapsed())) {
@@ -1714,7 +1714,7 @@ public final class PersonEntityManager {
     /** Every embodied farmer works their field: harvest, tend, plant. */
     private void workFarmers(Settlement settlement) {
         for (Person person : settlement.residents()) {
-            if (!settlement.laboursAs(person, Profession.FARMER) || !person.isEmbodied()
+            if (!settlement.laborsAs(person, Profession.FARMER) || !person.isEmbodied()
                     || person.isTooWeakToWork() || person.haul() != null) {
                 continue;   // a hauling farmer is on the road, not in the rows
             }
@@ -1773,7 +1773,7 @@ public final class PersonEntityManager {
         if (store == null) {
             store = settlement.nearestStore(at);
         }
-        SimPos stores = store == null ? settlement.centre() : store.origin();
+        SimPos stores = store == null ? settlement.center() : store.origin();
         double dx = builder.getX() - (stores.x() + 0.5);
         double dz = builder.getZ() - (stores.z() + 0.5);
         if (dx * dx + dz * dz > LOAD_REACH * LOAD_REACH) {
@@ -1783,7 +1783,7 @@ public final class PersonEntityManager {
         }
         // Drawn from the building they walked to, not from a town-wide figure.
         // The walk and the withdrawal have to name the same shelves or the trip
-        // is theatre — which is exactly what it used to be. Whatever they were
+        // is theater — which is exactly what it used to be. Whatever they were
         // still carrying goes back on those same shelves rather than evaporating.
         Stock from = store == null ? settlement.stores() : store.stores();
         if (BuildLoad.pickUp(from, carrier, material) <= 0) {
@@ -1807,8 +1807,8 @@ public final class PersonEntityManager {
      * different and better question.
      */
     public static SimPos storesPos(Settlement settlement) {
-        Building store = settlement.nearestStore(settlement.centre());
-        return store == null ? settlement.centre() : store.origin();
+        Building store = settlement.nearestStore(settlement.center());
+        return store == null ? settlement.center() : store.origin();
     }
 
     /**
@@ -1865,7 +1865,7 @@ public final class PersonEntityManager {
     private List<PersonEntity> embodiedBuilders(Settlement settlement) {
         List<PersonEntity> builders = new ArrayList<>();
         for (Person person : settlement.residents()) {
-            if (!settlement.laboursAs(person, Profession.BUILDER)
+            if (!settlement.laborsAs(person, Profession.BUILDER)
                     || !person.isEmbodied()
                     || person.isTooWeakToWork()) {
                 continue;
@@ -1945,7 +1945,7 @@ public final class PersonEntityManager {
             guard.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
         }
         if (guard.getItemBySlot(EquipmentSlot.CHEST).isEmpty()
-                && settlement.stores().take(TownStores.ARMOUR, 1)) {
+                && settlement.stores().take(TownStores.ARMOR, 1)) {
             guard.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
         }
     }
@@ -2050,7 +2050,7 @@ public final class PersonEntityManager {
      * <p>Every {@code Mob} is collected and the table does the whittling, exactly
      * as the sweep does it, so a guard goes for the thing the bell was rung
      * about. Citizens are refused by that table like any other creature filed
-     * under a peaceful category — no guard is offered his own neighbour.
+     * under a peaceful category — no guard is offered his own neighbor.
      */
     private Mob nearestHostile(PersonEntity guard) {
         AABB box = guard.getBoundingBox().inflate(GUARD_ENGAGE_RANGE);
@@ -2156,7 +2156,7 @@ public final class PersonEntityManager {
                     .append(", hunger ").append(person.hunger())
                     .append(" ").append(Appetite.of(person.hunger()).word())
                     .append(", errand ").append(errandOf(person));
-            if (settlement.laboursAs(person, Profession.BUILDER)) {
+            if (settlement.laborsAs(person, Profession.BUILDER)) {
                 line.append(steeredByBuild.contains(person.id().value())
                         ? ", site has them" : ", SITE STEERING NOBODY");
                 if (pathlessPasses.containsKey(person.id().value())) {
@@ -2190,7 +2190,7 @@ public final class PersonEntityManager {
         view.setPersistenceRequired();
         view.setData(KingdomsAttachments.PERSON_ID.get(), person.id().value());
 
-        // Registered before addFreshEntity so the join hook recognises our own spawn.
+        // Registered before addFreshEntity so the join hook recognizes our own spawn.
         tracked.put(person.id().value(), view);
         if (!level.addFreshEntity(view)) {
             tracked.remove(person.id().value());
@@ -2232,7 +2232,7 @@ public final class PersonEntityManager {
             return false;   // shelter and stores before roads and walls
         }
         for (Person person : settlement.residents()) {
-            if (!settlement.laboursAs(person, Profession.BUILDER)
+            if (!settlement.laborsAs(person, Profession.BUILDER)
                     || !person.isEmbodied() || person.isTooWeakToWork()
                     || person.haul() != null) {
                 continue;
@@ -2321,7 +2321,7 @@ public final class PersonEntityManager {
     private void unloadAtStore(Settlement settlement) {
         SimPos where = marketPos(settlement);
         if (where == null) {
-            where = settlement.centre();
+            where = settlement.center();
         }
         for (Person person : settlement.residents()) {
             if (!person.isEmbodied() || !Economy.wantsToUnload(person)) {
@@ -2376,7 +2376,7 @@ public final class PersonEntityManager {
      * <p>The simulation has already decided — {@code RaidPlanner} rings when
      * what has been seen outnumbers the watch — and this is that decision made
      * audible. It swings a real bell if the town has one, so the sound comes
-     * from the tower rather than from nowhere, and falls back to the town centre
+     * from the tower rather than from nowhere, and falls back to the town center
      * for a settlement whose tower has not gone up yet.
      *
      * <p>Only on the rise. A bell that tolled every second for as long as a raid
@@ -2389,9 +2389,9 @@ public final class PersonEntityManager {
             return;
         }
         BlockPos bell = findBell(settlement);
-        SimPos centre = settlement.centre();
+        SimPos center = settlement.center();
         BlockPos from = bell != null ? bell
-                : new BlockPos(centre.x(), centre.y(), centre.z());
+                : new BlockPos(center.x(), center.y(), center.z());
         if (bell != null && level.getBlockEntity(bell) instanceof BellBlockEntity ringing) {
             // Swings the real thing: the model moves and vanilla's own bell
             // effects run, so it reads as somebody pulling the rope.
@@ -2466,7 +2466,7 @@ public final class PersonEntityManager {
             // nobody, and standing aside for it left the crew with no orders
             // from anybody -- which is a builder standing still on a finished
             // roof, exactly as reported.
-            if (settlement.laboursAs(person, Profession.BUILDER)
+            if (settlement.laborsAs(person, Profession.BUILDER)
                     && !alarm.callsIn(person.profession()) && !night
                     && (steeredByBuild.contains(person.id().value())
                             || isClearing(settlement))
@@ -2480,7 +2480,7 @@ public final class PersonEntityManager {
                     && !person.isTooWeakToWork()) {
                 continue;   // steered tree by tree in workLumberjacks
             }
-            if (settlement.laboursAs(person, Profession.FARMER)
+            if (settlement.laborsAs(person, Profession.FARMER)
                     && !alarm.callsIn(person.profession()) && !night
                     && person.haul() == null
                     && !person.isTooWeakToWork()) {
@@ -2506,7 +2506,7 @@ public final class PersonEntityManager {
                 // Wary is a walk indoors; alarmed is a run. A town that sprints
                 // for its doors over one skeleton reads as hysterical, and a
                 // town that strolls through a raid reads as asleep.
-                target = home != null ? home : settlement.centre();
+                target = home != null ? home : settlement.center();
                 speed = alarm == Alarm.ALARMED ? SHELTER_SPEED : WALK_SPEED;
             } else if (FoodPlanner.isGoingToEat(person)) {
                 // Dinner outranks the end of the day. Somebody weak with hunger
@@ -2515,7 +2515,7 @@ public final class PersonEntityManager {
                 target = person.haul().target();
                 speed = WALK_SPEED;
             } else if (night && !guard) {
-                target = home != null ? home : settlement.centre();
+                target = home != null ? home : settlement.center();
                 speed = WALK_SPEED;
             } else {
                 target = workplaceFor(settlement, person, home);
@@ -2574,10 +2574,10 @@ public final class PersonEntityManager {
                     : settlement.buildQueue().getFirst().origin();
             case TRADER -> nearestBuilding(settlement, "market", person.position());
             case LUMBERJACK -> settlement.lumberArea() != null
-                    ? settlement.lumberArea().centre()
+                    ? settlement.lumberArea().center()
                     : nearestBuilding(settlement, "lumber_camp", person.position());
             case MINER -> settlement.mineArea() != null
-                    ? settlement.mineArea().centre()
+                    ? settlement.mineArea().center()
                     : nearestBuilding(settlement, "mine", person.position());
             case SMITH -> nearestBuilding(settlement, "smith", person.position());
             case MILLER -> nearestBuilding(settlement, "mill", person.position());
@@ -2586,12 +2586,12 @@ public final class PersonEntityManager {
             case GUARD -> patrolPost(settlement, person);
             // A pioneer's workplace is whatever the camp is doing: the build
             // site while anything is queued, the fields otherwise, and
-            // nearestBuilding already falls back to the camp centre before
+            // nearestBuilding already falls back to the camp center before
             // there is a field to stand in.
             case PIONEER -> settlement.buildQueue().isEmpty()
                     ? nearestBuilding(settlement, "farm", person.position())
                     : settlement.buildQueue().getFirst().origin();
-            case IDLER -> home != null ? home : settlement.centre();
+            case IDLER -> home != null ? home : settlement.center();
         };
     }
 
@@ -2622,7 +2622,7 @@ public final class PersonEntityManager {
         return nodes.get(atCorner ? (nearest + 1) % nodes.size() : nearest);
     }
 
-    /** Nearest completed building whose blueprint path ends with the suffix, else the centre. */
+    /** Nearest completed building whose blueprint path ends with the suffix, else the center. */
     private static SimPos nearestBuilding(Settlement settlement, String pathSuffix, SimPos from) {
         SimPos best = null;
         long bestDistance = Long.MAX_VALUE;
@@ -2636,7 +2636,7 @@ public final class PersonEntityManager {
                 best = building.origin();
             }
         }
-        return best != null ? best : settlement.centre();
+        return best != null ? best : settlement.center();
     }
 
     /** Whether this exact entity is the live view we spawned for this person. */
@@ -2703,11 +2703,11 @@ public final class PersonEntityManager {
     /**
      * What a surveyed line is drawn with.
      *
-     * <p>Coloured dust rather than end rods. An end rod spark is a point of
+     * <p>Colored dust rather than end rods. An end rod spark is a point of
      * light: a row of them half a block apart still reads as a row of dots,
      * which was the whole complaint. A dust particle takes a size, so at one and
      * a half it is wider than the gap between two of them and the row closes
-     * into a line. It also takes a colour, which lets the streets be told apart
+     * into a line. It also takes a color, which lets the streets be told apart
      * from the buildings at a glance -- amber ways, white walls.
      */
     private static final DustParticleOptions WALL_LINE =
@@ -2745,23 +2745,23 @@ public final class PersonEntityManager {
 
     private void drawBorderNear(ServerPlayer player, Settlement settlement) {
         double radius = settlement.claimRadius();
-        SimPos centre = settlement.centre();
-        double dx = player.getX() - centre.x();
-        double dz = player.getZ() - centre.z();
+        SimPos center = settlement.center();
+        double dx = player.getX() - center.x();
+        double dz = player.getZ() - center.z();
         if (Math.sqrt(dx * dx + dz * dz) > radius + BORDER_VIEW_RANGE) {
             return;
         }
         int points = Math.max(16, (int) (2 * Math.PI * radius / BORDER_POINT_SPACING));
         for (int i = 0; i < points; i++) {
             double angle = 2 * Math.PI * i / points;
-            double x = centre.x() + radius * Math.cos(angle) + 0.5;
-            double z = centre.z() + radius * Math.sin(angle) + 0.5;
+            double x = center.x() + radius * Math.cos(angle) + 0.5;
+            double z = center.z() + radius * Math.sin(angle) + 0.5;
             double px = player.getX() - x;
             double pz = player.getZ() - z;
             if (px * px + pz * pz > BORDER_VIEW_RANGE * BORDER_VIEW_RANGE) {
                 continue;   // draw only the arc the player can actually see
             }
-            int y = world.bridge().surfaceHeight(new SimPos((int) Math.floor(x), centre.y(), (int) Math.floor(z)));
+            int y = world.bridge().surfaceHeight(new SimPos((int) Math.floor(x), center.y(), (int) Math.floor(z)));
             level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y + 0.6, z, 1, 0.0, 0.0, 0.0, 0.0);
         }
     }
@@ -2807,7 +2807,7 @@ public final class PersonEntityManager {
                         Footprint footprint = task.footprint();
                         if (!footprint.isKnown()) {
                             int span = BuildPlanner.plotSpanOf(
-                                    task.blueprintId(), settlement.catalogue());
+                                    task.blueprintId(), settlement.catalog());
                             footprint = new Footprint(task.site().y(), span, span, 3);
                         }
                         outline(player, task.site(), footprint);

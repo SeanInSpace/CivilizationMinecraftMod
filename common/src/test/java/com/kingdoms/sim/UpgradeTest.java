@@ -36,7 +36,7 @@ class UpgradeTest {
 
     private static final BuildingType HOUSE =
             new BuildingType("kingdoms:house", 20, 1, 1, 0, 80, 4);
-    private static final List<BuildingType> CATALOGUE = List.of(HOUSE);
+    private static final List<BuildingType> CATALOG = List.of(HOUSE);
 
     private static Settlement town() {
         return new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 128);
@@ -50,8 +50,8 @@ class UpgradeTest {
 
     @Test
     void alevelLivesInTheIdSoADatapackCanSupplyOne() {
-        assertEquals("kingdoms:house", BuildPlanner.levelledId("kingdoms:house", 1));
-        assertEquals("kingdoms:house_l2", BuildPlanner.levelledId("kingdoms:house", 2));
+        assertEquals("kingdoms:house", BuildPlanner.leveledId("kingdoms:house", 1));
+        assertEquals("kingdoms:house_l2", BuildPlanner.leveledId("kingdoms:house", 2));
 
         assertEquals(2, BuildPlanner.levelOf("kingdoms:house_l2"));
         assertEquals(1, BuildPlanner.levelOf("kingdoms:house"));
@@ -66,7 +66,7 @@ class UpgradeTest {
     }
 
     @Test
-    void alevelledBuildingStillCountsAsWhatItIs() {
+    void aleveledBuildingStillCountsAsWhatItIs() {
         Settlement s = town();
         s.addBuilding(standing("kingdoms:house_l2", 2));
 
@@ -82,7 +82,7 @@ class UpgradeTest {
         s.addBuilding(grand);
         s.addBuilding(plain);
 
-        assertEquals(plain, BuildPlanner.chooseUpgrade(s, CATALOGUE).orElseThrow(),
+        assertEquals(plain, BuildPlanner.chooseUpgrade(s, CATALOG).orElseThrow(),
                 "a town improves evenly rather than raising one showpiece");
     }
 
@@ -91,20 +91,20 @@ class UpgradeTest {
         Settlement s = town();
         s.addBuilding(standing("kingdoms:house_l3", BuildPlanner.MAX_LEVEL));
 
-        assertTrue(BuildPlanner.chooseUpgrade(s, CATALOGUE).isEmpty());
+        assertTrue(BuildPlanner.chooseUpgrade(s, CATALOG).isEmpty());
     }
 
     @Test
-    void thingsTheCatalogueNeverAskedForAreLeftAlone() {
+    void thingsTheCatalogNeverAskedForAreLeftAlone() {
         Settlement s = town();
         s.addBuilding(new Building("kingdoms:stairs", new SimPos(4, 64, 4), 1, true));
 
-        assertTrue(BuildPlanner.chooseUpgrade(s, CATALOGUE).isEmpty(),
+        assertTrue(BuildPlanner.chooseUpgrade(s, CATALOG).isEmpty(),
                 "a repair flight is not a building to be made grander");
     }
 
     @Test
-    void alevelledBuildingIsStillFoundByItsRole() {
+    void aleveledBuildingIsStillFoundByItsRole() {
         // Everything that looks a building up does it by name suffix — the food
         // chain, the workplace lookup, the path layer. An improved farm that
         // stopped answering to "farm" would quietly drop out of all three, and a
@@ -137,7 +137,7 @@ class UpgradeTest {
         for (int i = 0; i < 4; i++) {
             s.addResident(new com.kingdoms.sim.person.Person(
                     com.kingdoms.sim.person.Person.Id.random(), "Hand " + i,
-                    com.kingdoms.sim.person.Profession.BUILDER, s.centre()));
+                    com.kingdoms.sim.person.Profession.BUILDER, s.center()));
         }
         s.setStock(com.kingdoms.sim.settlement.TownStores.WOOD, 5000);
         s.setStock(com.kingdoms.sim.settlement.TownStores.STONE, 5000);

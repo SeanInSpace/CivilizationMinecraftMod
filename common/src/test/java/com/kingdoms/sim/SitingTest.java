@@ -157,8 +157,8 @@ class SitingTest {
                                                             boolean surveyed, int facing) {
                 return new Footprint(origin.y(), 3, 3, 3);
             }
-            @Override public int woodedness(SimPos centre, int radius) {
-                return centre.x() >= easternEdge ? 100 : 0;
+            @Override public int woodedness(SimPos center, int radius) {
+                return center.x() >= easternEdge ? 100 : 0;
             }
             @Override public void log(String message) { }
         };

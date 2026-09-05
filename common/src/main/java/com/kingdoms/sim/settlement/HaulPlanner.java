@@ -89,7 +89,7 @@ public final class HaulPlanner {
             if (person.haul() != null || person.isTooWeakToWork()) {
                 continue;
             }
-            if (settlement.laboursAs(person, Profession.BUILDER)
+            if (settlement.laborsAs(person, Profession.BUILDER)
                     || person.profession() == Profession.GUARD) {
                 continue;
             }
@@ -144,7 +144,7 @@ public final class HaulPlanner {
     static boolean hasWorkInFront(Settlement settlement, Person person) {
         return switch (person.profession()) {
             // A pioneer past VILLAGE is a generalist the staffing table has not
-            // caught up with; while generalists still labour they are builders
+            // caught up with; while generalists still labor they are builders
             // and farmers, and courierFor has already passed them over.
             case IDLER, PIONEER -> false;
             case BUILDER, GUARD -> true;

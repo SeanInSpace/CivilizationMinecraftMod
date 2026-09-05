@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Covers goods physically travelling on somebody's back. */
+/** Covers goods physically traveling on somebody's back. */
 class HaulPlannerTest {
 
     private static final BuildingType MARKET = new BuildingType("test:market", 5, 9999, 0, 0, 65, 0);
@@ -41,7 +41,7 @@ class HaulPlannerTest {
 
     private static Settlement settlement() {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
-        s.setCatalogue(List.of(MARKET));
+        s.setCatalog(List.of(MARKET));
         return s;
     }
 

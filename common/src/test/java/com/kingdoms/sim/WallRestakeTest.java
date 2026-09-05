@@ -5,7 +5,7 @@ import com.kingdoms.sim.geom.Hull;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Perimeter;
@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class WallRestakeTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 72, 0);
+    private static final SimPos CENTER = new SimPos(0, 72, 0);
 
     private static SimContext at(long step) {
         return new SimContext(new TerrainFake(11), step, SimSettings.SANDBOX);
@@ -68,8 +68,8 @@ class WallRestakeTest {
      * @param complete whether the wall has been paid for to its last post
      */
     private static Settlement walled(int inside, int outside, boolean complete) {
-        Settlement town = new Settlement(Settlement.Id.random(), "Faubourg", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Faubourg", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.TOWN);
         Perimeter ring = new Perimeter(box(-60, 60), List.of(), 0);
         ring.setLaid(complete ? ring.length() : ring.length() - 1);
@@ -242,13 +242,13 @@ class WallRestakeTest {
     /** A town grown on the rough seed, with every staking of its wall kept. */
     private static List<Staking> grow(int steps) {
         TerrainFake ground = new TerrainFake(11);
-        Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         town.setCultureId("kingdoms:burgher");
         town.setLayoutId(Culture.of("kingdoms:burgher").layouts().get(0));
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
-            town.addResident(new Person(Person.Id.random(), name, Profession.PIONEER, CENTRE));
+            town.addResident(new Person(Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         List<Staking> staked = new ArrayList<>();
         Perimeter last = null;
@@ -342,7 +342,7 @@ class WallRestakeTest {
                 }
                 plots.add(new Hull.Keepout(building.origin().x(), building.origin().z(),
                         BuildPlanner.plotSpanOf(building.blueprintId(),
-                                BuildCatalogue.DEFAULT) / 2.0));
+                                BuildCatalog.DEFAULT) / 2.0));
             }
             List<SimPos> loop = staked.line().vertices();
             for (int i = 0; i < loop.size(); i++) {
@@ -417,8 +417,8 @@ class WallRestakeTest {
 
     /** A settlement at this stage with every ladder building standing. */
     private static Settlement ladder(SettlementStage stage) {
-        Settlement town = new Settlement(Settlement.Id.random(), "Ladder", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Ladder", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(stage);
         String[] program = {"kingdoms:camp_post", "kingdoms:cache", "kingdoms:bunkhouse",
                 "kingdoms:hearth", "kingdoms:farm", "kingdoms:granary",
@@ -468,7 +468,7 @@ class WallRestakeTest {
     /** Whether every corner of this building's reserved plot is inside the line. */
     private static boolean whollyInside(Building building, List<SimPos> loop) {
         int half = BuildPlanner.plotSpanOf(
-                building.blueprintId(), BuildCatalogue.DEFAULT) / 2;
+                building.blueprintId(), BuildCatalog.DEFAULT) / 2;
         SimPos at = building.origin();
         for (int sx = -1; sx <= 1; sx += 2) {
             for (int sz = -1; sz <= 1; sz += 2) {

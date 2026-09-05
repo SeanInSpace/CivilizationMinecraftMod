@@ -14,17 +14,17 @@ import java.util.Optional;
  * settlement graduates to the next one.
  *
  * <p>This is the priority structure that replaced hall-first founding. Below
- * {@link SettlementStage#VILLAGE} the catalogue's priorities do not run at all
+ * {@link SettlementStage#VILLAGE} the catalog's priorities do not run at all
  * — the stage's own ordered program is the only thing that gets built, so a
  * camp raises a bunkhouse and a farm and nothing else, however loudly the
- * catalogue would like a hall. From VILLAGE the catalogue scan resumes for
+ * catalog would like a hall. From VILLAGE the catalog scan resumes for
  * growth (houses per residents, and so on), and the hall stays off the table
  * until TOWN, where it is the stage's own headline build.
  *
  * <p>Program entries name blueprints that may not exist yet in a given
- * catalogue; unknown entries are skipped rather than built as markers, which
+ * catalog; unknown entries are skipped rather than built as markers, which
  * keeps the machine honest while the content catches up and keeps test
- * catalogues inert.
+ * catalogs inert.
  */
 public final class StagePlanner {
 
@@ -77,14 +77,14 @@ public final class StagePlanner {
 
     /**
      * The next thing this stage's program wants built, or empty when the
-     * program is satisfied (or names nothing this catalogue knows).
+     * program is satisfied (or names nothing this catalog knows).
      */
     public static Optional<BuildingType> nextProgramWant(Settlement settlement) {
         List<Want> program = PROGRAMS.getOrDefault(settlement.stage(), List.of());
         for (Want want : program) {
             Optional<BuildingType> type = typeOf(settlement, want.blueprintId());
             if (type.isEmpty()) {
-                continue;   // content not in this catalogue yet; the machine moves on
+                continue;   // content not in this catalog yet; the machine moves on
             }
             int standing = settlement.countBuildings(want.blueprintId());
             boolean queued = settlement.buildQueue().stream()
@@ -111,20 +111,20 @@ public final class StagePlanner {
     }
 
     /**
-     * Whether the catalogue's own priority scan may run at this stage.
+     * Whether the catalog's own priority scan may run at this stage.
      *
      * <p>Below VILLAGE the answer is no: the program is the whole of the plan,
      * which is precisely what stops a camp ordering civic architecture.
      */
-    public static boolean catalogueRuns(SettlementStage stage) {
+    public static boolean catalogRuns(SettlementStage stage) {
         return stage.atLeast(SettlementStage.VILLAGE);
     }
 
     /**
-     * Whether this building may be ordered from the catalogue at this stage.
+     * Whether this building may be ordered from the catalog at this stage.
      * The hall is the one the whole design exists to hold back.
      */
-    public static boolean catalogueAllows(SettlementStage stage, String blueprintId) {
+    public static boolean catalogAllows(SettlementStage stage, String blueprintId) {
         if (BuildPlanner.baseIdOf(blueprintId).equals("kingdoms:town_hall")) {
             return stage.atLeast(SettlementStage.TOWN);
         }
@@ -132,14 +132,14 @@ public final class StagePlanner {
     }
 
     /**
-     * Whether generalists still labour here.
+     * Whether generalists still labor here.
      *
      * <p>Early settlers are pioneers — no fixed trade, taking whatever work the
      * camp has. Professions crystallize as the stages demand them; from VILLAGE
      * the specialists have arrived and a pioneer is a person the staffing table
      * has not caught up with yet.
      */
-    public static boolean pioneersLabour(SettlementStage stage) {
+    public static boolean pioneersLabor(SettlementStage stage) {
         return stage.before(SettlementStage.VILLAGE);
     }
 
@@ -209,12 +209,12 @@ public final class StagePlanner {
      * merely on arrival. The raid that proved it killed the town's only guard
      * twelve steps after the fortification named them, and the founding
      * stalled forever, because entry-time crystallization never runs twice.
-     * While generalists still labour, the stage itself keeps its posts
+     * While generalists still labor, the stage itself keeps its posts
      * manned; from VILLAGE the ordinary staffing table holds that duty.
      */
     public static void keepPostsFilled(Settlement settlement) {
         if (!settlement.stage().atLeast(SettlementStage.FORTIFIED)
-                || !pioneersLabour(settlement.stage())) {
+                || !pioneersLabor(settlement.stage())) {
             return;
         }
         crystallizeOne(settlement, Profession.GUARD);
@@ -262,7 +262,7 @@ public final class StagePlanner {
     }
 
     private static Optional<BuildingType> typeOf(Settlement settlement, String blueprintId) {
-        return settlement.catalogue().stream()
+        return settlement.catalog().stream()
                 .filter(type -> type.id().equals(blueprintId))
                 .findFirst();
     }

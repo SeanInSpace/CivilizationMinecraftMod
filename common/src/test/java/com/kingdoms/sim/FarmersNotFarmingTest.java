@@ -87,7 +87,7 @@ class FarmersNotFarmingTest {
 
     private static Person farmer(Settlement s) {
         Person person = new Person(Person.Id.random(),
-                "Farmer " + s.population(), Profession.FARMER, s.centre());
+                "Farmer " + s.population(), Profession.FARMER, s.center());
         s.addResident(person);
         return person;
     }
@@ -230,7 +230,7 @@ class FarmersNotFarmingTest {
 
         SupplyPlanner.advance(s, CTX);
 
-        assertNull(farmer.haul(), "the fields are not a labour pool for the timber");
+        assertNull(farmer.haul(), "the fields are not a labor pool for the timber");
     }
 
     @Test

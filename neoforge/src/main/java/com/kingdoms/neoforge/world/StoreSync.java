@@ -98,7 +98,7 @@ public final class StoreSync {
      * Whether the shelves already show exactly what this building holds.
      *
      * <p>Skipping the rewrite in the common case is not only cheaper — every
-     * write marks the block entity dirty and walks its neighbours for a
+     * write marks the block entity dirty and walks its neighbors for a
      * comparator signal, so redrawing thirty identical stacks once a second
      * rewrote the chunk to disk on every autosave forever.
      *

@@ -112,15 +112,15 @@ public final class StructurizeNbt {
      * <p>Structurize records it under {@code optional_data → structurize →
      * primary_offset}, as three lowercase {@code TAG_Int} keys — verified
      * against a real MineColonies file rather than assumed, because the
-     * capitalisation and the shape are both easy to guess wrong.
+     * capitalization and the shape are both easy to guess wrong.
      *
      * <p>It matters because it is the cell the author meant to line the
-     * structure up by — the hut block, usually. Ignoring it and centring on the
+     * structure up by — the hut block, usually. Ignoring it and centering on the
      * bounding box instead is what put an imported building beside its plot
      * rather than on it, sometimes half into the hillside.
      *
      * <p>An anchor outside the structure's own box is refused rather than
-     * honoured: it describes a building the file does not contain, and lining
+     * honored: it describes a building the file does not contain, and lining
      * up by it would move the whole thing somewhere nobody asked for.
      */
     static BlockPos readAnchor(CompoundTag tag, Vec3i size) {
@@ -133,7 +133,7 @@ public final class StructurizeNbt {
         BlockPos stated = new BlockPos(
                 offset.getIntOr("x", 0), offset.getIntOr("y", 0), offset.getIntOr("z", 0));
         if (!Blueprint.anchorFits(stated, size)) {
-            KeystoneMod.LOG.warn("Blueprint anchor {} lies outside its own {}; centring instead",
+            KeystoneMod.LOG.warn("Blueprint anchor {} lies outside its own {}; centering instead",
                     stated, size);
             return Blueprint.defaultAnchor(size);
         }

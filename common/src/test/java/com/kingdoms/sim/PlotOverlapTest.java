@@ -4,7 +4,7 @@ import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
@@ -61,7 +61,7 @@ class PlotOverlapTest {
     @Test
     void aplotIsRefusedWhereABuildingAlreadyStands() {
         Settlement settlement = town(4);
-        BuildingType house = BuildCatalogue.DEFAULT.stream()
+        BuildingType house = BuildCatalog.DEFAULT.stream()
                 .filter(type -> type.id().equals("kingdoms:house"))
                 .findFirst().orElseThrow();
 
@@ -95,8 +95,8 @@ class PlotOverlapTest {
         // Every kind in the table, including the two that are not square and the
         // two that declare room to spare -- a rule stated for a hand-picked list
         // is a rule that holds for the list.
-        for (String one : BuildCatalogue.DEFAULT.stream().map(BuildingType::id).toList()) {
-            for (String two : BuildCatalogue.DEFAULT.stream()
+        for (String one : BuildCatalog.DEFAULT.stream().map(BuildingType::id).toList()) {
+            for (String two : BuildCatalog.DEFAULT.stream()
                     .map(BuildingType::id).toList()) {
                 BuildingSizes.Size a = BuildingSizes.of(one);
                 BuildingSizes.Size b = BuildingSizes.of(two);
@@ -150,7 +150,7 @@ class PlotOverlapTest {
 
     @Test
     void overlapIsSquareSoATurnedBuildingStillFits() {
-        // Buildings are turned to face the centre, which swaps width and depth. A
+        // Buildings are turned to face the center, which swaps width and depth. A
         // plot that only fitted at one rotation would be a plot that fails as soon
         // as the building is placed on the other side of town.
         SimPos a = new SimPos(0, 64, 0);
@@ -164,11 +164,11 @@ class PlotOverlapTest {
     }
 
     @Test
-    void alevelledBuildingIsSizedAsWhatItGrewFrom() {
+    void aleveledBuildingIsSizedAsWhatItGrewFrom() {
         assertEquals(
-                BuildPlanner.plotSpanOf("kingdoms:house", BuildCatalogue.DEFAULT),
-                BuildPlanner.plotSpanOf("kingdoms:house_l2", BuildCatalogue.DEFAULT),
-                "the catalogue span already allows for the levels, so an improvement "
+                BuildPlanner.plotSpanOf("kingdoms:house", BuildCatalog.DEFAULT),
+                BuildPlanner.plotSpanOf("kingdoms:house_l2", BuildCatalog.DEFAULT),
+                "the catalog span already allows for the levels, so an improvement "
                         + "never has to go looking for new ground");
     }
 
@@ -185,11 +185,11 @@ class PlotOverlapTest {
         BuildTask ordered = settlement.buildQueue().getFirst();
         assertEquals("kingdoms:lumber_camp", ordered.blueprintId());
 
-        int span = BuildPlanner.plotSpanOf(ordered.blueprintId(), settlement.catalogue());
-        // Both spans come from the catalogue. This test used to hardcode the
+        int span = BuildPlanner.plotSpanOf(ordered.blueprintId(), settlement.catalog());
+        // Both spans come from the catalog. This test used to hardcode the
         // hall's, and went red the day the apron shrank and every plot with it —
         // failing on a number it had copied rather than on the rule it guards.
-        int hallSpan = BuildPlanner.plotSpanOf("kingdoms:town_hall", settlement.catalogue());
+        int hallSpan = BuildPlanner.plotSpanOf("kingdoms:town_hall", settlement.catalog());
         assertFalse(BuildPlanner.plotsOverlap(ordered.origin(), span,
                         new SimPos(12, 64, 0), hallSpan),
                 "the camp was put at " + ordered.origin() + ", through the hall at (12, 0)");
@@ -205,7 +205,7 @@ class PlotOverlapTest {
                 new Building(BuildPlanner.ACCESS_STAIRS, new SimPos(20, 64, 3), 1, true));
 
         assertEquals(1, BuildPlanner.plotSpanOf(
-                BuildPlanner.ACCESS_STAIRS, settlement.catalogue()));
+                BuildPlanner.ACCESS_STAIRS, settlement.catalog()));
         assertFalse(BuildPlanner.holdsGround(BuildPlanner.ACCESS_STAIRS));
         assertTrue(settlement.isPlotFree(new SimPos(40, 64, 3), 13, null),
                 "a flight of steps must not reserve a plot of its own");
@@ -236,8 +236,8 @@ class PlotOverlapTest {
             for (int j = i + 1; j < raised.size(); j++) {
                 Building a = raised.get(i);
                 Building b = raised.get(j);
-                int spanA = BuildPlanner.plotSpanOf(a.blueprintId(), settlement.catalogue());
-                int spanB = BuildPlanner.plotSpanOf(b.blueprintId(), settlement.catalogue());
+                int spanA = BuildPlanner.plotSpanOf(a.blueprintId(), settlement.catalog());
+                int spanB = BuildPlanner.plotSpanOf(b.blueprintId(), settlement.catalog());
                 assertFalse(BuildPlanner.plotsOverlap(a.origin(), spanA, b.origin(), spanB),
                         a.blueprintId() + " at " + a.origin() + " (plot " + spanA + ") runs "
                                 + "through " + b.blueprintId() + " at " + b.origin()

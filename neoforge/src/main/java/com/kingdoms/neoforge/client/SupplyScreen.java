@@ -34,7 +34,7 @@ public final class SupplyScreen extends Screen {
 
     private static final int FOOTER = 22;
 
-    /** Short of the stock this block is made from: the one colour beyond the shared palette. */
+    /** Short of the stock this block is made from: the one color beyond the shared palette. */
     private static final int SHORT = 0xFFFFAA55;
 
     /** Longest bill drawn. A hall's plan is hundreds of lines; nobody reads those. */

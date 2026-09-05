@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The blueprint coordinate maths.
+ * The blueprint coordinate math.
  *
  * <p>Deliberately tests only {@link Transforms#position} and
  * {@link Transforms#size}, which are pure integer arithmetic — no registries, no

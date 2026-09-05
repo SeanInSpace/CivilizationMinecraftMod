@@ -71,10 +71,10 @@ public final class FoundingCharterItem extends Item {
         BlockPos clicked = context.getClickedPos().above();
         SimPos site = NeoForgeWorldBridge.toSimPos(clicked);
 
-        Settlement neighbour = tooClose(world, site);
-        if (neighbour != null) {
+        Settlement neighbor = tooClose(world, site);
+        if (neighbor != null) {
             player.sendOverlayMessage(Component.literal(
-                    "Too close to " + neighbour.name() + " — settle further away."));
+                    "Too close to " + neighbor.name() + " — settle further away."));
             return InteractionResult.FAIL;
         }
 
@@ -111,7 +111,7 @@ public final class FoundingCharterItem extends Item {
         SimPos here = new SimPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement s : kingdom.settlements()) {
-                long d = s.centre().horizontalDistanceSq(here);
+                long d = s.center().horizontalDistanceSq(here);
                 if (d < best) {
                     best = d;
                     nearest = s;
@@ -154,7 +154,7 @@ public final class FoundingCharterItem extends Item {
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement s : kingdom.settlements()) {
                 long limit = (long) s.claimRadius() + SPACING;
-                if (s.centre().horizontalDistanceSq(site) < limit * limit) {
+                if (s.center().horizontalDistanceSq(site) < limit * limit) {
                     return s;
                 }
             }

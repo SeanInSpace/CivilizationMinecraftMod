@@ -57,7 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The town's opinion about how frightening each kind of creature is.
  *
  * <p>Two halves, and they need different evidence. The named entries are a
- * judgement — a creeper is worth four because somebody argued it was — so the
+ * judgment — a creeper is worth four because somebody argued it was — so the
  * assertions below are written with the literal numbers rather than with
  * {@link Danger} rungs: a test that reads the same constants the table does
  * cannot notice a number moving. The unnamed default is a rule, and is tested as

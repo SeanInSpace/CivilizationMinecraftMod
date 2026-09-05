@@ -181,7 +181,7 @@ public final class Hull {
                 // leaves the plots on either side of the new leg out in the
                 // open. Digging into an empty bay excludes nobody and is
                 // exactly what the concave hull is for; digging into the middle
-                // of a town excludes its neighbours, and is now refused.
+                // of a town excludes its neighbors, and is now refused.
                 //
                 // Without it the loop stayed simple and still went wrong: a
                 // measured ring came back with a corridor of wall running deep

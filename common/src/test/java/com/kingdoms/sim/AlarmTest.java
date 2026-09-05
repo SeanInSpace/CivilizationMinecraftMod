@@ -173,11 +173,11 @@ class AlarmTest {
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);
         for (int i = 0; i < guards; i++) {
             town.addResident(new Person(
-                    Person.Id.random(), "Watch " + i, Profession.GUARD, town.centre()));
+                    Person.Id.random(), "Watch " + i, Profession.GUARD, town.center()));
         }
         for (int i = 0; i < civilians; i++) {
             town.addResident(new Person(
-                    Person.Id.random(), "Hand " + i, Profession.FARMER, town.centre()));
+                    Person.Id.random(), "Hand " + i, Profession.FARMER, town.center()));
         }
         return town;
     }
@@ -205,12 +205,12 @@ class AlarmTest {
 
     @Test
     void aThinWatchPanicsSoonerRatherThanAlways() {
-        // Below the floor the bell stays quiet however defenceless the town is —
+        // Below the floor the bell stays quiet however defenseless the town is —
         // otherwise a town whose one guard was hungry would ring over two zombies.
-        Settlement defenceless = watchOf(0, 4);
-        assertFalse(RaidPlanner.outmatched(defenceless, new Sighting(3, 3)),
+        Settlement defenseless = watchOf(0, 4);
+        assertFalse(RaidPlanner.outmatched(defenseless, new Sighting(3, 3)),
                 "three zombies is not an emergency, it is a Tuesday with no guards");
-        assertTrue(RaidPlanner.outmatched(defenceless, new Sighting(4, 2)),
+        assertTrue(RaidPlanner.outmatched(defenseless, new Sighting(4, 2)),
                 "two skeletons and nobody to meet them is");
     }
 

@@ -10,7 +10,7 @@ on it, never the reverse — the same relationship Structurize has to MineColoni
 
 ## Why it exists
 
-Kingdoms could not reach kingdom-scale civilisations on hand-coded geometry. Four
+Kingdoms could not reach kingdom-scale civilizations on hand-coded geometry. Four
 things blocked it, and Keystone removes all four:
 
 | Blocker | Before | Now |
@@ -106,7 +106,7 @@ Adding the format touched no call site anywhere — a consuming mod never names 
 source, which is what the seam is for.
 
 Identifier paths permit dots, so `../../secrets` parses happily as an id — every
-resolved path is normalised and re-checked against the blueprint root before use.
+resolved path is normalized and re-checked against the blueprint root before use.
 
 ### Styles
 
@@ -215,7 +215,7 @@ and one registration line, with no call sites touched.
 - **Imported blueprints are approximations.** A pack authored against six mods
   cannot arrive intact in a game that has none of them. Substitution keeps the
   shape and the block states; it cannot keep somebody else's textures, and an
-  unrecognised block that matches no rule becomes plain planks. The log names
+  unrecognized block that matches no rule becomes plain planks. The log names
   every swap a file needed, so what was lost is never a mystery.
 - **Structurize entities and its `optional_data` are ignored**, including the
   primary offset a MineColonies hut is anchored by. Imported buildings are
@@ -226,10 +226,10 @@ and one registration line, with no call sites touched.
 ## Testing note
 
 `BlockState` cannot exist in a plain JUnit test here. `SharedConstants`' static
-initialiser calls `FMLEnvironment.isProduction()`, which throws *"There is no
+initializer calls `FMLEnvironment.isProduction()`, which throws *"There is no
 current FML Loader"* outside a real launch. So:
 
-- **Unit tests** cover the coordinate maths only (`TransformsTest`), which is
+- **Unit tests** cover the coordinate math only (`TransformsTest`), which is
   pure integer arithmetic over `BlockPos` and `Rotation` — types that never touch
   `SharedConstants`.
 - **Everything else is verified against a running dedicated server**, driven over

@@ -6,7 +6,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
@@ -54,15 +54,15 @@ class SeededSettlementTest {
     private static final String CULTURE = Culture.NORMAN.id();
 
     private static Settlement seeded(SettlementStage stage) {
-        return Founding.seeded(SITE, "Seedholt", stage, BuildCatalogue.DEFAULT, CULTURE);
+        return Founding.seeded(SITE, "Seedholt", stage, BuildCatalog.DEFAULT, CULTURE);
     }
 
     @Test
-    void everyStageStandsTheWholeProgrammeItClimbedThrough() {
+    void everyStageStandsTheWholeProgramItClimbedThrough() {
         // Cumulative, and that is the claim: a village did not skip its
         // bunkhouse on the way past, so a seeded one has not either. Asked of
         // StagePlanner rather than of a list written down here, because a
-        // second copy of the programme would be wrong the first time anybody
+        // second copy of the program would be wrong the first time anybody
         // edited the first.
         for (SettlementStage stage : SettlementStage.values()) {
             Settlement town = seeded(stage);
@@ -73,7 +73,7 @@ class SeededSettlementTest {
                 town.setStage(climbed);
                 assertTrue(StagePlanner.programComplete(town),
                         "a " + stage.pretty() + " is missing something its "
-                                + climbed.pretty() + " programme called for");
+                                + climbed.pretty() + " program called for");
             }
         }
     }
@@ -86,7 +86,7 @@ class SeededSettlementTest {
         for (SettlementStage stage : SettlementStage.values()) {
             Settlement town = seeded(stage);
             for (Building standing : town.buildings()) {
-                assertTrue(StagePlanner.catalogueAllows(stage, standing.blueprintId()),
+                assertTrue(StagePlanner.catalogAllows(stage, standing.blueprintId()),
                         "a " + stage.pretty() + " has no business standing a "
                                 + standing.blueprintId());
             }
@@ -100,7 +100,7 @@ class SeededSettlementTest {
     @Test
     void nothingIsBuiltThroughAnythingElse() {
         // The plots come out of the town plan, which already refuses a plot that
-        // fouls a neighbour -- so this is really asserting that the seeding
+        // fouls a neighbor -- so this is really asserting that the seeding
         // walks the plan rather than inventing positions. It is cheap and it is
         // the fault that reads worst from the ground.
         for (SettlementStage stage : SettlementStage.values()) {
@@ -124,7 +124,7 @@ class SeededSettlementTest {
     }
 
     private static int span(Building standing) {
-        return BuildPlanner.plotSpanOf(standing.blueprintId(), BuildCatalogue.DEFAULT);
+        return BuildPlanner.plotSpanOf(standing.blueprintId(), BuildCatalog.DEFAULT);
     }
 
     @Test
@@ -136,7 +136,7 @@ class SeededSettlementTest {
             assertTrue(town.population() >= TownStores.FOUNDING_SETTLERS,
                     stage.pretty() + " is empty, which is a drawing and not a town");
 
-            if (StagePlanner.pioneersLabour(stage)) {
+            if (StagePlanner.pioneersLabor(stage)) {
                 // Below VILLAGE the generalists are the workforce, and the only
                 // fixed trades are the two the fortification names.
                 for (Person person : town.residents()) {
@@ -208,14 +208,14 @@ class SeededSettlementTest {
 
     @Test
     void theNextPlotIsNotOneAlreadyBuiltOn() {
-        // The cursor has to carry on from where the programme left off, or the
+        // The cursor has to carry on from where the program left off, or the
         // town spends its first builds discovering itself. Asserted as "past
-        // every plot the programme took" rather than "the next plot is free",
+        // every plot the program took" rather than "the next plot is free",
         // because a plot beside a farm genuinely is not free and the siting
         // loop's answer to that is to walk on, not to stop.
         for (SettlementStage stage : SettlementStage.values()) {
             Settlement town = seeded(stage);
-            TownPlan plan = town.arrangement().planFor(town.centre(), PLAN_LOOKUP);
+            TownPlan plan = town.arrangement().planFor(town.center(), PLAN_LOOKUP);
             for (Building standing : town.buildings()) {
                 int index = plotIndexOf(plan, standing.origin());
                 assertTrue(index >= 0,
@@ -258,17 +258,17 @@ class SeededSettlementTest {
         // house and StagePlanner.familyHoused counts them all as housed; and
         // growFamilies then sheds a member every cycle forever.
         Settlement crowded = Founding.seeded(SITE, "Crowdholt", SettlementStage.VILLAGE,
-                BuildCatalogue.DEFAULT, CULTURE, 200);
+                BuildCatalog.DEFAULT, CULTURE, 200);
 
         assertEquals(200, crowded.population(), "the count asked for is the count seeded");
-        int biggestHouse = BuildCatalogue.DEFAULT.stream()
+        int biggestHouse = BuildCatalog.DEFAULT.stream()
                 .filter(type -> type.capacity() > 0)
                 .mapToInt(type -> type.capacity())
                 .max().orElseThrow();
         for (Household family : crowded.households()) {
             assertTrue(family.size() <= biggestHouse,
                     "a family of " + family.size() + " is bigger than any house in the "
-                            + "catalogue, and nothing in the town can ever house it");
+                            + "catalog, and nothing in the town can ever house it");
         }
         int counted = crowded.households().stream().mapToInt(Household::size).sum();
         assertEquals(200, counted, "somebody was seeded into no family at all");
@@ -277,7 +277,7 @@ class SeededSettlementTest {
     @Test
     void aSeededStageIsAStageAboutToEnd() {
         // Not a fault, and worth pinning precisely because it looks like one.
-        // Standing the whole of a stage's programme IS most of what
+        // Standing the whole of a stage's program IS most of what
         // StagePlanner.readyToAdvance asks for, so a seeded settlement sits at
         // the exit of its stage rather than in the middle of it -- exactly
         // where an honestly-grown town sits on the step after it finishes
@@ -353,7 +353,7 @@ class SeededSettlementTest {
 
     private static final int SOAK_STEPS = 200;
 
-    /** Far enough into the plan to find any plot a programme could have taken. */
+    /** Far enough into the plan to find any plot a program could have taken. */
     private static final int PLAN_LOOKUP = 64;
 
     /** Which plot of the plan a building stands on, or -1 if none does. */

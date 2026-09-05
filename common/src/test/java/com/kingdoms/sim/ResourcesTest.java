@@ -101,7 +101,7 @@ class ResourcesTest {
     void gearDoesNotStack() {
         assertEquals(1, Resources.stackSize(TownStores.WEAPONS),
                 "a sword is one to a slot");
-        assertEquals(1, Resources.stackSize(TownStores.ARMOUR));
+        assertEquals(1, Resources.stackSize(TownStores.ARMOR));
         assertEquals(64, Resources.stackSize(TownStores.WOOD));
     }
 }

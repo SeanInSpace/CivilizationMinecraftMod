@@ -32,17 +32,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PerimeterRetiredCodecTest {
 
-    private static final SimPos CENTRE = new SimPos(512, 72, -512);
+    private static final SimPos CENTER = new SimPos(512, 72, -512);
 
     private static List<SimPos> box(int half) {
-        return List.of(new SimPos(CENTRE.x() - half, 72, CENTRE.z() - half),
-                new SimPos(CENTRE.x() + half, 72, CENTRE.z() - half),
-                new SimPos(CENTRE.x() + half, 72, CENTRE.z() + half),
-                new SimPos(CENTRE.x() - half, 72, CENTRE.z() + half));
+        return List.of(new SimPos(CENTER.x() - half, 72, CENTER.z() - half),
+                new SimPos(CENTER.x() + half, 72, CENTER.z() - half),
+                new SimPos(CENTER.x() + half, 72, CENTER.z() + half),
+                new SimPos(CENTER.x() - half, 72, CENTER.z() + half));
     }
 
     private static Settlement walled(Perimeter ring) {
-        Settlement town = new Settlement(Settlement.Id.random(), "Ringmere", CENTRE, 256);
+        Settlement town = new Settlement(Settlement.Id.random(), "Ringmere", CENTER, 256);
         town.setPerimeter(ring);
         return town;
     }
@@ -52,8 +52,8 @@ class PerimeterRetiredCodecTest {
         List<Perimeter.Retired> replaced = List.of(
                 new Perimeter.Retired(box(30), 240),
                 new Perimeter.Retired(box(45), 100));
-        Perimeter ring = new Perimeter(box(60), List.of(new SimPos(CENTRE.x() + 60, 72,
-                CENTRE.z())), 40, replaced);
+        Perimeter ring = new Perimeter(box(60), List.of(new SimPos(CENTER.x() + 60, 72,
+                CENTER.z())), 40, replaced);
 
         Perimeter back = decode(encode(walled(ring))).perimeter();
 

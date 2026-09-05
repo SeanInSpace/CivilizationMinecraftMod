@@ -73,13 +73,13 @@ class HungerFirstTest {
     private static Settlement town() {
         Settlement s = new Settlement(
                 Settlement.Id.random(), "Mealtide", new SimPos(0, 64, 0), 256);
-        s.setCatalogue(List.of());
+        s.setCatalog(List.of());
         s.setFoodStock(0);
         return s;
     }
 
     private static Person settle(Settlement s, String name, Profession trade) {
-        Person person = new Person(Person.Id.random(), name, trade, s.centre());
+        Person person = new Person(Person.Id.random(), name, trade, s.center());
         s.addResident(person);
         return person;
     }

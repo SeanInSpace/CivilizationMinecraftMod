@@ -164,7 +164,7 @@ public final class TerrainOracle {
      *
      * <p>A thousand rather than the first draft's three hundred, because the
      * grain changed what a sample costs. Callers now ask on the same four-block
-     * grid this remembers on, so the first candidate plot in a neighbourhood
+     * grid this remembers on, so the first candidate plot in a neighborhood
      * pays for its readings and every candidate after it is answered from
      * memory. The budget bounds a cold start, not the steady state.
      */
@@ -226,7 +226,7 @@ public final class TerrainOracle {
     }
 
     /**
-     * The worst step between neighbours across a square of this half-width.
+     * The worst step between neighbors across a square of this half-width.
      *
      * <p>The worst step rather than the average, because a plot does not care
      * what the mean gradient is — it cares about the deepest course it has to
@@ -326,17 +326,17 @@ public final class TerrainOracle {
      * <p>Only for explicit, operator-driven work. Nothing on the simulation's
      * own clock may call it.
      */
-    public void warm(int centreX, int centreZ, int radius, int stride) {
+    public void warm(int centerX, int centerZ, int radius, int stride) {
         // Chunk by chunk, not column by column. Somebody asking for a survey
         // wants the ground, and generating a chunk to CARVERS answers two
         // hundred and fifty-six columns for about what a handful of noise
         // samples used to cost -- so the whole square can be had properly
         // rather than estimated.
         int chunks = 0;
-        int firstChunkX = (centreX - radius) >> 4;
-        int lastChunkX = (centreX + radius) >> 4;
-        int firstChunkZ = (centreZ - radius) >> 4;
-        int lastChunkZ = (centreZ + radius) >> 4;
+        int firstChunkX = (centerX - radius) >> 4;
+        int lastChunkX = (centerX + radius) >> 4;
+        int firstChunkZ = (centerZ - radius) >> 4;
+        int lastChunkZ = (centerZ + radius) >> 4;
         for (int cz = firstChunkZ; cz <= lastChunkZ; cz++) {
             for (int cx = firstChunkX; cx <= lastChunkX; cx++) {
                 if (chunkIsKnown(cx, cz)) {
@@ -354,8 +354,8 @@ public final class TerrainOracle {
         int spent = 0;
         for (int dz = -radius; dz <= radius; dz += stride) {
             for (int dx = -radius; dx <= radius; dx += stride) {
-                int x = centreX + dx;
-                int z = centreZ + dz;
+                int x = centerX + dx;
+                int z = centerZ + dz;
                 long key = key(x, z);
                 Long had = known.get(key);
                 if (had != null && (had & (FROM_CHUNK | FROM_SURFACE)) != 0) {
@@ -439,7 +439,7 @@ public final class TerrainOracle {
         }
         // Real ground first, if the budget allows and nothing better is known.
         // One chunk answers sixty-four of these grain cells, so a miss here
-        // usually pays for its neighbours too.
+        // usually pays for its neighbors too.
         if ((remembered == null || (remembered & FROM_SURFACE) == 0)
                 && groundChunksThisTick++ < GROUND_CHUNKS_PER_TICK
                 && readGroundChunk(x >> 4, z >> 4)) {

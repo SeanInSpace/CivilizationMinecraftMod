@@ -15,7 +15,7 @@ import java.util.Map;
  * timber, stone, iron, grain — is not bought and sold, because under this
  * culture's arrangement the work belongs to the town already. Nobody sells the
  * town a log it paid them to cut. What a person owns is what they came across:
- * a sword dropped by something the guards killed, armour off a skeleton, a
+ * a sword dropped by something the guards killed, armor off a skeleton, a
  * diamond turned up while digging a cellar. That is the property this table
  * prices, and the market is where it changes hands.
  *
@@ -53,7 +53,7 @@ public final class Valuation {
             Map.entry("minecraft:gold_ingot", 24),
             Map.entry("minecraft:iron_ingot", 12),
 
-            // Arms and armour, which a settlement can eventually forge but is
+            // Arms and armor, which a settlement can eventually forge but is
             // always glad to be handed.
             Map.entry("minecraft:iron_sword", 30),
             Map.entry("minecraft:iron_helmet", 26),

@@ -12,7 +12,7 @@ import java.util.Map;
  * will carry it and starve beside it.
  *
  * <p>Ids are plain strings so the simulation stays loader-free. The obvious next
- * step is loading this table from a datapack alongside the building catalogue.
+ * step is loading this table from a datapack alongside the building catalog.
  */
 public final class Foods {
 

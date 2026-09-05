@@ -53,7 +53,7 @@ class FullPocketsTest {
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);
         town.stores().add(TownStores.FOOD, 3000);
         Person hand = new Person(
-                Person.Id.random(), "Ada", Profession.FARMER, town.centre());
+                Person.Id.random(), "Ada", Profession.FARMER, town.center());
         for (int i = 0; i < Inventory.SLOTS; i++) {
             hand.inventory().add("minecraft:wildflowers_" + i, 1);
         }
@@ -120,7 +120,7 @@ class FullPocketsTest {
                 Settlement.Id.random(), "Barrenburg", new SimPos(0, 64, 0), 64);
         town.stores().take(TownStores.FOOD, town.foodStock());
         town.addResident(new Person(
-                Person.Id.random(), "Bruno", Profession.FARMER, town.centre()));
+                Person.Id.random(), "Bruno", Profession.FARMER, town.center()));
 
         for (int step = 1; step <= 600; step++) {
             town.step(new SimContext(new QuietBridge(), step, SimSettings.SANDBOX));

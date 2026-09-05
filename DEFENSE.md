@@ -30,7 +30,7 @@ defense = guards × 2  +  sum of structure bonuses
 ```
 
 Guards contribute 2 each. Buildings contribute their `defenseBonus` from the
-catalogue — currently only the **watchtower, at +3**. (The bonus is a column in the
+catalog — currently only the **watchtower, at +3**. (The bonus is a column in the
 same table as everything else, so datapack cultures can have their own defensive
 structures later.)
 
@@ -160,6 +160,6 @@ Config: `defense.raids_enabled` (master switch — disable for peaceful building
 |---|---|
 | Gentler early game | Raise `MIN_POPULATION_FOR_RAIDS`, or lower strength scaling from `population ÷ 8` |
 | Tougher guards | `GUARD_POWER` (statistical) and `GUARD_DAMAGE` / ranges in `PersonEntityManager` (observed) |
-| Stronger towers | `defenseBonus` column in `BuildCatalogue` |
+| Stronger towers | `defenseBonus` column in `BuildCatalog` |
 | More/less frequent raids | `defense.raid_interval_steps` in config |
 | Raids off entirely | `defense.raids_enabled = false` |

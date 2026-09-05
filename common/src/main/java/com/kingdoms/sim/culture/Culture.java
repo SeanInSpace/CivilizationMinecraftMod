@@ -68,41 +68,41 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     public static final String LAYOUT_GREEN = "green";
 
     /**
-     * Which of this people's arrangements a town centred here is laid out in.
+     * Which of this people's arrangements a town centered here is laid out in.
      *
-     * <p>Chosen from the centre rather than at random, so a town is the same
+     * <p>Chosen from the center rather than at random, so a town is the same
      * town on every reload and in every test without anything having to be
-     * written down. The two coordinates are avalanched first because a centre is
+     * written down. The two coordinates are avalanched first because a center is
      * not a random number: a charter is planted where somebody happened to be
      * standing, and a generated town lands on a spacing grid. Reading the low
      * bits of either coordinate raw would hand a whole world one arrangement, or
      * put every town on a diagonal in the same one.
      */
-    public String layoutFor(SimPos centre) {
-        return layouts.get(Math.floorMod(spread(centre), layouts.size()));
+    public String layoutFor(SimPos center) {
+        return layouts.get(Math.floorMod(spread(center), layouts.size()));
     }
 
-    /** How this people lays a town out on the ground at that centre. */
-    public Layout arrangementFor(SimPos centre) {
-        return Layouts.of(layoutFor(centre));
+    /** How this people lays a town out on the ground at that center. */
+    public Layout arrangementFor(SimPos center) {
+        return Layouts.of(layoutFor(center));
     }
 
     /**
-     * SplitMix64's finaliser over the two coordinates.
+     * SplitMix64's finalizer over the two coordinates.
      *
      * <p>Wanted for its avalanche rather than its speed: one block of difference
      * in x has to change the choice, or a people's second arrangement only ever
      * shows up in whole regions of a world at a time.
      *
-     * <p>The third constant is there because the finaliser maps zero to zero,
+     * <p>The third constant is there because the finalizer maps zero to zero,
      * and zero is not an ordinary coordinate: it is world spawn, and it is the
-     * centre every fixture in the test suite uses. Without it the origin always
+     * center every fixture in the test suite uses. Without it the origin always
      * took the head of the list, so a people's other arrangements were unreachable
      * from the one place a player is most likely to found a town.
      */
-    private static long spread(SimPos centre) {
-        long h = centre.x() * 0x9E3779B97F4A7C15L
-                ^ centre.z() * 0xC2B2AE3D27D4EB4FL
+    private static long spread(SimPos center) {
+        long h = center.x() * 0x9E3779B97F4A7C15L
+                ^ center.z() * 0xC2B2AE3D27D4EB4FL
                 ^ 0x2545F4914F6CDD1DL;
         h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
         h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;
@@ -169,7 +169,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
      * was making: that a second people is filling this in rather than threading
      * a new idea through the simulation. Goats and rabbits over pigs and cows —
      * the same four pens, because the animal farm's plot is reserved in the
-     * catalogue and a culture cannot quietly outgrow the ground set aside for
+     * catalog and a culture cannot quietly outgrow the ground set aside for
      * it. Widening that reservation is what a fifth pen would cost.
      */
     public static final Culture HIGHLAND = new Culture(

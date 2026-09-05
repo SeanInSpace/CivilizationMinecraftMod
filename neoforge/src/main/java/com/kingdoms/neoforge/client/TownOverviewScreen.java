@@ -193,7 +193,7 @@ public final class TownOverviewScreen extends Screen {
     }
 
     /**
-     * Something recognisable to stand for each store.
+     * Something recognizable to stand for each store.
      *
      * <p>Falls through to a chest for anything unknown, so a resource added by a
      * datapack or another mod still gets a row rather than crashing the screen.
@@ -207,7 +207,7 @@ public final class TownOverviewScreen extends Screen {
             case TownStores.IRON -> Items.IRON_INGOT;
             case TownStores.TOOLS -> Items.IRON_PICKAXE;
             case TownStores.WEAPONS -> Items.IRON_SWORD;
-            case TownStores.ARMOUR -> Items.IRON_CHESTPLATE;
+            case TownStores.ARMOR -> Items.IRON_CHESTPLATE;
             default -> Items.CHEST;
         };
     }

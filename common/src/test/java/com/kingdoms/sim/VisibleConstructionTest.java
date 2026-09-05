@@ -52,9 +52,9 @@ class VisibleConstructionTest {
 
     private static Settlement townWithBuilders(int builders, boolean embodied) {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
-        s.setCatalogue(List.of(HOUSE));
+        s.setCatalog(List.of(HOUSE));
         for (int i = 0; i < builders; i++) {
-            Person p = new Person(Person.Id.random(), "Builder " + i, Profession.BUILDER, s.centre());
+            Person p = new Person(Person.Id.random(), "Builder " + i, Profession.BUILDER, s.center());
             p.setEmbodied(embodied);   // standing in the world, or only on the roster
             s.addResident(p);
         }

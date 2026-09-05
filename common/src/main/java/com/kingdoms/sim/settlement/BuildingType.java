@@ -5,7 +5,7 @@ import java.util.Objects;
 /**
  * A kind of building a settlement knows how to want.
  *
- * <p>Hardcoded in {@link BuildCatalogue} for now. Every field here is a plain
+ * <p>Hardcoded in {@link BuildCatalog} for now. Every field here is a plain
  * number precisely so this can become a datapack JSON entry later without the
  * planner changing.
  *

@@ -5,9 +5,9 @@ package com.kingdoms.sim.person;
  *
  * <p>Every surface that reports a settler reads the same four thresholds off
  * {@link Person} and turns them into something a player understands — a word in
- * chat, a colour on a screen. Each surface used to walk the ladder itself, which
+ * chat, a color on a screen. Each surface used to walk the ladder itself, which
  * is fine until a threshold moves and only one of them is updated: the screen
- * then says "starving" in the colour it uses for "weak". One ladder, read twice.
+ * then says "starving" in the color it uses for "weak". One ladder, read twice.
  *
  * <p>Lives beside the thresholds in the simulation, not on the platform layer or
  * a network payload, because it is a fact about a person rather than about the

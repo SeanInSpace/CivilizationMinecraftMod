@@ -10,7 +10,7 @@ package com.kingdoms.sim.settlement;
  * the settlement keeps it.
  *
  * <p>{@code width} and {@code depth} are the full span, not a radius, and the
- * building is centred on its origin in both — so it runs from
+ * building is centered on its origin in both — so it runs from
  * {@code -width/2} to {@code +width/2}. {@code height} counts upward from the
  * floor.
  *

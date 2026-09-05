@@ -89,7 +89,7 @@ class CourierChoiceTest {
 
     private static Person hire(Settlement s, Profession trade) {
         Person person = new Person(Person.Id.random(),
-                trade + " " + s.population(), trade, s.centre());
+                trade + " " + s.population(), trade, s.center());
         s.addResident(person);
         return person;
     }
@@ -139,7 +139,7 @@ class CourierChoiceTest {
         Person idler = hire(s, Profession.IDLER);
         SupplyPlanner.advance(s, CTX);
 
-        assertNotNull(idler.haul(), "the load was waiting, not cancelled");
+        assertNotNull(idler.haul(), "the load was waiting, not canceled");
     }
 
     // --- never ---

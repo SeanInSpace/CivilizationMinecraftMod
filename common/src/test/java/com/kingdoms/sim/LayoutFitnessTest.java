@@ -5,7 +5,7 @@ import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingSizes;
@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LayoutFitnessTest {
 
     private static final int STEPS = 700;
-    private static final SimPos CENTRE = new SimPos(0, 72, 0);
+    private static final SimPos CENTER = new SimPos(0, 72, 0);
 
     /**
      * Every arrangement a culture can ask for, by the id the culture names.
@@ -86,8 +86,8 @@ class LayoutFitnessTest {
 
     private static Settlement grow(String layout, TerrainFake ground) {
         Settlement town = new Settlement(
-                Settlement.Id.random(), "Fitness", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+                Settlement.Id.random(), "Fitness", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         for (Culture culture : Culture.all()) {
             if (culture.layouts().contains(layout)) {
@@ -97,14 +97,14 @@ class LayoutFitnessTest {
         }
         // Named outright, after the culture, because a people builds in several
         // arrangements now and picks between them by where the town stands.
-        // Leaving that to the hash would grow whichever town this centre happens
+        // Leaving that to the hash would grow whichever town this center happens
         // to choose and quietly stop testing the rest.
         town.setLayoutId(layout);
         assertEquals(layout, town.arrangement().id(),
                 "the fixture did not actually select " + layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
-                    Person.Id.random(), name, Profession.PIONEER, CENTRE));
+                    Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         for (int step = 1; step <= STEPS; step++) {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
@@ -114,7 +114,7 @@ class LayoutFitnessTest {
 
     /** A building's plot claim, read the way the planners read it. */
     private static int span(Settlement town, Building building) {
-        return BuildPlanner.plotSpanOf(building.blueprintId(), town.catalogue());
+        return BuildPlanner.plotSpanOf(building.blueprintId(), town.catalog());
     }
 
     private static List<Building> onGround(Settlement town) {
@@ -185,7 +185,7 @@ class LayoutFitnessTest {
             double furthest = 0;
             for (Building b : onGround(town)) {
                 furthest = Math.max(furthest, Math.hypot(
-                        b.origin().x() - CENTRE.x(), b.origin().z() - CENTRE.z()));
+                        b.origin().x() - CENTER.x(), b.origin().z() - CENTER.z()));
             }
             int limit = sprawlLimitFor(layout);
             assertTrue(furthest < limit,
@@ -245,7 +245,7 @@ class LayoutFitnessTest {
     private static final int REFUSED_GROUND_CEILING = 8;
 
     @Test
-    void noLayoutLeavesAFieldBetweenNeighbouringWalls() {
+    void noLayoutLeavesAFieldBetweenNeighboringWalls() {
         // What a street of buildings looks like, which nothing was watching.
         //
         // Every other rule here catches a town that has fallen apart. This one
@@ -258,7 +258,7 @@ class LayoutFitnessTest {
         //
         // Measured on this fixture before the spacing was derived and after, as
         // the median over every building of the clear blocks to its nearest
-        // neighbour's wall, and the tightest of them:
+        // neighbor's wall, and the tightest of them:
         //
         //   layout                median   tightest
         //   ring                    5  5      3  2
@@ -307,7 +307,7 @@ class LayoutFitnessTest {
             int median = nearest.get(nearest.size() / 2);
             assertTrue(median <= CROWDING_LIMIT,
                     layout + " left a median " + median + " blocks between a wall and"
-                            + " its nearest neighbour's, past the " + CROWDING_LIMIT
+                            + " its nearest neighbor's, past the " + CROWDING_LIMIT
                             + " a town reads as a town at");
         }
     }
@@ -339,7 +339,7 @@ class LayoutFitnessTest {
     }
 
     /**
-     * How much bare ground may stand between neighbouring walls before a town
+     * How much bare ground may stand between neighboring walls before a town
      * stops reading as one.
      *
      * <p>Ten, against a measured worst of nine and a median of four across the
@@ -387,10 +387,10 @@ class LayoutFitnessTest {
      *
      * <p><strong>It was raised once, from 420, and this is the reason.</strong>
      * Not the warren getting worse: the buildings did not fit in it any more.
-     * A knot is a hexagon of radius sixteen, which puts neighbouring huts about
+     * A knot is a hexagon of radius sixteen, which puts neighboring huts about
      * fourteen apart on the wider axis, and that was solved when the biggest
      * thing in a town claimed eleven. Buildings now claim between five and
-     * twenty-five, because they are drawn at the size the catalogue reserves
+     * twenty-five, because they are drawn at the size the catalog reserves
      * for them rather than at a fifth of it — so anything past a house is
      * refused by every slot in the knot and the plot cursor walks outward until
      * it finds ground. Measured furthest-out on this seed: two farms at 416,
@@ -417,18 +417,18 @@ class LayoutFitnessTest {
      * had a third of its plots refused for ground is well down that chain.
      *
      * <p>It went over at 358 when buildings started being drawn at the size the
-     * catalogue reserves for them, which is more work apiece and so a bigger
+     * catalog reserves for them, which is more work apiece and so a bigger
      * town for the same number of steps. Measured in three parts, on the same
      * seed and the same seven hundred steps:
      *
      * <pre>
      *   331   before any of it
      *   359   buildings drawn at their declared size
-     *   401   and brought up to the kerb, whole-distance
+     *   401   and brought up to the curb, whole-distance
      *   358   and brought in only as far as the rank allows
      * </pre>
      *
-     * <p>So the kerb costs nothing once it is asked of the rank rather than of
+     * <p>So the curb costs nothing once it is asked of the rank rather than of
      * the plot, and the twenty-seven that remain are the buildings being bigger,
      * which is the change and not a side effect of it. Recorded as a ceiling for
      * the same reason the warren's is: the number is what it measures today, so

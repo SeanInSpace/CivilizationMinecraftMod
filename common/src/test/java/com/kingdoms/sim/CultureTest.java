@@ -46,11 +46,11 @@ class CultureTest {
 
     @Test
     void everyCultureFitsThePlotReservedForItsPens() {
-        // The animal farm's ground is reserved in the catalogue at a fixed size,
+        // The animal farm's ground is reserved in the catalog at a fixed size,
         // so a culture cannot quietly outgrow the plot set aside for it. A fifth
-        // pen is a catalogue change, not a table entry — which is worth failing
+        // pen is a catalog change, not a table entry — which is worth failing
         // loudly here rather than discovering as a compound built through its
-        // neighbour's wall.
+        // neighbor's wall.
         for (Culture culture : Culture.all()) {
             assertTrue(culture.penCount() <= 4,
                     culture.id() + " keeps " + culture.penCount()
@@ -104,16 +104,16 @@ class CultureTest {
 
     @Test
     void aPeopleAlwaysBuildsTheSameTownInTheSamePlace() {
-        // The whole reason the choice is a hash of the centre rather than a die
+        // The whole reason the choice is a hash of the center rather than a die
         // roll: nothing is written down until a settlement exists, so the answer
         // has to be reconstructible from the ground the town stands on.
-        SimPos centre = new SimPos(1_337, 72, -404);
-        String first = Culture.BURGHER.layoutFor(centre);
+        SimPos center = new SimPos(1_337, 72, -404);
+        String first = Culture.BURGHER.layoutFor(center);
         for (int again = 0; again < 8; again++) {
-            assertEquals(first, Culture.BURGHER.layoutFor(centre),
-                    "the same people at the same centre changed their minds");
+            assertEquals(first, Culture.BURGHER.layoutFor(center),
+                    "the same people at the same center changed their minds");
         }
-        assertSame(Layouts.of(first), Culture.BURGHER.arrangementFor(centre));
+        assertSame(Layouts.of(first), Culture.BURGHER.arrangementFor(center));
     }
 
     @Test

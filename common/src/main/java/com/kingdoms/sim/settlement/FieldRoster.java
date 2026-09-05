@@ -50,7 +50,7 @@ public final class FieldRoster {
      * works which field, and a smith does not appear on it.
      */
     public static Building fieldFor(Settlement settlement, Person person) {
-        if (person == null || settlement.laboursAs(person, Profession.FARMER) == false) {
+        if (person == null || settlement.laborsAs(person, Profession.FARMER) == false) {
             return null;
         }
         List<Building> fields = fields(settlement);
@@ -93,7 +93,7 @@ public final class FieldRoster {
     private static int placeInRoster(Settlement settlement, Person person) {
         List<Person> farmers = new ArrayList<>();
         for (Person resident : settlement.residents()) {
-            if (settlement.laboursAs(resident, Profession.FARMER)) {
+            if (settlement.laborsAs(resident, Profession.FARMER)) {
                 farmers.add(resident);
             }
         }

@@ -27,7 +27,7 @@ import java.util.Objects;
  */
 public final class Perimeter {
 
-    /** Blocks of clear opening cut around each gate's centre. */
+    /** Blocks of clear opening cut around each gate's center. */
     public static final int GATE_HALF_WIDTH = 1;
 
     /**

@@ -129,7 +129,7 @@ public final class FoodPlanner {
      * <p>Two is about thirty steps of eating with nothing coming in — late
      * enough that an ordinary lean spell is not a crisis, early enough that the
      * fields can still be got going before anybody is on the death clock. A town
-     * under this is not economising, it is running out.
+     * under this is not economizing, it is running out.
      */
     public static final int CRISIS_FOOD_PER_RESIDENT = 2;
 
@@ -528,10 +528,10 @@ public final class FoodPlanner {
             if (person.haul() != null || heldBackByHunger(settlement, person, starving)) {
                 continue;
             }
-            // A pioneer takes the farmer's errands while generalists labour --
+            // A pioneer takes the farmer's errands while generalists labor --
             // same arm, same granary budget, no second copy of the rules.
             Profession arm = person.profession() == Profession.PIONEER
-                    && settlement.laboursAs(person, Profession.FARMER)
+                    && settlement.laborsAs(person, Profession.FARMER)
                     ? Profession.FARMER : person.profession();
             switch (arm) {
                 case FARMER -> {
@@ -672,14 +672,14 @@ public final class FoodPlanner {
         }
     }
 
-    /** Where haulers meet the town's bulk store: a granary building, else the centre. */
+    /** Where haulers meet the town's bulk store: a granary building, else the center. */
     public static SimPos granaryPos(Settlement settlement) {
         List<Building> granaries = buildingsOf(settlement, "granary");
         if (!granaries.isEmpty()) {
             return granaries.getFirst().origin();
         }
         List<Building> stores = buildingsOf(settlement, "storehouse");
-        return stores.isEmpty() ? settlement.centre() : stores.getFirst().origin();
+        return stores.isEmpty() ? settlement.center() : stores.getFirst().origin();
     }
 
     private static Building buildingAt(Settlement settlement, SimPos pos) {
@@ -814,7 +814,7 @@ public final class FoodPlanner {
      * the founding rework exists to prevent.
      */
     private static void forage(Settlement settlement) {
-        if (!StagePlanner.pioneersLabour(settlement.stage())) {
+        if (!StagePlanner.pioneersLabor(settlement.stage())) {
             return;
         }
         if (totalFood(settlement)
@@ -822,7 +822,7 @@ public final class FoodPlanner {
             return;
         }
         int hands = (int) settlement.residents().stream()
-                .filter(p -> settlement.laboursAs(p, Profession.FARMER))
+                .filter(p -> settlement.laborsAs(p, Profession.FARMER))
                 .count();
         int gathered = (hands + FORAGERS_PER_MEAL - 1) / FORAGERS_PER_MEAL;
         if (gathered > 0) {
@@ -1033,24 +1033,24 @@ public final class FoodPlanner {
     }
 
     private static int countFarmHands(Settlement settlement, boolean starving) {
-        // laboursAs, not the raw profession: below VILLAGE the pioneers ARE the
+        // laborsAs, not the raw profession: below VILLAGE the pioneers ARE the
         // farmers, and a camp that counted only crystallized ones would harvest
         // nothing until the staffing table woke up.
         return (int) settlement.residents().stream()
-                .filter(p -> settlement.laboursAs(p, Profession.FARMER)
+                .filter(p -> settlement.laborsAs(p, Profession.FARMER)
                         && !heldBackByHunger(settlement, p, starving))
                 .count();
     }
 
     /**
-     * Matched by blueprint-path suffix so any catalogue's "farm" counts. A
-     * placeholder for datapack-declared building roles, like the catalogue itself.
+     * Matched by blueprint-path suffix so any catalog's "farm" counts. A
+     * placeholder for datapack-declared building roles, like the catalog itself.
      */
     private static List<Building> buildingsOf(Settlement settlement, String pathSuffix) {
         List<Building> result = new ArrayList<>();
         for (Building building : settlement.buildings()) {
             // Strip the level first. An improved farm is still a farm — missing that
-            // drops every levelled building out of the food chain, out of the
+            // drops every leveled building out of the food chain, out of the
             // workplace lookup, and off the end of a path.
             if (BuildPlanner.baseIdOf(building.blueprintId()).endsWith(pathSuffix)) {
                 result.add(building);

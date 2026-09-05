@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RaidPlannerTest {
 
     private static final BuildingType TOWER = new BuildingType("test:tower", 10, 1, 0, 0, 60, 0, 3);
-    private static final List<BuildingType> CATALOGUE = List.of(TOWER);
+    private static final List<BuildingType> CATALOG = List.of(TOWER);
 
     /** Bridge that records raid spawns and reports a configurable world state. */
     private static final class WarBridge implements WorldBridge {
@@ -42,7 +42,7 @@ class RaidPlannerTest {
         }
         @Override public void log(String message) { }
         // Plain zombies: one danger apiece, so the count and the weight agree.
-        @Override public Sighting hostilesSeen(SimPos centre, double radius) { return new Sighting(hostiles, hostiles); }
+        @Override public Sighting hostilesSeen(SimPos center, double radius) { return new Sighting(hostiles, hostiles); }
         @Override public void spawnHostiles(int count, SimPos around) { spawnedRaids.add(count); }
     }
 
@@ -50,7 +50,7 @@ class RaidPlannerTest {
     private static Settlement settlement(int guards, int civilians, int towers) {
         Settlement s = new Settlement(
                 new Settlement.Id(new UUID(1234L, 5678L)), "Testburg", new SimPos(0, 64, 0), 64);
-        s.setCatalogue(CATALOGUE);
+        s.setCatalog(CATALOG);
         for (int i = 0; i < guards; i++) {
             s.addResident(new Person(Person.Id.random(), "Guard " + i, Profession.GUARD, new SimPos(0, 64, 0)));
         }

@@ -4,7 +4,7 @@ import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.PathNetwork;
@@ -31,11 +31,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PavedStreetsTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 72, 0);
+    private static final SimPos CENTER = new SimPos(0, 72, 0);
 
     private static Settlement town(String layout, TerrainFake ground, int steps) {
-        Settlement town = new Settlement(Settlement.Id.random(), "Paved", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Paved", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         for (Culture culture : Culture.all()) {
             if (culture.layouts().contains(layout)) {
@@ -45,12 +45,12 @@ class PavedStreetsTest {
         }
         // After the culture, which un-settles it: a people builds in several
         // arrangements now, and the fixture wants the one it asked for rather
-        // than the one this centre happens to hash to.
+        // than the one this center happens to hash to.
         town.setLayoutId(layout);
         assertEquals(layout, town.arrangement().id(), "fixture did not select " + layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
-                    Person.Id.random(), name, Profession.PIONEER, CENTRE));
+                    Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         for (int step = 1; step <= steps; step++) {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
@@ -197,7 +197,7 @@ class PavedStreetsTest {
 
     @Test
     void aRunGivesItsOldAnswersWhenItIsAxisAligned() {
-        // The generalisation to diagonals is only safe if nothing that existed
+        // The generalization to diagonals is only safe if nothing that existed
         // changed, and every road in every existing world is axis-aligned.
         PathNetwork.Segment run = new PathNetwork.Segment(
                 new SimPos(0, 64, 0), new SimPos(40, 64, 0));

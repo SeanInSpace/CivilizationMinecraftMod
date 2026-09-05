@@ -58,7 +58,7 @@ class FootprintTest {
 
     @Test
     void widthAndDepthAreTheFullSpanNotARadius() {
-        // A 7x7 hall centred on its origin reaches three blocks each way.
+        // A 7x7 hall centered on its origin reaches three blocks each way.
         Footprint hall = new Footprint(64, 7, 7, 5);
 
         assertTrue(hall.covers(100, 100, 103, 100), "three east is inside");

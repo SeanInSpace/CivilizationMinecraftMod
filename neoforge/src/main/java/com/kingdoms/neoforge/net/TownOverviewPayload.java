@@ -185,7 +185,7 @@ public record TownOverviewPayload(String town, int population, Distress distress
         /**
          * The shortest true thing a player could act on.
          *
-         * <p>Kept under the hall panel's width on purpose — the screen centres it
+         * <p>Kept under the hall panel's width on purpose — the screen centers it
          * in 240 pixels and has nowhere to wrap to.
          */
         private static String remedyFor(int larder, int farmers) {

@@ -105,7 +105,7 @@ public final class TerrainFake implements WorldBridge {
     }
 
     /**
-     * The same judgement, in courses of fall past what a builder will cut.
+     * The same judgment, in courses of fall past what a builder will cut.
      *
      * <p>Written as the scored answer and the veto derived from it rather than
      * the other way round, because the two must agree exactly: a plot the town
@@ -140,14 +140,14 @@ public final class TerrainFake implements WorldBridge {
     }
 
     /**
-     * A building comes out the size the catalogue said it would.
+     * A building comes out the size the catalog said it would.
      *
      * <p>This used to invent a span — nine, or fifteen for a farm — and that
      * quietly broke every overlap assertion made against it. The settlement
      * measures a standing building's claim from its <em>footprint</em> when it
-     * has one, so a fake that builds things smaller than the catalogue reserved
+     * has one, so a fake that builds things smaller than the catalog reserved
      * lets the town pack them tighter than it ever could in a world, and a test
-     * comparing catalogue spans then reports overlaps the code never made.
+     * comparing catalog spans then reports overlaps the code never made.
      *
      * <p>A test double that lies about the thing under test is worse than none.
      */
@@ -155,13 +155,13 @@ public final class TerrainFake implements WorldBridge {
     public Footprint materializeBlueprint(String id, SimPos origin, boolean surveyed,
                                           int facing) {
         int span = com.kingdoms.sim.settlement.BuildPlanner.plotSpanOf(
-                id, com.kingdoms.sim.settlement.BuildCatalogue.DEFAULT);
+                id, com.kingdoms.sim.settlement.BuildCatalog.DEFAULT);
         return new Footprint(groundAt(origin.x(), origin.z()), span, span, 5);
     }
 
     @Override
-    public int woodedness(SimPos centre, int radius) {
-        return Math.abs((centre.x() * 31 + centre.z() * 17) % 100);
+    public int woodedness(SimPos center, int radius) {
+        return Math.abs((center.x() * 31 + center.z() * 17) % 100);
     }
 
     @Override

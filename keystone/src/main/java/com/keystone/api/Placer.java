@@ -11,7 +11,7 @@ import net.minecraft.world.level.storage.TagValueInput;
 /**
  * Putting planned blocks into a world.
  *
- * <p>Blocks go down with {@link Block#UPDATE_CLIENTS} and no neighbour updates,
+ * <p>Blocks go down with {@link Block#UPDATE_CLIENTS} and no neighbor updates,
  * which is both faster and <em>more correct</em> here: a blueprint already stores
  * the fully-connected state of every fence, wall and stair, so asking the world
  * to recompute connections could only spoil what was authored. It also stops a

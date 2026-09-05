@@ -57,10 +57,10 @@ public final class ShepherdWorker {
         if (farm == null) {
             return false;
         }
-        BlockPos centre = new BlockPos(farm.x(), farm.y(), farm.z());
-        if (worker.distanceToSqr(centre.getX() + 0.5, centre.getY(), centre.getZ() + 0.5)
+        BlockPos center = new BlockPos(farm.x(), farm.y(), farm.z());
+        if (worker.distanceToSqr(center.getX() + 0.5, center.getY(), center.getZ() + 0.5)
                 > WORK_REACH * WORK_REACH) {
-            worker.getNavigation().moveTo(centre.getX() + 0.5, centre.getY(), centre.getZ() + 0.5, 0.7);
+            worker.getNavigation().moveTo(center.getX() + 0.5, center.getY(), center.getZ() + 0.5, 0.7);
             return false;
         }
 
@@ -71,7 +71,7 @@ public final class ShepherdWorker {
             if (type.isEmpty()) {
                 continue;
             }
-            AABB bounds = penBounds(centre, pen, kinds.size());
+            AABB bounds = penBounds(center, pen, kinds.size());
             long present = level.getEntities((Entity) null, bounds,
                     e -> e.getType() == type.get() && e.isAlive()).size();
             if (present >= PER_PEN) {
@@ -93,14 +93,14 @@ public final class ShepherdWorker {
      * <p>Mirrors the strips the placer lays down: the compound runs
      * {@code pens * (PEN_DEPTH + 1) + 1} deep, with a fence row before each pen.
      */
-    private static AABB penBounds(BlockPos centre, int pen, int pens) {
+    private static AABB penBounds(BlockPos center, int pen, int pens) {
         int depth = pens * PEN_DEPTH + pens + 1;
         int rx = COMPOUND_WIDTH / 2;
         int rz = depth / 2;
-        int startZ = centre.getZ() - rz + 1 + pen * (PEN_DEPTH + 1);
+        int startZ = center.getZ() - rz + 1 + pen * (PEN_DEPTH + 1);
         return new AABB(
-                centre.getX() - rx + 1, centre.getY(), startZ,
-                centre.getX() + rx, centre.getY() + 3.0, startZ + PEN_DEPTH);
+                center.getX() - rx + 1, center.getY(), startZ,
+                center.getX() + rx, center.getY() + 3.0, startZ + PEN_DEPTH);
     }
 
     private static Optional<EntityType<?>> typeOf(String id) {

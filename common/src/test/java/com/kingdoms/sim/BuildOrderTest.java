@@ -40,7 +40,7 @@ class BuildOrderTest {
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 128);
         for (int i = 0; i < residents; i++) {
             town.addResident(new Person(
-                    Person.Id.random(), "Resident " + i, Profession.BUILDER, town.centre()));
+                    Person.Id.random(), "Resident " + i, Profession.BUILDER, town.center()));
         }
         int spread = 0;
         for (String id : standing) {

@@ -132,7 +132,7 @@ public final class Bridge {
         }
 
         // Gathered before anything is laid, because the railings are decided by
-        // which columns turned out to have a neighbour and which did not, and
+        // which columns turned out to have a neighbor and which did not, and
         // that cannot be known one column at a time.
         //
         // Held as real positions rather than as three loose numbers. They were
@@ -155,7 +155,7 @@ public final class Bridge {
                     long column = column(on.getX(), on.getZ());
                     BlockPos had = deck.get(column);
                     // The highest of the lifts that reach a column, so an arch
-                    // shared between two centreline points does not have a step
+                    // shared between two centerline points does not have a step
                     // cut out of it where their square footprints overlap.
                     if (had == null || on.getY() > had.getY()) {
                         deck.put(column, on);

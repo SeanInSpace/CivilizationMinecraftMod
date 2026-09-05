@@ -29,10 +29,10 @@ import java.util.Objects;
  * generated in that order, and a plot can then know which street it faces
  * instead of every door being turned toward the middle of town on principle.
  */
-public record TownPlan(SimPos centre, List<Street> streets, List<Plot> plots) {
+public record TownPlan(SimPos center, List<Street> streets, List<Plot> plots) {
 
     public TownPlan {
-        Objects.requireNonNull(centre, "centre");
+        Objects.requireNonNull(center, "center");
         streets = List.copyOf(streets);
         plots = List.copyOf(plots);
     }
@@ -125,7 +125,7 @@ public record TownPlan(SimPos centre, List<Street> streets, List<Plot> plots) {
          * whether the run crosses it is better, and still wrong on a curve — the
          * corners of that square reach a factor of root two further than its
          * sides, so a ring road passing at radius forty clips the corner of a box
-         * centred at radius twenty-seven. On a grid that costs a block; on a
+         * centered at radius twenty-seven. On a grid that costs a block; on a
          * circle it refused a hundred and twenty-five of a hundred and
          * seventy-seven offers and left a ring town with a quarter of its
          * frontage. A square expanded into a square is the wrong shape: the right
@@ -151,7 +151,7 @@ public record TownPlan(SimPos centre, List<Street> streets, List<Plot> plots) {
      * <p>{@code span} is the square claim the siting code already understands.
      * {@code facing} is in quarter turns clockwise, as {@code BuildPlanner} has
      * it, and on a planned town it points at the street rather than at the
-     * centre — which is most of the difference between a village and a wheel of
+     * center — which is most of the difference between a village and a wheel of
      * sheds.
      *
      * @param street index into {@link #streets}, or -1 for a plot that fronts

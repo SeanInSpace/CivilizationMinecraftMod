@@ -89,14 +89,14 @@ class StarvationTest {
      */
     private static Settlement destituteTown() {
         Settlement s = new Settlement(Settlement.Id.random(), "Lastditch", new SimPos(0, 64, 0), 128);
-        s.setCatalogue(List.of(HALL, FARM, GRANARY));
+        s.setCatalog(List.of(HALL, FARM, GRANARY));
         s.setFoodStock(0);
         s.setWoodStock(0);
         s.setStoneStock(0);
         s.addBuilding(new Building("kingdoms:lumber_camp", new SimPos(60, 64, 60), 1, true));
         s.addBuilding(new Building("kingdoms:mine", new SimPos(-60, 64, -60), 1, true));
         s.addResident(new Person(
-                Person.Id.random(), "Alder", Profession.BUILDER, s.centre()));
+                Person.Id.random(), "Alder", Profession.BUILDER, s.center()));
         return s;
     }
 
@@ -182,13 +182,13 @@ class StarvationTest {
         // — the lumber camp was already standing — and the town went back to
         // waiting without ever asking for the mine that would have freed it.
         Settlement s = new Settlement(Settlement.Id.random(), "Twoshort", new SimPos(0, 64, 0), 128);
-        s.setCatalogue(List.of(HALL, FARM, GRANARY));
+        s.setCatalog(List.of(HALL, FARM, GRANARY));
         s.setFoodStock(500);
         s.setWoodStock(0);
         s.setStoneStock(0);
         s.addBuilding(new Building("kingdoms:lumber_camp", new SimPos(60, 64, 60), 1, true));
-        s.addResident(new Person(Person.Id.random(), "Alder", Profession.BUILDER, s.centre()));
-        s.addResident(new Person(Person.Id.random(), "Bryn", Profession.IDLER, s.centre()));
+        s.addResident(new Person(Person.Id.random(), "Alder", Profession.BUILDER, s.center()));
+        s.addResident(new Person(Person.Id.random(), "Bryn", Profession.IDLER, s.center()));
         s.enqueueBuild(new BuildTask(HALL.id(), new SimPos(20, 64, 0), HALL.workCost()));
 
         s.step(CTX);

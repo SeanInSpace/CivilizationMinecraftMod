@@ -87,7 +87,7 @@ public final class DigYard {
         }
 
         /** The middle of the cell, for distance comparisons. */
-        public SimPos centre() {
+        public SimPos center() {
             return new SimPos(minX() + MICRO / 2, y, minZ() + MICRO / 2);
         }
     }
@@ -243,7 +243,7 @@ public final class DigYard {
      *
      * <p>Strict on purpose. On broken ground the columns of one cell top out at
      * different heights, and the cell has to wait for the highest of them —
-     * otherwise a digger could be sent to a block with a neighbour still towering
+     * otherwise a digger could be sent to a block with a neighbor still towering
      * over it, which is how you end up cornered at the bottom of a pit.
      */
     public boolean isReady(Cell cell) {
@@ -300,7 +300,7 @@ public final class DigYard {
         open.sort(Comparator
                 .comparingInt((Cell cell) -> cell.y() >= window ? 0 : 1)
                 .thenComparing(Comparator.comparingInt(Cell::y).reversed())
-                .thenComparingLong(cell -> cell.centre().horizontalDistanceSq(from))
+                .thenComparingLong(cell -> cell.center().horizontalDistanceSq(from))
                 .thenComparingInt(Cell::cx)
                 .thenComparingInt(Cell::cz));
         return open;

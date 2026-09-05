@@ -618,7 +618,7 @@ public final class Foreman {
      * <p>Breadth-first from the block that gave, through logs and leaves only,
      * so a felled trunk takes its own canopy with it rather than leaving a
      * crown floating over the wall it was in the way of. Bounded, because a
-     * dark oak in a forest is joined to a great many of its neighbours by
+     * dark oak in a forest is joined to a great many of its neighbors by
      * touching leaves and a wall builder should not be made to clear a county.
      */
     private static void fell(ServerLevel level, BlockPos from) {

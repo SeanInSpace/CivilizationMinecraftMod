@@ -7,6 +7,14 @@ can rewrite blind and which are names and keys that need a real rename or a save
 
 Audited at commit `b688247` on branch `worktree-agent-a816151d692cfe68c`.
 
+> **Status: the conversion has been done.** Categories A and B — prose and free-text
+> strings — are converted; category C, the identifiers and keys, follows in the next
+> commit. Everything below this line is the audit as it was written, describing the tree
+> before any of it moved: read the tables as the worklist that was worked, not as the
+> state of the tree. What was deliberately left British, and why, is in **Converted** at
+> the end. The counts below are also one commit stale — the tree grew between the audit
+> and the conversion, so the sweep found 2041 hits where the audit counted 2055.
+
 ## Scope
 
 All 438 tracked files (`git ls-files`) except the three binaries — `gradle/wrapper/gradle-wrapper.jar`,
@@ -929,3 +937,78 @@ the British ones stand out.
    `BuildCatalogue` carries a file rename; `catalogue`/`setCatalogue` are the same refactor and
    should land together.
 5. **Never:** the four save keys, `BlockBehaviour`, the survey data contract, and `LICENSE`.
+
+## Converted
+
+Done in two commits on `worktree-agent-a913b94b406e6d632`, on top of `d22db69`:
+prose and free-text strings first, then identifiers, keys and file renames. The
+suite was 1072 tests, 0 failures, before each and after each.
+
+**2042 hits converted, 45 forms, 212 files.** The audit counted 2055 at `b688247`;
+the tree grew before the conversion ran, so the sweep found its own 2041, and the
+`TownStores.ARMOUR` declaration was renamed by hand because its line is protected
+whole. By category: **A prose 683**, **B free-text strings 43**, **C identifiers and
+keys 1316**. The ten that carry it: `centre` 1148, `catalogue` 342, `neighbour` 114,
+`labour` 62, `kerb` 57, `programme` 50, `levelled` 48, `armour` 32, `colour` 26,
+`recognise` 24.
+
+Three of those counts are higher than the audit's, because three of its patterns are
+narrower than the words are. `centre[a-z]*` does not match `centred` (14) or `centring`
+(3); `levell(ed|ing|er|ers)` does not match `levellable` (11 across `isSiteLevellable`
+and `anyLevellable`). All were found by reading the token inventory rather than the
+pattern list, and all are converted.
+
+Three files renamed with `git mv`, each carrying its public type:
+
+- `BuildCatalogue.java` → `BuildCatalog.java`
+- `KerbTest.java` → `CurbTest.java`
+- `LevellingTest.java` → `LevelingTest.java`
+
+The survey/viewer data contract moved as one piece, because every side of it is a
+file in this repository: `tools/survey.py` writes `center` and `defense`,
+`tools/townview.html` reads them and declares `--defense`, and the four
+`surveys/*_town.json` fixtures were rewritten to match. `survey.py`'s own docstring
+licenses this — "the shape is allowed to change as long as both ends move together" —
+and nothing but the viewer reads those files. A survey JSON captured before this will
+not draw; re-run `survey.py` against the log.
+
+### What is left, and why
+
+Re-running every pattern in the appendix over the converted tree — excluding this
+document, as the audit has always excluded itself — returns **83 hits across 14
+forms**. Thirteen of those are the CHANGELOG entry for this change, which has to
+name `centre`, `BuildCatalogue`, `KERB`, `laboursAs`, `carriageway`, `tarmac`,
+`metalled` and `"armour"` in order to say what moved and what did not. Subtract
+them and the residue proper is **70 hits across 10 forms**, every one deliberate:
+
+(Counting this document too returns 796, because its appendix names all 265
+British forms on purpose. That is why the sweep skips it, and why its body was
+left in the old spelling: an audit that spells its own worklist American stops
+being able to find anything.)
+
+| Form | Left | Why |
+| --- | ---: | --- |
+| `carriageway` | 46 | Vocabulary, not orthography. The project means the word. |
+| `tyre` | 5 | False positive: `EntityRenderersEvent`, `EntityRendererProvider`, `registerEntityRenderer` — vanilla names, "Enti**tyRe**ndere…". |
+| `behaviour` | 4 | `BlockBehaviour` — `net.minecraft.world.level.block.state.BlockBehaviour`. Mojang's name, not ours. |
+| `programme` | 4 | `programmer` in `LICENSE:664` (verbatim GPL text) and `programmed` ×3 in `Settlement.java:2200-2202`, which is already American — the audit's `programme(s\|d\|r\|rs)?` pattern over-caught it. |
+| `armour` | 3 | The frozen save value in `TownStores.java`, the comment in `Market.java:189` that quotes it, and the `{@code armour}` in `MarketTest.java:420` that names it. All three describe the key, so all three keep its spelling. |
+| `centre` | 3 | The three frozen save keys: `fieldOf("centre")` ×2 in `KingdomsCodecs.java` and `optionalFieldOf("centre")` in `SiteLedger.java`. |
+| `tarmac` | 2 | Vocabulary. |
+| `offence` | 1 | False positive: `aPostIsTwoCoursesO**fFence**OnItsFooting`. |
+| `cosy` | 1 | False positive: `e**cosy**stem`. |
+| `metalled` | 1 | Vocabulary. |
+
+`timber` was checked and is not a British spelling at all — it is the same word in
+both dialects and appears nowhere in the pattern list.
+
+The four save keys stayed exactly as written, and each now carries a one-line comment
+beside it saying it is a save key spelled as first written and that changing it is a
+codec migration rather than a spelling. **The Java names around them all moved**:
+`Settlement.centre()` is `center()`, `WorkArea::centre` is `WorkArea::center`,
+`SiteLedger.Entry::centre` is `Entry::center`, and `TownStores.ARMOUR` is
+`TownStores.ARMOR` with its value still `"armour"`.
+
+One player-visible string still reads British and is meant to: the stores panel shows
+**Armour**, because `Tallies.pretty` capitalizes the store key rather than holding a
+word of its own. It will read `Armor` the day the key migrates, and not before.

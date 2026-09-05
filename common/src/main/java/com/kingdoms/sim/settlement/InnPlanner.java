@@ -45,7 +45,7 @@ public final class InnPlanner {
         settlement.stores().take(TownStores.FOOD, sold);
         // Unloaded at the inn the wagon stopped at.
         Building inn = settlement.buildingWithRole(BuildingRole.INN);
-        settlement.storeNear(inn == null ? settlement.centre() : inn.origin())
+        settlement.storeNear(inn == null ? settlement.center() : inn.origin())
                 .add(TownStores.IRON, iron);
         settlement.logEvent(ctx.step(), "A caravan calls at the inn — "
                 + sold + " loaves traded for " + iron + " iron");

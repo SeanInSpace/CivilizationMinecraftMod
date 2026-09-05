@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class CrescentLayoutTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 64, 0);
+    private static final SimPos CENTER = new SimPos(0, 64, 0);
 
     /** A layout of this kind with an empty plan cache, as {@code LayoutTest} does. */
     private static CrescentLayout fresh() {
@@ -43,25 +43,25 @@ class CrescentLayoutTest {
         // obvious tidy-up, since a half-circle is more arithmetic than a straight
         // run -- turns this arrangement into that one and would otherwise cost
         // nothing anybody could see.
-        TownPlan plan = fresh().planFor(CENTRE, 140);
+        TownPlan plan = fresh().planFor(CENTER, 140);
         int lanes = 0;
         for (TownPlan.Street street : plan.streets()) {
             if (street.kind() != TownPlan.Kind.LANE) {
                 continue;
             }
             lanes++;
-            assertTrue(Math.abs(street.from().x() - CENTRE.x()) <= 2,
+            assertTrue(Math.abs(street.from().x() - CENTER.x()) <= 2,
                     "a crescent should leave the spine, not start "
-                            + Math.abs(street.from().x() - CENTRE.x()) + " blocks off it");
-            assertTrue(Math.abs(street.to().x() - CENTRE.x()) <= 2,
+                            + Math.abs(street.from().x() - CENTER.x()) + " blocks off it");
+            assertTrue(Math.abs(street.to().x() - CENTER.x()) <= 2,
                     "a crescent should come back to the spine, not end "
-                            + Math.abs(street.to().x() - CENTRE.x()) + " blocks off it");
+                            + Math.abs(street.to().x() - CENTER.x()) + " blocks off it");
 
             int bow = 0;
             int wrongSide = 0;
-            int side = Integer.signum(midpoint(street).x() - CENTRE.x());
+            int side = Integer.signum(midpoint(street).x() - CENTER.x());
             for (SimPos point : street.path()) {
-                int off = point.x() - CENTRE.x();
+                int off = point.x() - CENTER.x();
                 bow = Math.max(bow, Math.abs(off));
                 if (Integer.signum(off) == -side) {
                     wrongSide++;
@@ -99,14 +99,14 @@ class CrescentLayoutTest {
         // So: the points are not describing the shape, they are the unit the
         // town gives up in, and a straight street needs them just as much as a
         // bent one does.
-        TownPlan plan = fresh().planFor(CENTRE, 140);
+        TownPlan plan = fresh().planFor(CENTER, 140);
         TownPlan.Street spine = plan.streets().get(0);
         assertEquals(TownPlan.Kind.SPINE, spine.kind(), "the spine should be street nought");
         assertTrue(spine.path().size() >= spine.length() / 16,
                 "a spine " + Math.round(spine.length()) + " blocks long was drawn in "
                         + (spine.path().size() - 1) + " stretches");
         for (SimPos point : spine.path()) {
-            assertEquals(CENTRE.x(), point.x(), "the spine is straight");
+            assertEquals(CENTER.x(), point.x(), "the spine is straight");
         }
     }
 
@@ -122,7 +122,7 @@ class CrescentLayoutTest {
         // by collapsing runs of the same side: a run of two same-sided stations
         // IS the fault, and folding it into one entry would leave a list that
         // alternates perfectly and a town that does not.
-        TownPlan plan = fresh().planFor(CENTRE, 200);
+        TownPlan plan = fresh().planFor(CENTER, 200);
         List<int[]> stations = new ArrayList<>(innermostLanes(plan));
         stations.sort((a, b) -> Integer.compare(a[0], b[0]));
 
@@ -149,7 +149,7 @@ class CrescentLayoutTest {
         // whose lens is meant to be grass. The lens of an outer lane holds the
         // whole crescent it encloses, quite deliberately.
         for (int wanted : new int[] {64, 140, 256}) {
-            TownPlan plan = fresh().planFor(CENTRE, wanted);
+            TownPlan plan = fresh().planFor(CENTER, wanted);
             for (int[] station : innermostLanes(plan)) {
                 int zc = station[0];
                 int side = station[1];
@@ -159,8 +159,8 @@ class CrescentLayoutTest {
                 // would call the green.
                 double green = bow - 13 - Layout.DEFAULT_SPAN / 2.0 - 1;
                 for (TownPlan.Plot plot : plan.plots()) {
-                    int dx = plot.at().x() - CENTRE.x();
-                    int dz = plot.at().z() - CENTRE.z() - zc;
+                    int dx = plot.at().x() - CENTER.x();
+                    int dz = plot.at().z() - CENTER.z() - zc;
                     if (side * dx <= 10) {
                         continue;   // on the spine or the far side of it
                     }
@@ -185,9 +185,9 @@ class CrescentLayoutTest {
                 continue;
             }
             SimPos mid = midpoint(street);
-            int zc = mid.z() - plan.centre().z();
-            int side = Integer.signum(mid.x() - plan.centre().x());
-            int bow = Math.abs(mid.x() - plan.centre().x());
+            int zc = mid.z() - plan.center().z();
+            int side = Integer.signum(mid.x() - plan.center().x());
+            int bow = Math.abs(mid.x() - plan.center().x());
             int at = -1;
             for (int i = 0; i < found.size(); i++) {
                 if (Math.abs(found.get(i)[0] - zc) < 8 && found.get(i)[1] == side) {
@@ -213,12 +213,12 @@ class CrescentLayoutTest {
         // The claim the arrangement exists to make. Both are a spine with lanes
         // off it; if they came out the same shape there would be no reason to
         // have two.
-        TownPlan crescents = fresh().planFor(CENTRE, 140);
-        TownPlan high = Layouts.HIGH_STREET.planFor(CENTRE, 140);
+        TownPlan crescents = fresh().planFor(CENTER, 140);
+        TownPlan high = Layouts.HIGH_STREET.planFor(CENTER, 140);
         int looped = 0;
         for (TownPlan.Street street : high.streets()) {
-            if (Math.abs(street.from().x() - CENTRE.x()) <= 2
-                    && Math.abs(street.to().x() - CENTRE.x()) <= 2
+            if (Math.abs(street.from().x() - CENTER.x()) <= 2
+                    && Math.abs(street.to().x() - CENTER.x()) <= 2
                     && street.kind() == TownPlan.Kind.LANE) {
                 looped++;
             }
@@ -245,19 +245,19 @@ class CrescentLayoutTest {
     @Test
     void theTownReadsAsASpineWithLobes() {
         for (int wanted : new int[] {64, 140}) {
-            TownPlan plan = fresh().planFor(CENTRE, wanted);
+            TownPlan plan = fresh().planFor(CENTER, wanted);
             int reach = 0;
             for (TownPlan.Plot plot : plan.plots()) {
                 reach = Math.max(reach, (int) Math.round(Math.hypot(
-                        plot.at().x() - CENTRE.x(), plot.at().z() - CENTRE.z())));
+                        plot.at().x() - CENTER.x(), plot.at().z() - CENTER.z())));
             }
             System.out.println();
             int wide = 0;
             int along = 0;
             double paved = 0;
             for (TownPlan.Plot plot : plan.plots()) {
-                wide = Math.max(wide, Math.abs(plot.at().x() - CENTRE.x()));
-                along = Math.max(along, Math.abs(plot.at().z() - CENTRE.z()));
+                wide = Math.max(wide, Math.abs(plot.at().x() - CENTER.x()));
+                along = Math.max(along, Math.abs(plot.at().z() - CENTER.z()));
             }
             for (TownPlan.Street street : plan.streets()) {
                 paved += street.length();
@@ -343,7 +343,7 @@ class CrescentLayoutTest {
         // town, not a bigger one. So the plan is checked at the size every plan is
         // laid at: two crescents to a station, and the whole of a plan of 256
         // taken off them and the spine between.
-        TownPlan plan = fresh().planFor(CENTRE, 256);
+        TownPlan plan = fresh().planFor(CENTER, 256);
         int lanes = 0;
         for (TownPlan.Street street : plan.streets()) {
             if (street.kind() == TownPlan.Kind.LANE) {

@@ -59,7 +59,7 @@ class ExpansionPlannerTest {
     private static Settlement fullSettlement(Kingdom kingdom) {
         Settlement s = new Settlement(
                 new Settlement.Id(new UUID(42L, 43L)), "Parent", new SimPos(0, 64, 0), 64);
-        s.setCatalogue(List.of(HOUSE));
+        s.setCatalog(List.of(HOUSE));
         // A chartered town: the hall stands and the dowry is banked, because
         // expansion gates on both.
         s.addBuilding(new Building("kingdoms:town_hall", new SimPos(0, 64, 5), 0, true));
@@ -89,7 +89,7 @@ class ExpansionPlannerTest {
         // The same full town, but the hall never rose: no hall, no daughters.
         Settlement parent = new Settlement(
                 Settlement.Id.random(), "Hall-less", new SimPos(0, 64, 0), 64);
-        parent.setCatalogue(List.of(HOUSE));
+        parent.setCatalog(List.of(HOUSE));
         parent.setStock(TownStores.WOOD, TownStores.FOUNDING_WOOD * 2);
         parent.setStock(TownStores.STONE, TownStores.FOUNDING_STONE * 2);
         parent.setStock(TownStores.FOOD, 400);
@@ -176,10 +176,10 @@ class ExpansionPlannerTest {
 
         Settlement daughter = kingdom.settlements().stream()
                 .filter(s -> s != parent).findFirst().orElseThrow();
-        double distance = parent.centre().horizontalDistance(daughter.centre());
+        double distance = parent.center().horizontalDistance(daughter.center());
         assertTrue(distance >= ExpansionPlanner.DAUGHTER_DISTANCE - 1,
                 "daughter should be planted on new land, was " + distance + " blocks away");
-        assertEquals(70, daughter.centre().y(), "the site snaps to the terrain");
+        assertEquals(70, daughter.center().y(), "the site snaps to the terrain");
     }
 
     @Test

@@ -46,7 +46,7 @@ public interface WorldBridge {
      * unloaded column, so a plot keeps the height it was given and the world
      * snaps it properly at placement. That is right for siting one building and
      * useless for judging a route: every point of a planned street carries the
-     * town centre's y, so an unloaded hillside reads back as a table top. A
+     * town center's y, so an unloaded hillside reads back as a table top. A
      * slope check written against it refused nothing at all — 155 runs of a
      * measured town climbed more than a block a step, one of them by 29.
      *
@@ -139,7 +139,7 @@ public interface WorldBridge {
     /**
      * Whether a plot is fit to build on.
      *
-     * <p>Plots are handed out by geometry alone — rings around the centre — which
+     * <p>Plots are handed out by geometry alone — rings around the center — which
      * is why a settlement will otherwise cheerfully put a house in a lake or across
      * a ravine. This is the veto: too much slope, standing water, or a drop, and
      * the town takes the next plot instead.
@@ -188,7 +188,7 @@ public interface WorldBridge {
      * in lakes. A town out of good ground should take the least-bad plot it
      * looked at; to do that it has to be able to say which one that was.
      *
-     * <p>So this is the same judgement, scored. Zero exactly when
+     * <p>So this is the same judgment, scored. Zero exactly when
      * {@code isSiteSuitable} passes — implementations must keep the two in step,
      * or a settlement treats perfectly good ground as a compromise, or walks
      * onto ground the veto would have refused. Above zero it is a quantity in
@@ -218,21 +218,21 @@ public interface WorldBridge {
     int SITE_FAULT_UNGRADED = 1;
 
     /**
-     * Whether a site this refused could be made buildable by levelling it.
+     * Whether a site this refused could be made buildable by leveling it.
      *
      * <p>{@link #isSiteSuitable} says no and does not say why, and the reasons
      * are not alike: a lake cannot be filled with a barrow of earth and a
      * hummock can. Only the thing that applied the rule knows which it was, so
      * it is asked rather than guessed at — the first attempt at this had the
-     * simulation infer "not wet, therefore levellable" and promptly put a house
+     * simulation infer "not wet, therefore levelable" and promptly put a house
      * in a lake, because the ground it was testing against reported water
      * through {@code isSiteSuitable} and nothing else.
      *
      * <p>False by default, deliberately. A bridge that has not thought about
-     * levelling keeps exactly the behaviour it had, and a fake written for some
-     * other purpose cannot accidentally licence a town to flatten the sea.
+     * leveling keeps exactly the behavior it had, and a fake written for some
+     * other purpose cannot accidentally license a town to flatten the sea.
      */
-    default boolean isSiteLevellable(SimPos plot, int radius) {
+    default boolean isSiteLevelable(SimPos plot, int radius) {
         return false;
     }
 
@@ -267,7 +267,7 @@ public interface WorldBridge {
         return -1;
     }
 
-    default int woodedness(SimPos centre, int radius) {
+    default int woodedness(SimPos center, int radius) {
         return 0;
     }
 
@@ -292,7 +292,7 @@ public interface WorldBridge {
      * the raid system instead. Default provided so test doubles stay small; real
      * platforms must override.
      */
-    default Sighting hostilesSeen(SimPos centre, double radius) {
+    default Sighting hostilesSeen(SimPos center, double radius) {
         return Sighting.NONE;
     }
 

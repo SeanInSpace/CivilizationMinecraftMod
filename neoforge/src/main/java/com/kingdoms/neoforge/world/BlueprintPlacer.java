@@ -187,7 +187,7 @@ public final class BlueprintPlacer {
     /**
      * How many courses of cobble may be laid under a floor to reach the ground.
      *
-     * <p>A real cost rather than free levelling: each course is masonry somebody
+     * <p>A real cost rather than free leveling: each course is masonry somebody
      * lays and stone the town pays for, which is what keeps "build it up" from
      * being the cheap answer to every slope. It also bounds the survey — a floor
      * is never chosen higher than this above the lowest column of its own plot,
@@ -461,7 +461,7 @@ public final class BlueprintPlacer {
             //
             // An improvement is raised in place, on the floor the old building
             // already stands on. Surveying that column finds the roof of the very
-            // building being replaced, so the new one was pitched a storey up and
+            // building being replaced, so the new one was pitched a story up and
             // built on top of the old — and the excavation, measured from up there,
             // was digging air.
             //
@@ -561,7 +561,7 @@ public final class BlueprintPlacer {
         StructurePlan shape = planFor(level, task.blueprintId(),
                 new BlockPos(x, groundLevel(level, x, z), z));
         // A square of the wider half-span. Buildings are turned to face the town
-        // centre, which swaps width and depth, and a survey that sampled the
+        // center, which swaps width and depth, and a survey that sampled the
         // rectangle as drawn would read different ground on opposite sides of town.
         int half = Math.max(shape.width(), shape.depth()) / 2;
 
@@ -858,7 +858,7 @@ public final class BlueprintPlacer {
     /**
      * Whether this is something growing rather than something built.
      *
-     * <p>The two things a doorway is blocked by that no amount of levelling
+     * <p>The two things a doorway is blocked by that no amount of leveling
      * will shift. Kept apart from {@link #isNaturalGround} because the apron
      * treats them differently in principle even though it now takes both: earth
      * is cut back to make a shelf, and a tree is felled because it is in the
@@ -888,7 +888,7 @@ public final class BlueprintPlacer {
     /**
      * Puts one placement into the world.
      *
-     * <p>Block states are written as authored, without neighbour updates: a
+     * <p>Block states are written as authored, without neighbor updates: a
      * blueprint already stores the connected form of every fence, wall and stair,
      * so asking the world to recompute them could only spoil what was drawn — and
      * a door's lower half, laid on its own, would pop straight back off.
@@ -1070,8 +1070,8 @@ public final class BlueprintPlacer {
      * The plan the builders are working to.
      *
      * <p>Ordinary construction is drawn unturned, as it always has been, and that
-     * is a defect rather than a decision: {@link #place} honours the facing it is
-     * given, so a building that grew unwatched faces the town centre, while a
+     * is a defect rather than a decision: {@link #place} honors the facing it is
+     * given, so a building that grew unwatched faces the town center, while a
      * hand-built one comes out facing south with its door on whichever side that
      * puts it. Correcting it here is a one-word change and a save migration —
      * every structure already standing was laid unturned while its record says
@@ -1273,7 +1273,7 @@ public final class BlueprintPlacer {
      * <p>A repair is only ever the difference between the plan and the wall, so
      * everything depends on drawing the plan the way the wall actually runs. The
      * town's own record cannot be trusted for that: a building raised by hand was
-     * laid unturned while its record says it faces the centre — see
+     * laid unturned while its record says it faces the center — see
      * {@link #planOf} — and any save from before that was noticed holds a mixture
      * of the two.
      *
@@ -1400,7 +1400,7 @@ public final class BlueprintPlacer {
      *
      * <p><strong>The style is applied here rather than carried in the id.</strong>
      * That was the whole difficulty. Producing styled ids upstream would have
-     * meant every comparison of a blueprint id against a catalogue row —
+     * meant every comparison of a blueprint id against a catalog row —
      * {@code type.id().equals(baseId)}, the upgrade lookup, {@code plotSpanOf} —
      * quietly stopping matching, because they all strip a level suffix and none
      * of them strips a culture folder. Composing the path at the last possible
@@ -1432,8 +1432,8 @@ public final class BlueprintPlacer {
      * points, so the structure is laid so that the cell it names as its anchor
      * lands on the plot. Most authored files say which cell that is — Structurize
      * records it as {@code primary_offset}, usually the hut block — and a file
-     * that says nothing is centred on its own footprint, which is what this
-     * always did. Honouring the stated one is what stops an imported building
+     * that says nothing is centered on its own footprint, which is what this
+     * always did. Honoring the stated one is what stops an imported building
      * sitting beside its plot instead of on it.
      *
      * <p>The blueprint itself has no foundation — nobody draws one — so the same
@@ -1481,7 +1481,7 @@ public final class BlueprintPlacer {
      *
      * <p>It goes in the first empty cell a course above the floor, searched
      * outward from the middle, so it lands in the room rather than inside a wall.
-     * A structure with no interior at all gets it at the centre regardless:
+     * A structure with no interior at all gets it at the center regardless:
      * better a post in a wall than a building that answers to nobody.
      */
     private static void addPost(List<Placement> blocks, BlockPos anchor, Vec3i size,
@@ -1553,7 +1553,7 @@ public final class BlueprintPlacer {
      * and the width and depth come from {@link BuildingSizes} either way. So the
      * numbers this returns against a flat fake site are the numbers it returns
      * on a hillside, which is what {@code BlueprintPlacerSizeTest} relies on to
-     * compare all twenty-five of these against the table the catalogue reserves
+     * compare all twenty-five of these against the table the catalog reserves
      * ground from.
      *
      * <p>The style folder is stripped the same way {@link #postFor} strips it,
@@ -1611,8 +1611,8 @@ public final class BlueprintPlacer {
      * The built-in shapes. One size each, whatever level the record claims.
      *
      * <p>They used to grow with tier — two blocks broader per level — and that
-     * is what stacked a town. A plot is reserved from the catalogue's declared
-     * span and a neighbour is sited against that span, but the drawn building
+     * is what stacked a town. A plot is reserved from the catalog's declared
+     * span and a neighbor is sited against that span, but the drawn building
      * answered to its own level instead. A house is declared eleven across;
      * drawn it is seven at level one, eleven at level three, and
      * <strong>thirteen at level four</strong>. The fourth one grows straight
@@ -1747,9 +1747,9 @@ public final class BlueprintPlacer {
         // below, one block out: that is the whole of the shelf now, in place of
         // the two-block pad that used to be scraped flat round everything.
         //
-        // Only natural ground is taken. Aprons of neighbouring plots can meet,
+        // Only natural ground is taken. Aprons of neighboring plots can meet,
         // and a rule that ate anything in reach would quietly chew a hole in the
-        // house next door — or eat the doorstep the neighbour just laid.
+        // house next door — or eat the doorstep the neighbor just laid.
         int ax = rx + APRON_MARGIN;
         int az = rz + APRON_MARGIN;
         for (int dx = -ax; dx <= ax; dx++) {
@@ -1947,10 +1947,10 @@ public final class BlueprintPlacer {
         // culture while this sized them from the default — which agreed only for
         // as long as there was one culture, and would have penned a highland
         // town's goats into a compound built for somebody else's herd.
-        // Clamped to the ground the catalogue reserved. The compound's depth
+        // Clamped to the ground the catalog reserved. The compound's depth
         // is a culture's business -- a people that keeps five beasts wants five
         // pens -- but the plot it stands on was staked before anybody asked, so
-        // a sixth pen would be a fence through the neighbour's wall rather than
+        // a sixth pen would be a fence through the neighbor's wall rather than
         // a bigger farm.
         BuildingSizes.Size size = sized("animal_farm");
         int penDepth = 3;
@@ -2100,7 +2100,7 @@ public final class BlueprintPlacer {
      * prove the machinery as to be read in: until the sizes were declared in one
      * place, a building this big would have been drawn straight through whatever
      * was next to it, because the ground was reserved from a number in the
-     * catalogue and the walls were drawn from a literal in this file.
+     * catalog and the walls were drawn from a literal in this file.
      */
     private static int[] library(Site site, List<Placement> blocks, BlockPos base) {
         BuildingSizes.Size size = sized("library");
@@ -2122,7 +2122,7 @@ public final class BlueprintPlacer {
                 add(blocks, base.offset(dx, 2, dz), Blocks.BOOKSHELF);
             }
         }
-        // Lit properly. One lantern at the centre is what a cabin gets and it is
+        // Lit properly. One lantern at the center is what a cabin gets and it is
         // nowhere near enough for a room this size -- the far corners would sit
         // dark enough to spawn things in.
         for (int dx = -rx + 3; dx <= rx - 3; dx += 6) {
@@ -2182,9 +2182,9 @@ public final class BlueprintPlacer {
             for (int dz = -1; dz <= 1; dz++) {
                 // Coarse dirt under the post itself: a path block converts to
                 // plain dirt the moment anything solid stands on it.
-                boolean centre = dx == 0 && dz == 0;
+                boolean center = dx == 0 && dz == 0;
                 add(blocks, base.offset(dx, 0, dz),
-                        centre ? Blocks.COARSE_DIRT : Blocks.DIRT_PATH);
+                        center ? Blocks.COARSE_DIRT : Blocks.DIRT_PATH);
             }
         }
         add(blocks, base.offset(0, 1, 0), KingdomsBlocks.CAMP_POST.get());
@@ -2491,7 +2491,7 @@ public final class BlueprintPlacer {
      * What this building is declared to be, which is what ground was reserved.
      *
      * <p>Never a literal in a drawing method again. The sizes here and the plot
-     * spans in the catalogue were two separate sets of numbers and had drifted
+     * spans in the catalog were two separate sets of numbers and had drifted
      * to roughly a factor of two apart, so every street in the mod was laid out
      * for buildings twice the size of the ones put on it.
      */
@@ -2587,7 +2587,7 @@ public final class BlueprintPlacer {
      *                    relative to the base. Zero for everything that has a
      *                    floor. A crop field draws its soil one BELOW its base —
      *                    see {@link #baseFor} — so its doorstep belongs one lower
-     *                    too, or every field on flat ground gets a cobble kerb
+     *                    too, or every field on flat ground gets a cobble curb
      *                    standing a block proud of the grass all the way round.
      */
     private static void foundation(Site site, List<Placement> blocks, BlockPos base,
@@ -2601,7 +2601,7 @@ public final class BlueprintPlacer {
      * <p>Two questions, which is all the whole foundation pass ever asks of a
      * world — so asking them through this makes what it lays testable without
      * one. The cells it fills are where "floating over a slope" and "a cobble
-     * kerb standing proud of the grass" both live, and neither was reachable by
+     * curb standing proud of the grass" both live, and neither was reachable by
      * anything but looking at a hillside.
      */
     interface Ground {

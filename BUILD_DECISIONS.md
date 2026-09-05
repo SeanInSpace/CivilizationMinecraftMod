@@ -2,7 +2,7 @@
 
 **Status:** implemented and working. Simple on purpose — this is the first version, meant to be replaced by datapack-driven content, not to be clever.
 
-Code: [`BuildPlanner`](common/src/main/java/com/kingdoms/sim/settlement/BuildPlanner.java), [`BuildCatalogue`](common/src/main/java/com/kingdoms/sim/settlement/BuildCatalogue.java), [`BuildingType`](common/src/main/java/com/kingdoms/sim/settlement/BuildingType.java).
+Code: [`BuildPlanner`](common/src/main/java/com/kingdoms/sim/settlement/BuildPlanner.java), [`BuildCatalog`](common/src/main/java/com/kingdoms/sim/settlement/BuildCatalog.java), [`BuildingType`](common/src/main/java/com/kingdoms/sim/settlement/BuildingType.java).
 
 ---
 
@@ -26,24 +26,24 @@ This is why a town builds one thing at a time rather than starting six projects 
 
 ### 1.5. Does my stage have a program?
 
-**Below village size, the catalogue does not run at all.** A settlement climbs a
+**Below village size, the catalog does not run at all.** A settlement climbs a
 founding ladder — camp, homestead, fortified, village, town — and each stage has
 its own ordered list of what to build. That list is worked top to bottom and is
 the *whole* of the plan: a camp raises its camp post and cache, a homestead its
 bunkhouse, hearth, farm and granary, in that order, however loudly the shortfall
 table below would like something else.
 
-From village size the catalogue scan resumes for growth, and one rule outlives the
+From village size the catalog scan resumes for growth, and one rule outlives the
 ladder: **the town hall may only be ordered at town stage.** It is the capstone of
 the last stage, not the opening move. See [FOUNDING.md](FOUNDING.md) for the
 programs and the conditions that graduate a settlement between them.
 
-A program entry naming a blueprint the catalogue does not know is skipped rather
+A program entry naming a blueprint the catalog does not know is skipped rather
 than built as a marker, which keeps the machine honest while content catches up.
 
 ### 2. What am I short of?
 
-For each building type in the catalogue:
+For each building type in the catalog:
 
 - **Am I big enough?** If population is below the type's minimum, skip it entirely. A hamlet of three does not consider a watchtower.
 - **How many do I want?** `wanted = base + (population ÷ per-residents)`, using integer division so it rounds down. A flat `base` is a count that never changes with size — you want exactly one town hall whether you are 5 people or 500.
@@ -67,7 +67,7 @@ Ties are broken by larger shortfall, then alphabetically by id. The alphabetical
 
 ### 4. Where does it go?
 
-Plots are handed out in **expanding rings** around the settlement centre, packed by circumference:
+Plots are handed out in **expanding rings** around the settlement center, packed by circumference:
 
 - Ring radii run `12, 28, 44, …` blocks out.
 - Each ring holds as many plots as fit at roughly **16-block spacing** along its circumference (minimum 8) — 8 in the first ring, 10 in the second, 17 in the third, and so on. Sixteen rather than the eleven two plots need of each other, because separation is measured on the wider axis and two plots a chord apart on a circle are only `chord / √2` apart where the ring runs diagonally.
@@ -75,7 +75,7 @@ Plots are handed out in **expanding rings** around the settlement centre, packed
 
 Rings fill densely from the inside out — empty space near the town is used before the town expands. *(The first version used a constant eight plots per ring; live playtesting revealed the result was an eight-legged star with ever-growing gaps between spokes.)* Plots are never reused and buildings never overlap.
 
-Height is always the settlement centre's height. There is no terrain awareness at all yet — see limitations.
+Height is always the settlement center's height. There is no terrain awareness at all yet — see limitations.
 
 **Territory follows building.** If the chosen plot falls outside the current claim, the settlement expands its claim radius to reach it plus an 8-block margin. Towns grow their borders by building, rather than having a fixed boundary set at founding. The claim never shrinks.
 
@@ -112,7 +112,7 @@ Buildings rise **visibly, block by block**, in a mason's order:
 2. **The ground in the way is dug out first**, block by block, top down so nobody
    undermines what they are standing on. Even on the flat this is real work: the
    topsoil under the floor has to come out. On a slope it is most of the job.
-3. **The cut runs two blocks past the walls**, levelling a shelf around the
+3. **The cut runs two blocks past the walls**, leveling a shelf around the
    building. A floor at grade is only half of being able to walk in — on anything
    steeper than a gentle slope the hillside still stands over the doorway, and the
    building ends up at the bottom of a hole with its door buried. Only soil and
@@ -131,7 +131,7 @@ soil, pickaxe for stone, axe for wood) and swing at a block several times before
 gives, so excavation reads as effort rather than deletion. Spoil does not drop: there
 is nowhere to put it yet.
 
-Excavation is charged **on top of** the catalogue's cost rather than squeezed into it.
+Excavation is charged **on top of** the catalog's cost rather than squeezed into it.
 A building is spread over `work` builder-steps of *laying*; the digging is extra. So
 the same house takes noticeably longer cut into a hillside than raised on the flat,
 which is the honest answer and makes flat ground worth choosing.
@@ -158,14 +158,14 @@ Ids resolve most-specific-first, so `kingdoms:norman/house` falls back to `kingd
 
 ---
 
-## The current catalogue
+## The current catalog
 
 Twenty-one types. The **plot** column is the ground each one takes — its walls plus
 the shelf cleared around them — and two plots may never overlap, which is what
 stops a town building its granary through the side of its own hall.
 
 **The founding programs** (see [FOUNDING.md](FOUNDING.md)). Priority 0 and "always
-want 0" keep these off the catalogue scan entirely: only a stage's own program ever
+want 0" keep these off the catalog scan entirely: only a stage's own program ever
 orders one, so an established town never retrofits a camp.
 
 | Building | Work | Min pop | Always want | Plus one per | Priority | Houses | Plot |
@@ -179,7 +179,7 @@ orders one, so an established town never retrofits a camp.
 | Carpentry | 30 | 1 | — | — | — | — | 9 |
 | Inn | 35 | 1 | — | — | — | — | 11 |
 
-**The growth catalogue**, ordered by priority — what a village and a town build as
+**The growth catalog**, ordered by priority — what a village and a town build as
 they fill out.
 
 | Building | Work | Min pop | Always want | Plus one per | Priority | Houses | Plot |
@@ -255,7 +255,7 @@ Those 4 houses hold 16 people, which is why a town of 10 keeps growing rather th
 
 ## Tuning it
 
-All the behaviour lives in one table in `BuildCatalogue`. No logic changes needed.
+All the behavior lives in one table in `BuildCatalog`. No logic changes needed.
 
 - **Want a building earlier in the sequence** → raise its priority.
 - **Want more of it as towns grow** → lower its per-residents number. `1 per 2` produces far more than `1 per 8`.
@@ -271,7 +271,7 @@ To add a building type, add a row. The planner never needs to know it exists.
 
 Being explicit, because these gaps are choices rather than oversights:
 
-- **No resources or cost.** Buildings need labour and nothing else — no wood, no stone, no money. A settlement can build a town hall out of thin air.
+- **No resources or cost.** Buildings need labor and nothing else — no wood, no stone, no money. A settlement can build a town hall out of thin air.
 - **No prerequisites between buildings.** A workshop does not require a storehouse. The priority ordering produces a sensible sequence in practice, but nothing enforces it.
 - **No terrain awareness.** Plots are placed by pure geometry. A building will happily land in a lake, inside a mountain, or floating over a ravine. Fixing this means asking the world for a surface height, which is a `WorldBridge` method that does not exist yet.
 - **No demolition or repair.** Buildings are permanent once recorded. Breaking the blocks does not remove the building from the settlement's memory.
@@ -285,7 +285,7 @@ Being explicit, because these gaps are choices rather than oversights:
 In rough order of value:
 
 1. ~~**Population growth.**~~ Done — see [POPULATION.md](POPULATION.md). Births now drive building demand, and housing gates births.
-2. **Move the catalogue into datapacks.** `BuildingType` is already nothing but numbers and a string id, specifically so this is a serialization job rather than a redesign. This is also what lets different cultures want different things.
+2. **Move the catalog into datapacks.** `BuildingType` is already nothing but numbers and a string id, specifically so this is a serialization job rather than a redesign. This is also what lets different cultures want different things.
 3. ~~**Terrain-aware placement.**~~ Done — plots snap to the surface at planning time when the chunk is loaded, and placement snaps again regardless.
 4. **Resource costs.** Once settlements have stores, buildings can consume them, and a settlement can be *unable* to build rather than merely uninterested.
-5. **Prerequisites.** A blacksmith requiring a storehouse, expressed in the catalogue rather than implied by priority.
+5. **Prerequisites.** A blacksmith requiring a storehouse, expressed in the catalog rather than implied by priority.

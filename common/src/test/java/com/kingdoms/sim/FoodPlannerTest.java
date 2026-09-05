@@ -47,7 +47,7 @@ class FoodPlannerTest {
 
     private static Settlement settlement() {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
-        s.setCatalogue(List.of(FARM, MARKET, HOUSE));
+        s.setCatalog(List.of(FARM, MARKET, HOUSE));
         return s;
     }
 

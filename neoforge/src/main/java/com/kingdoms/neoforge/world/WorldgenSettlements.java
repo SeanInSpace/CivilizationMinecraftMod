@@ -7,7 +7,7 @@ import com.kingdoms.neoforge.save.SiteLedger;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.Founding;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
@@ -25,7 +25,7 @@ import java.util.Map;
  *
  * <p>Vanilla generates a structure when a chunk is generated, which is the wrong
  * shape for these settlements entirely: a town here is a hundred and fifty to
- * three hundred blocks across, computed from a centre, with roads routed against
+ * three hundred blocks across, computed from a center, with roads routed against
  * terrain the generator has not decided yet. It is not a set of chunk-aligned
  * pieces and cannot be made into one without giving up everything that makes it
  * a town rather than a decoration.
@@ -70,7 +70,7 @@ public final class WorldgenSettlements {
      *
      * <p>Wider than a charter's twelve, because nobody chose this spot: the
      * arithmetic put it there and it may have landed on a cliff. Narrower than
-     * the region's margin, so a site can never wander into its neighbour's
+     * the region's margin, so a site can never wander into its neighbor's
      * ground and break the separation the grid guarantees.
      */
     private static final int SITING_REACH = 48;
@@ -129,13 +129,13 @@ public final class WorldgenSettlements {
      */
     private static void resolve(ServerLevel level, SimWorld world, SiteLedger ledger,
                                 SettlementSites.Site site, int regionX, int regionZ) {
-        SimPos wanted = new SimPos(site.centre().x(),
-                world.bridge().surfaceHeight(site.centre()), site.centre().z());
+        SimPos wanted = new SimPos(site.center().x(),
+                world.bridge().surfaceHeight(site.center()), site.center().z());
         SimPos chosen = Founding.bestSiteNear(wanted, SITING_REACH, world.bridge());
         if (!world.bridge().isSiteSuitable(chosen, TOWN_HEART)) {
             ledger.reject(regionX, regionZ);
             KingdomsMod.LOGGER.info("WORLDGEN region {},{} refused: no ground for a town near {}",
-                    regionX, regionZ, site.centre());
+                    regionX, regionZ, site.center());
             return;
         }
 
@@ -144,7 +144,7 @@ public final class WorldgenSettlements {
                 : pickName(site);
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, site.cultureId());
         Settlement settlement = Founding.seeded(chosen, name, STAGE,
-                BuildCatalogue.DEFAULT, site.cultureId());
+                BuildCatalog.DEFAULT, site.cultureId());
         // The arrangement the world was told it wanted, not the one this people
         // would have picked for this spot. A culture may build several ways; the
         // weights are how a world says which of them it wants to see.
@@ -170,7 +170,7 @@ public final class WorldgenSettlements {
     /** A name from the people who settled it, chosen by where they settled. */
     private static String pickName(SettlementSites.Site site) {
         List<String> names = Culture.of(site.cultureId()).townNames();
-        int at = Math.floorMod(site.centre().x() * 31 + site.centre().z(), names.size());
+        int at = Math.floorMod(site.center().x() * 31 + site.center().z(), names.size());
         return names.get(at);
     }
 }

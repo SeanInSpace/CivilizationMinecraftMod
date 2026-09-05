@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * both read this. The thresholds themselves are tested by the starvation model;
  * what is untested elsewhere is whether the reading lines up with them, so a
  * threshold that moves takes the word with it instead of leaving a settler
- * described as starving in the colour used for merely weak.
+ * described as starving in the color used for merely weak.
  */
 class AppetiteTest {
 
