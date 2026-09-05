@@ -332,10 +332,47 @@ public final class Perimeter {
         return ((long) at.x() << 32) ^ (at.z() & 0xffffffffL);
     }
 
+    /**
+     * How far along {@link #retiredPositions()} the dismantling has got.
+     *
+     * <p>A prefix, exactly as {@link #laid} is a prefix of the standing ring,
+     * and for the same reason: the crew works the retired line in the order it
+     * was walked, so one number says where they are and a town that is watched,
+     * then not, then watched again neither loses ground nor takes the same post
+     * down twice. Saved, or a reload would send the crew back to the head of a
+     * line they have already pulled up half of.
+     *
+     * <p>The list it indexes cannot shift under it while a ring stands: the
+     * retired lines and the standing ring are both fixed once the wall is
+     * staked, and {@link #retiredPositions()} is derived from those two and
+     * cached. A <em>second</em> re-staking is the one thing that rebuilds the
+     * list, and the count starts again at nought there rather than being carried
+     * onto a list it no longer indexes the same way. That costs a crew a walk
+     * over ground already cleared and nothing else: a position with nothing of
+     * ours on it is crossed off where they stand, and the salvage is paid for a
+     * post that actually came out of the ground rather than for a count going up.
+     */
+    private int pulled;
+
+    /** Retired positions taken down so far, counted along {@link #retiredPositions()}. */
+    public int pulled() {
+        return pulled;
+    }
+
+    public void setPulled(int pulled) {
+        this.pulled = Math.max(0, Math.min(pulled, retiredPositions().size()));
+    }
+
+    /** Whether every post of the retired line has been taken down by hand. */
+    public boolean dismantled() {
+        return pulled >= retiredPositions().size();
+    }
+
     /** The old lines are down; stop carrying them. */
     public void forgetRetired() {
         retired = List.of();
         retiredPositions = List.of();
+        pulled = 0;
     }
 
     /** Whether this ring position is inside a gate's opening. */
@@ -355,12 +392,13 @@ public final class Perimeter {
                 && vertices.equals(other.vertices)
                 && gates.equals(other.gates)
                 && laid == other.laid
+                && pulled == other.pulled
                 && stakedOn == other.stakedOn
                 && retired.equals(other.retired);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(vertices, gates, laid, stakedOn, retired);
+        return Objects.hash(vertices, gates, laid, pulled, stakedOn, retired);
     }
 }

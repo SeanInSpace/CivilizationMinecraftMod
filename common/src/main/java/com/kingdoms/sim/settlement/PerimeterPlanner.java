@@ -67,10 +67,17 @@ public final class PerimeterPlanner {
     public static final int TIMBER_KEPT_FOR_BUILDING = 64;
 
     /**
-     * Pays for one post, and says whether it could.
+     * Pays for one post out of the ledger, and says whether it could.
      *
      * <p>Both or neither. A town that has the timber but not the coin does not
      * get a free post, and does not lose the timber pretending otherwise.
+     *
+     * <p>This is the whole price of a post and it is what the clock pays — a
+     * town nobody is looking at has no hands to fill, so the timber comes
+     * straight off the books. A watched town pays the same total by a different
+     * route: the plank leaves the storehouse in a builder's arms and only
+     * {@link #payCoinForPost} is owed at the line. Both are written here so the
+     * two paths cannot come to disagree about what a wall costs.
      */
     public static boolean payForPost(Settlement settlement) {
         if (settlement.woodStock() < WOOD_PER_POST
@@ -78,6 +85,23 @@ public final class PerimeterPlanner {
             return false;
         }
         settlement.stores().take(TownStores.WOOD, WOOD_PER_POST);
+        return payCoinForPost(settlement);
+    }
+
+    /**
+     * The half of a post's price still owed when the plank is already in hand.
+     *
+     * <p>A watched town's timber leaves the ledger at the storehouse, when a
+     * builder shoulders a load of it, and charging for it again at the line
+     * would take two logs out of the stores for one post — the same double
+     * charge a carried load exists to prevent everywhere else. What is left is
+     * the coin, and the coin is charged where it always was: at the post, with
+     * somebody standing there ready to plant it.
+     */
+    public static boolean payCoinForPost(Settlement settlement) {
+        if (settlement.treasury() < COIN_PER_POST) {
+            return false;
+        }
         settlement.spend(COIN_PER_POST);
         return true;
     }
@@ -857,8 +881,15 @@ public final class PerimeterPlanner {
             }
             return;   // no coin is not a fault; it is a town that cannot afford a wall yet
         }
-        settlement.stores().take(TownStores.WOOD, affordable * WOOD_PER_POST);
-        settlement.spend(affordable * COIN_PER_POST);
-        perimeter.setLaid(perimeter.laid() + affordable);
+        // Post by post through the same method the crew's half of the price is
+        // written in, rather than by multiplying the two figures out here. The
+        // arithmetic is identical; what it buys is that a wall costs one thing,
+        // stated once, and a change to what a post costs cannot land on one path
+        // and miss the other.
+        int raised = 0;
+        while (raised < affordable && payForPost(settlement)) {
+            raised++;
+        }
+        perimeter.setLaid(perimeter.laid() + raised);
     }
 }

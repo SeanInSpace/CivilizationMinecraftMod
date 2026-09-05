@@ -44,6 +44,8 @@ import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.Stock;
 import com.kingdoms.sim.view.EmbodimentPlanner;
+import com.kingdoms.sim.work.PublicWorks;
+import com.kingdoms.sim.work.Worksite;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -366,8 +368,7 @@ public final class PersonEntityManager {
                 changed |= workMiners(settlement);
                 changed |= workShepherds(settlement);
                 changed |= layPaths(settlement);
-                workWall(settlement);
-                PerimeterLayer.draw(level, settlement);
+                PerimeterLayer.draw(level, settlement, workWall(settlement));
                 StoreSync.reconcile(level, settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
@@ -2190,9 +2191,9 @@ public final class PersonEntityManager {
      * <p>Which work, and in what order, is the settlement's own opinion — see
      * {@code PublicWorks}. This only finds somebody free to go and do it.
      */
-    private void workWall(Settlement settlement) {
+    private boolean workWall(Settlement settlement) {
         if (!settlement.buildQueue().isEmpty()) {
-            return;   // shelter and stores before roads and walls
+            return false;   // shelter and stores before roads and walls
         }
         for (Person person : settlement.residents()) {
             if (!settlement.laboursAs(person, Profession.BUILDER)
@@ -2204,10 +2205,21 @@ public final class PersonEntityManager {
             if (view == null || view.isRemoved()) {
                 continue;
             }
-            if (Foreman.work(level, settlement, view)) {
-                return;   // one station at a time, by one pair of hands
+            Worksite handed = Foreman.work(level, settlement, person, view, this::fetchLoad);
+            if (handed != null) {
+                // One station at a time, by one pair of hands. Whether the old
+                // line is the work those hands are on decides whether the sweep
+                // that would otherwise pull it down stands aside -- where there
+                // is a hand there is no clock, and a post cannot be pulled up
+                // twice. It has to be the work actually handed out and not
+                // merely "the town still has an old line": the foreman passes
+                // over a retired stretch nobody can see or path to and gives the
+                // builder the palisade instead, and a sweep suppressed on the
+                // strength of that would leave the old wall standing for ever.
+                return handed instanceof PublicWorks.DismantleWork;
             }
         }
+        return false;
     }
 
     /** How close a settler has to pass to notice something on the ground. */

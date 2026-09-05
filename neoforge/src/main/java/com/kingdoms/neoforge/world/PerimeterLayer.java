@@ -71,8 +71,16 @@ public final class PerimeterLayer {
     private PerimeterLayer() {
     }
 
-    /** Stamps the laid prefix of the ring into the world. */
-    public static void draw(ServerLevel level, Settlement settlement) {
+    /**
+     * Stamps the laid prefix of the ring into the world.
+     *
+     * @param handsOnTheOldLine whether a builder is out at the retired line
+     *                          pulling it up themselves, in which case the sweep
+     *                          that would otherwise do it stands aside — where
+     *                          there is a hand there is no clock
+     */
+    public static void draw(ServerLevel level, Settlement settlement,
+                            boolean handsOnTheOldLine) {
         Perimeter perimeter = settlement.perimeter();
         if (perimeter == null) {
             return;
@@ -80,7 +88,9 @@ public final class PerimeterLayer {
         // Before the new wall, the old one comes down -- and it comes down even
         // when nothing is being raised, so a town that re-stakes and then runs
         // out of timber is not left standing inside two walls indefinitely.
-        takeDownSuperseded(level, settlement, perimeter);
+        if (!handsOnTheOldLine) {
+            takeDownSuperseded(level, settlement, perimeter);
+        }
         if (perimeter.laid() <= 0) {
             return;
         }
@@ -233,7 +243,7 @@ public final class PerimeterLayer {
      * a gate on the line — so a lone fence found on a retired position belongs
      * to somebody and is left exactly where it is.
      */
-    private static boolean pullDownOurs(ServerLevel level, SimPos pos) {
+    public static boolean pullDownOurs(ServerLevel level, SimPos pos) {
         BlockPos ground = surface(level, pos);
         if (ground == null) {
             return false;
@@ -380,13 +390,143 @@ public final class PerimeterLayer {
     static final int CATCH_UP_SECONDS = 5;
 
     /**
-     * One post: fence two high on the surface, a torch on every eighth.
+     * One block the wall puts down, at the position it puts it.
+     *
+     * <p>The unit both halves of the wall work in. The sweep below lays a whole
+     * position's worth at once because nobody is watching it happen; a builder
+     * lays one of these a swing, because that is what building something looks
+     * like. Both take the list from {@link #plan}, so the wall a town raises by
+     * hand and the wall it comes back to find raised are the same wall by
+     * construction rather than by two lists somebody has to keep in step.
+     */
+    public record Course(BlockPos pos, BlockState state) {
+    }
+
+    /** Whether this position along the ring carries one of the wall's lights. */
+    static boolean isLit(int index) {
+        return index % LAMP_EVERY == 0;
+    }
+
+    /**
+     * What the wall lays at one ring position, in the order it goes in.
+     *
+     * <p>Three cases and they are the whole of the wall. An ordinary position is
+     * two courses of post with a lamp on every eighth; the middle of a gate is a
+     * gate, hung to swing across the line; and a position in a gate's opening but
+     * not at its middle gets nothing at all, because an opening is the point of a
+     * gate.
+     *
+     * <p>Pure, and takes the footing rather than finding it, so what the wall
+     * draws can be asked without a running world — the footing is the one part of
+     * this that has to read the ground. See {@code PerimeterLayerPlanTest}.
+     */
+    public static List<Course> plan(Perimeter perimeter, SimPos pos, int index,
+                                    BlockPos footing) {
+        if (!perimeter.isGateway(pos)) {
+            return postAt(footing, index);
+        }
+        for (SimPos gate : perimeter.gates()) {
+            if (pos.x() == gate.x() && pos.z() == gate.z()) {
+                // The wall runs along one axis here; the gate swings across it.
+                return List.of(new Course(footing,
+                        Blocks.OAK_FENCE_GATE.defaultBlockState().setValue(
+                                HorizontalDirectionalBlock.FACING,
+                                gateFacing(perimeter, gate))));
+            }
+        }
+        return List.of();   // a flanking opening: the wall lays nothing here
+    }
+
+    /**
+     * One post: fence two high on the footing, a lamp on every eighth.
      *
      * <p>Fence rather than log, and two of them. A fence is a block and a half
      * to anything trying to get over it, so two courses stand three high to a
      * mob and cannot be jumped — where two stacked logs were exactly two blocks
      * and a zombie could climb the slope beside them and step in. It also reads
      * as a wall somebody built rather than a row of trees somebody left.
+     */
+    private static List<Course> postAt(BlockPos footing, int index) {
+        Course lower = new Course(footing, POST.defaultBlockState());
+        Course upper = new Course(footing.above(), POST.defaultBlockState());
+        if (!isLit(index)) {
+            return List.of(lower, upper);
+        }
+        return List.of(lower, upper,
+                new Course(footing.above(2), LAMP.defaultBlockState()));
+    }
+
+    /**
+     * The first block of a position's plan that is not standing yet, or null when
+     * there is nothing left to do there.
+     *
+     * <p>How a crew keeps its place without keeping a cursor. Whether a post is
+     * half planted is written in the ground, so a builder killed halfway up one,
+     * or a server restarted between its two courses, resumes at the block that is
+     * missing rather than at a remembered index that a re-staking could outlive.
+     */
+    public static Course owed(ServerLevel level, List<Course> plan) {
+        for (Course course : plan) {
+            if (!level.getBlockState(course.pos()).is(course.state().getBlock())) {
+                return course;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether anything of the wall's own is standing in this position's column.
+     *
+     * <p>Two questions answered by one look, because they turn out to be the
+     * same question. A crew charges the town for a post once, when the first
+     * course of it goes in, so it has to know whether this position has been
+     * started — and a crew crossing a retired line off has to know whether there
+     * is a post there to pull up at all.
+     *
+     * <p>Asked of the column rather than against a plan on purpose. A gate that
+     * moves onto a half-planted post changes what the plan says belongs there,
+     * and a comparison against the plan would then read the standing fence as
+     * somebody else's and charge for the position twice. What is ours is ours
+     * whatever the plan currently wants.
+     */
+    public static boolean oursStandsAt(ServerLevel level, SimPos pos) {
+        BlockPos footing = surface(level, pos);
+        if (footing == null) {
+            return false;
+        }
+        for (int dy = 0; dy <= RETIRED_REACH; dy++) {
+            BlockPos at = footing.above(dy);
+            if (level.isLoaded(at) && isOurs(level, at)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** What the wall lays at one position on the standing ring, footing and all. */
+    public static List<Course> planAt(ServerLevel level, Perimeter perimeter, int index) {
+        List<SimPos> ring = perimeter.ringPositions();
+        if (index < 0 || index >= ring.size()) {
+            return List.of();
+        }
+        SimPos pos = ring.get(index);
+        BlockPos footing = surface(level, pos);
+        return footing == null ? List.of() : plan(perimeter, pos, index, footing);
+    }
+
+    /**
+     * One block of the wall, put down by hand.
+     *
+     * @return false when the ground refused it, which the crew reads as "the
+     *         line is shut here by something better than a fence" — see
+     *         {@link #lineIsClosed}
+     */
+    public static boolean layByHand(ServerLevel level, Course course) {
+        return put(level, course.pos(), course.state());
+    }
+
+    /**
+     * Stamps one position of the laid prefix into the world.
      *
      * @return 1 if anything was placed, 0 if the post already stood
      */
@@ -396,12 +536,10 @@ public final class PerimeterLayer {
             return 0;
         }
         clearGrowth(level, ground);
-        takeDownWhatIsHanging(level, ground, index % LAMP_EVERY == 0);
+        takeDownWhatIsHanging(level, ground, isLit(index));
         boolean placed = false;
-        placed |= put(level, ground, POST);
-        placed |= put(level, ground.above(), POST);
-        if (index % LAMP_EVERY == 0) {
-            placed |= put(level, ground.above(2), LAMP);
+        for (Course course : postAt(ground, index)) {
+            placed |= put(level, course.pos(), course.state());
         }
         return placed ? 1 : 0;
     }
@@ -415,21 +553,18 @@ public final class PerimeterLayer {
         if (ground == null) {
             return 0;
         }
-        for (SimPos gate : perimeter.gates()) {
-            if (pos.x() == gate.x() && pos.z() == gate.z()) {
-                if (level.getBlockState(ground).getBlock() == Blocks.OAK_FENCE_GATE) {
-                    return 0;
-                }
-                // The wall runs along one axis here; the gate swings across it.
-                Direction facing = gateFacing(perimeter, gate);
-                BlockState state = Blocks.OAK_FENCE_GATE.defaultBlockState()
-                        .setValue(HorizontalDirectionalBlock.FACING, facing);
-                if (replaceable(level, ground) || isOurPost(level, ground)) {
-                    level.setBlock(ground, state, Block.UPDATE_ALL);
-                    return 1;
-                }
+        for (Course course : plan(perimeter, pos, 0, ground)) {
+            if (level.getBlockState(course.pos()).is(course.state().getBlock())) {
                 return 0;
             }
+            // A gate replaces our own post as readily as it replaces air: the
+            // openings move while the wall is going up, following the streets as
+            // they appear, so a post may already stand where the gate now hangs.
+            if (replaceable(level, course.pos()) || isOurPost(level, course.pos())) {
+                level.setBlock(course.pos(), course.state(), Block.UPDATE_ALL);
+                return 1;
+            }
+            return 0;
         }
         // A flanking opening. It is left clear on purpose — but gates move
         // while the wall is going up, following the streets as they appear, so
@@ -713,20 +848,20 @@ public final class PerimeterLayer {
         }
     }
 
-    private static boolean put(ServerLevel level, BlockPos pos, Block block) {
-        if (level.getBlockState(pos).getBlock() == block) {
+    private static boolean put(ServerLevel level, BlockPos pos, BlockState want) {
+        if (level.getBlockState(pos).is(want.getBlock())) {
             return false;
         }
         if (!replaceable(level, pos)) {
             return false;
         }
-        level.setBlock(pos, block.defaultBlockState(), Block.UPDATE_ALL);
+        level.setBlock(pos, want, Block.UPDATE_ALL);
         // Only if it survived being placed. A block that pops off the moment it
         // is set -- a torch with nothing to hold it -- is not work done, and
         // counting it as work is what let one bad choice of block halt the
         // whole wall. Whatever the next mistake of this shape is, the sweep now
         // walks past it instead of grinding on it.
-        return level.getBlockState(pos).getBlock() == block;
+        return level.getBlockState(pos).is(want.getBlock());
     }
 
     /** Only air and soft growth give way; a wall never eats a building. */

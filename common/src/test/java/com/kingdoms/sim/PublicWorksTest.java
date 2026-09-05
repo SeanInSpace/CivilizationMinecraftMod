@@ -1,14 +1,20 @@
 package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.BuildLoad;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.platform.WorldBridge;
+import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
+import com.kingdoms.sim.settlement.Perimeter;
 import com.kingdoms.sim.settlement.PerimeterPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.work.PublicWorks;
 import com.kingdoms.sim.work.Worksite;
+import com.kingdoms.sim.world.SimContext;
+import com.kingdoms.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -38,12 +44,32 @@ class PublicWorksTest {
         return town;
     }
 
+    /** Puts the town's builder into the world, which is what makes hands possible. */
+    private static void embodyTheBuilder(Settlement town) {
+        for (Person person : town.residents()) {
+            person.setEmbodied(true);
+        }
+    }
+
     private static Worksite roads() {
         return new PublicWorks.RoadWork();
     }
 
     private static Worksite wall() {
         return new PublicWorks.WallWork();
+    }
+
+    private static Worksite dismantling() {
+        return new PublicWorks.DismantleWork();
+    }
+
+    /** A town with a staked ring and enough in the bank to raise it. */
+    private static Settlement walled(WorldBridge bridge) {
+        Settlement town = town();
+        town.bank(1000);
+        town.setPerimeter(PerimeterPlanner.stake(town,
+                new SimContext(bridge, 0, SimSettings.SANDBOX)));
+        return town;
     }
 
     // --- roads ---
@@ -66,7 +92,7 @@ class PublicWorksTest {
         town.paths().add(new PathNetwork.Segment(
                 new SimPos(0, 64, 0), new SimPos(8, 64, 0)));
 
-        roads().completeOne(town);
+        roads().completeOne(town, true);
 
         assertTrue(town.paths().isOpened(0));
         assertNull(roads().nextStation(town), "nothing left outstanding");
@@ -91,36 +117,44 @@ class PublicWorksTest {
         assertNull(roads().nextStation(town()));
     }
 
+    @Test
+    void aTrackIsTroddenRatherThanCarried() {
+        // Why a paving crew never walks to the storehouse: there is nothing
+        // there for them. A dirt path is the ground that was already underfoot.
+        assertNull(roads().material(),
+                "a shovel job has no load, so nothing can hold it up but the walking");
+    }
+
     // --- the wall ---
 
     @Test
     void theWallIsWorkedInTheOrderItWasStaked() {
         // A wall raised nearest-first closes as a scatter of disconnected posts.
-        Settlement town = town();
-        town.bank(1000);
-        town.setPerimeter(com.kingdoms.sim.settlement.PerimeterPlanner.stake(town,
-                new com.kingdoms.sim.world.SimContext(
-                        new QuietBridge(), 0, com.kingdoms.sim.world.SimSettings.SANDBOX)));
+        Settlement town = walled(new QuietBridge());
 
         SimPos first = wall().nextStation(town);
         assertEquals(town.perimeter().ringPositions().get(0), first);
 
         wall().pay(town);
-        wall().completeOne(town);
+        wall().completeOne(town, true);
 
         assertEquals(town.perimeter().ringPositions().get(1), wall().nextStation(town),
                 "the next one along, so the line closes as a line");
     }
 
+    /**
+     * The wall gives way to the timber a building needs — by a whole load.
+     *
+     * <p>The claim that changed: the reserve used to be measured against one
+     * post, because that is what the wall took from the pooled ledger between
+     * one check and the next. A builder takes a whole load at the shelves now,
+     * so a town at exactly the reserve passed the check and dropped fifteen
+     * planks under it — and those fifteen were then in somebody's arms, where
+     * the build queue the reserve is kept for cannot see them at all.
+     */
     @Test
     void theWallGivesWayToTimberABuildingNeeds() {
-        // The wall is the one work with no queue behind it and no deadline, so
-        // it is the one that should stand aside.
-        Settlement town = town();
-        town.bank(1000);
-        town.setPerimeter(com.kingdoms.sim.settlement.PerimeterPlanner.stake(town,
-                new com.kingdoms.sim.world.SimContext(
-                        new QuietBridge(), 0, com.kingdoms.sim.world.SimSettings.SANDBOX)));
+        Settlement town = walled(new QuietBridge());
         town.stores().take(TownStores.WOOD, town.woodStock());
         town.stores().add(TownStores.WOOD, PerimeterPlanner.TIMBER_KEPT_FOR_BUILDING);
 
@@ -128,20 +162,215 @@ class PublicWorksTest {
                 "that timber is spoken for; the fence can wait");
 
         town.stores().add(TownStores.WOOD, PerimeterPlanner.WOOD_PER_POST);
-        assertTrue(wall().isWorthStarting(town), "and now there is some to spare");
+        assertFalse(wall().isWorthStarting(town),
+                "one post's worth to spare is not one load's worth, and a load is"
+                        + " what the builder actually takes off the shelf");
+
+        town.stores().add(TownStores.WOOD, BuildLoad.LOAD_SIZE);
+        assertTrue(wall().isWorthStarting(town), "and now there is a load to spare");
+    }
+
+    /**
+     * A post is a plank and three coin, and the crew is charged for the coin.
+     *
+     * <p>The claim that changed. {@code pay} used to take both out of the ledger,
+     * which was right while the wall was a number going up: nobody was carrying
+     * anything. A watched wall is planks out of a storehouse now, and the plank
+     * leaves the books when a builder shoulders it — so charging for it again at
+     * the line would take two logs out of a town for one post, which is the same
+     * double charge a carried load prevents everywhere else in construction.
+     */
+    @Test
+    void aPostAtTheLineCostsTheCoinAndNotTheTimberAgain() {
+        Settlement town = walled(new QuietBridge());
+        int timber = town.woodStock();
+        int coin = town.treasury();
+
+        assertEquals(TownStores.WOOD, wall().material(),
+                "a post is a plank somebody carries out of the storehouse");
+        assertTrue(wall().pay(town));
+
+        assertEquals(timber, town.woodStock(),
+                "the plank left the books at the storehouse, not here");
+        assertEquals(coin - PerimeterPlanner.COIN_PER_POST, town.treasury());
+    }
+
+    @Test
+    void theWholePriceOfAPostIsStillAPlankAndThreeCoin() {
+        // The clock's half, which is what an unwatched town pays. The two paths
+        // have to come to the same total or a wall would be cheaper to build
+        // while nobody was looking at it.
+        Settlement town = walled(new QuietBridge());
+        int timber = town.woodStock();
+        int coin = town.treasury();
+
+        assertTrue(PerimeterPlanner.payForPost(town));
+
+        assertEquals(timber - PerimeterPlanner.WOOD_PER_POST, town.woodStock());
+        assertEquals(coin - PerimeterPlanner.COIN_PER_POST, town.treasury());
+    }
+
+    /**
+     * Where there is a hand there is no clock.
+     *
+     * <p>The whole complaint, stated as a measurement: a watched town's wall
+     * advances because somebody planted a post, and not because a step went by.
+     * The bridge says the line is loaded and the town has an embodied builder,
+     * which is exactly the case in which a player is standing there watching.
+     */
+    @Test
+    void aWatchedWallIsRaisedByItsBuildersAndNotByTheStep() {
+        Settlement town = walled(new LoadedBridge());
+        embodyTheBuilder(town);
+        SimContext ctx = new SimContext(new LoadedBridge(), 1, SimSettings.SANDBOX);
+
+        for (int step = 1; step <= 20; step++) {
+            PerimeterPlanner.advance(town, ctx);
+        }
+        assertEquals(0, town.perimeter().laid(),
+                "twenty steps of clock raised the wall of a town with hands on it");
+
+        wall().pay(town);
+        wall().completeOne(town, true);
+        assertEquals(1, town.perimeter().laid(), "and the post somebody planted did");
+    }
+
+    @Test
+    void anUnwatchedWallIsStillRaisedByTheStep() {
+        // The other half, unchanged: a town nobody is looking at has no hands to
+        // fill, so it goes on paying per post out of the ledger.
+        Settlement town = walled(new QuietBridge());
+        embodyTheBuilder(town);
+        SimContext ctx = new SimContext(new QuietBridge(), 1, SimSettings.SANDBOX);
+
+        PerimeterPlanner.advance(town, ctx);
+
+        assertTrue(town.perimeter().laid() > 0,
+                "nobody is there, so the clock is all the town has");
+    }
+
+    // --- the line the wall replaced ---
+
+    /**
+     * A retired ring inside a wider standing one, with every post of it raised.
+     *
+     * <p>The two loops must not share ground, or {@link Perimeter#retiredPositions}
+     * drops the shared columns — rightly, since pulling down a post the standing
+     * wall is built on would be knocking a hole in the new wall.
+     */
+    private static Perimeter reStaked() {
+        List<SimPos> older = box(8);
+        Perimeter old = new Perimeter(older, List.of(), 0);
+        return new Perimeter(box(24), List.of(), 0,
+                List.of(new Perimeter.Retired(older, old.length())), 0L);
+    }
+
+    private static List<SimPos> box(int half) {
+        return List.of(
+                new SimPos(-half, 64, -half), new SimPos(half, 64, -half),
+                new SimPos(half, 64, half), new SimPos(-half, 64, half));
+    }
+
+    @Test
+    void theOldLineComesDownPostByPostInTheOrderItWasWalked() {
+        Settlement town = town();
+        town.setPerimeter(reStaked());
+        List<SimPos> old = town.perimeter().retiredPositions();
+
+        assertFalse(old.isEmpty(), "a re-staked town has an old line to take down");
+        assertEquals(old.get(0), dismantling().nextStation(town));
+
+        dismantling().completeOne(town, true);
+
+        assertEquals(1, town.perimeter().pulled());
+        assertEquals(old.get(1), dismantling().nextStation(town),
+                "the next one along, so a crew is not sent across the town for each");
+    }
+
+    @Test
+    void halfTheTimberOfAPulledPostComesBack() {
+        // A post that has stood through a generation of weather is firewood
+        // rather than lumber. Getting the whole wall back would make moving one
+        // free, and a town would re-stake at a profit.
+        Settlement town = town();
+        town.setPerimeter(reStaked());
+        town.stores().take(TownStores.WOOD, town.woodStock());
+
+        for (int post = 0; post < 16; post++) {
+            dismantling().completeOne(town, true);
+        }
+
+        assertEquals(8 * PerimeterPlanner.WOOD_PER_POST, town.woodStock(),
+                "sixteen posts up, eight planks back");
+    }
+
+    @Test
+    void aPostNobodyPulledUpYieldsNoTimber() {
+        // Where the salvage rule would otherwise mint wood. The away sweep pulls
+        // down whatever the crew never reached and keeps no count, so a crew
+        // walks over cleared ground often -- and a town paid half a plank for
+        // every second empty position would be making timber out of nothing and
+        // moving its wall at a profit.
+        Settlement town = town();
+        town.setPerimeter(reStaked());
+        town.stores().take(TownStores.WOOD, town.woodStock());
+
+        for (int post = 0; post < 16; post++) {
+            dismantling().completeOne(town, false);
+        }
+
+        assertEquals(16, town.perimeter().pulled(),
+                "the positions are still crossed off, or the crew walks them for ever");
+        assertEquals(0, town.woodStock(), "and nothing came out of the ground");
+    }
+
+    @Test
+    void aLineWhollyTakenDownIsNoLongerCarried() {
+        Settlement town = town();
+        town.setPerimeter(reStaked());
+        int posts = town.perimeter().retiredPositions().size();
+
+        for (int post = 0; post < posts; post++) {
+            dismantling().completeOne(town, true);
+        }
+
+        assertTrue(town.perimeter().retired().isEmpty(),
+                "the old wall is down, so the town stops remembering where it was");
+        assertNull(dismantling().nextStation(town), "and there is nothing left to do");
+    }
+
+    @Test
+    void aTownThatNeverMovedItsWallHasNothingToDismantle() {
+        Settlement town = walled(new QuietBridge());
+        assertNull(dismantling().nextStation(town));
     }
 
     // --- and the order between them ---
 
+    /**
+     * The whole priority system: first in the list with a job to do wins.
+     *
+     * <p>The wall now comes before the roads, which is the other way round from
+     * how this list started. A road is what lets everybody else get to work
+     * faster — a good argument about a town still filling in, and the wall is not
+     * staked until the charter, by which time the streets it encloses are mostly
+     * walked out. What roads-first produced was a town answering every new
+     * outlying shed with a fresh stretch of track and never getting back to the
+     * ring, because a growing town always has one more street planned.
+     *
+     * <p>And the old line before either, because while it stands there are two
+     * walls round one town.
+     */
     @Test
     void theTownOffersItsWorksInTheOrderItCaresAboutThem() {
-        // The whole priority system: first in the list with a job to do wins.
         List<Worksite> works = PublicWorks.of(town());
 
-        assertEquals("road", works.get(0).name(),
-                "a road is what lets everybody else get to work faster");
+        assertEquals("dismantle", works.get(0).name(),
+                "a town does not keep two walls");
         assertEquals("wall", works.get(1).name(),
-                "a wall is what a finished town puts round itself");
+                "a half-built wall is a town that cannot shut its gate");
+        assertEquals("road", works.get(2).name(),
+                "a half-built lane is a walk across grass");
     }
 
     @Test
@@ -153,19 +382,24 @@ class PublicWorksTest {
             assertNotNull(work.name(), "a work says what it is");
             work.nextStation(town);        // may be null; must not throw
             work.isWorthStarting(town);    // must not throw
+            work.material();               // may be null; must not throw
         }
     }
 
     /** Nothing loaded, nothing watching. */
-    private static final class QuietBridge
-            implements com.kingdoms.sim.platform.WorldBridge {
+    private static class QuietBridge implements WorldBridge {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
         @Override public boolean isLoaded(SimPos pos) { return false; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
-        @Override public com.kingdoms.sim.settlement.Footprint materializeBlueprint(
+        @Override public Footprint materializeBlueprint(
                 String id, SimPos origin, boolean surveyed, int facing) {
-            return new com.kingdoms.sim.settlement.Footprint(origin.y(), 3, 3, 3);
+            return new Footprint(origin.y(), 3, 3, 3);
         }
         @Override public void log(String message) { }
+    }
+
+    /** The ground of the wall is loaded, which is what makes hands possible. */
+    private static final class LoadedBridge extends QuietBridge {
+        @Override public boolean isLoaded(SimPos pos) { return true; }
     }
 }
