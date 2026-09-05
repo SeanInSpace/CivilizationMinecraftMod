@@ -41,7 +41,7 @@ class TownEconomyTest {
         s.addBuilding(new Building("kingdoms:smith", new SimPos(4, 64, 4), 1, true));
         for (int i = 0; i < smiths; i++) {
             s.addResident(new Person(
-                    Person.Id.random(), "Smith " + i, Profession.SMITH, s.centre()));
+                    Person.Id.random(), "Smith " + i, Profession.SMITH, s.center()));
         }
         return s;
     }
@@ -75,7 +75,7 @@ class TownEconomyTest {
     @Test
     void aTownWithNoSmithyMakesNothing() {
         Settlement s = new Settlement(Settlement.Id.random(), "Bare", new SimPos(0, 64, 0), 128);
-        s.addResident(new Person(Person.Id.random(), "Hopeful", Profession.SMITH, s.centre()));
+        s.addResident(new Person(Person.Id.random(), "Hopeful", Profession.SMITH, s.center()));
         s.setStock(TownStores.IRON, 100);
         s.setStock(TownStores.WOOD, 100);
 
@@ -85,7 +85,7 @@ class TownEconomyTest {
     }
 
     @Test
-    void toolsComeBeforeWeaponsWhichComeBeforeArmour() {
+    void toolsComeBeforeWeaponsWhichComeBeforeArmor() {
         Settlement s = townWithSmithy(1);
         s.setStock(TownStores.IRON, 1000);
         s.setStock(TownStores.WOOD, 1000);
@@ -96,13 +96,13 @@ class TownEconomyTest {
 
         s.setStock(TownStores.WEAPONS, SmithPlanner.MAX_WEAPONS);
         SmithPlanner.advance(s, CTX);
-        assertEquals(1, s.stores().get(TownStores.ARMOUR));
+        assertEquals(1, s.stores().get(TownStores.ARMOR));
     }
 
     @Test
     void aToolIsIssuedOnlyIfTheTownHasOne() {
         Settlement s = townWithSmithy(0);
-        Person worker = new Person(Person.Id.random(), "Digger", Profession.BUILDER, s.centre());
+        Person worker = new Person(Person.Id.random(), "Digger", Profession.BUILDER, s.center());
         s.addResident(worker);
 
         assertFalse(SmithPlanner.issueTool(s, worker), "an empty rack equips nobody");

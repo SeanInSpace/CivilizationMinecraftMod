@@ -196,7 +196,7 @@ All six steps are built. What each one landed:
 
 1. **Stage machine + programs** — DONE. `SettlementStage` + `StagePlanner`:
    condition-gated advancement, per-stage programs, the hall gated to TOWN,
-   the charter lands a CAMP of pioneers, `laboursAs` carries generalists,
+   the charter lands a CAMP of pioneers, `laborsAs` carries generalists,
    crystallization fills posts and never doubles them. Old saves load as TOWN.
 2. **Camp content** — DONE. Camp post (stage report on right-click), cache,
    bunkhouse, hearth; foraging with the hand-to-mouth ceiling (half the fed

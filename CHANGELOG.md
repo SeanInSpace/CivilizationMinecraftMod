@@ -8,6 +8,37 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## The whole repository spells American now
+
+Nothing in the game is different. 2041 British spellings became American ones,
+across prose, player-facing text and the names in the code itself, following the
+worklist in [docs/american-spelling-audit.md](docs/american-spelling-audit.md).
+The suite is 1072 tests before and after.
+
+The visible part is small: the inn now offers beds for *travelers*, the smithy
+makes *armor*, `/civ` reports a town's *center*, and a town seeded short says its
+*program* wanted a building it could not have. The invisible part is most of it —
+`BuildCatalogue` is `BuildCatalog`, `Settlement.centre()` is `Settlement.center()`,
+`laboursAs` is `laborsAs`, `KERB` is `CURB`. Three files were renamed to match the
+types in them: `BuildCatalogue.java`, `KerbTest.java`, `LevellingTest.java`.
+
+**Existing worlds load unchanged.** Four strings that look like spellings are
+save keys — `"centre"` in three codecs and the value `"armour"` behind
+`TownStores.ARMOR` — and renaming any of them would empty that field out of every
+town on load. They keep the spelling they were first written with, and each now
+carries a comment saying so. The one place this shows is the stores panel, which
+still reads **Armour**, because it capitalizes the key rather than holding a word
+of its own.
+
+The survey viewer's data contract moved as one piece: `tools/survey.py` writes
+`center` and `defense`, `tools/townview.html` reads them, and the four committed
+fixtures in `surveys/` were rewritten to match. A survey JSON captured before
+this will not draw; re-run `survey.py` on the log.
+
+Four words that look British and are not were left alone: `carriageway`,
+`tarmac`, `metalled` and `timber` are vocabulary rather than orthography, and the
+project means them.
+
 ## Walls at the charter, hands on the wall, and every creature's true face
 
 Eight units, landed together. A town builds its one wall as a chartered town

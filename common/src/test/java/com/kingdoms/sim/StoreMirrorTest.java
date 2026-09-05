@@ -218,7 +218,7 @@ class StoreMirrorTest {
     }
 
     @Test
-    void whatTheContainerSpeaksForItStillRecognises() {
+    void whatTheContainerSpeaksForItStillRecognizes() {
         List<String> mirrored = List.of(WOOD, TownStores.STONE);
 
         assertTrue(StoreMirror.mirrors("minecraft:oak_log", mirrored),

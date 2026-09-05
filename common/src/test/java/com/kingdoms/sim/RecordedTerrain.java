@@ -2,7 +2,7 @@ package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 
@@ -142,7 +142,7 @@ public final class RecordedTerrain implements WorldBridge {
      * an earthwork can make good.
      */
     @Override
-    public boolean isSiteLevellable(SimPos plot, int radius) {
+    public boolean isSiteLevelable(SimPos plot, int radius) {
         if (standsInWater(plot, radius)) {
             return false;
         }
@@ -152,13 +152,13 @@ public final class RecordedTerrain implements WorldBridge {
     @Override
     public Footprint materializeBlueprint(String id, SimPos origin, boolean surveyed,
                                           int facing) {
-        int span = BuildPlanner.plotSpanOf(id, BuildCatalogue.DEFAULT);
+        int span = BuildPlanner.plotSpanOf(id, BuildCatalog.DEFAULT);
         return new Footprint(groundAt(origin.x(), origin.z()), span, span, 5);
     }
 
     @Override
-    public int woodedness(SimPos centre, int radius) {
-        return Math.abs((centre.x() * 31 + centre.z() * 17) % 100);
+    public int woodedness(SimPos center, int radius) {
+        return Math.abs((center.x() * 31 + center.z() * 17) % 100);
     }
 
     @Override

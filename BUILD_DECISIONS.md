@@ -2,7 +2,7 @@
 
 **Status:** implemented and working. Simple on purpose — this is the first version, meant to be replaced by datapack-driven content, not to be clever.
 
-Code: [`BuildPlanner`](common/src/main/java/com/kingdoms/sim/settlement/BuildPlanner.java), [`BuildCatalogue`](common/src/main/java/com/kingdoms/sim/settlement/BuildCatalogue.java), [`BuildingType`](common/src/main/java/com/kingdoms/sim/settlement/BuildingType.java).
+Code: [`BuildPlanner`](common/src/main/java/com/kingdoms/sim/settlement/BuildPlanner.java), [`BuildCatalog`](common/src/main/java/com/kingdoms/sim/settlement/BuildCatalog.java), [`BuildingType`](common/src/main/java/com/kingdoms/sim/settlement/BuildingType.java).
 
 ---
 
@@ -255,7 +255,7 @@ Those 4 houses hold 16 people, which is why a town of 10 keeps growing rather th
 
 ## Tuning it
 
-All the behavior lives in one table in `BuildCatalogue`. No logic changes needed.
+All the behavior lives in one table in `BuildCatalog`. No logic changes needed.
 
 - **Want a building earlier in the sequence** → raise its priority.
 - **Want more of it as towns grow** → lower its per-residents number. `1 per 2` produces far more than `1 per 8`.

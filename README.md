@@ -206,7 +206,7 @@ SimWorld.step()                          builds a SimContext(bridge, step, setti
        ├─ ExpansionPlanner.advance(ctx)      chartered towns daughter camps — FOUNDING.md
        └─ for each Settlement:  Settlement.step(ctx)
             ├─ advanceStage(ctx)             camp → homestead → … → town
-            ├─ planNextBuild(ctx)            the stage's program, then the catalogue
+            ├─ planNextBuild(ctx)            the stage's program, then the catalog
             ├─ PathPlanner.advance(ctx)      one building joined to the road network
             ├─ PerimeterPlanner.advance(ctx) stakes and raises the wall — TOWN
             ├─ InnPlanner.advance(ctx)       the caravan calls

@@ -191,7 +191,7 @@ public final class ThorpLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int lanes = lanesFor(wanted);
         int tracks = tracksFor(lanes);
@@ -211,9 +211,9 @@ public final class ThorpLayout extends PlannedLayout {
         // phased tracks would close fourteen blocks of the gap between two
         // facing yards in the worst case, and buying that back would cost
         // fourteen blocks of hamlet.
-        Wander bend = wanderFor(wander, centre, 0);
+        Wander bend = wanderFor(wander, center, 0);
         for (int track = 0; track < tracks; track++) {
-            streets.add(northSouth(centre, bend, trackX(track, tracks), -reach, reach,
+            streets.add(northSouth(center, bend, trackX(track, tracks), -reach, reach,
                     ROAD_HALF * 2, TownPlan.Kind.SPINE));
         }
 
@@ -234,12 +234,12 @@ public final class ThorpLayout extends PlannedLayout {
                 // Wander's own javadoc records, and a lane that starts where the
                 // track is not would leave a gap in the carriageway.
                 int mouth = base + bend.blocksAt(laneZ);
-                int run = runOf(centre, track, nth);
+                int run = runOf(center, track, nth);
                 int lane = streets.size();
-                streets.add(eastWest(centre, Wander.STRAIGHT, laneZ,
+                streets.add(eastWest(center, Wander.STRAIGHT, laneZ,
                         mouth, mouth + side * run, ROAD_HALF, TownPlan.Kind.LANE));
 
-                yard(centre, offers, lane, laneZ, mouth, side, run);
+                yard(center, offers, lane, laneZ, mouth, side, run);
 
                 // One cottage across the track from the lane's mouth, and that
                 // is all the track itself carries. A bare street costs twice --
@@ -252,9 +252,9 @@ public final class ThorpLayout extends PlannedLayout {
                 // mouth. It lands a plot pitch from the neighboring lane's
                 // entrance pair on the wider axis, which is the tightest this
                 // arrangement gets and clears.
-                SimPos across = at(centre, mouth - side * SETBACK, laneZ);
+                SimPos across = at(center, mouth - side * SETBACK, laneZ);
                 offers.add(new Offer(across, track,
-                        Layout.facingToward(across, at(centre, mouth, laneZ))));
+                        Layout.facingToward(across, at(center, mouth, laneZ))));
             }
         }
     }
@@ -268,22 +268,22 @@ public final class ThorpLayout extends PlannedLayout {
      * stretching it — a yard that stretched with its lane would pull the head
      * away from the flanks and stop enclosing anything.
      */
-    private void yard(SimPos centre, List<Offer> offers, int lane, int laneZ,
+    private void yard(SimPos center, List<Offer> offers, int lane, int laneZ,
                       int mouth, int side, int run) {
         // The entrance pair, at the ordinary setback: the narrow part.
         int shankX = mouth + side * (run - SHANK_BACK);
         for (int off : new int[] {-SETBACK, SETBACK}) {
-            SimPos where = at(centre, shankX, laneZ + off);
+            SimPos where = at(center, shankX, laneZ + off);
             offers.add(new Offer(where, lane,
-                    Layout.facingToward(where, at(centre, shankX, laneZ))));
+                    Layout.facingToward(where, at(center, shankX, laneZ))));
         }
 
         // The yard's two flanks, standing wider, looking in across it.
         int flankX = mouth + side * run;
         for (int off : new int[] {-YARD_HALF, YARD_HALF}) {
-            SimPos where = at(centre, flankX, laneZ + off);
+            SimPos where = at(center, flankX, laneZ + off);
             offers.add(new Offer(where, lane,
-                    Layout.facingToward(where, at(centre, flankX, laneZ))));
+                    Layout.facingToward(where, at(center, flankX, laneZ))));
         }
 
         // The head: three across the far end, all looking back down the lane.
@@ -292,9 +292,9 @@ public final class ThorpLayout extends PlannedLayout {
         // their gable ends to everybody arriving.
         int headX = mouth + side * (run + SETBACK);
         for (int off : new int[] {-HEAD_SPREAD, 0, HEAD_SPREAD}) {
-            SimPos where = at(centre, headX, laneZ + off);
+            SimPos where = at(center, headX, laneZ + off);
             offers.add(new Offer(where, lane,
-                    Layout.facingToward(where, at(centre, mouth, laneZ))));
+                    Layout.facingToward(where, at(center, mouth, laneZ))));
         }
     }
 
@@ -332,9 +332,9 @@ public final class ThorpLayout extends PlannedLayout {
      * outline reads worse than a straight one because it reads as a repeated
      * asset.
      */
-    private static int runOf(SimPos centre, int track, int nth) {
-        long mixed = (long) centre.x() * 0x9E3779B97F4A7C15L
-                ^ (long) centre.z() * 0xC2B2AE3D27D4EB4FL
+    private static int runOf(SimPos center, int track, int nth) {
+        long mixed = (long) center.x() * 0x9E3779B97F4A7C15L
+                ^ (long) center.z() * 0xC2B2AE3D27D4EB4FL
                 ^ track * 0x100000001B3L ^ nth * 0x9E3779B1L;
         mixed ^= mixed >>> 31;
         mixed *= 0xBF58476D1CE4E5B9L;
@@ -342,7 +342,7 @@ public final class ThorpLayout extends PlannedLayout {
         return BASE_RUN + (int) ((mixed >>> 17) & 1L) * RUN_STEP;
     }
 
-    private static SimPos at(SimPos centre, int dx, int dz) {
-        return new SimPos(centre.x() + dx, centre.y(), centre.z() + dz);
+    private static SimPos at(SimPos center, int dx, int dz) {
+        return new SimPos(center.x() + dx, center.y(), center.z() + dz);
     }
 }

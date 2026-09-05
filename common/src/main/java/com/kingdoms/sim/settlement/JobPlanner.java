@@ -164,7 +164,7 @@ public final class JobPlanner {
         // laboring trade at once, and pulling them into fixed jobs early is
         // exactly the churn the stages exist to prevent. The crisis lane above
         // still runs -- a starving camp crystallizes a farmer, and should.
-        if (StagePlanner.pioneersLabour(settlement.stage())) {
+        if (StagePlanner.pioneersLabor(settlement.stage())) {
             return false;
         }
         Optional<Profession> needed = mostNeeded(settlement);

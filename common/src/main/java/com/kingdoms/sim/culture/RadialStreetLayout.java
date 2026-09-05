@@ -102,7 +102,7 @@ public final class RadialStreetLayout extends PlannedLayout {
      * How far out from the middle a spoke begins.
      *
      * <p>Clear of the plot on the green, corner and all. The plan refuses a plot
-     * within {@code DEFAULT_SPAN / 2 + KERB} of a carriageway and that clearance
+     * within {@code DEFAULT_SPAN / 2 + CURB} of a carriageway and that clearance
      * is a <em>square</em>, so a lane leaving on a diagonal has to clear a corner
      * standing root two further out than a face — {@link Layout#onACurve} of the
      * clearance, plus the half-carriageway, and a block for the rounding of the
@@ -117,7 +117,7 @@ public final class RadialStreetLayout extends PlannedLayout {
      * had been the same number.
      */
     private static final int SPOKE_START =
-            Layout.onACurve(Layout.DEFAULT_SPAN / 2 + KERB) + ROAD_HALF + 1;
+            Layout.onACurve(Layout.DEFAULT_SPAN / 2 + CURB) + ROAD_HALF + 1;
 
     private final String id;
     private final Wander wander;
@@ -167,7 +167,7 @@ public final class RadialStreetLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         // Enough rings to hold the town, counted rather than guessed. A ring at
         // radius r carries about 2*pi*r/ARC_PITCH plots on each of its two faces,
@@ -185,14 +185,14 @@ public final class RadialStreetLayout extends PlannedLayout {
 
         for (int ring = 0; ring < rings; ring++) {
             int radius = FIRST_RING + ring * RING_SPACING;
-            streets.add(ringRoad(centre, wanderFor(wander, centre, ring), radius));
+            streets.add(ringRoad(center, wanderFor(wander, center, ring), radius));
         }
         // Spokes last, so ring indices stay put as a town grows and the doors
         // that face them keep facing them.
         int firstSpoke = streets.size();
         for (int spoke = 0; spoke < SPOKES; spoke++) {
             double angle = spoke * 2 * Math.PI / SPOKES;
-            streets.add(spokeRoad(centre, angle, outer + RING_SPACING / 2));
+            streets.add(spokeRoad(center, angle, outer + RING_SPACING / 2));
         }
 
         // The middle of the green, when this arrangement wants one. Offered
@@ -207,8 +207,8 @@ public final class RadialStreetLayout extends PlannedLayout {
         // that street's curb. A town of this shape spends one plot's frontage on
         // having a middle, and it is worth it.
         if (hallOnTheGreen) {
-            offers.add(new Offer(centre, Layout.NO_STREET,
-                    Layout.facingToward(centre, round(centre, SPOKE_START, 0))));
+            offers.add(new Offer(center, Layout.NO_STREET,
+                    Layout.facingToward(center, round(center, SPOKE_START, 0))));
         }
 
         // Frontage on both faces of every ring: the inner face looks out across
@@ -223,7 +223,7 @@ public final class RadialStreetLayout extends PlannedLayout {
         // diagonals exactly as the raw pitch did, and frontage fell to a fifth.
         for (int ring = 0; ring < rings; ring++) {
             int radius = FIRST_RING + ring * RING_SPACING;
-            Wander how = wanderFor(wander, centre, ring);
+            Wander how = wanderFor(wander, center, ring);
             for (int side : new int[] {-1, 1}) {
                 int face = radius + side * SETBACK;
                 if (face < SPOKE_START) {
@@ -233,8 +233,8 @@ public final class RadialStreetLayout extends PlannedLayout {
                 for (int i = 0; i < around; i++) {
                     double angle = i * 2 * Math.PI / around;
                     double bent = radius + how.offsetAt(angle * radius);
-                    SimPos where = round(centre, bent + side * SETBACK, angle);
-                    SimPos onRoad = round(centre, bent, angle);
+                    SimPos where = round(center, bent + side * SETBACK, angle);
+                    SimPos onRoad = round(center, bent, angle);
                     offers.add(new Offer(where, ring, Layout.facingToward(where, onRoad)));
                 }
             }
@@ -267,12 +267,12 @@ public final class RadialStreetLayout extends PlannedLayout {
             for (int t = FIRST_RING; t < outer + RING_SPACING / 2; t += along) {
                 for (int side : new int[] {-1, 1}) {
                     SimPos where = new SimPos(
-                            centre.x() + (int) Math.round(t * outX - side * SETBACK * outZ),
-                            centre.y(),
-                            centre.z() + (int) Math.round(t * outZ + side * SETBACK * outX));
+                            center.x() + (int) Math.round(t * outX - side * SETBACK * outZ),
+                            center.y(),
+                            center.z() + (int) Math.round(t * outZ + side * SETBACK * outX));
                     SimPos onRoad = new SimPos(
-                            centre.x() + (int) Math.round(t * outX), centre.y(),
-                            centre.z() + (int) Math.round(t * outZ));
+                            center.x() + (int) Math.round(t * outX), center.y(),
+                            center.z() + (int) Math.round(t * outZ));
                     offers.add(new Offer(where, firstSpoke + spoke,
                             Layout.facingToward(where, onRoad)));
                 }
@@ -281,26 +281,26 @@ public final class RadialStreetLayout extends PlannedLayout {
     }
 
     /** One ring, as the run of points a road round the green passes through. */
-    private static TownPlan.Street ringRoad(SimPos centre, Wander how, int radius) {
+    private static TownPlan.Street ringRoad(SimPos center, Wander how, int radius) {
         List<SimPos> path = new ArrayList<>();
         int around = Math.max(12, (int) (2 * Math.PI * radius / SEGMENT));
         for (int i = 0; i <= around; i++) {
             double angle = i * 2 * Math.PI / around;
-            path.add(round(centre, radius + how.offsetAt(angle * radius), angle));
+            path.add(round(center, radius + how.offsetAt(angle * radius), angle));
         }
         return new TownPlan.Street(path, ROAD_HALF * 2, TownPlan.Kind.LANE);
     }
 
     /** A lane striking outward from the green. */
-    private static TownPlan.Street spokeRoad(SimPos centre, double angle, int out) {
+    private static TownPlan.Street spokeRoad(SimPos center, double angle, int out) {
         return new TownPlan.Street(
-                round(centre, SPOKE_START, angle), round(centre, out, angle),
+                round(center, SPOKE_START, angle), round(center, out, angle),
                 ROAD_HALF * 2, TownPlan.Kind.SPINE);
     }
 
-    private static SimPos round(SimPos centre, double radius, double angle) {
+    private static SimPos round(SimPos center, double radius, double angle) {
         return new SimPos(
-                centre.x() + (int) Math.round(radius * Math.cos(angle)), centre.y(),
-                centre.z() + (int) Math.round(radius * Math.sin(angle)));
+                center.x() + (int) Math.round(radius * Math.cos(angle)), center.y(),
+                center.z() + (int) Math.round(radius * Math.sin(angle)));
     }
 }

@@ -115,19 +115,19 @@ public final class MinerWorker {
      * spreading across the surface and eating the village green.
      */
     private static BlockPos findFace(ServerLevel level, WorkArea area, BlockPos from) {
-        SimPos centre = area.centre();
+        SimPos center = area.center();
         int radius = area.radius();
-        int minY = Math.max(level.getMinY() + FLOOR_MARGIN, centre.y() - MAX_DEPTH);
+        int minY = Math.max(level.getMinY() + FLOOR_MARGIN, center.y() - MAX_DEPTH);
 
         BlockPos best = null;
         double bestDistance = Double.MAX_VALUE;
         int probed = 0;
 
-        for (int y = centre.y(); y >= minY && probed < MAX_PROBES; y--) {
+        for (int y = center.y(); y >= minY && probed < MAX_PROBES; y--) {
             for (int dx = -radius; dx <= radius && probed < MAX_PROBES; dx++) {
                 for (int dz = -radius; dz <= radius && probed < MAX_PROBES; dz++) {
                     probed++;
-                    BlockPos pos = new BlockPos(centre.x() + dx, y, centre.z() + dz);
+                    BlockPos pos = new BlockPos(center.x() + dx, y, center.z() + dz);
                     if (!level.isLoaded(pos) || !isWorkableStone(level, pos)) {
                         continue;
                     }
@@ -163,9 +163,9 @@ public final class MinerWorker {
 
     /** Whether at least one side of this block is open, so it can be reached. */
     private static boolean isExposed(ServerLevel level, BlockPos pos) {
-        for (BlockPos neighbour : new BlockPos[]{
+        for (BlockPos neighbor : new BlockPos[]{
                 pos.above(), pos.north(), pos.south(), pos.east(), pos.west()}) {
-            if (!level.getBlockState(neighbour).isSolidRender()) {
+            if (!level.getBlockState(neighbor).isSolidRender()) {
                 return true;
             }
         }

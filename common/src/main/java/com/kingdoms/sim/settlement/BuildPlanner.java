@@ -171,7 +171,7 @@ public final class BuildPlanner {
     /** How far apart the ground is sampled when weighing a plot. */
     private static final int SAMPLE_SPACING = 3;
 
-    public static int plotSpanOf(String blueprintId, List<BuildingType> catalogue) {
+    public static int plotSpanOf(String blueprintId, List<BuildingType> catalog) {
         String base = baseIdOf(blueprintId);
         if (base.equals(ACCESS_STAIRS)) {
             // Steps are a path to a door, not a plot. They are built hard against
@@ -179,7 +179,7 @@ public final class BuildPlanner {
             // from it nor push anything else away from themselves.
             return 1;
         }
-        for (BuildingType type : catalogue) {
+        for (BuildingType type : catalog) {
             if (type.id().equals(base)) {
                 return type.plotSpan();
             }
@@ -233,9 +233,9 @@ public final class BuildPlanner {
      * two directions it is more squarely off, which is what a builder standing
      * there would choose.
      */
-    public static int facingToward(SimPos plot, SimPos centre) {
-        int dx = centre.x() - plot.x();
-        int dz = centre.z() - plot.z();
+    public static int facingToward(SimPos plot, SimPos center) {
+        int dx = center.x() - plot.x();
+        int dz = center.z() - plot.z();
         if (Math.abs(dz) >= Math.abs(dx)) {
             return dz >= 0 ? 0 : 2;   // center to the south: as drawn; north: half turn
         }
@@ -265,7 +265,7 @@ public final class BuildPlanner {
      * the id rather than in a parameter means a datapack can supply
      * {@code house_l2.nbt} and have it used, with no code involved.
      */
-    public static String levelledId(String baseId, int level) {
+    public static String leveledId(String baseId, int level) {
         return level <= 1 ? baseId : baseId + "_l" + level;
     }
 
@@ -277,7 +277,7 @@ public final class BuildPlanner {
         }
         try {
             return Math.max(1, Integer.parseInt(blueprintId.substring(mark + 2)));
-        } catch (NumberFormatException notLevelled) {
+        } catch (NumberFormatException notLeveled) {
             return 1;
         }
     }
@@ -319,7 +319,7 @@ public final class BuildPlanner {
      * showpiece and leaving the rest as huts.
      */
     public static Optional<Building> chooseUpgrade(Settlement settlement,
-                                                   List<BuildingType> catalogue) {
+                                                   List<BuildingType> catalog) {
         Building best = null;
         for (Building standing : settlement.buildings()) {
             // Not gated on being materialized: a finished building is real to the
@@ -329,7 +329,7 @@ public final class BuildPlanner {
             if (standing.level() >= MAX_LEVEL) {
                 continue;
             }
-            boolean known = catalogue.stream()
+            boolean known = catalog.stream()
                     .anyMatch(type -> type.id().equals(baseIdOf(standing.blueprintId())));
             if (!known) {
                 continue;   // repair flights and the like are not improved
@@ -342,10 +342,10 @@ public final class BuildPlanner {
     }
 
     /** How urgent improving this building is, against the priority of new work. */
-    public static int upgradePriority(Settlement settlement, List<BuildingType> catalogue,
+    public static int upgradePriority(Settlement settlement, List<BuildingType> catalog,
                                       Building standing) {
         String baseId = baseIdOf(standing.blueprintId());
-        return catalogue.stream()
+        return catalog.stream()
                 .filter(type -> type.id().equals(baseId))
                 .mapToInt(BuildingType::priority)
                 .findFirst()
@@ -480,7 +480,7 @@ public final class BuildPlanner {
                     + readableName(producer) + " — none is ordered until there is");
             return false;
         }
-        int work = settlement.catalogue().stream()
+        int work = settlement.catalog().stream()
                 .filter(type -> type.id().equals(producer))
                 .mapToInt(BuildingType::workCost)
                 .findFirst()
@@ -489,10 +489,10 @@ public final class BuildPlanner {
         // next ring slot unchecked, which is how a lumber camp came to be ordered
         // through the side of the town hall — an urgent build is still a build,
         // and gets the same ground rules as any other.
-        int span = plotSpanOf(producer, settlement.catalogue());
+        int span = plotSpanOf(producer, settlement.catalog());
         SimPos plot = settlement.takeNextPlot(span, bridge);
         BuildTask ordered = new BuildTask(producer, plot, work);
-        ordered.setFacing(settlement.arrangement().facingFor(settlement.centre(), plot));
+        ordered.setFacing(settlement.arrangement().facingFor(settlement.center(), plot));
         settlement.enqueueUrgent(ordered);
         String announcement = "Out of " + resource + " — work starts on a " + readableName(producer);
         if (hands != null) {
@@ -656,10 +656,10 @@ public final class BuildPlanner {
      * first. Nothing else needed changing: this is a tiebreak, and priority
      * still decides everything it has an opinion about.
      */
-    public static Optional<BuildingType> chooseNext(Settlement settlement, List<BuildingType> catalogue) {
+    public static Optional<BuildingType> chooseNext(Settlement settlement, List<BuildingType> catalog) {
         int population = settlement.population();
 
-        return catalogue.stream()
+        return catalog.stream()
                 .filter(type -> population >= type.minPopulation())
                 .filter(type -> shortfall(settlement, type, population) > 0)
                 .max(Comparator
@@ -740,13 +740,13 @@ public final class BuildPlanner {
      * through this one and hands it to a settlement that goes through the other
      * would have been refusing ground the town was never offered.
      */
-    public static SimPos plotFor(SimPos centre, int index) {
-        return Layouts.RING.plotFor(centre, index);
+    public static SimPos plotFor(SimPos center, int index) {
+        return Layouts.RING.plotFor(center, index);
     }
 
     /** Claim radius needed to keep the given plot inside the settlement's territory. */
-    public static int claimRadiusFor(SimPos centre, SimPos plot) {
-        return claimRadiusFor(centre, plot, CLAIM_MARGIN);
+    public static int claimRadiusFor(SimPos center, SimPos plot) {
+        return claimRadiusFor(center, plot, CLAIM_MARGIN);
     }
 
     /**
@@ -756,7 +756,7 @@ public final class BuildPlanner {
      * its outermost plot than one that grows in tidy rings, or its own outliers
      * end up outside the claim that is supposed to contain them.
      */
-    public static int claimRadiusFor(SimPos centre, SimPos plot, int margin) {
-        return (int) Math.ceil(centre.horizontalDistance(plot)) + Math.max(0, margin);
+    public static int claimRadiusFor(SimPos center, SimPos plot, int margin) {
+        return (int) Math.ceil(center.horizontalDistance(plot)) + Math.max(0, margin);
     }
 }

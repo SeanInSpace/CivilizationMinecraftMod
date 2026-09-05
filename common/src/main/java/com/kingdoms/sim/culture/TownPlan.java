@@ -29,10 +29,10 @@ import java.util.Objects;
  * generated in that order, and a plot can then know which street it faces
  * instead of every door being turned toward the middle of town on principle.
  */
-public record TownPlan(SimPos centre, List<Street> streets, List<Plot> plots) {
+public record TownPlan(SimPos center, List<Street> streets, List<Plot> plots) {
 
     public TownPlan {
-        Objects.requireNonNull(centre, "centre");
+        Objects.requireNonNull(center, "center");
         streets = List.copyOf(streets);
         plots = List.copyOf(plots);
     }

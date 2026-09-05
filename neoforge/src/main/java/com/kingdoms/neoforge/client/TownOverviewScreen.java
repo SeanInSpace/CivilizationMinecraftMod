@@ -207,7 +207,7 @@ public final class TownOverviewScreen extends Screen {
             case TownStores.IRON -> Items.IRON_INGOT;
             case TownStores.TOOLS -> Items.IRON_PICKAXE;
             case TownStores.WEAPONS -> Items.IRON_SWORD;
-            case TownStores.ARMOUR -> Items.IRON_CHESTPLATE;
+            case TownStores.ARMOR -> Items.IRON_CHESTPLATE;
             default -> Items.CHEST;
         };
     }

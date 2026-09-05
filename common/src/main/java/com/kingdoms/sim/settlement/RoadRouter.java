@@ -141,7 +141,7 @@ public final class RoadRouter {
             if (cost > ceiling || ++examined > EXAMINE_CEILING) {
                 break;   // past what this street is worth; let the caller refuse
             }
-            for (int[] step : NEIGHBOURS) {
+            for (int[] step : NEIGHBORS) {
                 int nx = x + step[0] * GRAIN;
                 int nz = z + step[1] * GRAIN;
                 if (!withinCorridor(nx, nz, ideal) || keepout.blocked(nx, nz)) {
@@ -399,7 +399,7 @@ public final class RoadRouter {
     }
 
     /** Clockwise from north, so the order never depends on a hash. */
-    private static final int[][] NEIGHBOURS = {
+    private static final int[][] NEIGHBORS = {
             {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}
     };
 

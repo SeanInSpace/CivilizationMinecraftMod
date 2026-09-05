@@ -158,7 +158,7 @@ public class BuildingPostBlock extends Block {
         for (BuildTask task : settlement.buildQueue()) {
             SimPos site = task.site();
             int reach = BuildPlanner.plotSpanOf(
-                    task.blueprintId(), settlement.catalogue()) / 2 + 1;
+                    task.blueprintId(), settlement.catalog()) / 2 + 1;
             if (Math.abs(pos.getX() - site.x()) <= reach
                     && Math.abs(pos.getZ() - site.z()) <= reach
                     && Math.abs(pos.getY() - site.y()) <= 8) {
@@ -212,7 +212,7 @@ public class BuildingPostBlock extends Block {
         long best = Long.MAX_VALUE;
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
-                long distance = settlement.centre().horizontalDistanceSq(pos);
+                long distance = settlement.center().horizontalDistanceSq(pos);
                 if (distance < best) {
                     best = distance;
                     nearest = settlement;

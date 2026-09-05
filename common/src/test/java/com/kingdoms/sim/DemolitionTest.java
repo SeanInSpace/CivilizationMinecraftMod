@@ -6,7 +6,7 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingRole;
@@ -61,7 +61,7 @@ class DemolitionTest {
     private static Settlement town() {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 128);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        town.setCatalog(BuildCatalog.DEFAULT);
         return town;
     }
 
@@ -269,7 +269,7 @@ class DemolitionTest {
     // --- work booked against a building that has gone ---
 
     @Test
-    void theRepairQueuedForItIsCancelledWithIt() {
+    void theRepairQueuedForItIsCanceledWithIt() {
         // RepairPlanner will always have queued one: anything hurt badly enough
         // to be written off passed SEVERE_DAMAGE on the way down, and a repair
         // goes to the HEAD of the queue. The queue is head-blocking, so a repair
@@ -460,7 +460,7 @@ class DemolitionTest {
         // the population, food, hauling, job, road, perimeter and repair passes
         // to have run over the hole several times each.
         Settlement town = Founding.seeded(new SimPos(0, 72, 0), "Ruinhead",
-                SettlementStage.TOWN, BuildCatalogue.DEFAULT, Culture.NORMAN.id());
+                SettlementStage.TOWN, BuildCatalog.DEFAULT, Culture.NORMAN.id());
         Building hall = town.buildingWithRole(BuildingRole.HALL);
         Building granary = town.buildingWithRole(BuildingRole.GRANARY);
         Building store = town.buildingWithRole(BuildingRole.STORE);

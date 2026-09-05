@@ -53,7 +53,7 @@ class WatchedProductionTest {
         town.addBuilding(new Building(blueprintId, new SimPos(12, 64, 0), 1, true));
         for (int i = 0; i < 3; i++) {
             town.addResident(new Person(
-                    Person.Id.random(), "Hand " + i, trade, town.centre()));
+                    Person.Id.random(), "Hand " + i, trade, town.center()));
         }
         town.setStock(TownStores.WOOD, 0);
         town.setStock(TownStores.STONE, 0);

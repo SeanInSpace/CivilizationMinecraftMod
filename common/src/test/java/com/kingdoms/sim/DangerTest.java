@@ -73,7 +73,7 @@ class DangerTest {
     }
 
     @Test
-    void threeOfAnythingUnrecognisedIsEnoughToEmptyTheStreets() {
+    void threeOfAnythingUnrecognizedIsEnoughToEmptyTheStreets() {
         // The price of the platform's default, pinned here because it is paid
         // over on this side of the seam. A creature nobody has named reads as a
         // skeleton, and three of those reach the panic tier where it used to

@@ -209,7 +209,7 @@ class StrandedLedgeTest {
     }
 
     @Test
-    void aRoofIsNeverConfusedWithTheNeighboursDoorstep() {
+    void aRoofIsNeverConfusedWithTheNeighborsDoorstep() {
         // Recorded footprints are the walls plus the doorstep ring, and two
         // neighbors' rings are allowed to meet — so the plots overlap where the
         // buildings do not. Asked of the plot, a builder on one roof standing

@@ -1714,7 +1714,7 @@ public final class PersonEntityManager {
     /** Every embodied farmer works their field: harvest, tend, plant. */
     private void workFarmers(Settlement settlement) {
         for (Person person : settlement.residents()) {
-            if (!settlement.laboursAs(person, Profession.FARMER) || !person.isEmbodied()
+            if (!settlement.laborsAs(person, Profession.FARMER) || !person.isEmbodied()
                     || person.isTooWeakToWork() || person.haul() != null) {
                 continue;   // a hauling farmer is on the road, not in the rows
             }
@@ -1773,7 +1773,7 @@ public final class PersonEntityManager {
         if (store == null) {
             store = settlement.nearestStore(at);
         }
-        SimPos stores = store == null ? settlement.centre() : store.origin();
+        SimPos stores = store == null ? settlement.center() : store.origin();
         double dx = builder.getX() - (stores.x() + 0.5);
         double dz = builder.getZ() - (stores.z() + 0.5);
         if (dx * dx + dz * dz > LOAD_REACH * LOAD_REACH) {
@@ -1807,8 +1807,8 @@ public final class PersonEntityManager {
      * different and better question.
      */
     public static SimPos storesPos(Settlement settlement) {
-        Building store = settlement.nearestStore(settlement.centre());
-        return store == null ? settlement.centre() : store.origin();
+        Building store = settlement.nearestStore(settlement.center());
+        return store == null ? settlement.center() : store.origin();
     }
 
     /**
@@ -1865,7 +1865,7 @@ public final class PersonEntityManager {
     private List<PersonEntity> embodiedBuilders(Settlement settlement) {
         List<PersonEntity> builders = new ArrayList<>();
         for (Person person : settlement.residents()) {
-            if (!settlement.laboursAs(person, Profession.BUILDER)
+            if (!settlement.laborsAs(person, Profession.BUILDER)
                     || !person.isEmbodied()
                     || person.isTooWeakToWork()) {
                 continue;
@@ -1945,7 +1945,7 @@ public final class PersonEntityManager {
             guard.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
         }
         if (guard.getItemBySlot(EquipmentSlot.CHEST).isEmpty()
-                && settlement.stores().take(TownStores.ARMOUR, 1)) {
+                && settlement.stores().take(TownStores.ARMOR, 1)) {
             guard.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
         }
     }
@@ -2156,7 +2156,7 @@ public final class PersonEntityManager {
                     .append(", hunger ").append(person.hunger())
                     .append(" ").append(Appetite.of(person.hunger()).word())
                     .append(", errand ").append(errandOf(person));
-            if (settlement.laboursAs(person, Profession.BUILDER)) {
+            if (settlement.laborsAs(person, Profession.BUILDER)) {
                 line.append(steeredByBuild.contains(person.id().value())
                         ? ", site has them" : ", SITE STEERING NOBODY");
                 if (pathlessPasses.containsKey(person.id().value())) {
@@ -2232,7 +2232,7 @@ public final class PersonEntityManager {
             return false;   // shelter and stores before roads and walls
         }
         for (Person person : settlement.residents()) {
-            if (!settlement.laboursAs(person, Profession.BUILDER)
+            if (!settlement.laborsAs(person, Profession.BUILDER)
                     || !person.isEmbodied() || person.isTooWeakToWork()
                     || person.haul() != null) {
                 continue;
@@ -2321,7 +2321,7 @@ public final class PersonEntityManager {
     private void unloadAtStore(Settlement settlement) {
         SimPos where = marketPos(settlement);
         if (where == null) {
-            where = settlement.centre();
+            where = settlement.center();
         }
         for (Person person : settlement.residents()) {
             if (!person.isEmbodied() || !Economy.wantsToUnload(person)) {
@@ -2389,9 +2389,9 @@ public final class PersonEntityManager {
             return;
         }
         BlockPos bell = findBell(settlement);
-        SimPos centre = settlement.centre();
+        SimPos center = settlement.center();
         BlockPos from = bell != null ? bell
-                : new BlockPos(centre.x(), centre.y(), centre.z());
+                : new BlockPos(center.x(), center.y(), center.z());
         if (bell != null && level.getBlockEntity(bell) instanceof BellBlockEntity ringing) {
             // Swings the real thing: the model moves and vanilla's own bell
             // effects run, so it reads as somebody pulling the rope.
@@ -2466,7 +2466,7 @@ public final class PersonEntityManager {
             // nobody, and standing aside for it left the crew with no orders
             // from anybody -- which is a builder standing still on a finished
             // roof, exactly as reported.
-            if (settlement.laboursAs(person, Profession.BUILDER)
+            if (settlement.laborsAs(person, Profession.BUILDER)
                     && !alarm.callsIn(person.profession()) && !night
                     && (steeredByBuild.contains(person.id().value())
                             || isClearing(settlement))
@@ -2480,7 +2480,7 @@ public final class PersonEntityManager {
                     && !person.isTooWeakToWork()) {
                 continue;   // steered tree by tree in workLumberjacks
             }
-            if (settlement.laboursAs(person, Profession.FARMER)
+            if (settlement.laborsAs(person, Profession.FARMER)
                     && !alarm.callsIn(person.profession()) && !night
                     && person.haul() == null
                     && !person.isTooWeakToWork()) {
@@ -2506,7 +2506,7 @@ public final class PersonEntityManager {
                 // Wary is a walk indoors; alarmed is a run. A town that sprints
                 // for its doors over one skeleton reads as hysterical, and a
                 // town that strolls through a raid reads as asleep.
-                target = home != null ? home : settlement.centre();
+                target = home != null ? home : settlement.center();
                 speed = alarm == Alarm.ALARMED ? SHELTER_SPEED : WALK_SPEED;
             } else if (FoodPlanner.isGoingToEat(person)) {
                 // Dinner outranks the end of the day. Somebody weak with hunger
@@ -2515,7 +2515,7 @@ public final class PersonEntityManager {
                 target = person.haul().target();
                 speed = WALK_SPEED;
             } else if (night && !guard) {
-                target = home != null ? home : settlement.centre();
+                target = home != null ? home : settlement.center();
                 speed = WALK_SPEED;
             } else {
                 target = workplaceFor(settlement, person, home);
@@ -2574,10 +2574,10 @@ public final class PersonEntityManager {
                     : settlement.buildQueue().getFirst().origin();
             case TRADER -> nearestBuilding(settlement, "market", person.position());
             case LUMBERJACK -> settlement.lumberArea() != null
-                    ? settlement.lumberArea().centre()
+                    ? settlement.lumberArea().center()
                     : nearestBuilding(settlement, "lumber_camp", person.position());
             case MINER -> settlement.mineArea() != null
-                    ? settlement.mineArea().centre()
+                    ? settlement.mineArea().center()
                     : nearestBuilding(settlement, "mine", person.position());
             case SMITH -> nearestBuilding(settlement, "smith", person.position());
             case MILLER -> nearestBuilding(settlement, "mill", person.position());
@@ -2591,7 +2591,7 @@ public final class PersonEntityManager {
             case PIONEER -> settlement.buildQueue().isEmpty()
                     ? nearestBuilding(settlement, "farm", person.position())
                     : settlement.buildQueue().getFirst().origin();
-            case IDLER -> home != null ? home : settlement.centre();
+            case IDLER -> home != null ? home : settlement.center();
         };
     }
 
@@ -2636,7 +2636,7 @@ public final class PersonEntityManager {
                 best = building.origin();
             }
         }
-        return best != null ? best : settlement.centre();
+        return best != null ? best : settlement.center();
     }
 
     /** Whether this exact entity is the live view we spawned for this person. */
@@ -2745,23 +2745,23 @@ public final class PersonEntityManager {
 
     private void drawBorderNear(ServerPlayer player, Settlement settlement) {
         double radius = settlement.claimRadius();
-        SimPos centre = settlement.centre();
-        double dx = player.getX() - centre.x();
-        double dz = player.getZ() - centre.z();
+        SimPos center = settlement.center();
+        double dx = player.getX() - center.x();
+        double dz = player.getZ() - center.z();
         if (Math.sqrt(dx * dx + dz * dz) > radius + BORDER_VIEW_RANGE) {
             return;
         }
         int points = Math.max(16, (int) (2 * Math.PI * radius / BORDER_POINT_SPACING));
         for (int i = 0; i < points; i++) {
             double angle = 2 * Math.PI * i / points;
-            double x = centre.x() + radius * Math.cos(angle) + 0.5;
-            double z = centre.z() + radius * Math.sin(angle) + 0.5;
+            double x = center.x() + radius * Math.cos(angle) + 0.5;
+            double z = center.z() + radius * Math.sin(angle) + 0.5;
             double px = player.getX() - x;
             double pz = player.getZ() - z;
             if (px * px + pz * pz > BORDER_VIEW_RANGE * BORDER_VIEW_RANGE) {
                 continue;   // draw only the arc the player can actually see
             }
-            int y = world.bridge().surfaceHeight(new SimPos((int) Math.floor(x), centre.y(), (int) Math.floor(z)));
+            int y = world.bridge().surfaceHeight(new SimPos((int) Math.floor(x), center.y(), (int) Math.floor(z)));
             level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y + 0.6, z, 1, 0.0, 0.0, 0.0, 0.0);
         }
     }
@@ -2807,7 +2807,7 @@ public final class PersonEntityManager {
                         Footprint footprint = task.footprint();
                         if (!footprint.isKnown()) {
                             int span = BuildPlanner.plotSpanOf(
-                                    task.blueprintId(), settlement.catalogue());
+                                    task.blueprintId(), settlement.catalog());
                             footprint = new Footprint(task.site().y(), span, span, 3);
                         }
                         outline(player, task.site(), footprint);

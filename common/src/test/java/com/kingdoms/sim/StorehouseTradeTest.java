@@ -79,13 +79,13 @@ class StorehouseTradeTest {
         int ceiling = LumberPlanner.woodCapacity(s);
         s.setStock(TownStores.WOOD, ceiling - 5);
 
-        assertEquals(5, StorehousePlanner.donate(s, s.centre(), TownStores.WOOD, 64),
+        assertEquals(5, StorehousePlanner.donate(s, s.center(), TownStores.WOOD, 64),
                 "a generous donation is taken only as far as the racks hold");
         assertEquals(ceiling, s.woodStock(),
                 "the store sits exactly at capacity afterwards");
-        assertEquals(0, StorehousePlanner.donate(s, s.centre(), TownStores.WOOD, 1),
+        assertEquals(0, StorehousePlanner.donate(s, s.center(), TownStores.WOOD, 1),
                 "a full store takes nothing more");
-        assertEquals(0, StorehousePlanner.donate(s, s.centre(), TownStores.IRON, 10),
+        assertEquals(0, StorehousePlanner.donate(s, s.center(), TownStores.IRON, 10),
                 "stores with no donation channel refuse politely");
     }
 }

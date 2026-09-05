@@ -96,7 +96,7 @@ public final class Resources {
         // silently drops the overflow.
         put(TownStores.TOOLS, "minecraft:iron_pickaxe", 1);
         put(TownStores.WEAPONS, "minecraft:iron_sword", 1);
-        put(TownStores.ARMOUR, "minecraft:iron_chestplate", 1);
+        put(TownStores.ARMOR, "minecraft:iron_chestplate", 1);
     }
 
     private static void put(String resource, String itemId, int stack) {

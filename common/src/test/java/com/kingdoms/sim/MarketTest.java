@@ -428,18 +428,18 @@ class MarketTest {
     void aTownDealsInTheFourThingsItDealsInAndNothingElse() {
         Settlement town = town();
         town.stores().add(TownStores.WEAPONS, 64);
-        town.stores().add(TownStores.ARMOUR, 64);
+        town.stores().add(TownStores.ARMOR, 64);
         town.stores().add(TownStores.SAPLINGS, 64);
 
         for (String hoard : new String[] {
-                TownStores.WEAPONS, TownStores.ARMOUR, TownStores.TOOLS,
+                TownStores.WEAPONS, TownStores.ARMOR, TownStores.TOOLS,
                 TownStores.SAPLINGS, TownStores.EARTH, "not_a_resource"}) {
             assertNull(Market.sellOffer(town, hoard), hoard + " is not merchandise");
             assertNull(Market.buyOffer(town, hoard), hoard + " is not merchandise");
             assertEquals(0, Market.townSells(town, HERE, hoard, Market.LOT), hoard);
         }
         assertEquals(64, town.stores().get(TownStores.WEAPONS), "the armory is intact");
-        assertEquals(64, town.stores().get(TownStores.ARMOUR));
+        assertEquals(64, town.stores().get(TownStores.ARMOR));
     }
 
     // --- the levy, which this changes nothing about ---

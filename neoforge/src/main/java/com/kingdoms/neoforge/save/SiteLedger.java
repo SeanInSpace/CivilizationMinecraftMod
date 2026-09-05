@@ -54,24 +54,25 @@ public final class SiteLedger extends SavedData {
      *
      * @param regionX region coordinate, as {@link SettlementSites#regionOf} counts them
      * @param regionZ region coordinate
-     * @param centre  where the town was actually founded, or empty when the
+     * @param center  where the town was actually founded, or empty when the
      *                site was refused. Note this is the <em>final</em> center,
      *                after any shift onto better ground — the arithmetic center
      *                is always recoverable from the seed, and the one worth
      *                keeping is the one that cannot be recomputed.
      */
-    public record Entry(int regionX, int regionZ, Optional<SimPos> centre) {
+    public record Entry(int regionX, int regionZ, Optional<SimPos> center) {
 
         public static final Codec<Entry> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.INT.fieldOf("region_x").forGetter(Entry::regionX),
                 Codec.INT.fieldOf("region_z").forGetter(Entry::regionZ),
                 // Absent rather than a flag: "no center" and "refused" are the
                 // same statement, and storing both invites them to disagree.
-                KingdomsCodecs.SIM_POS.optionalFieldOf("centre").forGetter(Entry::centre)
+                // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
+                KingdomsCodecs.SIM_POS.optionalFieldOf("centre").forGetter(Entry::center)
         ).apply(i, Entry::new));
 
         public boolean accepted() {
-            return centre.isPresent();
+            return center.isPresent();
         }
     }
 
@@ -129,8 +130,8 @@ public final class SiteLedger extends SavedData {
      *
      * @return whether this was a new decision; false leaves the ledger untouched
      */
-    public boolean accept(int regionX, int regionZ, SimPos centre) {
-        return record(new Entry(regionX, regionZ, Optional.of(centre)));
+    public boolean accept(int regionX, int regionZ, SimPos center) {
+        return record(new Entry(regionX, regionZ, Optional.of(center)));
     }
 
     /**

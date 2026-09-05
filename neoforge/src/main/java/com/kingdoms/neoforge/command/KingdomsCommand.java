@@ -16,7 +16,7 @@ import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
@@ -349,15 +349,15 @@ public final class KingdomsCommand {
         for (SettlementSites.Site site : found.subList(0, Math.min(found.size(), MAX_SITES_LISTED))) {
             int regionX = SettlementSites.regionXOf(site);
             int regionZ = SettlementSites.regionZOf(site);
-            SimPos centre = site.centre();
+            SimPos center = site.center();
             sb.append("\n  r(").append(regionX).append(", ").append(regionZ).append(")")
-                    .append("  x=").append(centre.x()).append(" z=").append(centre.z())
+                    .append("  x=").append(center.x()).append(" z=").append(center.z())
                     .append("  ").append(site.cultureId())
                     .append(" ").append(site.layoutId())
-                    .append("  ").append(Math.round(centre.horizontalDistance(here)))
+                    .append("  ").append(Math.round(center.horizontalDistance(here)))
                     .append("m  ")
                     .append(ledger.entry(regionX, regionZ)
-                            .map(entry -> entry.centre()
+                            .map(entry -> entry.center()
                                     .map(at -> "founded at x=" + at.x() + " z=" + at.z())
                                     .orElse("refused"))
                             .orElse("unresolved"));
@@ -418,7 +418,7 @@ public final class KingdomsCommand {
             return 0;
         }
 
-        SimPos centre = toSimPos(source.getPosition());
+        SimPos center = toSimPos(source.getPosition());
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, "kingdoms:norman");
         // The same founding a charter performs, party and all. This used to
         // raise a settlement with a kit and nobody to spend it, so every
@@ -426,8 +426,8 @@ public final class KingdomsCommand {
         // exercised what a player actually gets.
         // Look at the ground before planting on it. A town founded across a
         // ravine fights it forever, and no routing downstream undoes that.
-        SimPos wanted = centre;
-        SimPos chosen = Founding.bestSiteNear(centre, Founding.SITING_REACH,
+        SimPos wanted = center;
+        SimPos chosen = Founding.bestSiteNear(center, Founding.SITING_REACH,
                 KingdomsMod.simulationFor(level).bridge());
         if (!chosen.equals(wanted)) {
             KingdomsMod.LOGGER.info("FOUND moved {} from {} to {} for better ground",
@@ -513,7 +513,7 @@ public final class KingdomsCommand {
         String name = seededName(world);
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, SEEDED_CULTURE);
         Settlement settlement = Founding.seeded(chosen, name, stage,
-                BuildCatalogue.DEFAULT,
+                BuildCatalog.DEFAULT,
                 kingdom.cultureId(), residents);
         kingdom.addSettlement(settlement);
 
@@ -600,7 +600,7 @@ public final class KingdomsCommand {
                         .append(": pop ").append(s.population())
                         .append("/").append(PopulationPlanner.totalHousingCapacity(s)).append(" housed")
                         .append(", threat ").append(s.threatLevel())
-                        .append(", center ").append(s.centre());
+                        .append(", center ").append(s.center());
                 sb.append("\n      roads: ")
                         .append(s.paths().segments().size()).append(" runs, ")
                         .append(s.paths().totalLength()).append(" blocks, ")
@@ -754,7 +754,7 @@ public final class KingdomsCommand {
                     Person.Id.random(),
                     profession.name().charAt(0) + profession.name().substring(1).toLowerCase(Locale.ROOT) + " " + (settlement.population() + 1),
                     profession,
-                    settlement.centre()));
+                    settlement.center()));
         }
         markDirty(source);
 
@@ -879,7 +879,7 @@ public final class KingdomsCommand {
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
                 total++;
-                SimPos at = settlement.centre();
+                SimPos at = settlement.center();
                 double away = Math.sqrt(Math.pow(at.x() - from.x, 2)
                         + Math.pow(at.z() - from.z, 2));
                 String wall = settlement.perimeter() == null ? "none"
@@ -1013,8 +1013,8 @@ public final class KingdomsCommand {
                 grid[cz][cx] = ring.isGateway(at) ? 'G' : '#';
             }
         }
-        int px = (settlement.centre().x() - west) * (cols - 1) / width;
-        int pz = (settlement.centre().z() - north) * (rows - 1) / depth;
+        int px = (settlement.center().x() - west) * (cols - 1) / width;
+        int pz = (settlement.center().z() - north) * (rows - 1) / depth;
         if (px >= 0 && px < cols && pz >= 0 && pz < rows) {
             grid[pz][px] = '+';
         }
@@ -1174,11 +1174,11 @@ public final class KingdomsCommand {
                     "  stopped the run that was already going"), false);
         }
         var at = source.getPosition();
-        SimPos centre = new SimPos((int) Math.floor(at.x), (int) Math.floor(at.y),
+        SimPos center = new SimPos((int) Math.floor(at.x), (int) Math.floor(at.y),
                 (int) Math.floor(at.z));
-        int placing = BuildTest.start(level, centre, count, buildingsPerSecond, layoutId);
+        int placing = BuildTest.start(level, center, count, buildingsPerSecond, layoutId);
         source.sendSuccess(() -> Component.literal(
-                "  drawing a gridiron of " + placing + " buildings at " + centre
+                "  drawing a gridiron of " + placing + " buildings at " + center
                         + ", " + buildingsPerSecond + " a second"
                         + " — /civ buildtest again to restart, /civ buildstop to halt"), true);
         return 1;
@@ -1199,10 +1199,10 @@ public final class KingdomsCommand {
             return 0;
         }
         ServerLevel level = source.getLevel();
-        SimPos centre = settlement.centre();
+        SimPos center = settlement.center();
 
         KingdomsMod.LOGGER.info("PLAN TOWN {} {} {} {} {} {} {} {}",
-                settlement.name().replace(' ', '_'), centre.x(), centre.y(), centre.z(),
+                settlement.name().replace(' ', '_'), center.x(), center.y(), center.z(),
                 settlement.stage().name(), settlement.population(),
                 settlement.cultureId(), settlement.arrangement().id());
 
@@ -1217,8 +1217,8 @@ public final class KingdomsCommand {
             KingdomsMod.LOGGER.info("PLAN B {} {} {} {} {} {} {} {} {} {}",
                     b.blueprintId(), at.x(), at.y(), at.z(),
                     com.kingdoms.sim.settlement.BuildPlanner.plotSpanOf(
-                            b.blueprintId(), settlement.catalogue()),
-                    com.kingdoms.sim.settlement.BuildPlanner.facingToward(at, centre),
+                            b.blueprintId(), settlement.catalog()),
+                    com.kingdoms.sim.settlement.BuildPlanner.facingToward(at, center),
                     b.role(),
                     print.isKnown() ? print.width() : -1,
                     print.isKnown() ? print.depth() : -1,
@@ -1295,7 +1295,7 @@ public final class KingdomsCommand {
                         KingdomsMod.simulationFor(level).bridge()).oracle();
         // Somebody asked; read the whole square rather than metering it out at
         // the planner's budget and returning a map nine tenths unread.
-        oracle.warm(centre.x(), centre.z(), PLAN_REACH, PLAN_STEP);
+        oracle.warm(center.x(), center.z(), PLAN_REACH, PLAN_STEP);
         int half = PLAN_REACH;
         for (int dz = -half; dz <= half; dz += PLAN_STEP) {
             StringBuilder heights = new StringBuilder();
@@ -1307,8 +1307,8 @@ public final class KingdomsCommand {
                 // which starved the server of the ticks the town needed to draw
                 // itself. It answers everywhere, and says which readings are
                 // certain.
-                int x = centre.x() + dx;
-                int z = centre.z() + dz;
+                int x = center.x() + dx;
+                int z = center.z() + dz;
                 heights.append(oracle.height(x, z)).append(',');
                 // ':' rather than ',' -- the heights beside it are comma
                 // separated, and a marker that collides with the separator made
@@ -1690,7 +1690,7 @@ public final class KingdomsCommand {
         SimPos here = toSimPos(source.getPosition());
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
-                long distance = settlement.centre().horizontalDistanceSq(here);
+                long distance = settlement.center().horizontalDistanceSq(here);
                 if (distance < best) {
                     best = distance;
                     nearest = settlement;
@@ -1778,7 +1778,7 @@ public final class KingdomsCommand {
         long bestDistance = Long.MAX_VALUE;
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
-                long d = settlement.centre().horizontalDistanceSq(here);
+                long d = settlement.center().horizontalDistanceSq(here);
                 if (d < bestDistance) {
                     bestDistance = d;
                     best = settlement;

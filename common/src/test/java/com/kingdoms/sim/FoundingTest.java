@@ -86,7 +86,7 @@ class FoundingTest {
     void thePartyStandsWhereTheCharterWasUsed() {
         Settlement s = chartered();
 
-        assertEquals(SITE, s.centre(), "the town is where the charter was laid down");
+        assertEquals(SITE, s.center(), "the town is where the charter was laid down");
         for (Person settler : s.residents()) {
             assertEquals(SITE, settler.position(),
                     "and nobody was left behind at the last one");

@@ -531,7 +531,7 @@ public final class FoodPlanner {
             // A pioneer takes the farmer's errands while generalists labor --
             // same arm, same granary budget, no second copy of the rules.
             Profession arm = person.profession() == Profession.PIONEER
-                    && settlement.laboursAs(person, Profession.FARMER)
+                    && settlement.laborsAs(person, Profession.FARMER)
                     ? Profession.FARMER : person.profession();
             switch (arm) {
                 case FARMER -> {
@@ -679,7 +679,7 @@ public final class FoodPlanner {
             return granaries.getFirst().origin();
         }
         List<Building> stores = buildingsOf(settlement, "storehouse");
-        return stores.isEmpty() ? settlement.centre() : stores.getFirst().origin();
+        return stores.isEmpty() ? settlement.center() : stores.getFirst().origin();
     }
 
     private static Building buildingAt(Settlement settlement, SimPos pos) {
@@ -814,7 +814,7 @@ public final class FoodPlanner {
      * the founding rework exists to prevent.
      */
     private static void forage(Settlement settlement) {
-        if (!StagePlanner.pioneersLabour(settlement.stage())) {
+        if (!StagePlanner.pioneersLabor(settlement.stage())) {
             return;
         }
         if (totalFood(settlement)
@@ -822,7 +822,7 @@ public final class FoodPlanner {
             return;
         }
         int hands = (int) settlement.residents().stream()
-                .filter(p -> settlement.laboursAs(p, Profession.FARMER))
+                .filter(p -> settlement.laborsAs(p, Profession.FARMER))
                 .count();
         int gathered = (hands + FORAGERS_PER_MEAL - 1) / FORAGERS_PER_MEAL;
         if (gathered > 0) {
@@ -1033,11 +1033,11 @@ public final class FoodPlanner {
     }
 
     private static int countFarmHands(Settlement settlement, boolean starving) {
-        // laboursAs, not the raw profession: below VILLAGE the pioneers ARE the
+        // laborsAs, not the raw profession: below VILLAGE the pioneers ARE the
         // farmers, and a camp that counted only crystallized ones would harvest
         // nothing until the staffing table woke up.
         return (int) settlement.residents().stream()
-                .filter(p -> settlement.laboursAs(p, Profession.FARMER)
+                .filter(p -> settlement.laborsAs(p, Profession.FARMER)
                         && !heldBackByHunger(settlement, p, starving))
                 .count();
     }

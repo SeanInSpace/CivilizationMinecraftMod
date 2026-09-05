@@ -119,7 +119,7 @@ public final class LumberPlanner {
             if (share <= 0) {
                 continue;
             }
-            SimPos at = camps.isEmpty() ? settlement.centre() : camps.get(i).origin();
+            SimPos at = camps.isEmpty() ? settlement.center() : camps.get(i).origin();
             settlement.produceNear(at, TownStores.WOOD,
                     share * WOOD_PER_STEP, woodCapacity(settlement));
             // Capped: saplings are for replanting, not a stockpile. A playtest left

@@ -26,7 +26,7 @@ class AnchorTest {
     }
 
     @Test
-    void aBlueprintThatSaysNothingIsCentredOnItsOwnFloor() {
+    void aBlueprintThatSaysNothingIsCenteredOnItsOwnFloor() {
         // What this always did, kept as the fallback: a plot is a point and the
         // building is drawn around it.
         assertEquals(new BlockPos(3, 0, 3), Blueprint.defaultAnchor(size(7, 5, 7)));

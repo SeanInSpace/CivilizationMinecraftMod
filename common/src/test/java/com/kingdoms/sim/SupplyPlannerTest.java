@@ -60,7 +60,7 @@ class SupplyPlannerTest {
     }
 
     private static Person hand(Settlement s) {
-        Person person = new Person(Person.Id.random(), "Hand", Profession.PIONEER, s.centre());
+        Person person = new Person(Person.Id.random(), "Hand", Profession.PIONEER, s.center());
         s.addResident(person);
         return person;
     }
@@ -174,8 +174,8 @@ class SupplyPlannerTest {
         Building far = storeAt(s, 300);
         far.stores().set(WOOD, 1000);
         Person busy = hand(s);
-        busy.setHaul(new HaulTask(HaulTask.Store.GRANARY, s.centre(),
-                HaulTask.Store.HOME, s.centre(), 8));
+        busy.setHaul(new HaulTask(HaulTask.Store.GRANARY, s.center(),
+                HaulTask.Store.HOME, s.center(), 8));
         buildingAt(s, 10);
 
         SupplyPlanner.advance(s, CTX);

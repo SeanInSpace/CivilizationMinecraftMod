@@ -24,7 +24,7 @@
     --rule:#C3C9BE; --ruleF:#D9DED3; --brass:#B07E18;
     --landLo:#DDE2D2; --landHi:#8F9C82; --water:#7C99A8; --road:#B8A882;
     --dwelling:#3F7D5A; --food:#8C9B3A; --industry:#B4472F;
-    --trade:#B07E18; --civic:#5A4E8C; --defence:#2E5F73;
+    --trade:#B07E18; --civic:#5A4E8C; --defense:#2E5F73;
     --sans:"IBM Plex Sans Condensed","Helvetica Neue",Arial,sans-serif;
     --mono:ui-monospace,"SFMono-Regular",Consolas,monospace;
   }
@@ -35,7 +35,7 @@
       --rule:#2F3E37; --ruleF:#243029; --brass:#D7A63F;
       --landLo:#232E27; --landHi:#6E7C64; --water:#33505F; --road:#5A5138;
       --dwelling:#6FBE8E; --food:#B9CB55; --industry:#E28368;
-      --trade:#D7A63F; --civic:#9C90D8; --defence:#5E9CB8;
+      --trade:#D7A63F; --civic:#9C90D8; --defense:#5E9CB8;
     }
   }
   * { box-sizing: border-box; }
@@ -166,7 +166,7 @@
 <script>
 "use strict";
 
-var GROUPS = ["dwelling", "food", "industry", "trade", "civic", "defence"];
+var GROUPS = ["dwelling", "food", "industry", "trade", "civic", "defense"];
 var LAYERS = [
   { id: "ground", label: "ground" },
   { id: "water",  label: "water" },
@@ -174,7 +174,7 @@ var LAYERS = [
   { id: "roads",  label: "roads" },
   { id: "wall",   label: "wall" },
   { id: "plots",  label: "plots" }
-].concat(GROUPS.map(function (g) { return { id: g, label: g, colour: g }; }));
+].concat(GROUPS.map(function (g) { return { id: g, label: g, color: g }; }));
 
 var surveys = [];                 // every loaded survey
 var on = {};                      // which layers are drawn
@@ -297,7 +297,7 @@ Panel.prototype.project = function (wx, wz) {
 // rule that put eight looked the same.
 function standing(t) {
   var reach = ((t.grid[0] ? t.grid[0].length : 1) - 1) * t.step / 2;
-  var cx = t.centre[0], cz = t.centre[2];
+  var cx = t.center[0], cz = t.center[2];
   var wet = 0, dry = 0, unjudged = 0;
   for (var i = 0; i < t.builds.length; i++) {
     var b = t.builds[i];
@@ -359,7 +359,7 @@ Panel.prototype.draw = function () {
   var k = this.pixelsPerBlock();
   var self = this;
   function P(wx, wz) { return self.project(wx, wz); }
-  var cx = t.centre[0], cz = t.centre[2];
+  var cx = t.center[0], cz = t.center[2];
 
   if (on.ground || on.water || on.unread) {
     var lo = css("--landLo"), hi = css("--landHi"), water = css("--water");
@@ -463,7 +463,7 @@ Panel.prototype.draw = function () {
 function fit(panel) {
   var t = panel.town;
   if (!t) return;
-  var cx = t.centre[0], cz = t.centre[2], reach = 40, i;
+  var cx = t.center[0], cz = t.center[2], reach = 40, i;
   for (i = 0; i < t.builds.length; i++) {
     reach = Math.max(reach,
       Math.abs(t.builds[i][1] - cx) + t.builds[i][4] / 2,
@@ -518,7 +518,7 @@ function describeDiff() {
   function spread(t) {
     var far = 0;
     for (var i = 0; i < t.builds.length; i++) {
-      var dx = t.builds[i][1] - t.centre[0], dz = t.builds[i][3] - t.centre[2];
+      var dx = t.builds[i][1] - t.center[0], dz = t.builds[i][3] - t.center[2];
       far = Math.max(far, Math.sqrt(dx * dx + dz * dz));
     }
     return far;
@@ -540,7 +540,7 @@ function describeDiff() {
     return "<span>" + label + " <b>" + x + "</b> → <b>" + y + "</b> "
       + "<span class='" + cls + "'>" + sign + d + (unit || "") + "</span></span>";
   }
-  var sameGround = a.centre[0] === b.centre[0] && a.centre[2] === b.centre[2];
+  var sameGround = a.center[0] === b.center[0] && a.center[2] === b.center[2];
   var sa = standing(a), sb = standing(b);
   bar.innerHTML =
     "<span>" + a.label + " vs " + b.label + "</span>"
@@ -607,8 +607,8 @@ var layerBar = document.getElementById("layers");
 LAYERS.forEach(function (l) {
   var b = document.createElement("button");
   b.setAttribute("aria-pressed", "true");
-  b.innerHTML = (l.colour
-    ? '<span class="swatch" style="background:var(--' + l.colour + ')"></span>' : "")
+  b.innerHTML = (l.color
+    ? '<span class="swatch" style="background:var(--' + l.color + ')"></span>' : "")
     + l.label;
   b.addEventListener("click", function () {
     on[l.id] = !on[l.id];

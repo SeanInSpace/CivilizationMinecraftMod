@@ -2,7 +2,7 @@ package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
@@ -44,7 +44,7 @@ class PathNetworkTest {
     private static Settlement town() {
         Settlement s = new Settlement(Settlement.Id.random(), "Wegholt",
                 new SimPos(0, 64, 0), 128);
-        s.setCatalogue(BuildCatalogue.DEFAULT);
+        s.setCatalog(BuildCatalog.DEFAULT);
         return s;
     }
 
@@ -113,7 +113,7 @@ class PathNetworkTest {
     }
 
     @Test
-    void aNewBuildingJoinsTheNearestRoadRatherThanTheCentre() {
+    void aNewBuildingJoinsTheNearestRoadRatherThanTheCenter() {
         Settlement s = town();
         raise(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
         // Far out east, so its road is a long run the next building can meet.

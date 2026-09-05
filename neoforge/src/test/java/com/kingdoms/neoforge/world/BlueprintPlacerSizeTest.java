@@ -1,7 +1,7 @@
 package com.kingdoms.neoforge.world;
 
 import com.kingdoms.sim.culture.Culture;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildingSizes;
 import com.kingdoms.sim.settlement.BuildingType;
 import net.minecraft.core.BlockPos;
@@ -103,7 +103,7 @@ class BlueprintPlacerSizeTest {
 
     @Test
     void everyBuildingIsDrawnTheSizeItsPlotWasReservedFor() {
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             if (BuildingSizes.variesWithCulture(type.id())) {
                 continue;   // the compound, which has its own test below
             }
@@ -134,7 +134,7 @@ class BlueprintPlacerSizeTest {
         // The post is what actually names a building to the player and to the
         // simulation, so a shape carrying the wrong one is the wrong building
         // whatever it measures.
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             String path = pathOf(type);
             Block post = BlueprintPlacer.postFor(path);
             assertNotNull(post, path + " is in the catalog and has no post block");
@@ -155,7 +155,7 @@ class BlueprintPlacerSizeTest {
         // The premise the seam rests on, asserted rather than assumed. If a shape
         // ever did size itself off the ground, every number above would be a
         // measurement of the fixture instead of of the building.
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             String path = pathOf(type);
             int[] onGround = drawnOn(flatFor(Culture.DEFAULT), path);
             int[] overAVoid = drawnOn(emptyAir(), path);

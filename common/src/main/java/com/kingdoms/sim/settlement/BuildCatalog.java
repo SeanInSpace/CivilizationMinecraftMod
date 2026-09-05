@@ -11,9 +11,9 @@ import java.util.List;
  *
  * <p>See {@code BUILD_DECISIONS.md} for what these numbers produce in practice.
  */
-public final class BuildCatalogue {
+public final class BuildCatalog {
 
-    private BuildCatalogue() {
+    private BuildCatalog() {
     }
 
     /**

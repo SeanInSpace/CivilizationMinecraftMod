@@ -4,7 +4,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Settlement;
@@ -50,7 +50,7 @@ class UnwatchedFeedingTest {
     private static Settlement steppedTown(int steps) {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Newholt", new SimPos(0, 64, 0), 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         town.setFoodStock(FoodPlanner.STARTING_PROVISIONS);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov"}) {
@@ -119,7 +119,7 @@ class UnwatchedFeedingTest {
                 Settlement.Id.random(), "Barrenburg", new SimPos(0, 64, 0), 64);
         town.stores().take(com.kingdoms.sim.settlement.TownStores.FOOD, town.foodStock());
         town.addResident(new Person(
-                Person.Id.random(), "Bruno", Profession.FARMER, town.centre()));
+                Person.Id.random(), "Bruno", Profession.FARMER, town.center()));
 
         for (int step = 1; step <= 600; step++) {
             town.step(new SimContext(new QuietBridge(), step, SimSettings.SANDBOX));

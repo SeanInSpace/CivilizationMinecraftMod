@@ -5,7 +5,7 @@ import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.PathPlanner;
@@ -36,14 +36,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * generation raised — which is every settlement a player has ever found — kept
  * the full setback, and the screenshot that started this said so.
  */
-class KerbTest {
+class CurbTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 72, 0);
+    private static final SimPos CENTER = new SimPos(0, 72, 0);
 
     private static Settlement grow(String layout, int steps) {
         TerrainFake ground = new TerrainFake(11);
-        Settlement town = new Settlement(Settlement.Id.random(), "Kerb", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        Settlement town = new Settlement(Settlement.Id.random(), "Curb", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         for (Culture culture : Culture.all()) {
             if (culture.layouts().contains(layout)) {
@@ -54,7 +54,7 @@ class KerbTest {
         town.setLayoutId(layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
-                    Person.Id.random(), name, Profession.PIONEER, CENTRE));
+                    Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         for (int step = 1; step <= steps; step++) {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
@@ -64,7 +64,7 @@ class KerbTest {
 
     /** How far this building stands from the middle of the nearest planned street. */
     private static double toItsStreet(Settlement town, Building building) {
-        TownPlan plan = town.arrangement().fullPlan(town.centre());
+        TownPlan plan = town.arrangement().fullPlan(town.center());
         double best = Double.MAX_VALUE;
         for (TownPlan.Street street : plan.streets()) {
             for (SimPos at : street.path()) {
@@ -92,24 +92,24 @@ class KerbTest {
         assertTrue(beside.size() >= 8,
                 "the town built too little to say anything about its streets");
 
-        int atTheKerb = 0;
+        int atTheCurb = 0;
         for (Building b : beside) {
-            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue());
+            int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalog());
             // Within a couple of blocks of where the router would allow it, as
             // against the plan's thirteen, which is what it used to be for
             // everything however small.
             if (toItsStreet(town, b) <= PathPlanner.keepoutRound(span) + 2) {
-                atTheKerb++;
+                atTheCurb++;
             }
         }
-        assertTrue(atTheKerb * 2 >= beside.size(),
-                "only " + atTheKerb + " of " + beside.size() + " buildings beside a street"
+        assertTrue(atTheCurb * 2 >= beside.size(),
+                "only " + atTheCurb + " of " + beside.size() + " buildings beside a street"
                         + " actually came up to it; the rest are standing back at a setback"
                         + " drawn for a building twice their size");
     }
 
     @Test
-    void theKerbStillFiresWhenThePlanOffersAtTheSeparation() {
+    void theCurbStillFiresWhenThePlanOffersAtTheSeparation() {
         // The way this rule dies is silently, and it nearly did.
         //
         // Coming up to the curb is asked of the whole rank: pull this plot and
@@ -129,7 +129,7 @@ class KerbTest {
         // no longer stands where the plan offered it, which is a thing this test
         // can see and the distance measures above cannot.
         Settlement town = grow(Culture.LAYOUT_HIGH_STREET, 400);
-        TownPlan plan = town.arrangement().fullPlan(town.centre());
+        TownPlan plan = town.arrangement().fullPlan(town.center());
         List<Building> beside = onStreets(town);
         assertTrue(beside.size() >= 8,
                 "the town built too little to say anything about its streets");
@@ -166,7 +166,7 @@ class KerbTest {
                 Culture.LAYOUT_HIGH_STREET, Culture.LAYOUT_GREEN, Culture.LAYOUT_CRESCENTS}) {
             Settlement town = grow(layout, 400);
             for (Building b : onStreets(town)) {
-                int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalogue());
+                int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalog());
                 double away = toItsStreet(town, b);
                 assertTrue(away + 1 >= PathPlanner.keepoutRound(span),
                         layout + ": " + b.blueprintId() + " stands " + Math.round(away)
@@ -183,7 +183,7 @@ class KerbTest {
         // thirteen, so every offer it is made stands in the carriageway. Without
         // the approach working both ways it is refused by every street-fronting
         // plot in the town and finishes in the outskirts, facing nothing.
-        int librarySpan = BuildPlanner.plotSpanOf("kingdoms:library", BuildCatalogue.DEFAULT);
+        int librarySpan = BuildPlanner.plotSpanOf("kingdoms:library", BuildCatalog.DEFAULT);
         assertTrue(PathPlanner.keepoutRound(librarySpan) > 13,
                 "a library that fits inside the plan's own setback would not be testing"
                         + " anything; this test is about the one that does not");

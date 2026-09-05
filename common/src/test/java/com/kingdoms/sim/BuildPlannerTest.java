@@ -31,7 +31,7 @@ class BuildPlannerTest {
     private static final BuildingType HOUSE = new BuildingType("test:house",  5,     1,    0,   2,       80,       4);
     private static final BuildingType TOWER = new BuildingType("test:tower", 20,    12,    0,  12,       60,       0);
 
-    private static final List<BuildingType> CATALOGUE = List.of(HALL, HOUSE, TOWER);
+    private static final List<BuildingType> CATALOG = List.of(HALL, HOUSE, TOWER);
 
     /** An unwatched town: the chunk is not loaded, so building runs on the clock. */
     private static final class LoadedBridge implements WorldBridge {
@@ -47,7 +47,7 @@ class BuildPlannerTest {
 
     private static Settlement settlement(int population) {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 16);
-        s.setCatalogue(CATALOGUE);
+        s.setCatalog(CATALOG);
         for (int i = 0; i < population; i++) {
             s.addResident(new Person(
                     Person.Id.random(), "Person " + i, Profession.BUILDER, new SimPos(0, 64, 0)));
@@ -68,7 +68,7 @@ class BuildPlannerTest {
 
     @Test
     void townHallComesFirst() {
-        Optional<BuildingType> choice = BuildPlanner.chooseNext(settlement(4), CATALOGUE);
+        Optional<BuildingType> choice = BuildPlanner.chooseNext(settlement(4), CATALOG);
 
         assertTrue(choice.isPresent());
         assertEquals(HALL, choice.get(), "highest priority shortfall wins");
@@ -79,7 +79,7 @@ class BuildPlannerTest {
         Settlement s = settlement(4);
         s.addBuilding(new Building(HALL.id(), new SimPos(12, 64, 0), 0));
 
-        Optional<BuildingType> choice = BuildPlanner.chooseNext(s, CATALOGUE);
+        Optional<BuildingType> choice = BuildPlanner.chooseNext(s, CATALOG);
 
         assertTrue(choice.isPresent());
         assertEquals(HOUSE, choice.get());
@@ -93,7 +93,7 @@ class BuildPlannerTest {
         s.addBuilding(new Building(HOUSE.id(), new SimPos(-12, 64, 0), 0));
 
         // Population 4 satisfies hall (1/1) and houses (2/2); tower needs 12 residents.
-        assertTrue(BuildPlanner.chooseNext(s, CATALOGUE).isEmpty(),
+        assertTrue(BuildPlanner.chooseNext(s, CATALOG).isEmpty(),
                 "a settlement below the population gate should want nothing");
     }
 
@@ -103,7 +103,7 @@ class BuildPlannerTest {
         s.addBuilding(new Building(HALL.id(), new SimPos(12, 64, 0), 0));
         s.addBuilding(new Building(HOUSE.id(), new SimPos(0, 64, 12), 0));
 
-        assertTrue(BuildPlanner.chooseNext(s, CATALOGUE).isEmpty());
+        assertTrue(BuildPlanner.chooseNext(s, CATALOG).isEmpty());
     }
 
     @Test
@@ -118,26 +118,26 @@ class BuildPlannerTest {
 
     @Test
     void plotsAreDistinctAndSpiralOutward() {
-        SimPos centre = new SimPos(0, 64, 0);
+        SimPos center = new SimPos(0, 64, 0);
         Set<SimPos> seen = new HashSet<>();
         for (int i = 0; i < 60; i++) {
-            assertTrue(seen.add(BuildPlanner.plotFor(centre, i)), "plot " + i + " reused an earlier position");
+            assertTrue(seen.add(BuildPlanner.plotFor(center, i)), "plot " + i + " reused an earlier position");
         }
 
-        double firstRing = centre.horizontalDistance(BuildPlanner.plotFor(centre, 0));
-        double secondRing = centre.horizontalDistance(BuildPlanner.plotFor(centre, 8));
+        double firstRing = center.horizontalDistance(BuildPlanner.plotFor(center, 0));
+        double secondRing = center.horizontalDistance(BuildPlanner.plotFor(center, 8));
         assertTrue(secondRing > firstRing, "the ninth plot should sit further out");
     }
 
     @Test
     void outerRingsPackDenselyInsteadOfFormingSpokes() {
-        SimPos centre = new SimPos(0, 64, 0);
+        SimPos center = new SimPos(0, 64, 0);
 
         // Ring 0 holds eight plots and the rings past it hold more, so indices in
         // the twenties are neighbors inside the third course whatever the ring
         // is pitched at.
-        SimPos a = BuildPlanner.plotFor(centre, 21);
-        SimPos b = BuildPlanner.plotFor(centre, 22);
+        SimPos a = BuildPlanner.plotFor(center, 21);
+        SimPos b = BuildPlanner.plotFor(center, 22);
         double gap = a.horizontalDistance(b);
         // The bar is the ring's own pitch and a little for the rounding to whole
         // blocks. Stated from the rule rather than from a constant on this class,
@@ -150,16 +150,16 @@ class BuildPlannerTest {
         // The constant-8 layout put a plot at angle 0 of every ring. With
         // circumference packing plus stagger, consecutive rings' first plots no
         // longer share a ray from the center.
-        SimPos ring1First = BuildPlanner.plotFor(centre, 8);
-        SimPos ring2First = BuildPlanner.plotFor(centre, 21);
+        SimPos ring1First = BuildPlanner.plotFor(center, 8);
+        SimPos ring2First = BuildPlanner.plotFor(center, 21);
         assertTrue(ring1First.z() != 0 || ring2First.z() != 0,
                 "ring starts must not all line up on the same axis");
     }
 
     @Test
     void plotsStayAtSettlementHeight() {
-        SimPos centre = new SimPos(0, 72, 0);
-        assertEquals(72, BuildPlanner.plotFor(centre, 5).y());
+        SimPos center = new SimPos(0, 72, 0);
+        assertEquals(72, BuildPlanner.plotFor(center, 5).y());
     }
 
     // --- end to end through step() ---
@@ -209,7 +209,7 @@ class BuildPlannerTest {
         // Claim deliberately tighter than the first ring of plots (radius 12), so
         // the settlement is forced to expand to build at all.
         Settlement s = new Settlement(Settlement.Id.random(), "Cramped", new SimPos(0, 64, 0), 5);
-        s.setCatalogue(CATALOGUE);
+        s.setCatalog(CATALOG);
         s.addResident(new Person(Person.Id.random(), "Builder", Profession.BUILDER, new SimPos(0, 64, 0)));
 
         s.step(new SimContext(new LoadedBridge(), 0));

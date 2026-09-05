@@ -107,7 +107,7 @@ public final class PublicWorks {
     /** Whether anybody in this town is both able to build and standing in the world. */
     private static boolean hasSpareHands(Settlement settlement) {
         for (Person person : settlement.residents()) {
-            if (settlement.laboursAs(person, Profession.BUILDER)
+            if (settlement.laborsAs(person, Profession.BUILDER)
                     && person.isEmbodied() && !person.isTooWeakToWork()) {
                 return true;
             }

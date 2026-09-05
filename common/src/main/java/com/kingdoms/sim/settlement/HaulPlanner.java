@@ -89,7 +89,7 @@ public final class HaulPlanner {
             if (person.haul() != null || person.isTooWeakToWork()) {
                 continue;
             }
-            if (settlement.laboursAs(person, Profession.BUILDER)
+            if (settlement.laborsAs(person, Profession.BUILDER)
                     || person.profession() == Profession.GUARD) {
                 continue;
             }

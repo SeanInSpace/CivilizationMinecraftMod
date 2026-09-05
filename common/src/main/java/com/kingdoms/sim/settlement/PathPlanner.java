@@ -70,14 +70,14 @@ public final class PathPlanner {
      * Bare ground between a wall and a carriageway, so a door has a doorstep.
      *
      * <p>The same curb {@code Settlement.isPlotFree} keeps, and it has to be.
-     * Siting refuses a plot within {@code span/2 + KERB} of a street; this
+     * Siting refuses a plot within {@code span/2 + CURB} of a street; this
      * refused to lay a street within {@code span/2} of a plot. One block of
      * disagreement, and it is enough: a street laid exactly on the curb line is
      * ground siting would never have built on, so the survey reports a building
      * in the road that the building never chose. Whichever rule runs second
      * wins, and the two must mean the same thing by "clear".
      */
-    private static final int KERB = 1;
+    private static final int CURB = 1;
 
     /**
      * How far round its own center a town lays streets before it has anything.
@@ -177,8 +177,8 @@ public final class PathPlanner {
         if (standing.size() == network.streetsLaidFor()) {
             return;   // nothing new has been built; a town steps every tick
         }
-        SimPos centre = settlement.centre();
-        TownPlan plan = settlement.arrangement().planFor(centre, 1);
+        SimPos center = settlement.center();
+        TownPlan plan = settlement.arrangement().planFor(center, 1);
         com.kingdoms.sim.geom.TerrainSense ground = groundUnder(ctx);
         RoadRouter.Keepout held = heldGround(settlement, plan);
 
@@ -194,7 +194,7 @@ public final class PathPlanner {
                 SimPos to = drawn.get(piece);
                 SimPos middle = new SimPos((from.x() + to.x()) / 2, from.y(),
                         (from.z() + to.z()) / 2);
-                if (!within(middle, centre, FIRST_STREETS)
+                if (!within(middle, center, FIRST_STREETS)
                         && !nearAny(middle, standing, STREET_NEAR)) {
                     continue;   // the town has not grown out to this stretch yet
                 }
@@ -274,7 +274,7 @@ public final class PathPlanner {
      * road routed through that gap completes underneath it.
      */
     /**
-     * How far a road's CENTRELINE must stay from a plot.
+     * How far a road's CENTERLINE must stay from a plot.
      *
      * <p>The plot's own half-width, a curb, and — the part that was missing —
      * half the road. A keepout that only holds the centerline out of the plot
@@ -283,7 +283,7 @@ public final class PathPlanner {
      * carriageway that had bent politely around its middle.
      */
     public static int keepoutRound(int span) {
-        return span / 2 + KERB + WIDEST_ROAD_HALF;
+        return span / 2 + CURB + WIDEST_ROAD_HALF;
     }
 
     /** Half the widest carriageway a plan draws, which the keepout must clear. */
@@ -298,13 +298,13 @@ public final class PathPlanner {
         for (Building building : settlement.buildings()) {
             if (BuildPlanner.holdsGround(building.blueprintId())) {
                 claim(blocked, building.origin(), keepoutRound(BuildPlanner.plotSpanOf(
-                        building.blueprintId(), settlement.catalogue())));
+                        building.blueprintId(), settlement.catalog())));
             }
         }
         for (BuildTask queued : settlement.queued()) {
             if (BuildPlanner.holdsGround(queued.blueprintId())) {
                 claim(blocked, queued.origin(), keepoutRound(BuildPlanner.plotSpanOf(
-                        queued.blueprintId(), settlement.catalogue())));
+                        queued.blueprintId(), settlement.catalog())));
             }
         }
         // And every plot the plan MIGHT still use, not only the ones standing.
@@ -354,15 +354,15 @@ public final class PathPlanner {
         return false;
     }
 
-    private static boolean within(SimPos pos, SimPos centre, int reach) {
-        return Math.max(Math.abs(pos.x() - centre.x()),
-                        Math.abs(pos.z() - centre.z())) <= reach;
+    private static boolean within(SimPos pos, SimPos center, int reach) {
+        return Math.max(Math.abs(pos.x() - center.x()),
+                        Math.abs(pos.z() - center.z())) <= reach;
     }
 
     /** Joins one more building to the network, if any is waiting. */
     public static void advance(Settlement settlement, SimContext ctx) {
         Building hubBuilding = hubBuilding(settlement);
-        SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.centre();
+        SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.center();
         PathNetwork network = settlement.paths();
 
         // The streets come first, which is the whole point of planning them.

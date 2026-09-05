@@ -264,7 +264,7 @@ class StoreSyncTest {
     }
 
     @Test
-    void aRewriteClearsWhatTheStoresRecogniseBeforeLayingOutAgain() {
+    void aRewriteClearsWhatTheStoresRecognizeBeforeLayingOutAgain() {
         // Otherwise the old stacks and the new ones would both be counted on
         // the following pass, which reads as a donation the town never had.
         Settlement s = town();

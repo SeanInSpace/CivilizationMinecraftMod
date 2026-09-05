@@ -4,7 +4,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.ExpansionPlanner;
 import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Inventory;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
@@ -99,7 +99,7 @@ class FoundingEconomicsTest {
      *
      * <p>Not simply the charter's party: {@code ExpansionPlanner} sends daughters
      * out up to {@link ExpansionPlanner#FOUNDING_PARTY_MAX} strong, seeded at CAMP
-     * with every emigrant a pioneer — and {@code Settlement.laboursAs} counts every
+     * with every emigrant a pioneer — and {@code Settlement.laborsAs} counts every
      * pioneer as a builder below VILLAGE, on the same kit. The rounding waste does
      * not climb steadily with the crew, so the sizes in between have to be priced
      * rather than reasoned about.
@@ -134,7 +134,7 @@ class FoundingEconomicsTest {
                     break;
                 }
                 program.add(next.get());
-                paper.addBuilding(new Building(next.get().id(), paper.centre(), 0));
+                paper.addBuilding(new Building(next.get().id(), paper.center(), 0));
             }
             assertTrue(StagePlanner.programComplete(paper),
                     "the " + stage.pretty() + " program can be satisfied by building what it "
@@ -189,7 +189,7 @@ class FoundingEconomicsTest {
     }
 
     private static BuildingType type(String blueprintId) {
-        return BuildCatalogue.DEFAULT.stream()
+        return BuildCatalog.DEFAULT.stream()
                 .filter(candidate -> candidate.id().equals(blueprintId))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("the catalog no longer knows " + blueprintId));
@@ -252,7 +252,7 @@ class FoundingEconomicsTest {
     private static int roadToTheFirstHarvest(int farmingPopulation) {
         BuildingType farm = type(FARM);
         int building = 0;
-        for (BuildingType wanted : BuildCatalogue.DEFAULT) {
+        for (BuildingType wanted : BuildCatalog.DEFAULT) {
             if (wanted.priority() < farm.priority()
                     || farmingPopulation < wanted.minPopulation()) {
                 continue;

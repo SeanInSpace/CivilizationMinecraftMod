@@ -92,10 +92,10 @@ public final class KingdomsPanel {
      */
     public static void header(GuiGraphicsExtractor graphics, Font font, int x, int y,
                               int width, Component title, Component subtitle,
-                              int subtitleColour) {
-        int centre = x + width / 2;
-        graphics.centeredText(font, title, centre, y + 12, TITLE);
-        graphics.centeredText(font, subtitle, centre, y + 26, subtitleColour);
+                              int subtitleColor) {
+        int center = x + width / 2;
+        graphics.centeredText(font, title, center, y + 12, TITLE);
+        graphics.centeredText(font, subtitle, center, y + 26, subtitleColor);
         rule(graphics, x, y + 38, width);
     }
 

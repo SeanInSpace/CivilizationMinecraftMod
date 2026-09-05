@@ -248,7 +248,7 @@ public final class GreenLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int lanes = lanesFor(wanted);
 
@@ -257,11 +257,11 @@ public final class GreenLayout extends PlannedLayout {
         // index, so a plan that renumbered its roads as it grew would repoint
         // every door in the village -- and the lanes are the part that grows.
         for (int side : SIDES) {
-            streets.add(flank(centre, side, 0, TownPlan.Kind.SPINE));
+            streets.add(flank(center, side, 0, TownPlan.Kind.SPINE));
         }
         for (int lane = 1; lane <= lanes; lane++) {
             for (int side : SIDES) {
-                streets.add(flank(centre, side, lane * LANE_SPACING, TownPlan.Kind.LANE));
+                streets.add(flank(center, side, lane * LANE_SPACING, TownPlan.Kind.LANE));
             }
         }
 
@@ -280,7 +280,7 @@ public final class GreenLayout extends PlannedLayout {
             double middle = lane * LANE_SPACING;
             for (int s = 0; s < SIDES.length; s++) {
                 for (int face : new int[] {-1, 1}) {
-                    frontage(centre, SIDES[s], lane * SIDES.length + s,
+                    frontage(center, SIDES[s], lane * SIDES.length + s,
                             middle, middle + face * SETBACK, lane == 0 && face < 0,
                             offers);
                 }
@@ -349,27 +349,27 @@ public final class GreenLayout extends PlannedLayout {
      *
      * @param acrossTheGreen whether this is that rank
      */
-    private static void frontage(SimPos centre, int side, int street, double middle,
+    private static void frontage(SimPos center, int side, int street, double middle,
                                  double face, boolean acrossTheGreen,
                                  List<Offer> offers) {
         for (double[] point : spaced(side, face, ARC_PITCH)) {
             if (side * point[1] < AXIS_CLEARANCE) {
                 continue;   // in the taper, where the green has run out
             }
-            SimPos where = block(centre, point[0], point[1]);
+            SimPos where = block(center, point[0], point[1]);
             SimPos looksAt;
             if (acrossTheGreen) {
-                looksAt = block(centre, point[0], 0);
+                looksAt = block(center, point[0], 0);
             } else {
                 double[] onRoad = flankPoint(point[2], side, middle);
-                looksAt = block(centre, onRoad[0], onRoad[1]);
+                looksAt = block(center, onRoad[0], onRoad[1]);
             }
             offers.add(new Offer(where, street, Layout.facingToward(where, looksAt)));
         }
     }
 
     /** One flank of the lens, as the run of points a road along it passes through. */
-    private static TownPlan.Street flank(SimPos centre, int side, double out,
+    private static TownPlan.Street flank(SimPos center, int side, double out,
                                          TownPlan.Kind kind) {
         List<SimPos> path = new ArrayList<>();
         double carried = SEGMENT;
@@ -384,7 +384,7 @@ public final class GreenLayout extends PlannedLayout {
                 continue;
             }
             carried = 0;
-            SimPos at = block(centre, point[0], point[1]);
+            SimPos at = block(center, point[0], point[1]);
             if (path.isEmpty() || !path.get(path.size() - 1).equals(at)) {
                 path.add(at);
             }
@@ -465,8 +465,8 @@ public final class GreenLayout extends PlannedLayout {
                 u};
     }
 
-    private static SimPos block(SimPos centre, double x, double z) {
-        return new SimPos(centre.x() + (int) Math.round(x), centre.y(),
-                centre.z() + (int) Math.round(z));
+    private static SimPos block(SimPos center, double x, double z) {
+        return new SimPos(center.x() + (int) Math.round(x), center.y(),
+                center.z() + (int) Math.round(z));
     }
 }

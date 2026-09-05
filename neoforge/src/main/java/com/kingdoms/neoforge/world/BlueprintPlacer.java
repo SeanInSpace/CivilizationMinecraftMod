@@ -2182,9 +2182,9 @@ public final class BlueprintPlacer {
             for (int dz = -1; dz <= 1; dz++) {
                 // Coarse dirt under the post itself: a path block converts to
                 // plain dirt the moment anything solid stands on it.
-                boolean centre = dx == 0 && dz == 0;
+                boolean center = dx == 0 && dz == 0;
                 add(blocks, base.offset(dx, 0, dz),
-                        centre ? Blocks.COARSE_DIRT : Blocks.DIRT_PATH);
+                        center ? Blocks.COARSE_DIRT : Blocks.DIRT_PATH);
             }
         }
         add(blocks, base.offset(0, 1, 0), KingdomsBlocks.CAMP_POST.get());

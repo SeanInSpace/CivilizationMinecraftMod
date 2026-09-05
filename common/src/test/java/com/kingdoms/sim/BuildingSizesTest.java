@@ -1,6 +1,6 @@
 package com.kingdoms.sim;
 
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildingSizes;
 import com.kingdoms.sim.settlement.BuildingType;
@@ -37,7 +37,7 @@ class BuildingSizesTest {
 
     @Test
     void everythingATownCanBuildHasADeclaredSize() {
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             assertNotNull(BuildingSizes.of(type.id()),
                     type.id() + " is in the catalog and nothing says how big it is, so"
                             + " it would be reserved the default plot and drawn at whatever"
@@ -47,7 +47,7 @@ class BuildingSizesTest {
 
     @Test
     void theGroundReservedIsTheGroundTheBuildingCovers() {
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             assertEquals(BuildingSizes.plotSpanOf(type.id()), type.plotSpan(),
                     type.id() + " reserves a plot that is not what its own size comes to."
                             + " These are the two numbers that drifted; they are derived"
@@ -57,7 +57,7 @@ class BuildingSizesTest {
 
     @Test
     void aPlotIsAlwaysBigEnoughForTheWallsAndADoorstep() {
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             BuildingSizes.Size size = BuildingSizes.of(type.id());
             int widest = Math.max(size.width(), size.depth());
             assertTrue(type.plotSpan() >= widest + 2 * BuildingSizes.APRON,
@@ -73,7 +73,7 @@ class BuildingSizesTest {
         // its origin sits off center and a quarter turn moves it half a block --
         // which is the difference between a plot the overlap check can reason
         // about and one it cannot.
-        for (BuildingType type : BuildCatalogue.DEFAULT) {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
             BuildingSizes.Size size = BuildingSizes.of(type.id());
             assertEquals(1, size.width() % 2, type.id() + " is even across");
             assertEquals(1, size.depth() % 2, type.id() + " is even deep");
@@ -83,7 +83,7 @@ class BuildingSizesTest {
     }
 
     @Test
-    void aLevelledBuildingIsStillTheSameBuilding() {
+    void aLeveledBuildingIsStillTheSameBuilding() {
         // Saves made while levels were drawn still hold ids in that shape, and a
         // house_l2 that could not find its size would be reserved the default
         // plot and drawn through its neighbor.

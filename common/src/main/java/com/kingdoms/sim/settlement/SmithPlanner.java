@@ -27,7 +27,7 @@ public final class SmithPlanner {
     /** Ceilings, so a forge stops rather than burying the town in spare hoes. */
     public static final int MAX_TOOLS = 64;
     public static final int MAX_WEAPONS = 32;
-    public static final int MAX_ARMOUR = 32;
+    public static final int MAX_ARMOR = 32;
 
     private SmithPlanner() {
     }
@@ -81,8 +81,8 @@ public final class SmithPlanner {
         if (stores.get(TownStores.WEAPONS) < MAX_WEAPONS) {
             return TownStores.WEAPONS;
         }
-        if (stores.get(TownStores.ARMOUR) < MAX_ARMOUR) {
-            return TownStores.ARMOUR;
+        if (stores.get(TownStores.ARMOR) < MAX_ARMOR) {
+            return TownStores.ARMOR;
         }
         return null;
     }

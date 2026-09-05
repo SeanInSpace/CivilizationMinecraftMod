@@ -30,11 +30,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RepairTaskCodecTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 64, 0);
+    private static final SimPos CENTER = new SimPos(0, 64, 0);
     private static final SimPos PLOT = new SimPos(12, 64, -8);
 
     private static Settlement mending() {
-        Settlement town = new Settlement(Settlement.Id.random(), "Mendham", CENTRE, 64);
+        Settlement town = new Settlement(Settlement.Id.random(), "Mendham", CENTER, 64);
         BuildTask repair = new BuildTask("kingdoms:cottage", PLOT, 40);
         repair.setUpgradeOf(PLOT);
         repair.setRepair(true);

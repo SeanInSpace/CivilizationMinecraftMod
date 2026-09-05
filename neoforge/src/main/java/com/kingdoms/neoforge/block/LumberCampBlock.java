@@ -65,7 +65,7 @@ public class LumberCampBlock extends Block {
 
         if (player.isShiftKeyDown()) {
             SimPos here = new SimPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
-            area = area.withCentre(here);
+            area = area.withCenter(here);
             player.sendSystemMessage(Component.literal(
                     settlement.name() + "'s lumberjacks will now work around " + here
                             + " (radius " + area.radius() + ")."));
@@ -77,7 +77,7 @@ public class LumberCampBlock extends Block {
             area = area.withRadius(LumberPlanner.clampRadius(next));
             player.sendSystemMessage(Component.literal(
                     settlement.name() + "'s woodland now reaches " + area.radius()
-                            + " blocks from " + area.centre()
+                            + " blocks from " + area.center()
                             + ".  Sneak-click to move it here."));
         }
 
@@ -91,7 +91,7 @@ public class LumberCampBlock extends Block {
         long best = Long.MAX_VALUE;
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
-                long distance = settlement.centre().horizontalDistanceSq(pos);
+                long distance = settlement.center().horizontalDistanceSq(pos);
                 if (distance < best) {
                     best = distance;
                     nearest = settlement;

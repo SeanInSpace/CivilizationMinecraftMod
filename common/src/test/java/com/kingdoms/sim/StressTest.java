@@ -44,7 +44,7 @@ class StressTest {
         // Eight houses flat (no per-population scaling) caps each town at 32
         // people, so the run reaches a deterministic steady state instead of
         // growing exponentially for the whole benchmark.
-        List<BuildingType> catalogue = List.of(
+        List<BuildingType> catalog = List.of(
                 new BuildingType("stress:hall", 10, 1, 1, 0, 100, 0),
                 new BuildingType("stress:house", 10, 1, 8, 0, 80, 4),
                 new BuildingType("stress:farm", 20, 4, 0, 5, 70, 0),
@@ -57,7 +57,7 @@ class StressTest {
         for (int i = 0; i < 20; i++) {
             Settlement s = new Settlement(
                     Settlement.Id.random(), "Town " + i, new SimPos(i * 1000, 64, 0), 64);
-            s.setCatalogue(catalogue);
+            s.setCatalog(catalog);
             s.setFoodStock(1_000_000);   // food never binds here; the benchmark isolates core cost
             // Stocked far beyond anything they will spend. This benchmark measures
             // what a busy town costs per step, so the towns have to stay busy —

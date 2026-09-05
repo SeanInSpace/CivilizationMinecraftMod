@@ -112,7 +112,7 @@ public final class MinePlanner {
             if (share <= 0) {
                 continue;
             }
-            SimPos at = mines.isEmpty() ? settlement.centre() : mines.get(i).origin();
+            SimPos at = mines.isEmpty() ? settlement.center() : mines.get(i).origin();
             settlement.produceNear(at, TownStores.STONE,
                     share * STONE_PER_STEP, stoneCapacity(settlement));
             settlement.produceNear(at, TownStores.IRON, share * IRON_PER_STEP, MAX_IRON);

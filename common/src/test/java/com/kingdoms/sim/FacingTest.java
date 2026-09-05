@@ -14,19 +14,19 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  */
 class FacingTest {
 
-    private static final SimPos CENTRE = new SimPos(0, 64, 0);
+    private static final SimPos CENTER = new SimPos(0, 64, 0);
 
     private static int facing(int x, int z) {
-        return BuildPlanner.facingToward(new SimPos(x, 64, z), CENTRE);
+        return BuildPlanner.facingToward(new SimPos(x, 64, z), CENTER);
     }
 
     @Test
-    void abuildingNorthOfTheCentreFacesSouthAsDrawn() {
+    void abuildingNorthOfTheCenterFacesSouthAsDrawn() {
         assertEquals(0, facing(0, -20), "center is to the south, so no turn is needed");
     }
 
     @Test
-    void abuildingSouthOfTheCentreTurnsRightAround() {
+    void abuildingSouthOfTheCenterTurnsRightAround() {
         assertEquals(2, facing(0, 20));
     }
 
@@ -58,7 +58,7 @@ class FacingTest {
     }
 
     @Test
-    void abuildingOnTheCentreHasSomethingSaneToDo() {
+    void abuildingOnTheCenterHasSomethingSaneToDo() {
         assertEquals(0, facing(0, 0), "no direction to face, so it stays as drawn");
     }
 }

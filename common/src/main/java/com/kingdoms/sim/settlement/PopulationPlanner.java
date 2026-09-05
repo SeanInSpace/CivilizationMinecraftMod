@@ -505,13 +505,13 @@ public final class PopulationPlanner {
             return Optional.empty();
         }
         String exactId = BuildPlanner.baseIdOf(blueprintId);
-        for (BuildingType type : settlement.catalogue()) {
+        for (BuildingType type : settlement.catalog()) {
             if (type.id().equals(exactId)) {
                 return Optional.of(type);
             }
         }
         String bareName = BuildingRole.bareName(blueprintId);
-        for (BuildingType type : settlement.catalogue()) {
+        for (BuildingType type : settlement.catalog()) {
             if (BuildingRole.bareName(type.id()).equals(bareName)) {
                 return Optional.of(type);
             }
@@ -610,7 +610,7 @@ public final class PopulationPlanner {
     }
 
     private static int largestHousingCapacity(Settlement settlement) {
-        return settlement.catalogue().stream()
+        return settlement.catalog().stream()
                 .filter(BuildingType::isHousing)
                 .mapToInt(BuildingType::capacity)
                 .max()

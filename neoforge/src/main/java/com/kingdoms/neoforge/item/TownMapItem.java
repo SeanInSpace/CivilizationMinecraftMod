@@ -65,7 +65,7 @@ public final class TownMapItem extends Item {
         SimPos here = new SimPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
-                long distance = settlement.centre().horizontalDistanceSq(here);
+                long distance = settlement.center().horizontalDistanceSq(here);
                 if (distance < best) {
                     best = distance;
                     nearest = settlement;

@@ -87,7 +87,7 @@ public final class DigYard {
         }
 
         /** The middle of the cell, for distance comparisons. */
-        public SimPos centre() {
+        public SimPos center() {
             return new SimPos(minX() + MICRO / 2, y, minZ() + MICRO / 2);
         }
     }
@@ -300,7 +300,7 @@ public final class DigYard {
         open.sort(Comparator
                 .comparingInt((Cell cell) -> cell.y() >= window ? 0 : 1)
                 .thenComparing(Comparator.comparingInt(Cell::y).reversed())
-                .thenComparingLong(cell -> cell.centre().horizontalDistanceSq(from))
+                .thenComparingLong(cell -> cell.center().horizontalDistanceSq(from))
                 .thenComparingInt(Cell::cx)
                 .thenComparingInt(Cell::cz));
         return open;

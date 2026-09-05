@@ -117,11 +117,11 @@ public final class ExpansionPlanner {
                 siteFor(kingdom, parent),
                 com.kingdoms.sim.settlement.Founding.SITING_REACH, ctx.bridge());
         int y = ctx.bridge().surfaceHeight(flat);
-        SimPos centre = new SimPos(flat.x(), y, flat.z());
+        SimPos center = new SimPos(flat.x(), y, flat.z());
 
         Settlement daughter = new Settlement(
-                Settlement.Id.random(), SettlementNames.forPosition(centre), centre, INITIAL_CLAIM);
-        daughter.setCatalogue(parent.catalogue());
+                Settlement.Id.random(), SettlementNames.forPosition(center), center, INITIAL_CLAIM);
+        daughter.setCatalog(parent.catalog());
         // Daughters live the same founding the charter does: they arrive as a
         // camp of pioneers and earn their stages, hall last. Their old trades
         // are re-earned as the camp crystallizes them -- a smith on a bare
@@ -139,7 +139,7 @@ public final class ExpansionPlanner {
         int emigrants = 0;
         for (Household household : party) {
             emigrants += household.size();
-            moveHousehold(parent, daughter, household, centre);
+            moveHousehold(parent, daughter, household, center);
         }
         for (Person emigrant : daughter.residents()) {
             emigrant.setProfession(Profession.PIONEER);
@@ -148,7 +148,7 @@ public final class ExpansionPlanner {
 
         parent.logEvent(ctx.step(), emigrants + " set out to found " + daughter.name());
         daughter.logEvent(ctx.step(), daughter.name() + " founded by settlers from " + parent.name());
-        ctx.bridge().log(kingdom.name() + " expands: " + daughter.name() + " founded at " + centre);
+        ctx.bridge().log(kingdom.name() + " expands: " + daughter.name() + " founded at " + center);
     }
 
     /**
@@ -195,32 +195,32 @@ public final class ExpansionPlanner {
             double angle = Math.toRadians(Math.floorMod(h, 360));
             int distance = DAUGHTER_DISTANCE + attempt * 48;
             SimPos site = new SimPos(
-                    parent.centre().x() + (int) Math.round(distance * Math.cos(angle)),
-                    parent.centre().y(),
-                    parent.centre().z() + (int) Math.round(distance * Math.sin(angle)));
+                    parent.center().x() + (int) Math.round(distance * Math.cos(angle)),
+                    parent.center().y(),
+                    parent.center().z() + (int) Math.round(distance * Math.sin(angle)));
             if (clearOfKingdom(kingdom, site)) {
                 return site;
             }
         }
         // Every direction crowded: plant it far out along the last angle's east.
-        return new SimPos(parent.centre().x() + DAUGHTER_DISTANCE * 3, parent.centre().y(), parent.centre().z());
+        return new SimPos(parent.center().x() + DAUGHTER_DISTANCE * 3, parent.center().y(), parent.center().z());
     }
 
     private static boolean clearOfKingdom(Kingdom kingdom, SimPos site) {
         for (Settlement s : kingdom.settlements()) {
             long limit = s.claimRadius() + 96L;
-            if (s.centre().horizontalDistanceSq(site) < limit * limit) {
+            if (s.center().horizontalDistanceSq(site) < limit * limit) {
                 return false;
             }
         }
         return true;
     }
 
-    private static void moveHousehold(Settlement from, Settlement to, Household household, SimPos centre) {
+    private static void moveHousehold(Settlement from, Settlement to, Household household, SimPos center) {
         for (Person.Id memberId : List.copyOf(household.members())) {
             Person person = from.removeResident(memberId);
             if (person != null) {
-                person.setPosition(centre);
+                person.setPosition(center);
                 to.addResident(person);
             }
         }

@@ -107,13 +107,13 @@ class CultureTest {
         // The whole reason the choice is a hash of the center rather than a die
         // roll: nothing is written down until a settlement exists, so the answer
         // has to be reconstructible from the ground the town stands on.
-        SimPos centre = new SimPos(1_337, 72, -404);
-        String first = Culture.BURGHER.layoutFor(centre);
+        SimPos center = new SimPos(1_337, 72, -404);
+        String first = Culture.BURGHER.layoutFor(center);
         for (int again = 0; again < 8; again++) {
-            assertEquals(first, Culture.BURGHER.layoutFor(centre),
+            assertEquals(first, Culture.BURGHER.layoutFor(center),
                     "the same people at the same center changed their minds");
         }
-        assertSame(Layouts.of(first), Culture.BURGHER.arrangementFor(centre));
+        assertSame(Layouts.of(first), Culture.BURGHER.arrangementFor(center));
     }
 
     @Test

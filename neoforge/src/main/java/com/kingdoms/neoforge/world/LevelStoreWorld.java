@@ -51,25 +51,25 @@ public record LevelStoreWorld(ServerLevel level) implements StoreWorld {
     }
 
     private StoreChestBlockEntity chestOf(Building building) {
-        BlockPos centre = new BlockPos(building.origin().x(),
+        BlockPos center = new BlockPos(building.origin().x(),
                 building.origin().y(), building.origin().z());
-        if (!level.isLoaded(centre)) {
+        if (!level.isLoaded(center)) {
             return null;
         }
         Map<BlockPos, BlockPos> known = FOUND.computeIfAbsent(level, l -> new HashMap<>());
-        BlockPos remembered = known.get(centre);
+        BlockPos remembered = known.get(center);
         if (remembered != null) {
             if (level.isLoaded(remembered)
                     && level.getBlockEntity(remembered) instanceof StoreChestBlockEntity chest) {
                 return chest;
             }
-            known.remove(centre);   // torn down, or moved
+            known.remove(center);   // torn down, or moved
         }
-        BlockPos at = postNear(centre);
+        BlockPos at = postNear(center);
         if (at == null) {
             return null;
         }
-        known.put(centre, at);
+        known.put(center, at);
         return (StoreChestBlockEntity) level.getBlockEntity(at);
     }
 
@@ -82,11 +82,11 @@ public record LevelStoreWorld(ServerLevel level) implements StoreWorld {
      * dragged its chunk off disk once a second forever — in a mod whose whole
      * premise is that unwatched towns are not in the world at all.
      */
-    private BlockPos postNear(BlockPos centre) {
+    private BlockPos postNear(BlockPos center) {
         for (int dy = 0; dy <= SEARCH_HEIGHT; dy++) {
             for (int dx = -SEARCH_RADIUS; dx <= SEARCH_RADIUS; dx++) {
                 for (int dz = -SEARCH_RADIUS; dz <= SEARCH_RADIUS; dz++) {
-                    BlockPos at = centre.offset(dx, dy, dz);
+                    BlockPos at = center.offset(dx, dy, dz);
                     if (level.isLoaded(at)
                             && level.getBlockEntity(at) instanceof StoreChestBlockEntity) {
                         return at;

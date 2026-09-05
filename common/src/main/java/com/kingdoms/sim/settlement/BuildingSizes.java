@@ -10,7 +10,7 @@ import java.util.Map;
  * draws a building this size, and the catalog reserves ground for a building
  * this size. They used to be two separate sets of numbers — the size was a
  * literal in each drawing method and the span was a column in
- * {@link BuildCatalogue} — and they had drifted a long way apart. A cottage was
+ * {@link BuildCatalog} — and they had drifted a long way apart. A cottage was
  * drawn five blocks across and given a plot nine wide; a house was drawn five
  * and given eleven. Every street in the mod was spaced for buildings twice the
  * size of the ones standing in it, which is the whole of why a village read as

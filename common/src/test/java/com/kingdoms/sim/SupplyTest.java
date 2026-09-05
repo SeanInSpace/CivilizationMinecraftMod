@@ -47,7 +47,7 @@ class SupplyTest {
 
     private static Settlement bareTown(String name) {
         Settlement s = new Settlement(Settlement.Id.random(), name, new SimPos(0, 64, 0), 128);
-        s.setCatalogue(List.of(LUMBER_CAMP, FARM));
+        s.setCatalog(List.of(LUMBER_CAMP, FARM));
         return s;
     }
 

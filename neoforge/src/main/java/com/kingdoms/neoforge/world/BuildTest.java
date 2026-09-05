@@ -7,7 +7,7 @@ import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
@@ -58,7 +58,7 @@ public final class BuildTest {
      * program that varied would make two runs incomparable, which is the one
      * thing this exists to avoid.
      */
-    private static final String[] PROGRAMME = {
+    private static final String[] PROGRAM = {
             "kingdoms:town_hall", "kingdoms:market", "kingdoms:granary",
             "kingdoms:storehouse", "kingdoms:smith", "kingdoms:carpentry",
             "kingdoms:inn", "kingdoms:mill", "kingdoms:workshop",
@@ -106,10 +106,10 @@ public final class BuildTest {
      * @param layoutId which arrangement to draw
      * @return how many buildings the run will place
      */
-    public static int start(ServerLevel level, SimPos centre, int count,
+    public static int start(ServerLevel level, SimPos center, int count,
                             int buildingsPerSecond, String layoutId) {
         Layout arrangement = Layouts.of(layoutId);
-        TownPlan plan = arrangement.planFor(centre, count);
+        TownPlan plan = arrangement.planFor(center, count);
 
         List<Placement> pending = new ArrayList<>();
         for (int i = 0; i < plan.plots().size() && i < count; i++) {
@@ -125,8 +125,8 @@ public final class BuildTest {
         // nothing at all. Registering it costs nothing, because it is marked as a
         // drawing and a drawing does not grow.
         Settlement town = new Settlement(Settlement.Id.random(), "Buildtest",
-                centre, Math.max(96, count * 2));
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+                center, Math.max(96, count * 2));
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.TOWN);
         town.setCultureId("kingdoms:orc");
         // The arrangement actually drawn, not whatever the orcs would have
@@ -211,7 +211,7 @@ public final class BuildTest {
         }
         KingdomsMod.LOGGER.info(
                 "BUILDTEST start layout={} center={} count={} bps={} streets={} frontage={}%",
-                arrangement.id(), centre, pending.size(), buildingsPerSecond,
+                arrangement.id(), center, pending.size(), buildingsPerSecond,
                 plan.streets().size(), plan.frontagePercent());
         KingdomsMod.LOGGER.info("BUILDTEST street runs to pave: {}, within {} of a house",
                 toPave.size(), SERVES);
@@ -260,7 +260,7 @@ public final class BuildTest {
         }
         waited = 0;
         Placement next = pending.remove(0);
-        SimPos where = againstTheKerb(next);
+        SimPos where = againstTheCurb(next);
         // The chunk, before the building. materializeBlueprint refuses an
         // unloaded column and a grid spreads well past whatever a player has
         // loaded, so a run left to chance would place its middle and silently
@@ -310,7 +310,7 @@ public final class BuildTest {
      * <p>It only ever moves a building TOWARD its street, and never past the
      * curb, so nothing can be pushed onto the road it fronts.
      */
-    private SimPos againstTheKerb(Placement placement) {
+    private SimPos againstTheCurb(Placement placement) {
         if (placement.fronts() == null) {
             return placement.at();
         }
@@ -329,7 +329,7 @@ public final class BuildTest {
         Footprint size = BlueprintPlacer.measure(level, placement.blueprintId(),
                 new BlockPos(plot.x(), level.getMinY() + 1, plot.z()));
         int across = size.isKnown() ? Math.max(size.width(), size.depth())
-                : BuildPlanner.plotSpanOf(placement.blueprintId(), BuildCatalogue.DEFAULT);
+                : BuildPlanner.plotSpanOf(placement.blueprintId(), BuildCatalog.DEFAULT);
         // The same distance a town that actually grows now stands its buildings
         // off their streets, borrowed from the router that decides it, so what
         // this renders is what a settlement does. It measured to the PAVED strip
@@ -369,10 +369,10 @@ public final class BuildTest {
      * thing a settlement's population would otherwise be doing here.
      */
     private static String blueprintFor(int index) {
-        if (index < PROGRAMME.length) {
-            return PROGRAMME[index];
+        if (index < PROGRAM.length) {
+            return PROGRAM[index];
         }
-        return DWELLINGS[(index - PROGRAMME.length) % DWELLINGS.length];
+        return DWELLINGS[(index - PROGRAM.length) % DWELLINGS.length];
     }
 
     /**
@@ -497,7 +497,7 @@ public final class BuildTest {
 
     /** The catalog span of what this run places, for reports. */
     public static int spanOf(String blueprintId) {
-        return BuildPlanner.plotSpanOf(blueprintId, BuildCatalogue.DEFAULT);
+        return BuildPlanner.plotSpanOf(blueprintId, BuildCatalog.DEFAULT);
     }
 
 }

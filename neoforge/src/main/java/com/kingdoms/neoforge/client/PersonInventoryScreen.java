@@ -154,16 +154,16 @@ public final class PersonInventoryScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
         int x = (width - PANEL_WIDTH) / 2;
         int top = (height - panelHeight) / 2;
-        int centre = x + PANEL_WIDTH / 2;
+        int center = x + PANEL_WIDTH / 2;
 
         KingdomsPanel.frame(graphics, x, top, PANEL_WIDTH, panelHeight);
         KingdomsPanel.header(graphics, font, x, top, PANEL_WIDTH, title,
-                Component.literal(subtitle), colourOf(Appetite.of(person.hunger())));
+                Component.literal(subtitle), colorOf(Appetite.of(person.hunger())));
 
         int y = top + HEADER;
         List<Inventory.Slot> slots = person.slots();
         if (slots.isEmpty()) {
-            graphics.centeredText(font, Component.literal("Empty-handed."), centre, y + 4, SUBTLE);
+            graphics.centeredText(font, Component.literal("Empty-handed."), center, y + 4, SUBTLE);
         }
         for (int i = 0; i < slots.size(); i++) {
             Inventory.Slot slot = slots.get(i);
@@ -201,7 +201,7 @@ public final class PersonInventoryScreen extends Screen {
         KingdomsPanel.rule(graphics, x, y + 3, PANEL_WIDTH);
         y += GAP;
         for (String line : footer) {
-            graphics.centeredText(font, Component.literal(line), centre, y, SUBTLE);
+            graphics.centeredText(font, Component.literal(line), center, y, SUBTLE);
             y += LINE;
         }
 
@@ -217,13 +217,13 @@ public final class PersonInventoryScreen extends Screen {
                 + " (" + Appetite.of(person.hunger()).word() + ")";
     }
 
-    private void right(GuiGraphicsExtractor graphics, int x, int y, String text, int colour) {
+    private void right(GuiGraphicsExtractor graphics, int x, int y, String text, int color) {
         graphics.text(font, Component.literal(text),
-                x + PANEL_WIDTH - PADDING - font.width(text), y, colour, false);
+                x + PANEL_WIDTH - PADDING - font.width(text), y, color, false);
     }
 
     /** The color and the word come off the same rung, so they cannot disagree. */
-    private static int colourOf(Appetite appetite) {
+    private static int colorOf(Appetite appetite) {
         return switch (appetite) {
             case STARVING -> STARVING_TEXT;
             case WEAK -> WEAK_TEXT;

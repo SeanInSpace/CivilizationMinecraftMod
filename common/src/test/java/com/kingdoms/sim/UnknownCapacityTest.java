@@ -5,7 +5,7 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Footprint;
@@ -65,7 +65,7 @@ class UnknownCapacityTest {
     private static Settlement town() {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
-        town.setCatalogue(List.of(HOUSE, SHED));
+        town.setCatalog(List.of(HOUSE, SHED));
         town.setFoodStock(100_000);   // this file isolates housing
         return town;
     }
@@ -149,7 +149,7 @@ class UnknownCapacityTest {
         Settlement town = town();
         town.addBuilding(new Building(FORGOTTEN, FORGOTTEN_HOME, 0, true));
         town.addResident(new Person(
-                Person.Id.random(), "Wanderer", Profession.FARMER, town.centre()));
+                Person.Id.random(), "Wanderer", Profession.FARMER, town.center()));
 
         steps(town, 10);
 
@@ -200,7 +200,7 @@ class UnknownCapacityTest {
     }
 
     @Test
-    void aLevelledOrStyledIdStillResolves() {
+    void aLeveledOrStyledIdStillResolves() {
         // The trap this test exists for: unknown must mean genuinely unmatched,
         // not merely addressed differently. A raised house and a culture's own
         // version of one are the same building at three addresses -- which is
@@ -223,7 +223,7 @@ class UnknownCapacityTest {
         // stop, reintroduced by a lookup being made cleverer on its own.
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.addBuilding(new Building(
                 "kingdoms:norman/bunkhouse", new SimPos(4, 64, 4), 0, true));
 

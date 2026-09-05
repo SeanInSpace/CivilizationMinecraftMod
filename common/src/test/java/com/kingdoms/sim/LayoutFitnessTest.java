@@ -5,7 +5,7 @@ import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingSizes;
@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LayoutFitnessTest {
 
     private static final int STEPS = 700;
-    private static final SimPos CENTRE = new SimPos(0, 72, 0);
+    private static final SimPos CENTER = new SimPos(0, 72, 0);
 
     /**
      * Every arrangement a culture can ask for, by the id the culture names.
@@ -86,8 +86,8 @@ class LayoutFitnessTest {
 
     private static Settlement grow(String layout, TerrainFake ground) {
         Settlement town = new Settlement(
-                Settlement.Id.random(), "Fitness", CENTRE, 512);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+                Settlement.Id.random(), "Fitness", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
         for (Culture culture : Culture.all()) {
             if (culture.layouts().contains(layout)) {
@@ -104,7 +104,7 @@ class LayoutFitnessTest {
                 "the fixture did not actually select " + layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
-                    Person.Id.random(), name, Profession.PIONEER, CENTRE));
+                    Person.Id.random(), name, Profession.PIONEER, CENTER));
         }
         for (int step = 1; step <= STEPS; step++) {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
@@ -114,7 +114,7 @@ class LayoutFitnessTest {
 
     /** A building's plot claim, read the way the planners read it. */
     private static int span(Settlement town, Building building) {
-        return BuildPlanner.plotSpanOf(building.blueprintId(), town.catalogue());
+        return BuildPlanner.plotSpanOf(building.blueprintId(), town.catalog());
     }
 
     private static List<Building> onGround(Settlement town) {
@@ -185,7 +185,7 @@ class LayoutFitnessTest {
             double furthest = 0;
             for (Building b : onGround(town)) {
                 furthest = Math.max(furthest, Math.hypot(
-                        b.origin().x() - CENTRE.x(), b.origin().z() - CENTRE.z()));
+                        b.origin().x() - CENTER.x(), b.origin().z() - CENTER.z()));
             }
             int limit = sprawlLimitFor(layout);
             assertTrue(furthest < limit,
@@ -245,7 +245,7 @@ class LayoutFitnessTest {
     private static final int REFUSED_GROUND_CEILING = 8;
 
     @Test
-    void noLayoutLeavesAFieldBetweenNeighbouringWalls() {
+    void noLayoutLeavesAFieldBetweenNeighboringWalls() {
         // What a street of buildings looks like, which nothing was watching.
         //
         // Every other rule here catches a town that has fallen apart. This one

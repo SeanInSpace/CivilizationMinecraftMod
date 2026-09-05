@@ -29,7 +29,7 @@ import java.util.List;
  * <p>The player's own position is deliberately absent: the client already knows
  * where it is standing, and sending it would only be a staler copy.
  */
-public record TownMapPayload(String town, int centreX, int centreZ, int claimRadius,
+public record TownMapPayload(String town, int centerX, int centerZ, int claimRadius,
                              List<Mark> marks, List<Road> roads)
         implements CustomPacketPayload {
 
@@ -72,8 +72,8 @@ public record TownMapPayload(String town, int centreX, int centreZ, int claimRad
     public static final StreamCodec<RegistryFriendlyByteBuf, TownMapPayload> STREAM_CODEC =
             StreamCodec.composite(
                     ByteBufCodecs.stringUtf8(MAX_NAME), TownMapPayload::town,
-                    ByteBufCodecs.VAR_INT, TownMapPayload::centreX,
-                    ByteBufCodecs.VAR_INT, TownMapPayload::centreZ,
+                    ByteBufCodecs.VAR_INT, TownMapPayload::centerX,
+                    ByteBufCodecs.VAR_INT, TownMapPayload::centerZ,
                     ByteBufCodecs.VAR_INT, TownMapPayload::claimRadius,
                     MARK_CODEC.apply(ByteBufCodecs.list()), TownMapPayload::marks,
                     ROAD_CODEC.apply(ByteBufCodecs.list()), TownMapPayload::roads,
@@ -103,7 +103,7 @@ public record TownMapPayload(String town, int centreX, int centreZ, int claimRad
             }
             Footprint footprint = task.footprint();
             int width = footprint.isKnown() ? footprint.width()
-                    : BuildPlanner.plotSpanOf(task.blueprintId(), settlement.catalogue());
+                    : BuildPlanner.plotSpanOf(task.blueprintId(), settlement.catalog());
             int depth = footprint.isKnown() ? footprint.depth() : width;
             marks.add(new Mark(task.origin().x(), task.origin().z(), width, depth, false));
         }
@@ -112,8 +112,8 @@ public record TownMapPayload(String town, int centreX, int centreZ, int claimRad
             roads.add(new Road(segment.from().x(), segment.from().z(),
                     segment.to().x(), segment.to().z()));
         }
-        return new TownMapPayload(settlement.name(), settlement.centre().x(),
-                settlement.centre().z(), settlement.claimRadius(), marks, roads);
+        return new TownMapPayload(settlement.name(), settlement.center().x(),
+                settlement.center().z(), settlement.claimRadius(), marks, roads);
     }
 
     public static void handle(TownMapPayload payload, IPayloadContext context) {

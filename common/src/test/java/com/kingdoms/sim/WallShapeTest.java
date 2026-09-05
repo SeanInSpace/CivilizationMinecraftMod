@@ -4,7 +4,7 @@ import com.kingdoms.sim.geom.Hull;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.geom.Ways;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
@@ -83,7 +83,7 @@ class WallShapeTest {
             assertTrue(Hull.contains(wall.vertices(), at),
                     at + " is outside its own town wall");
         }
-        assertTrue(Hull.contains(wall.vertices(), town.centre()),
+        assertTrue(Hull.contains(wall.vertices(), town.center()),
                 "the town square is outside the wall");
     }
 
@@ -177,7 +177,7 @@ class WallShapeTest {
     private static Settlement aTownOnASlant() {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Slantby", new SimPos(0, 64, 0), 256);
-        town.setCatalogue(BuildCatalogue.DEFAULT);
+        town.setCatalog(BuildCatalog.DEFAULT);
         String[] kinds = {"kingdoms:town_hall", "kingdoms:farm", "kingdoms:market",
                 "kingdoms:granary", "kingdoms:town_hall", "kingdoms:farm",
                 "kingdoms:farm", "kingdoms:town_hall", "kingdoms:house",
@@ -216,7 +216,7 @@ class WallShapeTest {
                 // running along a building's edge is a wall along its edge, and
                 // the corners the hull is built from sit on that ring.
                 double half = BuildPlanner.plotSpanOf(
-                        building.blueprintId(), town.catalogue()) / 2.0 - 1;
+                        building.blueprintId(), town.catalog()) / 2.0 - 1;
                 assertTrue(Math.abs(post.x() - building.origin().x()) > half
                                 || Math.abs(post.z() - building.origin().z()) > half,
                         "a post at " + post + " stands inside the "
@@ -239,7 +239,7 @@ class WallShapeTest {
         // the town had already ordered when its ring was staked.
         Settlement town = aTownOnASlant();
         SimPos ordered = new SimPos(-84, 64, -95);
-        int span = BuildPlanner.plotSpanOf("kingdoms:house", town.catalogue());
+        int span = BuildPlanner.plotSpanOf("kingdoms:house", town.catalog());
         assertTrue(town.isPlotFree(ordered, span, null),
                 "the fixture orders a build on ground nothing else holds");
         town.enqueueUrgent(new BuildTask("kingdoms:house", ordered, 40));

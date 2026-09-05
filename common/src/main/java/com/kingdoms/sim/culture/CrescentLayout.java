@@ -202,7 +202,7 @@ public final class CrescentLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int ranks = ranksFor(wanted);
         int stride = strideFor(ranks);
@@ -229,7 +229,7 @@ public final class CrescentLayout extends PlannedLayout {
         // whole main road of the town is given up permanently. The same points
         // are what lets the dev renderer and the paving layer keep the near end
         // of the spine while a young town has not grown out to the far one.
-        streets.add(northSouth(centre, Wander.STRAIGHT, 0, -reach, reach,
+        streets.add(northSouth(center, Wander.STRAIGHT, 0, -reach, reach,
                 ROAD_HALF * 2, TownPlan.Kind.SPINE));
 
         // Then the crescents, station by station and innermost rank first, so a
@@ -239,7 +239,7 @@ public final class CrescentLayout extends PlannedLayout {
             int zc = stationZ(station, stride);
             int side = sideOf(station);
             for (int rank = 0; rank < ranks; rank++) {
-                streets.add(crescentLane(centre, zc, side, laneRadius(rank)));
+                streets.add(crescentLane(center, zc, side, laneRadius(rank)));
             }
         }
 
@@ -260,8 +260,8 @@ public final class CrescentLayout extends PlannedLayout {
                     int along = Math.max(3, (int) (Math.PI * at / ARC_PITCH));
                     for (int i = 0; i < along; i++) {
                         double turn = -Math.PI / 2 + (i + 0.5) * Math.PI / along;
-                        SimPos where = onArc(centre, zc, side, at, turn);
-                        SimPos onLane = onArc(centre, zc, side, lane, turn);
+                        SimPos where = onArc(center, zc, side, at, turn);
+                        SimPos onLane = onArc(center, zc, side, lane, turn);
                         offers.add(new Offer(where, street,
                                 Layout.facingToward(where, onLane)));
                     }
@@ -278,9 +278,9 @@ public final class CrescentLayout extends PlannedLayout {
         for (int k = -rows; k <= rows; k++) {
             int z = k * PITCH;
             for (int face : new int[] {-1, 1}) {
-                SimPos where = new SimPos(centre.x() + face * SETBACK, centre.y(),
-                        centre.z() + z);
-                if (insideALens(centre, where, stations, stride, face)) {
+                SimPos where = new SimPos(center.x() + face * SETBACK, center.y(),
+                        center.z() + z);
+                if (insideALens(center, where, stations, stride, face)) {
                     continue;
                 }
                 offers.add(new Offer(where, SPINE, face > 0 ? 3 : 1));
@@ -376,14 +376,14 @@ public final class CrescentLayout extends PlannedLayout {
      * is for: a green the plan can promise is empty rather than one that happens
      * to be empty today.
      */
-    private static boolean insideALens(SimPos centre, SimPos where, int stations,
+    private static boolean insideALens(SimPos center, SimPos where, int stations,
                                        int stride, int face) {
         for (int station = 0; station < stations; station++) {
             if (sideOf(station) != face) {
                 continue;   // the lens is on the crescent's own side of the spine
             }
-            double dx = where.x() - centre.x();
-            double dz = where.z() - (centre.z() + stationZ(station, stride));
+            double dx = where.x() - center.x();
+            double dz = where.z() - (center.z() + stationZ(station, stride));
             if (Math.hypot(dx, dz) < FIRST_BOW) {
                 return true;
             }
@@ -392,12 +392,12 @@ public final class CrescentLayout extends PlannedLayout {
     }
 
     /** One crescent, as the run of points a lane looping off the spine passes through. */
-    private static TownPlan.Street crescentLane(SimPos centre, int zc, int side, int radius) {
+    private static TownPlan.Street crescentLane(SimPos center, int zc, int side, int radius) {
         List<SimPos> path = new ArrayList<>();
         int steps = Math.max(6, (int) (Math.PI * radius / SEGMENT));
         for (int i = 0; i <= steps; i++) {
             double turn = -Math.PI / 2 + i * Math.PI / steps;
-            path.add(onArc(centre, zc, side, radius, turn));
+            path.add(onArc(center, zc, side, radius, turn));
         }
         return new TownPlan.Street(path, ROAD_HALF * 2, TownPlan.Kind.LANE);
     }
@@ -410,10 +410,10 @@ public final class CrescentLayout extends PlannedLayout {
      * the cosine is nought — so a lane's mouths land exactly on the spine rather
      * than near it, whatever radius it has.
      */
-    private static SimPos onArc(SimPos centre, int zc, int side, double radius, double turn) {
+    private static SimPos onArc(SimPos center, int zc, int side, double radius, double turn) {
         return new SimPos(
-                centre.x() + (int) Math.round(side * radius * Math.cos(turn)),
-                centre.y(),
-                centre.z() + zc + (int) Math.round(radius * Math.sin(turn)));
+                center.x() + (int) Math.round(side * radius * Math.cos(turn)),
+                center.y(),
+                center.z() + zc + (int) Math.round(radius * Math.sin(turn)));
     }
 }

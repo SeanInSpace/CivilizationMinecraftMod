@@ -6,7 +6,7 @@ import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
@@ -54,11 +54,11 @@ class SeededSettlementTest {
     private static final String CULTURE = Culture.NORMAN.id();
 
     private static Settlement seeded(SettlementStage stage) {
-        return Founding.seeded(SITE, "Seedholt", stage, BuildCatalogue.DEFAULT, CULTURE);
+        return Founding.seeded(SITE, "Seedholt", stage, BuildCatalog.DEFAULT, CULTURE);
     }
 
     @Test
-    void everyStageStandsTheWholeProgrammeItClimbedThrough() {
+    void everyStageStandsTheWholeProgramItClimbedThrough() {
         // Cumulative, and that is the claim: a village did not skip its
         // bunkhouse on the way past, so a seeded one has not either. Asked of
         // StagePlanner rather than of a list written down here, because a
@@ -86,7 +86,7 @@ class SeededSettlementTest {
         for (SettlementStage stage : SettlementStage.values()) {
             Settlement town = seeded(stage);
             for (Building standing : town.buildings()) {
-                assertTrue(StagePlanner.catalogueAllows(stage, standing.blueprintId()),
+                assertTrue(StagePlanner.catalogAllows(stage, standing.blueprintId()),
                         "a " + stage.pretty() + " has no business standing a "
                                 + standing.blueprintId());
             }
@@ -124,7 +124,7 @@ class SeededSettlementTest {
     }
 
     private static int span(Building standing) {
-        return BuildPlanner.plotSpanOf(standing.blueprintId(), BuildCatalogue.DEFAULT);
+        return BuildPlanner.plotSpanOf(standing.blueprintId(), BuildCatalog.DEFAULT);
     }
 
     @Test
@@ -136,7 +136,7 @@ class SeededSettlementTest {
             assertTrue(town.population() >= TownStores.FOUNDING_SETTLERS,
                     stage.pretty() + " is empty, which is a drawing and not a town");
 
-            if (StagePlanner.pioneersLabour(stage)) {
+            if (StagePlanner.pioneersLabor(stage)) {
                 // Below VILLAGE the generalists are the workforce, and the only
                 // fixed trades are the two the fortification names.
                 for (Person person : town.residents()) {
@@ -215,7 +215,7 @@ class SeededSettlementTest {
         // loop's answer to that is to walk on, not to stop.
         for (SettlementStage stage : SettlementStage.values()) {
             Settlement town = seeded(stage);
-            TownPlan plan = town.arrangement().planFor(town.centre(), PLAN_LOOKUP);
+            TownPlan plan = town.arrangement().planFor(town.center(), PLAN_LOOKUP);
             for (Building standing : town.buildings()) {
                 int index = plotIndexOf(plan, standing.origin());
                 assertTrue(index >= 0,
@@ -258,10 +258,10 @@ class SeededSettlementTest {
         // house and StagePlanner.familyHoused counts them all as housed; and
         // growFamilies then sheds a member every cycle forever.
         Settlement crowded = Founding.seeded(SITE, "Crowdholt", SettlementStage.VILLAGE,
-                BuildCatalogue.DEFAULT, CULTURE, 200);
+                BuildCatalog.DEFAULT, CULTURE, 200);
 
         assertEquals(200, crowded.population(), "the count asked for is the count seeded");
-        int biggestHouse = BuildCatalogue.DEFAULT.stream()
+        int biggestHouse = BuildCatalog.DEFAULT.stream()
                 .filter(type -> type.capacity() > 0)
                 .mapToInt(type -> type.capacity())
                 .max().orElseThrow();

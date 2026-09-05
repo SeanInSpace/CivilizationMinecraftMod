@@ -227,7 +227,7 @@ public final class MarketScreen extends Screen {
             graphics.text(font, Component.literal(Market.LOT + " " + offer.resource()),
                     x + PADDING + 22, rowY + 4, AMOUNT, false);
             graphics.text(font, Component.literal(reasonWords(offer)),
-                    x + REASON_X, rowY + 4, reasonColour(offer), false);
+                    x + REASON_X, rowY + 4, reasonColor(offer), false);
         }
 
         footer(graphics, x, y, h);
@@ -259,7 +259,7 @@ public final class MarketScreen extends Screen {
         };
     }
 
-    private static int reasonColour(MarketPayload.Offer offer) {
+    private static int reasonColor(MarketPayload.Offer offer) {
         return switch (reasonOf(offer)) {
             case DESPERATE -> URGENT;
             case SHORT -> WANTING;

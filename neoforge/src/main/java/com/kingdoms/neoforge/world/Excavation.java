@@ -190,7 +190,7 @@ public final class Excavation {
     private final String label;
 
     /** The middle of the job, for walking towards before there is a cell to hold. */
-    private final BlockPos centre;
+    private final BlockPos center;
     private final Map<UUID, Digging> active = new HashMap<>();
 
     /** Stands somebody is already using, so two diggers never share a square. */
@@ -241,7 +241,7 @@ public final class Excavation {
         // approach at the middle of a column of blocks, which on a deep dig is a
         // point in mid-air that nobody can walk to.
         BlockPos middle = middleOf(reduced);
-        this.centre = new BlockPos(middle.getX(), yard.floorY(), middle.getZ());
+        this.center = new BlockPos(middle.getX(), yard.floorY(), middle.getZ());
     }
 
     /**
@@ -441,7 +441,7 @@ public final class Excavation {
             job = null;
         }
         if (job == null) {
-            if (digger.distanceToSqr(centre.getX() + 0.5, centre.getY(), centre.getZ() + 0.5)
+            if (digger.distanceToSqr(center.getX() + 0.5, center.getY(), center.getZ() + 0.5)
                     > APPROACH_RADIUS * APPROACH_RADIUS) {
                 walking++;
                 approach(digger, tick);
@@ -500,7 +500,7 @@ public final class Excavation {
         }
         walkedAt.put(digger.getUUID(), tick);
         digger.getNavigation().moveTo(
-                centre.getX() + 0.5, centre.getY(), centre.getZ() + 0.5, DIG_WALK_SPEED);
+                center.getX() + 0.5, center.getY(), center.getZ() + 0.5, DIG_WALK_SPEED);
     }
 
     /** One tick of actual digging, once they are in position. */
@@ -805,14 +805,14 @@ public final class Excavation {
      * step toward labor reading as labor with room left to go further once a
      * run has been watched over it.
      */
-    public static final int LABOUR_FACTOR = 2;
+    public static final int LABOR_FACTOR = 2;
 
     /**
      * How many ticks this block takes, for a digger holding the right tool.
      *
      * <p>Vanilla's arithmetic: tool speed over hardness, divided by 30 when the
      * tool can harvest the block and 100 when it cannot — then multiplied by
-     * {@link #LABOUR_FACTOR}, which is the only fudge in it. There is still no
+     * {@link #LABOR_FACTOR}, which is the only fudge in it. There is still no
      * cap. Obsidian genuinely takes a digger longer than it takes you, which is
      * the point: a town that wants to build on an obsidian outcrop can spend
      * the afternoon on it.
@@ -823,14 +823,14 @@ public final class Excavation {
             return Integer.MAX_VALUE;   // bedrock; excavation never schedules these
         }
         if (hardness == 0) {
-            return LABOUR_FACTOR;   // grass and litter: brief, but not instant
+            return LABOR_FACTOR;   // grass and litter: brief, but not instant
         }
         ItemStack tool = new ItemStack(toolFor(state));
         float speed = tool.getDestroySpeed(state);
         boolean harvests = !state.requiresCorrectToolForDrops() || tool.isCorrectToolForDrops(state);
         float perTick = speed / hardness / (harvests ? 30.0F : 100.0F);
         int ticks = perTick >= 1.0F ? 1 : (int) Math.ceil(1.0F / perTick);
-        return ticks * LABOUR_FACTOR;
+        return ticks * LABOR_FACTOR;
     }
 
     /**

@@ -60,7 +60,7 @@ public class MineBlock extends BuildingPostBlock {
 
         if (player.isShiftKeyDown()) {
             SimPos here = new SimPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
-            area = area.withCentre(here);
+            area = area.withCenter(here);
             player.sendSystemMessage(Component.literal(
                     settlement.name() + "'s miners will now cut around " + here
                             + " (radius " + area.radius() + ")."));
@@ -72,7 +72,7 @@ public class MineBlock extends BuildingPostBlock {
             area = area.withRadius(MinePlanner.clampRadius(next));
             player.sendSystemMessage(Component.literal(
                     settlement.name() + "'s workings now reach " + area.radius()
-                            + " blocks from " + area.centre()
+                            + " blocks from " + area.center()
                             + ".  Sneak-click to move them here."));
         }
 

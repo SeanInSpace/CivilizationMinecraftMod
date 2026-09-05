@@ -135,13 +135,13 @@ public final class SettlementSites {
     /**
      * A place a town belongs, and whose it is.
      *
-     * @param centre    where, with {@link #UNRESOLVED_Y} for y until the caller
+     * @param center    where, with {@link #UNRESOLVED_Y} for y until the caller
      *                  looks at the ground
      * @param cultureId the {@link Culture#id()} of the people who settled it
      * @param layoutId  the arrangement they laid it out in, drawn against the
      *                  weights the world was configured with
      */
-    public record Site(SimPos centre, String cultureId, String layoutId) {
+    public record Site(SimPos center, String cultureId, String layoutId) {
     }
 
     private SettlementSites() {
@@ -188,12 +188,12 @@ public final class SettlementSites {
         // Long arithmetic to place the region, then narrowed: a region index far
         // enough out to overflow is already millions of blocks past the world
         // border, so there is nothing there to found.
-        SimPos centre = new SimPos(
+        SimPos center = new SimPos(
                 (int) ((long) regionX * REGION + offsetX),
                 UNRESOLVED_Y,
                 (int) ((long) regionZ * REGION + offsetZ));
         String layout = arrangementFor(worldSeed, regionX, regionZ, weights);
-        return Optional.of(new Site(centre,
+        return Optional.of(new Site(center,
                 peopleWhoBuild(layout, worldSeed, regionX, regionZ), layout));
     }
 
@@ -298,11 +298,11 @@ public final class SettlementSites {
         for (int rz = lowZ; rz <= highZ; rz++) {
             for (int rx = lowX; rx <= highX; rx++) {
                 siteIn(worldSeed, rx, rz, weights)
-                        .filter(site -> site.centre().horizontalDistanceSq(at) <= limit)
+                        .filter(site -> site.center().horizontalDistanceSq(at) <= limit)
                         .ifPresent(found::add);
             }
         }
-        found.sort(Comparator.comparingLong(site -> site.centre().horizontalDistanceSq(at)));
+        found.sort(Comparator.comparingLong(site -> site.center().horizontalDistanceSq(at)));
         return found;
     }
 
@@ -319,12 +319,12 @@ public final class SettlementSites {
      * and cannot drift out of step with it the way a second field could.
      */
     public static int regionXOf(Site site) {
-        return regionOf(site.centre().x());
+        return regionOf(site.center().x());
     }
 
     /** @see #regionXOf(Site) */
     public static int regionZOf(Site site) {
-        return regionOf(site.centre().z());
+        return regionOf(site.center().z());
     }
 
     /**

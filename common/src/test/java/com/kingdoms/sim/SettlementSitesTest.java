@@ -71,7 +71,7 @@ class SettlementSitesTest {
             for (int rx = 0; rx < 8; rx++) {
                 for (int rz = 0; rz < 8; rz++) {
                     shape.append(SettlementSites.siteIn(seed, rx, rz)
-                            .map(site -> site.centre().toString() + site.cultureId())
+                            .map(site -> site.center().toString() + site.cultureId())
                             .orElse("-"));
                 }
             }
@@ -94,10 +94,10 @@ class SettlementSitesTest {
                     long lowZ = (long) fz * SettlementSites.REGION + SettlementSites.EDGE_MARGIN;
                     long highZ = (long) (fz + 1) * SettlementSites.REGION
                             - SettlementSites.EDGE_MARGIN;
-                    assertTrue(site.centre().x() >= lowX && site.centre().x() <= highX,
-                            site.centre() + " strayed outside region x " + fx);
-                    assertTrue(site.centre().z() >= lowZ && site.centre().z() <= highZ,
-                            site.centre() + " strayed outside region z " + fz);
+                    assertTrue(site.center().x() >= lowX && site.center().x() <= highX,
+                            site.center() + " strayed outside region x " + fx);
+                    assertTrue(site.center().z() >= lowZ && site.center().z() <= highZ,
+                            site.center() + " strayed outside region z " + fz);
                     assertEquals(fx, SettlementSites.regionXOf(site));
                     assertEquals(fz, SettlementSites.regionZOf(site));
                 });
@@ -112,8 +112,8 @@ class SettlementSitesTest {
         long floor = (long) SettlementSites.MIN_SEPARATION * SettlementSites.MIN_SEPARATION;
         for (int i = 0; i < found.size(); i++) {
             for (int j = i + 1; j < found.size(); j++) {
-                SimPos a = found.get(i).centre();
-                SimPos b = found.get(j).centre();
+                SimPos a = found.get(i).center();
+                SimPos b = found.get(j).center();
                 assertTrue(a.horizontalDistanceSq(b) >= floor,
                         a + " and " + b + " are " + Math.round(a.horizontalDistance(b))
                                 + " apart, under the promised "
@@ -135,7 +135,7 @@ class SettlementSitesTest {
         for (int i = 0; i < found.size(); i++) {
             for (int j = i + 1; j < found.size(); j++) {
                 closest = Math.min(closest,
-                        found.get(i).centre().horizontalDistanceSq(found.get(j).centre()));
+                        found.get(i).center().horizontalDistanceSq(found.get(j).center()));
             }
         }
         double closestBlocks = Math.sqrt(closest);
@@ -203,9 +203,9 @@ class SettlementSitesTest {
         // green. That is the intended behavior and would make a pinned culture
         // a test of the table rather than of the grid.
         assertEquals(new SimPos(-275, SettlementSites.UNRESOLVED_Y, 224),
-                SettlementSites.siteIn(SEED, -1, 0).orElseThrow().centre());
+                SettlementSites.siteIn(SEED, -1, 0).orElseThrow().center());
         assertEquals(new SimPos(-1265, SettlementSites.UNRESOLVED_Y, -1357),
-                SettlementSites.siteIn(SEED, -3, -3).orElseThrow().centre());
+                SettlementSites.siteIn(SEED, -3, -3).orElseThrow().center());
         assertTrue(SettlementSites.siteIn(SEED, 0, 0).isEmpty(),
                 "region (0, 0) has always been empty under this seed");
     }
@@ -217,8 +217,8 @@ class SettlementSitesTest {
         List<SettlementSites.Site> near = SettlementSites.near(SEED, at, reach);
 
         for (SettlementSites.Site site : near) {
-            assertTrue(site.centre().horizontalDistance(at) <= reach,
-                    site.centre() + " is outside a reach of " + reach);
+            assertTrue(site.center().horizontalDistance(at) <= reach,
+                    site.center() + " is outside a reach of " + reach);
         }
 
         // And nothing within reach was missed: sweep a box comfortably wider
@@ -230,12 +230,12 @@ class SettlementSitesTest {
             for (int rz = SettlementSites.regionOf(at.z() - slack);
                  rz <= SettlementSites.regionOf(at.z() + slack); rz++) {
                 SettlementSites.siteIn(SEED, rx, rz)
-                        .filter(site -> site.centre().horizontalDistance(at) <= reach)
-                        .ifPresent(site -> expected.add(site.centre()));
+                        .filter(site -> site.center().horizontalDistance(at) <= reach)
+                        .ifPresent(site -> expected.add(site.center()));
             }
         }
         Set<SimPos> got = new HashSet<>();
-        near.forEach(site -> got.add(site.centre()));
+        near.forEach(site -> got.add(site.center()));
         assertEquals(expected, got);
         assertTrue(expected.size() >= 2,
                 "the fixture found only " + expected.size()
@@ -248,7 +248,7 @@ class SettlementSitesTest {
         List<SettlementSites.Site> near = SettlementSites.near(SEED, at, 3000);
         long previous = -1;
         for (SettlementSites.Site site : near) {
-            long distance = site.centre().horizontalDistanceSq(at);
+            long distance = site.center().horizontalDistanceSq(at);
             assertTrue(distance >= previous, "sites came back out of order");
             previous = distance;
         }
@@ -263,7 +263,7 @@ class SettlementSitesTest {
         List<SettlementSites.Site> found = sweep(SEED, 8);
         assertFalse(found.isEmpty());
         for (SettlementSites.Site site : found) {
-            assertEquals(SettlementSites.UNRESOLVED_Y, site.centre().y(),
+            assertEquals(SettlementSites.UNRESOLVED_Y, site.center().y(),
                     "the chooser cannot know the ground and must not pretend to");
         }
     }
@@ -352,9 +352,9 @@ class SettlementSitesTest {
     @Test
     void theTableChangesTheShapeAndNotThePlaces() {
         List<SimPos> green = sweep(Map.of(Culture.LAYOUT_GREEN, 100)).stream()
-                .map(SettlementSites.Site::centre).toList();
+                .map(SettlementSites.Site::center).toList();
         List<SimPos> bastide = sweep(Map.of(Culture.LAYOUT_BASTIDE, 100)).stream()
-                .map(SettlementSites.Site::centre).toList();
+                .map(SettlementSites.Site::center).toList();
         assertEquals(green, bastide, "the table must not move a single town");
     }
 

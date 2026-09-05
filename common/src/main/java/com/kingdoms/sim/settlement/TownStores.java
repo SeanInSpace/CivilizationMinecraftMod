@@ -39,7 +39,8 @@ public final class TownStores implements Stock {
     public static final String IRON = "iron";
     public static final String TOOLS = "tools";
     public static final String WEAPONS = "weapons";
-    public static final String ARMOUR = "armour";
+    // The value is a save key spelled the way it was first written; changing it is a codec migration, not a spelling.
+    public static final String ARMOR = "armour";
 
     /**
      * What a founding party carries in: the settlers, the loaves in their pockets,

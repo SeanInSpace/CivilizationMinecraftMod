@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * with the relocation machinery and tested nothing about leveling. The honest
  * state is: the arithmetic and the seam are covered, the end-to-end is not.
  */
-class LevellingTest {
+class LevelingTest {
 
     /** Ground that falls away by a fixed amount across the plot. */
     private static WorldBridge dippingBy(int fall) {
@@ -59,7 +59,7 @@ class LevellingTest {
             }
 
             @Override
-            public int woodedness(SimPos centre, int radius) {
+            public int woodedness(SimPos center, int radius) {
                 return 0;
             }
 
@@ -100,7 +100,7 @@ class LevellingTest {
     }
 
     @Test
-    void groundDecidesWhetherItCanBeLevelled() {
+    void groundDecidesWhetherItCanBeLeveled() {
         // The seam, and the reason it exists. isSiteSuitable says no without
         // saying why, and the reasons are not alike: a lake cannot be filled
         // with a barrow of earth and a hummock can. The first version of this
@@ -111,25 +111,25 @@ class LevellingTest {
         // So the default is NO. A bridge that has not thought about leveling
         // keeps exactly the behavior it had.
         WorldBridge silent = dippingBy(2);
-        assertFalse(silent.isSiteLevellable(new SimPos(0, 72, 0), 6),
+        assertFalse(silent.isSiteLevelable(new SimPos(0, 72, 0), 6),
                 "a bridge that never considered leveling licensed it anyway");
 
         RecordedTerrain real = RecordedTerrain.of(RecordedTerrain.SEED_8675309);
-        boolean anyLevellable = false;
+        boolean anyLevelable = false;
         boolean anyRefused = false;
         for (int x = -100; x <= 100; x += 8) {
             for (int z = -100; z <= 100; z += 8) {
                 SimPos at = new SimPos(16 + x, 64, 80 + z);
                 if (!real.isSiteSuitable(at, 6)) {
                     anyRefused = true;
-                    if (real.isSiteLevellable(at, 6)) {
-                        anyLevellable = true;
+                    if (real.isSiteLevelable(at, 6)) {
+                        anyLevelable = true;
                     }
                 }
             }
         }
         assertTrue(anyRefused, "the recorded ground refused nothing, so it is too smooth");
-        assertTrue(anyLevellable,
+        assertTrue(anyLevelable,
                 "no refused site on real ground was a dip worth leveling, which"
                         + " would make the whole workstream pointless there");
     }

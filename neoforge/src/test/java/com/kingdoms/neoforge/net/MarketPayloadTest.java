@@ -152,7 +152,7 @@ class MarketPayloadTest {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);
         town.addResident(new Person(Person.Id.random(), "Merek",
-                Profession.TRADER, town.centre()));
+                Profession.TRADER, town.center()));
         town.setStock(TownStores.FOOD, 0);
 
         MarketPayload board = roundTrip(MarketPayload.of(town, POST, true));
@@ -175,7 +175,7 @@ class MarketPayloadTest {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Quietburg", new SimPos(0, 64, 0), 64);
         town.addResident(new Person(Person.Id.random(), "Ada",
-                Profession.FARMER, town.centre()));
+                Profession.FARMER, town.center()));
 
         assertTrue(MarketPayload.of(town, POST, true).offers().isEmpty(),
                 "no trader, no board — the profession is worth losing");

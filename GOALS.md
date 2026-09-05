@@ -434,7 +434,7 @@ work has landed, which changes what a street looks like from the middle of it.
       around a field? It follows the buildings, drifts along contours, and moves
       outward when the town outgrows it; all three are claims about how it looks
       from inside the gate.
-- [ ] Does digging read as labor now, at `Excavation.LABOUR_FACTOR` of two —
+- [ ] Does digging read as labor now, at `Excavation.LABOR_FACTOR` of two —
       and does a watched town still get its farm up in time? The factor is one
       named constant, so this is a question about a number, not a rewrite. Three
       was the tempting value and was deliberately not taken: watched digging is

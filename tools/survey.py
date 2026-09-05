@@ -31,7 +31,7 @@ GROUPS = {
     "industry": ["workshop", "smith", "carpentry", "lumber_camp", "mine", "kiln"],
     "trade": ["storehouse", "warehouse", "cache", "market", "stall"],
     "civic": ["town_hall", "camp_post", "well", "shrine"],
-    "defence": ["watchtower", "barracks", "guardhouse"],
+    "defense": ["watchtower", "barracks", "guardhouse"],
 }
 KIND_GROUP = {k: g for g, ks in GROUPS.items() for k in ks}
 
@@ -46,7 +46,7 @@ def parse(text):
             name, cx, cy, cz, stage, pop, culture, layout = m.groups()
             current = {
                 "name": name.replace("_", " "),
-                "centre": [int(cx), int(cy), int(cz)],
+                "center": [int(cx), int(cy), int(cz)],
                 "stage": stage, "pop": int(pop),
                 "culture": culture, "layout": layout,
                 "builds": [], "roads": [], "verts": [], "gates": [],

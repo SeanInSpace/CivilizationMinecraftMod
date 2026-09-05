@@ -106,7 +106,7 @@ public final class StreetLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int reach = MARKET_REACH + PITCH * (wanted / 2 + 6);
         int lanes = lanesFor(wanted);
@@ -114,8 +114,8 @@ public final class StreetLayout extends PlannedLayout {
         int depth = laneDepthFor(wanted);
 
         // The spine, running north-south, bending as it goes.
-        Wander spine = wanderFor(wander, centre, SPINE);
-        streets.add(northSouth(centre, spine, 0, -reach / 3, reach,
+        Wander spine = wanderFor(wander, center, SPINE);
+        streets.add(northSouth(center, spine, 0, -reach / 3, reach,
                 ROAD_HALF * 2, TownPlan.Kind.SPINE));
 
         // Lanes off it, each leaving the spine where the spine actually is
@@ -123,15 +123,15 @@ public final class StreetLayout extends PlannedLayout {
         for (int lane = 0; lane < lanes; lane++) {
             int laneZ = laneZ(lane);
             int side = (lane % 2 == 0) ? 1 : -1;
-            streets.add(eastWest(centre, wanderFor(wander, centre, LANE_FIRST + lane),
+            streets.add(eastWest(center, wanderFor(wander, center, LANE_FIRST + lane),
                     laneZ, spine.blocksAt(laneZ),
                     side * (SETBACK + ROAD_HALF + PITCH * depth),
                     ROAD_HALF * 2, TownPlan.Kind.LANE));
         }
 
         // The back lane, behind the western frontage.
-        Wander back = wanderFor(wander, centre, backIndex);
-        streets.add(northSouth(centre, back, -BACK_AT, -reach / 4, reach / 2,
+        Wander back = wanderFor(wander, center, backIndex);
+        streets.add(northSouth(center, back, -BACK_AT, -reach / 4, reach / 2,
                 ROAD_HALF, TownPlan.Kind.BACK));
 
         // The market widening. The best frontage in the town, and nearest the
@@ -141,8 +141,8 @@ public final class StreetLayout extends PlannedLayout {
             for (int sign : new int[] {1, -1}) {
                 int z = sign * (HALF_PITCH + k * PITCH);
                 int bend = spine.blocksAt(z);
-                offers.add(new Offer(at(centre, bend - (SETBACK + MARKET_EXTRA), z), SPINE, 1));
-                offers.add(new Offer(at(centre, bend + SETBACK + MARKET_EXTRA, z), SPINE, 3));
+                offers.add(new Offer(at(center, bend - (SETBACK + MARKET_EXTRA), z), SPINE, 1));
+                offers.add(new Offer(at(center, bend + SETBACK + MARKET_EXTRA, z), SPINE, 3));
             }
         }
 
@@ -166,8 +166,8 @@ public final class StreetLayout extends PlannedLayout {
                 south++;
             }
             int bend = spine.blocksAt(z);
-            offers.add(new Offer(at(centre, bend - SETBACK, z), SPINE, 1));
-            offers.add(new Offer(at(centre, bend + SETBACK, z), SPINE, 3));
+            offers.add(new Offer(at(center, bend - SETBACK, z), SPINE, 1));
+            offers.add(new Offer(at(center, bend + SETBACK, z), SPINE, 3));
         }
 
         // Lanes, alternating sides so the town does not grow lopsided.
@@ -179,12 +179,12 @@ public final class StreetLayout extends PlannedLayout {
         for (int lane = 0; lane < lanes; lane++) {
             int laneZ = laneZ(lane);
             int side = (lane % 2 == 0) ? 1 : -1;
-            Wander how = wanderFor(wander, centre, LANE_FIRST + lane);
+            Wander how = wanderFor(wander, center, LANE_FIRST + lane);
             for (int k = 0; k < depth; k++) {
                 int x = side * (SETBACK + ROAD_HALF + HALF_PITCH + k * PITCH);
                 int bend = laneZ + how.blocksAt(x);
-                offers.add(new Offer(at(centre, x, bend - SETBACK), LANE_FIRST + lane, 2));
-                offers.add(new Offer(at(centre, x, bend + SETBACK), LANE_FIRST + lane, 0));
+                offers.add(new Offer(at(center, x, bend - SETBACK), LANE_FIRST + lane, 2));
+                offers.add(new Offer(at(center, x, bend + SETBACK), LANE_FIRST + lane, 0));
             }
         }
 
@@ -196,7 +196,7 @@ public final class StreetLayout extends PlannedLayout {
         for (int k = -along; k < along; k++) {
             int z = HALF_PITCH + k * PITCH;
             offers.add(new Offer(
-                    at(centre, -BACK_AT + back.blocksAt(z) - SETBACK, z), backIndex, 1));
+                    at(center, -BACK_AT + back.blocksAt(z) - SETBACK, z), backIndex, 1));
         }
     }
 
@@ -231,7 +231,7 @@ public final class StreetLayout extends PlannedLayout {
         return (lane % 2 == 0) ? step : -step;
     }
 
-    private static SimPos at(SimPos centre, int dx, int dz) {
-        return new SimPos(centre.x() + dx, centre.y(), centre.z() + dz);
+    private static SimPos at(SimPos center, int dx, int dz) {
+        return new SimPos(center.x() + dx, center.y(), center.z() + dz);
     }
 }

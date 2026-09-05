@@ -12,21 +12,21 @@ import java.util.Objects;
  * you were keeping. The camp's own block is the control — see
  * {@code LumberCampBlock}.
  */
-public record WorkArea(SimPos centre, int radius) {
+public record WorkArea(SimPos center, int radius) {
 
     public WorkArea {
-        Objects.requireNonNull(centre, "centre");
+        Objects.requireNonNull(center, "center");
     }
 
     public boolean contains(SimPos pos) {
-        return centre.horizontalDistanceSq(pos) <= (long) radius * radius;
+        return center.horizontalDistanceSq(pos) <= (long) radius * radius;
     }
 
-    public WorkArea withCentre(SimPos newCentre) {
-        return new WorkArea(newCentre, radius);
+    public WorkArea withCenter(SimPos newCenter) {
+        return new WorkArea(newCenter, radius);
     }
 
     public WorkArea withRadius(int newRadius) {
-        return new WorkArea(centre, newRadius);
+        return new WorkArea(center, newRadius);
     }
 }

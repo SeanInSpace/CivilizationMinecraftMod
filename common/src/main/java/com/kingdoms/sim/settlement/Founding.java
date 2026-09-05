@@ -117,14 +117,14 @@ public final class Founding {
     }
 
     /** What a stretch of ground costs a town, lower being better. */
-    private static double scoreSite(SimPos centre,
+    private static double scoreSite(SimPos center,
                                     com.kingdoms.sim.platform.WorldBridge ground) {
         java.util.List<Integer> heights = new java.util.ArrayList<>();
         int wet = 0;
         int samples = 0;
         for (int dz = -SITE_RADIUS; dz <= SITE_RADIUS; dz += SITE_STEP) {
             for (int dx = -SITE_RADIUS; dx <= SITE_RADIUS; dx += SITE_STEP) {
-                SimPos at = new SimPos(centre.x() + dx, centre.y(), centre.z() + dz);
+                SimPos at = new SimPos(center.x() + dx, center.y(), center.z() + dz);
                 heights.add(ground.groundHeight(at));
                 samples++;
                 if (ground.standsInWater(at, 0)) {
@@ -202,7 +202,7 @@ public final class Founding {
      * the height until the structure is drawn, and a precise number nobody
      * checked would be worse than a plain one.
      */
-    private static final int A_STOREY = 4;
+    private static final int A_STORY = 4;
 
     /**
      * How many plots a seeded town asks its plan for.
@@ -212,7 +212,7 @@ public final class Founding {
      * hundred and fifty-six plots however few are asked for and hands back a
      * prefix.
      */
-    private static final int PLOTS_ENOUGH_FOR_ANY_PROGRAMME = 64;
+    private static final int PLOTS_ENOUGH_FOR_ANY_PROGRAM = 64;
 
     /**
      * A settlement that is already what a founding party spends four hundred
@@ -275,15 +275,15 @@ public final class Founding {
      * pass may still move one off a river before a single block is laid.
      *
      * @param stage     what the town has already become
-     * @param catalogue what it knows how to build
+     * @param catalog what it knows how to build
      * @param cultureId whose town it is — and therefore, through the
      *                  arrangement, where every building stands. A caller that
      *                  hands this to a kingdom afterwards must pass the
      *                  kingdom's culture here; see the note on {@code /civ seed}.
      */
     public static Settlement seeded(SimPos site, String name, SettlementStage stage,
-                                    List<BuildingType> catalogue, String cultureId) {
-        return seeded(site, name, stage, catalogue, cultureId, AS_THE_STAGE_HOUSES);
+                                    List<BuildingType> catalog, String cultureId) {
+        return seeded(site, name, stage, catalog, cultureId, AS_THE_STAGE_HOUSES);
     }
 
     /**
@@ -293,7 +293,7 @@ public final class Founding {
      *                  for as many as the stage's program has beds for
      */
     public static Settlement seeded(SimPos site, String name, SettlementStage stage,
-                                    List<BuildingType> catalogue, String cultureId,
+                                    List<BuildingType> catalog, String cultureId,
                                     int residents) {
         Objects.requireNonNull(site, "site");
         Objects.requireNonNull(stage, "stage");
@@ -301,9 +301,9 @@ public final class Founding {
         // Culture before anything else: the arrangement is read from it, and
         // every plot below comes out of that arrangement's plan.
         town.setCultureId(cultureId);
-        town.setCatalogue(Objects.requireNonNull(catalogue, "catalogue"));
+        town.setCatalog(Objects.requireNonNull(catalog, "catalog"));
 
-        raiseTheProgrammes(town, stage);
+        raiseThePrograms(town, stage);
         town.setStage(stage);
         town.setClaimRadius(claimAround(town));
         settlePeople(town, residents);
@@ -321,9 +321,9 @@ public final class Founding {
      * stay that way: one place decides what a stage builds, and a second copy of
      * that list would be wrong the first time somebody edited the first.
      */
-    private static void raiseTheProgrammes(Settlement town, SettlementStage upTo) {
+    private static void raiseThePrograms(Settlement town, SettlementStage upTo) {
         TownPlan plan = town.arrangement()
-                .planFor(town.centre(), PLOTS_ENOUGH_FOR_ANY_PROGRAMME);
+                .planFor(town.center(), PLOTS_ENOUGH_FOR_ANY_PROGRAM);
         int taken = 0;
         for (SettlementStage reached : SettlementStage.values()) {
             town.setStage(reached);
@@ -377,7 +377,7 @@ public final class Founding {
      * ever moves outward.
      */
     private static int roomFor(Settlement town, BuildingType type, TownPlan plan, int from) {
-        int span = BuildPlanner.plotSpanOf(type.id(), town.catalogue());
+        int span = BuildPlanner.plotSpanOf(type.id(), town.catalog());
         int at = from;
         while (at < plan.size() && !town.isPlotFree(plan.plot(at).at(), span, null)) {
             at++;
@@ -389,8 +389,8 @@ public final class Founding {
     private static Building standing(Settlement town, BuildingType type, TownPlan.Plot plot) {
         Building raised = new Building(type.id(), plot.at(), BEFORE_THE_FIRST_STEP, false);
         raised.setFacing(plot.facing());
-        int span = BuildPlanner.plotSpanOf(type.id(), town.catalogue());
-        raised.setFootprint(new Footprint(plot.at().y(), span, span, A_STOREY));
+        int span = BuildPlanner.plotSpanOf(type.id(), town.catalog());
+        raised.setFootprint(new Footprint(plot.at().y(), span, span, A_STORY));
         // Left unsurveyed on purpose. Surveyed means somebody stood on this
         // ground and worked to it; nobody has, so the height is an estimate and
         // relocatePending is still allowed to move the building off a river.
@@ -402,7 +402,7 @@ public final class Founding {
         int reach = INITIAL_CLAIM;
         for (Building standing : town.buildings()) {
             reach = Math.max(reach, BuildPlanner.claimRadiusFor(
-                    town.centre(), standing.origin(), town.arrangement().claimMargin()));
+                    town.center(), standing.origin(), town.arrangement().claimMargin()));
         }
         return reach;
     }
@@ -491,7 +491,7 @@ public final class Founding {
                         familyName(surnames, town.households().size()));
                 town.addHousehold(homeless);
             }
-            town.addResident(person(homeless, given, born++, town.centre()));
+            town.addResident(person(homeless, given, born++, town.center()));
         }
     }
 
@@ -504,7 +504,7 @@ public final class Founding {
      * otherwise gather everybody into a family of nobody.
      */
     private static int largestHouse(Settlement town) {
-        return Math.max(1, town.catalogue().stream()
+        return Math.max(1, town.catalog().stream()
                 .filter(BuildingType::isHousing)
                 .mapToInt(BuildingType::capacity)
                 .max()
@@ -600,7 +600,7 @@ public final class Founding {
                 StagePlanner.crystallize(town, reached);
             }
         }
-        if (StagePlanner.pioneersLabour(stage)) {
+        if (StagePlanner.pioneersLabor(stage)) {
             return;   // generalists still, and the table does not staff them
         }
         // Bounded by the population: every pass places at most one person, so a

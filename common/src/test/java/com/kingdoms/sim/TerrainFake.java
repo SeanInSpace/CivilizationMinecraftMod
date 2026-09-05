@@ -155,13 +155,13 @@ public final class TerrainFake implements WorldBridge {
     public Footprint materializeBlueprint(String id, SimPos origin, boolean surveyed,
                                           int facing) {
         int span = com.kingdoms.sim.settlement.BuildPlanner.plotSpanOf(
-                id, com.kingdoms.sim.settlement.BuildCatalogue.DEFAULT);
+                id, com.kingdoms.sim.settlement.BuildCatalog.DEFAULT);
         return new Footprint(groundAt(origin.x(), origin.z()), span, span, 5);
     }
 
     @Override
-    public int woodedness(SimPos centre, int radius) {
-        return Math.abs((centre.x() * 31 + centre.z() * 17) % 100);
+    public int woodedness(SimPos center, int radius) {
+        return Math.abs((center.x() * 31 + center.z() * 17) % 100);
     }
 
     @Override

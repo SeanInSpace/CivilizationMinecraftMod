@@ -93,7 +93,7 @@ public final class Layouts {
         }
 
         @Override
-        public SimPos plotFor(SimPos centre, int index) {
+        public SimPos plotFor(SimPos center, int index) {
             int ring = 0;
             int slot = Math.max(0, index);
             while (slot >= slotsInRing(ring)) {
@@ -105,9 +105,9 @@ public final class Layouts {
             double slice = 2 * Math.PI / slots;
             double angle = slot * slice + (ring % 2) * slice / 2;
             return new SimPos(
-                    centre.x() + (int) Math.round(radius * Math.cos(angle)),
-                    centre.y(),
-                    centre.z() + (int) Math.round(radius * Math.sin(angle)));
+                    center.x() + (int) Math.round(radius * Math.cos(angle)),
+                    center.y(),
+                    center.z() + (int) Math.round(radius * Math.sin(angle)));
         }
     };
 
@@ -204,15 +204,15 @@ public final class Layouts {
         }
 
         @Override
-        public SimPos plotFor(SimPos centre, int index) {
+        public SimPos plotFor(SimPos center, int index) {
             int at = Math.max(0, index);
             int clump = at / PER_CLUMP;
             int within = at % PER_CLUMP;
 
             // The first clump sits on the town center itself, so a young warren
             // is one dense knot rather than a ring of huts around nothing.
-            int clumpX = centre.x();
-            int clumpZ = centre.z();
+            int clumpX = center.x();
+            int clumpZ = center.z();
             if (clump > 0) {
                 double out = FIRST_CLUMP_OUT + (clump - 1) * CLUMP_SPREAD / 2.0;
                 double angle = clump * CLUMP_TURN;
@@ -226,7 +226,7 @@ public final class Layouts {
             double angle = within * slice + clump * slice / 3.0;
             return new SimPos(
                     clumpX + (int) Math.round(CLUMP_RADIUS * Math.cos(angle)),
-                    centre.y(),
+                    center.y(),
                     clumpZ + (int) Math.round(CLUMP_RADIUS * Math.sin(angle)));
         }
     };
@@ -279,7 +279,7 @@ public final class Layouts {
         }
 
         @Override
-        public SimPos plotFor(SimPos centre, int index) {
+        public SimPos plotFor(SimPos center, int index) {
             // Walk the square spiral, counting only the cells that are offered.
             int x = 0;
             int z = 0;
@@ -295,8 +295,8 @@ public final class Layouts {
                 if (!(x == 0 && z == 0)) {
                     offered++;
                     if (offered == Math.max(0, index)) {
-                        return new SimPos(centre.x() + x * PITCH, centre.y(),
-                                centre.z() + z * PITCH);
+                        return new SimPos(center.x() + x * PITCH, center.y(),
+                                center.z() + z * PITCH);
                     }
                 }
                 x += dx;
@@ -368,8 +368,8 @@ public final class Layouts {
         }
 
         @Override
-        public SimPos plotFor(SimPos centre, int index) {
-            List<SimPos> seq = sequenceFor(centre, Math.max(0, index) + 1);
+        public SimPos plotFor(SimPos center, int index) {
+            List<SimPos> seq = sequenceFor(center, Math.max(0, index) + 1);
             return seq.get(Math.max(0, index));
         }
 
@@ -381,8 +381,8 @@ public final class Layouts {
          * ninety-nine before it. Recomputing that for every candidate a
          * settlement weighs would be the same work a hundred times over.
          */
-        private List<SimPos> sequenceFor(SimPos centre, int wanted) {
-            String key = centre.x() + ":" + centre.z();
+        private List<SimPos> sequenceFor(SimPos center, int wanted) {
+            String key = center.x() + ":" + center.z();
             synchronized (REMEMBERED) {
                 List<SimPos> seq = REMEMBERED.get(key);
                 if (seq == null) {
@@ -394,7 +394,7 @@ public final class Layouts {
                         it.remove();
                     }
                 }
-                extend(centre, seq, wanted);
+                extend(center, seq, wanted);
                 return seq;
             }
         }
@@ -415,9 +415,9 @@ public final class Layouts {
          * so the town packs instead of spreading, and a plot that runs out of
          * room around it retires rather than pushing the whole town outward.
          */
-        private void extend(SimPos centre, List<SimPos> seq, int wanted) {
-            long seed = (long) centre.x() * 0x9E3779B97F4A7C15L
-                    ^ (long) centre.z() * 0xC2B2AE3D27D4EB4FL;
+        private void extend(SimPos center, List<SimPos> seq, int wanted) {
+            long seed = (long) center.x() * 0x9E3779B97F4A7C15L
+                    ^ (long) center.z() * 0xC2B2AE3D27D4EB4FL;
             for (SimPos placed : seq) {
                 seed ^= (long) placed.x() * 31 + placed.z();   // resume where we left off
             }
@@ -426,7 +426,7 @@ public final class Layouts {
                 active.add(i);
             }
             if (seq.isEmpty()) {
-                seq.add(new SimPos(centre.x() + HEART, centre.y(), centre.z()));
+                seq.add(new SimPos(center.x() + HEART, center.y(), center.z()));
                 active.add(0);
             }
             // Bounded, because the alternative is a hang. The first version
@@ -439,7 +439,7 @@ public final class Layouts {
             while (seq.size() < wanted) {
                 if (active.isEmpty()) {
                     if (++stuck > RESTARTS) {
-                        seq.add(beyond(centre, seq));
+                        seq.add(beyond(center, seq));
                         active.add(seq.size() - 1);
                         stuck = 0;
                         continue;
@@ -459,10 +459,10 @@ public final class Layouts {
                     double away = MIN_SEP + ((seed >>> 11) / (double) (1L << 53)) * MIN_SEP;
                     SimPos dart = new SimPos(
                             from.x() + (int) Math.round(away * Math.cos(angle)),
-                            centre.y(),
+                            center.y(),
                             from.z() + (int) Math.round(away * Math.sin(angle)));
-                    if (Math.max(Math.abs(dart.x() - centre.x()),
-                                 Math.abs(dart.z() - centre.z())) < HEART) {
+                    if (Math.max(Math.abs(dart.x() - center.x()),
+                                 Math.abs(dart.z() - center.z())) < HEART) {
                         continue;   // the hall's own ground
                     }
                     boolean clear = true;
@@ -499,20 +499,20 @@ public final class Layouts {
          * takes a step outward, which is what a real one does when the good
          * ground by the green is gone.
          */
-        private SimPos beyond(SimPos centre, List<SimPos> seq) {
+        private SimPos beyond(SimPos center, List<SimPos> seq) {
             int furthest = HEART;
             for (SimPos placed : seq) {
                 furthest = Math.max(furthest, Math.max(
-                        Math.abs(placed.x() - centre.x()),
-                        Math.abs(placed.z() - centre.z())));
+                        Math.abs(placed.x() - center.x()),
+                        Math.abs(placed.z() - center.z())));
             }
             int out = furthest + MIN_SEP;
             // Turned by the count so successive restarts do not stack up in a line.
             double angle = seq.size() * 2.399963;
             return new SimPos(
-                    centre.x() + (int) Math.round(out * Math.cos(angle)),
-                    centre.y(),
-                    centre.z() + (int) Math.round(out * Math.sin(angle)));
+                    center.x() + (int) Math.round(out * Math.cos(angle)),
+                    center.y(),
+                    center.z() + (int) Math.round(out * Math.sin(angle)));
         }
 
         private final Map<String, List<SimPos>> REMEMBERED = new LinkedHashMap<>();

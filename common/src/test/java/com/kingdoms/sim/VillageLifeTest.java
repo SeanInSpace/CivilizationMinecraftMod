@@ -5,7 +5,7 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
-import com.kingdoms.sim.settlement.BuildCatalogue;
+import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
@@ -48,14 +48,14 @@ class VillageLifeTest {
     private static Settlement village() {
         Settlement s = new Settlement(Settlement.Id.random(), "Bruckdorf",
                 new SimPos(0, 64, 0), 128);
-        s.setCatalogue(BuildCatalogue.DEFAULT);
+        s.setCatalog(BuildCatalog.DEFAULT);
         s.setStage(SettlementStage.VILLAGE);
         s.setFoodStock(FoodPlanner.STARTING_PROVISIONS);
         return s;
     }
 
     private static Person settle(Settlement s, String name, Profession trade) {
-        Person person = new Person(Person.Id.random(), name, trade, s.centre());
+        Person person = new Person(Person.Id.random(), name, trade, s.center());
         s.addResident(person);
         return person;
     }
@@ -133,7 +133,7 @@ class VillageLifeTest {
     }
 
     @Test
-    void theCaravanTradesSurplusBreadForIronAndHonoursTheReserve() {
+    void theCaravanTradesSurplusBreadForIronAndHonorsTheReserve() {
         Settlement s = village();
         s.addBuilding(new Building("kingdoms:inn", COTTAGE, 0, true));
         s.setFoodStock(MarketPlanner.RESERVE_FOOD + 30);

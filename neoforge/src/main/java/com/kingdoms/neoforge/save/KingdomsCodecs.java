@@ -393,7 +393,8 @@ public final class KingdomsCodecs {
     }));
 
     public static final Codec<WorkArea> WORK_AREA = RecordCodecBuilder.create(i -> i.group(
-            SIM_POS.fieldOf("centre").forGetter(WorkArea::centre),
+            // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
+            SIM_POS.fieldOf("centre").forGetter(WorkArea::center),
             Codec.INT.fieldOf("radius").forGetter(WorkArea::radius)
     ).apply(i, WorkArea::new));
 
@@ -511,7 +512,8 @@ public final class KingdomsCodecs {
     public static final Codec<Settlement> SETTLEMENT = RecordCodecBuilder.create(i -> i.group(
             SETTLEMENT_ID.fieldOf("id").forGetter(Settlement::id),
             Codec.STRING.fieldOf("name").forGetter(Settlement::name),
-            SIM_POS.fieldOf("centre").forGetter(Settlement::centre),
+            // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
+            SIM_POS.fieldOf("centre").forGetter(Settlement::center),
             Codec.INT.fieldOf("claim_radius").forGetter(Settlement::claimRadius),
             Codec.INT.fieldOf("threat_level").forGetter(Settlement::threatLevel),
             PERSON.listOf().fieldOf("residents").forGetter(s -> List.copyOf(s.residents())),
@@ -526,8 +528,8 @@ public final class KingdomsCodecs {
             WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea())),
             WORK_AREA.optionalFieldOf("mine_area").forGetter(s -> Optional.ofNullable(s.mineArea())),
             Codec.INT.optionalFieldOf("next_plot", -1).forGetter(Settlement::nextPlotIndex)
-    ).apply(i, (id, name, centre, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, flavor, lumberArea, mineArea, nextPlot) -> {
-        Settlement settlement = new Settlement(id, name, centre, claimRadius);
+    ).apply(i, (id, name, center, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, flavor, lumberArea, mineArea, nextPlot) -> {
+        Settlement settlement = new Settlement(id, name, center, claimRadius);
         settlement.setThreatLevel(threatLevel);
         settlement.loosePile().restore(stores.toTownStores().all());
         settlement.setTreasury(stores.treasury());

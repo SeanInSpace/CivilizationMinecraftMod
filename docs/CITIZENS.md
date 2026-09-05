@@ -208,14 +208,14 @@ because a town that downs tools over one skeleton never gets anything done. At
 ### PIONEER
 
 The founding generalist. Below VILLAGE a pioneer *is* the builder and the farmer
-(`Settlement.laboursAs`), which is what lets a camp of four function before the
+(`Settlement.laborsAs`), which is what lets a camp of four function before the
 staffing table would give it a single farmer.
 
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
 | 1 | stage below VILLAGE, larder under 5/mouth | forages 1 meal per 3 hands | same (arithmetic only) | `FORAGERS_PER_MEAL` = 3, `FORAGE_CEILING_PER_MOUTH` = 5 |
-| 2 | a build is queued | counts as a builder | walks to the site, lays blocks | `laboursAs(BUILDER)` |
-| 3 | nothing queued | counts as a farmer | walks to the nearest farm | `laboursAs(FARMER)` |
+| 2 | a build is queued | counts as a builder | walks to the site, lays blocks | `laborsAs(BUILDER)` |
+| 3 | nothing queued | counts as a farmer | walks to the nearest farm | `laborsAs(FARMER)` |
 | 4 | VILLAGE reached | becomes an `IDLER` | — | `StagePlanner.crystallize` |
 
 There is no weakness gate on foraging. The weak foraging anyway is exactly what
@@ -307,7 +307,7 @@ rather than sharing code with it.
 |---|---|---|---|---|
 | 1 | smithy stands, not weak | 1 item per smith per step | *no watched worker* — the clock does it either way | `OUTPUT_PER_SMITH` = 1 |
 | 2 | making something | spends 2 iron + 1 timber | same | `IRON_PER_ITEM`, `FUEL_PER_ITEM` |
-| 3 | choosing what | tools, then weapons, then armor | same | `MAX_TOOLS` 64, `MAX_WEAPONS` 32, `MAX_ARMOUR` 32 |
+| 3 | choosing what | tools, then weapons, then armor | same | `MAX_TOOLS` 64, `MAX_WEAPONS` 32, `MAX_ARMOR` 32 |
 | 4 | every rack full, or no ore | idle | walks to the smithy and stands there | `SmithPlanner.hasWorkInFront` |
 | 5 | idle by #4 | — | — | eligible as a bulk courier (tier 2) |
 

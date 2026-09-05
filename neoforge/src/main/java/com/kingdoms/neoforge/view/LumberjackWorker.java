@@ -117,7 +117,7 @@ public final class LumberjackWorker {
             campBuilding.touchRealHarvest(stepOf(level));
         }
         SimPos camp = LumberPlanner.campPos(settlement);
-        SimPos at = camp == null ? settlement.centre() : camp;
+        SimPos at = camp == null ? settlement.center() : camp;
         settlement.produceNear(at, TownStores.WOOD, WOOD_PER_LOG,
                 LumberPlanner.woodCapacity(settlement));
         if (Math.floorMod(log.asLong(), SAPLING_EVERY) == 0) {
@@ -151,9 +151,9 @@ public final class LumberjackWorker {
      * the woodland claim happens to cover them — and they are never replanted.
      */
     private static boolean insideVillage(Settlement settlement, int x, int z) {
-        SimPos centre = settlement.centre();
-        long dx = x - centre.x();
-        long dz = z - centre.z();
+        SimPos center = settlement.center();
+        long dx = x - center.x();
+        long dz = z - center.z();
         long reach = settlement.claimRadius();
         return dx * dx + dz * dz <= reach * reach;
     }
@@ -166,8 +166,8 @@ public final class LumberjackWorker {
 
         // Search whichever is wider: the woodland claim, or the village itself.
         // Both are worked — the claim for timber, the village to keep it clear.
-        SimPos centre = area.centre();
-        SimPos town = settlement.centre();
+        SimPos center = area.center();
+        SimPos town = settlement.center();
         int r = Math.max(area.radius(), settlement.claimRadius());
         boolean villageFirst = true;
         for (int dx = -r; dx <= r && examined < MAX_COLUMNS_PER_SCAN; dx++) {
@@ -175,14 +175,14 @@ public final class LumberjackWorker {
                 int x = town.x() + dx;
                 int z = town.z() + dz;
                 boolean inVillage = insideVillage(settlement, x, z);
-                if (!inVillage && !area.contains(new SimPos(x, centre.y(), z))) {
+                if (!inVillage && !area.contains(new SimPos(x, center.y(), z))) {
                     continue;
                 }
                 double distance = from.distSqr(new BlockPos(x, from.getY(), z));
                 if (distance >= bestDistance) {
                     continue;   // cannot beat what we have, so skip the chunk read
                 }
-                if (!level.isLoaded(new BlockPos(x, centre.y(), z))) {
+                if (!level.isLoaded(new BlockPos(x, center.y(), z))) {
                     continue;
                 }
                 examined++;
@@ -223,7 +223,7 @@ public final class LumberjackWorker {
      */
     private static BlockPos findPlantingSpot(ServerLevel level, Settlement settlement,
                                              WorkArea area, BlockPos from) {
-        SimPos centre = area.centre();
+        SimPos center = area.center();
         int r = area.radius();
         BlockPos best = null;
         double bestDistance = Double.MAX_VALUE;
@@ -231,9 +231,9 @@ public final class LumberjackWorker {
 
         for (int dx = -r; dx <= r && examined < MAX_COLUMNS_PER_SCAN; dx++) {
             for (int dz = -r; dz <= r && examined < MAX_COLUMNS_PER_SCAN; dz++) {
-                int x = centre.x() + dx;
-                int z = centre.z() + dz;
-                if (!area.contains(new SimPos(x, centre.y(), z))
+                int x = center.x() + dx;
+                int z = center.z() + dz;
+                if (!area.contains(new SimPos(x, center.y(), z))
                         || insideVillage(settlement, x, z)) {
                     continue;
                 }
@@ -241,7 +241,7 @@ public final class LumberjackWorker {
                 if (distance >= bestDistance) {
                     continue;
                 }
-                if (!level.isLoaded(new BlockPos(x, centre.y(), z))) {
+                if (!level.isLoaded(new BlockPos(x, center.y(), z))) {
                     continue;
                 }
                 examined++;

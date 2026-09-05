@@ -217,7 +217,7 @@ Growth progress holds at the threshold while a town is full, so growth resumes t
 | Want | Change |
 |---|---|
 | Faster or slower growth | `PopulationPlanner.STEPS_PER_BIRTH` (currently 8) |
-| Bigger families per house | `capacity` on the house type in `BuildCatalogue` |
+| Bigger families per house | `capacity` on the house type in `BuildCatalog` |
 | Housing to be tighter | Raise `perResidents` on the house type — but mind the deadlock rule above |
 | More house types | Add rows with `capacity > 0`; mansions and hovels work with no code change |
 

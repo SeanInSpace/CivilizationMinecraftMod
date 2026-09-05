@@ -272,7 +272,7 @@ class SettlementStoresTest {
     }
 
     @Test
-    void theKitIsSweptToTheStoreNearestTheTownCentre() {
+    void theKitIsSweptToTheStoreNearestTheTownCenter() {
         Settlement s = town();
         Building far = storehouseAt(400, 400);
         Building near = storehouseAt(6, 6);

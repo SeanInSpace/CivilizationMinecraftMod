@@ -43,7 +43,7 @@ public final class Settlement {
 
     private final Id id;
     private final String name;
-    private final SimPos centre;
+    private final SimPos center;
     private int claimRadius;
 
     /**
@@ -102,7 +102,7 @@ public final class Settlement {
     private int stalledSteps;
 
     /** Content, not save state — not serialized. */
-    private List<BuildingType> catalogue = BuildCatalogue.DEFAULT;
+    private List<BuildingType> catalog = BuildCatalog.DEFAULT;
 
     /**
      * Where this settlement stands on the founding road. Defaults to TOWN so
@@ -221,10 +221,10 @@ public final class Settlement {
     /** Where the mine may cut, set by the mine post. */
     private WorkArea mineArea;
 
-    public Settlement(Id id, String name, SimPos centre, int claimRadius) {
+    public Settlement(Id id, String name, SimPos center, int claimRadius) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
-        this.centre = Objects.requireNonNull(centre, "centre");
+        this.center = Objects.requireNonNull(center, "center");
         this.claimRadius = claimRadius;
     }
 
@@ -236,8 +236,8 @@ public final class Settlement {
         return name;
     }
 
-    public SimPos centre() {
-        return centre;
+    public SimPos center() {
+        return center;
     }
 
     /**
@@ -279,7 +279,7 @@ public final class Settlement {
         if (perimeter != null && !BuildPlanner.PRODUCER_OF.containsValue(type.id())) {
             int frontier = nextPlotIndex + BuildPlanner.PLOT_ATTEMPTS;
             for (int index = 0; index < frontier; index++) {
-                SimPos candidate = arrangement().plotFor(centre, index);
+                SimPos candidate = arrangement().plotFor(center, index);
                 if (!insideRing(candidate, type.plotSpan())
                         || !ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
                         || !isPlotFree(candidate, type.plotSpan(), null)
@@ -462,10 +462,10 @@ public final class Settlement {
         int firstFree = -1;
         int firstOffered = -1;
         int considered = 0;
-        LeastBad leastBad = new LeastBad(centre);
+        LeastBad leastBad = new LeastBad(center);
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
-            SimPos candidate = arrangement().plotFor(centre, index);
+            SimPos candidate = arrangement().plotFor(center, index);
             if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
@@ -474,7 +474,7 @@ public final class Settlement {
             }
             int fault = ctx.bridge().siteFault(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
             if (fault != WorldBridge.SITE_FAULT_NONE
-                    && !worthLevelling(candidate, span, ctx)) {
+                    && !worthLeveling(candidate, span, ctx)) {
                 // Refused, and remembered anyway. This is the whole of the fix:
                 // a town that refuses all ninety-six of these used to walk off
                 // and take an unexamined slot, so the sharper the terrain rules
@@ -550,9 +550,9 @@ public final class Settlement {
         int freeButWetAt = 0;
         int firstOut = -1;
         int graded = 0;
-        LeastBad furtherOut = new LeastBad(centre);
+        LeastBad furtherOut = new LeastBad(center);
         for (int extra = 0; extra < DESPERATE_ATTEMPTS; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             // Free ground as well as dry ground. Refusing only water let a
             // desperate build land on a plot somebody was already standing on --
             // an animal farm through the side of a market, caught by the layout
@@ -620,7 +620,7 @@ public final class Settlement {
         // went into takeNextPlot changed none of it, because this is the path the
         // town actually builds through.
         for (int extra = DESPERATE_ATTEMPTS; extra < LAST_DITCH; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             if (isPlotFree(candidate, span, null)) {
                 nextPlotIndex += extra + 1;
                 return candidate;
@@ -668,21 +668,21 @@ public final class Settlement {
      * for the whole of that case.
      */
     private static final class LeastBad {
-        private final SimPos centre;
+        private final SimPos center;
         private SimPos at;
         private int index = -1;
         private int fault = Integer.MAX_VALUE;
         private long away = Long.MAX_VALUE;
 
-        LeastBad(SimPos centre) {
-            this.centre = centre;
+        LeastBad(SimPos center) {
+            this.center = center;
         }
 
         void offer(SimPos candidate, int atIndex, int candidateFault, WorldBridge world) {
             if (candidateFault == WorldBridge.SITE_FAULT_OPEN_WATER) {
                 return;   // not poor ground; not ground
             }
-            long distance = candidate.horizontalDistanceSq(centre);
+            long distance = candidate.horizontalDistanceSq(center);
             if (candidateFault > fault
                     || (candidateFault == fault && distance >= away)) {
                 return;
@@ -733,7 +733,7 @@ public final class Settlement {
                 continue;
             }
             if (BuildPlanner.plotsOverlap(candidate, span, queued.origin(),
-                    BuildPlanner.plotSpanOf(queued.blueprintId(), catalogue))) {
+                    BuildPlanner.plotSpanOf(queued.blueprintId(), catalog))) {
                 return false;
             }
         }
@@ -765,8 +765,8 @@ public final class Settlement {
      * would quarry a mountain, and without the second it would flatten ground it
      * has nothing to flatten it with.
      */
-    private boolean worthLevelling(SimPos candidate, int span, SimContext ctx) {
-        if (!ctx.bridge().isSiteLevellable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+    private boolean worthLeveling(SimPos candidate, int span, SimContext ctx) {
+        if (!ctx.bridge().isSiteLevelable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
             return false;   // the ground itself says this is not a dip
         }
         return stores().has(TownStores.EARTH,
@@ -780,7 +780,7 @@ public final class Settlement {
      * same reason timber is: a town that could order ten levelings on one
      * barrow of earth would have ten half-dug sites and no way to finish any.
      */
-    private void payForLevelling(SimPos plot, int span, SimContext ctx) {
+    private void payForLeveling(SimPos plot, int span, SimContext ctx) {
         int earth = BuildPlanner.earthToLevel(plot, span, ctx.bridge());
         if (earth > 0) {
             stores().take(TownStores.EARTH, earth);
@@ -804,7 +804,7 @@ public final class Settlement {
         if (paths == null || !Layouts.isStreetsFirst(arrangement())) {
             return false;
         }
-        TownPlan plan = arrangement().fullPlan(centre);
+        TownPlan plan = arrangement().fullPlan(center);
         for (TownPlan.Plot plot : plan.plots()) {
             if (plot.at().x() == candidate.x() && plot.at().z() == candidate.z()) {
                 return plot.frontsAStreet()
@@ -815,7 +815,7 @@ public final class Settlement {
     }
 
     /** Bare ground between a wall and a carriageway, so a door has a doorstep. */
-    private static final int KERB = 1;
+    private static final int CURB = 1;
 
     /**
      * Whether a plot would stand on a street the town has already laid.
@@ -836,7 +836,7 @@ public final class Settlement {
         if (paths == null) {
             return false;
         }
-        double half = span / 2.0 + KERB;
+        double half = span / 2.0 + CURB;
         for (PathNetwork.Segment run : paths.segments()) {
             if (run.width() <= PathNetwork.TRACK_WIDTH) {
                 continue;
@@ -883,7 +883,7 @@ public final class Settlement {
         if (perimeter == null) {
             return false;
         }
-        double half = span / 2.0 + KERB;
+        double half = span / 2.0 + CURB;
         for (SimPos post : perimeter.ringPositions()) {
             if (Math.abs(post.x() - candidate.x()) <= half
                     && Math.abs(post.z() - candidate.z()) <= half) {
@@ -922,30 +922,30 @@ public final class Settlement {
                 continue;
             }
             out = Math.max(out, Math.max(
-                    Math.abs(standing.origin().x() - centre.x()),
-                    Math.abs(standing.origin().z() - centre.z())));
+                    Math.abs(standing.origin().x() - center.x()),
+                    Math.abs(standing.origin().z() - center.z())));
         }
         if (perimeter != null) {
             for (SimPos post : perimeter.ringPositions()) {
-                out = Math.max(out, Math.max(Math.abs(post.x() - centre.x()),
-                                             Math.abs(post.z() - centre.z())));
+                out = Math.max(out, Math.max(Math.abs(post.x() - center.x()),
+                                             Math.abs(post.z() - center.z())));
             }
         }
         if (paths != null) {
             for (PathNetwork.Segment run : paths.segments()) {
                 out = Math.max(out, Math.max(
-                        Math.max(Math.abs(run.from().x() - centre.x()),
-                                 Math.abs(run.from().z() - centre.z())),
-                        Math.max(Math.abs(run.to().x() - centre.x()),
-                                 Math.abs(run.to().z() - centre.z()))));
+                        Math.max(Math.abs(run.from().x() - center.x()),
+                                 Math.abs(run.from().z() - center.z())),
+                        Math.max(Math.abs(run.to().x() - center.x()),
+                                 Math.abs(run.to().z() - center.z()))));
             }
         }
         out += span + Layout.MIN_PLOT_SEPARATION;
         double angle = nextPlotIndex * 2.399963;   // never repeats a spoke
         nextPlotIndex++;
         return new SimPos(
-                centre.x() + (int) Math.round(out * Math.cos(angle)), centre.y(),
-                centre.z() + (int) Math.round(out * Math.sin(angle)));
+                center.x() + (int) Math.round(out * Math.cos(angle)), center.y(),
+                center.z() + (int) Math.round(out * Math.sin(angle)));
     }
 
     /** The least a desperate plot stands out, before the town's own reach. */
@@ -962,7 +962,7 @@ public final class Settlement {
         if (measured.isKnown()) {
             return Math.max(measured.width(), measured.depth());
         }
-        return BuildPlanner.plotSpanOf(standing.blueprintId(), catalogue);
+        return BuildPlanner.plotSpanOf(standing.blueprintId(), catalog);
     }
 
     /**
@@ -1000,7 +1000,7 @@ public final class Settlement {
     public SimPos takeNextPlot(int span, com.kingdoms.sim.platform.WorldBridge bridge) {
         for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS; attempt++) {
             int index = nextPlotIndex + attempt;
-            SimPos candidate = arrangement().plotFor(centre, index);
+            SimPos candidate = arrangement().plotFor(center, index);
             if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
@@ -1029,9 +1029,9 @@ public final class Settlement {
         int freeButWetAt = 0;
         int firstOut = -1;
         int graded = 0;
-        LeastBad furtherOut = new LeastBad(centre);
+        LeastBad furtherOut = new LeastBad(center);
         for (int extra = 0; bridge != null && extra < DESPERATE_ATTEMPTS; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             if (!isPlotFree(candidate, span, null)) {
                 continue;   // taken ground is not poor ground, it is somebody's
             }
@@ -1081,7 +1081,7 @@ public final class Settlement {
         // palisade is never the least-bad answer -- those are all somebody's
         // ground, and there is always more ground further out.
         for (int extra = DESPERATE_ATTEMPTS; bridge != null && extra < LAST_DITCH; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             if (!isPlotFree(candidate, span, null)) {
                 continue;
             }
@@ -1090,7 +1090,7 @@ public final class Settlement {
         }
         // Truly nothing, which should mean a town that has run out of world.
         for (int extra = 0; extra < LAST_DITCH; extra++) {
-            SimPos candidate = arrangement().plotFor(centre, nextPlotIndex + extra);
+            SimPos candidate = arrangement().plotFor(center, nextPlotIndex + extra);
             if (isPlotFree(candidate, span, null)) {
                 nextPlotIndex += extra + 1;
                 return candidate;
@@ -1170,7 +1170,7 @@ public final class Settlement {
      * assignment races the planners asking the same question on the sim thread.
      */
     public String layoutId() {
-        return layoutId != null ? layoutId : Culture.of(cultureId).layoutFor(centre);
+        return layoutId != null ? layoutId : Culture.of(cultureId).layoutFor(center);
     }
 
     /**
@@ -1428,7 +1428,7 @@ public final class Settlement {
         if (loosePile.all().isEmpty()) {
             return;
         }
-        Building into = nearestStore(centre);
+        Building into = nearestStore(center);
         if (into == null) {
             return;   // nowhere to put it yet; it stays in the open
         }
@@ -1781,7 +1781,7 @@ public final class Settlement {
 
     /** Whether this ground was staked out around this building. */
     private static boolean claimedBy(WorkArea area, Building building) {
-        return area != null && samePlot(area.centre(), building.origin());
+        return area != null && samePlot(area.center(), building.origin());
     }
 
     public List<Building> buildings() {
@@ -1880,7 +1880,7 @@ public final class Settlement {
      * consulted. From VILLAGE the specialists exist and the answer is simply
      * the profession.
      */
-    public boolean laboursAs(Person person, Profession trade) {
+    public boolean laborsAs(Person person, Profession trade) {
         if (person.profession() == trade) {
             return true;
         }
@@ -1889,16 +1889,16 @@ public final class Settlement {
         // all, so pretending pioneers swing axes would only split the work
         // between a planner that counts professions and a seam that lies.
         return person.profession() == Profession.PIONEER
-                && StagePlanner.pioneersLabour(stage)
+                && StagePlanner.pioneersLabor(stage)
                 && (trade == Profession.BUILDER || trade == Profession.FARMER);
     }
 
-    public List<BuildingType> catalogue() {
-        return catalogue;
+    public List<BuildingType> catalog() {
+        return catalog;
     }
 
-    public void setCatalogue(List<BuildingType> catalogue) {
-        this.catalogue = List.copyOf(Objects.requireNonNull(catalogue, "catalogue"));
+    public void setCatalog(List<BuildingType> catalog) {
+        this.catalog = List.copyOf(Objects.requireNonNull(catalog, "catalog"));
     }
 
     /** Buildings that exist in the simulation but have not been drawn into the world yet. */
@@ -1940,7 +1940,7 @@ public final class Settlement {
     }
 
     public boolean contains(SimPos pos) {
-        return centre.horizontalDistanceSq(pos) <= (long) claimRadius * claimRadius;
+        return center.horizontalDistanceSq(pos) <= (long) claimRadius * claimRadius;
     }
 
     /**
@@ -2080,11 +2080,11 @@ public final class Settlement {
         SimPos flat = chooseSite(ctx, wanted);
         SimPos plot = new SimPos(flat.x(), ctx.bridge().surfaceHeight(flat), flat.z());
         if (!contains(plot)) {
-            claimRadius = BuildPlanner.claimRadiusFor(centre, plot,
+            claimRadius = BuildPlanner.claimRadiusFor(center, plot,
                     arrangement().claimMargin());
         }
         BuildTask ordered = new BuildTask(wanted.id(), plot, wanted.workCost());
-        ordered.setFacing(arrangement().facingFor(centre, plot));
+        ordered.setFacing(arrangement().facingFor(center, plot));
         enqueueUrgent(ordered);
         logEvent(ctx.step(), "Starving — work on a " + readableName(wanted.id())
                 + " goes ahead of everything else");
@@ -2180,7 +2180,7 @@ public final class Settlement {
         if (buildQueue.stream().anyMatch(t -> FoodPlanner.namesRole(t.blueprintId(), role))) {
             return null;   // already ordered; ordering the next one too would only queue-jump itself
         }
-        for (BuildingType type : catalogue) {
+        for (BuildingType type : catalog) {
             if (FoodPlanner.namesRole(type.id(), role)) {
                 return type;
             }
@@ -2202,7 +2202,7 @@ public final class Settlement {
             orderBuild(ctx, programmed.get());
             return;
         }
-        if (!StagePlanner.catalogueRuns(stage)) {
+        if (!StagePlanner.catalogRuns(stage)) {
             return;   // below VILLAGE the program is the whole of the plan
         }
         // A town no longer improves what already stands. Upgrading raised a
@@ -2215,8 +2215,8 @@ public final class Settlement {
         // Removed rather than gated, because a switch would leave the same
         // geometry waiting to be turned back on. It comes back when a building
         // that grows can be shown not to eat its neighbor. See GOALS.md.
-        Optional<BuildingType> wanted = BuildPlanner.chooseNext(this, catalogue)
-                .filter(type -> StagePlanner.catalogueAllows(stage, type.id()));
+        Optional<BuildingType> wanted = BuildPlanner.chooseNext(this, catalog)
+                .filter(type -> StagePlanner.catalogAllows(stage, type.id()));
         wanted.ifPresent(type -> orderBuild(ctx, type));
     }
 
@@ -2229,8 +2229,8 @@ public final class Settlement {
         // shifted off its offer is not among them any more -- it falls through
         // to "face the middle of the town", which is what a lattice does and is
         // precisely the thing drawing streets first was for.
-        int facing = arrangement().facingFor(centre, flat);
-        flat = againstTheKerb(flat, type.plotSpan());
+        int facing = arrangement().facingFor(center, flat);
+        flat = againstTheCurb(flat, type.plotSpan());
 
         // Snap to the terrain when the chunk is available; otherwise the
         // center's height stands in and the world snaps again at placement.
@@ -2239,13 +2239,13 @@ public final class Settlement {
         // A settlement claims the ground it builds on, so territory grows outward
         // as the town does rather than being fixed at founding.
         if (!contains(plot)) {
-            claimRadius = BuildPlanner.claimRadiusFor(centre, plot,
+            claimRadius = BuildPlanner.claimRadiusFor(center, plot,
                     arrangement().claimMargin());
         }
 
         BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
         ordered.setFacing(facing);
-        payForLevelling(plot, type.plotSpan(), ctx);
+        payForLeveling(plot, type.plotSpan(), ctx);
         buildQueue.add(ordered);
     }
 
@@ -2273,11 +2273,11 @@ public final class Settlement {
      * curb, so nothing can be pushed onto the road it fronts. A plot that is
      * already close enough is left exactly where the plan put it.
      */
-    private SimPos againstTheKerb(SimPos plot, int span) {
+    private SimPos againstTheCurb(SimPos plot, int span) {
         if (!Layouts.isStreetsFirst(arrangement())) {
             return plot;   // a lattice has no street to come up to
         }
-        TownPlan plan = arrangement().fullPlan(centre);
+        TownPlan plan = arrangement().fullPlan(center);
         TownPlan.Plot offered = null;
         for (TownPlan.Plot candidate : plan.plots()) {
             if (candidate.at().x() == plot.x() && candidate.at().z() == plot.z()) {
@@ -2385,7 +2385,7 @@ public final class Settlement {
     private static final int APPROACH_STEPS = 4;
 
     /** How many of a plot's plan neighbors are asked whether it may come in. */
-    private static final int NEIGHBOURS_CONSULTED = 4;
+    private static final int NEIGHBORS_CONSULTED = 4;
 
     /**
      * Where this plot stands when brought part of the way to its curb.
@@ -2437,7 +2437,7 @@ public final class Settlement {
         near.remove(of);
         near.sort((a, b) -> Long.compare(
                 a.at().horizontalDistanceSq(of.at()), b.at().horizontalDistanceSq(of.at())));
-        return near.subList(0, Math.min(NEIGHBOURS_CONSULTED, near.size()));
+        return near.subList(0, Math.min(NEIGHBORS_CONSULTED, near.size()));
     }
 
     /** The point on a street's centerline nearest a plot, walked piece by piece. */
@@ -2519,7 +2519,7 @@ public final class Settlement {
             return;
         }
         int present = (int) residents.values().stream()
-                .filter(p -> laboursAs(p, Profession.BUILDER) && !p.isTooWeakToWork()
+                .filter(p -> laborsAs(p, Profession.BUILDER) && !p.isTooWeakToWork()
                         && p.isEmbodied())
                 .count();
         BuildTask current = buildQueue.getFirst();
@@ -2622,7 +2622,7 @@ public final class Settlement {
         // level the next awkward plot. A town's first buildings stand on ground
         // that was already flat, and they are what make the uneven ground
         // afterwards affordable.
-        int span = BuildPlanner.plotSpanOf(current.blueprintId(), catalogue);
+        int span = BuildPlanner.plotSpanOf(current.blueprintId(), catalog);
         loosePile.add(TownStores.EARTH, span * span * SPOIL_COURSES);
         // Surveyed sites keep the height the builders actually worked to; only an
         // unsurveyed one may be snapped to the ground at placement time.
@@ -2725,7 +2725,7 @@ public final class Settlement {
      * precise number nobody checked would be worse than claiming a plain one.
      */
     private Footprint expectedFootprint(BuildTask task) {
-        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalogue);
+        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalog);
         return new Footprint(task.site().y(), span, span, 4);
     }
 
@@ -2745,7 +2745,7 @@ public final class Settlement {
         if (ctx.bridge().isSiteSuitable(building.origin(), BuildPlanner.PLOT_PROBE_RADIUS)) {
             return false;
         }
-        int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalogue);
+        int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalog);
         SimPos moved = chooseSite(ctx, span, building.role());
         // The third clause is new and only ever refuses more: a site that scores
         // no better than the one it would replace is not somewhere better, it is
@@ -2774,9 +2774,9 @@ public final class Settlement {
         }
         SimPos from = building.origin();
         building.setOrigin(new SimPos(moved.x(), ctx.bridge().surfaceHeight(moved), moved.z()));
-        building.setFacing(arrangement().facingFor(centre, moved));
+        building.setFacing(arrangement().facingFor(center, moved));
         if (!contains(building.origin())) {
-            claimRadius = BuildPlanner.claimRadiusFor(centre, building.origin());
+            claimRadius = BuildPlanner.claimRadiusFor(center, building.origin());
         }
         logEvent(ctx.step(), "The ground at " + from + " turned out unfit; the "
                 + building.blueprintId().substring(building.blueprintId().indexOf(':') + 1)
@@ -2906,7 +2906,7 @@ public final class Settlement {
 
     private int ableBuilders() {
         return (int) residents.values().stream()
-                .filter(p -> laboursAs(p, Profession.BUILDER) && !p.isTooWeakToWork())
+                .filter(p -> laborsAs(p, Profession.BUILDER) && !p.isTooWeakToWork())
                 .count();
     }
 
@@ -2939,7 +2939,7 @@ public final class Settlement {
             return false;
         }
 
-        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalogue);
+        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalog);
         int spentTo = nextPlotIndex;
         SimPos moved = chooseSite(ctx, span, BuildingRole.of(task.blueprintId()));
         // Better, or stay. The identity test alone was not enough, and on ground
@@ -2968,7 +2968,7 @@ public final class Settlement {
         }
         BuildTask replacement = new BuildTask(
                 task.blueprintId(), moved, task.requiredWork());
-        replacement.setFacing(arrangement().facingFor(centre, moved));
+        replacement.setFacing(arrangement().facingFor(center, moved));
         buildQueue.set(0, replacement);
         logEvent(ctx.step(), "The ground at " + task.origin()
                 + " will not do; the site moves to " + moved);

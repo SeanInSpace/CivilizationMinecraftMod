@@ -78,13 +78,13 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
      * bits of either coordinate raw would hand a whole world one arrangement, or
      * put every town on a diagonal in the same one.
      */
-    public String layoutFor(SimPos centre) {
-        return layouts.get(Math.floorMod(spread(centre), layouts.size()));
+    public String layoutFor(SimPos center) {
+        return layouts.get(Math.floorMod(spread(center), layouts.size()));
     }
 
     /** How this people lays a town out on the ground at that center. */
-    public Layout arrangementFor(SimPos centre) {
-        return Layouts.of(layoutFor(centre));
+    public Layout arrangementFor(SimPos center) {
+        return Layouts.of(layoutFor(center));
     }
 
     /**
@@ -100,9 +100,9 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
      * took the head of the list, so a people's other arrangements were unreachable
      * from the one place a player is most likely to found a town.
      */
-    private static long spread(SimPos centre) {
-        long h = centre.x() * 0x9E3779B97F4A7C15L
-                ^ centre.z() * 0xC2B2AE3D27D4EB4FL
+    private static long spread(SimPos center) {
+        long h = center.x() * 0x9E3779B97F4A7C15L
+                ^ center.z() * 0xC2B2AE3D27D4EB4FL
                 ^ 0x2545F4914F6CDD1DL;
         h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
         h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;

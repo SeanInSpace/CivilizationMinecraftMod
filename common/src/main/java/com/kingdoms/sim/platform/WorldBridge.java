@@ -232,7 +232,7 @@ public interface WorldBridge {
      * leveling keeps exactly the behavior it had, and a fake written for some
      * other purpose cannot accidentally license a town to flatten the sea.
      */
-    default boolean isSiteLevellable(SimPos plot, int radius) {
+    default boolean isSiteLevelable(SimPos plot, int radius) {
         return false;
     }
 
@@ -267,7 +267,7 @@ public interface WorldBridge {
         return -1;
     }
 
-    default int woodedness(SimPos centre, int radius) {
+    default int woodedness(SimPos center, int radius) {
         return 0;
     }
 
@@ -292,7 +292,7 @@ public interface WorldBridge {
      * the raid system instead. Default provided so test doubles stay small; real
      * platforms must override.
      */
-    default Sighting hostilesSeen(SimPos centre, double radius) {
+    default Sighting hostilesSeen(SimPos center, double radius) {
         return Sighting.NONE;
     }
 

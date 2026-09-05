@@ -87,7 +87,7 @@ class FarmersNotFarmingTest {
 
     private static Person farmer(Settlement s) {
         Person person = new Person(Person.Id.random(),
-                "Farmer " + s.population(), Profession.FARMER, s.centre());
+                "Farmer " + s.population(), Profession.FARMER, s.center());
         s.addResident(person);
         return person;
     }

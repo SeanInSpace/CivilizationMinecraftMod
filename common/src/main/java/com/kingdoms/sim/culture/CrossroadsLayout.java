@@ -201,7 +201,7 @@ public final class CrossroadsLayout extends PlannedLayout {
     }
 
     @Override
-    protected void design(SimPos centre, int wanted,
+    protected void design(SimPos center, int wanted,
                           List<TownPlan.Street> streets, List<Offer> offers) {
         int ribs = ribsFor(wanted);
         // The last slot an arm offers, and the road running one pitch past it so
@@ -209,15 +209,15 @@ public final class CrossroadsLayout extends PlannedLayout {
         int lastSlot = ribs * RIB_EVERY + RIB_EVERY - 1;
         int reach = FIRST_FRONT + (lastSlot + 1) * PITCH;
 
-        Wander alongZ = wanderFor(wander, centre, 0);
-        Wander alongX = wanderFor(wander, centre, 1);
+        Wander alongZ = wanderFor(wander, center, 0);
+        Wander alongX = wanderFor(wander, center, 1);
 
         // Both spines before anything else, and they keep indices 0 and 1 for
         // good. A plot records the street it fronts by index, so the two roads
         // the whole town hangs off cannot be allowed to renumber when a rib opens.
-        streets.add(northSouth(centre, alongZ, 0, -reach, reach,
+        streets.add(northSouth(center, alongZ, 0, -reach, reach,
                 ROAD_HALF * 2, TownPlan.Kind.SPINE));
-        streets.add(eastWest(centre, alongX, 0, -reach, reach,
+        streets.add(eastWest(center, alongX, 0, -reach, reach,
                 ROAD_HALF * 2, TownPlan.Kind.SPINE));
 
         // Frontage along both spines, either side, beginning outside the market.
@@ -229,8 +229,8 @@ public final class CrossroadsLayout extends PlannedLayout {
             int along = FIRST_FRONT + slot * PITCH;
             for (int end : new int[] {1, -1}) {
                 int out = along * end;
-                doors(centre, offers, alongZ.blocksAt(out), out, false, 0);
-                doors(centre, offers, out, alongX.blocksAt(out), true, 1);
+                doors(center, offers, alongZ.blocksAt(out), out, false, 0);
+                doors(center, offers, out, alongX.blocksAt(out), true, 1);
             }
         }
 
@@ -240,11 +240,11 @@ public final class CrossroadsLayout extends PlannedLayout {
             int along = FIRST_FRONT + ring * RIB_EVERY * PITCH;
             for (int end : new int[] {1, -1}) {
                 int out = along * end;
-                rib(centre, streets, offers, alongZ.blocksAt(out), out, true);
+                rib(center, streets, offers, alongZ.blocksAt(out), out, true);
             }
             for (int end : new int[] {1, -1}) {
                 int out = along * end;
-                rib(centre, streets, offers, out, alongX.blocksAt(out), false);
+                rib(center, streets, offers, out, alongX.blocksAt(out), false);
             }
         }
     }
@@ -290,14 +290,14 @@ public final class CrossroadsLayout extends PlannedLayout {
      * @param acrossTheNorthSouthSpine whether this rib runs east-west, which it
      *              does when it comes off the north-south spine
      */
-    private static void rib(SimPos centre, List<TownPlan.Street> streets,
+    private static void rib(SimPos center, List<TownPlan.Street> streets,
                             List<Offer> offers, int cx, int cz,
                             boolean acrossTheNorthSouthSpine) {
         int index = streets.size();
         streets.add(acrossTheNorthSouthSpine
-                ? eastWest(centre, Wander.STRAIGHT, cz, cx - RIB_REACH, cx + RIB_REACH,
+                ? eastWest(center, Wander.STRAIGHT, cz, cx - RIB_REACH, cx + RIB_REACH,
                         ROAD_HALF * 2, TownPlan.Kind.LANE)
-                : northSouth(centre, Wander.STRAIGHT, cx, cz - RIB_REACH, cz + RIB_REACH,
+                : northSouth(center, Wander.STRAIGHT, cx, cz - RIB_REACH, cz + RIB_REACH,
                         ROAD_HALF * 2, TownPlan.Kind.LANE));
 
         for (int out = RIB_FIRST;
@@ -305,7 +305,7 @@ public final class CrossroadsLayout extends PlannedLayout {
             for (int end : new int[] {1, -1}) {
                 int onX = acrossTheNorthSouthSpine ? cx + out * end : cx;
                 int onZ = acrossTheNorthSouthSpine ? cz : cz + out * end;
-                doors(centre, offers, onX, onZ, acrossTheNorthSouthSpine, index);
+                doors(center, offers, onX, onZ, acrossTheNorthSouthSpine, index);
             }
         }
     }
@@ -317,18 +317,18 @@ public final class CrossroadsLayout extends PlannedLayout {
      *                     setback is taken: doors stand north and south of an
      *                     east-west street, east and west of a north-south one
      */
-    private static void doors(SimPos centre, List<Offer> offers,
+    private static void doors(SimPos center, List<Offer> offers,
                               int x, int z, boolean runsEastWest, int street) {
-        SimPos onRoad = at(centre, x, z);
+        SimPos onRoad = at(center, x, z);
         for (int side : new int[] {1, -1}) {
             SimPos where = runsEastWest
-                    ? at(centre, x, z + side * SETBACK)
-                    : at(centre, x + side * SETBACK, z);
+                    ? at(center, x, z + side * SETBACK)
+                    : at(center, x + side * SETBACK, z);
             offers.add(new Offer(where, street, Layout.facingToward(where, onRoad)));
         }
     }
 
-    private static SimPos at(SimPos centre, int dx, int dz) {
-        return new SimPos(centre.x() + dx, centre.y(), centre.z() + dz);
+    private static SimPos at(SimPos center, int dx, int dz) {
+        return new SimPos(center.x() + dx, center.y(), center.z() + dz);
     }
 }

@@ -39,7 +39,7 @@ class FieldRosterTest {
         }
         for (int i = 0; i < farmers; i++) {
             town.addResident(new Person(
-                    Person.Id.random(), "Hand " + i, Profession.FARMER, town.centre()));
+                    Person.Id.random(), "Hand " + i, Profession.FARMER, town.center()));
         }
         return town;
     }
@@ -115,7 +115,7 @@ class FieldRosterTest {
     void theRosterIsAboutFarmersAndNobodyElse() {
         Settlement town = townWith(2, 1);
         Person smith = new Person(
-                Person.Id.random(), "Smith", Profession.SMITH, town.centre());
+                Person.Id.random(), "Smith", Profession.SMITH, town.center());
         town.addResident(smith);
 
         assertNull(FieldRoster.fieldFor(town, smith), "a smith does not appear on it");

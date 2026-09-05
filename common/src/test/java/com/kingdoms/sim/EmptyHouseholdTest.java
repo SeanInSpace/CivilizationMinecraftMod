@@ -72,7 +72,7 @@ class EmptyHouseholdTest {
     private static Settlement townWithAGhostFamily() {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);
-        town.setCatalogue(List.of(COTTAGE));
+        town.setCatalog(List.of(COTTAGE));
         town.stores().add(TownStores.FOOD, 400);
 
         // The Smiths' own cottage. It matters that this one exists: without it
@@ -86,7 +86,7 @@ class EmptyHouseholdTest {
         town.addBuilding(new Building(COTTAGE.id(), new SimPos(20, 64, 20), 0, true));
 
         Person alice = new Person(
-                Person.Id.random(), "Alice Smith", Profession.FARMER, town.centre());
+                Person.Id.random(), "Alice Smith", Profession.FARMER, town.center());
         town.addResident(alice);
         Household living = new Household(Household.Id.random(), "Smith");
         living.setHome(new SimPos(8, 64, 8));

@@ -174,7 +174,7 @@ public final class RepairPlanner {
                 return;   // already being seen to
             }
         }
-        BuildingType type = settlement.catalogue().stream()
+        BuildingType type = settlement.catalog().stream()
                 .filter(candidate -> candidate.id()
                         .equals(BuildPlanner.baseIdOf(building.blueprintId())))
                 .findFirst()
@@ -221,7 +221,7 @@ public final class RepairPlanner {
      */
     public static boolean hasAbleBuilder(Settlement settlement) {
         return settlement.residents().stream()
-                .anyMatch(p -> settlement.laboursAs(p, Profession.BUILDER)
+                .anyMatch(p -> settlement.laborsAs(p, Profession.BUILDER)
                         && !p.isTooWeakToWork());
     }
 

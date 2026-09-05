@@ -140,7 +140,7 @@ public interface Layout {
      * <p>The y is the center's: what height the ground turns out to be is the
      * survey's business, not the plan's.
      */
-    SimPos plotFor(SimPos centre, int index);
+    SimPos plotFor(SimPos center, int index);
 
     /**
      * This arrangement's whole layout, as one thing, for as many plots as asked.
@@ -161,14 +161,14 @@ public interface Layout {
      * and count give the same plan, no two plots share ground, and neighbors
      * are {@link #MIN_PLOT_SEPARATION} apart.
      */
-    default TownPlan planFor(SimPos centre, int wanted) {
+    default TownPlan planFor(SimPos center, int wanted) {
         java.util.List<TownPlan.Plot> plots = new java.util.ArrayList<>();
         for (int i = 0; i < Math.max(0, wanted); i++) {
-            SimPos at = plotFor(centre, i);
+            SimPos at = plotFor(center, i);
             plots.add(new TownPlan.Plot(
-                    at, DEFAULT_SPAN, facingToward(at, centre), NO_STREET));
+                    at, DEFAULT_SPAN, facingToward(at, center), NO_STREET));
         }
-        return new TownPlan(centre, java.util.List.of(), plots);
+        return new TownPlan(center, java.util.List.of(), plots);
     }
 
     /**
@@ -186,8 +186,8 @@ public interface Layout {
      * street-first layout existed to stop. The claim that a planned town's
      * houses front their street was true of the plan and false of the game.
      */
-    default int facingFor(SimPos centre, SimPos plot) {
-        return facingToward(plot, centre);
+    default int facingFor(SimPos center, SimPos plot) {
+        return facingToward(plot, center);
     }
 
     /**
@@ -197,9 +197,9 @@ public interface Layout {
      * here rather than borrowed from {@code BuildPlanner} so that a layout can
      * describe itself without reaching into the planners that consume it.
      */
-    static int facingToward(SimPos plot, SimPos centre) {
-        int dx = centre.x() - plot.x();
-        int dz = centre.z() - plot.z();
+    static int facingToward(SimPos plot, SimPos center) {
+        int dx = center.x() - plot.x();
+        int dz = center.z() - plot.z();
         if (Math.abs(dx) >= Math.abs(dz)) {
             return dx >= 0 ? 1 : 3;
         }
@@ -245,7 +245,7 @@ public interface Layout {
      *
      * <p>So: a house, which is what the plan should assume when it does not know.
      * A building smaller than that is brought up to its own street afterwards by
-     * {@code Settlement.againstTheKerb}, which knows the real span — the small
+     * {@code Settlement.againstTheCurb}, which knows the real span — the small
      * case is answered where the size is known rather than by assuming it
      * everywhere.
      */
@@ -269,8 +269,8 @@ public interface Layout {
      * <p>For callers that have a position and want to know what the plan says
      * about it. Never for callers that want to know how big the town is.
      */
-    default TownPlan fullPlan(SimPos centre) {
-        return planFor(centre, WHOLE_PLAN);
+    default TownPlan fullPlan(SimPos center) {
+        return planFor(center, WHOLE_PLAN);
     }
 
     /**

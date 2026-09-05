@@ -96,7 +96,7 @@ class StoreChestBlockEntityTest {
     void gearIsLeftOutBecauseItDoesNotStack() {
         assertTrue(!StoreChestBlockEntity.MIRRORED.contains(TownStores.TOOLS));
         assertTrue(!StoreChestBlockEntity.MIRRORED.contains(TownStores.WEAPONS));
-        assertTrue(!StoreChestBlockEntity.MIRRORED.contains(TownStores.ARMOUR));
+        assertTrue(!StoreChestBlockEntity.MIRRORED.contains(TownStores.ARMOR));
     }
 
     @Test

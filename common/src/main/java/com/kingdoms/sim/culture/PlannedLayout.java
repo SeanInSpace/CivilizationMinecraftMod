@@ -149,7 +149,7 @@ public abstract class PlannedLayout implements Layout {
     protected static final int ROAD_HALF = 4;
 
     /** Bare ground between a wall and a carriageway, so a door has a doorstep. */
-    protected static final int KERB = 1;
+    protected static final int CURB = 1;
 
     /** The least an outskirt ring stands out, before the town's own reach. */
     private static final int OUTSKIRT_START = 60;
@@ -178,13 +178,13 @@ public abstract class PlannedLayout implements Layout {
      * <p>The offers are given in whatever order suits the subclass; the order
      * they are <em>taken</em> in is decided here.
      */
-    protected abstract void design(SimPos centre, int wanted,
+    protected abstract void design(SimPos center, int wanted,
                                    List<TownPlan.Street> streets, List<Offer> offers);
 
     @Override
-    public SimPos plotFor(SimPos centre, int index) {
+    public SimPos plotFor(SimPos center, int index) {
         int at = Math.max(0, index);
-        return planFor(centre, at + 1).plot(at).at();
+        return planFor(center, at + 1).plot(at).at();
     }
 
     /**
@@ -210,13 +210,13 @@ public abstract class PlannedLayout implements Layout {
     private static final int PLAN_SIZE = Layout.WHOLE_PLAN;
 
     @Override
-    public TownPlan planFor(SimPos centre, int wanted) {
+    public TownPlan planFor(SimPos center, int wanted) {
         int want = Math.max(1, wanted);
         synchronized (planned) {
-            String key = centre.x() + ":" + centre.z();
+            String key = center.x() + ":" + center.z();
             TownPlan held = planned.get(key);
             if (held == null || held.size() < want) {
-                held = lay(centre, Math.max(want, PLAN_SIZE));
+                held = lay(center, Math.max(want, PLAN_SIZE));
                 if (planned.size() > TOWNS_REMEMBERED) {
                     planned.clear();
                 }
@@ -229,14 +229,14 @@ public abstract class PlannedLayout implements Layout {
             // whether or not it has filled them yet, and the plots come in the
             // order the town takes them, so the first n of them ARE the plan for
             // a town of n -- with the same geometry it will still have later.
-            return new TownPlan(centre, held.streets(),
+            return new TownPlan(center, held.streets(),
                     held.plots().subList(0, Math.min(want, held.size())));
         }
     }
 
     /** The whole plan this town will ever have, however little of it is built. */
-    public TownPlan fullPlan(SimPos centre) {
-        return planFor(centre, PLAN_SIZE);
+    public TownPlan fullPlan(SimPos center) {
+        return planFor(center, PLAN_SIZE);
     }
 
     /**
@@ -248,14 +248,14 @@ public abstract class PlannedLayout implements Layout {
      * own planner, or an outskirt plot fronting nothing.
      */
     @Override
-    public int facingFor(SimPos centre, SimPos plot) {
-        for (TownPlan.Plot offered : fullPlan(centre).plots()) {
+    public int facingFor(SimPos center, SimPos plot) {
+        for (TownPlan.Plot offered : fullPlan(center).plots()) {
             if (offered.at().x() == plot.x() && offered.at().z() == plot.z()) {
                 return offered.frontsAStreet()
-                        ? offered.facing() : Layout.facingToward(plot, centre);
+                        ? offered.facing() : Layout.facingToward(plot, center);
             }
         }
-        return Layout.facingToward(plot, centre);
+        return Layout.facingToward(plot, center);
     }
 
     /**
@@ -275,7 +275,7 @@ public abstract class PlannedLayout implements Layout {
      * distance the reach grows with the square root, which is what a town filling
      * out actually does.
      */
-    private TownPlan lay(SimPos centre, int wanted) {
+    private TownPlan lay(SimPos center, int wanted) {
         // Asked for more frontage until enough of it survives.
         //
         // A design works out how many streets it needs by estimating how much
@@ -297,13 +297,13 @@ public abstract class PlannedLayout implements Layout {
         int ask = wanted;
         for (int attempt = 0; attempt < ENOUGH_TRIES; attempt++) {
             streets = new ArrayList<>();
-            taken = take(centre, wanted, ask, streets);
+            taken = take(center, wanted, ask, streets);
             if (taken.size() >= wanted) {
                 break;
             }
             ask *= 2;
         }
-        return finish(centre, wanted, streets, taken);
+        return finish(center, wanted, streets, taken);
     }
 
     /**
@@ -318,14 +318,14 @@ public abstract class PlannedLayout implements Layout {
     private static final int ENOUGH_TRIES = 4;
 
     /** Lays a design of this size and takes what fits, nearest frontage first. */
-    private List<TownPlan.Plot> take(SimPos centre, int wanted, int ask,
+    private List<TownPlan.Plot> take(SimPos center, int wanted, int ask,
                                      List<TownPlan.Street> streets) {
         List<Offer> offers = new ArrayList<>();
-        design(centre, ask, streets, offers);
+        design(center, ask, streets, offers);
 
         offers.sort((a, b) -> {
-            long da = away(a.at(), centre);
-            long db = away(b.at(), centre);
+            long da = away(a.at(), center);
+            long db = away(b.at(), center);
             if (da != db) {
                 return Long.compare(da, db);
             }
@@ -348,11 +348,11 @@ public abstract class PlannedLayout implements Layout {
     }
 
     /** Fills out whatever the streets could not, and settles the plan. */
-    private TownPlan finish(SimPos centre, int wanted, List<TownPlan.Street> streets,
+    private TownPlan finish(SimPos center, int wanted, List<TownPlan.Street> streets,
                             List<TownPlan.Plot> from) {
         List<TownPlan.Plot> taken = new ArrayList<>(from);
         if (taken.size() >= wanted) {
-            return new TownPlan(centre, streets, taken);
+            return new TownPlan(center, streets, taken);
         }
 
         // A town that has filled its streets makes more street.
@@ -438,8 +438,8 @@ public abstract class PlannedLayout implements Layout {
         int edge = OUTSKIRT_START;
         for (TownPlan.Plot placed : taken) {
             edge = Math.max(edge, Math.max(
-                    Math.abs(placed.at().x() - centre.x()),
-                    Math.abs(placed.at().z() - centre.z())));
+                    Math.abs(placed.at().x() - center.x()),
+                    Math.abs(placed.at().z() - center.z())));
         }
         for (int ring = 1; taken.size() < wanted; ring++) {
             int out = edge + ring * PITCH_ANY_BEARING;
@@ -447,15 +447,15 @@ public abstract class PlannedLayout implements Layout {
             for (int i = 0; i < around && taken.size() < wanted; i++) {
                 double angle = i * 2 * Math.PI / around + ring * 0.7;
                 SimPos where = new SimPos(
-                        centre.x() + (int) Math.round(out * Math.cos(angle)), centre.y(),
-                        centre.z() + (int) Math.round(out * Math.sin(angle)));
+                        center.x() + (int) Math.round(out * Math.cos(angle)), center.y(),
+                        center.z() + (int) Math.round(out * Math.sin(angle)));
                 if (fits(where, taken, grown)) {
                     taken.add(new TownPlan.Plot(where, Layout.DEFAULT_SPAN,
-                            Layout.facingToward(where, centre), Layout.NO_STREET));
+                            Layout.facingToward(where, center), Layout.NO_STREET));
                 }
             }
         }
-        return new TownPlan(centre, grown, taken);
+        return new TownPlan(center, grown, taken);
     }
 
     /**
@@ -476,7 +476,7 @@ public abstract class PlannedLayout implements Layout {
                 return false;
             }
         }
-        double half = Layout.DEFAULT_SPAN / 2.0 + KERB;
+        double half = Layout.DEFAULT_SPAN / 2.0 + CURB;
         for (TownPlan.Street street : streets) {
             if (street.touches(where, half)) {
                 return false;
@@ -485,38 +485,38 @@ public abstract class PlannedLayout implements Layout {
         return true;
     }
 
-    private static long away(SimPos at, SimPos centre) {
-        long dx = at.x() - centre.x();
-        long dz = at.z() - centre.z();
+    private static long away(SimPos at, SimPos center) {
+        long dx = at.x() - center.x();
+        long dz = at.z() - center.z();
         return dx * dx + dz * dz;
     }
 
     /** A north-south street, as the run of points its wander takes it through. */
-    protected static TownPlan.Street northSouth(SimPos centre, Wander how, int base,
+    protected static TownPlan.Street northSouth(SimPos center, Wander how, int base,
                                                 int fromZ, int toZ, int width,
                                                 TownPlan.Kind kind) {
         List<SimPos> path = new ArrayList<>();
         for (int z = fromZ; z < toZ; z += SEGMENT) {
-            path.add(new SimPos(centre.x() + base + how.blocksAt(z), centre.y(),
-                    centre.z() + z));
+            path.add(new SimPos(center.x() + base + how.blocksAt(z), center.y(),
+                    center.z() + z));
         }
-        path.add(new SimPos(centre.x() + base + how.blocksAt(toZ), centre.y(),
-                centre.z() + toZ));
+        path.add(new SimPos(center.x() + base + how.blocksAt(toZ), center.y(),
+                center.z() + toZ));
         return new TownPlan.Street(path, width, kind);
     }
 
     /** An east-west street, likewise. */
-    protected static TownPlan.Street eastWest(SimPos centre, Wander how, int base,
+    protected static TownPlan.Street eastWest(SimPos center, Wander how, int base,
                                               int fromX, int toX, int width,
                                               TownPlan.Kind kind) {
         List<SimPos> path = new ArrayList<>();
         int step = fromX <= toX ? SEGMENT : -SEGMENT;
         for (int x = fromX; step > 0 ? x < toX : x > toX; x += step) {
-            path.add(new SimPos(centre.x() + x, centre.y(),
-                    centre.z() + base + how.blocksAt(x)));
+            path.add(new SimPos(center.x() + x, center.y(),
+                    center.z() + base + how.blocksAt(x)));
         }
-        path.add(new SimPos(centre.x() + toX, centre.y(),
-                centre.z() + base + how.blocksAt(toX)));
+        path.add(new SimPos(center.x() + toX, center.y(),
+                center.z() + base + how.blocksAt(toX)));
         return new TownPlan.Street(path, width, kind);
     }
 
@@ -527,9 +527,9 @@ public abstract class PlannedLayout implements Layout {
      * on the map having the identical kink in the identical place — a repeated
      * asset reads worse than a straight road.
      */
-    protected static Wander wanderFor(Wander base, SimPos centre, int street) {
-        long town = (long) centre.x() * 0x9E3779B97F4A7C15L
-                ^ (long) centre.z() * 0xC2B2AE3D27D4EB4FL;
+    protected static Wander wanderFor(Wander base, SimPos center, int street) {
+        long town = (long) center.x() * 0x9E3779B97F4A7C15L
+                ^ (long) center.z() * 0xC2B2AE3D27D4EB4FL;
         return new Wander(base.amplitude(), base.wavelength(),
                 base.seed() ^ town).forStreet(street);
     }

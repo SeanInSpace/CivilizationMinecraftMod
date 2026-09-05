@@ -116,7 +116,7 @@ public final class StagePlanner {
      * <p>Below VILLAGE the answer is no: the program is the whole of the plan,
      * which is precisely what stops a camp ordering civic architecture.
      */
-    public static boolean catalogueRuns(SettlementStage stage) {
+    public static boolean catalogRuns(SettlementStage stage) {
         return stage.atLeast(SettlementStage.VILLAGE);
     }
 
@@ -124,7 +124,7 @@ public final class StagePlanner {
      * Whether this building may be ordered from the catalog at this stage.
      * The hall is the one the whole design exists to hold back.
      */
-    public static boolean catalogueAllows(SettlementStage stage, String blueprintId) {
+    public static boolean catalogAllows(SettlementStage stage, String blueprintId) {
         if (BuildPlanner.baseIdOf(blueprintId).equals("kingdoms:town_hall")) {
             return stage.atLeast(SettlementStage.TOWN);
         }
@@ -139,7 +139,7 @@ public final class StagePlanner {
      * the specialists have arrived and a pioneer is a person the staffing table
      * has not caught up with yet.
      */
-    public static boolean pioneersLabour(SettlementStage stage) {
+    public static boolean pioneersLabor(SettlementStage stage) {
         return stage.before(SettlementStage.VILLAGE);
     }
 
@@ -214,7 +214,7 @@ public final class StagePlanner {
      */
     public static void keepPostsFilled(Settlement settlement) {
         if (!settlement.stage().atLeast(SettlementStage.FORTIFIED)
-                || !pioneersLabour(settlement.stage())) {
+                || !pioneersLabor(settlement.stage())) {
             return;
         }
         crystallizeOne(settlement, Profession.GUARD);
@@ -262,7 +262,7 @@ public final class StagePlanner {
     }
 
     private static Optional<BuildingType> typeOf(Settlement settlement, String blueprintId) {
-        return settlement.catalogue().stream()
+        return settlement.catalog().stream()
                 .filter(type -> type.id().equals(blueprintId))
                 .findFirst();
     }

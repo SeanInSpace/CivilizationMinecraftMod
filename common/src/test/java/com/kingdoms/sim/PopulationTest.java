@@ -37,7 +37,7 @@ class PopulationTest {
     private static final BuildingType HOUSE = new BuildingType("test:house",  5,  9999,    0,   2,       80,       4);
     private static final BuildingType SHED  = new BuildingType("test:shed",   5,  9999,    0,   0,       10,       0);
 
-    private static final List<BuildingType> CATALOGUE = List.of(HOUSE, SHED);
+    private static final List<BuildingType> CATALOG = List.of(HOUSE, SHED);
 
     private static final class LoadedBridge implements WorldBridge {
         @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
@@ -55,7 +55,7 @@ class PopulationTest {
 
     private static Settlement settlement(int residents, Profession trade, int houses) {
         Settlement s = new Settlement(Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 256);
-        s.setCatalogue(CATALOGUE);
+        s.setCatalog(CATALOG);
         s.setFoodStock(100_000);   // these tests isolate housing; food is tested separately
         for (int i = 0; i < residents; i++) {
             s.addResident(new Person(Person.Id.random(), "Settler " + i, trade, new SimPos(0, 64, 0)));
