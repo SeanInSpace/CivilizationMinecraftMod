@@ -9,6 +9,8 @@ Design docs: [FOUNDING.md](FOUNDING.md) (how a settlement grows from camp to tow
 and how it daughters the next one) · [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what
 settlements build) · [POPULATION.md](POPULATION.md) (families, growth, jobs) ·
 [DEFENSE.md](DEFENSE.md) (raids, guards, the palisade) ·
+[docs/CITIZENS.md](docs/CITIZENS.md) (what every citizen does, and in what order) ·
+[docs/HAULERS.md](docs/HAULERS.md) (a design for the porter trade, not yet built) ·
 [KEYSTONE.md](KEYSTONE.md) (the blueprint mod shipped alongside).
 The worklist is [GOALS.md](GOALS.md).
 

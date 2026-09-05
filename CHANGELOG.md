@@ -35,6 +35,18 @@ messages carry the reasoning and the measurements.
   much history that is — printed beside the rate the town is meant to get.
   Measured per world, so the Nether's empty one can never be mistaken for the
   overworld's.
+- **Two documents that answer "why is that person doing *that*?"**
+  [docs/CITIZENS.md](docs/CITIZENS.md) is every profession as a table — the
+  trigger that fires, the action it produces, the constant that gates it, in the
+  order the code applies them, with a column for what happens unwatched and a
+  column for what a player sees, and a closing section on where the two genuinely
+  differ. It is written from the code rather than from the design, so where it
+  and the code disagree the code is right and the document is the bug.
+  [docs/HAULERS.md](docs/HAULERS.md) is a design, not an implementation: the
+  porter trade a town wants once it outgrows everybody carrying their own goods —
+  who staffs it and at what ratio, the three flows it takes over, the single
+  queue that replaces three planners each picking their own carrier, and twenty
+  named tests to write when it is built.
 
 ### Changed
 
@@ -91,6 +103,44 @@ messages carry the reasoning and the measurements.
 
 ### Fixed
 
+- **The carpenter stays at his bench.** A player watched his carpenter shoulder a
+  stack of supplies and walk it across the village with the carpentry standing
+  empty behind him. The rule that sent him was a list of two exemptions — not a
+  builder, not a farmer — which reads as a short list of exemptions and is really
+  a long list of conscripts: on any village with workshops in it, the next person
+  found is a craftsman, and the town bought a delivery with a workshop. A load is
+  offered in tiers now — an idler first, then a trade with genuinely nothing in
+  front of it today (a lumberjack at the timber ceiling, a miner at the stone
+  ceiling, a smith at a cold forge, a trader whose only stall is already full,
+  and the miller always), never a builder, never a guard — and if
+  nobody qualifies **the load waits**. That is the deliberate answer, not a
+  missing case: a waiting haul costs the town a walk it will make later, and a
+  stopped workshop costs it everything that workshop would have made in the
+  meantime. Goods sit on a shelf and are still there next step; an hour a
+  carpenter spends on the road is an hour of components the build crew never
+  gets, and the build is what the delivery was for. The miller is the deliberate
+  exception and the mirror image: his contribution is the same kind of headcount
+  the carpenter's is, but he has no bench to be dragged away from — unwatched he
+  is a term in a multiplier, watched he stands beside the mill — so he is the one
+  tradesman a walk costs nothing at all, and he is never refused.
+- **Farmers stay in the rows.** The field sent for collection at a single loaf,
+  so it sent for one every step — and a farmer with an errand is a farmer out of
+  the field, because the watched loop skips anyone on the road, correctly. A
+  watched field therefore grew one loaf, emptied, grew one loaf, emptied, and the
+  player standing in it saw three farmers walking laps and nobody farming. Worse,
+  two of the three arrived at a field somebody had already cleared and walked
+  home with nothing. A field is collected at a full load now, twelve rather than
+  one, and errands already outstanding are subtracted from what a field is
+  holding, so two farmers are never dispatched to the same twelve loaves. The
+  town's throughput is unchanged — the same grain reaches the granary in fewer,
+  fuller journeys — and in between them the farmers are in the field, which is
+  what a farm is supposed to look like. Suspended while the town is starving: a
+  loaf is a life then, and the walk is worth making for any of it. Fuller loads
+  cost something the small ones did not, so the granary's headroom now subtracts
+  what is already walking toward it: stock does not move until a carrier arrives,
+  the same twenty spaces were otherwise offered again on every step of a walk
+  that takes several, and a granary told to accept more than it holds spoils the
+  difference rather than duplicating it.
 - **A family in a house the town cannot name is left alone.** A home whose
   blueprint matched no catalogue entry — a renamed cottage, a building from a mod
   no longer loaded, an older save — reported a capacity of zero, and every caller
@@ -129,6 +179,16 @@ messages carry the reasoning and the measurements.
 - Measured in a world on the rough test seed, 8675309: **0 of 80 drawn buildings
   standing in water**, and the audit reported none. The town re-staked its wall
   at step 400 and again after, 688 posts to 1134 to 1292.
+- **A watched town's farmers stand still during a famine and an unwatched town's
+  do not**, and this round leaves it open. The clock suspends the weakness rule
+  while a town is starving — precisely so that weak hands go on farming, because
+  weak hands that stop bring in no food and the town never recovers — but the
+  watched loop asks the plain "too weak to work?" question in all nine places it
+  gates on hunger, and so does not suspend anything. The town does not die; the
+  twelve-step harvest floor covers it. But in the exact circumstance the
+  suspension exists for, the player sees the fields abandoned. The fix is one
+  predicate substituted in a file this round's author did not own, and it is
+  written up in [docs/CITIZENS.md](docs/CITIZENS.md) §7.
 - The town manager is **not** starved of ticks, which had been the standing
   theory for six runs. Unwatched under `/civ step` load it runs 57.8 passes a
   minute with a worst gap of 4.8 seconds; with a player standing in the town,

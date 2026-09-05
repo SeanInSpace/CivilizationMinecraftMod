@@ -76,6 +76,30 @@ public final class FoodPlanner {
      * could not move it. A builder carries sixteen; a sack of grain is no heavier.
      */
     public static final int FARMER_CARRY = 12;
+
+    /**
+     * What a field must hold before a farmer downs tools to carry it in.
+     *
+     * <p>A full load, which is the whole of the reasoning. This used to be one:
+     * any field with a single loaf in it sent every farmer in the town off to
+     * collect it, and where anybody is watching, a farmer with an errand is a
+     * farmer out of the rows — {@code PersonEntityManager.workFarmers} skips
+     * them, correctly, because they are on the road. So a watched field grew one
+     * loaf, emptied, grew one loaf, emptied, and the player standing in it saw
+     * three farmers walking laps and nobody farming. Worse, two of the three
+     * arrived at a field somebody had already cleared and walked home with
+     * nothing.
+     *
+     * <p>Hauling is the interruption and growing is the job, so the interruption
+     * has to be worth having: one trip, one full load. The town's throughput is
+     * unchanged — the same grain reaches the granary in fewer, fuller journeys —
+     * and in between them the farmers are in the field, which is what a farm is
+     * supposed to look like.
+     *
+     * <p>Suspended while the town is starving. A loaf is a life then, and the
+     * walk is worth making for any of it.
+     */
+    public static final int WORTH_LEAVING_THE_ROWS = FARMER_CARRY;
     /** What a market hand shoulders from the granary. Matched to the farmer's load. */
     public static final int TRADER_CARRY = 12;
     public static final int MARKET_STOCK_CAP = 150;
@@ -299,9 +323,28 @@ public final class FoodPlanner {
      * travel on the hauler's back in {@link HaulPlanner}.
      */
     private static void assignHauls(Settlement settlement, boolean starving) {
-        int granarySpace = granaryCapacity(settlement) - settlement.foodStock();
+        // Minus what is already walking toward it. The granary's stock does not
+        // move until a carrier arrives, so without this the same headroom is
+        // offered again on every step of a walk that takes several -- and
+        // deposit spoils whatever will not fit rather than duplicating it, so
+        // the overshoot is destroyed food. It was affordable when a farmer
+        // arrived with the one or two loaves a step of growth had put in the
+        // field; at a full twelve it is not.
+        int granarySpace = granaryCapacity(settlement) - settlement.foodStock()
+                - onTheRoadTo(settlement, HaulTask.Store.GRANARY);
         int granaryStock = settlement.foodStock();
         SimPos granary = granaryPos(settlement);
+        // What is already promised to somebody, field by field. Without it three
+        // farmers are all sent to the fullest field and two of them arrive to
+        // find it bare -- a wasted round trip each, and on a watched farm a
+        // wasted round trip is a farmer who was not farming. Counted from the
+        // errands still outstanding rather than only this step's, because a
+        // load is not withdrawn until its carrier reaches the field: for the
+        // several steps of that walk the grain is still on the books.
+        Map<SimPos, Integer> spokenFor = alreadyPromised(settlement);
+        // A loaf is worth the walk while the town is starving; below that, a
+        // farmer stays in the rows until there is a load worth carrying.
+        int worthTheWalk = starving ? 1 : WORTH_LEAVING_THE_ROWS;
 
         for (Person person : settlement.residents()) {
             if (person.haul() != null || heldBackByHunger(person, starving)) {
@@ -317,10 +360,11 @@ public final class FoodPlanner {
                     if (granarySpace < FARMER_CARRY) {
                         continue;
                     }
-                    Building field = fullestWithStock(settlement, "farm", 1);
+                    Building field = fullestUnspoken(settlement, spokenFor, worthTheWalk);
                     if (field != null) {
                         person.setHaul(new HaulTask(HaulTask.Store.FARM, field.origin(),
                                 HaulTask.Store.GRANARY, granary, FARMER_CARRY));
+                        spokenFor.merge(field.origin(), FARMER_CARRY, Integer::sum);
                         granarySpace -= FARMER_CARRY;
                     }
                 }
@@ -475,6 +519,86 @@ public final class FoodPlanner {
             if (building.foodStored() >= minimum
                     && (best == null || building.foodStored() > best.foodStored())) {
                 best = building;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Grain that somebody is already walking out to collect, field by field.
+     *
+     * <p>Only errands that have not been picked up yet: once a load is on a
+     * back it has genuinely left the field's books, and counting it twice would
+     * make every field look emptier than it is.
+     */
+    private static Map<SimPos, Integer> alreadyPromised(Settlement settlement) {
+        Map<SimPos, Integer> promised = new HashMap<>();
+        for (Person person : settlement.residents()) {
+            HaulTask errand = person.haul();
+            if (errand == null || errand.isLoaded()
+                    || errand.fromStore() != HaulTask.Store.FARM) {
+                continue;
+            }
+            promised.merge(errand.fromPos(), errand.requested(), Integer::sum);
+        }
+        return promised;
+    }
+
+    /**
+     * Food that is on its way into this store and has not landed yet.
+     *
+     * <p>Both halves of a walk count, unlike {@link #alreadyPromised}, and the
+     * difference is which end of the errand is being asked about. A field's
+     * books are settled at pickup — once the grain is on a back it has genuinely
+     * left the field. The destination's are not settled until delivery, so a
+     * load that has been collected is exactly the one most certain to arrive.
+     * Hence {@code carried()} for a loaded errand, which is what will actually
+     * be set down, and {@code requested()} for one still walking out, which is
+     * what it intends to bring.
+     */
+    private static int onTheRoadTo(Settlement settlement, HaulTask.Store store) {
+        int coming = 0;
+        for (Person person : settlement.residents()) {
+            HaulTask errand = person.haul();
+            if (errand == null || errand.toStore() != store) {
+                continue;
+            }
+            coming += errand.isLoaded() ? errand.carried() : errand.requested();
+        }
+        return coming;
+    }
+
+    /**
+     * Whether a market hand has a stall worth walking to.
+     *
+     * <p>The same two questions {@link #assignHauls} asks before it hands a
+     * trader an errand, so {@link HaulPlanner#hasWorkInFront} cannot believe a
+     * trader is busy on a step the granary would not have sent them anywhere.
+     * A single stall sitting at its cap is the case: the town has food and a
+     * market and still nothing for this person to carry.
+     */
+    static boolean hasStallToStock(Settlement settlement) {
+        return settlement.foodStock() >= TRADER_CARRY
+                && emptiestBelowCap(settlement, "market", MARKET_STOCK_CAP) != null;
+    }
+
+    /**
+     * The field with the most grain nobody has been sent for yet, or null.
+     *
+     * <p>{@code fullestWithStock} asks what a field holds; this asks what is
+     * still there to fetch once the errands already out have taken their share.
+     * Two farmers dispatched to the same twelve loaves is one delivery and one
+     * wasted walk.
+     */
+    private static Building fullestUnspoken(Settlement settlement,
+                                            Map<SimPos, Integer> spokenFor, int minimum) {
+        Building best = null;
+        int most = 0;
+        for (Building field : buildingsOf(settlement, "farm")) {
+            int left = field.foodStored() - spokenFor.getOrDefault(field.origin(), 0);
+            if (left >= minimum && left > most) {
+                most = left;
+                best = field;
             }
         }
         return best;
