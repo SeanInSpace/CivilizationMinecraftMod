@@ -44,6 +44,8 @@ import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.Stock;
 import com.kingdoms.sim.view.EmbodimentPlanner;
+import com.kingdoms.sim.work.PublicWorks;
+import com.kingdoms.sim.work.Worksite;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -58,7 +60,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -366,8 +368,7 @@ public final class PersonEntityManager {
                 changed |= workMiners(settlement);
                 changed |= workShepherds(settlement);
                 changed |= layPaths(settlement);
-                workWall(settlement);
-                PerimeterLayer.draw(level, settlement);
+                PerimeterLayer.draw(level, settlement, workWall(settlement));
                 StoreSync.reconcile(level, settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
@@ -1963,7 +1964,7 @@ public final class PersonEntityManager {
             if (guard == null || guard.isRemoved()) {
                 continue;
             }
-            Monster target = nearestHostile(guard);
+            Mob target = nearestHostile(guard);
             if (target == null) {
                 backingOff.remove(person.id().value());
                 continue;
@@ -2026,18 +2027,54 @@ public final class PersonEntityManager {
     private static final int RETREAT_DISTANCE = 12;
 
     /** Walks the guard away from something about to go off. */
-    private void retreatFrom(PersonEntity guard, Monster blast) {
+    private void retreatFrom(PersonEntity guard, Mob blast) {
         Vec3 away = DefaultRandomPos.getPosAway(guard, RETREAT_DISTANCE, 7, blast.position());
         if (away != null) {
             guard.getNavigation().moveTo(away.x, away.y, away.z, GUARD_CHARGE_SPEED);
         }
     }
 
-    private Monster nearestHostile(PersonEntity guard) {
+    /**
+     * What a guard goes for: the nearest creature the town is actually afraid of.
+     *
+     * <p>Asked of {@link Menace#threatens}, which is the same question the
+     * sighting sweep asks, and that is the whole of the change. This collected
+     * {@code Monster} — every one and nothing else — while the town's own eyes
+     * had been widened to anything the table scores above nothing and to a
+     * neutral only while its quarrel is with a townsperson. The two lists
+     * disagreed in both directions at once: a town could be shut indoors from a
+     * phantom overhead that no guard would look up at, because a phantom is not
+     * a {@code Monster}; and could send the watch out at an enderman standing
+     * calmly in a field that had frightened nobody, because an enderman is.
+     *
+     * <p>Every {@code Mob} is collected and the table does the whittling, exactly
+     * as the sweep does it, so a guard goes for the thing the bell was rung
+     * about. Citizens are refused by that table like any other creature filed
+     * under a peaceful category — no guard is offered his own neighbour.
+     */
+    private Mob nearestHostile(PersonEntity guard) {
         AABB box = guard.getBoundingBox().inflate(GUARD_ENGAGE_RANGE);
-        return level.getEntitiesOfClass(Monster.class, box, LivingEntity::isAlive).stream()
-                .min(Comparator.comparingDouble(guard::distanceToSqr))
-                .orElse(null);
+        List<Mob> threats = level.getEntitiesOfClass(Mob.class, box,
+                creature -> creature.isAlive() && Menace.threatens(creature));
+        // Whichever of them he could actually come to blows with, first. The
+        // widened collection reaches things that never land -- a ghast, a phantom
+        // circling overhead -- and those are nearer, in a straight line, than the
+        // zombie walking up to the gate. Taking the nearest outright therefore
+        // had the whole watch standing in the square looking up while the town
+        // was overrun at ground level. A phantom is still fought, and should be:
+        // it dives, and a guard waiting under it is exactly where he wants to be.
+        // It simply must not stand between him and something he can hit.
+        //
+        // Head height rather than a tuned figure: what a guard can reach is what
+        // he is tall, and reading it off the body means there is no number here
+        // for anybody to argue with.
+        Mob afoot = nearest(guard, threats.stream()
+                .filter(t -> t.getY() <= guard.getY() + guard.getBbHeight()).toList());
+        return afoot != null ? afoot : nearest(guard, threats);
+    }
+
+    private static Mob nearest(PersonEntity guard, List<Mob> of) {
+        return of.stream().min(Comparator.comparingDouble(guard::distanceToSqr)).orElse(null);
     }
 
     /** Entity positions are truth while embodied â€” copy them into the records. */
@@ -2190,9 +2227,9 @@ public final class PersonEntityManager {
      * <p>Which work, and in what order, is the settlement's own opinion — see
      * {@code PublicWorks}. This only finds somebody free to go and do it.
      */
-    private void workWall(Settlement settlement) {
+    private boolean workWall(Settlement settlement) {
         if (!settlement.buildQueue().isEmpty()) {
-            return;   // shelter and stores before roads and walls
+            return false;   // shelter and stores before roads and walls
         }
         for (Person person : settlement.residents()) {
             if (!settlement.laboursAs(person, Profession.BUILDER)
@@ -2204,10 +2241,21 @@ public final class PersonEntityManager {
             if (view == null || view.isRemoved()) {
                 continue;
             }
-            if (Foreman.work(level, settlement, view)) {
-                return;   // one station at a time, by one pair of hands
+            Worksite handed = Foreman.work(level, settlement, person, view, this::fetchLoad);
+            if (handed != null) {
+                // One station at a time, by one pair of hands. Whether the old
+                // line is the work those hands are on decides whether the sweep
+                // that would otherwise pull it down stands aside -- where there
+                // is a hand there is no clock, and a post cannot be pulled up
+                // twice. It has to be the work actually handed out and not
+                // merely "the town still has an old line": the foreman passes
+                // over a retired stretch nobody can see or path to and gives the
+                // builder the palisade instead, and a sweep suppressed on the
+                // strength of that would leave the old wall standing for ever.
+                return handed instanceof PublicWorks.DismantleWork;
             }
         }
+        return false;
     }
 
     /** How close a settler has to pass to notice something on the ground. */

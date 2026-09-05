@@ -645,10 +645,10 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         // question goes first even though it now gets asked about every sheep in
         // the claim.
         for (Mob creature : level.getEntitiesOfClass(Mob.class, box, LivingEntity::isAlive)) {
-            int worth = Menace.inSight(creature);
-            if (worth <= Danger.NONE) {
+            if (!Menace.threatens(creature)) {
                 continue;
             }
+            int worth = Menace.inSight(creature);
             for (PersonEntity citizen : citizens) {
                 if (citizen.distanceToSqr(creature) <= CITIZEN_SIGHT * CITIZEN_SIGHT
                         && citizen.hasLineOfSight(creature)) {

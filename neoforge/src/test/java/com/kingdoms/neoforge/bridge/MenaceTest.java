@@ -198,15 +198,18 @@ class MenaceTest {
     // --- who reaches the reckoning at all ---
 
     /**
-     * The sweep's own admission test, written out rather than called.
+     * The admission test, which is now the mod's own and not this file's.
      *
-     * <p>{@code hostilesSeen} keeps what scores above nothing and drops the rest,
-     * which is one rule rather than a number and a predicate that could drift
-     * apart. Spelling it here keeps the assertions below readable without adding
-     * a second public way to ask the same question.
+     * <p>It used to be spelled out here rather than called, on the grounds that
+     * a second public way to ask the same question was worth avoiding. That was
+     * right while the sweep was the only thing asking it. The guard asks it too
+     * now — he had his own answer, {@code Monster}, and the two disagreed in both
+     * directions — so the rule has a name, {@link Menace#threatens}, and this
+     * calls it. A helper here that agreed with the sweep and not with the guard
+     * would be the drift it was written to prevent.
      */
     private static boolean reaches(Class<? extends Entity> creature, EntityType<?> kind, boolean provoked) {
-        return Menace.inSight(creature, kind, provoked) > Danger.NONE;
+        return Menace.threatens(creature, kind, provoked);
     }
 
     @Test
@@ -310,6 +313,61 @@ class MenaceTest {
                 "one provoked wolf");
         assertEquals(Alarm.ALARMED, Alarm.of(6 * Menace.inSight(Wolf.class, EntityTypes.WOLF, true)),
                 "a pack of six");
+    }
+
+    // --- what the guard goes for ---
+
+    /**
+     * The guard's list and the town's list are one list.
+     *
+     * <p>{@code nearestHostile} collected {@code Monster} — every one of them and
+     * nothing else — while the sighting sweep had been widened to anything the
+     * table scores above nothing, and to a neutral only while its quarrel is with
+     * a townsperson. The two disagreed in both directions at once, which is worse
+     * than either error on its own: a town shut indoors from a phantom overhead
+     * that no guard would ever look up at, and a watch sent out at an enderman
+     * standing calmly in a field that had frightened nobody.
+     *
+     * <p>The same cases the sweep is measured on above, asked again as the guard
+     * asks them, because that is the claim — not that the guard has a good list,
+     * but that he has the town's list.
+     */
+    @Test
+    void aGuardGoesForWhateverTheTownIsAfraidOf() {
+        assertTrue(Menace.threatens(Phantom.class, EntityTypes.PHANTOM, false),
+                "the phantom the town is hiding from, and not a Monster");
+        assertTrue(Menace.threatens(Ghast.class, EntityTypes.GHAST, false));
+        assertTrue(Menace.threatens(Slime.class, EntityTypes.SLIME, false));
+        assertTrue(Menace.threatens(Creeper.class, EntityTypes.CREEPER, false));
+        assertTrue(Menace.threatens(Zombie.class, EntityTypes.ZOMBIE, false));
+        assertTrue(Menace.threatens(HorrorNobodyNamed.class, EntityTypes.COW, false),
+                "a mod's own boss, which was invisible to a watch collecting Monster");
+    }
+
+    @Test
+    void aGuardLeavesTheCalmEndermanAlone() {
+        // The other direction, and the one the old collection got wrong on its
+        // own terms: an enderman IS a Monster, so the watch charged one that was
+        // doing nothing to anybody -- and made itself the reason it stopped.
+        assertFalse(Menace.threatens(EnderMan.class, EntityTypes.ENDERMAN, false));
+        assertTrue(Menace.threatens(EnderMan.class, EntityTypes.ENDERMAN, true),
+                "and goes for the same enderman once it has picked on somebody");
+        assertFalse(Menace.threatens(ZombifiedPiglin.class, EntityTypes.ZOMBIFIED_PIGLIN, false));
+        assertTrue(Menace.threatens(ZombifiedPiglin.class, EntityTypes.ZOMBIFIED_PIGLIN, true));
+    }
+
+    @Test
+    void aGuardDrawsOnNothingThatLivesInTheTown() {
+        // The cost of collecting every Mob rather than every Monster: a citizen
+        // is a Mob, and so is the guard. Both are refused by the table for the
+        // same reason a cow is, which is why widening the collection was safe.
+        assertFalse(Menace.threatens(PersonEntity.class, EntityTypes.VILLAGER, false));
+        assertFalse(Menace.threatens(PersonEntity.class, EntityTypes.VILLAGER, true),
+                "not even a citizen somebody has annoyed");
+        assertFalse(Menace.threatens(Cow.class, EntityTypes.COW, false));
+        assertFalse(Menace.threatens(Villager.class, EntityTypes.VILLAGER, false));
+        assertFalse(Menace.threatens(IronGolem.class, EntityTypes.IRON_GOLEM, false),
+                "the town's own defender, which is neutral and on nobody's list");
     }
 
     // --- what a creature makes of a citizen ---

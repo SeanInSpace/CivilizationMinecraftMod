@@ -290,6 +290,33 @@ public final class Menace {
     }
 
     /**
+     * Whether the town has anything to fear from this creature right now.
+     *
+     * <p>The admission test, and it has two readers who must never disagree: the
+     * sighting sweep, which is what a town's own eyes report and what its alarm
+     * is reckoned from, and the guard, who is the answer to that alarm. They did
+     * disagree, and the disagreement was the whole complaint — the sweep was
+     * widened to everything this table has an opinion about, and the guard went
+     * on collecting {@code Monster}. So a town could be hiding indoors from a
+     * phantom no guard would look up at, and could send one out at a calm
+     * enderman that had frightened nobody. A watch that fights a different list
+     * of creatures from the one the town is afraid of is not a watch.
+     *
+     * <p>Written as a rung comparison rather than as a second predicate beside
+     * {@link #inSight}: a creature counts when it is worth something, which is
+     * one rule instead of two that could drift.
+     */
+    public static boolean threatens(Class<? extends Entity> creature, EntityType<?> kind,
+                                    boolean provoked) {
+        return inSight(creature, kind, provoked) > Danger.NONE;
+    }
+
+    /** {@link #threatens} about a creature that is standing there. */
+    public static boolean threatens(Entity creature) {
+        return inSight(creature) > Danger.NONE;
+    }
+
+    /**
      * Whether this creature's current quarrel is with the town.
      *
      * <p>Read from what it is doing rather than from a flag, because "angry" on

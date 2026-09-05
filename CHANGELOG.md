@@ -59,6 +59,53 @@ messages carry the reasoning and the measurements.
 
 ### Changed
 
+- **The wall is planted by builders, out of planks they carried.** A settler did
+  walk out to the next position on the line and swing at it, and the swing put
+  nothing in the ground: it moved a counter, and a sweep stamped the posts in
+  twenty-four a second wherever the ring happened to be loaded. The timber came
+  off the books the way a tax does. Now a builder walks to the storehouse,
+  shoulders sixteen planks, and plants sixteen posts one course at a time before
+  walking back — two fences and, on every eighth, its lantern, which is exactly
+  what the sweep lays for a town nobody is watching, out of the same list. A post
+  still costs one timber and three coin; the timber simply leaves the warehouse
+  when somebody picks it up rather than when the post goes in, so a wall can now
+  empty a store. Which post is next is read off the ground, so one interrupted
+  halfway is finished rather than restarted, and a town watched, then left, then
+  come back to neither loses posts nor pays for them twice.
+- **The old wall comes down by hand as well.** A town that outgrows its palisade
+  stakes a wider one and used to have the old posts vanish under a sweep. Pulling
+  them up is now the first job a spare builder is given — ahead of the new wall
+  and the roads, because while the old line stands there are two walls round one
+  town — and half the timber comes back on the shelves. Half rather than all: a
+  post that has stood a generation in the ground is firewood, and a town that
+  recovered its whole wall every time it moved one would be re-staking at a
+  profit.
+- **A street is opened by walking it.** A settler used to walk to the middle of a
+  planned run, swing once, and the whole street — grading, gravel and the bridge
+  over the brook — appeared behind them. A crew now paves it as they walk, a
+  cross-section at a time, the way a road gang actually works: the column
+  underfoot and the width either side of it. Nothing is carried, because a dirt
+  path is shovel work — so a paving crew never queues at a storehouse and can
+  never be the reason a town runs out of timber. A run is written down as opened
+  when they reach the far end of it, so a player who walks away halfway leaves a
+  half-paved street that the town finishes on its own. Bridges are unchanged and
+  still go in whole; an arch is not a sequence of columns.
+- **The wall comes before the roads.** Roads used to be the first public work a
+  spare builder was offered, on the reasoning that a road is what lets everybody
+  else get to work faster. A growing town always has one more street planned, so
+  in practice it answered every new outlying shed with a fresh stretch of track
+  and never got back to the ring. A half-built wall is a town that cannot shut
+  its gate; a half-built lane is a walk across grass. Both still wait for the
+  build queue: shelter and stores first, and a repair counts.
+- **A guard fights what the town is afraid of.** The town's own eyes had been
+  widened to every creature the danger table has an opinion about; the watch had
+  not, and went on charging anything filed as a monster. The two lists disagreed
+  in both directions — a town could be shut indoors by phantoms no guard would
+  look up at, and could send the watch out at an enderman standing calmly in a
+  field that had frightened nobody. One list now. A guard goes for the nearest
+  thing he could actually come to blows with, so a phantom overhead no longer
+  stands between him and the zombie at the gate, and he draws on no neighbour of
+  his. The damage, the reach and the creeper's fuse are untouched.
 - **Everything in the world can see the townspeople, and the town can see
   everything in the world.** Two halves of the same hole. Vanilla's creatures
   hunt players and vanilla villagers, and a settler is neither — so a pillager

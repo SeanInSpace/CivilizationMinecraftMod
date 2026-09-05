@@ -267,8 +267,32 @@ public final class KingdomsCodecs {
             // this comes back looking like a step in the future; Perimeter.ageAt
             // is where that is read for what it is. Absent means a world saved
             // before walls had an age, and zero is the honest answer for those.
-            Codec.LONG.optionalFieldOf("staked_on", 0L).forGetter(Perimeter::stakedOn)
-    ).apply(i, Perimeter::new));
+            Codec.LONG.optionalFieldOf("staked_on", 0L).forGetter(Perimeter::stakedOn),
+            // How far along the retired line the crew has got pulling it up. A
+            // prefix like "laid", and saved for the same reason: a reload that
+            // forgot it would send builders back to the head of a line they have
+            // already taken half of, to walk the whole of it again finding
+            // nothing. Absent from every world saved before the old wall came
+            // down by hand, and nought is right for those -- the sweep is what
+            // took theirs down and it keeps its own place.
+            Codec.INT.optionalFieldOf("pulled", 0).forGetter(Perimeter::pulled)
+    ).apply(i, KingdomsCodecs::perimeterOf));
+
+    /**
+     * A perimeter read back with its demolition where it left off.
+     *
+     * <p>{@code pulled} is set rather than constructed because it is bounded by
+     * {@link Perimeter#retiredPositions()}, which cannot be worked out until the
+     * lines it is derived from are in hand.
+     */
+    private static Perimeter perimeterOf(
+            List<com.kingdoms.sim.geom.SimPos> vertices,
+            List<com.kingdoms.sim.geom.SimPos> gates, int laid,
+            List<Perimeter.Retired> retired, long stakedOn, int pulled) {
+        Perimeter ring = new Perimeter(vertices, gates, laid, retired, stakedOn);
+        ring.setPulled(pulled);
+        return ring;
+    }
 
     private static final Codec<PathNetwork.Segment> PATH_SEGMENT =
             RecordCodecBuilder.create(i -> i.group(

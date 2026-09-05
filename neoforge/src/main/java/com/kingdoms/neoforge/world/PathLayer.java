@@ -117,6 +117,99 @@ public final class PathLayer {
     }
 
     /**
+     * The columns one step of paving covers: the one underfoot and the width
+     * either side of it.
+     *
+     * <p>What a crew does at one station. A road is not laid a block at a time
+     * and never was — somebody standing on the line of it works across the way,
+     * shoulder to shoulder with the verge — so the unit of the work is a
+     * cross-section rather than a column. That is also what keeps a stretch a
+     * walk rather than an afternoon: a run of thirty is thirty steps, not the
+     * two hundred and seventy blocks those thirty steps put down.
+     *
+     * <p>Pure geometry, so what a paving stretch comes to can be counted without
+     * a world; see {@code PathLayerPlanTest}. {@link #mend} covers the same
+     * columns by walking every index of the run, which is what makes the sweep
+     * that keeps a road clear and the crew that opens one lay the same road.
+     */
+    public static List<SimPos> crossSectionAt(PathNetwork.Segment segment, int index) {
+        List<SimPos> along = segment.positions();
+        if (index < 0 || index >= along.size()) {
+            return List.of();
+        }
+        SimPos at = along.get(index);
+        int half = halfWidthOf(segment);
+        List<SimPos> columns = new java.util.ArrayList<>((2 * half + 1) * (2 * half + 1));
+        for (int ox = -half; ox <= half; ox++) {
+            for (int oz = -half; oz <= half; oz++) {
+                columns.add(new SimPos(at.x() + ox, at.y(), at.z() + oz));
+            }
+        }
+        return List.copyOf(columns);
+    }
+
+    /**
+     * Paves one cross-section of a run, by hand.
+     *
+     * <p>The crew's half of {@link #mend}, and deliberately the same work in the
+     * same order: earn the step up to this column, then lay the surface across
+     * it. What it does not do is the repair test — a stretch being opened is
+     * broken by definition, and a builder standing on it has already decided
+     * there is a road to make here.
+     *
+     * <p>The steepness of the step behind is asked here as well as of the whole
+     * run in {@link #canBePaved}, and the reason is that the run check happens
+     * once, when a crew picks a stretch up, and most of that stretch may be in
+     * chunks nobody has loaded — {@link #tooSteepToPave} judges only the parts it
+     * can see, quite deliberately. So a run whose far half turns out to be a
+     * cliff passes it, and without this the crew would gravel the cliff and
+     * {@link #mend} would then refuse the run for ever and never clean it up.
+     * Column by column, the walkable part of such a run is paved and the wall at
+     * the end of it is left as bare ground, which is what a road crew would leave
+     * and what a player reads as the way stopping.
+     *
+     * @return blocks laid, which is zero for a column that is already a road, is
+     *         somebody's floor, or stands a wall above the one behind it
+     */
+    public static int paveAt(ServerLevel level, PathNetwork.Segment segment, int index) {
+        List<SimPos> along = segment.positions();
+        if (index < 0 || index >= along.size()) {
+            return 0;
+        }
+        int laid = index > 0 ? gradeAt(level, segment, index) : 0;
+        if (index > 0 && stepBehindIsAWall(level, along, index)) {
+            return laid;
+        }
+        for (SimPos column : crossSectionAt(segment, index)) {
+            laid += pave(level, column.x(), column.z());
+        }
+        return laid;
+    }
+
+    /** Whether the way climbs more between the last column and this one than a road may. */
+    private static boolean stepBehindIsAWall(ServerLevel level, List<SimPos> along, int index) {
+        BlockPos behind = surfaceOf(level, along.get(index - 1).x(), along.get(index - 1).z());
+        BlockPos here = surfaceOf(level, along.get(index).x(), along.get(index).z());
+        return behind != null && here != null
+                && Math.abs(here.getY() - behind.getY()) > MAX_STEP_UNGRADED;
+    }
+
+    /**
+     * Whether a run is one a road can be made of at all.
+     *
+     * <p>Asked once, when a crew takes a stretch on, rather than at every column
+     * — it reads the whole run, and asking it thirty times over would be thirty
+     * runs' worth of block reads for one run of road. A stretch that fails it is
+     * opened without being paved, which is exactly what the sweep did with one
+     * before roads were a job: better a gap in the network, which the town routes
+     * around and a player reads as untrodden ground, than a gravel stripe up a
+     * cliff face that nothing can walk.
+     */
+    public static boolean canBePaved(ServerLevel level, PathNetwork.Segment segment) {
+        return !tooSteepToPave(level, segment);
+    }
+
+    /**
      * Whether the real ground under this run is too steep to be a road.
      *
      * <p>The last line, and the only one standing on ground that is certainly
@@ -186,16 +279,24 @@ public final class PathLayer {
      * would terrace a hillside one sweep at a time.
      */
     private static int grade(ServerLevel level, PathNetwork.Segment segment) {
+        int moved = 0;
+        for (int i = 1; i < segment.positions().size(); i++) {
+            moved += gradeAt(level, segment, i);
+        }
+        return moved;
+    }
+
+    /** The one step of a run a crew standing at this column can earn. */
+    private static int gradeAt(ServerLevel level, PathNetwork.Segment segment, int index) {
         int half = halfWidthOf(segment);
         List<SimPos> along = segment.positions();
+        SimPos behind = along.get(index - 1);
+        SimPos here = along.get(index);
         int moved = 0;
         for (int ox = -half; ox <= half; ox++) {
             for (int oz = -half; oz <= half; oz++) {
-                for (int i = 1; i < along.size(); i++) {
-                    moved += levelStep(level,
-                            along.get(i - 1).x() + ox, along.get(i - 1).z() + oz,
-                            along.get(i).x() + ox, along.get(i).z() + oz);
-                }
+                moved += levelStep(level,
+                        behind.x() + ox, behind.z() + oz, here.x() + ox, here.z() + oz);
             }
         }
         return moved;

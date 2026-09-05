@@ -60,8 +60,51 @@ public interface Worksite {
      */
     boolean pay(Settlement settlement);
 
-    /** Records one station done. Called only after {@link #pay} succeeded. */
-    void completeOne(Settlement settlement);
+    /**
+     * Records one station done. Called only after {@link #pay} succeeded.
+     *
+     * @param worked whether there was actually anything to do there. A station
+     *               is finished either way — the crew must not be sent back to
+     *               look at it again — but the two are not the same event, and
+     *               taking them for one is how a town mints timber. A retired
+     *               post the away sweep pulled down before the crew arrived is
+     *               a station done with nothing gained, and paying salvage on it
+     *               would make moving a wall profitable.
+     */
+    void completeOne(Settlement settlement, boolean worked);
+
+    /**
+     * Records the whole stretch done, once its last station is.
+     *
+     * <p>Nothing for most works, because most of them count in stations: a wall
+     * is so many posts raised, and a post is finished the moment it is planted.
+     * A road is not. A settlement's books have no notion of half a street — a
+     * stretch is opened or it is not — so the paving is written down here, when
+     * the crew has walked the whole run, rather than a column at a time.
+     */
+    default void finishStretch(Settlement settlement) {
+    }
+
+    /**
+     * What one station is made of, or null when the work costs only labour.
+     *
+     * <p>The material a builder has to be <em>holding</em>, in the sense
+     * {@code BuildLoad} means it: they fetch a load of it from the storehouse
+     * before the first station and it leaves the town's books there, not here.
+     * {@link #pay} is then charged for whatever else a station costs — coin, in
+     * the wall's case — and never for this, or the town would buy the same
+     * plank twice.
+     *
+     * <p>This is also the whole of the batching a public work has. A load is
+     * {@code BuildLoad.LOAD_SIZE}, so a builder walks to the storehouse, takes
+     * up sixteen planks and plants sixteen posts before walking back — which is
+     * a stretch of wall about as long as one side of the smallest ring a town
+     * can stake. A work that answers null here is worked station by station for
+     * as long as there are stations, because there is nothing to run out of.
+     */
+    default String material() {
+        return null;
+    }
 
     /**
      * Whether this work is worth pulling a builder off idling for at all.

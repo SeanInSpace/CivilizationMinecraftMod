@@ -3,7 +3,7 @@ package com.kingdoms.sim.settlement;
 import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.culture.TownPlan;
 import com.kingdoms.sim.geom.SimPos;
-import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.work.PublicWorks;
 import com.kingdoms.sim.world.SimContext;
 
 import java.util.List;
@@ -427,11 +427,18 @@ public final class PathPlanner {
                 network.markUnwalkable(i);
                 continue;
             }
-            SimPos where = segments.get(i).from();
-            boolean handsThere = settlement.residents().stream()
-                    .anyMatch(person -> settlement.laboursAs(person, Profession.BUILDER)
-                            && person.isEmbodied() && !person.isTooWeakToWork());
-            if (handsThere && ctx.bridge().isLoaded(where)) {
+            // Hands on the ROADS, or hands that are coming back to them. The
+            // question used to be "is anybody here a builder", which was the
+            // same question while the roads were the first work a crew was
+            // offered. They are below the wall now, so a town with a ring still
+            // going up has builders who will not reach the streets for as long
+            // as the wall takes — and a clock that stood aside for them would
+            // leave a street opened by nobody at all. A builder raising a house
+            // is a different case and still stands the clock down: a build queue
+            // is finite and they are on their way. See
+            // PublicWorks.leaveItToTheCrew.
+            if (PublicWorks.leaveItToTheCrew(settlement, ctx.bridge(),
+                    new PublicWorks.RoadWork())) {
                 return;   // somebody is there to walk it out themselves
             }
             network.markOpened(i);
