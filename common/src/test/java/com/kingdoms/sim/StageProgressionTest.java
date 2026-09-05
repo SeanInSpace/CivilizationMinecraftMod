@@ -17,6 +17,8 @@ import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,10 +50,13 @@ class StageProgressionTest {
      * <p>{@link #CTX} says step zero for ever, which is harmless for the tests
      * that take one or two steps and quietly wrong for the ones that run a
      * founding. Several planners do work on a cadence — {@code n % 20} for the
-     * gates, {@code n % 100} for reviewing whether the town has outgrown its
-     * wall — and a clock stuck at zero satisfies every one of them on every
-     * step, so a test that never advances it measures a settlement doing its
-     * periodic work a hundred times more often than any world would.
+     * gates, among others — and a clock stuck at zero satisfies every one of
+     * them on every step, so a test that never advances it measures a
+     * settlement doing its periodic work far more often than any world would.
+     * The wall's own clock now cares about more than a cadence: the cooldown
+     * that keeps a town from moving its line twice in a generation is measured
+     * against this step, and at step zero for ever no wall is ever old enough
+     * to move at all.
      */
     private static SimContext at(int step) {
         return new SimContext(new QuietBridge(), step, SimSettings.SANDBOX);
@@ -126,18 +131,17 @@ class StageProgressionTest {
         // town reaches the size that finishes its wall later. Measured at step
         // 463 for the closing on this ground, against 373 before.
         //
-        // 456 now, and re-staking is not why. A town that outgrows its wall
-        // moves it, and this one does — but only once, at step 500, and by then
-        // its first ring has been closed for forty-four steps: staked at 284
-        // with 392 posts, closed at 456, re-staked at 500 to 940, and 666 of
-        // those raised by 700. The wall follows the town without ever costing
-        // it the fortification, because the settlement's closed flag latches.
+        // 453 now, and holding a wall back to TOWN is not why. This fixture
+        // already staked after its charter: it reaches TOWN at step 255, raises
+        // the hall the stage asks for, and stakes 386 posts at 284 — exactly
+        // where it staked when FORTIFIED was the gate, because the ring waits
+        // on the stage's own program either way. Closed at 453 with a hundred
+        // and seven steps of headroom in the budget.
         //
-        // What moved the number from 463 to 456 is the clock above. This test
-        // used to hand every step the same {@code CTX}, which says step zero
-        // for ever, so every cadence in the simulation fired on every step; it
-        // is told the truth now, and the founding is seven steps quicker for
-        // it. A hundred and four steps of headroom in the budget.
+        // What this run no longer does is move the wall. The line staked at 284
+        // is the line the town still has at 560, and at 700, and the suburbs
+        // beyond it stay outside — a second circuit needs the cooldown to run
+        // out first, and the whole ladder is shorter than the cooldown.
         for (int i = 1; i <= 560; i++) {
             camp.step(at(i));
         }
@@ -161,35 +165,51 @@ class StageProgressionTest {
                 "the sentry never left the wall");
     }
 
+    /**
+     * Every building standing when the wall was staked is inside it, with room
+     * to walk.
+     *
+     * <p>The claim used to be that the ring encloses every building, pinned to
+     * the four the program raises exactly one of so that growth could not
+     * falsify it. It is stated properly now, because buildings standing outside
+     * the wall are no longer a leak to be worked around: they are <em>the
+     * design</em>. A town walls itself at its charter and everything it builds
+     * afterwards is a suburb, unwalled, on ground the wall never claimed —
+     * which is what a faubourg is and where every medieval town put its growth.
+     * Measured on this ground: the wall is staked at step 284 around the sixteen
+     * buildings standing then, and the seventeenth, raised in the sixteen steps
+     * this run has left, goes up outside it.
+     *
+     * <p>So the moment matters and the buildings are taken at it. What the
+     * staking promises is containment of what stood <em>then</em>; what it
+     * stands beside afterwards is somebody else's business.
+     */
     @Test
-    void theRingEnclosesEveryBuildingWithRoomToWalk() {
+    void everyBuildingStandingWhenTheWallWasStakedIsInsideItWithRoomToWalk() {
         Settlement camp = foundingParty();
 
+        List<Building> whenStaked = List.of();
         for (int i = 1; i <= 300; i++) {
+            List<Building> stood = List.copyOf(camp.buildings());
             camp.step(at(i));
+            if (whenStaked.isEmpty() && camp.perimeter() != null) {
+                whenStaked = stood;
+            }
         }
 
         Perimeter ring = camp.perimeter();
         assertTrue(ring != null, "three hundred steps is plenty to stake the ring");
+        assertFalse(whenStaked.isEmpty(),
+                "the wall was staked around nothing at all");
         int west = ring.vertices().stream().mapToInt(v -> v.x()).min().orElseThrow();
         int east = ring.vertices().stream().mapToInt(v -> v.x()).max().orElseThrow();
         int north = ring.vertices().stream().mapToInt(v -> v.z()).min().orElseThrow();
         int south = ring.vertices().stream().mapToInt(v -> v.z()).max().orElseThrow();
-        // Pinned to the program-only buildings: exactly one of each ever
-        // stands (catalogue base 0), and all predate the staking, so the ring
-        // must hold them forever. Catalogue-scaled kinds -- granaries, houses,
-        // even storehouses -- multiply with population and may legitimately
-        // spill outside once the interior fills; that spill is the alpha-wall's
-        // cue to re-stake, and no assertion of ours.
-        for (Building building : camp.buildings()) {
-            String id = building.blueprintId();
-            if (!id.contains("bunkhouse") && !id.contains("hearth")
-                    && !id.contains("cache") && !id.contains("camp_post")) {
-                continue;
-            }
+        for (Building building : whenStaked) {
             assertTrue(building.origin().x() > west && building.origin().x() < east
                             && building.origin().z() > north && building.origin().z() < south,
-                    id + " predates the staking and must stand inside the palisade");
+                    building.blueprintId() + " at " + building.origin()
+                            + " predates the staking and must stand inside the wall");
         }
         // Between four and six. Gates are now cut where the roads cross the
         // ring rather than at the midpoint of each side, so a town with more
@@ -248,23 +268,37 @@ class StageProgressionTest {
                 "a fed streak over the window is the homestead's graduation");
     }
 
+    /**
+     * A fortification is a watch, not a wall.
+     *
+     * <p>The stage used to be gated on a closed perimeter, and could not be:
+     * the wall is paid for in coin, coin comes from a levy on production, and a
+     * settlement that must wall itself before it may grow never grows rich
+     * enough to wall itself — it locked at FORTIFIED for good. The wall waits
+     * for TOWN now, where a chartered town stakes its circuit, so what the
+     * stage names is exactly what a frontier post had: its own stores and
+     * shelter, and somebody standing guard over them.
+     */
     @Test
-    void fortificationNeedsAPerimeterAndSomeoneToWalkIt() {
+    void fortificationNeedsItsStoresAndSomebodyStandingWatch() {
         Settlement s = foundingParty();
         s.setStage(SettlementStage.FORTIFIED);
-        raise(s, "kingdoms:lumber_camp");
-        raise(s, "kingdoms:storehouse");
 
+        raise(s, "kingdoms:lumber_camp");
         assertFalse(StagePlanner.readyToAdvance(s, CTX),
-                "an open perimeter is not a fortification");
+                "an axe without a storehouse behind it is not a fortification");
+
+        raise(s, "kingdoms:storehouse");
+        assertFalse(StagePlanner.readyToAdvance(s, CTX),
+                "and stores nobody watches are not a fortification either");
 
         s.setPerimeterClosed(true);
         assertFalse(StagePlanner.readyToAdvance(s, CTX),
-                "a wall nobody watches is not a fortification either");
+                "a wall is not what this stage is asking for, so it cannot answer it");
 
         s.residents().iterator().next().setProfession(Profession.GUARD);
         assertTrue(StagePlanner.readyToAdvance(s, CTX),
-                "a closed perimeter with a sentry on it completes the stage");
+                "the stage's own buildings and a sentry over them complete it");
     }
 
     @Test

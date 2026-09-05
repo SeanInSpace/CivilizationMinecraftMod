@@ -10,7 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Stakes and raises the settlement's first ring — the palisade.
+ * Stakes and raises the settlement's wall.
+ *
+ * <p>Once, at TOWN, around what the town is on the day it is chartered — and
+ * then it stays where it was put. Everything the settlement builds afterwards
+ * goes up outside it as suburbs, and the line moves again only when those
+ * suburbs have come to outnumber the quarter behind the wall; see
+ * {@link #RESTAKE_COOLDOWN} for why that is the rule and not the wall following
+ * the town.
  *
  * <p>V1 by design: an axis-aligned rectangle around everything the town has
  * built, with a margin to move in and a gate on every road out. Gates
@@ -82,23 +89,29 @@ public final class PerimeterPlanner {
     }
 
     /**
-     * One step of perimeter work: stake it when the stage calls for it, re-stake
-     * it when the town has grown past it, then raise it as timber and hands
-     * allow.
+     * One step of perimeter work: stake it when the town is old enough to be
+     * worth walling, re-stake it when the suburbs have outgrown it, then raise
+     * it as timber and hands allow.
+     *
+     * <p>Order matters at the top. A settlement below TOWN never gets a FIRST
+     * wall, but one that already has a wall is worked on at any stage: a save
+     * from before this rule, or a town knocked back down the ladder, keeps the
+     * line it paid for and goes on raising it. Walls are not demolished by a
+     * change of mind about when they should have been built.
      */
     public static void advance(Settlement settlement, SimContext ctx) {
-        if (settlement.stage().before(SettlementStage.FORTIFIED)) {
-            return;
-        }
         if (settlement.perimeter() == null) {
+            if (settlement.stage().before(SettlementStage.TOWN)) {
+                return;
+            }
             // Staked only once the stage's own buildings stand, so the ring
-            // encloses the storehouse rather than being outgrown by it.
+            // encloses the hall rather than being outgrown by it.
             if (!StagePlanner.programComplete(settlement)) {
                 return;
             }
             Perimeter staked = stake(settlement, ctx);
             settlement.setPerimeter(staked);
-            settlement.logEvent(ctx.step(), "The palisade is staked out — "
+            settlement.logEvent(ctx.step(), "The wall is staked out — "
                     + staked.length() + " posts will ring " + settlement.name());
             return;
         }
@@ -108,84 +121,77 @@ public final class PerimeterPlanner {
     }
 
     /**
-     * How often a standing ring is measured against the town inside it.
+     * The least a wall may stand before the town is allowed to move it.
      *
-     * <p>Asking the question is cheap — every plot's corners against the loop,
-     * a few thousand comparisons on the largest town measured here. Answering
-     * it is not: deciding whether to move the wall means staking a candidate
-     * ring, and that is a concave hull over every corner of every plot followed
-     * by four relaxation sweeps reading the terrain around each vertex.
-     * Measured on this simulation's own thread: <strong>a tenth of a second on
-     * a town of eighty-six buildings and a second and a half on one of two
-     * hundred</strong>. A step is five seconds of game time, so once in a
-     * hundred of them is once every eight minutes; every step would make this
-     * far and away the most expensive thing a settlement does.
+     * <p>Five hundred steps is the whole founding ladder — the measured run
+     * from four settlers in a field to a chartered town with a hall is a shade
+     * under it — so a wall can move at most once per age of the town, and a
+     * settlement that lived three ages would have moved it twice. That is the
+     * number this rule exists to reproduce.
      *
-     * <p>That second number is the one to watch. It is the cost of
-     * {@code stake} itself, which a town used to pay exactly once, and it grows
-     * faster than the town does. If re-staking ever needs to be cheaper, the
-     * thing to make cheaper is {@link Hull#concave} — sixteen points per
-     * building is what it is being handed.
+     * <p>Towns walled themselves once, at their charter, and lived inside that
+     * circuit for generations. Growth did not push the wall outward: it went
+     * <em>outside</em> it, as suburbs, and the suburbs stayed unwalled — which
+     * is why the faubourgs are outside the gates on every medieval plan there
+     * is. A second circuit was raised only when the suburbs had come to rival
+     * the walled town itself, and even then it was the work of a generation and
+     * a special levy. Paris managed three circuits in four hundred and fifty
+     * years, Florence three in three hundred, and London, having inherited a
+     * Roman wall, never built another at all. A wall that is re-staked every
+     * time a shed goes up beyond the gate is not defending anything; it is
+     * drawing the town's outline, which is not what a wall is for.
      */
-    private static final int RESTAKE_REVIEW = 100;
+    private static final int RESTAKE_COOLDOWN = 500;
 
     /**
-     * How much longer a new ring must be before it is worth replacing the old.
+     * Moves the wall out when the suburbs have outgrown the town inside it.
      *
-     * <p>This is the hysteresis, and without it a growing town would move its
-     * wall at every review for the rest of its life. The trigger — a plot
-     * outside the line — goes true the moment one shed is raised beyond the
-     * gate and stays true until something is done about it, so a trigger on its
-     * own is a latch, not a control.
+     * <p>Three conditions, and each of them removes a way for a wall to be
+     * moved for no good reason. More ground-holding plots outside the line than
+     * inside it: the suburb has become the town and the old circuit is now the
+     * old quarter, which is the historical trigger and not "somebody built a
+     * shed past the gate". The standing wall complete: an unfinished line is
+     * never abandoned for a longer one it can afford even less, and because a
+     * re-staked ring carries its raised posts onto a longer loop, this alone
+     * makes the next move wait until the new circuit is paid for. And the
+     * cooldown above, so the answer is asked of a generation rather than of a
+     * season.
      *
-     * <p>An eighth longer is the band. Below it the town is tolerating an
-     * overspill, which is the honest answer for one building a few blocks past
-     * the line: a wall is not worth re-staking to collect a shed. Above it the
-     * wall is simply in the wrong place. Because each re-stake must clear the
-     * band, the ring grows geometrically and the number of re-stakes a town can
-     * ever make is bounded by how much it grows, not by how long it lives.
-     */
-    private static final double RESTAKE_GROWTH = 1.125;
-
-    /**
-     * Moves the wall out when the town has spread past it.
+     * <p>The review is deliberately answerable without staking anything. It
+     * used to stake a candidate ring to find out whether it wanted one — a
+     * concave hull over every corner of every plot and four relaxation sweeps
+     * reading the terrain, a tenth of a second on a town of eighty-six
+     * buildings and a second and a half on one of two hundred, paid on a
+     * cadence by every settlement in the dimension on the same step. Counting
+     * plots against the standing loop answers the same question for a few
+     * thousand comparisons, and {@link #stake} is called only once the town has
+     * already decided it wants a new wall.
      *
-     * <p>{@code chooseSite} prefers ground inside the ring and builds beyond it
-     * when nothing inside will do — and until now nothing ever answered that,
-     * so a town that outgrew its wall stayed outgrown for good. Measured on the
-     * rough-terrain seed at seven hundred steps: 58 of 85 buildings stood
-     * outside a ring that had closed at 648 posts. That is not a walled town
-     * with some outbuildings; it is a fenced-off old quarter with a town round
-     * it.
+     * <p>Which is why the cadence went with it. A step is five seconds of game
+     * time, so those few thousand comparisons fall five seconds apart per
+     * settlement, and only for one whose wall is closed and older than the
+     * cooldown — everything younger is turned away by two comparisons.
+     * Skipping ninety-nine steps in a hundred to save that would be paying for
+     * it in delay and getting nothing back.
      *
-     * <p>The trigger is a building whose reserved plot is not wholly inside the
-     * line — the corners, not the origin, because a wall that clips the back of
-     * a farm has not enclosed it. The old line is retired rather than kept: see
+     * <p>Inside and outside are judged on the reserved plot's corners rather
+     * than its origin, because a wall that clips the back of a farm has not
+     * enclosed it. The old line is retired rather than kept: see
      * {@link Perimeter#retired()}.
      */
     private static void restakeIfOutgrown(Settlement settlement, SimContext ctx) {
-        if (ctx.step() % RESTAKE_REVIEW != 0) {
+        Perimeter standing = settlement.perimeter();
+        // Age rather than a subtraction: the world's step counter restarts at
+        // zero on every reload and the stake step does not, so see
+        // Perimeter.ageAt. The two cheap questions come first, because the
+        // counting below is the only part of this that costs anything.
+        if (standing.ageAt(ctx.step()) < RESTAKE_COOLDOWN || !standing.closed()) {
             return;
         }
-        Perimeter standing = settlement.perimeter();
-        int spilled = plotsOutside(settlement, standing);
-        // Nothing has spilled out since the last time moving the wall was
-        // considered and refused, so the answer would be the same answer. Worth
-        // counting rather than merely asking whether ANY plot is outside,
-        // because that question is a latch -- one shed past the line leaves it
-        // true for ever, including for a town that has stopped growing
-        // entirely. Such a settlement used to pay a whole candidate staking,
-        // the tenth of a second above, every hundredth step for the rest of the
-        // world's life; and since every settlement in a dimension is stepped
-        // with the same clock, they all paid it on the same step.
-        if (spilled <= standing.refusedAt()) {
+        if (!suburbsOutnumberTheTown(settlement, standing)) {
             return;
         }
         Perimeter wider = stake(settlement, ctx);
-        if (wider.length() < standing.length() * RESTAKE_GROWTH) {
-            standing.setRefusedAt(spilled);
-            return;
-        }
         List<Perimeter.Retired> retired = new ArrayList<>(standing.retired());
         retired.add(new Perimeter.Retired(standing.vertices(), standing.laid()));
         // The posts raised so far travel with the town. A wall moved outward is
@@ -197,27 +203,38 @@ public final class PerimeterPlanner {
         // leave it standing in the open for the hundreds of steps it took to
         // pay the first time.
         settlement.setPerimeter(new Perimeter(wider.vertices(), wider.gates(),
-                Math.min(standing.laid(), wider.length()), retired));
+                Math.min(standing.laid(), wider.length()), retired, ctx.step()));
         settlement.logEvent(ctx.step(), settlement.name()
-                + " has outgrown its wall — the line is re-staked at "
-                + wider.length() + " posts, from " + standing.length());
+                + " has spread further outside its wall than in — the line is"
+                + " re-staked at " + wider.length() + " posts, from "
+                + standing.length());
     }
 
-    /** How many plots the town holds have ended up outside its own wall. */
-    private static int plotsOutside(Settlement settlement, Perimeter ring) {
-        int spilled = 0;
+    /**
+     * Whether the suburbs have come to outnumber the quarter inside the line.
+     *
+     * <p>One walk of the buildings rather than two counts, because outside and
+     * inside are the two halves of a single filter and a rule that compares
+     * them must not be able to count different populations. Anything that holds
+     * no ground — a well sunk in a street, a marker — is in neither half: it is
+     * not a suburb, and it is not a reason to move a wall.
+     */
+    private static boolean suburbsOutnumberTheTown(Settlement settlement, Perimeter ring) {
+        int outside = 0;
+        int inside = 0;
         for (Building building : settlement.buildings()) {
             if (!BuildPlanner.holdsGround(building.blueprintId())) {
                 continue;
             }
             int half = BuildPlanner.plotSpanOf(
                     building.blueprintId(), settlement.catalogue()) / 2;
-            SimPos at = building.origin();
-            if (!whollyInside(ring, at, half)) {
-                spilled++;
+            if (whollyInside(ring, building.origin(), half)) {
+                inside++;
+            } else {
+                outside++;
             }
         }
-        return spilled;
+        return outside > inside;
     }
 
     /** Whether every corner of this plot is inside the line. */
@@ -256,9 +273,10 @@ public final class PerimeterPlanner {
     /**
      * Keeps the gates on the roads while the wall is still going up.
      *
-     * <p>The ring is staked at FORTIFIED, when a town has usually drawn few of
-     * its streets — so the gates it is staked with are provisional, and follow
-     * the network until the wall closes over them.
+     * <p>The ring is staked the day the town is chartered, when the streets of
+     * the quarters it will fill are not drawn yet — so the gates it is staked
+     * with are provisional, and follow the network until the wall closes over
+     * them.
      */
     private static void resiteGates(Settlement settlement, SimContext ctx) {
         Perimeter perimeter = settlement.perimeter();
@@ -346,7 +364,7 @@ public final class PerimeterPlanner {
 
         // The ring first, then its gates -- a gate is a hole in a wall, so it
         // can only be chosen once there is a wall to make a hole in.
-        Perimeter ring = new Perimeter(loop, List.of(), 0);
+        Perimeter ring = new Perimeter(loop, List.of(), 0, List.of(), ctx.step());
         ring.setGates(gatesFor(settlement, ring));
         return ring;
     }

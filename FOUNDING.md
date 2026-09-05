@@ -83,33 +83,29 @@ labour while the settlement is below FORTIFIED.
 **Advance when:** food income per step ≥ appetite per step, measured over a
 rolling window — the party is genuinely feeding itself, not merely provisioned.
 
-## Phase 3 — Defensive enclosure and sanitation (days 5–8)
+## Phase 3 — The watch and the storehouse (days 5–8)
 
 *As specified by the player, with the mechanics mapped:*
 
-- **P1 Boundary construction (palisade / trench).** Builders erect a perimeter
-  around the work radius: a wooden palisade with gated choke points, or a
-  2-block-deep trench dug by the excavation system that already exists. This
-  introduces the **perimeter subsystem** — a segmented closed curve with gates,
-  stored on the settlement — with deliberately cheap geometry: an offset hull
-  around the claimed plots. The α-shape / active-contour wall already in
-  `GOALS.md` is the TOWN-stage implementation of the *same interface*; the
-  palisade proves the pipeline (curve → courses → gates) before the advanced
-  geometry arrives. Gates go where paths cross the curve, which is one of the
-  reasons the path network must remember where its paths are.
-- **P2 Guard assignment and sentry post.** One pioneer crystallizes into a
+- **P1 Guard assignment and sentry post.** One pioneer crystallizes into a
   **sentry** — the first fixed profession — equipped from the founding kit's
-  arms. Patrol pathfinding nodes are the perimeter's own vertices: the curve
-  doubles as the patrol route, walked the way lumberjacks walk their trees, to
-  intercept zombies and spiders before they reach the bunks.
-- **P3 Storehouse upgrade.** The cache becomes a proper **Town Storehouse**:
+  arms, and a woodcutter beside them, because everything built from here on
+  drinks more timber than the founding kit carries. What fortifies a
+  settlement at this stage is a **watch**, not a wall: a frontier post is
+  guarded, and walling a settlement is a chartered town's business (Phase 5).
+  Patrol nodes are the perimeter's own vertices once there is a perimeter to
+  walk; until then the sentry keeps the buildings.
+- **P2 Storehouse upgrade.** The cache becomes a proper **Town Storehouse**:
   segregated sorting (food, timber, minerals, finished tools — the ledger keys
   that already exist, given shelves), and the **player trade interface** —
   extending the warehouse post's existing donate/bill screen into two-way
   trade.
 
-**Advance when:** the perimeter is closed, a sentry patrols it, and the
-storehouse stands.
+**Advance when:** the storehouse and the lumber camp stand and a sentry is on
+watch. Not on the wall: the wall is paid for in coin, coin comes only from a
+levy on production, and a settlement that must wall itself before it may grow
+never grows rich enough to wall itself. Gated on the wall, this stage locked
+forever.
 
 ## Phase 4 — Structural division of labour and growth (days 9+)
 
@@ -144,9 +140,14 @@ workshops operate.
   worth the ceremony of being the stage's headline build.
 - **Expansion gates on it**: `ExpansionPlanner` may not found a daughter
   settlement until the hall stands. Government precedes colonies.
-- **The wall replaces the palisade** — the α-shape / active-contour perimeter
-  from `GOALS.md`, on the same perimeter interface the palisade proved, for
-  settlements that can afford it. Small villages keep their palisade.
+- **The wall, and the only one the settlement will get** — the α-shape /
+  active-contour perimeter from `GOALS.md`. This is the **first** circuit, not
+  a replacement for a palisade raised earlier: nothing is staked before TOWN.
+  A town walls itself at its charter, around what it is on that day, and then
+  lives inside that line. Everything it builds afterwards goes up **outside**
+  the wall, as suburbs, unwalled — which is where every medieval town put its
+  growth, and why the faubourgs are outside the gates on every plan there is.
+  The circuit moves only under the rule in *The wall interface* below.
 - The existing building-level upgrade system takes over from here.
 
 ---
@@ -218,9 +219,10 @@ All six steps are built. What each one landed:
    their stores). Daughters land as CAMPs of pioneers and climb the same
    ladder.
 
-The 300-step pin (`StageProgressionTest.aCampLeftAloneClimbsTheWholeLadderToTown`)
+The 560-step pin (`StageProgressionTest.aCampLeftAloneClimbsTheWholeLadderToTown`)
 drives a charter party camp-to-TOWN headless: timber bootstrapped, streak fed,
-palisade closed and walked, cottages filled, hall standing.
+cottages filled, chartered a town at step 255, hall standing — and the wall it
+stakes on that charter, 386 posts at step 284, closed and walked by step 453.
 
 ## The second way a settlement is founded: daughters
 
@@ -304,19 +306,45 @@ counts). Persistence, paid raising, the closed flag, gate drawing, sentry
 patrol and ring-aware siting all work through that surface and need no
 changes. Two care points: keep vertices in walk order (the ring is drawn
 corner to corner), and keep gates ON the loop (gateways are recognised by
-proximity to ring positions). The α-wall is for settlements that can afford
-it — small villages keep the palisade, which is why the tiers share the
-interface instead of replacing it.
+proximity to ring positions). There are no longer two tiers to share the
+interface: nothing is staked before TOWN, so a village has no palisade for an
+α-wall to replace, and what `stake` returns is the settlement's first and
+usually only circuit.
 
-One thing has since been added to that surface, and it is the only thing that
-had to be: `retired()`. A ring is no longer staked once and kept for ever. A
-town that spreads past its wall stakes a wider one — the trigger is a reserved
-plot outside the line, reviewed on a cadence, and taken only when the new ring
-is at least an eighth longer than the old, which is what stops a growing town
-moving its wall for every shed. The superseded loop travels on the new
-`Perimeter` in `retired()` until whatever draws the world has pulled its posts
-down, because a settlement has one wall at a time and an old ring left standing
-inside a new one is the partition that shuts a settler out of their own bed.
-Everything else on the interface is unchanged: the raised count travels with
-the town rather than being reset, the closed flag latches, and the gates are
-re-sited by the rule that was already there.
+**When a wall is staked, and when it moves.** A settlement stakes its first and
+usually only circuit at TOWN, once the stage's own program stands, so the ring
+encloses the hall rather than being outgrown by it. Nothing is staked before
+that, and a settlement that already has a wall — an old save, or a town knocked
+back down the ladder — keeps it and goes on raising it at any stage. A wall is
+never pulled down by a change of mind about when it should have been built.
+
+A second circuit needs all three of:
+
+1. **More ground-holding plots outside the line than inside it.** The suburb has
+   become the town and the old circuit is now the old quarter. Not "a plot is
+   outside" — that trigger is a latch that goes true the first time a shed is
+   raised beyond the gate and never goes false again.
+2. **The standing wall complete** (`laid == length`). An unfinished line is not
+   abandoned for a longer one the town can afford even less. Because a re-staked
+   ring carries its raised posts onto a longer loop, this alone makes the next
+   move wait until the new circuit has been paid for.
+3. **`RESTAKE_COOLDOWN` steps since it was last staked** — 500, the whole length
+   of the founding ladder, so a wall moves at most once per age of the town.
+
+That is the historical rule and not an approximation of one: towns walled
+themselves at charter and lived inside that circuit for generations, and a
+second wall was a generation's work and a special levy. Paris built three in
+four hundred and fifty years, Florence three in three hundred, London never.
+Measured over fourteen hundred steps on the rough seed, in every arrangement
+the mod builds in, a town stakes once and moves the line **once or not at all**;
+the rule it replaced moved it four to seven times.
+
+Two things on the interface exist to serve that. `retired()` carries the
+superseded loop on the new `Perimeter` until whatever draws the world has pulled
+its posts down, because a settlement has one wall at a time and an old ring left
+standing inside a new one is the partition that shuts a settler out of their own
+bed. `stakedOn()` is the step the line was staked on — saved, because a server
+restart is not a generation, and a wall of forgotten age would be free to move
+again on the first review after a reload. Everything else is unchanged: the
+raised count travels with the town rather than being reset, the closed flag
+latches, and the gates are re-sited by the rule that was already there.

@@ -19,9 +19,11 @@ import java.util.Objects;
  * <p>The vertices double as the sentry's patrol nodes; the positions along the
  * loop are what the palisade layer stamps into the world.
  *
- * <p>A ring is not for ever. A town that spreads past its own wall re-stakes,
- * and the wider ring carries the lines it replaced in {@link #retired()} until
- * the world has taken their posts down — a settlement has one wall at a time.
+ * <p>A ring is very nearly for ever. A town whose suburbs have come to
+ * outnumber the quarter inside the line re-stakes once, a generation later at
+ * the earliest, and the wider ring carries the line it replaced in
+ * {@link #retired()} until the world has taken its posts down — a settlement
+ * has one wall at a time.
  */
 public final class Perimeter {
 
@@ -66,36 +68,64 @@ public final class Perimeter {
     private List<SimPos> positions;
 
     /**
-     * How many plots stood outside this line when moving it was last refused.
+     * The step this line was staked on — how old the wall is.
      *
-     * <p>Deliberately not saved. It is not a fact about the wall, it is a note
-     * about work already done — see {@code PerimeterPlanner.restakeIfOutgrown},
-     * which uses it to avoid staking the same candidate ring over and over for
-     * a town that has stopped growing. A reload forgets it and pays for one
-     * more candidate, which is the right price for not carrying a scratch note
-     * in every save file.
+     * <p>Saved, unlike the scratch note it replaced, because it is the thing
+     * that stops a wall being moved twice in one generation and a server
+     * restart is not a generation. Zero is what every world saved before walls
+     * had an age reads, and that is the honest answer for them: those towns
+     * have stood inside the same line for as long as anybody has been counting.
+     *
+     * <p>Read through {@link #ageAt(long)} rather than subtracted directly. The
+     * step it is compared against is not saved, and the difference matters.
      */
-    private int refusedAt;
+    private final long stakedOn;
 
-    public int refusedAt() {
-        return refusedAt;
+    /** The step this line was staked on; zero for a wall of unremembered age. */
+    public long stakedOn() {
+        return stakedOn;
     }
 
-    public void setRefusedAt(int spilled) {
-        this.refusedAt = Math.max(0, spilled);
+    /**
+     * How long this line has stood, as of this step.
+     *
+     * <p>Not simply {@code step - stakedOn()}, because {@code SimWorld} does not
+     * save its step counter: it restarts at zero every time the server comes up,
+     * while the stake step it is compared against comes out of the save file. A
+     * wall staked at step nine hundred in the last session therefore reads as
+     * staked nine hundred steps from <em>now</em>, and taken literally that is a
+     * wall which can never be moved again on any world that has ever been
+     * reloaded — a rule that quietly stops working, which is the worst kind.
+     *
+     * <p>So a stake in the future is read as what it is, a clock that restarted,
+     * and the wall's honest age is then the age of the session: it was standing
+     * when the session began, and nobody can say for how long before that. The
+     * cooldown runs from the reload, which errs towards leaving the wall where
+     * it is. Should the world clock ever start being saved, this degrades to the
+     * plain subtraction on its own.
+     */
+    public long ageAt(long step) {
+        return stakedOn > step ? step : step - stakedOn;
     }
 
     public Perimeter(List<SimPos> vertices, List<SimPos> gates, int laid) {
-        this(vertices, gates, laid, List.of());
+        this(vertices, gates, laid, List.of(), 0L);
+    }
+
+    public Perimeter(List<SimPos> vertices, List<SimPos> gates, int laid,
+                     List<Retired> retired) {
+        this(vertices, gates, laid, retired, 0L);
     }
 
     /**
      * A ring that replaced others, carrying them until they are pulled down.
      *
-     * @param retired the lines this ring supersedes, oldest first
+     * @param retired  the lines this ring supersedes, oldest first
+     * @param stakedOn the step it was staked on, which is what its age is
+     *                 measured from
      */
     public Perimeter(List<SimPos> vertices, List<SimPos> gates, int laid,
-                     List<Retired> retired) {
+                     List<Retired> retired, long stakedOn) {
         if (vertices.size() < 3) {
             throw new IllegalArgumentException("a perimeter is a loop, not a line");
         }
@@ -103,6 +133,7 @@ public final class Perimeter {
         this.gates = List.copyOf(gates);
         this.laid = Math.max(0, laid);
         this.retired = List.copyOf(retired);
+        this.stakedOn = Math.max(0L, stakedOn);
     }
 
     /** The loop's corners in walk order. Patrol nodes, verbatim. */
@@ -246,11 +277,15 @@ public final class Perimeter {
      * for having been a wall once. So the old line travels with the new one
      * until whatever draws the world has pulled its posts down.
      *
-     * <p>The list cannot run away with itself. A ring is only replaced by one
-     * substantially longer than it — see {@code PerimeterPlanner} — so the
-     * lengths grow geometrically and a settlement has only so many re-stakings
-     * in it however long it lives. Three on a seven-hundred-step town, four on
-     * the founding ladder.
+     * <p>The list cannot run away with itself. A ring is replaced only when the
+     * suburbs outnumber the town inside it, only when it has been paid for to
+     * the last post, and only after {@code PerimeterPlanner.RESTAKE_COOLDOWN} —
+     * so a settlement has at most one re-staking per age of the town however
+     * long it lives. Measured over fourteen hundred steps on the rough seed:
+     * twelve of the thirteen arrangements the mod builds in moved their line
+     * exactly once and so carry exactly one retired loop, and the thirteenth,
+     * whose first ring never closed, never moved it at all. The rule this
+     * replaced retired four to seven loops in the same run.
      */
     public List<Retired> retired() {
         return retired;
@@ -320,11 +355,12 @@ public final class Perimeter {
                 && vertices.equals(other.vertices)
                 && gates.equals(other.gates)
                 && laid == other.laid
+                && stakedOn == other.stakedOn
                 && retired.equals(other.retired);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(vertices, gates, laid, retired);
+        return Objects.hash(vertices, gates, laid, stakedOn, retired);
     }
 }

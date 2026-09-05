@@ -97,18 +97,28 @@ messages carry the reasoning and the measurements.
   to 134 and the bastide from 208 to 184. Nine, the cottage's own separation,
   was built and measured and is worse: a plan that offers at the smallest
   building's floor offers most of its frontage to buildings that are refused.
-- **The wall moves with the town, and the old line comes down.** A settlement
-  that grew past its palisade stayed past it for the rest of the world's life —
-  measured on rough ground at seven hundred steps, 58 of 85 buildings stood
-  outside their own wall. The ring is reviewed every hundredth step and re-staked
-  when a plot lies outside it, but only adopted when the new line is at least an
-  eighth longer, so one shed a few blocks out is tolerated rather than chased.
-  The old line is pulled up as the new one goes up — a wall left inside a wall is
-  a fence through the middle of a town, and it shuts a settler out of their bed
-  the same as any other. Only two courses of fence or a gate come down, so pens,
-  field boundaries and bridge railings survive. The posts already raised travel
-  with the town: a wall moved outward is the same wall, and nobody is charged
-  twice.
+- **A town walls itself once, at its charter, and lives inside that line.** Two
+  faults, at opposite ends. A settlement that grew past its wall stayed past it
+  for the rest of the world's life — 58 of 85 buildings outside their own ring at
+  seven hundred steps — and the wall that was built to answer that followed the
+  town instead, re-staked whenever a candidate line came out an eighth longer:
+  four to seven times over fourteen hundred steps in every one of the thirteen
+  arrangements, a settlement permanently redrawing its own outline. Nothing is
+  staked before TOWN now, and a chartered town stakes its circuit once, around
+  what it is on that day. What it builds afterwards goes up outside the wall as
+  suburbs, unwalled, which is where every medieval town actually put its growth.
+  A second circuit needs all three of: more ground-holding buildings outside the
+  line than inside it, the standing wall paid for to its last post, and five
+  hundred steps — the whole founding ladder — since it was last staked. Across
+  the same thirteen arrangements the line now moves once or not at all. FORTIFIED
+  keeps its name and means what it says: a watch, not a wall. Any settlement that
+  already has a wall keeps it, at any stage. When the line does move the old one
+  is still pulled up as the new one goes up — a wall left inside a wall is a
+  fence through the middle of a town, and it shuts a settler out of their bed the
+  same as any other. Only two courses of fence or a gate come down, so pens,
+  field boundaries and bridge railings survive, and the posts already raised
+  travel with the town: a wall moved outward is the same wall, and nobody is
+  charged twice.
 - **A town out of good ground takes the least bad plot it looked at.** Having
   examined ninety-six candidate plots and refused every one, a town used to take
   the next slot on the ring with no terrain check at all — so the better the
