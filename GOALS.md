@@ -535,9 +535,13 @@ kept only until a run has been watched over it.*
       guard or busy crafter; a field is collected at a full armful.
       docs/CITIZENS.md says what every citizen does and in what order;
       docs/HAULERS.md plans the porter's trade.
-- [x] **Every British spelling in the tree is marked** (docs/american-spelling-audit.md:
-      2055 hits, 47 forms, four live save keys that must not change) -- the
-      conversion itself is the batch's last unit.
+- [x] **The tree is in American English, identifiers included.** 2042 hits
+      across 212 files converted from the audit's marks; `BuildCatalogue`,
+      `KerbTest` and `LevellingTest` renamed with their types; the survey
+      contract moved on all four sides. What remains is what must: the four
+      save keys spelled as first written (`centre` x3, the value `armour`),
+      Mojang's `BlockBehaviour`, and vocabulary (carriageway, tarmac, metalled).
+      The stores panel still shows "Armour" until that key migrates.
 
 - [x] **Two blocks between any two walls.** The bare block that belonged to
       neither building is gone, and every literal spacing is the sum it was
