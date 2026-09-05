@@ -1,6 +1,9 @@
 package com.kingdoms.neoforge.world;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Person;
+import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingSizes;
 import com.kingdoms.sim.settlement.Footprint;
@@ -327,6 +330,127 @@ class TownDemolitionTest {
             TownAuditor.demolishRuins(halfSeen, town);
         }
         assertEquals(1, town.buildings().size(), "however many times it is asked");
+    }
+
+    // --- the crew standing in the ruin ---
+
+    /**
+     * A town with somebody who can hold a trowel.
+     *
+     * <p>The shield a booked repair gives a ruin is only good while the town could
+     * still work it, so a settlement with nobody in it would test the wrong half
+     * of the rule.
+     */
+    private static Settlement withBuilder() {
+        Settlement town = town();
+        town.addResident(new Person(
+                Person.Id.random(), "Alder", Profession.BUILDER, town.centre()));
+        return town;
+    }
+
+    /** The repair {@code RepairPlanner} books: work on the plot, marked a repair. */
+    private static BuildTask repairOf(Building building) {
+        BuildTask mending = new BuildTask(building.blueprintId(), building.origin(), 40);
+        mending.setUpgradeOf(building.origin());
+        mending.setRepair(true);
+        return mending;
+    }
+
+    @Test
+    void aBuildingUnderRepairIsNotWrittenOffUnderItsOwnBuilders() {
+        // The interlock a slow repair needs. A repair used to be a re-stamp of the
+        // whole blueprint and was over in a second, so no sweep could catch one
+        // half done; a crew fetching loads and laying blocks one at a time takes
+        // minutes, and a shell reads as gone for every one of them. Without this
+        // the town writes off the building its own builders are standing in,
+        // evicts the family, and cancels the repair on the way past.
+        Settlement town = withBuilder();
+        Building house = house();
+        town.addBuilding(house);
+        town.enqueueUrgent(repairOf(house));
+        TownAuditor.audit(standing(), town);
+
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF + 3; sweep++) {
+            assertTrue(TownAuditor.demolishRuins(flattened(), town).isEmpty(),
+                    "sweep " + sweep + " found work booked here");
+        }
+
+        assertEquals(1, town.buildings().size(), "the house is still on the books");
+        assertEquals(1, town.buildQueue().size(), "and so is the job to put it right");
+    }
+
+    @Test
+    void aRepairWithNobodyLeftToWorkItStopsSparingTheRuin() {
+        // Booking is a decision taken once and a town changes. A raid damages a
+        // house, the repair is booked while a builder is alive, the next raid
+        // kills him — and the job sits at the head of a queue nothing can advance,
+        // shielding a ruin nobody will ever touch and stopping the town ordering
+        // anything else for the rest of the world's life. So the crew is asked for
+        // again on every sweep, the shell goes, and taking it off the books is
+        // what clears the job.
+        Settlement town = withBuilder();
+        Building house = house();
+        town.addBuilding(house);
+        town.enqueueUrgent(repairOf(house));
+        TownAuditor.audit(standing(), town);
+
+        assertTrue(TownAuditor.demolishRuins(flattened(), town).isEmpty(),
+                "while somebody can work it, it is spared");
+        town.removePerson(town.residents().iterator().next().id());
+
+        List<Building> razed = List.of();
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF; sweep++) {
+            razed = TownAuditor.demolishRuins(flattened(), town);
+        }
+
+        assertEquals(List.of(house), razed, "with nobody to send, it is a ruin");
+        assertTrue(town.buildQueue().isEmpty(),
+                "and the queue is freed with it, rather than pinned forever");
+    }
+
+    @Test
+    void aRuinNobodyIsMendingIsStillWrittenOff() {
+        // The other half, and it is what stops the mercy above swallowing the
+        // whole check. RepairPlanner refuses to book a repair the town cannot
+        // begin — nobody fit to send, or nothing on the shelves to send them with
+        // — so a ruin with no task against it is a ruin the town is not repairing
+        // and is not going to.
+        Settlement town = town();
+        Building house = house();
+        town.addBuilding(house);
+        TownAuditor.audit(standing(), town);
+
+        List<Building> razed = List.of();
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF; sweep++) {
+            razed = TownAuditor.demolishRuins(flattened(), town);
+        }
+
+        assertEquals(List.of(house), razed, "nothing was booked, so nothing was spared");
+    }
+
+    @Test
+    void theSweepCountStartsAgainAfterTheRepairIsDone() {
+        // Sweeps spent under a repair are not evidence of anything: the shell was
+        // meant to be down. A building whose repair finished and which is still a
+        // ruin gets its full three sweeps from a standing start.
+        Settlement town = withBuilder();
+        Building house = house();
+        town.addBuilding(house);
+        town.enqueueUrgent(repairOf(house));
+        TownAuditor.audit(standing(), town);
+
+        for (int sweep = 0; sweep < 5; sweep++) {
+            TownAuditor.demolishRuins(flattened(), town);
+        }
+        // Off the queue, however it left it: finished, or given up on. All the
+        // sweep count knows is that nobody is booked here any more.
+        town.abandonBuild(0, "the crew is done");
+
+        assertTrue(TownAuditor.demolishRuins(flattened(), town).isEmpty(),
+                "the first sweep after the crew leaves is the first sweep");
+        assertTrue(TownAuditor.demolishRuins(flattened(), town).isEmpty());
+        assertEquals(1, TownAuditor.demolishRuins(flattened(), town).size(),
+                "and the third takes it off the books");
     }
 
     @Test

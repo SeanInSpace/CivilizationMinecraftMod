@@ -214,9 +214,19 @@ public final class Building {
         return damage >= RepairPlanner.NOISE_FLOOR;
     }
 
-    /** Whether it is hurt badly enough for the town to spend timber on it. */
+    /**
+     * Whether the town will spend timber on it.
+     *
+     * <p>The same question as {@link #isDamaged()} since the threshold came down
+     * to the noise floor, and that is the point rather than an oversight: a town
+     * that recorded damage it had no intention of mending is what left ordinary
+     * war damage standing forever. Both names are kept because both are asked —
+     * one by anything reporting on the building, one by
+     * {@link RepairPlanner} deciding whether to book a crew — and a reader
+     * following either into the other should find them agreeing.
+     */
     public boolean needsRepair() {
-        return damage >= RepairPlanner.SEVERE_DAMAGE;
+        return isDamaged();
     }
 
     public int level() {

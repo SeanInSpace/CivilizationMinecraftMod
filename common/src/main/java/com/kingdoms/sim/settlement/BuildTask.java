@@ -224,6 +224,29 @@ public final class BuildTask {
         return upgradeOf != null;
     }
 
+    /**
+     * Whether this job puts a standing building back the way it was.
+     *
+     * <p>Set alongside {@link #upgradeOf} rather than instead of it: both are work
+     * booked against a building already on the books, and the completion path
+     * needs to know that either way. What this adds is the one thing that
+     * separates them. An upgrade replaces a building with a bigger one and takes
+     * the old walls out on the way, because they stand inside the new plan's
+     * footprint; a repair is the missing blocks and nothing else. A repair that
+     * could not say so was handed a plan for the whole structure with the whole
+     * structure marked for excavation — a crew sent to mend a roof would begin by
+     * pulling the cottage down around itself.
+     */
+    private boolean repair;
+
+    public boolean isRepair() {
+        return repair;
+    }
+
+    public void setRepair(boolean repair) {
+        this.repair = repair;
+    }
+
     public int facing() {
         return facing;
     }
