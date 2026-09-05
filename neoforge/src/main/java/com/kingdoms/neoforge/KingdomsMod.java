@@ -115,6 +115,9 @@ public final class KingdomsMod {
         // going away — a timestamp from a closed world would have the next one's
         // first sweep measuring an interval that spans the two.
         com.kingdoms.neoforge.world.PerimeterLayer.forget();
+        // And where each paving crew had got along its run, which is a place in
+        // a network that is going away with the world it belonged to.
+        com.kingdoms.neoforge.view.Foreman.forget();
     }
 
     /** Our own tick count — the level clock is not trusted for cadence (it can freeze). */

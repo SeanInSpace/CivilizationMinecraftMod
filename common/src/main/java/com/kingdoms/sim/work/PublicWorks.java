@@ -2,6 +2,9 @@ package com.kingdoms.sim.work;
 
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.BuildLoad;
+import com.kingdoms.sim.person.Person;
+import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.Perimeter;
 import com.kingdoms.sim.settlement.PerimeterPlanner;
 import com.kingdoms.sim.settlement.PathNetwork;
@@ -56,6 +59,63 @@ public final class PublicWorks {
     }
 
     /**
+     * The work a town's spare hands would be put on right now, or null when it
+     * has none free or nothing of its own within reach.
+     *
+     * <p>The question a clock has to ask before it does anything: where there is
+     * a hand there is no clock, and the hand has to be on <em>this</em> work.
+     * "Somebody in this town is a builder" is not the same question and answering
+     * it instead is how a work below the wall in this list came to be done by
+     * nobody at all — the clock stood aside for hands that were never coming,
+     * because the foreman had them on the ring.
+     *
+     * <p>It is the foreman's own choice, made without a world: the build queue
+     * first, because shelter and stores come before all of this and a repair is
+     * work in that queue too; then the list in order, taking the first work with
+     * a job in a loaded chunk that the town can start and has the materials for.
+     * The platform adds two refusals this cannot see — a route nothing can path
+     * and growth in the way — and both of those only ever mean the crew is one
+     * pass later than this says.
+     *
+     * <p>{@code PerimeterPlanner} asks a blunter question of its own and is left
+     * to: a wall must never go up beside a builder who is standing right there,
+     * so it stands aside for any hands at all rather than for the hands the
+     * foreman would actually send. The cost is a wall that waits while the town
+     * builds, which is the priority this list states anyway.
+     */
+    public static Worksite handsAreOn(Settlement settlement, WorldBridge bridge) {
+        if (!settlement.buildQueue().isEmpty()) {
+            return null;   // shelter and stores before roads and walls
+        }
+        boolean spare = false;
+        for (Person person : settlement.residents()) {
+            if (settlement.laboursAs(person, Profession.BUILDER)
+                    && person.isEmbodied() && !person.isTooWeakToWork()) {
+                spare = true;
+                break;
+            }
+        }
+        if (!spare) {
+            return null;
+        }
+        for (Worksite work : of(settlement)) {
+            if (!work.isWorthStarting(settlement)) {
+                continue;
+            }
+            SimPos station = work.nextStation(settlement);
+            if (station == null || !bridge.isLoaded(station)) {
+                continue;
+            }
+            if (work.material() != null
+                    && settlement.nearestStore(station, work.material()) == null) {
+                continue;   // no shelf holds it, so nobody is going to be sent
+            }
+            return work;
+        }
+        return null;
+    }
+
+    /**
      * Opening a stretch of road.
      *
      * <p>Only opening it. Keeping an existing road clear of the grass that grows
@@ -70,20 +130,62 @@ public final class PublicWorks {
             return "road";
         }
 
+        /**
+         * The near end of the next run, which is where a crew starts walking.
+         *
+         * <p>It used to be the middle of the run, on the reasoning that one walk
+         * should cover a whole stretch. That was true of the work it described:
+         * a settler walked out, swung once, and the entire street was stamped in
+         * behind them. A road is paved as it is walked now, cross-section by
+         * cross-section, so a crew starts at one end and works to the other, and
+         * the middle is where they will be halfway through.
+         */
         @Override
         public SimPos nextStation(Settlement settlement) {
+            int run = nextRun(settlement);
+            return run < 0 ? null : settlement.paths().segments().get(run).positions().getFirst();
+        }
+
+        /**
+         * Which run the crew is opening, or -1 when the network is all walked out.
+         *
+         * <p>Named rather than derived from {@link #nextStation}, because the
+         * platform needs the run itself — its width and the columns along it —
+         * and not only a place to stand.
+         */
+        public int nextRun(Settlement settlement) {
             PathNetwork paths = settlement.paths();
             if (paths == null) {
-                return null;
+                return -1;
             }
             List<PathNetwork.Segment> segments = paths.segments();
             for (int i = 0; i < segments.size(); i++) {
                 if (!paths.isOpened(i) && !paths.isUnwalkable(i)) {
-                    // The middle of the run, so one walk covers a whole stretch
-                    // rather than a settler pacing it column by column.
-                    return midpointOf(segments.get(i));
+                    return i;
                 }
             }
+            return -1;
+        }
+
+        /**
+         * Nothing. A dirt path is shovel work.
+         *
+         * <p>Worth stating rather than leaving to the default, because it is the
+         * one thing that separates a road from the wall above it in this list. A
+         * fence post is a plank somebody carries out of the storehouse; a track
+         * is the ground that was already underfoot, trodden down. So a paving
+         * crew never walks to the stores, is never held up by an empty shelf, and
+         * can never be the reason a town runs out of timber — and a builder the
+         * wall has stranded at a bare warehouse is exactly the builder who should
+         * be out here instead.
+         *
+         * <p>The bridge over a stream is the exception that proves it, and it is
+         * free for the same reason {@code Bridge} has always given: a village
+         * that cannot cross its own brook because it is short of stone is a
+         * village with a bug in it, not one with a supply problem.
+         */
+        @Override
+        public String material() {
             return null;
         }
 
@@ -94,22 +196,16 @@ public final class PublicWorks {
 
         @Override
         public void completeOne(Settlement settlement, boolean worked) {
-            PathNetwork paths = settlement.paths();
-            if (paths == null) {
-                return;
-            }
-            List<PathNetwork.Segment> segments = paths.segments();
-            for (int i = 0; i < segments.size(); i++) {
-                if (!paths.isOpened(i) && !paths.isUnwalkable(i)) {
-                    paths.markOpened(i);
-                    return;
-                }
-            }
+            // Nothing per column. A street is opened or it is not; see
+            // finishStretch, which is where a run is written down.
         }
 
-        private static SimPos midpointOf(PathNetwork.Segment segment) {
-            List<SimPos> run = segment.positions();
-            return run.get(run.size() / 2);
+        @Override
+        public void finishStretch(Settlement settlement) {
+            int run = nextRun(settlement);
+            if (run >= 0) {
+                settlement.paths().markOpened(run);
+            }
         }
     }
 

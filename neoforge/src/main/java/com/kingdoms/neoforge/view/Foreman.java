@@ -1,12 +1,15 @@
 package com.kingdoms.neoforge.view;
 
 import com.kingdoms.neoforge.entity.PersonEntity;
+import com.kingdoms.neoforge.world.Bridge;
 import com.kingdoms.neoforge.world.HandDig;
+import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.neoforge.world.PerimeterLayer;
 import com.kingdoms.neoforge.world.WallClearing;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.BuildLoad;
 import com.kingdoms.sim.person.Person;
+import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Perimeter;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.work.PublicWorks;
@@ -82,13 +85,23 @@ public final class Foreman {
             if (!work.isWorthStarting(settlement)) {
                 continue;
             }
-            SimPos station = work.nextStation(settlement);
+            SimPos station = stationFor(level, settlement, work);
             if (station == null) {
                 continue;
             }
             BlockPos at = new BlockPos(station.x(), station.y(), station.z());
             if (!level.isLoaded(at)) {
-                continue;   // the far side of the town; the clock has that stretch
+                // The far side of the town; the clock has that stretch. A road
+                // is the exception: its stations are the crew's own place along
+                // a run and only they know it, so a column nobody can see has to
+                // be walked past rather than waited on. Waiting on it stops the
+                // run being opened at all, and the clock -- which sees only the
+                // near end, and that end loaded -- stands aside for a crew that
+                // is not coming, so every later street in the town waits behind
+                // it. What is walked past is laid by the mending sweep on the
+                // pass after somebody loads it.
+                skipColumn(settlement, work);
+                continue;
             }
             if (work instanceof PublicWorks.DismantleWork
                     && crossOffWhatIsAlreadyDown(level, settlement, work)) {
@@ -114,8 +127,15 @@ public final class Foreman {
                 if (settlement.nearestStore(station, owed) == null) {
                     continue;
                 }
-                loader.fetch(settlement, carrier, builder, owed);
-                return work;   // on the road to the stores
+                // Only if they are still walking. A builder who reaches the
+                // shelves and fills their arms this pass can get on with the
+                // work in it -- reporting them busy instead costs the town a
+                // whole pass in which nobody lays anything and no second builder
+                // is tried, which is the same waste the house-building loop
+                // avoids by asking the same question.
+                if (!loader.fetch(settlement, carrier, builder, owed)) {
+                    return work;   // on the road to the stores
+                }
             }
             if (builder.distanceToSqr(at.getX() + 0.5, at.getY(), at.getZ() + 0.5)
                     > WORK_REACH * WORK_REACH) {
@@ -126,6 +146,7 @@ public final class Foreman {
                 // stand aside, it would pin the work itself along with them.
                 if (!builder.getNavigation().moveTo(at.getX() + 0.5, at.getY(),
                         at.getZ() + 0.5, WALK_SPEED)) {
+                    skipColumn(settlement, work);
                     continue;
                 }
                 return work;
@@ -170,12 +191,26 @@ public final class Foreman {
                     at.getX() + 0.5, at.getY() + 1.0, at.getZ() + 0.5);
             builder.swing(InteractionHand.MAIN_HAND);
             level.playSound(null, at, SoundEvents.WOOD_PLACE, SoundSource.BLOCKS, 0.7F, 1.0F);
-            if (swingAt(level, settlement, work, station)) {
-                work.completeOne(settlement, true);
+            Swing swing = swingAt(level, settlement, work, station);
+            if (swing.done()) {
+                work.completeOne(settlement, swing.worked());
             }
             return work;
         }
         return null;
+    }
+
+    /**
+     * What a swing at a station came to.
+     *
+     * <p>Two answers rather than one, because a station being finished and a
+     * station having had work in it are different things. A retired position the
+     * away sweep already cleared is finished the moment the crew looks at it and
+     * must be crossed off, or they walk back to it for ever — and it must not be
+     * paid salvage, or a town moving its wall over ground somebody else already
+     * cleared makes timber out of nothing.
+     */
+    private record Swing(boolean done, boolean worked) {
     }
 
     /**
@@ -205,7 +240,10 @@ public final class Foreman {
                 break;
             }
             BlockPos at = new BlockPos(station.x(), station.y(), station.z());
-            if (!level.isLoaded(at) || PerimeterLayer.oursStandsAt(level, station)) {
+            // The sweep's own signature, and it has to be: a looser test would
+            // walk a crew across town to somebody's pen, take nothing out of it,
+            // and credit the town the salvage of a post that was never there.
+            if (!level.isLoaded(at) || PerimeterLayer.standsAsOurWall(level, station)) {
                 break;   // unread ground, or a post that is a job for somebody
             }
             work.completeOne(settlement, false);
@@ -232,23 +270,158 @@ public final class Foreman {
      * the work <em>is</em> rather than by its name, so the compiler is the thing
      * keeping the two lists in step.
      *
-     * @return whether the station is finished — one more and the town records it
+     * @return whether the station is finished, and whether there was work in it
      */
-    private static boolean swingAt(ServerLevel level, Settlement settlement, Worksite work,
-                                   SimPos station) {
+    private static Swing swingAt(ServerLevel level, Settlement settlement, Worksite work,
+                                 SimPos station) {
         if (work instanceof PublicWorks.WallWork) {
-            return plantPost(level, settlement);
+            return new Swing(plantPost(level, settlement), true);
         }
         if (work instanceof PublicWorks.DismantleWork) {
-            // Done either way, and this is only ever reached with something of
-            // ours standing here: a position already clear was crossed off before
-            // anybody was sent anywhere. A post that will not come out is one
-            // somebody has since built into, and standing over it for ever helps
-            // nobody.
-            PerimeterLayer.pullDownOurs(level, station);
-            return true;
+            // Finished either way. A post that will not come out is one somebody
+            // has since built into or a lone fence that was never ours, and
+            // standing over it for ever helps nobody -- but it is not a post
+            // pulled up, and the town is not paid for it.
+            return new Swing(true, PerimeterLayer.pullDownOurs(level, station));
         }
-        return true;   // a road stretch is opened by being walked out
+        if (work instanceof PublicWorks.RoadWork road) {
+            return new Swing(paveOne(level, settlement, road), true);
+        }
+        return new Swing(true, true);
+    }
+
+    // --- roads ---
+
+    /**
+     * How far along the run each settlement's paving crew has got.
+     *
+     * <p>Not saved, and it does not want to be. What it indexes is the columns of
+     * one stretch, and the work it records is written in the ground: a reload
+     * starts the crew at the near end again and they walk a run that is already
+     * paved, which costs them the walk and lays nothing, because
+     * {@code PathLayer.paveAt} writes only where a road is missing. A saved
+     * cursor would buy that walk back at the price of a number that could outlive
+     * the run it points into.
+     *
+     * <p>Keyed by where the run starts as well as by the town, so a crew that
+     * finishes one stretch and is handed the next begins at its near end rather
+     * than partway down it.
+     */
+    private static final java.util.Map<Settlement.Id, Paving> PAVING =
+            new java.util.HashMap<>();
+
+    /** Which run a crew is on and which of its cross-sections is next. */
+    private record Paving(SimPos from, int at) {
+    }
+
+    /** Drops what the crews remember, for a world that is closing. */
+    public static void forget() {
+        PAVING.clear();
+    }
+
+    /**
+     * Where this builder is wanted, which is not always the work's own answer.
+     *
+     * <p>A wall or a retired line hands out one position at a time and the town's
+     * own books say which — the post it has paid for, the post it has pulled up.
+     * A road has no such place to keep a count: a stretch is opened or it is not,
+     * and everything between those two is the crew walking. So the walking is
+     * kept here, and it is the one thing about a public work the settlement does
+     * not know.
+     */
+    private static SimPos stationFor(ServerLevel level, Settlement settlement,
+                                     Worksite work) {
+        if (!(work instanceof PublicWorks.RoadWork road)) {
+            return work.nextStation(settlement);
+        }
+        int index = road.nextRun(settlement);
+        if (index < 0) {
+            return null;
+        }
+        PathNetwork.Segment run = settlement.paths().segments().get(index);
+        List<SimPos> along = run.positions();
+        Paving paving = PAVING.get(settlement.id());
+        if (paving == null || !paving.from().equals(along.getFirst())) {
+            paving = new Paving(along.getFirst(), 0);
+            PAVING.put(settlement.id(), paving);
+        }
+        return along.get(Math.min(paving.at(), along.size() - 1));
+    }
+
+    /**
+     * Walks a paving crew's place along a run past a column they cannot work.
+     *
+     * <p>Ground nobody has loaded, or a column no route reaches. Neither can be
+     * waited on: the crew's place along a run is theirs alone, and the clock that
+     * would otherwise open the street sees only the near end of it — so a crew
+     * stopped at the twentieth column of a run whose first is loaded stalls a
+     * town's whole network, since every later stretch queues behind the one that
+     * is never opened. Walked past instead, and what is walked past is laid by
+     * the mending sweep on the pass after somebody loads it.
+     *
+     * <p>Nothing for any other work. A post is a place the town's own books name,
+     * so a wall or a retired line that cannot be reached is simply left to the
+     * sweep that owns it.
+     */
+    private static void skipColumn(Settlement settlement, Worksite work) {
+        if (!(work instanceof PublicWorks.RoadWork road)) {
+            return;
+        }
+        int index = road.nextRun(settlement);
+        Paving paving = PAVING.get(settlement.id());
+        if (index < 0 || paving == null) {
+            return;
+        }
+        List<SimPos> along = settlement.paths().segments().get(index).positions();
+        if (paving.at() + 1 >= along.size()) {
+            road.finishStretch(settlement);
+            PAVING.remove(settlement.id());
+        } else {
+            PAVING.put(settlement.id(), new Paving(paving.from(), paving.at() + 1));
+        }
+    }
+
+    /**
+     * One cross-section of a run, paved, and the run opened at the far end of it.
+     *
+     * <p>The crossing goes in first and whole. A bridge is carpentry rather than
+     * a sequence of independent columns — its arch is decided by the width of the
+     * water, and half an arch holds nothing up — so it is laid with the run as it
+     * always has been, and the crew then paves across it like any other ground.
+     *
+     * <p>A run the ground refuses is opened without being paved, which is what
+     * the sweep did with one before roads were work: better a gap in the network,
+     * which the town routes around and a player reads as untrodden ground, than a
+     * builder pacing thirty columns of cliff face laying nothing.
+     *
+     * @return whether this cross-section is done with
+     */
+    private static boolean paveOne(ServerLevel level, Settlement settlement,
+                                   PublicWorks.RoadWork work) {
+        int index = work.nextRun(settlement);
+        if (index < 0) {
+            return false;
+        }
+        PathNetwork.Segment run = settlement.paths().segments().get(index);
+        List<SimPos> along = run.positions();
+        Paving paving = PAVING.get(settlement.id());
+        int at = paving == null ? 0 : Math.min(paving.at(), along.size() - 1);
+        if (at == 0) {
+            if (!PathLayer.canBePaved(level, run)) {
+                work.finishStretch(settlement);
+                PAVING.remove(settlement.id());
+                return true;
+            }
+            Bridge.span(level, run);
+        }
+        PathLayer.paveAt(level, run, at);
+        if (at + 1 >= along.size()) {
+            work.finishStretch(settlement);
+            PAVING.remove(settlement.id());
+        } else {
+            PAVING.put(settlement.id(), new Paving(along.getFirst(), at + 1));
+        }
+        return true;
     }
 
     /**

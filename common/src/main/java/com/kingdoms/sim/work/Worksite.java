@@ -74,6 +74,18 @@ public interface Worksite {
     void completeOne(Settlement settlement, boolean worked);
 
     /**
+     * Records the whole stretch done, once its last station is.
+     *
+     * <p>Nothing for most works, because most of them count in stations: a wall
+     * is so many posts raised, and a post is finished the moment it is planted.
+     * A road is not. A settlement's books have no notion of half a street — a
+     * stretch is opened or it is not — so the paving is written down here, when
+     * the crew has walked the whole run, rather than a column at a time.
+     */
+    default void finishStretch(Settlement settlement) {
+    }
+
+    /**
      * What one station is made of, or null when the work costs only labour.
      *
      * <p>The material a builder has to be <em>holding</em>, in the sense

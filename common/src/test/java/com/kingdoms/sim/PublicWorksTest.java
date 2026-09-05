@@ -5,6 +5,7 @@ import com.kingdoms.sim.person.BuildLoad;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
+import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Perimeter;
@@ -86,30 +87,42 @@ class PublicWorksTest {
         assertNotNull(roads().nextStation(town), "so there is a job to go and do");
     }
 
+    /**
+     * A run is opened when the crew reaches the far end of it, not before.
+     *
+     * <p>The claim that changed, and it is the whole of the roads complaint. A
+     * station used to be the middle of a run and one swing there opened the
+     * entire street — the paving was then stamped in behind the builder by a
+     * sweep. A crew paves as it walks now, so a column done is not a street
+     * opened: the town's books have no notion of half a street, so the opening
+     * is recorded once, at the end, by {@code finishStretch}.
+     */
     @Test
-    void openingAStretchTakesItOffTheList() {
+    void aStretchIsOpenedAtTheEndOfTheWalkAndNotAtTheStart() {
         Settlement town = town();
         town.paths().add(new PathNetwork.Segment(
                 new SimPos(0, 64, 0), new SimPos(8, 64, 0)));
 
         roads().completeOne(town, true);
+        assertFalse(town.paths().isOpened(0),
+                "one cross-section paved is not a street anybody can walk");
+
+        roads().finishStretch(town);
 
         assertTrue(town.paths().isOpened(0));
         assertNull(roads().nextStation(town), "nothing left outstanding");
     }
 
     @Test
-    void aRoadStationIsInTheMiddleOfTheRunNotItsEnd() {
-        // One walk should cover a stretch, rather than a settler pacing it
-        // column by column.
+    void aRoadCrewStartsAtTheNearEndOfTheRun() {
+        // The station used to be the middle, because one walk covered the whole
+        // stretch. The crew walks it now, so they start at one end of it.
         Settlement town = town();
-        town.paths().add(new PathNetwork.Segment(
-                new SimPos(0, 64, 0), new SimPos(10, 64, 0)));
+        PathNetwork.Segment run = new PathNetwork.Segment(
+                new SimPos(0, 64, 0), new SimPos(10, 64, 0));
+        town.paths().add(run);
 
-        SimPos station = roads().nextStation(town);
-
-        assertTrue(station.x() > 2 && station.x() < 8,
-                "somewhere along it, not at either end: " + station);
+        assertEquals(run.positions().getFirst(), roads().nextStation(town));
     }
 
     @Test
@@ -343,6 +356,91 @@ class PublicWorksTest {
     void aTownThatNeverMovedItsWallHasNothingToDismantle() {
         Settlement town = walled(new QuietBridge());
         assertNull(dismantling().nextStation(town));
+    }
+
+    // --- whose hands are on what ---
+
+    /** A town with somewhere to keep its timber, so the wall has a shelf to draw on. */
+    private static Settlement withAStorehouse(Settlement town) {
+        Building store = new Building("kingdoms:storehouse", new SimPos(4, 64, 4), 1, true);
+        store.stores().add(TownStores.WOOD, 512);
+        town.addBuilding(store);
+        return town;
+    }
+
+    private static PathNetwork.Segment aRunToOpen(Settlement town) {
+        PathNetwork.Segment run = new PathNetwork.Segment(
+                new SimPos(0, 64, 0), new SimPos(8, 64, 0));
+        town.paths().add(run);
+        return run;
+    }
+
+    @Test
+    void aTownWithNobodyInItHasNoHandsOnAnything() {
+        // Which is what leaves the clock everything. The whole rule is a
+        // negation: where there is a hand there is no clock.
+        Settlement town = town();
+        aRunToOpen(town);
+
+        assertNull(PublicWorks.handsAreOn(town, new LoadedBridge()),
+                "a builder on the roster is not a builder standing in the world");
+    }
+
+    @Test
+    void aBuilderWithAHouseToRaiseHasNoHandsToSpare() {
+        Settlement town = town();
+        embodyTheBuilder(town);
+        aRunToOpen(town);
+        town.enqueueBuild(new com.kingdoms.sim.settlement.BuildTask(
+                "kingdoms:cottage", new SimPos(20, 64, 20), 40));
+
+        assertNull(PublicWorks.handsAreOn(town, new LoadedBridge()),
+                "shelter and stores before roads and walls");
+    }
+
+    @Test
+    void aTownWithOnlyRoadsOutstandingHasItsHandsOnTheRoads() {
+        Settlement town = town();
+        embodyTheBuilder(town);
+        aRunToOpen(town);
+
+        assertTrue(PublicWorks.handsAreOn(town, new LoadedBridge())
+                        instanceof PublicWorks.RoadWork,
+                "nothing else is outstanding, so this is where they would be sent");
+    }
+
+    /**
+     * A wall to raise means nobody is on the roads, so the road clock still runs.
+     *
+     * <p>The rule the reordering forced. Roads used to be the first work a crew
+     * was offered, so "is anybody here a builder" and "is anybody on the roads"
+     * were the same question, and the road clock could stand aside for the first.
+     * Under the wall they are not the same question at all: a town with a ring
+     * still going up has builders who are never coming to the street, and a clock
+     * that waited for them would leave it opened by nobody at all for as long as
+     * the wall took.
+     */
+    @Test
+    void aCrewOnTheWallIsNotACrewOnTheRoads() {
+        Settlement town = withAStorehouse(walled(new LoadedBridge()));
+        embodyTheBuilder(town);
+        aRunToOpen(town);
+
+        assertFalse(PublicWorks.handsAreOn(town, new LoadedBridge())
+                        instanceof PublicWorks.RoadWork,
+                "the wall is above the roads, and that is where the crew goes");
+    }
+
+    @Test
+    void anUnwatchedTownStillOpensOneStretchAStep() {
+        // The other half, unchanged: nobody is there, so the clock is all the
+        // town has. PavedStreetsTest measures the same rule over a grown town.
+        Settlement town = town();
+        embodyTheBuilder(town);
+        aRunToOpen(town);
+
+        assertNull(PublicWorks.handsAreOn(town, new QuietBridge()),
+                "the street is in a chunk nobody has loaded, so nobody is on it");
     }
 
     // --- and the order between them ---

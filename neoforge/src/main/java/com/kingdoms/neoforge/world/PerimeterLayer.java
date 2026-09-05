@@ -245,12 +245,7 @@ public final class PerimeterLayer {
      */
     public static boolean pullDownOurs(ServerLevel level, SimPos pos) {
         BlockPos ground = surface(level, pos);
-        if (ground == null) {
-            return false;
-        }
-        boolean post = isPostBlock(level.getBlockState(ground))
-                && isPostBlock(level.getBlockState(ground.above()));
-        if (!post && !level.getBlockState(ground).is(Blocks.OAK_FENCE_GATE)) {
+        if (ground == null || !standsAsOurWall(level, ground)) {
             return false;
         }
         boolean took = false;
@@ -265,6 +260,32 @@ public final class PerimeterLayer {
             }
         }
         return took;
+    }
+
+    /**
+     * Whether what stands in this column is the wall's own signature.
+     *
+     * <p>The whole of what keeps a demolition from being vandalism, and it has
+     * two readers now: the sweep that takes an old line down, and the crew asking
+     * whether a retired position is worth walking to. They have to be the same
+     * question — a crew sent by a looser test than the sweep's would walk across
+     * town to somebody's pen, take nothing out of it, and be credited the salvage
+     * of a post that was never there.
+     *
+     * <p>Two courses of fence, or a gate. A single course is not the wall's:
+     * a pen is fenced, a field is fenced, a bridge has railings, and every one of
+     * those is one course.
+     */
+    public static boolean standsAsOurWall(ServerLevel level, BlockPos ground) {
+        boolean post = isPostBlock(level.getBlockState(ground))
+                && isPostBlock(level.getBlockState(ground.above()));
+        return post || level.getBlockState(ground).is(Blocks.OAK_FENCE_GATE);
+    }
+
+    /** The same question, of a position on a line rather than of a footing. */
+    public static boolean standsAsOurWall(ServerLevel level, SimPos pos) {
+        BlockPos ground = surface(level, pos);
+        return ground != null && standsAsOurWall(level, ground);
     }
 
     /**
