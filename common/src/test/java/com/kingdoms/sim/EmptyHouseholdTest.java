@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * on the tick and on every tick after, so the client fell out of the world.
  *
  * <p>The shape of it. A household whose members have all died still has a home,
- * and a home the catalogue has no matching building for reports a capacity of
+ * and a home the catalog has no matching building for reports a capacity of
  * zero. Zero capacity reads as <em>full</em> — {@code size() < capacity} is
  * {@code 0 < 0} — so the planner decides the house is overcrowded and sends
  * "the most recently added member" out to found a family in the first vacant

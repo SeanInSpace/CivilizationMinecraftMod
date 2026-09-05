@@ -27,12 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * each fix measured perfectly clean here and changed nothing there. The reason
  * was not the fixes and not the rules — it was the ground. {@link TerrainFake},
  * which every other test in this project grows its towns on, is three sine waves
- * whose steepest step between neighbouring columns is <strong>one block</strong>.
+ * whose steepest step between neighboring columns is <strong>one block</strong>.
  * A rule that refuses ground climbing more than a block a step cannot fire on
  * it. Ever.
  *
  * <p>The same square of the world the reports came from, recorded, steps by up
- * to <strong>forty-five</strong> blocks, and thirty per cent of its neighbouring
+ * to <strong>forty-five</strong> blocks, and thirty per cent of its neighboring
  * columns differ by two or more. That is the difference between a suite that can
  * see this class of fault and one that certifies it.
  *
@@ -84,7 +84,7 @@ class RealTerrainRoadsTest {
      * refused whatever the terrain does, and testing terrain first sent the
      * cursor past ground that was fine.
      *
-     * <p>What reaches the remaining four is levelling the ground they stand on.
+     * <p>What reaches the remaining four is leveling the ground they stand on.
      * The machinery for that exists and does not yet fire on this terrain,
      * because siting finds flat ground before it needs to level any — so this
      * is a ceiling to stop the number growing quietly, not a target that has
@@ -173,7 +173,7 @@ class RealTerrainRoadsTest {
                 "the recorded ground steps by only " + terrain.field().steepestStep()
                         + " blocks, which is too smooth to test a slope rule on");
         assertTrue(terrain.field().covers(CENTRE.x(), CENTRE.z()),
-                "the recording does not cover the town centre it was captured for");
+                "the recording does not cover the town center it was captured for");
     }
 
     @Test

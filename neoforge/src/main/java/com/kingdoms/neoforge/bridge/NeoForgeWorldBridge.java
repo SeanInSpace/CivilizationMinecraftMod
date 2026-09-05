@@ -164,10 +164,10 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      */
     private static final int MAX_SLOPE = 4;
 
-    /** Columns sampled for slope across a plot. The corners and centre catch what matters. */
+    /** Columns sampled for slope across a plot. The corners and center catch what matters. */
     private static final int SAMPLE_STEP = 2;
 
-    /** Half the widest plot the catalogue asks for, which is the animal farm's. */
+    /** Half the widest plot the catalog asks for, which is the animal farm's. */
     private static final int WIDEST_PLOT_HALF = BuildCatalogue.DEFAULT.stream()
             .mapToInt(BuildingType::plotSpan)
             .max()
@@ -290,7 +290,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     /**
-     * The same judgement as {@link #isSiteSuitable}, scored rather than vetoed.
+     * The same judgment as {@link #isSiteSuitable}, scored rather than vetoed.
      *
      * <p>Zero exactly where that returns true, which is what makes the two safe
      * to use together: the settlement asks this once per candidate and reads a
@@ -462,7 +462,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
      * A settlement should not walk past good ground because of a pit it is
      * about to floor over anyway.
      *
-     * <p>So the judgement is made on the <em>bulk</em> of the plot rather than
+     * <p>So the judgment is made on the <em>bulk</em> of the plot rather than
      * on its two most extreme columns, and what falls below is left to
      * {@code BlueprintPlacer.foundation}, which already packs a floor up to its
      * line and is already bounded at {@code FOUNDATION_DEPTH} courses. Anything
@@ -663,7 +663,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
 
     /**
      * The observed half of a raid: real zombies in a ring at the edge of town,
-     * nudged toward the centre so vanilla targeting (zombies already hunt
+     * nudged toward the center so vanilla targeting (zombies already hunt
      * villagers) takes over. Entity combat decides everything from here — every
      * villager death flows through the normal view-death path.
      */

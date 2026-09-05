@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * A town's arrangement, across a save.
  *
  * <p>A people can build in several arrangements now and picks between them by
- * hashing the town's centre. That is fine for choosing one and hopeless for
+ * hashing the town's center. That is fine for choosing one and hopeless for
  * keeping it: the day the hash changes, every town in every world would be a
  * different shape from the streets it already has on the ground. So the choice
  * is written down, and these are the two halves of what that has to mean —
@@ -48,7 +48,7 @@ class SettlementLayoutCodecTest {
         // Every world saved before this field existed. The town on the ground is
         // a gridiron of plots and nothing in the file says so, so the only safe
         // answer is the arrangement its people were building in at the time —
-        // the head of the list. Deriving one from the centre instead would
+        // the head of the list. Deriving one from the center instead would
         // re-plan a standing town into streets it does not have.
         Settlement town = new Settlement(Settlement.Id.random(), "Dromgar", CENTRE, 256);
         town.setCultureId(Culture.ORC.id());

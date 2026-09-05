@@ -59,9 +59,9 @@ public final class TownStores implements Stock {
      * 2:1 — {@link BuildPlanner#WOOD_PER_WORK} against
      * {@link BuildPlanner#STONE_PER_WORK} — so a party carrying equal parts spends
      * its last log with half its stone untouched, and every log short of the
-     * programme is a building nobody finishes.
+     * program is a building nobody finishes.
      *
-     * <p>The programme is what these have to cover: the paid entries of CAMP,
+     * <p>The program is what these have to cover: the paid entries of CAMP,
      * HOMESTEAD and FORTIFIED, which is everything {@code StagePlanner.PROGRAMS}
      * names except the farm and the lumber camp (free, because
      * {@link BuildPlanner#PRODUCER_OF} exempts a town's way out of a shortage from
@@ -74,7 +74,7 @@ public final class TownStores implements Stock {
      * without a storehouse can hold, so a kit sized much above this one arrives at
      * its own ceiling and the lumber camp built at FORTIFIED fells into a full
      * store — {@code LumberPlanner.wantsMoreTimber} is false and the axes stop
-     * before they start. The founding programme costs 464 of a possible 512, so
+     * before they start. The founding program costs 464 of a possible 512, so
      * the whole design has forty-eight of slack in it and this kit takes sixteen
      * of that as its reserve, leaving thirty-two of headroom for the first felled
      * log. Widening the cushion means widening the ceiling, not the kit.
@@ -86,7 +86,7 @@ public final class TownStores implements Stock {
      * the cheaper half. Timber has a rescue inside the founding itself — FORTIFIED
      * raises the lumber camp first and free, so a town that runs low on logs is
      * already felling, and any timber the estimate failed to foresee is felled
-     * rather than carried. Stone has no such rescue: no stage programme orders a
+     * rather than carried. Stone has no such rescue: no stage program orders a
      * mine at all, so the only mine a founding party ever gets is the one
      * {@link BuildPlanner#requestProducer} shoves to the head of the queue the
      * moment the stores run dry — the whole party diverted into an unplanned
@@ -99,7 +99,7 @@ public final class TownStores implements Stock {
      *
      * <p>The provisions are left alone, and the arithmetic for that is
      * {@code whatTheSettlersPackedOutlastsTheRoadToTheProgramsFirstFarm}: the
-     * programme puts the farm fourth, so a lone builder reaches a standing field
+     * program puts the farm fourth, so a lone builder reaches a standing field
      * in 95 steps and the loaves in one settler's pockets feed them for 120. The
      * old road — hall, three houses, granary, then a field — ran to some two
      * hundred, and is the reason the larder looks as generous as it does.
@@ -125,7 +125,7 @@ public final class TownStores implements Stock {
      *
      * A hall went from seven by seven to thirteen by eleven and a house from
      * five to nine, because every street in the mod was spaced for buildings
-     * roughly twice the size of the ones being put on it. The programme those
+     * roughly twice the size of the ones being put on it. The program those
      * two head is what the kit exists to buy, and its bill went from 446 timber
      * to 624 -- so the old kit bought about three quarters of a founding and
      * then stopped, with the party standing on an unfinished hall.

@@ -28,7 +28,7 @@ import java.util.Optional;
  * transformed, put in build order, and cached — but only when the source says
  * they may be, since a terrain-fitted shape is different at every site.
  *
- * <p>Server-thread only. No synchronisation, deliberately: a torn read here
+ * <p>Server-thread only. No synchronization, deliberately: a torn read here
  * would be a bug worth crashing on rather than one worth hiding behind a lock.
  */
 public final class Blueprints {

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * caught by looking. The first version kept a stretch when either end was inside
  * a radius, which cannot trim a street made of one stretch — so a ring town's
  * spokes paved in full, and the photograph of them running off the frame read as
- * roads leaving town. The second measured that radius from the town's centre,
+ * roads leaving town. The second measured that radius from the town's center,
  * which throws away a road running <em>alongside</em> the town: a thorp's outer
  * tracks sit further from the middle than its furthest house, so all three went,
  * and their lanes were left in the grass with yards on the end and no road home.
@@ -37,7 +37,7 @@ class BuildTestTrimTest {
 
     @Test
     void groundBetweenTwoHousesIsPavedSoAStreetIsNotDashed() {
-        // The midpoint of a street between neighbours a pitch apart, at the
+        // The midpoint of a street between neighbors a pitch apart, at the
         // setback: about twenty-one blocks from either. If this fails a street
         // comes out in pieces.
         List<SimPos> houses = List.of(new SimPos(0, 64, 0), new SimPos(0, 64, 28));
@@ -54,7 +54,7 @@ class BuildTestTrimTest {
     @Test
     void aRoadRunningAlongsideTheTownIsKeptEvenThoughItIsFarFromTheMiddle() {
         // The fault that stranded a thorp's lanes. This ground is 150 blocks from
-        // the centre and 3 from a house; the old rule asked the first number.
+        // the center and 3 from a house; the old rule asked the first number.
         assertTrue(BuildTest.servesSomebody(new SimPos(153, 64, 0),
                 List.of(OUT_ON_A_FLANK)),
                 "a track alongside the town serves the houses on it");

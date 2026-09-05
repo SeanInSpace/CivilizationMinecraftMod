@@ -37,7 +37,7 @@ class FarmWorkerTest {
         // The fix. Planting adds a cell that then grows on its own; tending only
         // hurries one that already is.
         assertSame(PLANT, FarmWorker.nextJob(null, PLANT, TEND),
-                "fill the field before optimising it");
+                "fill the field before optimizing it");
     }
 
     @Test

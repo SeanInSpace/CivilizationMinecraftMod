@@ -219,7 +219,7 @@ public final class PublicWorks {
 
         @Override
         public boolean pay(Settlement settlement) {
-            return true;   // a track is trodden, not bought; the labour is the cost
+            return true;   // a track is trodden, not bought; the labor is the cost
         }
 
         @Override
@@ -327,7 +327,7 @@ public final class PublicWorks {
      * <p>A settlement that outgrows its palisade stakes a wider one, and the two
      * must never both stand: an old ring left up inside a new one is a fence
      * through the middle of a town, and it shuts settlers out of their beds
-     * however honourable its history. So the old posts come up the same way they
+     * however honorable its history. So the old posts come up the same way they
      * went in — somebody walks to them and pulls them out, in the order the line
      * was walked, which is what {@link Perimeter#pulled()} counts.
      *

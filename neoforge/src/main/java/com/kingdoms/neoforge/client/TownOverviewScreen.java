@@ -193,7 +193,7 @@ public final class TownOverviewScreen extends Screen {
     }
 
     /**
-     * Something recognisable to stand for each store.
+     * Something recognizable to stand for each store.
      *
      * <p>Falls through to a chest for anything unknown, so a resource added by a
      * datapack or another mod still gets a row rather than crashing the screen.

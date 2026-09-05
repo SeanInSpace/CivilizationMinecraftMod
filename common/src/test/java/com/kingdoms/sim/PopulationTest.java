@@ -27,9 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Covers births, families, and the housing constraint.
  *
- * <p>The catalogue here uses an unreachable minimum population so the build planner
+ * <p>The catalog here uses an unreachable minimum population so the build planner
  * never queues anything. Houses are placed by hand, which is what makes these tests
- * able to isolate population behaviour from construction.
+ * able to isolate population behavior from construction.
  */
 class PopulationTest {
 

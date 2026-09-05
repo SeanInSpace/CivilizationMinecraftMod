@@ -45,7 +45,7 @@ class PavedStreetsTest {
         }
         // After the culture, which un-settles it: a people builds in several
         // arrangements now, and the fixture wants the one it asked for rather
-        // than the one this centre happens to hash to.
+        // than the one this center happens to hash to.
         town.setLayoutId(layout);
         assertEquals(layout, town.arrangement().id(), "fixture did not select " + layout);
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
@@ -197,7 +197,7 @@ class PavedStreetsTest {
 
     @Test
     void aRunGivesItsOldAnswersWhenItIsAxisAligned() {
-        // The generalisation to diagonals is only safe if nothing that existed
+        // The generalization to diagonals is only safe if nothing that existed
         // changed, and every road in every existing world is axis-aligned.
         PathNetwork.Segment run = new PathNetwork.Segment(
                 new SimPos(0, 64, 0), new SimPos(40, 64, 0));

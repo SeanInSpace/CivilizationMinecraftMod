@@ -120,12 +120,12 @@ class LayoutTest {
             // A lattice is the same shape wherever it is put, and that is worth
             // holding: it is what makes rings rings. Some arrangements are
             // deliberately not — their throws or their bends are seeded from the
-            // town's own centre, so two villages of the same people are not the
+            // town's own center, so two villages of the same people are not the
             // same village twice. The layout says which it is, rather than this
             // test naming the exceptions: as a list of ids it was really the rule
             // "every layout except the ones that break it", and it would have
             // silently covered up the next one. What the rule is actually for is
-            // that a layout must build around the centre it is HANDED rather than
+            // that a layout must build around the center it is HANDED rather than
             // one it remembers, and that is asserted for all of them below.
             if (layout.isSameShapeEverywhere()) {
                 assertEquals(there.x() - elsewhere.x(), here.x() - CENTRE.x(),
@@ -135,11 +135,11 @@ class LayoutTest {
             }
 
             assertTrue(near(here, CENTRE) && near(there, elsewhere),
-                    layout.id() + " put a plot nowhere near the centre it was given");
+                    layout.id() + " put a plot nowhere near the center it was given");
         }
     }
 
-    /** Whether a plot is close enough to be part of that centre's town at all. */
+    /** Whether a plot is close enough to be part of that center's town at all. */
     private static boolean near(SimPos plot, SimPos centre) {
         return Math.max(Math.abs(plot.x() - centre.x()),
                         Math.abs(plot.z() - centre.z())) < 400;
@@ -188,8 +188,8 @@ class LayoutTest {
     @Test
     void aStreetsFrontageFollowsItsBends() {
         // The trap in curving a street is curving only the picture. The setback
-        // is measured from the centreline, so if the drawn road bends and the
-        // frontage does not, the gap closes and the house ends up on the kerb --
+        // is measured from the centerline, so if the drawn road bends and the
+        // frontage does not, the gap closes and the house ends up on the curb --
         // which is exactly the fault this layout has already had once, from a
         // different cause. So: every plot that fronts a street must actually be
         // near that street, however much the street wanders.
@@ -230,7 +230,7 @@ class LayoutTest {
         // showed up here first and nowhere else:
         //
         //   ring roads pitched like a straight street        20%
-        //   ring faces spaced on the centreline              25%
+        //   ring faces spaced on the centerline              25%
         //   plot square expanded into a square, not a disc   25%
         //   spokes that refuse frontage and offer none       62%
         //   with frontage on the spokes                      72%
@@ -365,7 +365,7 @@ class LayoutTest {
                 .streets().get(0).path();
         int same = 0;
         for (int i = 0; i < Math.min(here.size(), there.size()); i++) {
-            // Compared as offsets from each town's own centre, or every point
+            // Compared as offsets from each town's own center, or every point
             // differs for the trivial reason that the towns are far apart.
             if (here.get(i).x() - CENTRE.x() == there.get(i).x() - 2048) {
                 same++;
@@ -407,9 +407,9 @@ class LayoutTest {
     @Test
     void theVillagesInnermostRingIsTooTightForItsOwnPlots() {
         // A defect, recorded rather than hidden, and not introduced here: with
-        // eight slots at a radius of twelve, neighbouring plots sit four across
+        // eight slots at a radius of twelve, neighboring plots sit four across
         // and eight deep, and a pair that close on BOTH axes fouls. So the
-        // innermost ring of every human town cannot hold two neighbouring
+        // innermost ring of every human town cannot hold two neighboring
         // buildings, and the overlap check quietly refuses one of each pair.
         //
         // Harmless enough to have gone unnoticed -- an index is only spent when
@@ -465,7 +465,7 @@ class LayoutTest {
         // The structural difference, measured rather than eyeballed. A village
         // puts every plot on one of a handful of radii -- that is what a ring
         // is. A warren's knots sit wherever the last one budded, so its plots
-        // are scattered across many different distances from the centre.
+        // are scattered across many different distances from the center.
         assertTrue(distinctRadii(Layouts.WARREN) > 3 * distinctRadii(Layouts.RING),
                 "a warren has no rings to speak of; a village is nothing but rings");
     }
@@ -485,7 +485,7 @@ class LayoutTest {
         assertSame(Layouts.RING, Layouts.of(Culture.NORMAN.layouts().get(0)));
         assertSame(Layouts.WARREN, Culture.GOBLIN.arrangementFor(CENTRE));
         // The orcs build in two now, so this asks for the one they have always
-        // built in rather than for whatever this centre happens to choose.
+        // built in rather than for whatever this center happens to choose.
         assertSame(Layouts.STRONGHOLD, Layouts.of(Culture.ORC.layouts().get(0)));
     }
 
@@ -587,7 +587,7 @@ class LayoutTest {
                 "asked outright to forget it, the town kept it anyway");
     }
 
-    /** A centre this people lays out in that arrangement, for a fixture that needs one. */
+    /** A center this people lays out in that arrangement, for a fixture that needs one. */
     private static SimPos whereTheyBuild(Culture culture, String layout) {
         for (int i = 0; i < 10_000; i++) {
             SimPos at = new SimPos(i * 97, 72, i * -53);
@@ -629,7 +629,7 @@ class LayoutTest {
         return shared;
     }
 
-    /** How many different distances from the centre the first forty plots sit at. */
+    /** How many different distances from the center the first forty plots sit at. */
     private static int distinctRadii(Layout layout) {
         Set<Long> radii = new HashSet<>();
         for (int i = 0; i < 40; i++) {
@@ -686,7 +686,7 @@ class LayoutTest {
     /**
      * Something stands in the middle of the green.
      *
-     * <p>A town drawn round a centre with nothing at the centre reads as a
+     * <p>A town drawn round a center with nothing at the center reads as a
      * roundabout. The hall goes on the green because the plan offers the middle
      * and offers are taken nearest-first, so this is really a test that the
      * offer survives the sort and the fits check -- both of which have refused
@@ -756,7 +756,7 @@ class LayoutTest {
      * it the one part nothing else would notice the loss of. Every other
      * invariant here is satisfied by a town that quietly fills its own middle in:
      * the plots still front streets, still clear each other, still keep out of
-     * the road. Measured on the building rather than on its centre, because a
+     * the road. Measured on the building rather than on its center, because a
      * market with the corners of four houses in it is not open ground.
      */
     @Test
@@ -937,7 +937,7 @@ class LayoutTest {
      *
      * <p>Both halves matter and only the first is obvious. A square with nothing
      * facing it is a gap in the plan rather than a place, and the way to end up
-     * with one is to leave the block out and let the neighbouring blocks go on
+     * with one is to leave the block out and let the neighboring blocks go on
      * fronting the streets they always fronted — which turns their backs on it
      * from two sides out of four. So the eight nearest plots in the town are
      * asserted to be a ring round the square with their doors on it.
@@ -1075,9 +1075,9 @@ class LayoutTest {
      * positions in the first forty.
      *
      * <p>The structural half is the more useful one. The stronghold rules its
-     * streets through the middle of the town, so the centre of an orc grid is a
+     * streets through the middle of the town, so the center of an orc grid is a
      * crossroads. The bastide offsets the whole grid by half a block, so the
-     * centre is the middle of a block and that block is the market. Same idea,
+     * center is the middle of a block and that block is the market. Same idea,
      * opposite decision about the one square in the town that anybody looks at.
      */
     @Test
@@ -1229,9 +1229,9 @@ class LayoutTest {
         // deliberately not asserted to be anything else. The plan is where the
         // shape lives, and it is the plan that would quietly become a circle.
         //
-        // Off a fresh instance, because the shared one caches a plan per centre
-        // and re-lays it BIGGER for whoever asks that centre for a bigger town.
-        // The centre here is the fitness suite's centre bar the height, which
+        // Off a fresh instance, because the shared one caches a plan per center
+        // and re-lays it BIGGER for whoever asks that center for a bigger town.
+        // The center here is the fitness suite's center bar the height, which
         // the cache key ignores, and a settlement hunting for room walks its
         // plot index out to five hundred and twelve. One such call anywhere in
         // this JVM first turns the plan into a three-lane one and every

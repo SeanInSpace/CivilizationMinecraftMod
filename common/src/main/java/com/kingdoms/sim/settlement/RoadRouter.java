@@ -20,7 +20,7 @@ import java.util.PriorityQueue;
  * Refusal alone leaves holes: streets that never appear, doors stranded from
  * roads that were planned and never built, a network that shrinks every time
  * the rules get stricter. A town on rough ground ended up with fewer roads the
- * better its judgement got, which is precisely backwards.
+ * better its judgment got, which is precisely backwards.
  *
  * <p>So a street keeps its <em>intent</em> — where it starts, where it ends,
  * what it is for — and gives up its exact line. The router searches a corridor
@@ -33,7 +33,7 @@ import java.util.PriorityQueue;
  * plots stay exactly where the plan put them. The plan does not need to know
  * this happened.
  *
- * <p>Deterministic by construction: integer costs, a fixed neighbour order, and
+ * <p>Deterministic by construction: integer costs, a fixed neighbor order, and
  * ties broken on coordinates. The same street on the same ground routes the same
  * way on every machine and after every reload — which matters because the answer
  * is persisted, and a road that re-derived differently would be laid twice.
@@ -299,7 +299,7 @@ public final class RoadRouter {
      *
      * <p>A lattice walk names a cell every four blocks; a street wants to be a
      * handful of runs. Any point within a block of the line between its
-     * neighbours is doing no work and goes.
+     * neighbors is doing no work and goes.
      */
     private static List<SimPos> simplify(List<SimPos> line, TerrainSense ground,
                                          Keepout keepout) {

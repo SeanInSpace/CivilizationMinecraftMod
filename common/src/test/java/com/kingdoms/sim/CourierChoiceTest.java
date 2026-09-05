@@ -139,7 +139,7 @@ class CourierChoiceTest {
         Person idler = hire(s, Profession.IDLER);
         SupplyPlanner.advance(s, CTX);
 
-        assertNotNull(idler.haul(), "the load was waiting, not cancelled");
+        assertNotNull(idler.haul(), "the load was waiting, not canceled");
     }
 
     // --- never ---

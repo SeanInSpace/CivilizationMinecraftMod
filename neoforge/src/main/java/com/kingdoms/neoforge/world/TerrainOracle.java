@@ -164,7 +164,7 @@ public final class TerrainOracle {
      *
      * <p>A thousand rather than the first draft's three hundred, because the
      * grain changed what a sample costs. Callers now ask on the same four-block
-     * grid this remembers on, so the first candidate plot in a neighbourhood
+     * grid this remembers on, so the first candidate plot in a neighborhood
      * pays for its readings and every candidate after it is answered from
      * memory. The budget bounds a cold start, not the steady state.
      */
@@ -226,7 +226,7 @@ public final class TerrainOracle {
     }
 
     /**
-     * The worst step between neighbours across a square of this half-width.
+     * The worst step between neighbors across a square of this half-width.
      *
      * <p>The worst step rather than the average, because a plot does not care
      * what the mean gradient is — it cares about the deepest course it has to
@@ -439,7 +439,7 @@ public final class TerrainOracle {
         }
         // Real ground first, if the budget allows and nothing better is known.
         // One chunk answers sixty-four of these grain cells, so a miss here
-        // usually pays for its neighbours too.
+        // usually pays for its neighbors too.
         if ((remembered == null || (remembered & FROM_SURFACE) == 0)
                 && groundChunksThisTick++ < GROUND_CHUNKS_PER_TICK
                 && readGroundChunk(x >> 4, z >> 4)) {

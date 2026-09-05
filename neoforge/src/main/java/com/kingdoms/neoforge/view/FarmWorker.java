@@ -165,7 +165,7 @@ public final class FarmWorker {
      * looks like. It read as something destroying the wheat. Nothing was.
      *
      * <p>Planting adds a cell that then grows on its own; tending only hurries
-     * one that already is. Fill the field, then optimise it.
+     * one that already is. Fill the field, then optimize it.
      */
     static BlockPos nextJob(BlockPos harvest, BlockPos plant, BlockPos tend) {
         if (harvest != null) {

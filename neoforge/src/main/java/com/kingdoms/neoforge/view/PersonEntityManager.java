@@ -218,7 +218,7 @@ public final class PersonEntityManager {
     /** How far to hunt for a spot a body fits when spawning someone in. */
     private static final int FOOTING_SEARCH = 8;
 
-    /** A drop of at least this counts as stranded rather than a kerb. */
+    /** A drop of at least this counts as stranded rather than a curb. */
     private static final int MIN_STRANDED_DROP = 3;
 
     /** How far down to look for a floor to climb to. */
@@ -1215,7 +1215,7 @@ public final class PersonEntityManager {
      * Over a hole, the first solid thing is a long way below and
      * {@link #floorBelow} finds it. On a roof it is directly underfoot, the drop
      * reads nought against {@link #MIN_STRANDED_DROP}, and the old test threw the
-     * case away as a kerb — so the crew who had just laid the last course of a
+     * case away as a curb — so the crew who had just laid the last course of a
      * cottage stood on it until something else happened to them. They are not
      * over a hole; they are on top of the building they finished.
      */
@@ -1295,10 +1295,10 @@ public final class PersonEntityManager {
      *
      * <p><strong>The walls, not the recorded plot.</strong> A footprint is saved
      * as the building plus its doorstep ring — see {@code BlueprintPlacer.plotOf},
-     * which adds {@code APRON_MARGIN} on every side — and two neighbours' rings
+     * which adds {@code APRON_MARGIN} on every side — and two neighbors' rings
      * are allowed to meet, so recorded plots overlap where the buildings do not.
      * Asked of the plot, a builder on one cottage's roof standing inside the
-     * next cottage's apron could be attributed to the neighbour, and the flight
+     * next cottage's apron could be attributed to the neighbor, and the flight
      * of steps would then be ordered onto a roof he is not on.
      *
      * <p><strong>The roof line, not three courses.</strong> "Three above the
@@ -1400,7 +1400,7 @@ public final class PersonEntityManager {
      * taste. {@code accessStairs} draws its treads outward from the origin it is
      * given and stops the moment a tread would be at or below
      * {@code groundLevel}, which is the surface heightmap — and over a building
-     * the surface heightmap <em>is the roof</em>. Anchored at the centre, the very
+     * the surface heightmap <em>is the roof</em>. Anchored at the center, the very
      * first tread reads as underground and the flight comes out empty: a job worth
      * four units of work with a plan of nothing in it, which can never read
      * complete, pins the head of a head-blocking queue until the watched-build
@@ -1542,7 +1542,7 @@ public final class PersonEntityManager {
 
                 // The building's own door, not a guess at one. This used to
                 // assume every door faced south while the placer turned three
-                // houses in four to face the centre, so the flight of steps was
+                // houses in four to face the center, so the flight of steps was
                 // built against a blank wall of the house it was meant to open.
                 SimPos doorway = doorwayOf(settlement, home);
                 if (BuildPlanner.requestAccessStairs(settlement, doorway, climb, world.stepsElapsed())) {
@@ -1783,7 +1783,7 @@ public final class PersonEntityManager {
         }
         // Drawn from the building they walked to, not from a town-wide figure.
         // The walk and the withdrawal have to name the same shelves or the trip
-        // is theatre — which is exactly what it used to be. Whatever they were
+        // is theater — which is exactly what it used to be. Whatever they were
         // still carrying goes back on those same shelves rather than evaporating.
         Stock from = store == null ? settlement.stores() : store.stores();
         if (BuildLoad.pickUp(from, carrier, material) <= 0) {
@@ -2050,7 +2050,7 @@ public final class PersonEntityManager {
      * <p>Every {@code Mob} is collected and the table does the whittling, exactly
      * as the sweep does it, so a guard goes for the thing the bell was rung
      * about. Citizens are refused by that table like any other creature filed
-     * under a peaceful category — no guard is offered his own neighbour.
+     * under a peaceful category — no guard is offered his own neighbor.
      */
     private Mob nearestHostile(PersonEntity guard) {
         AABB box = guard.getBoundingBox().inflate(GUARD_ENGAGE_RANGE);
@@ -2190,7 +2190,7 @@ public final class PersonEntityManager {
         view.setPersistenceRequired();
         view.setData(KingdomsAttachments.PERSON_ID.get(), person.id().value());
 
-        // Registered before addFreshEntity so the join hook recognises our own spawn.
+        // Registered before addFreshEntity so the join hook recognizes our own spawn.
         tracked.put(person.id().value(), view);
         if (!level.addFreshEntity(view)) {
             tracked.remove(person.id().value());
@@ -2376,7 +2376,7 @@ public final class PersonEntityManager {
      * <p>The simulation has already decided — {@code RaidPlanner} rings when
      * what has been seen outnumbers the watch — and this is that decision made
      * audible. It swings a real bell if the town has one, so the sound comes
-     * from the tower rather than from nowhere, and falls back to the town centre
+     * from the tower rather than from nowhere, and falls back to the town center
      * for a settlement whose tower has not gone up yet.
      *
      * <p>Only on the rise. A bell that tolled every second for as long as a raid
@@ -2586,7 +2586,7 @@ public final class PersonEntityManager {
             case GUARD -> patrolPost(settlement, person);
             // A pioneer's workplace is whatever the camp is doing: the build
             // site while anything is queued, the fields otherwise, and
-            // nearestBuilding already falls back to the camp centre before
+            // nearestBuilding already falls back to the camp center before
             // there is a field to stand in.
             case PIONEER -> settlement.buildQueue().isEmpty()
                     ? nearestBuilding(settlement, "farm", person.position())
@@ -2622,7 +2622,7 @@ public final class PersonEntityManager {
         return nodes.get(atCorner ? (nearest + 1) % nodes.size() : nearest);
     }
 
-    /** Nearest completed building whose blueprint path ends with the suffix, else the centre. */
+    /** Nearest completed building whose blueprint path ends with the suffix, else the center. */
     private static SimPos nearestBuilding(Settlement settlement, String pathSuffix, SimPos from) {
         SimPos best = null;
         long bestDistance = Long.MAX_VALUE;
@@ -2703,11 +2703,11 @@ public final class PersonEntityManager {
     /**
      * What a surveyed line is drawn with.
      *
-     * <p>Coloured dust rather than end rods. An end rod spark is a point of
+     * <p>Colored dust rather than end rods. An end rod spark is a point of
      * light: a row of them half a block apart still reads as a row of dots,
      * which was the whole complaint. A dust particle takes a size, so at one and
      * a half it is wider than the gap between two of them and the row closes
-     * into a line. It also takes a colour, which lets the streets be told apart
+     * into a line. It also takes a color, which lets the streets be told apart
      * from the buildings at a glance -- amber ways, white walls.
      */
     private static final DustParticleOptions WALL_LINE =

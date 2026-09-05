@@ -134,7 +134,7 @@ class BuildPlannerTest {
         SimPos centre = new SimPos(0, 64, 0);
 
         // Ring 0 holds eight plots and the rings past it hold more, so indices in
-        // the twenties are neighbours inside the third course whatever the ring
+        // the twenties are neighbors inside the third course whatever the ring
         // is pitched at.
         SimPos a = BuildPlanner.plotFor(centre, 21);
         SimPos b = BuildPlanner.plotFor(centre, 22);
@@ -144,12 +144,12 @@ class BuildPlannerTest {
         // which is where the ring's arithmetic used to be kept in duplicate.
         int pitch = Layout.onACurve(Layout.MIN_PLOT_SEPARATION) + 1;
         assertTrue(gap <= pitch + 3,
-                "neighbours in an outer ring should stay ~" + pitch
+                "neighbors in an outer ring should stay ~" + pitch
                         + " apart, not drift into spokes (gap " + gap + ")");
 
         // The constant-8 layout put a plot at angle 0 of every ring. With
         // circumference packing plus stagger, consecutive rings' first plots no
-        // longer share a ray from the centre.
+        // longer share a ray from the center.
         SimPos ring1First = BuildPlanner.plotFor(centre, 8);
         SimPos ring2First = BuildPlanner.plotFor(centre, 21);
         assertTrue(ring1First.z() != 0 || ring2First.z() != 0,

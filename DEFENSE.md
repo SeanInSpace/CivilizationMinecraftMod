@@ -30,7 +30,7 @@ defense = guards × 2  +  sum of structure bonuses
 ```
 
 Guards contribute 2 each. Buildings contribute their `defenseBonus` from the
-catalogue — currently only the **watchtower, at +3**. (The bonus is a column in the
+catalog — currently only the **watchtower, at +3**. (The bonus is a column in the
 same table as everything else, so datapack cultures can have their own defensive
 structures later.)
 

@@ -361,7 +361,7 @@ public final class KingdomsCodecs {
             Codec.BOOL.optionalFieldOf("drawn_only", false).forGetter(Flavor::drawnOnly),
             // Which of its people's arrangements this town was laid out in. A
             // culture carries several now and picks between them by hashing the
-            // centre, so the answer has to be written down rather than worked
+            // center, so the answer has to be written down rather than worked
             // out again: a town that grew half its streets under one derivation
             // and half under another would be neither shape.
             //
@@ -535,13 +535,13 @@ public final class KingdomsCodecs {
         settlement.setCultureId(flavor.culture());
         // A save written before the layout was recorded takes the head of its
         // people's list, which is the arrangement that people has always built
-        // in. Deriving one from the centre instead would rearrange every town
+        // in. Deriving one from the center instead would rearrange every town
         // already standing in somebody's world, which is exactly what a new
         // arrangement is not allowed to do.
         settlement.setLayoutId(flavor.layout()
                 .orElseGet(() -> Culture.of(flavor.culture()).layouts().get(0)));
         // Saves from before stages existed carry no stage; they load as TOWN,
-        // which is the behaviour they were built under. Only fresh charters camp.
+        // which is the behavior they were built under. Only fresh charters camp.
         settlement.setStage(SettlementStage.parse(flavor.stage(), SettlementStage.TOWN));
         settlement.setDrawnOnly(flavor.drawnOnly());
         settlement.setFedStreak(flavor.fedStreak());

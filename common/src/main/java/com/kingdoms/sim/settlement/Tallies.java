@@ -27,7 +27,7 @@ public final class Tallies {
     public static final String BUILDINGS_RAISED = "buildings_raised";
 
     /**
-     * Buildings the town has lost — burnt, blown up, or pulled down.
+     * Buildings the town has lost — burned, blown up, or pulled down.
      *
      * <p>Counted rather than only logged because {@link #BUILDINGS_RAISED} on
      * its own reads as a town's size, and a town that has raised forty and lost

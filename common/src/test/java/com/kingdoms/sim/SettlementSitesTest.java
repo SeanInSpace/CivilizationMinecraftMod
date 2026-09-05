@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>The separation sweep is the one that earns its keep. The minimum distance
  * between two sites is a consequence of the jitter window and nothing enforces
- * it at runtime — no rejection pass, no neighbour query — so if
+ * it at runtime — no rejection pass, no neighbor query — so if
  * {@code EDGE_MARGIN} and {@code REGION} ever drift out of step with
  * {@code MIN_SEPARATION}, the only thing that notices is this.
  */
@@ -128,7 +128,7 @@ class SettlementSitesTest {
         // coincidence -- and would hide MIN_SEPARATION having been written down
         // far below what the jitter window actually allows, which is the way
         // this promise rots without any test going red. Over 576 regions two
-        // neighbours do jitter towards the edge they share: measured at 340
+        // neighbors do jitter towards the edge they share: measured at 340
         // blocks against a floor of 320.
         long closest = Long.MAX_VALUE;
         List<SettlementSites.Site> found = sweep(SEED, 24);
@@ -187,7 +187,7 @@ class SettlementSitesTest {
     void theSameSeedAndRegionGiveTheSameSiteInEveryJvm() {
         // Written down rather than derived, because the fault it guards against
         // is invisible to a run that only compares itself. Culture.all() is a
-        // Map.of, and Map.of iterates in an order that is randomised per JVM: a
+        // Map.of, and Map.of iterates in an order that is randomized per JVM: a
         // chooser reading it in that order is perfectly self-consistent within
         // one launch and gives a different people every time the game restarts.
         // A fixed expectation turns that into a test that passes today and fails
@@ -200,7 +200,7 @@ class SettlementSitesTest {
         // region stopped being a free draw when arrangements got weights: the
         // shape is drawn first and the people is then chosen from those who
         // build in it, so a table that asks for greens gets whoever builds a
-        // green. That is the intended behaviour and would make a pinned culture
+        // green. That is the intended behavior and would make a pinned culture
         // a test of the table rather than of the grid.
         assertEquals(new SimPos(-275, SettlementSites.UNRESOLVED_Y, 224),
                 SettlementSites.siteIn(SEED, -1, 0).orElseThrow().centre());

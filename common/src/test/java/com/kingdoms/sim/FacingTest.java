@@ -22,7 +22,7 @@ class FacingTest {
 
     @Test
     void abuildingNorthOfTheCentreFacesSouthAsDrawn() {
-        assertEquals(0, facing(0, -20), "centre is to the south, so no turn is needed");
+        assertEquals(0, facing(0, -20), "center is to the south, so no turn is needed");
     }
 
     @Test
@@ -32,8 +32,8 @@ class FacingTest {
 
     @Test
     void theEastAndWestSidesTurnOppositeWays() {
-        assertEquals(1, facing(20, 0), "centre to the west: a quarter clockwise");
-        assertEquals(3, facing(-20, 0), "centre to the east: three");
+        assertEquals(1, facing(20, 0), "center to the west: a quarter clockwise");
+        assertEquals(3, facing(-20, 0), "center to the east: three");
         assertNotEquals(facing(20, 0), facing(-20, 0));
     }
 
@@ -47,7 +47,7 @@ class FacingTest {
 
     @Test
     void aringOfBuildingsDoesNotAllFaceOneWay() {
-        // The whole point: four houses around a centre must not be four identical
+        // The whole point: four houses around a center must not be four identical
         // sheds facing the same direction.
         int north = facing(0, -20);
         int south = facing(0, 20);

@@ -104,7 +104,7 @@ class DemolitionTest {
     void andGoesOnTheHousingQueueWhenThereIsNowhereToMove() {
         // Homeless is not a failure state. An unhoused family is what housing
         // demand is made of, so a town that loses a cottage wants another one —
-        // which is the whole behaviour a demolition ought to produce.
+        // which is the whole behavior a demolition ought to produce.
         Settlement town = town();
         Building lost = built("kingdoms:house", 20, 20);
         town.addBuilding(lost);
@@ -293,7 +293,7 @@ class DemolitionTest {
     @Test
     void aFreshBuildOrderedOntoTheSamePlotIsSomebodysPlanAndStays() {
         // The other half. Only work aimed at the building that has gone is
-        // cancelled; a new building ordered onto the ground is a plan for the
+        // canceled; a new building ordered onto the ground is a plan for the
         // ground.
         Settlement town = town();
         Building lost = built("kingdoms:house", 20, 20);
@@ -377,7 +377,7 @@ class DemolitionTest {
     @Test
     void theWoodlandGoesBackWithTheLastCamp() {
         // A work area is a claim staked on behalf of a camp. Left behind, it is
-        // a licence to fell trees for a camp that burnt down.
+        // a license to fell trees for a camp that burned down.
         Settlement town = town();
         Building camp = built("kingdoms:lumber_camp", 20, 20);
         town.addBuilding(camp);
@@ -455,7 +455,7 @@ class DemolitionTest {
     @Test
     void aTownGoesOnRunningAfterLosingItsHallGranaryAndStore() {
         // The three worst losses at once, in one afternoon: the building the
-        // stage programme is built around, the larder every food planner reads,
+        // stage program is built around, the larder every food planner reads,
         // and a full storehouse. Two hundred steps afterwards is long enough for
         // the population, food, hauling, job, road, perimeter and repair passes
         // to have run over the hole several times each.
@@ -465,7 +465,7 @@ class DemolitionTest {
         Building granary = town.buildingWithRole(BuildingRole.GRANARY);
         Building store = town.buildingWithRole(BuildingRole.STORE);
         assertTrue(hall != null && granary != null && store != null,
-                "a seeded town stands the whole programme it climbed through");
+                "a seeded town stands the whole program it climbed through");
         store.stores().add(TownStores.WOOD, 200);
 
         town.removeBuilding(hall, 0, "a creeper");

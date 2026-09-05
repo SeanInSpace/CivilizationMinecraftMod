@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>What that looked like in play: 68 vertices and 2758 posts around a 289x285
  * town, drawn as nested boxes, corridors ending in nothing, and two full-width
- * walls straight through the centre. Every post of it was placed correctly. The
+ * walls straight through the center. Every post of it was placed correctly. The
  * shape was the fault, and a shape has no count that reveals it — which is why
  * the test is the property itself.
  */
@@ -179,7 +179,7 @@ class HullSimplicityTest {
     }
 
     /**
-     * A town whose plots are the sizes the catalogue reserves, arranged so the
+     * A town whose plots are the sizes the catalog reserves, arranged so the
      * near-edge ones are what a long stretch would cut across: a ring of
      * outliers with a dense middle, which is the arrangement that put a
      * measured town's wall through ten of its sixteen buildings.

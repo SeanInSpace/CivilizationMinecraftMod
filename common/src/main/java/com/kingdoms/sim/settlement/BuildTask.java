@@ -66,7 +66,7 @@ public final class BuildTask {
      * <p>A building is spread over {@code requiredWork} builder-steps' worth of
      * <em>laying</em>. Excavation is charged on top at the same rate, so a house
      * cut into a hillside genuinely takes longer than the same house on the flat
-     * rather than being quietly compressed to fit the catalogue's number.
+     * rather than being quietly compressed to fit the catalog's number.
      */
     private int planPlaceWork;
 

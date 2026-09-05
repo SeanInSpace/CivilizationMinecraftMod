@@ -69,7 +69,7 @@ For each family in a home a family can grow in:
   - **If the house has room** — a child is born. Population goes up by one. Progress resets.
   - **If the house is full** — one member moves out to found a new family in an empty house, if one exists. Population does **not** change; a person moved, nobody was born. Progress resets.
   - **If the house is full and there is no empty house** — nothing happens. Progress is *held* at the threshold, so the family splits the instant a house becomes available.
-  - **If the catalogue cannot say how big the house is** — nothing happens, and nothing ever will while that is true. No child, and nobody moved out. Progress is held exactly as above, so if the entry comes back the child arrives on the next step.
+  - **If the catalog cannot say how big the house is** — nothing happens, and nothing ever will while that is true. No child, and nobody moved out. Progress is held exactly as above, so if the entry comes back the child arrives on the next step.
 
 Unhoused families skip all of this. They do not accumulate progress at all.
 
@@ -79,7 +79,7 @@ The third branch is the odd one, and it is worth knowing about because it is the
 only way a family that has a home, food and a town under its cap can still never
 have a child.
 
-A building the settlement has no catalogue entry for — a blueprint renamed
+A building the settlement has no catalog entry for — a blueprint renamed
 between versions, one from a mod that is no longer loaded, a save older than the
 entry — has an **unknown** capacity, not a capacity of zero. The two used to be
 the same number, and zero reads as *full*, because the test is `size() < capacity`.
@@ -90,7 +90,7 @@ on a fixture with four empty houses to shed into: three members at step 0, two a
 
 Unknown now means the town has no opinion and does nothing: no births, no
 shedding, and the house is not offered to anybody looking for one. Zero still
-means zero — a shed is a building the catalogue *has* been asked about — and a
+means zero — a shed is a building the catalog *has* been asked about — and a
 household with no home, or one homed where no building stands, is zero too.
 
 If a family in your town never grows and you cannot see why, this is the thing to
@@ -103,7 +103,7 @@ is.
 
 *(Changed in Phase 2 — children previously inherited the family trade blindly, which meant a town founded by farmers could never build anything. Jobs are now assigned by need.)*
 
-Each settlement wants a staffing mix, using the same arithmetic as the build catalogue — `base + population ÷ per-residents`, highest priority wins, deterministic ties:
+Each settlement wants a staffing mix, using the same arithmetic as the build catalog — `base + population ÷ per-residents`, highest priority wins, deterministic ties:
 
 | Profession | Always want | Plus one per | Priority |
 |---|---|---|---|
@@ -149,7 +149,7 @@ It does not, because **housing supply is deliberately set to run ahead of demand
 If you retune those numbers, keep `capacity × (base + pop/perResidents) > pop` at every population, or towns will freeze.
 
 That invariant is about *supply*. It does not cover the other freeze, which is per
-family rather than per town: a household in a house the catalogue cannot size is
+family rather than per town: a household in a house the catalog cannot size is
 held indefinitely, however much housing the town has. See "the house nobody can
 size" above.
 

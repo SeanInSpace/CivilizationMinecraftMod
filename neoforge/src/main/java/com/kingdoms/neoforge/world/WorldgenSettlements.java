@@ -25,7 +25,7 @@ import java.util.Map;
  *
  * <p>Vanilla generates a structure when a chunk is generated, which is the wrong
  * shape for these settlements entirely: a town here is a hundred and fifty to
- * three hundred blocks across, computed from a centre, with roads routed against
+ * three hundred blocks across, computed from a center, with roads routed against
  * terrain the generator has not decided yet. It is not a set of chunk-aligned
  * pieces and cannot be made into one without giving up everything that makes it
  * a town rather than a decoration.
@@ -70,7 +70,7 @@ public final class WorldgenSettlements {
      *
      * <p>Wider than a charter's twelve, because nobody chose this spot: the
      * arithmetic put it there and it may have landed on a cliff. Narrower than
-     * the region's margin, so a site can never wander into its neighbour's
+     * the region's margin, so a site can never wander into its neighbor's
      * ground and break the separation the grid guarantees.
      */
     private static final int SITING_REACH = 48;

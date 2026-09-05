@@ -157,7 +157,7 @@ class DigYardTest {
 
         List<DigYard.Cell> offered = yard.openCells(ANNE, SimPos.ORIGIN, 0L);
         assertTrue(offered.size() >= 3,
-                "a cliff must not serialise the whole crew onto one cell; got " + offered.size());
+                "a cliff must not serialize the whole crew onto one cell; got " + offered.size());
     }
 
     @Test

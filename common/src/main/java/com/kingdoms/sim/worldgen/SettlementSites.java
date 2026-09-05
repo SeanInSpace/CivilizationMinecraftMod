@@ -15,10 +15,10 @@ import java.util.Optional;
  *
  * <p>A generated world contains no settlements, and the obvious fix — a
  * worldgen structure — is the wrong tool. These towns are 150 to 300 blocks
- * across, computed outward from a centre, with roads routed against real
+ * across, computed outward from a center, with roads routed against real
  * terrain. Nothing about that fits in chunk-aligned pieces placed by the
  * structure system, and a piece placed at chunk generation cannot wait for the
- * neighbouring chunks it wants to route through.
+ * neighboring chunks it wants to route through.
  *
  * <p>So the decision is separated from the building. This class decides
  * <em>where</em>, arithmetically, for the whole infinite world at once and for
@@ -30,7 +30,7 @@ import java.util.Optional;
  * spatial query: cut the world into {@link #REGION} squares and let a hash of
  * {@code (worldSeed, regionX, regionZ)} decide, for each square independently,
  * whether it holds a site, where inside itself, and whose it is. No region ever
- * needs to know about its neighbours, which is what makes the answer cheap and
+ * needs to know about its neighbors, which is what makes the answer cheap and
  * order-independent — and the reason spacing has to be a property of the
  * geometry rather than of a rejection pass.
  *
@@ -43,9 +43,9 @@ public final class SettlementSites {
      * How wide a square of world holds at most one site, in blocks.
      *
      * <p>The one dial worth turning, and it trades two things against each
-     * other. Smaller regions mean more towns per square kilometre and a shorter
+     * other. Smaller regions mean more towns per square kilometer and a shorter
      * walk to the nearest one; they also squeeze {@link #EDGE_MARGIN}, and the
-     * margin is the only thing keeping two neighbouring towns from growing into
+     * margin is the only thing keeping two neighboring towns from growing into
      * each other's claims. Larger regions give a comfortable minimum separation
      * and a world where you can walk for a long time and see nothing.
      *
@@ -76,14 +76,14 @@ public final class SettlementSites {
      * regions {@code k} apart along one axis, the gap along that axis is at
      * least {@code k * REGION - (REGION - 2 * EDGE_MARGIN)}, which for
      * {@code k = 1} is {@code 2 * EDGE_MARGIN} and only grows with {@code k}.
-     * Diagonal neighbours are at least {@code 2 * EDGE_MARGIN} apart on
+     * Diagonal neighbors are at least {@code 2 * EDGE_MARGIN} apart on
      * <em>both</em> axes and so at least {@code sqrt(2)} times further. A region
      * holds at most one site, so there is no same-region case. The floor is
      * therefore {@code 2 * EDGE_MARGIN} exactly, reached when two side-by-side
      * regions both jitter hard against the edge they share.
      *
      * <p>Why 320 and not less: a grown town is up to about 300 blocks across, so
-     * two of them centred 320 apart have twenty blocks of daylight between their
+     * two of them centered 320 apart have twenty blocks of daylight between their
      * outer edges. Anything tighter and their claims, their fields and their
      * roads are arguing over the same ground — a fight nothing downstream is
      * equipped to settle, because neither town knows the other exists until both
@@ -108,7 +108,7 @@ public final class SettlementSites {
      * them at a fixed pitch, which is both obvious to the eye and far denser
      * than anywhere anybody has lived. Empty regions are what turns a grid into
      * a scatter: at 0.35 roughly one region in three is settled, so the walk
-     * between neighbours varies from the {@link #MIN_SEPARATION} floor to
+     * between neighbors varies from the {@link #MIN_SEPARATION} floor to
      * several thousand blocks.
      */
     public static final double SPAWN_CHANCE = 0.35;
@@ -250,7 +250,7 @@ public final class SettlementSites {
      * the way its people build. Here the world has been told what it should look
      * like, so the shape leads and the culture follows it. Where several peoples
      * build the same shape the draw picks between them; where none does, the
-     * arrangement is still honoured and the town is simply told to use it.
+     * arrangement is still honored and the town is simply told to use it.
      */
     private static String peopleWhoBuild(String layoutId, long worldSeed,
                                          int regionX, int regionZ) {
@@ -273,7 +273,7 @@ public final class SettlementSites {
     }
 
     /**
-     * Every site whose centre lies within {@code reach} blocks of {@code at},
+     * Every site whose center lies within {@code reach} blocks of {@code at},
      * nearest first.
      *
      * <p>Distance is horizontal, because y is not resolved here and a town two
@@ -315,7 +315,7 @@ public final class SettlementSites {
      * The region that produced this site.
      *
      * <p>Recoverable rather than stored, because the jitter keeps every site
-     * strictly inside its own region — so the region is a fact about the centre
+     * strictly inside its own region — so the region is a fact about the center
      * and cannot drift out of step with it the way a second field could.
      */
     public static int regionXOf(Site site) {
@@ -332,7 +332,7 @@ public final class SettlementSites {
      *
      * <p>Drawn from {@link Culture#all()} in id order. The sort is not tidiness:
      * {@code all()} is backed by a {@code Map.of}, whose iteration order is
-     * randomised per JVM, so indexing it directly would give a different people
+     * randomized per JVM, so indexing it directly would give a different people
      * every time the game restarted — a world whose towns changed nationality on
      * relaunch. Sorting by id makes the draw a function of the arguments alone,
      * which is what the rest of this class promises.
@@ -386,7 +386,7 @@ public final class SettlementSites {
     /** The odd 64-bit approximation of the golden ratio, as a stream separator. */
     private static final long GOLDEN = 0x9E37_79B9_7F4A_7C15L;
 
-    /** SplitMix64's finaliser: avalanches every input bit across all 64 outputs. */
+    /** SplitMix64's finalizer: avalanches every input bit across all 64 outputs. */
     private static long mix64(long value) {
         long z = value;
         z = (z ^ (z >>> 30)) * 0xBF58_476D_1CE4_E5B9L;

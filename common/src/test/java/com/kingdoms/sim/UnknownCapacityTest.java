@@ -23,18 +23,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * A household in a house the catalogue cannot size is left alone.
+ * A household in a house the catalog cannot size is left alone.
  *
  * <p>The fault, measured rather than supposed. {@code capacityOfHome} answered
- * zero for a home whose blueprint matched no catalogue entry, and every caller
+ * zero for a home whose blueprint matched no catalog entry, and every caller
  * read zero as <em>full</em>, because the test is {@code size() < capacity}. So
  * a family of three in a renamed cottage — or one from a mod no longer loaded,
  * or a save older than the entry — read as permanently overcrowded and shed a
  * member into every vacancy that appeared, every birth cycle, until there was
  * nobody left. On this fixture: three members to none.
  *
- * <p>Zero and unknown are different claims. Zero is a shed: the catalogue has
- * been asked and has answered that nobody lives there. Unknown is the catalogue
+ * <p>Zero and unknown are different claims. Zero is a shed: the catalog has
+ * been asked and has answered that nobody lives there. Unknown is the catalog
  * declining to answer about a building that is standing, and the only honest
  * thing to do with it is nothing. A household with no home, or one homed where
  * no building stands, is neither — there is no house, which is a fact, and it is
@@ -47,7 +47,7 @@ class UnknownCapacityTest {
     private static final BuildingType SHED =
             new BuildingType("test:shed", 5, 9999, 0, 0, 10, 0);
 
-    /** Where the family lives. Deliberately absent from the catalogue below. */
+    /** Where the family lives. Deliberately absent from the catalog below. */
     private static final String FORGOTTEN = "test:cottage_by_another_name";
 
     private static final SimPos FORGOTTEN_HOME = new SimPos(4, 64, 4);
@@ -71,7 +71,7 @@ class UnknownCapacityTest {
     }
 
     /**
-     * A family of three in the unrecognised house, and empty houses to shed
+     * A family of three in the unrecognized house, and empty houses to shed
      * into.
      *
      * <p>The vacancies are the load-bearing part of the fixture. A family with
@@ -154,12 +154,12 @@ class UnknownCapacityTest {
         steps(town, 10);
 
         assertEquals(0, PopulationPlanner.totalHousingCapacity(town),
-                "a house the catalogue cannot size promises no beds");
+                "a house the catalog cannot size promises no beds");
         assertTrue(town.households().stream().noneMatch(Household::isHoused),
                 "and houses nobody");
     }
 
-    // --- the behaviour that must not change ---
+    // --- the behavior that must not change ---
 
     @Test
     void aKnownHouseStillShedsWhenOverfull() {
@@ -191,7 +191,7 @@ class UnknownCapacityTest {
     @Test
     void aShedIsKnownToHoldNobody() {
         assertEquals(OptionalInt.of(0), PopulationPlanner.capacityOf(town(), SHED.id()),
-                "the catalogue has been asked and has answered");
+                "the catalog has been asked and has answered");
     }
 
     @Test
@@ -217,7 +217,7 @@ class UnknownCapacityTest {
     @Test
     void aStyledBunkhouseIsStillBunks() {
         // The hole the bare-name fallback opens if only half of it is dug. The
-        // catalogue now finds kingdoms:norman/bunkhouse and reports its six
+        // catalog now finds kingdoms:norman/bunkhouse and reports its six
         // beds; isFamilyHome had to widen with it, or families would have moved
         // into a bunkhouse and bred in it — the one thing that rule exists to
         // stop, reintroduced by a lookup being made cleverer on its own.
@@ -270,7 +270,7 @@ class UnknownCapacityTest {
     void aFamilyHomedWhereNoBuildingStandsIsStillTreatedAsFull() {
         // Deliberately not changed. A household whose recorded home has no
         // building on it is a different claim from one whose building the
-        // catalogue cannot size: there is nothing there, which is knowably no
+        // catalog cannot size: there is nothing there, which is knowably no
         // beds. Reading it as unknown would be worse than the fault being fixed
         // — Settlement.isFamilyHome answers true for a spot it has no record of,
         // and nothing else ever clears a home, so the family would be frozen at

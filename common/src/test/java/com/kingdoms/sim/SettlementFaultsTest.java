@@ -71,7 +71,7 @@ class SettlementFaultsTest {
      * The arrangement the town these faults were found in was built in.
      *
      * <p>Named rather than left to the culture, because a people builds in
-     * several arrangements now and picks between them by hashing the centre.
+     * several arrangements now and picks between them by hashing the center.
      * Every fault below was measured on one grown town and the numbers here are
      * that town's — the ceiling on posts staked through a building is four
      * because four is what a burgher high street managed, and the same fixture
@@ -263,10 +263,10 @@ class SettlementFaultsTest {
      * two. What did <em>not</em> work, and is worth recording so nobody spends
      * the afternoon again: giving the hull the plots' edge midpoints (interior
      * points do not constrain a boundary); pushing fouled vertices outward
-     * (on a concave line that drops a building in the notch beyond a neighbour,
+     * (on a concave line that drops a building in the notch beyond a neighbor,
      * and guarding the move with containment then rejects nearly all of them —
      * ten stayed ten); inserting a detour at the plot's outer corner (the new
-     * stretches cut across its neighbours, and twenty-one fouled stretches
+     * stretches cut across its neighbors, and twenty-one fouled stretches
      * became thirty-two); and simply widening the margin, which plateaus at four
      * and costs timber for it.
      *
@@ -499,7 +499,7 @@ class SettlementFaultsTest {
         // TownPlan.Plot has carried the street a plot fronts and the way its
         // door should look since streets were planned. Both were discarded:
         // takeNextPlot returned a bare position and BuildPlanner set
-        // facingToward(centre), so every door in every planned town still turned
+        // facingToward(center), so every door in every planned town still turned
         // to the middle. The claim was true of the plan and false of the game.
         Layout planned = Layouts.of(Culture.LAYOUT_HIGH_STREET);
         int differs = 0;

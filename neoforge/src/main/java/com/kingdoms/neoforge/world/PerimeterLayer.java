@@ -148,7 +148,7 @@ public final class PerimeterLayer {
     /**
      * Drops what the sweep remembers about a world that is closing.
      *
-     * <p>The same housekeeping as {@code TownAuditor.forget} and its neighbours,
+     * <p>The same housekeeping as {@code TownAuditor.forget} and its neighbors,
      * and it now matters more than a stale cursor did. A quit to the title
      * screen and a fresh world would otherwise leave a timestamp from the last
      * session in here, so the first sweep of the new one would read an elapsed
@@ -566,7 +566,7 @@ public final class PerimeterLayer {
     }
 
     /**
-     * A gateway position: the opening stays clear, and the centre block gets a
+     * A gateway position: the opening stays clear, and the center block gets a
      * fence gate facing out through the wall — a choke point with a door.
      */
     private static int drawGateway(ServerLevel level, Perimeter perimeter, SimPos pos) {
@@ -597,7 +597,7 @@ public final class PerimeterLayer {
     /**
      * Whether this block is a palisade post we put there.
      *
-     * <p>Logs are still recognised: towns walled before the fence was adopted
+     * <p>Logs are still recognized: towns walled before the fence was adopted
      * have log posts standing, and a gate that could not clear one would sit
      * blocked by a wall the town no longer builds.
      */
@@ -744,7 +744,7 @@ public final class PerimeterLayer {
      *
      * <p><strong>Every block the wall can place must be listed here.</strong>
      * This is what {@link #surface} walks down through to find the real ground,
-     * and a post the wall does not recognise as its own is a post the heightmap
+     * and a post the wall does not recognize as its own is a post the heightmap
      * reports as the surface — so the next sweep lays another two on top of it,
      * and the sweep after that another two, and the wall climbs to the sky.
      *
@@ -763,7 +763,7 @@ public final class PerimeterLayer {
     /**
      * Whether this is one of the wall's lights, of any vintage.
      *
-     * <p>Torches are still recognised. Any that an earlier build managed to
+     * <p>Torches are still recognized. Any that an earlier build managed to
      * leave standing are ours, and a ground-finding that stopped seeing them
      * would found a post on top of one.
      */
@@ -851,7 +851,7 @@ public final class PerimeterLayer {
      *
      * <p>Our own posts are stepped over. Legacy walls are made of oak logs and
      * the growth test cannot tell one of those from a tree, so clearing without
-     * this guard would have each post quietly demolish its neighbours.
+     * this guard would have each post quietly demolish its neighbors.
      */
     private static void clearGrowth(ServerLevel level, BlockPos footing) {
         for (int dy = 0; dy < WallClearing.CLEAR_UP; dy++) {

@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * A town that grew where two roads met: a market at the crossing, ribs off the arms.
  *
- * <p>Two spines cross at the centre, one north-south and one east-west, and the
+ * <p>Two spines cross at the center, one north-south and one east-west, and the
  * open ground at the crossing is left open — that is the market, and it is the
  * only part of the plan that exists by <em>not</em> being built on. The frontage
  * begins just outside it, so the first eight doors of the town look onto the
@@ -62,7 +62,7 @@ public final class CrossroadsLayout extends PlannedLayout {
      * How far along an arm the first frontage stands, measured from the crossing.
      *
      * <p>Far enough that the <em>building</em> clears the market, not merely its
-     * centre point: a plot centred exactly on the market's edge puts five and a
+     * center point: a plot centered exactly on the market's edge puts five and a
      * half blocks of wall inside the square, and a market with the corners of
      * four houses in it is not open ground. So half a span past the edge, plus a
      * couple of blocks so the clearance does not depend on rounding.
@@ -80,7 +80,7 @@ public final class CrossroadsLayout extends PlannedLayout {
      *
      * <p>Counted in slots rather than in blocks, which is worth more than it
      * looks. A road takes ten and a half blocks of clearance either side of its
-     * centreline: a rib laid halfway between two of the spine's own doors stands
+     * centerline: a rib laid halfway between two of the spine's own doors stands
      * inside that of each and refuses <em>both</em>, while a rib laid exactly on a
      * slot refuses only the one it stands on. Aligning the ribs to the spine's
      * slots is the difference between losing two doors per rib and losing four,
@@ -118,7 +118,7 @@ public final class CrossroadsLayout extends PlannedLayout {
      * How far out along a rib its first frontage stands.
      *
      * <p>Not the rib's own setback, which would be thirteen. A plot here has a
-     * spine door for a neighbour one block away <em>along</em> the rib, and
+     * spine door for a neighbor one block away <em>along</em> the rib, and
      * separation is Chebyshev — measured on the wider axis, not as a distance —
      * so this has to clear the spine's frontage column by a whole
      * {@link Layout#MIN_PLOT_SEPARATION} on the other axis. The setback plus a
@@ -285,8 +285,8 @@ public final class CrossroadsLayout extends PlannedLayout {
      * ribs are where this arrangement is most exposed to it, carrying nearly two
      * thirds of a full town's frontage between them.
      *
-     * @param cx    where the rib crosses its spine, east of the town centre
-     * @param cz    where the rib crosses its spine, south of the town centre
+     * @param cx    where the rib crosses its spine, east of the town center
+     * @param cz    where the rib crosses its spine, south of the town center
      * @param acrossTheNorthSouthSpine whether this rib runs east-west, which it
      *              does when it comes off the north-south spine
      */

@@ -45,7 +45,7 @@ import java.util.UUID;
  *
  * <p>This class deliberately contains no game logic. It owns one {@link SimWorld}
  * and one {@link PersonEntityManager} per dimension, drives them from the server
- * tick, and otherwise stays out of the way. All behaviour lives in {@code :common}.
+ * tick, and otherwise stays out of the way. All behavior lives in {@code :common}.
  */
 @Mod(KingdomsMod.MOD_ID)
 public final class KingdomsMod {
@@ -94,7 +94,7 @@ public final class KingdomsMod {
             SIMULATIONS.put(level, world);
             MANAGERS.put(level, new PersonEntityManager(level, world));
         }
-        LOGGER.info("Initialised {} dimension simulation(s)", SIMULATIONS.size());
+        LOGGER.info("Initialized {} dimension simulation(s)", SIMULATIONS.size());
     }
 
     private static void onServerStopping(ServerStoppingEvent event) {
@@ -382,7 +382,7 @@ public final class KingdomsMod {
      * server crashes or a chunk unloads in the same tick a player leaves. The
      * person record is the authority, so any person-tagged entity we did not spawn
      * ourselves this session — including villager-bodied views from older versions
-     * — is cancelled here and respawned fresh if anyone is watching.
+     * — is canceled here and respawned fresh if anyone is watching.
      *
      * <p><strong>Arming creatures:</strong> vanilla's hostiles hunt players and
      * {@code AbstractVillager}, and a citizen is neither, so a town read as empty

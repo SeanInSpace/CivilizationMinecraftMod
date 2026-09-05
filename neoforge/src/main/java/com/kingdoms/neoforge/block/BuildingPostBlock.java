@@ -115,7 +115,7 @@ public class BuildingPostBlock extends Block {
      * reach {@link MineBlock} or {@link LumberCampBlock}, which replace that
      * method wholesale because they are controls rather than reports — a knob
      * that shouts before turning reads as a malfunction. This is
-     * {@code protected static} so both can add the one line if that judgement
+     * {@code protected static} so both can add the one line if that judgment
      * turns out to be wrong in play.
      *
      * <p>The hall does hear it twice, in chat here and again on the band of the
@@ -203,7 +203,7 @@ public class BuildingPostBlock extends Block {
     /**
      * The town this post stands in, or null if it stands outside every claim.
      *
-     * <p>Nearest centre wins, but only when the post is actually inside that
+     * <p>Nearest center wins, but only when the post is actually inside that
      * town's borders plus a little slack — otherwise a post dropped in the wild
      * would report on a settlement half a world away.
      */

@@ -150,7 +150,7 @@ class PlotOverlapTest {
 
     @Test
     void overlapIsSquareSoATurnedBuildingStillFits() {
-        // Buildings are turned to face the centre, which swaps width and depth. A
+        // Buildings are turned to face the center, which swaps width and depth. A
         // plot that only fitted at one rotation would be a plot that fails as soon
         // as the building is placed on the other side of town.
         SimPos a = new SimPos(0, 64, 0);
@@ -168,7 +168,7 @@ class PlotOverlapTest {
         assertEquals(
                 BuildPlanner.plotSpanOf("kingdoms:house", BuildCatalogue.DEFAULT),
                 BuildPlanner.plotSpanOf("kingdoms:house_l2", BuildCatalogue.DEFAULT),
-                "the catalogue span already allows for the levels, so an improvement "
+                "the catalog span already allows for the levels, so an improvement "
                         + "never has to go looking for new ground");
     }
 
@@ -186,7 +186,7 @@ class PlotOverlapTest {
         assertEquals("kingdoms:lumber_camp", ordered.blueprintId());
 
         int span = BuildPlanner.plotSpanOf(ordered.blueprintId(), settlement.catalogue());
-        // Both spans come from the catalogue. This test used to hardcode the
+        // Both spans come from the catalog. This test used to hardcode the
         // hall's, and went red the day the apron shrank and every plot with it —
         // failing on a number it had copied rather than on the rule it guards.
         int hallSpan = BuildPlanner.plotSpanOf("kingdoms:town_hall", settlement.catalogue());

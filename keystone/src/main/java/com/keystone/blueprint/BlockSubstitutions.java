@@ -40,7 +40,7 @@ public final class BlockSubstitutions {
     public static final String SKIP = null;
 
     /**
-     * What an unrecognised block becomes when nothing else matches.
+     * What an unrecognized block becomes when nothing else matches.
      *
      * <p>Solid rather than empty, deliberately. An unknown block is more often
      * part of a wall than a decoration, and a building with a hole in it reads

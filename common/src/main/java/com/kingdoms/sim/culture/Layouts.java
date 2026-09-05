@@ -17,7 +17,7 @@ import java.util.Map;
  * genuinely planned differently, not the same rings with different timber.
  *
  * <ul>
- *   <li>{@link #RING} — concentric rings around a centre. Orderly, evenly
+ *   <li>{@link #RING} — concentric rings around a center. Orderly, evenly
  *       spaced, growing outward. A village that expects to still be there in a
  *       hundred years.</li>
  *   <li>{@link #WARREN} — tight knots of buildings with open ground between the
@@ -132,10 +132,10 @@ public final class Layouts {
          * How far a hut sits from the middle of its own knot.
          *
          * <p>Was thirteen, on the reasoning that six around a circle of
-         * thirteen puts neighbours thirteen apart and so clears
+         * thirteen puts neighbors thirteen apart and so clears
          * {@link Layout#MIN_PLOT_SEPARATION} with a block to spare. Both halves
          * of that were true and it was still wrong: the separation is measured
-         * on the wider axis, not as a distance, and those neighbours sit six
+         * on the wider axis, not as a distance, and those neighbors sit six
          * across and eleven deep. Eleven is inside the box, so one hut of every
          * pair was refused.
          *
@@ -151,14 +151,14 @@ public final class Layouts {
          * How far the second knot sits from the first.
          *
          * <p>Has to clear two knot radii plus a plot separation, or huts on the
-         * facing edges of neighbouring knots overlap — which is exactly what the
+         * facing edges of neighboring knots overlap — which is exactly what the
          * first draft of this did, putting plots 2 and 6 ten blocks apart. The
          * worst pair under the old numbers was between knots rather than inside
          * one, so widening the knot alone never fixed it; these three constants
          * are solved together.
          *
          * <p>Solved for two things, not one. The tightest set that merely clears
-         * the box pulls the knots in until huts in neighbouring knots sit closer
+         * the box pulls the knots in until huts in neighboring knots sit closer
          * than huts in the same one — at which point there are no knots, just a
          * scatter, and the layout has been repaired into meaninglessness. So the
          * search also keeps the nearest hut in another knot further off than the
@@ -166,7 +166,7 @@ public final class Layouts {
          * from above.
          *
          * <p>And solved over the town that <em>exists</em>. The first attempt
-         * minimised the spread of three hundred plots, which bought a tight tail
+         * minimized the spread of three hundred plots, which bought a tight tail
          * by pushing the first three knots further out — and no warren has ever
          * reached the tail. A measured town of twenty-nine buildings uses knots
          * nought to four and nothing beyond, so every knot it had was further
@@ -209,7 +209,7 @@ public final class Layouts {
             int clump = at / PER_CLUMP;
             int within = at % PER_CLUMP;
 
-            // The first clump sits on the town centre itself, so a young warren
+            // The first clump sits on the town center itself, so a young warren
             // is one dense knot rather than a ring of huts around nothing.
             int clumpX = centre.x();
             int clumpZ = centre.z();
@@ -221,7 +221,7 @@ public final class Layouts {
             }
 
             double slice = 2 * Math.PI / PER_CLUMP;
-            // Each clump turned a little against the last, so two neighbouring
+            // Each clump turned a little against the last, so two neighboring
             // knots never present the same face to each other.
             double angle = within * slice + clump * slice / 3.0;
             return new SimPos(
@@ -238,7 +238,7 @@ public final class Layouts {
      * middle fills before the edges. Nothing is staggered and nothing is
      * curved. A town laid out by somebody who counts.
      *
-     * <p>The centre cell itself is skipped — that is where the hall goes, and a
+     * <p>The center cell itself is skipped — that is where the hall goes, and a
      * layout that offered it as an ordinary plot would have the town build a
      * hut on its own square.
      */
@@ -248,14 +248,14 @@ public final class Layouts {
          * How far apart the rows and columns are ruled.
          *
          * <p>A separation, and no curve factor: a square grid puts every
-         * neighbour, diagonal ones included, exactly a pitch away on the wider
+         * neighbor, diagonal ones included, exactly a pitch away on the wider
          * axis, which is the metric {@link Layout#farEnoughApart} reads. Nothing
          * here is ever measured round a corner, so nothing here pays for one.
          *
          * <p>Eighteen before, which was undocumented and was half again what the
-         * rule wanted. It bought that no building in the catalogue was ever
+         * rule wanted. It bought that no building in the catalog was ever
          * refused a cell — and paid for it with a median nine blocks of grass
-         * between neighbouring walls, the loosest of any arrangement here against
+         * between neighboring walls, the loosest of any arrangement here against
          * a measured three now.
          *
          * <p><strong>What it costs is stated plainly, because it is not small.</strong>
@@ -324,7 +324,7 @@ public final class Layouts {
      * spiral, a square grid — and each one has had the same fault, which is that
      * its spacing is a consequence of its arithmetic rather than a promise. The
      * ring's innermost course cannot hold its own plots. The warren put six huts
-     * on a circle whose neighbours fell inside the overlap box, and a third of
+     * on a circle whose neighbors fell inside the overlap box, and a third of
      * every goblin town was thrown away for years because of it. Both were
      * "fixed" by choosing better constants, which is a repair that lasts exactly
      * until somebody chooses a different constant.
@@ -334,10 +334,10 @@ public final class Layouts {
      * {@link Layout#MIN_PLOT_SEPARATION} is the algorithm rather than a number
      * somebody has to get right. The overlap check downstream can still refuse a
      * plot for the ground it sits on; it can no longer refuse one for sitting on
-     * its neighbour.
+     * its neighbor.
      *
      * <p>The three rules are kept the way the others keep them. <b>Deterministic:</b>
-     * the dart throws come from a hash of the town's own centre, so the same town
+     * the dart throws come from a hash of the town's own center, so the same town
      * is the same town on every reload and in every test. <b>Injective:</b> two
      * plots a clear separation apart are not the same plot. <b>Roomy:</b> by
      * construction, above.
@@ -364,7 +364,7 @@ public final class Layouts {
 
         @Override
         public boolean isSameShapeEverywhere() {
-            return false;   // the darts are seeded from the town's own centre
+            return false;   // the darts are seeded from the town's own center
         }
 
         @Override

@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * this class exists to produce and it is the only thing no shared rule protects.
  * The warren has the same test for the same reason and it is worth reading:
  * pulling its knots together until every plot cleared the overlap box left huts
- * in neighbouring knots closer than huts in the same one, which broke nothing
+ * in neighboring knots closer than huts in the same one, which broke nothing
  * and deleted the layout.
  */
 class ThorpLayoutTest {
@@ -95,7 +95,7 @@ class ThorpLayoutTest {
             }
         }
         System.out.println("thorp yards: " + yards.size() + " of them, "
-                + Math.round(within) + " blocks between neighbours in a yard and "
+                + Math.round(within) + " blocks between neighbors in a yard and "
                 + Math.round(between) + " between yards");
         assertTrue(between > within * 1.5,
                 "buildings in different yards are " + Math.round(between)

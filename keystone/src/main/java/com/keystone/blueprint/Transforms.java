@@ -17,7 +17,7 @@ import java.util.List;
  *
  * <p>Vanilla's {@code StructureTemplate.transform} rotates about an arbitrary
  * pivot and can hand back negative coordinates. Blueprints are always anchored
- * at their own minimum corner, so the maths here rotates about the origin and
+ * at their own minimum corner, so the math here rotates about the origin and
  * then translates the result back into the positive octant — which keeps a
  * blueprint's contract ("nothing is outside 0..size-1") true under any rotation.
  *

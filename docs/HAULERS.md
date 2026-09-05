@@ -211,7 +211,7 @@ In `common`, so they run in milliseconds and without a game.
 
 **Relief, not replacement**
 
-12. `aFarmerKeepsTheirOwnHarvestErrandWithNoHaulerFree` — today's behaviour, unchanged.
+12. `aFarmerKeepsTheirOwnHarvestErrandWithNoHaulerFree` — today's behavior, unchanged.
 13. `aFreeHaulerCollectsTheFieldAndTheFarmerStaysInTheRows` — the point of the profession.
 14. `aBuilderStillFetchesTheirOwnLoad` — `BuildLoad.pickUp` still charges the town; no deadlock without a hauler.
 

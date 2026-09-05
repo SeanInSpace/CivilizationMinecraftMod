@@ -10,7 +10,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>None of these screens is textured. They are rectangles and text, which is
  * cheap and scales to any GUI scale, and it means the whole visual identity of
- * the mod is eight colour constants and three pieces of arithmetic — which four
+ * the mod is eight color constants and three pieces of arithmetic — which four
  * separate screens had each written out for themselves. That is the kind of
  * duplication that does not announce itself when it drifts: the town overview's
  * subtitle had wandered two pixels above everybody else's and its header two
@@ -85,7 +85,7 @@ public final class KingdomsPanel {
     /**
      * Title, subtitle and the rule under them.
      *
-     * <p>The subtitle takes a colour because it is the one line on these screens
+     * <p>The subtitle takes a color because it is the one line on these screens
      * that says how the thing is doing rather than what it is — how hungry a
      * settler is, how far a build has got — and the screens that have something
      * to say warm it up. {@link #SUBTLE} is the neutral answer.

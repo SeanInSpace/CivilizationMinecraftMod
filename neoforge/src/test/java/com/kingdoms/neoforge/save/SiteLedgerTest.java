@@ -89,7 +89,7 @@ class SiteLedgerTest {
     @Test
     void neighbouringRegionsDoNotShareAKey() {
         // Packing two signed ints into a long is the obvious place for a region
-        // to be mistaken for its neighbour, and the symptom would be a town
+        // to be mistaken for its neighbor, and the symptom would be a town
         // silently never founded.
         SiteLedger ledger = new SiteLedger();
         for (int rx = -2; rx <= 2; rx++) {

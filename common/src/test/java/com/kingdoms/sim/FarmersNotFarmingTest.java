@@ -230,7 +230,7 @@ class FarmersNotFarmingTest {
 
         SupplyPlanner.advance(s, CTX);
 
-        assertNull(farmer.haul(), "the fields are not a labour pool for the timber");
+        assertNull(farmer.haul(), "the fields are not a labor pool for the timber");
     }
 
     @Test

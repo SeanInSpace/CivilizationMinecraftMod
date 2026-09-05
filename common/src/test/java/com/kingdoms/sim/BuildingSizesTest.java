@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>This is a regression suite for a fault that was invisible for the whole life
  * of the mod and cost more than any other. A building's size was a literal in the
- * method that drew it and its plot was a column in the catalogue, and the two had
+ * method that drew it and its plot was a column in the catalog, and the two had
  * drifted to about a factor of two apart — a cottage drawn five wide standing on
  * nine blocks of reserved ground, a house drawn five standing on eleven. Nothing
  * threw, nothing measured it, and every street in the mod was laid out for
@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The same fault had already happened once before in the other direction, and
  * {@code BlueprintPlacer.procedural} still carries the note: buildings grew two
  * blocks per level while the reserved plot did not, so a fourth-level house was
- * drawn straight through its neighbour. It was answered by deleting the growth
+ * drawn straight through its neighbor. It was answered by deleting the growth
  * rather than by making the two numbers agree, and the note ends "the size drawn
  * here must be checked against BuildPlanner.plotSpanOf rather than assumed to
  * fit". This is that check.
@@ -39,7 +39,7 @@ class BuildingSizesTest {
     void everythingATownCanBuildHasADeclaredSize() {
         for (BuildingType type : BuildCatalogue.DEFAULT) {
             assertNotNull(BuildingSizes.of(type.id()),
-                    type.id() + " is in the catalogue and nothing says how big it is, so"
+                    type.id() + " is in the catalog and nothing says how big it is, so"
                             + " it would be reserved the default plot and drawn at whatever"
                             + " literal its drawing method happens to carry");
         }
@@ -70,7 +70,7 @@ class BuildingSizesTest {
     @Test
     void everyBuildingIsDrawnAboutItsOwnMiddle() {
         // Both spans odd. A building with an even span has no middle column, so
-        // its origin sits off centre and a quarter turn moves it half a block --
+        // its origin sits off center and a quarter turn moves it half a block --
         // which is the difference between a plot the overlap check can reason
         // about and one it cannot.
         for (BuildingType type : BuildCatalogue.DEFAULT) {
@@ -86,7 +86,7 @@ class BuildingSizesTest {
     void aLevelledBuildingIsStillTheSameBuilding() {
         // Saves made while levels were drawn still hold ids in that shape, and a
         // house_l2 that could not find its size would be reserved the default
-        // plot and drawn through its neighbour.
+        // plot and drawn through its neighbor.
         assertEquals(BuildingSizes.of("kingdoms:house"), BuildingSizes.of("kingdoms:house_l2"));
         assertEquals(BuildingSizes.of("kingdoms:house"),
                 BuildingSizes.of("kingdoms:norman/house_l3"));

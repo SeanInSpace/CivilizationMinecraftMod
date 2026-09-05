@@ -44,7 +44,7 @@ public final class RadialStreetLayout extends PlannedLayout {
      * apart as the crow flies and eleven apart on the wider axis. A circle laid
      * out in straight-line distances will always make it. So:
      * {@link Layout#onACurve} of a separation, and two blocks for the rounding of
-     * each of the two plot centres to whole blocks.
+     * each of the two plot centers to whole blocks.
      *
      * <p>Measured, before and after the curve rule was applied at all: the town
      * reached 248 blocks holding a hundred and forty plots, against 199 once the
@@ -75,7 +75,7 @@ public final class RadialStreetLayout extends PlannedLayout {
      *
      * <p>That is the third place on this one layout where a circle laid out in
      * straight-line distances was quietly wrong — along a face, between the two
-     * faces of a ring, and now between neighbouring rings. Each cost about the
+     * faces of a ring, and now between neighboring rings. Each cost about the
      * same: frontage fell to a fifth and the town ran outward hunting for room.
      * The rule is the same every time and is stated once now, in
      * {@link Layout#onACurve}.
@@ -196,15 +196,15 @@ public final class RadialStreetLayout extends PlannedLayout {
         }
 
         // The middle of the green, when this arrangement wants one. Offered
-        // first because it is nearest the centre, and the nearest offer is the
+        // first because it is nearest the center, and the nearest offer is the
         // one the first building takes -- so the hall stands in the middle with
         // the lanes running out from it, which is the whole point of drawing a
-        // town round a centre rather than along a road.
+        // town round a center rather than along a road.
         //
         // It fronts no street, and deliberately: the spokes begin a SPOKE_START
         // out from the middle, so there is nothing here to face, and naming one
-        // would only drag the hall off the centre when a renderer moved it up to
-        // that street's kerb. A town of this shape spends one plot's frontage on
+        // would only drag the hall off the center when a renderer moved it up to
+        // that street's curb. A town of this shape spends one plot's frontage on
         // having a middle, and it is worth it.
         if (hallOnTheGreen) {
             offers.add(new Offer(centre, Layout.NO_STREET,
@@ -218,7 +218,7 @@ public final class RadialStreetLayout extends PlannedLayout {
         // Each face is spaced on ITS OWN radius, not the ring's. The inner face
         // is a shorter circle than the road it fronts -- thirteen blocks shorter
         // in radius, so at the innermost ring its circumference is two thirds of
-        // the centreline's. Spacing both faces by the centreline packs the inner
+        // the centerline's. Spacing both faces by the centerline packs the inner
         // one at 12.2 along the arc, which fails the separation check on the
         // diagonals exactly as the raw pitch did, and frontage fell to a fifth.
         for (int ring = 0; ring < rings; ring++) {

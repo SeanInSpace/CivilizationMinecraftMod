@@ -243,7 +243,7 @@ public final class DigYard {
      *
      * <p>Strict on purpose. On broken ground the columns of one cell top out at
      * different heights, and the cell has to wait for the highest of them —
-     * otherwise a digger could be sent to a block with a neighbour still towering
+     * otherwise a digger could be sent to a block with a neighbor still towering
      * over it, which is how you end up cornered at the bottom of a pit.
      */
     public boolean isReady(Cell cell) {

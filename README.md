@@ -57,7 +57,7 @@ As of Phase 0–2 completion, on this machine:
 
 - `:common:test` — 118/118 passing, covering every planner, the hydration state machine, and the stress benchmark
 - **Stress:** 20 settlements, 640 people, 340 buildings — 520 µs per sim step, amortized 5.2 µs per game tick
-- `:neoforge:build` — green; dedicated server boots the mod ("Initialised 3 dimension simulation(s)")
+- `:neoforge:build` — green; dedicated server boots the mod ("Initialized 3 dimension simulation(s)")
 
 First build takes ~4 minutes (Minecraft decompile); subsequent builds ~10 seconds.
 
@@ -223,7 +223,7 @@ SimWorld.step()                          builds a SimContext(bridge, step, setti
 
 **Rule 0 — planning.** If the build queue is empty, decide what to build next and
 queue it. Below village size that decision belongs entirely to the **stage's own
-build program**; from village size the catalogue's priorities resume, with the town
+build program**; from village size the catalog's priorities resume, with the town
 hall gated to town stage. The settlement claims the ground it needs. Full rules in
 **[BUILD_DECISIONS.md](BUILD_DECISIONS.md)** and **[FOUNDING.md](FOUNDING.md)**.
 
@@ -300,7 +300,7 @@ of the same thing, kept short.
    Millénaire could carry six cultures: **21 building types, 11 professions**, a
    nutrition table and a staffing table, all hardcoded in Java. Blueprints are
    already data (see [KEYSTONE.md](KEYSTONE.md)); the *tables* are not. The build
-   catalogue is the one to do first, since that is what lets cultures want
+   catalog is the one to do first, since that is what lets cultures want
    different things.
 2. **Construction materials, and the builder's hut screen.** Both halves exist —
    timber in the stores, and an ordered block sequence whose cursor can stop. What

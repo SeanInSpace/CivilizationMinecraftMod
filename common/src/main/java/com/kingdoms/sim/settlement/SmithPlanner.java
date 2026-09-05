@@ -8,11 +8,11 @@ import com.kingdoms.sim.world.SimContext;
  * The forge.
  *
  * <p>Smiths turn iron into the things a town cannot cut out of a hillside: tools
- * for the trades, weapons and armour for the watch. Iron comes up with the stone
+ * for the trades, weapons and armor for the watch. Iron comes up with the stone
  * — miners credit it when they cut through ore — so the chain runs mine → forge →
  * everyone else, and a town with no mine eventually has no tools either.
  *
- * <p>Charcoal is not modelled; timber stands in as fuel, which keeps the lumber
+ * <p>Charcoal is not modeled; timber stands in as fuel, which keeps the lumber
  * camp load-bearing for more than just walls.
  */
 public final class SmithPlanner {
@@ -36,7 +36,7 @@ public final class SmithPlanner {
      * One step at the forge for every smith the town has.
      *
      * <p>Tools first: a town that cannot dig cannot do anything else either.
-     * Then weapons, then armour — a garrison that can hit back matters more than
+     * Then weapons, then armor — a garrison that can hit back matters more than
      * one that can take a hit.
      */
     public static void advance(Settlement settlement, SimContext ctx) {

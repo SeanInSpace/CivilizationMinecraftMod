@@ -76,7 +76,7 @@ class FoundingEconomicsTest {
      * How much of the kit must still be in the stores when the founding stands.
      *
      * <p>A cushion against the arithmetic, not against the ground. The estimate
-     * below prices the programme exactly; what it cannot price is the unplanned
+     * below prices the program exactly; what it cannot price is the unplanned
      * work a real site adds, and the biggest of those is a flight of access steps
      * — {@code BuildPlanner.requestAccessStairs} orders at least four work, which
      * a crew of four is billed sixteen timber for. Three percent of the timber
@@ -85,7 +85,7 @@ class FoundingEconomicsTest {
      *
      * <p>It cannot, because the kit is squeezed from above by
      * {@code LumberPlanner.BASE_WOOD_STORAGE} — see
-     * {@link #theKitFitsInTheStoresAFreshTownActuallyHas} — and the programme
+     * {@link #theKitFitsInTheStoresAFreshTownActuallyHas} — and the program
      * already spends 464 of the 512 a town can hold. What covers a bad site is
      * not the kit at all: it is the lumber camp FORTIFIED raises free, after
      * which the town fells its own overrun. The stone, which has no such rescue,
@@ -115,7 +115,7 @@ class FoundingEconomicsTest {
      * Every building the founding stages will raise, in the order they raise it.
      *
      * <p>Asked of {@link StagePlanner} one building at a time rather than listed
-     * here, because the programme table is private and a copy of it in this file
+     * here, because the program table is private and a copy of it in this file
      * is a copy that goes quietly stale the first time somebody adds a smokehouse
      * to the homestead. The settlement is a paper one: it is handed each building
      * the moment the planner names it, so the next question gets a truthful
@@ -126,7 +126,7 @@ class FoundingEconomicsTest {
         List<BuildingType> program = new ArrayList<>();
         for (SettlementStage stage : FOUNDING_STAGES) {
             paper.setStage(stage);
-            // Bounded so a programme that somehow never satisfies itself fails
+            // Bounded so a program that somehow never satisfies itself fails
             // this suite rather than hanging the build.
             for (int guard = 0; guard < 64 && !StagePlanner.programComplete(paper); guard++) {
                 Optional<BuildingType> next = StagePlanner.nextProgramWant(paper);
@@ -192,7 +192,7 @@ class FoundingEconomicsTest {
         return BuildCatalogue.DEFAULT.stream()
                 .filter(candidate -> candidate.id().equals(blueprintId))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("the catalogue no longer knows " + blueprintId));
+                .orElseThrow(() -> new AssertionError("the catalog no longer knows " + blueprintId));
     }
 
     /**
@@ -243,7 +243,7 @@ class FoundingEconomicsTest {
     /**
      * Builder-steps from bare ground to a standing farm, for a lone builder.
      *
-     * <p>Read off the catalogue rather than listed here, because the field is not
+     * <p>Read off the catalog rather than listed here, because the field is not
      * the first thing a town of that size wants: it also wants its hall, a roof
      * for every family, and a granary, and every one of those outranks the farm
      * and so is built before it. Growth is added on top — the population has to
@@ -315,7 +315,7 @@ class FoundingEconomicsTest {
      * them — which is the charter's four, because the whole crew is charged for
      * the last partial step of every building. Costing the ideal lone builder
      * instead would have let the kit off eleven builder-steps of rounding it will
-     * certainly be billed for: below VILLAGE every pioneer labours as a builder,
+     * certainly be billed for: below VILLAGE every pioneer labors as a builder,
      * so four hands on a site is what actually happens, not a corner case.
      */
     @Test

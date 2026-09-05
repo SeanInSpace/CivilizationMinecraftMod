@@ -203,7 +203,7 @@ public final class PathNetwork {
      * agree — one of them has the world to ask and the other does not, and a
      * stretch the clock refuses must not be one a settler is still walked out to.
      * Not persisted: a reload asks the ground again, which is the right default
-     * for a judgement made about terrain that may since have been read properly.
+     * for a judgment made about terrain that may since have been read properly.
      */
     private final Set<Integer> unwalkable = new LinkedHashSet<>();
 
@@ -421,9 +421,9 @@ public final class PathNetwork {
     /**
      * The closest point on any existing path, or null if there are none.
      *
-     * <p>This is the whole of "favour extending from a path that is already
+     * <p>This is the whole of "favor extending from a path that is already
      * there": a new building joins the nearest way rather than driving its own
-     * line to the centre, so the roads grow as a branching network instead of a
+     * line to the center, so the roads grow as a branching network instead of a
      * star with every spoke overlapping at the hall.
      */
     public SimPos nearestPoint(SimPos pos) {

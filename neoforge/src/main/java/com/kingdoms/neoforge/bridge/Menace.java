@@ -49,7 +49,7 @@ import net.neoforged.neoforge.common.Tags;
  *
  * <p><b>There is no blanket default any more.</b> A creature the table has no
  * opinion about used to read as a zombie, wrong in the one direction that costs a
- * town everything: an unrecognised horror — a modded boss, a vanilla mob nobody
+ * town everything: an unrecognized horror — a modded boss, a vanilla mob nobody
  * got round to naming — was a shambling corpse until it was inside the walls.
  * What the table does not name is now read from what the game itself says about
  * the creature; see {@code unnamed} below, which carries the reasoning for each
@@ -138,7 +138,7 @@ public final class Menace {
             return Danger.FULL_ATTENTION;
         }
         if (is(creature, Blaze.class)) {
-            // Shoots fire, out of reach, and cannot be burnt back.
+            // Shoots fire, out of reach, and cannot be burned back.
             return Danger.FULL_ATTENTION;
         }
         if (is(creature, Breeze.class)) {

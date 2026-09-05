@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Two failures live in these cells and neither was reachable except by
  * walking to a hillside: a building floating over a slope with nothing holding
- * it up, and a cobble kerb standing a block proud of the grass all the way
+ * it up, and a cobble curb standing a block proud of the grass all the way
  * round something on level ground.
  */
 class FoundationTest {
@@ -26,7 +26,7 @@ class FoundationTest {
      *
      * <p>One below, because that is where {@code floorFor} puts it: the floor
      * replaces the top of the soil rather than sitting on it. Getting this wrong
-     * in a fixture reads as the code laying a kerb it does not lay.
+     * in a fixture reads as the code laying a curb it does not lay.
      */
     private static final BlockPos BASE = new BlockPos(0, 63, 0);
 
@@ -109,12 +109,12 @@ class FoundationTest {
         }
     }
 
-    // --- the apron, which is the kerb people notice ---
+    // --- the apron, which is the curb people notice ---
 
     @Test
     void anApronColumnAtGradeIsLeftAlone() {
         // The bug this guards: a doorstep laid where the ground already reaches
-        // the floor line puts a cobble kerb a block proud of the grass.
+        // the floor line puts a cobble curb a block proud of the grass.
         List<BlueprintPlacer.Placement> blocks = new ArrayList<>();
         BlueprintPlacer.doorstep(blocks, BASE, airFrom(64));
 

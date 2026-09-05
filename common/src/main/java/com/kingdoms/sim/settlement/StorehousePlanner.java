@@ -63,7 +63,7 @@ public final class StorehousePlanner {
     }
 
     /**
-     * Sells timber for emeralds, reserve honoured.
+     * Sells timber for emeralds, reserve honored.
      *
      * <p>The emeralds go into the treasury. They used to go nowhere: the
      * storehouse consumed a player's emeralds and handed out logs without the

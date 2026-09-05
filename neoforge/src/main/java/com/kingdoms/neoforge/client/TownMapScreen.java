@@ -192,7 +192,7 @@ public final class TownMapScreen extends Screen {
         double scale = scale();
         int size = mapSize();
         for (TownMapPayload.Mark mark : town.marks()) {
-            // Centred on its origin, exactly as the placer builds it.
+            // Centered on its origin, exactly as the placer builds it.
             double halfW = mark.width() / 2.0;
             double halfD = mark.depth() / 2.0;
 
@@ -239,7 +239,7 @@ public final class TownMapScreen extends Screen {
         graphics.fill(px - 1, pz - 1, px + 2, pz + 2, PLAYER);
     }
 
-    /** World offset from the town centre to a pixel offset from the map's middle. */
+    /** World offset from the town center to a pixel offset from the map's middle. */
     private static int toPixel(double offsetBlocks, double scale, int size) {
         return (int) Math.round(size / 2.0 + offsetBlocks * scale);
     }

@@ -26,7 +26,7 @@ import java.util.List;
  *
  * <p><strong>The streets bend.</strong> How much is a {@link Wander} the culture
  * hands over, so the same machinery lays a surveyor's grid at amplitude nought
- * and a cart-track village at eleven. The bend is in the <em>centreline</em>,
+ * and a cart-track village at eleven. The bend is in the <em>centerline</em>,
  * which the frontage is measured from.
  *
  * <p><strong>Not burgage plots yet.</strong> A real street town is narrow
@@ -96,7 +96,7 @@ public final class StreetLayout extends PlannedLayout {
     @Override
     public boolean isSameShapeEverywhere() {
         // A straight-edged plan is; a wandering one takes its bends from the
-        // town's own centre so that no two settlements kink alike.
+        // town's own center so that no two settlements kink alike.
         return wander.amplitude() == 0;
     }
 
@@ -135,7 +135,7 @@ public final class StreetLayout extends PlannedLayout {
                 ROAD_HALF, TownPlan.Kind.BACK));
 
         // The market widening. The best frontage in the town, and nearest the
-        // centre, so the sort takes it first and the buildings that matter end
+        // center, so the sort takes it first and the buildings that matter end
         // up on it.
         for (int k = 0; k * PITCH <= MARKET_REACH; k++) {
             for (int sign : new int[] {1, -1}) {

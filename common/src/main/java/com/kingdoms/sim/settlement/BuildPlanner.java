@@ -20,7 +20,7 @@ import java.util.Optional;
  *   <li><strong>What</strong> — the settlement builds the most important thing it
  *       is currently short of. See {@link #chooseNext}.</li>
  *   <li><strong>Where</strong> — plots are handed out along expanding rings around
- *       the centre, in a fixed order. See {@link #plotFor}.</li>
+ *       the center, in a fixed order. See {@link #plotFor}.</li>
  * </ul>
  *
  * <p>Everything here is deterministic. Same settlement state in, same decision out,
@@ -89,18 +89,18 @@ public final class BuildPlanner {
      * How much ground a building of this id takes, walls and cleared shelf both.
      *
      * <p>Falls back through the level suffix, so {@code house_l2} is sized as a
-     * house — the catalogue span already allows for the levels a building may be
+     * house — the catalog span already allows for the levels a building may be
      * raised to, precisely so that improving one never has to find new ground.
      */
     /**
-     * How far a plot may fall and still be worth levelling rather than refusing.
+     * How far a plot may fall and still be worth leveling rather than refusing.
      *
      * <p>Beyond this a site is a hillside, and a town that flattened it would be
      * quarrying. Within it, the fall is a dip or a hummock and a few barrows of
      * earth make it a building plot — which is what a settlement actually does
      * with awkward ground, and what refusing everything uneven has been costing:
      * plots pushed to the outskirts, doors stranded from roads, a town that got
-     * smaller the better its judgement became.
+     * smaller the better its judgment became.
      */
     public static final int LEVELABLE_FALL = 8;
 
@@ -118,7 +118,7 @@ public final class BuildPlanner {
         if (heights.length == 0) {
             return 0;
         }
-        // The median is the bench, because levelling to it moves the least earth
+        // The median is the bench, because leveling to it moves the least earth
         // of any height you could choose.
         int bench = heights[heights.length / 2];
         // And the price is everything that has to MOVE, cut as well as fill.
@@ -196,7 +196,7 @@ public final class BuildPlanner {
      * Whether two plots, each a square about its own origin, foul one another.
      *
      * <p>Squares rather than the true rectangles because buildings are turned to
-     * face the centre, and a turned building swaps its width and depth. A plot
+     * face the center, and a turned building swaps its width and depth. A plot
      * that only fitted at one rotation is not a plot.
      *
      * <p><strong>Two blocks between walls, whatever the two buildings are.</strong>
@@ -225,7 +225,7 @@ public final class BuildPlanner {
      * Which way a building on this plot should face, in quarter turns clockwise.
      *
      * <p>Structures are drawn with their door to the south, so zero means "as
-     * drawn". Everything turns to put its door toward the town centre, which is
+     * drawn". Everything turns to put its door toward the town center, which is
      * the difference between a village and a field of identical sheds all facing
      * the same way.
      *
@@ -237,9 +237,9 @@ public final class BuildPlanner {
         int dx = centre.x() - plot.x();
         int dz = centre.z() - plot.z();
         if (Math.abs(dz) >= Math.abs(dx)) {
-            return dz >= 0 ? 0 : 2;   // centre to the south: as drawn; north: half turn
+            return dz >= 0 ? 0 : 2;   // center to the south: as drawn; north: half turn
         }
-        return dx < 0 ? 1 : 3;        // centre west: a quarter clockwise; east: three
+        return dx < 0 ? 1 : 3;        // center west: a quarter clockwise; east: three
     }
 
     /**
@@ -403,7 +403,7 @@ public final class BuildPlanner {
             Profession.TRADER, Profession.SHEPHERD, Profession.SMITH, Profession.GUARD,
             Profession.MINER, Profession.LUMBERJACK, Profession.FARMER, Profession.BUILDER);
 
-    /** Builder-steps for a producer ordered out of turn; the catalogue cost is used when known. */
+    /** Builder-steps for a producer ordered out of turn; the catalog cost is used when known. */
     public static final int PRODUCER_WORK = 30;
 
     /** Blueprint for a run of steps up to a doorway nobody can reach. */

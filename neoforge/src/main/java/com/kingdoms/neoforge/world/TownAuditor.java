@@ -26,7 +26,7 @@ import java.util.Locale;
  * Walks a settlement's buildings and reports what is built wrong.
  *
  * <p>This exists because every fault it checks for is silent. A farm placed in a
- * lake, a hall perched a storey above its own door, a settler-proof fence, crops
+ * lake, a hall perched a story above its own door, a settler-proof fence, crops
  * popped into item drops — none of them throws, none of them logs, and all of
  * them are obvious within thirty seconds of walking through the town. The audit
  * turns that walk into something a headless run can do, so regressions in world
@@ -48,7 +48,7 @@ public final class TownAuditor {
      * town itself.
      *
      * <p>A nullable position was the cheapest honest way to admit a
-     * settlement-scope fault. Pinning a synthetic one to the town centre would
+     * settlement-scope fault. Pinning a synthetic one to the town center would
      * have kept the field non-null at the price of sending whoever read it to
      * stand on a block where nothing is wrong: a famine is not located anywhere.
      */
@@ -828,7 +828,7 @@ public final class TownAuditor {
      *
      * <p>A fence gate counts whether open or shut — it is an intended access
      * point even where it is kept closed to pen animals. No gap on any side is
-     * the town hall with its door a storey up, or a doorway the terrain has
+     * the town hall with its door a story up, or a doorway the terrain has
      * swallowed.
      */
     private static void checkDoorway(WorldView world, Building building, BlockPos origin,
@@ -921,7 +921,7 @@ public final class TownAuditor {
     private static void checkField(WorldView world, Building building, BlockPos origin,
                                    int floor, int wallHalfW, int wallHalfD,
                                    List<Fault> faults) {
-        // Every judgement below is about something happening over time — a field
+        // Every judgment below is about something happening over time — a field
         // filling up, or being emptied. On ground that is loaded but not running,
         // nothing happens at all: crops do not grow, farmers are not asked to
         // work, and dropped items never despawn. A field there is frozen exactly
@@ -997,7 +997,7 @@ public final class TownAuditor {
     /**
      * Two buildings whose walls share ground have been built through each other.
      *
-     * <p>Judged on walls rather than plots: neighbouring cleared shelves may meet
+     * <p>Judged on walls rather than plots: neighboring cleared shelves may meet
      * by design, but masonry inside masonry is always the destructive case.
      */
     private static void auditOverlaps(List<Building> present, List<Fault> faults) {

@@ -6,7 +6,7 @@ import java.util.Locale;
  * How far along the founding progression a settlement is.
  *
  * <p>The verdict that forced this: no realistic settlement starts by building a
- * government. The old catalogue put the town hall at priority 100 above
+ * government. The old catalog put the town hall at priority 100 above
  * everything, so four settlers' first act was civic architecture while they
  * slept in the open. A settlement now advances through stages — camp, then
  * food, then safety, then permanence — and the hall is the capstone of the last
@@ -32,7 +32,7 @@ public enum SettlementStage {
     /** Families move into cottages, workshops open, the market trades. */
     VILLAGE,
 
-    /** The hall at last — and everything the old catalogue always wanted. */
+    /** The hall at last — and everything the old catalog always wanted. */
     TOWN;
 
     /** The stage after this one, or this one at the end of the road. */

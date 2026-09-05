@@ -42,7 +42,7 @@ import static com.kingdoms.neoforge.client.KingdomsPanel.SUBTLE;
  *
  * <p>What the client <em>does</em> decide for itself is what is in the player's
  * own pockets, which is the one fact it holds better than the server does. It
- * is only used to grey a button out; every refusal that matters is made again
+ * is only used to gray a button out; every refusal that matters is made again
  * on the server.
  */
 public final class MarketScreen extends Screen {
@@ -62,7 +62,7 @@ public final class MarketScreen extends Screen {
     /** Where the reason starts, measured from the panel's left edge. */
     private static final int REASON_X = PADDING + 92;
 
-    /** A town in real trouble. The one colour beyond the shared palette. */
+    /** A town in real trouble. The one color beyond the shared palette. */
     private static final int URGENT = 0xFFFF7755;
 
     /** Short of something, but not desperate about it. */
@@ -135,7 +135,7 @@ public final class MarketScreen extends Screen {
      *
      * <p>This is not a pause screen, so a hopper can fill a pocket behind it —
      * but the case that matters is the plainest one: a player who opens the
-     * stall with no emeralds would otherwise see every Buy button greyed out for
+     * stall with no emeralds would otherwise see every Buy button grayed out for
      * as long as they stood there, because the only thing that rebuilt them was
      * a successful trade and no trade was possible.
      */
@@ -169,7 +169,7 @@ public final class MarketScreen extends Screen {
      *
      * <p>Counted against the same canonical item the counter will take — a
      * button that lights up for a stack of birch planks the server then refuses
-     * is worse than one that stays grey.
+     * is worse than one that stays gray.
      */
     private boolean canAfford(MarketPayload.Offer offer) {
         if (minecraft == null || minecraft.player == null) {

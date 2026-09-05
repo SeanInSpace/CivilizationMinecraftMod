@@ -23,7 +23,7 @@ public final class KingdomsAttachments {
      *
      * <p>Serialized on purpose: if a view entity ever reaches disk (crash, chunk
      * unload race), the tag survives the round-trip, and the entity-join hook
-     * recognises and culls the stale copy instead of letting it duplicate. The
+     * recognizes and culls the stale copy instead of letting it duplicate. The
      * person record is the authority; the entity is always disposable.
      */
     public static final Supplier<AttachmentType<UUID>> PERSON_ID = ATTACHMENTS.register(

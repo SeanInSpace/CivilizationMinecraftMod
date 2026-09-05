@@ -28,7 +28,7 @@ public interface Shelves {
      * <p>Null covers both an empty slot and one holding something the stores do
      * not speak for — a diamond somebody dropped in. The two are told apart by
      * {@link #isEmpty}, and the difference matters: the reconciler clears what
-     * it recognises and steps politely around what it does not.
+     * it recognizes and steps politely around what it does not.
      */
     String resourceAt(int slot);
 

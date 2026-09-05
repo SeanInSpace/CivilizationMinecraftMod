@@ -111,7 +111,7 @@ public final class ThorpLayout extends PlannedLayout {
     private static final int SHANK_BACK = PITCH;
 
     /**
-     * How far the yard's flanking buildings stand from the lane's centreline.
+     * How far the yard's flanking buildings stand from the lane's centerline.
      *
      * <p>Seven blocks wider than the frontage that leads to it. Any less and the
      * yard is not a widening but more lane; much more and the buildings stop
@@ -176,7 +176,7 @@ public final class ThorpLayout extends PlannedLayout {
     @Override
     public boolean isSameShapeEverywhere() {
         // The lane lengths and the track's bends are both drawn from the town's
-        // own centre, so no two thorps are the same thorp twice.
+        // own center, so no two thorps are the same thorp twice.
         return false;
     }
 
@@ -249,7 +249,7 @@ public final class ThorpLayout extends PlannedLayout {
                 // frontage along the whole track would make it one.
                 //
                 // The far side, so the cottage does not stand in its own lane's
-                // mouth. It lands a plot pitch from the neighbouring lane's
+                // mouth. It lands a plot pitch from the neighboring lane's
                 // entrance pair on the wider axis, which is the tightest this
                 // arrangement gets and clears.
                 SimPos across = at(centre, mouth - side * SETBACK, laneZ);
@@ -327,7 +327,7 @@ public final class ThorpLayout extends PlannedLayout {
     /**
      * How far this particular lane runs, which is one of two lengths.
      *
-     * <p>Seeded from the town's own centre as well as the lane, so the ragged
+     * <p>Seeded from the town's own center as well as the lane, so the ragged
      * edge is a different raggedness in every hamlet on the map. A repeated
      * outline reads worse than a straight one because it reads as a repeated
      * asset.

@@ -43,7 +43,7 @@ public final class Building {
      * <p>The baseline damage is judged against — see {@link RepairPlanner}. Taken
      * from the world rather than from the blueprint, because a blueprint says
      * what was meant to be laid and a building is what the builders actually
-     * managed once the ground had been levelled and the doorway cut.
+     * managed once the ground had been leveled and the doorway cut.
      *
      * <p>{@link #UNCOUNTED} until somebody has been there to look. A building
      * raised while nobody was watching has never been counted, and must not be
@@ -251,7 +251,7 @@ public final class Building {
      *
      * <p>Every blueprint draws its doorway in the middle of the south wall and
      * {@link BuildPlanner#facingToward} then turns the whole structure to face
-     * the town centre, so the door ends up on whichever side that turn put it.
+     * the town center, so the door ends up on whichever side that turn put it.
      * Code that assumed south — the path layer did, for as long as paths have
      * existed — aimed three buildings in four at a blank wall.
      */

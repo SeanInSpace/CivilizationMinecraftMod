@@ -22,7 +22,7 @@ WALL = re.compile(r"PLAN W (\d+) (\d+) (.*)")
 GATE = re.compile(r"PLAN G (.*)")
 GROUND = re.compile(r"PLAN H (-?\d+) ([\d,\-]+) ([.~?:]+)")
 
-# What each blueprint is FOR, which is the only grouping worth colouring by.
+# What each blueprint is FOR, which is the only grouping worth coloring by.
 # A town where the dwellings cluster and the industry rings the edge is a
 # different town from one where they are shuffled, and no count shows that.
 GROUPS = {

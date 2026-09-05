@@ -43,7 +43,7 @@ import java.util.UUID;
  *       not rounded into a budget. Dirt with a shovel is three ticks for a digger
  *       for the same reason it is three ticks for you.</li>
  *   <li><strong>Diggers stand beside the block, never in it.</strong> A stand is
- *       a horizontal neighbour at or above the target, checked for a body-sized
+ *       a horizontal neighbor at or above the target, checked for a body-sized
  *       gap, for footing, and for an actual A* path before it is used. Stands are
  *       reserved, so two people are never sent to the same square.</li>
  *   <li><strong>The block visibly cracks.</strong> Progress goes out as the same
@@ -303,7 +303,7 @@ public final class Excavation {
      * Everything that comes down with one tree.
      *
      * <p>Logs and leaves together, out from the stump. Leaves bridge to a
-     * neighbour in a close-grown wood, so this is capped: felling two trees at
+     * neighbor in a close-grown wood, so this is capped: felling two trees at
      * once is a fair outcome, felling the forest is not.
      */
     private static Set<BlockPos> gatherTree(ServerLevel level, BlockPos stump) {
@@ -529,7 +529,7 @@ public final class Excavation {
         // No drops. There is nowhere for spoil to go yet, and a site knee-deep in
         // dirt items is worse than no spoil at all. That includes the plant
         // standing ON the block: destroyBlock keeps the dug block quiet but
-        // still updates its neighbours, so the grass above popped off as a seed
+        // still updates its neighbors, so the grass above popped off as a seed
         // item every time — the source of a mysterious drizzle of leaf
         // litter, kelp and wheat seeds over every worksite in town.
         clearPlantAbove(level, job.block);
@@ -728,7 +728,7 @@ public final class Excavation {
 
         // Last resort: on top of the block itself. Standing beside it is the rule
         // and this breaks it, but a spur of rock with nothing but air around it
-        // has no neighbouring square to stand on, and refusing to dig it at all
+        // has no neighboring square to stand on, and refusing to dig it at all
         // strands the whole excavation on one block. Dropping the height of the
         // block you were standing on is not a fall worth avoiding.
         BlockPos above = block.above();
@@ -802,7 +802,7 @@ public final class Excavation {
      * — so a crew making slow honest progress never trips it. Slowing the dig
      * therefore slows a watched town's building outright, which is the same
      * shape as the bug where standing and watching a town starved it. Two is a
-     * step toward labour reading as labour with room left to go further once a
+     * step toward labor reading as labor with room left to go further once a
      * run has been watched over it.
      */
     public static final int LABOUR_FACTOR = 2;

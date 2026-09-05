@@ -117,7 +117,7 @@ public class StoreChestBlockEntity extends BaseContainerBlockEntity {
     public void setLastSynced(String resource, int amount) {
         // No setChanged here: the reconciler marks the entity once when it is
         // done with it. Doing it per resource cost four dirty-marks a second,
-        // each of which walks the neighbours looking for a comparator.
+        // each of which walks the neighbors looking for a comparator.
         lastSynced.put(resource, Math.max(0, amount));
     }
 

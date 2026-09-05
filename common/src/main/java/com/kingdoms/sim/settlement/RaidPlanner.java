@@ -187,7 +187,7 @@ public final class RaidPlanner {
      * Who falls when the line breaks: guards first — they are the line — then
      * others in roster order. Embodied people are never chosen: what a player can
      * see must never die invisibly, and statistical resolution only runs when the
-     * centre is unobserved anyway.
+     * center is unobserved anyway.
      */
     static List<Person> pickCasualties(Settlement settlement, int deficit) {
         List<Person> fallen = new ArrayList<>();

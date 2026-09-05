@@ -28,7 +28,7 @@ import java.util.List;
  * the {@link Perimeter} it returns.
  *
  * <p>Raising is paid work on the abstract clock: posts cost timber and go up as
- * fast as the labouring hands can plant them, pausing whenever the build queue
+ * fast as the laboring hands can plant them, pausing whenever the build queue
  * has a real building in it — walls matter, but shelter and stores matter more.
  */
 public final class PerimeterPlanner {
@@ -498,7 +498,7 @@ public final class PerimeterPlanner {
             //
             // Repairing the line afterwards was the first attempt and it does not
             // work: pushing a vertex outward swings both of its stretches, and on
-            // a concave line a building sitting in the notch beyond a neighbour
+            // a concave line a building sitting in the notch beyond a neighbor
             // falls out of the wall. Guarding each move with containment then
             // rejects almost all of them, and ten stayed ten. Giving the hull
             // more to hold is cheaper and it cannot break containment, because
@@ -609,7 +609,7 @@ public final class PerimeterPlanner {
      *
      * <p>Each vertex looks at the squares within {@link #RELAX_REACH} of itself
      * and takes the one with the least energy — flatter ground, and a shorter
-     * straighter line through its two neighbours. A move that would leave a
+     * straighter line through its two neighbors. A move that would leave a
      * plot corner outside the loop is refused however good the ground is,
      * which is the one rule a wall cannot bend.
      */

@@ -222,7 +222,7 @@ public final class PersonInventoryScreen extends Screen {
                 x + PANEL_WIDTH - PADDING - font.width(text), y, colour, false);
     }
 
-    /** The colour and the word come off the same rung, so they cannot disagree. */
+    /** The color and the word come off the same rung, so they cannot disagree. */
     private static int colourOf(Appetite appetite) {
         return switch (appetite) {
             case STARVING -> STARVING_TEXT;
@@ -238,8 +238,8 @@ public final class PersonInventoryScreen extends Screen {
      * second switch that would drift away from it.
      *
      * <p>Falls back to a chest rather than the barrier {@link ItemIcons} uses,
-     * because this is the town overview's question — an unrecognised store, not
-     * an unrecognised item — and it answers it the same way.
+     * because this is the town overview's question — an unrecognized store, not
+     * an unrecognized item — and it answers it the same way.
      */
     private static Item materialItem(String resource) {
         String id = Resources.itemFor(resource);

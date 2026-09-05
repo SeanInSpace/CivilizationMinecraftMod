@@ -48,7 +48,7 @@ public final class BuildCatalogue {
     public static final List<BuildingType> DEFAULT = List.of(
             //                id                      work  minPop  base  perResidents  priority  capacity  defense  plot
             // The founding program's own content (FOUNDING.md). Base 0 keeps the
-            // catalogue scan from ever wanting these on its own: only a stage's
+            // catalog scan from ever wanting these on its own: only a stage's
             // program orders them, so an established town never retrofits a camp.
             new BuildingType("kingdoms:camp_post",       6,      1,     0,            0,        0,        0,       0, plot("kingdoms:camp_post")),
             new BuildingType("kingdoms:cache",          10,      1,     0,            0,        0,        0,       0, plot("kingdoms:cache")),
@@ -87,7 +87,7 @@ public final class BuildCatalogue {
             // machinery had to be made honest before it could exist. Twenty-three
             // by seventeen is wider than the plan's own plot pitch, so a library
             // takes two frontages and the siting loop simply walks past the offer
-            // it will not fit on -- which is the behaviour that had to be proved
+            // it will not fit on -- which is the behavior that had to be proved
             // rather than assumed.
             //
             // Gated at forty residents and one per town. A village that tried to

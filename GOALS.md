@@ -36,9 +36,9 @@ a test source set, and everything decidable without a running game has been
 pulled out behind a seam and pinned: the auditor's geometry, the chest mirror,
 the floor a building takes across a sloping plot, the underpinning and its
 apron, where a digger may stand and in what order, and now the size every kind
-in the catalogue is actually drawn at. What remains is not a seam waiting to be
+in the catalog is actually drawn at. What remains is not a seam waiting to be
 cut. Choosing a stance ends in the game's own A*; laying a block ends in entity
-handling; the site veto's judgement is one comparison wrapped in a sampling
+handling; the site veto's judgment is one comparison wrapped in a sampling
 loop. A seam in front of any of those would either omit the thing being tested
 or need a fake larger than the code it checks. The JUnit game also never binds
 item components, so no test here can hold an `ItemStack`. **The instrument for
@@ -80,12 +80,12 @@ part of the work that cannot be delegated.
       at face value again.
 
       **What the world run actually showed.** A town grown 511 steps unwatched
-      inside a 320×320 force-load box materialised **nothing**: every one of 120
+      inside a 320×320 force-load box materialized **nothing**: every one of 120
       listed buildings read `[PENDING placement]` and the ring read `looked=0`.
       The same town then drew **80 buildings within 150 seconds** of a player
       standing in it. Nothing was slow. Nothing was drawn.
 
-      So the fault is not pacing and never was: the unwatched materialisation
+      So the fault is not pacing and never was: the unwatched materialization
       path does not treat force-loaded ground as ground it may draw on. That is
       the next thing to chase, and it is one question rather than six — find
       what that path asks about a chunk before it will build on it, and why a
@@ -116,7 +116,7 @@ part of the work that cannot be delegated.
 
       Sprawl is not the cause either: the original sprawled *further* (476) and
       supported *more* people. The cause is visible in where the early buildings
-      land — distance from the centre, in order:
+      land — distance from the center, in order:
 
       - ring: 12, 28, 44, 44, 60, 60 — fills continuously outward, 16 farms
       - warren: 16, 16, 45, **93, 126, 166** — jumps, 2 farms
@@ -133,8 +133,8 @@ part of the work that cannot be delegated.
       against the 36 now shipping. The ring layout's seventh building sits at 28.
 
       So it needs a design decision, not a constant:
-      - pack more knots close in before spiralling out, accepting a denser
-        centre than a warren "should" have; or
+      - pack more knots close in before spiraling out, accepting a denser
+        center than a warren "should" have; or
       - let a warren be what it looks like — a scatter of hamlets — and teach
         the simulation to run one: per-knot stores, hauling between knots, and a
         food chain that does not assume one granary within a short walk. That is
@@ -220,11 +220,11 @@ part of the work that cannot be delegated.
       - **The screen has been opened in a world by the manager**, and what it
         did there is recorded here:
 
-        Opened in a world by the manager on seed 8675309: right-clicking the market post of a town with two coin in its treasury showed four goods, each with its reason beside the price — "They can spare it" on food, wood and stone, "More than they can store" on iron — and the footer "Prices move with what the town is short of. Paid in emeralds." The post stands a block off centre because the stall is turned to face its street, which is worth knowing before clicking at it from a script.
+        Opened in a world by the manager on seed 8675309: right-clicking the market post of a town with two coin in its treasury showed four goods, each with its reason beside the price — "They can spare it" on food, wood and stone, "More than they can store" on iron — and the footer "Prices move with what the town is short of. Paid in emeralds." The post stands a block off center because the stall is turned to face its street, which is worth knowing before clicking at it from a script.
 
 - [ ] **Settle the danger table.** Three of the four questions this item asked
       are decided: `Danger` in `common` names the rungs and both thresholds read
-      from it, an unrecognised creature is no longer read as a zombie — the
+      from it, an unrecognized creature is no longer read as a zombie — the
       default is derived from what the game itself knows (nothing hostile 0, a
       boss 10, a raider or anything ranged 3, any other hostile 2), with drowned
       2, ghast 4, blaze, breeze and piglin brute 3, and the wither and the
@@ -271,7 +271,7 @@ part of the work that cannot be delegated.
       to nudge, which is why it was not attempted here.
 
 - [ ] **The lumber camp's post is not a post.** `LumberCampBlock` does not
-      extend `BuildingPostBlock`, so `isPost` does not recognise the camp's own
+      extend `BuildingPostBlock`, so `isPost` does not recognize the camp's own
       marker: it is neither laid first at the site nor withheld from the
       excavation that follows, and a digger will happily level it. A fault in
       the block hierarchy rather than in the geometry, found while building the
@@ -285,7 +285,7 @@ part of the work that cannot be delegated.
       - **The plan cache answers differently depending on how far it has been
         grown.** The same three figures off the same run read 39/41/2 from a
         fresh JVM and 32/32/1 from a warm one, before the plot-cursor fix. The
-        cursor fix stabilised it and nothing is known to be wrong now, but a
+        cursor fix stabilized it and nothing is known to be wrong now, but a
         cache that depended on history was really there and nobody found out
         why.
       - **`relocatePending` still spends a ring slot when it decides not to
@@ -339,13 +339,13 @@ part of the work that cannot be delegated.
       guarantees the order, and in the simulation nothing sweeps at all, so the
       fixtures count 695 of these across 117 towns and cannot tell which would
       survive contact with a player. Worth watching in a world before refusing
-      the ground, which would sterilise a band right through the middle of a
+      the ground, which would sterilize a band right through the middle of a
       town for as long as the demolition takes.
 
 - [ ] **A worldgen town is laid out in the wrong arrangement.**
       `WorldgenSettlements.resolve` calls `Founding.seeded`, which places every
       building through `town.arrangement()` — the culture's default for that
-      centre — and only afterwards calls `settlement.setLayoutId(site.layoutId())`.
+      center — and only afterwards calls `settlement.setLayoutId(site.layoutId())`.
       So the buildings stand in one arrangement, the plot cursor was counted in
       that one, and every building the town raises from its first step is sited
       in another. The config weights and the `WORLDGEN raised … laid out as …`
@@ -358,8 +358,8 @@ part of the work that cannot be delegated.
       it.** `BlueprintPlacer.fromBlueprint` takes the file's own size and its
       own anchor cell, and neither is compared with `BuildingSizes` the way
       `procedural` is — no `SIZE MISMATCH`, no bound. Worse, an anchor that is
-      not the middle of the structure puts the building off centre on its plot
-      while `Footprint` records it as centred, so every overlap check in the mod
+      not the middle of the structure puts the building off center on its plot
+      while `Footprint` records it as centered, so every overlap check in the mod
       is wrong by the anchor offset. Nothing ships a blueprint today, so this is
       a datapack's way of making two structures overlap rather than a fault a
       player can hit now.
@@ -416,7 +416,7 @@ work has landed, which changes what a street looks like from the middle of it.
       note that the watch will not come, for the reason in the open item above.
 - [ ] Does a repair read as repair? A cottage with its walls taken off came
       back whole within seconds, twenty times in four minutes — the whole
-      blueprint re-materialised rather than builders laying courses. It is
+      blueprint re-materialized rather than builders laying courses. It is
       what kept the demolition write-off from ever firing, and whether it
       looks like a town mending a house or a house un-happening is a
       question for somebody watching it.
@@ -434,7 +434,7 @@ work has landed, which changes what a street looks like from the middle of it.
       around a field? It follows the buildings, drifts along contours, and moves
       outward when the town outgrows it; all three are claims about how it looks
       from inside the gate.
-- [ ] Does digging read as labour now, at `Excavation.LABOUR_FACTOR` of two —
+- [ ] Does digging read as labor now, at `Excavation.LABOUR_FACTOR` of two —
       and does a watched town still get its farm up in time? The factor is one
       named constant, so this is a question about a number, not a rewrite. Three
       was the tempting value and was deliberately not taken: watched digging is
@@ -548,7 +548,7 @@ kept only until a run has been watched over it.*
 
 - [x] **A building is drawn the size its plot was reserved for, and a test says
       so.** `BuildingSizes` is the one table, `BuildingSizesTest` pins the
-      catalogue to it, and `BlueprintPlacerSizeTest` draws every one of the
+      catalog to it, and `BlueprintPlacerSizeTest` draws every one of the
       twenty-four kinds through a level-free `Site` seam and pins the placer to
       it too; the `SIZE MISMATCH` log stays for the one path a test cannot see,
       and never fired in the world run.
@@ -602,6 +602,6 @@ kept only until a run has been watched over it.*
       had been built and never ticked; it has a screen of its own now
       (`MarketScreen` over `MarketPayload`/`MarketDealPayload`) that puts the
       reason beside the price, and four holes were closed on the way — an
-      armoury sold at a coin an ingot to anybody who knew the ledger word, a
+      armory sold at a coin an ingot to anybody who knew the ledger word, a
       log-to-plank money pump, a store that refused to sell goods it demonstrably
       owned, and a storehouse counter that destroyed the emeralds it took.

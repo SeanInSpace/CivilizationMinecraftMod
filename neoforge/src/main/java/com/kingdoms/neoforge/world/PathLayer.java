@@ -302,7 +302,7 @@ public final class PathLayer {
         return moved;
     }
 
-    /** Turns one two-block step between neighbouring columns into two of one. */
+    /** Turns one two-block step between neighboring columns into two of one. */
     private static int levelStep(ServerLevel level, int ax, int az, int bx, int bz) {
         BlockPos lower = surfaceOf(level, ax, az);
         BlockPos higher = surfaceOf(level, bx, bz);

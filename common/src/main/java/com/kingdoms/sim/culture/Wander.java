@@ -9,7 +9,7 @@ package com.kingdoms.sim.culture;
  * that wanders twenty blocks is a road nobody would follow — but it is the
  * difference between a plan and a place.
  *
- * <p><strong>This is a centreline, not decoration.</strong> The temptation is to
+ * <p><strong>This is a centerline, not decoration.</strong> The temptation is to
  * curve the drawn road and leave the plots where the arithmetic put them, which
  * looks fine in a diagram and puts houses in the carriageway on the ground: the
  * setback is measured from the street's middle, so if the middle moves and the
@@ -23,7 +23,7 @@ package com.kingdoms.sim.culture;
  * regular S-bend. Zero-mean, so a street still arrives roughly where it was
  * headed and the town does not creep sideways as it grows.
  *
- * @param amplitude how far the centreline may stray, in blocks, either way
+ * @param amplitude how far the centerline may stray, in blocks, either way
  * @param wavelength how far along the street a full bend takes
  * @param seed which street this is, so two lanes never curve in step
  */
@@ -38,7 +38,7 @@ public record Wander(int amplitude, int wavelength, long seed) {
      * <p>Measured, not chosen, and it stayed where it was when the plots along a
      * street came in to a separation apart — the pitch has nothing left in hand
      * and this did not move a block. That is worth knowing rather than assuming:
-     * frontage is stepped along the street's <em>own</em> axis, so two neighbours
+     * frontage is stepped along the street's <em>own</em> axis, so two neighbors
      * are a whole pitch apart on that axis whatever the lean, and the wander only
      * ever adds to the other one. What a steep lean actually costs is the plot
      * sliding into its own carriageway and being refused for it, which is what
@@ -89,7 +89,7 @@ public record Wander(int amplitude, int wavelength, long seed) {
     }
 
     /**
-     * How far off the straight line the centre of the street sits, here.
+     * How far off the straight line the center of the street sits, here.
      *
      * <p>Deterministic in the seed and the distance, which is what lets the road
      * and the houses along it agree without either knowing about the other.
@@ -110,14 +110,14 @@ public record Wander(int amplitude, int wavelength, long seed) {
     }
 
     /**
-     * How fast the centreline slides sideways, at the steepest point of a bend.
+     * How fast the centerline slides sideways, at the steepest point of a bend.
      *
      * <p>The number that decides whether a street's frontage fits, so it is worth
      * being able to ask for it rather than deriving it at each call site.
      *
      * <p>The principal wave's slope, not the true maximum: the shorter second
      * wave carries a quarter of the weight at 1.618 times the frequency, so the
-     * steepest the centreline actually leans is about fifteen per cent more than
+     * steepest the centerline actually leans is about fifteen per cent more than
      * this. Reported the simple way because {@link #SAFE_SLOPE} and the table
      * beside it were measured in these same units — the bar and the reading agree,
      * which is what matters for a comparison. Do not read it as a gradient.

@@ -22,7 +22,7 @@ import net.minecraft.world.phys.BlockHitResult;
 /**
  * The lumber camp's control post — the town's woodland orders in block form.
  *
- * <p>Modelled on the hut blocks players know from colony mods: the building is a
+ * <p>Modeled on the hut blocks players know from colony mods: the building is a
  * thing in the world you walk up to and instruct, not a config file.
  *
  * <ul>

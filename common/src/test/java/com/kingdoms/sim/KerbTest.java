@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * could stand on it, because it reserves the ground before anybody knows what is
  * going there. What that costs is that the commonest building in any town takes
  * a setback drawn for something twice its size: measured on a grown town, seven
- * blocks of bare grass between a front wall and the kerb, on every house, in
+ * blocks of bare grass between a front wall and the curb, on every house, in
  * every arrangement.
  *
  * <p>There was a rule for this and it lived in {@code /civ buildtest}, whose own
@@ -112,15 +112,15 @@ class KerbTest {
     void theKerbStillFiresWhenThePlanOffersAtTheSeparation() {
         // The way this rule dies is silently, and it nearly did.
         //
-        // Coming up to the kerb is asked of the whole rank: pull this plot and
-        // its plan neighbours by the same fraction, and refuse the fraction where
+        // Coming up to the curb is asked of the whole rank: pull this plot and
+        // its plan neighbors by the same fraction, and refuse the fraction where
         // they foul each other. That was a fair question while the plan offered
         // frontage two blocks wider than the siting code demanded -- a pair that
         // fouled after a pull had been made to foul by it. The plan now offers at
         // the separation itself and reserves a house's span for a plot that may
         // hold a hall, so a rank of plan offers routinely fouls the overlap box
         // BEFORE anybody moves. Asked as a bare "do these clear", the answer is
-        // no at every fraction, for every plot, in every arrangement: the kerb
+        // no at every fraction, for every plot, in every arrangement: the curb
         // becomes dead code that still runs, every test above still passes, and
         // every house in the mod quietly steps back to the setback drawn for
         // something twice its size.

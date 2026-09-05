@@ -21,7 +21,7 @@ public final class KingdomsItems {
      * Hold it and every building's bounds light up.
      *
      * <p>Purely a lens — it places nothing and changes nothing, which is why it
-     * needs no use behaviour at all. The drawing is done server-side from the
+     * needs no use behavior at all. The drawing is done server-side from the
      * footprints the settlement already records.
      */
     public static final DeferredItem<Item> SURVEYORS_LAMP = ITEMS.registerItem(

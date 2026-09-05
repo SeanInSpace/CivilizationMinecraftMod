@@ -59,7 +59,7 @@ public final class KingdomsBlocks {
     /** Inn: where the caravans call. */
     public static final DeferredBlock<BuildingPostBlock> INN = BLOCKS.registerBlock(
             "inn",
-            properties -> new BuildingPostBlock("Inn", "beds for travellers and a yard for the caravans that trade the town's surplus.", properties),
+            properties -> new BuildingPostBlock("Inn", "beds for travelers and a yard for the caravans that trade the town's surplus.", properties),
             KingdomsBlocks::postProperties);
     /** Camp Post: the staked claim; see {@link CampPostBlock}. */
     public static final DeferredBlock<CampPostBlock> CAMP_POST = BLOCKS.registerBlock(
@@ -145,10 +145,10 @@ public final class KingdomsBlocks {
             properties -> new WarehouseBlock("Warehouse",
                     "the town's stores; every resource it owns is counted here.", properties),
             KingdomsBlocks::postProperties);
-    /** Smithy: tools, weapons and armour are made here and issued to the town. */
+    /** Smithy: tools, weapons and armor are made here and issued to the town. */
     public static final DeferredBlock<BuildingPostBlock> SMITH = BLOCKS.registerBlock(
             "smith",
-            properties -> new BuildingPostBlock("Smithy", "tools, weapons and armour are made here and issued to the town.", properties),
+            properties -> new BuildingPostBlock("Smithy", "tools, weapons and armor are made here and issued to the town.", properties),
             KingdomsBlocks::postProperties);
     /** Animal Farm: livestock is kept here, a pen to each kind. */
     public static final DeferredBlock<BuildingPostBlock> ANIMAL_FARM = BLOCKS.registerBlock(

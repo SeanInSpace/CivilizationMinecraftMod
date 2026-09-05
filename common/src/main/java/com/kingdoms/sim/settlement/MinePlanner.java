@@ -44,7 +44,7 @@ public final class MinePlanner {
     /**
      * Iron worth keeping on hand.
      *
-     * <p>The forge stops once tools, weapons and armour are all stocked, so
+     * <p>The forge stops once tools, weapons and armor are all stocked, so
      * without a ceiling the ore just piles up — a 700-step run ended holding
      * eleven hundred of it, which is noise in the ledger rather than wealth.
      */

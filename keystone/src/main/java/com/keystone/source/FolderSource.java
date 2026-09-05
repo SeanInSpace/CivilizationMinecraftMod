@@ -40,7 +40,7 @@ public final class FolderSource implements BlueprintSource {
      * Resolves an id to a file, or empty if it would escape the blueprint folder.
      *
      * <p>Identifier paths permit dots, so {@code ../../secrets} parses happily.
-     * Everything is normalised and re-checked against the root before use.
+     * Everything is normalized and re-checked against the root before use.
      */
     public static Optional<Path> fileFor(Identifier id) {
         return fileFor(id, EXTENSION);

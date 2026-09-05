@@ -205,7 +205,7 @@ class AlarmTest {
 
     @Test
     void aThinWatchPanicsSoonerRatherThanAlways() {
-        // Below the floor the bell stays quiet however defenceless the town is —
+        // Below the floor the bell stays quiet however defenseless the town is —
         // otherwise a town whose one guard was hungry would ring over two zombies.
         Settlement defenceless = watchOf(0, 4);
         assertFalse(RaidPlanner.outmatched(defenceless, new Sighting(3, 3)),

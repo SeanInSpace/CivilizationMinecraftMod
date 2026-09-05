@@ -386,7 +386,7 @@ Panel.prototype.draw = function () {
         var p = P(wx, wz);
         if (p.x < -cell || p.y < -cell || p.x > s.w + cell || p.y > s.h + cell) continue;
         if (state === "?") {
-          // Never read. Hatched, never coloured. An unread square is not a steep
+          // Never read. Hatched, never colored. An unread square is not a steep
           // one and must not be able to look like one -- a survey whose southern
           // tenth had simply not loaded once came out solid red and read as a
           // cliff face.
@@ -554,8 +554,8 @@ function describeDiff() {
     + row("ring", a.ringlen, b.ringlen, " posts")
     + row("spread", Math.round(spread(a)), Math.round(spread(b)), " blk")
     + "<span>" + (sameGround
-        ? "same centre — comparable"
-        : "<span class='up'>different centres — NOT the same ground</span>") + "</span>";
+        ? "same center — comparable"
+        : "<span class='up'>different centers — NOT the same ground</span>") + "</span>";
 }
 
 function addSurveys(list) {

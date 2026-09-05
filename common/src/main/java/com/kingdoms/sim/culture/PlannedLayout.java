@@ -14,7 +14,7 @@ import java.util.Map;
  * is left for a subclass is the only part that differs: where the roads go.
  * That split is worth making because the shared half is where all the faults
  * have been. Taking offers nearest-first, refusing a plot that fouls a
- * neighbour, refusing a plot that stands in the carriageway, and always being
+ * neighbor, refusing a plot that stands in the carriageway, and always being
  * able to answer for a plot index past the end of the plan are four rules that
  * every planned arrangement needs and that each one would otherwise get wrong
  * separately — the high street got three of them wrong on its own, one at a
@@ -244,7 +244,7 @@ public abstract class PlannedLayout implements Layout {
      *
      * <p>At the street it fronts, which is the whole difference between a street
      * of houses and a row of buildings that happen to be beside a road. Falls
-     * back to the centre for ground the plan never offered — a farm sited by its
+     * back to the center for ground the plan never offered — a farm sited by its
      * own planner, or an outskirt plot fronting nothing.
      */
     @Override
@@ -263,7 +263,7 @@ public abstract class PlannedLayout implements Layout {
      *
      * <p>Candidates are taken nearest-first and each only if it clears everything
      * already placed. That is what keeps the three rules without hand-solving the
-     * geometry: a candidate that would foul a neighbour is never given a slot,
+     * geometry: a candidate that would foul a neighbor is never given a slot,
      * exactly as the siting code would refuse it later. The ring layout's
      * innermost course and the warren's clumps were both arithmetic that looked
      * right and was not; this cannot be wrong in that way because it checks.
@@ -281,7 +281,7 @@ public abstract class PlannedLayout implements Layout {
         // A design works out how many streets it needs by estimating how much
         // frontage they carry, and that estimate is always optimistic: it cannot
         // know how many of its own offers will be refused for fouling a
-        // neighbour or for standing on one of its other streets. The ring roads
+        // neighbor or for standing on one of its other streets. The ring roads
         // estimated well and still came up 28% short, so a town of a hundred and
         // forty took a hundred and one plots off its streets and put the other
         // thirty-nine in the outskirts, fronting nothing.
@@ -468,7 +468,7 @@ public abstract class PlannedLayout implements Layout {
      */
     private static final int EXTENSIONS_ALLOWED = 64;
 
-    /** Whether a plot may stand here: clear of its neighbours and of the road. */
+    /** Whether a plot may stand here: clear of its neighbors and of the road. */
     private static boolean fits(SimPos where, List<TownPlan.Plot> taken,
                                 List<TownPlan.Street> streets) {
         for (TownPlan.Plot placed : taken) {
@@ -523,7 +523,7 @@ public abstract class PlannedLayout implements Layout {
     /**
      * The wander of the nth street of a town, phased so nothing bends in step.
      *
-     * <p>Seeded from the town's own centre, which is what stops every settlement
+     * <p>Seeded from the town's own center, which is what stops every settlement
      * on the map having the identical kink in the identical place — a repeated
      * asset reads worse than a straight road.
      */

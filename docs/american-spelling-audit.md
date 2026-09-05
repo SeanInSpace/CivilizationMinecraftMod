@@ -7,6 +7,14 @@ can rewrite blind and which are names and keys that need a real rename or a save
 
 Audited at commit `b688247` on branch `worktree-agent-a816151d692cfe68c`.
 
+> **Status: the conversion has been done.** Categories A and B — prose and free-text
+> strings — are converted; category C, the identifiers and keys, follows in the next
+> commit. Everything below this line is the audit as it was written, describing the tree
+> before any of it moved: read the tables as the worklist that was worked, not as the
+> state of the tree. What was deliberately left British, and why, is in **Converted** at
+> the end. The counts below are also one commit stale — the tree grew between the audit
+> and the conversion, so the sweep found 2041 hits where the audit counted 2055.
+
 ## Scope
 
 All 438 tracked files (`git ls-files`) except the three binaries — `gradle/wrapper/gradle-wrapper.jar`,

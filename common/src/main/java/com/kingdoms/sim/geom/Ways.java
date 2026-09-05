@@ -16,7 +16,7 @@ package com.kingdoms.sim.geom;
  * by the road's half-width and asking whether the run crosses it is the cheap
  * version and it is wrong on a curve: the corners of that square reach a factor
  * of root two further than its sides, so a ring road passing at radius forty
- * clipped a plot centred at radius twenty-seven. On a grid that costs a block;
+ * clipped a plot centered at radius twenty-seven. On a grid that costs a block;
  * on a circle it refused a hundred and twenty-five of a hundred and
  * seventy-seven offers.
  */

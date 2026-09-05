@@ -23,7 +23,7 @@ import com.kingdoms.sim.world.SimContext;
  *
  * <p>The census is deliberately not the same thing as the blueprint. A
  * blueprint says what should have been laid; a census says what actually stood
- * there once the ground had been levelled, the doorway cut, and the builders
+ * there once the ground had been leveled, the doorway cut, and the builders
  * had finished improvising. Judging against the blueprint would report every
  * building as damaged from the day it was finished.
  *
@@ -70,7 +70,7 @@ public final class RepairPlanner {
      * Below this, in percent, the building is called whole again.
      *
      * <p>Not zero. A census taken through a doorway a settler happened to be
-     * standing in, or with a torch burnt out, comes back a block or two light,
+     * standing in, or with a torch burned out, comes back a block or two light,
      * and a building that flickered between "damaged" and "sound" every step
      * would fill the event log with nothing.
      *
@@ -180,7 +180,7 @@ public final class RepairPlanner {
                 .findFirst()
                 .orElse(null);
         if (type == null) {
-            return;   // a building the catalogue no longer knows; nothing to rebuild it from
+            return;   // a building the catalog no longer knows; nothing to rebuild it from
         }
         int work = repairWork(type, damage);
         if (!canBeMended(settlement, work)) {

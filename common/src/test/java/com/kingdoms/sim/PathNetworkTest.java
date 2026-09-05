@@ -124,7 +124,7 @@ class PathNetworkTest {
         List<PathNetwork.Segment> before = s.paths().segments();
         assertFalse(before.isEmpty(), "the first building lays the first road");
 
-        // A neighbour of the far house: the hub is sixty blocks away, the
+        // A neighbor of the far house: the hub is sixty blocks away, the
         // existing road is a few.
         raise(s, "kingdoms:cottage", new SimPos(58, 64, 14), 2);
         PathPlanner.advance(s, CTX);
@@ -132,13 +132,13 @@ class PathNetworkTest {
         List<PathNetwork.Segment> added = s.paths().segments().stream()
                 .filter(segment -> !before.contains(segment))
                 .toList();
-        assertFalse(added.isEmpty(), "the neighbour lays a road of its own");
+        assertFalse(added.isEmpty(), "the neighbor lays a road of its own");
 
         SimPos end = added.getLast().to();
         boolean meetsExistingRoad = before.stream()
                 .anyMatch(segment -> segment.nearestTo(end).equals(end));
         assertTrue(meetsExistingRoad,
-                "the neighbour should branch off the road already passing it, "
+                "the neighbor should branch off the road already passing it, "
                         + "not drive its own spoke to the hub — ended at " + end);
 
         int laid = added.stream().mapToInt(PathNetwork.Segment::length).sum();
