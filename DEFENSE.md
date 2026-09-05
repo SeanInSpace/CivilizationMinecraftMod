@@ -34,12 +34,13 @@ catalogue — currently only the **watchtower, at +3**. (The bonus is a column i
 same table as everything else, so datapack cultures can have their own defensive
 structures later.)
 
-**The palisade is not in this number yet.** A fortified town rings itself with a
-real wall and real gates, and a sentry really walks it — but the arithmetic above
-still counts only guards and towers, so the wall currently buys physical
-obstruction and atmosphere rather than defence points. Giving the perimeter a
-bonus is the obvious next move and is deliberately not done blind: it wants a
-playtest to say what a palisade is worth.
+**The wall is not in this number yet.** A town rings itself with a real wall and
+real gates, and a sentry really walks it — but the arithmetic above still counts
+only guards and towers, so the wall currently buys physical obstruction and
+atmosphere rather than defense points. Giving the perimeter a bonus is the
+obvious next move and is deliberately not done blind: it wants a playtest to say
+what a wall is worth. It matters less than it sounds, besides: a wall is a
+TOWN-stage build, so nothing below town size has one to count.
 
 With the default staffing and build tables, a town's life arc looks like:
 
@@ -56,25 +57,38 @@ band, and growth is what saves it. Towers arrive at population 12.
 Guards arrive by **two** routes, and the first one matters most. The staffing table
 wants one guard per 8 residents (see [POPULATION.md](POPULATION.md)), but a
 settlement that reaches the **fortified** stage names its first sentry immediately,
-whatever its population — a four-person camp with a closed palisade has a watch on
-it. That sentry is a graduation condition, so the post is also *kept* filled: a
-raid that kills the only guard is replaced from the pioneers next step. It had to
-be. The playtest that forced the rule lost its sentry to a raid twelve steps after
-the stage named them, and the founding stalled for three hundred and fifty steps
-with a finished wall and nobody to walk it.
+whatever its population — fortified means a watch and not a wall, which is exactly
+the stage's own program standing and somebody standing guard over it. That sentry
+is a graduation condition, so the post is also *kept* filled: a raid that kills the
+only guard is replaced from the pioneers next step. It had to be. The playtest that
+forced the rule lost its sentry to a raid twelve steps after the stage named them,
+and the founding stalled for three hundred and fifty steps one post short of a
+stage it had already reached.
 
-## The palisade
+## The wall
 
-A settlement that has fed itself stakes a ring around everything it has built and
-raises it post by post as its timber allows, pausing whenever a real building needs
-the crew. Gates are cut where the streets reach, one to a side, and are re-sited as
-the roads appear until the wall closes over them. The perimeter's vertices double
-as the sentry's patrol route.
+A **town** stakes a ring around everything it has built and raises it post by post
+as its stores allow — a timber and three coin the post — pausing whenever a real
+building needs the crew. Gates are cut where the streets reach, one to a side, and
+are re-sited as the roads appear until the wall closes over them. The perimeter's
+vertices double as the sentry's patrol route.
 
-This is deliberately the simple version. It proves the interface that the concave
-terrain-fitted wall in `GOALS.md` will later implement — that wall replaces where
-the ring is *staked* and nothing else. Small settlements keep the palisade; only
-towns that can afford better get better.
+**The stage is the whole of the rule.** A camp, a homestead, a fortified settlement
+and a village build no wall at all: several hundred posts is not what a party that
+has only just learned to feed itself should spend its timber on, and the stage that
+used to be named for a palisade is named for its watch instead. A settlement that
+*has* a wall keeps it whatever stage it stands at — nothing pulls a standing ring
+down because the settlement behind it slipped.
+
+**A town that grows past its wall has suburbs, not a problem.** The ring is
+re-staked only once the suburbs have become the town — more buildings standing
+outside the line than inside it — and then only if the standing wall is paid for to
+its last post, and never more often than once in 500 steps. Growth in between is
+simply outside the wall. When the line does move, the old one comes down as the new
+one goes up: a settlement has one wall, and an abandoned circuit through the middle
+of a town is a fence between a settler and their bed. Towns really did wall once at
+their charter and live inside that line for generations — Paris rebuilt its circuit
+three times in four hundred and fifty years, and London never did.
 
 ---
 
@@ -87,13 +101,13 @@ The raid resolves as arithmetic, immediately:
 
 Threat rises to the raid's strength either way, then decays 1 per step — a returning player can read "something happened recently" straight off the threat number.
 
-One protection: **someone a player can currently see is never killed by arithmetic.** Statistical casualties skip embodied people. (Resolution only runs when the town centre is unobserved, so this is a rare edge — a player standing at the fringe of a large claim.)
+One protection: **someone a player can currently see is never killed by arithmetic.** Statistical casualties skip embodied people. (Resolution only runs when the town center is unobserved, so this is a rare edge — a player standing at the fringe of a large claim.)
 
 ## Fidelity 2: someone is watching
 
-No arithmetic at all. The raid becomes **real zombies**, spawned in a ring 32 blocks from the town centre and pointed inward. From there, vanilla and the guard system decide:
+No arithmetic at all. The raid becomes **real zombies**, spawned in a ring 32 blocks from the town center and pointed inward. From there, vanilla and the guard system decide:
 
-- Zombies hunt villagers on their own — that is vanilla behaviour.
+- Zombies hunt villagers on their own — that is vanilla behavior.
 - **Guards fight back.** Once a second, every visible guard picks the nearest hostile within 20 blocks: in melee reach they strike (4 damage, with a swing); otherwise they charge. Hostiles retaliate through normal aggression, so **guards genuinely can lose**.
 - Any villager death — guard or civilian — kills the person it represents, permanently, through the same death path that already existed. The loss is logged.
 

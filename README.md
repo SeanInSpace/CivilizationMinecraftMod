@@ -8,7 +8,7 @@ open ground, and the town takes it from there.
 Design docs: [FOUNDING.md](FOUNDING.md) (how a settlement grows from camp to town,
 and how it daughters the next one) · [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what
 settlements build) · [POPULATION.md](POPULATION.md) (families, growth, jobs) ·
-[DEFENSE.md](DEFENSE.md) (raids, guards, the palisade) ·
+[DEFENSE.md](DEFENSE.md) (raids, guards, the town wall) ·
 [docs/CITIZENS.md](docs/CITIZENS.md) (what every citizen does, and in what order) ·
 [docs/HAULERS.md](docs/HAULERS.md) (a design for the porter trade, not yet built) ·
 [KEYSTONE.md](KEYSTONE.md) (the blueprint mod shipped alongside).
@@ -36,7 +36,7 @@ keystone/   A second, standalone mod: blueprints of any size (KEYSTONE.md)
 
 The one seam between them is [`WorldBridge`](common/src/main/java/com/kingdoms/sim/platform/WorldBridge.java), implemented by [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java).
 
-> **Rule:** if you want to `import net.minecraft.*` inside `common/`, don't. Add a method to `WorldBridge` instead. Every time you honour this rule you keep the simulation testable and the Fabric port cheap. Every time you break it, both get harder.
+> **Rule:** if you want to `import net.minecraft.*` inside `common/`, don't. Add a method to `WorldBridge` instead. Every time you honor this rule you keep the simulation testable and the Fabric port cheap. Every time you break it, both get harder.
 
 ---
 
@@ -196,7 +196,7 @@ When in doubt, read the real thing rather than a tutorial. The decompiled source
 
 ## What a step actually does
 
-Be clear-eyed about this: **the simulation currently contains two arithmetic rules.** Everything else is modelled, persisted, and inert.
+Be clear-eyed about this: **the simulation currently contains two arithmetic rules.** Everything else is modeled, persisted, and inert.
 
 The full call chain, every 100 game ticks:
 
@@ -208,7 +208,7 @@ SimWorld.step()                          builds a SimContext(bridge, step, setti
             ├─ advanceStage(ctx)             camp → homestead → … → town
             ├─ planNextBuild(ctx)            the stage's program, then the catalogue
             ├─ PathPlanner.advance(ctx)      one building joined to the road network
-            ├─ PerimeterPlanner.advance(ctx) stakes and raises the palisade
+            ├─ PerimeterPlanner.advance(ctx) stakes and raises the wall — TOWN
             ├─ InnPlanner.advance(ctx)       the caravan calls
             ├─ advanceBuildQueue(ctx)
             ├─ materializePending(ctx)
@@ -228,9 +228,9 @@ hall gated to town stage. The settlement claims the ground it needs. Full rules 
 **[BUILD_DECISIONS.md](BUILD_DECISIONS.md)** and **[FOUNDING.md](FOUNDING.md)**.
 
 **Rule 0.5 — jobs.** Below village size the staffing table does not run at all:
-every settler is a **pioneer** who labours as builder and farmer at once, and
+every settler is a **pioneer** who labors as builder and farmer at once, and
 trades crystallize as the stages demand them (a sentry and a woodcutter when the
-wall goes up; the rest dissolve into the ordinary table at village). From village
+camp fortifies; the rest dissolve into the ordinary table at village). From village
 size, at most one idler per step takes up the trade the settlement is most short
 of. Working residents are never reassigned by the table — the mix corrects through
 idlers and newborns — but a genuine shortage still can: a camp that runs out of
@@ -238,7 +238,7 @@ timber names a woodcutter on the spot.
 
 **Rule 0.75 — population.** Newcomers are gathered into families, families claim empty houses, and housed families with spare room have children. A family with no house, or a full house and nowhere to move, does not grow. **Children take the settlement's most-needed job**, falling back to the family trade when nothing is short. Full rules in **[POPULATION.md](POPULATION.md)**.
 
-**Rule 1 — construction.** Count residents who labour as `BUILDER` (which includes
+**Rule 1 — construction.** Count residents who labor as `BUILDER` (which includes
 every pioneer below village size). Add that many work units to the *first* task in the build queue. If it reaches `requiredWork`, drop it from the queue and **record a `Building`** on the settlement, stamped with the step it finished on. If there are no builders, or the queue is empty, nothing happens.
 
 **Rule 2 — deferred placement.** For each recorded building not yet drawn, ask the bridge whether its chunk is loaded. If it is, paint it into the world and mark it materialized. If not, leave it pending and try again next step.
@@ -251,7 +251,7 @@ That is the whole thing. `stepsElapsed` increments and the step ends.
 
 Rule 2 is where the two-fidelity architecture actually earns itself: a building finished in an unloaded chunk is real in the simulation immediately, and appears as blocks whenever someone next turns up. Construction is never gated on being watched.
 
-### Modelled but inert
+### Modeled but inert
 
 These exist as data, serialize correctly, and are read by nothing:
 
