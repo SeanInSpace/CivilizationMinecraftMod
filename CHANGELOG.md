@@ -8,6 +8,44 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## A world of crossroads towns
+
+### Changed
+
+- **A fresh world generates the burghers' crossroads towns instead of the
+  Norman green.** `worldgen.arrangements` still holds one arrangement at 100
+  and the rest at 0; the one is now `crossroads`. The green stays the best
+  measured shape and is not going anywhere -- this is the next people getting
+  their turn in front of a player. Worlds already generated keep whatever their
+  config file says, since the server config is written once; set
+  `crossroads = 100` and `green = 0` there to follow.
+
+### Notes
+
+- Chosen by measurement, all thirteen arrangements grown from a camp on smooth
+  ground (700 steps) and on the rough recorded seed (500 steps). Buildings per
+  thousand square blocks of the town's box, doors more than eight blocks from
+  an opened road, and share of planned road opened:
+
+  | arrangement | smooth density / stranded / opened | rough density / stranded / opened |
+  |---|---|---|
+  | green | 1.09 / 6 / 94% | 1.07 / 0 / 90% |
+  | crossroads | 0.67 / 3 / 92% | 0.69 / 3 / 86% |
+  | thorp | 0.56 / 2 / 89% | 0.75 / 4 / 84% |
+  | ring_streets | 0.56 / 3 / 95% | 0.55 / 3 / 83% |
+  | radial_concentric | 0.53 / 3 / 95% | 0.71 / 4 / 81% |
+  | crescents | 0.73 / 5 / 92%, 353 blocks out | 0.93 / 5 / 80% |
+  | high_street | 0.42 / 11 / 81% | 0.34 / 2 / 80% |
+  | bastide | 0.78 / 24 / 73% | 1.04 / 8 / 78% |
+  | stronghold_streets | 0.85 / 26 / 70% | 0.88 / 7 / 61% |
+
+  The four lattices are denser than any of these and have no roads. Bastide
+  and the ruled gridiron strand a quarter of their doors on smooth ground: the
+  block interiors are planned frontage the road opening never reaches, which
+  is the thing to fix before either is the default.
+
+---
+
 ## The whole repository spells American now
 
 Nothing in the game is different. 2041 British spellings became American ones,

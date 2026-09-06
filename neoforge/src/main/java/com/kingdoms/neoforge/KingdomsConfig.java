@@ -75,14 +75,26 @@ public final class KingdomsConfig {
     /**
      * What a fresh world starts with.
      *
-     * <p>Green and nothing else, on purpose and for now: a village round an open
-     * middle is the most ordinary settlement shape there is, it is the one that
-     * looks least like a mod announcing itself, and having exactly one makes it
-     * obvious whether worldgen is working at all. Widening this is a table edit,
-     * not a code change.
+     * <p>One arrangement and nothing else, on purpose and for now: having exactly
+     * one makes it obvious whether worldgen is working at all, and it puts one
+     * people's towns in front of a player long enough to be judged. Widening
+     * this is a table edit, not a code change.
+     *
+     * <p>Crossroads is the burghers' town: two roads meeting at a market square,
+     * ribs off the arms. It took the green's place here as the next best
+     * measured of the thirteen. Grown seven hundred steps on smooth ground and
+     * five hundred on the rough recorded seed, the green stood 1.09 and 1.07
+     * buildings to the thousand square blocks with 6 and 0 doors more than
+     * eight blocks from an opened road; crossroads stood 0.67 and 0.69 with 3
+     * and 3, and 92 and 86 percent of its planned road opened. Every other
+     * streets-first shape was sparser, or stranded more doors (bastide 24,
+     * stronghold_streets 26, high_street 11 on smooth ground), or sprawled
+     * (crescents to 353 blocks). The lattices are denser still but have no
+     * roads, which is the scattered-huts problem the comment on the table
+     * names.
      */
     private static final Map<String, Integer> STARTING_WEIGHTS =
-            Map.of(Culture.LAYOUT_GREEN, 100);
+            Map.of(Culture.LAYOUT_CROSSROADS, 100);
 
     /**
      * How often each arrangement is drawn.
