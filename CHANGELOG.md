@@ -8,6 +8,56 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## How much of a town's income is imaginary is now yours to set
+
+### New
+
+- **A table for how much an unwatched town produces.** Every resource gain in
+  the mod was abstract when nobody was near enough to see it -- the only way a
+  town you walked away from keeps existing, but "all of it, always" was never a
+  decision anybody made. `economy.unwatched_yield_percent` now sets the share
+  the clock credits, one entry each for wood, stone, food, iron and saplings,
+  and defaults to **70**. A hundred is exactly the old behavior. Zero means a
+  resource is only ever gained by work somebody could have stood and watched.
+
+- **A table for what a watched building earns when nobody is working it.** A
+  camp that has felled its last tree, a mine on flat grass with no shaft sunk,
+  a farmer who cannot path to the field: after twelve quiet steps the clock used
+  to step back in at full rate, so that being looked at could never starve a
+  town. `economy.watched_floor_percent` sets that floor and defaults to **0** --
+  in front of a player, only real work counts. Raise it to 100 for the old
+  behavior.
+
+- **`/civ info` says which numbers a world is running**, on one line when they
+  are uniform and per resource when they are not.
+
+### Changed
+
+- **A town you live in now outproduces one you abandoned.** At the defaults an
+  unwatched camp brings in seven logs where it used to bring eight, and a
+  watched one whose crew has stopped brings none at all. A founding party left
+  alone for four hundred steps still climbs the whole ladder and eats well
+  doing it -- it simply arrives with thirteen people rather than eighteen.
+
+### Notes
+
+- Percentages are carried between steps rather than rounded off each time, so a
+  field earning a single loaf a step banks seven loaves in ten at 70 rather than
+  none at all forever. The carry is counted in hundredths as whole numbers,
+  because ten steps of seven tenths in binary floating point comes to
+  6.999999999999999 and would have quietly cost every town a loaf.
+
+- Work a player can actually watch is never scaled by either table, and neither
+  is anything that is not a gain: hauling between stores, the timber refunded by
+  a pulled fence post, the forge turning iron into tools, or the caravan's
+  barter at the inn -- that one buys its iron with real loaves at a stated rate,
+  and shaving the return would change the exchange rate rather than reduce the
+  abstraction. Foraging is scaled, but always at the unwatched rate: no forager
+  has ever been embodied, so a floor of zero would starve a founding party in
+  front of the player who came to watch it.
+
+---
+
 ## A world of crossroads towns
 
 ### Changed

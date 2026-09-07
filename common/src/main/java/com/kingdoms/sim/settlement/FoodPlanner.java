@@ -7,6 +7,7 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
+import com.kingdoms.sim.world.YieldPolicy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -259,7 +260,7 @@ public final class FoodPlanner {
         // fields reading one answer and the haulers behind them reading another.
         boolean starving = settlement.isStarving();
 
-        forage(settlement);
+        forage(settlement, ctx);
         growHarvest(settlement, ctx, starving);
         // Dinner before the day's errands, because that is the whole rule: a
         // person past the weak line is going to eat, and assignHauls skips
@@ -802,8 +803,16 @@ public final class FoodPlanner {
      * settlement graduates HOMESTEAD on berries. There is no weakness gate:
      * the weak foraging anyway is precisely what stops the starvation spiral
      * the founding rework exists to prevent.
+     *
+     * <p>Wild food is clock yield and is scaled like the rest of it — but by
+     * the unwatched share whether or not anybody is standing there, and never
+     * by the watched floor. The floor is the answer to "the real hands should
+     * have done this and did not"; there are no real hands here to have done
+     * it. Nobody has ever embodied a forager, so a floor of nothing would mean
+     * a founding party starving in front of the player who came to watch it,
+     * which is the one outcome every rule in this file is written against.
      */
-    private static void forage(Settlement settlement) {
+    private static void forage(Settlement settlement, SimContext ctx) {
         if (!StagePlanner.pioneersLabor(settlement.stage())) {
             return;
         }
@@ -815,6 +824,8 @@ public final class FoodPlanner {
                 .filter(p -> settlement.laborsAs(p, Profession.FARMER))
                 .count();
         int gathered = (hands + FORAGERS_PER_MEAL - 1) / FORAGERS_PER_MEAL;
+        gathered = settlement.abstractYield("forage", TownStores.FOOD,
+                gathered, ctx.settings().yields().unwatched(TownStores.FOOD));
         if (gathered > 0) {
             settlement.stores().add(TownStores.FOOD, gathered);
         }
@@ -854,7 +865,12 @@ public final class FoodPlanner {
                 harvest--;   // real hands are working this one; their share is theirs
                 continue;
             }
-            farm.setFoodStored(farm.foodStored() + 1);
+            // One loaf at a time, so the percentage has to be carried rather
+            // than multiplied: seventy percent of a single loaf is nothing
+            // until the fourth step, and abstractYield is what remembers that.
+            int percent = ctx.settings().yields().percent(watched, TownStores.FOOD);
+            farm.setFoodStored(farm.foodStored()
+                    + settlement.abstractYield(farm.origin(), TownStores.FOOD, 1, percent));
             harvest--;
         }
     }

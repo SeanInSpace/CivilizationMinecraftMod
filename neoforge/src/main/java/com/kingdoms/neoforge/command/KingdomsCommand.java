@@ -35,6 +35,7 @@ import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.world.SimWorld;
+import com.kingdoms.sim.world.YieldPolicy;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -560,6 +561,28 @@ public final class KingdomsCommand {
         return wrap == 0 ? base : base + " " + (wrap + 1);
     }
 
+    /**
+     * The two abstraction tables in one line, per resource only where they differ.
+     *
+     * <p>Almost every world runs one pair of numbers across the board, and five
+     * identical lines saying so would bury the line that matters underneath the
+     * four that do not.
+     */
+    private static String describeYields(YieldPolicy policy) {
+        int unwatched = policy.uniformUnwatched();
+        int floor = policy.uniformWatchedFloor();
+        if (unwatched >= 0 && floor >= 0) {
+            return "yield: unwatched " + unwatched + "% · watched floor " + floor + "%";
+        }
+        StringBuilder sb = new StringBuilder("yield (unwatched / watched floor):");
+        for (String resource : YieldPolicy.SCALED_RESOURCES) {
+            sb.append("\n    ").append(resource).append(' ')
+                    .append(policy.unwatched(resource)).append("% / ")
+                    .append(policy.watchedFloor(resource)).append('%');
+        }
+        return sb.toString();
+    }
+
     private static int info(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         SimWorld world = KingdomsMod.simulationFor(source.getLevel());
@@ -590,6 +613,10 @@ public final class KingdomsCommand {
                             PersonEntityManager.TICK_INTERVAL)))
                     .append("/min)");
         }
+        // How much of what follows is conjured. A town's stores are the sum of
+        // real work and clock work, and without this line there is no way to
+        // read the difference off the report.
+        sb.append("\n  ").append(describeYields(world.settings().yields()));
         for (Kingdom kingdom : world.kingdoms()) {
             sb.append("\n").append(kingdom.name())
                     .append(" [").append(kingdom.cultureId()).append("] pop ")

@@ -3,6 +3,7 @@ package com.kingdoms.sim.settlement;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
+import com.kingdoms.sim.world.YieldPolicy;
 import java.util.List;
 
 /**
@@ -93,9 +94,15 @@ public final class MinePlanner {
         if (mine == null || !wantsMoreStone(settlement)) {
             return;
         }
-        if (ctx.bridge().playerWithin(mine, ctx.settings().observedRadius())
-                && cutRecently(settlement, ctx.step())) {
+        boolean watched = ctx.bridge().playerWithin(mine, ctx.settings().observedRadius());
+        if (watched && cutRecently(settlement, ctx.step())) {
             return;   // somebody is watching and the real picks are cutting
+        }
+        YieldPolicy policy = ctx.settings().yields();
+        int stonePercent = policy.percent(watched, TownStores.STONE);
+        int ironPercent = policy.percent(watched, TownStores.IRON);
+        if (stonePercent <= 0 && ironPercent <= 0) {
+            return;   // this world does not conjure stone
         }
         int miners = (int) settlement.residents().stream()
                 .filter(p -> p.profession() == Profession.MINER && !p.isTooWeakToWork())
@@ -114,8 +121,13 @@ public final class MinePlanner {
             }
             SimPos at = mines.isEmpty() ? settlement.center() : mines.get(i).origin();
             settlement.produceNear(at, TownStores.STONE,
-                    share * STONE_PER_STEP, stoneCapacity(settlement));
-            settlement.produceNear(at, TownStores.IRON, share * IRON_PER_STEP, MAX_IRON);
+                    settlement.abstractYield(at, TownStores.STONE,
+                            share * STONE_PER_STEP, stonePercent),
+                    stoneCapacity(settlement));
+            settlement.produceNear(at, TownStores.IRON,
+                    settlement.abstractYield(at, TownStores.IRON,
+                            share * IRON_PER_STEP, ironPercent),
+                    MAX_IRON);
         }
     }
 
