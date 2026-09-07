@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.view;
 
+import com.kingdoms.neoforge.entity.Pace;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.sim.geom.SimPos;
@@ -36,6 +37,9 @@ public final class LumberjackWorker {
     /** Reach for felling and planting — an arm's length plus a bit. */
     /** How close a worker has to be to swing at something. */
     public static final double WORK_REACH = 4.5;
+    /** The walk to the next tree, face or pen; see {@link Pace}. */
+    public static final double WALK_SPEED = Pace.WALK;
+
 
     /** Columns examined per search before giving up until the next pass. */
     private static final int MAX_COLUMNS_PER_SCAN = 900;
@@ -275,6 +279,6 @@ public final class LumberjackWorker {
     }
 
     private static void walkTo(PersonEntity worker, BlockPos pos) {
-        worker.getNavigation().moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.7);
+        worker.getNavigation().moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, WALK_SPEED);
     }
 }

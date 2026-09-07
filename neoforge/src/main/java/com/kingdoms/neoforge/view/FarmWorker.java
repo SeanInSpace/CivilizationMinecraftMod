@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.view;
 
+import com.kingdoms.neoforge.entity.Pace;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
 import com.kingdoms.sim.geom.SimPos;
@@ -41,7 +42,8 @@ public final class FarmWorker {
     /** How far afield a farmer looks for their farm before giving up. */
     private static final double FARM_SEARCH = 32.0;
 
-    private static final double WALK_SPEED = 0.6;
+    /** A farmer's walk to the next row; see {@link Pace}. */
+    public static final double WALK_SPEED = Pace.WALK;
 
     /** Field cells examined per pass, so an 11-wide farm stays cheap to scan. */
     private static final int MAX_CELLS_PER_SCAN = 200;
