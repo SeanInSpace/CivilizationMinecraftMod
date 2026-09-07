@@ -421,7 +421,16 @@ public final class KingdomsMod {
         }
     }
 
-    /** A view entity died — the person it represented dies with it. */
+    /**
+     * A view entity died — the person it represented dies with it.
+     *
+     * <p>Only the body the manager actually owns. The join handler above refuses
+     * a body it does not own, and this asks the same question for the same
+     * reason: a stale duplicate — one left behind by a chunk that unloaded
+     * mid-release, or an old body still standing when the person was embodied
+     * afresh — is a prop, and a prop dying must not kill a person who has a
+     * perfectly good body elsewhere.
+     */
     private static void onLivingDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof LivingEntity living)) {
             return;
@@ -433,9 +442,14 @@ public final class KingdomsMod {
             return;
         }
         PersonEntityManager manager = MANAGERS.get(level);
-        if (manager != null) {
-            manager.onViewEntityDeath(living);
+        if (manager == null) {
+            return;
         }
+        UUID personId = living.getData(KingdomsAttachments.PERSON_ID.get());
+        if (!manager.owns(personId, living)) {
+            return;   // a stale body; the person is not in it
+        }
+        manager.onViewEntityDeath(living);
     }
 
     /** Access the simulation for a given dimension, or null if the server is not running. */
