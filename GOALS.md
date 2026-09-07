@@ -510,6 +510,15 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **How much of a town's income is imaginary is a setting.** Two tables
+      in the server config, one percentage per resource: the clock's yield for a
+      town nobody is near (default 70) and the floor under real hands that have
+      stalled (default 0). Real harvests are never scaled; transfers, refunds,
+      the forge and the caravan are not gains and are not touched.
+- [x] **Fear makes a settler think, not sprint.** Every pace a citizen can be
+      given is one walking pace; a creeper is noticed at eighteen blocks by
+      arithmetic, tools go down at once, and the run goes to a door unless the
+      door is on the far side of the blast.
 - [x] **A town with nobody alive in it stops.** The clock stands in for an
       unwatched town's people; with no people it stands in for nobody, so an
       emptied town raises nothing, opens nothing and earns nothing until
