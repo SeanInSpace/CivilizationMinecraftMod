@@ -794,16 +794,6 @@ public final class FoodPlanner {
     }
 
     /**
-     * Fields produce into their own stores, worked by healthy farmers.
-     *
-     * <p>Two fidelities, one field, following the lumber camp's rule exactly:
-     * where somebody is watching, the real hands are the harvest — a farmer
-     * cutting actual wheat credits the farm and the clock stands aside. The
-     * clock works every unwatched farm, and floors a watched one whose farmers
-     * have not managed a real harvest in {@link #WATCHED_HARVEST_GRACE_STEPS},
-     * because being watched must never starve a town.
-     */
-    /**
      * Wild food, gathered by hand — the camp's food source before the fields.
      *
      * <p>Two deliberate limits. A handful of foragers turn up one meal a step,
@@ -830,6 +820,16 @@ public final class FoodPlanner {
         }
     }
 
+    /**
+     * Fields produce into their own stores, worked by healthy farmers.
+     *
+     * <p>Two fidelities, one field, following the lumber camp's rule exactly:
+     * where somebody is watching, the real hands are the harvest — a farmer
+     * cutting actual wheat credits the farm and the clock stands aside. The
+     * clock works every unwatched farm, and floors a watched one whose farmers
+     * have not managed a real harvest in {@link #WATCHED_HARVEST_GRACE_STEPS},
+     * because being watched must never starve a town.
+     */
     private static void growHarvest(Settlement settlement, SimContext ctx, boolean starving) {
         List<Building> farms = buildingsOf(settlement, "farm");
         if (farms.isEmpty()) {
