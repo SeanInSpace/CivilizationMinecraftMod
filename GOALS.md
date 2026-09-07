@@ -510,6 +510,11 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **A town with nobody alive in it stops.** The clock stands in for an
+      unwatched town's people; with no people it stands in for nobody, so an
+      emptied town raises nothing, opens nothing and earns nothing until
+      somebody lives there again.
+
 - [x] **A town walls itself once, at TOWN, and moves it only when the suburbs
       outgrow it.** Re-stakings over 1400 steps went from four to seven per
       arrangement to zero or one; first staking unchanged; a reloaded clock

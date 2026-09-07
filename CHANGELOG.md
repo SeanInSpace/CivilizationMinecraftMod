@@ -8,6 +8,28 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## A dead town is a dead town
+
+### Fixed
+
+- **A settlement whose people are all dead no longer builds.** An emptied town
+  went on opening its streets, planting wall posts, trading loaves for iron at
+  its inn and generally getting on with the week, with every last resident in
+  the ground. Now a town with nobody alive in it does nothing at all: no
+  building rises, no road opens, no post goes in, no store grows, and the
+  ledger sits exactly where the last person left it.
+- **The town is left standing, not swept away.** A plague village keeps its
+  buildings, its walls and its roads, and it is neither demolished nor marked
+  abandoned. Buildings the simulation had already finished still appear when
+  you walk into their chunks — that is a record of work done while somebody was
+  alive to do it, not new progress — and the town's memory of danger still
+  fades. Found or migrate somebody into it and it picks up exactly where it
+  stopped.
+- **It says so once.** The first step a town is found empty it reports that it
+  has no one left, and then it is quiet.
+
+---
+
 ## A world of crossroads towns
 
 ### Changed

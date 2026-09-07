@@ -1972,10 +1972,40 @@ public final class Settlement {
         this.drawnOnly = drawnOnly;
     }
 
+    /**
+     * Whether the town has already been reported empty, so it is said once.
+     *
+     * <p>Not saved. A world reloaded on a dead town will say it again on the
+     * first step after loading, which is one line in a log for a town that has
+     * stopped forever — cheaper than a field in the save format that exists
+     * only to suppress it.
+     */
+    private boolean mournedAlready;
+
+    /**
+     * Whether anybody is left alive here to do the town's work.
+     *
+     * <p>The corollary of "where there is a hand there is no clock", and the
+     * half that was missing. The clock does an unwatched town's work because
+     * its people would have done it; with no people there is nobody it stands
+     * in for, so it stands in for nobody and does nothing. Asked as one
+     * question at the top of the step rather than planner by planner, because
+     * every planner that forgot to ask was a way for a town of corpses to
+     * raise another wall.
+     */
+    public boolean hasLivingResidents() {
+        return !residents.isEmpty();
+    }
+
     public void step(SimContext ctx) {
         if (drawnOnly) {
             return;   // a drawing does not grow
         }
+        if (!hasLivingResidents()) {
+            stepEmpty(ctx);
+            return;
+        }
+        mournedAlready = false;
         putAwayLoosePile();
         advanceStage(ctx);
         planNextBuild(ctx);
@@ -2005,6 +2035,29 @@ public final class Settlement {
         // Last, and after the raid pass on purpose: whatever a raid just knocked
         // down is counted on the same step it happens rather than the next one.
         RepairPlanner.advance(this, ctx);
+    }
+
+    /**
+     * A step for a town with nobody left in it: bookkeeping only.
+     *
+     * <p>The town is left standing. It is not demolished, not abandoned and not
+     * cleared away — a plague village you can walk into is worth more than an
+     * empty clearing, and somebody may yet found or migrate into it, at which
+     * point the ordinary step resumes exactly where it stopped.
+     *
+     * <p>Two things still run, and neither is work. Buildings the simulation
+     * already finished are drawn when their chunks load, because the drawing is
+     * a record of what was built while somebody was alive to build it, not new
+     * progress. And the threat memory fades, because forgetting is not labor;
+     * left ticking upward, a dead town would keep a raid alarm forever.
+     */
+    private void stepEmpty(SimContext ctx) {
+        if (!mournedAlready) {
+            mournedAlready = true;
+            logEvent(ctx.step(), name + " has no one left");
+        }
+        materializePending(ctx);
+        decayThreat();
     }
 
     /**
