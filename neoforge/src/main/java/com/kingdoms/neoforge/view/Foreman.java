@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.view;
 
+import com.kingdoms.neoforge.entity.Pace;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.world.Bridge;
 import com.kingdoms.neoforge.world.HandDig;
@@ -47,7 +48,8 @@ public final class Foreman {
     /** How close somebody has to be to work at a station. */
     private static final double WORK_REACH = 3.0;
 
-    private static final double WALK_SPEED = 0.65;
+    /** A builder's walk to the next post; see {@link Pace}. */
+    public static final double WALK_SPEED = Pace.WALK;
 
     /**
      * How a builder gets a load out of the storehouse.

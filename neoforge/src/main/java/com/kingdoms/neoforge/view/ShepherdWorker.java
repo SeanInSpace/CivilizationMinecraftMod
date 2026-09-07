@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.view;
 
+import com.kingdoms.neoforge.entity.Pace;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
@@ -43,6 +44,9 @@ public final class ShepherdWorker {
 
     /** How close the shepherd has to be to work the pens. */
     private static final double WORK_REACH = 12.0;
+    /** The walk to the next tree, face or pen; see {@link Pace}. */
+    public static final double WALK_SPEED = Pace.WALK;
+
 
     private ShepherdWorker() {
     }
@@ -60,7 +64,8 @@ public final class ShepherdWorker {
         BlockPos center = new BlockPos(farm.x(), farm.y(), farm.z());
         if (worker.distanceToSqr(center.getX() + 0.5, center.getY(), center.getZ() + 0.5)
                 > WORK_REACH * WORK_REACH) {
-            worker.getNavigation().moveTo(center.getX() + 0.5, center.getY(), center.getZ() + 0.5, 0.7);
+            worker.getNavigation().moveTo(center.getX() + 0.5, center.getY(),
+                    center.getZ() + 0.5, WALK_SPEED);
             return false;
         }
 

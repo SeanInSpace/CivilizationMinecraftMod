@@ -4,6 +4,8 @@ import com.kingdoms.neoforge.KingdomsAttachments;
 import com.kingdoms.neoforge.KingdomsEntities;
 import com.kingdoms.neoforge.KingdomsItems;
 import com.kingdoms.neoforge.KingdomsMod;
+import com.kingdoms.neoforge.entity.FleeCreepersGoal;
+import com.kingdoms.neoforge.entity.Pace;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
@@ -103,10 +105,20 @@ public final class PersonEntityManager {
     /** Close enough to a destination counts as arrived; the wander goal takes over. */
     private static final double ARRIVE_RADIUS = 8.0;
 
-    private static final double WALK_SPEED = 0.6;
+    /** The one pace anybody in this town moves at; see {@link Pace}. */
+    public static final double WALK_SPEED = Pace.WALK;
 
-    /** Civilians run (not stroll) for home while the settlement is threatened. */
-    private static final double SHELTER_SPEED = 0.9;
+    /**
+     * Civilians heading for home while the settlement is threatened.
+     *
+     * <p>The same walk as every other errand. This was 0.9 against a working
+     * 0.6, so a town that heard the bell broke into a visible sprint and a town
+     * that had not heard it strolled -- danger handing out statistics. What the
+     * alarm decides is unchanged (wary walks indoors, alarmed goes home now, and
+     * an alarmed civilian is counted as arrived only two blocks from the door
+     * rather than eight); what it no longer does is make anybody quick.
+     */
+    public static final double SHELTER_SPEED = Pace.WALK;
 
     /** Hunger debuffs are reapplied every manager pass; this outlasts the gap. */
     private static final int EFFECT_REFRESH_TICKS = 40;
@@ -264,7 +276,17 @@ public final class PersonEntityManager {
     /** Guards engage hostiles within this range, strike within melee reach. */
     private static final double GUARD_ENGAGE_RANGE = 20.0;
     private static final double GUARD_STRIKE_RANGE = 2.5;
-    private static final double GUARD_CHARGE_SPEED = 0.9;
+    /**
+     * A guard closing on something, and backing off a creeper afterwards.
+     *
+     * <p>Walking pace, like everyone else. A guard who could charge at 0.9 was a
+     * guard who had been sandbagging his patrol all day, and the retreat matters
+     * more than the charge anyway: the fuse gives thirty ticks and the blast
+     * reaches seven blocks, so at 0.35 blocks a tick a guard who turns at once
+     * is clear with a third of the fuse to spare. Getting out is a decision about
+     * when to turn, not how fast to run.
+     */
+    public static final double GUARD_CHARGE_SPEED = Pace.WALK;
     private static final float GUARD_DAMAGE = 4.0F;
 
     private final ServerLevel level;
@@ -361,6 +383,7 @@ public final class PersonEntityManager {
                 pickUpLitter(settlement);
                 unloadAtStore(settlement);
                 ringTheBell(settlement);
+                markPeril(settlement);
                 dailyRoutine(settlement);
                 checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
@@ -578,6 +601,13 @@ public final class PersonEntityManager {
                     }
                     PersonEntity view = tracked.get(person.id().value());
                     if (view == null || view.isRemoved()) {
+                        continue;
+                    }
+                    if (view.isInDanger()) {
+                        // Down tools now. Finishing the block in hand is how a
+                        // lumberjack ended up standing under a creeper with one
+                        // more swing to go.
+                        HandDig.stop(level, view);
                         continue;
                     }
                     BlockPos target = HandDig.targetOf(view);
@@ -921,6 +951,18 @@ public final class PersonEntityManager {
 
                 boolean workedAny = false;
                 for (PersonEntity builder : builders) {
+                    if (builder.isInDanger()) {
+                        // Off the wall. Left in steeredByBuild they would be
+                        // spared the day's routine, which is how a builder came to
+                        // stand on a half-finished roof laying courses while a
+                        // creeper walked up the scaffold; dropped from it, the
+                        // routine sends them to their own door instead.
+                        Person off = personOf(settlement, builder);
+                        if (off != null) {
+                            steeredByBuild.remove(off.id().value());
+                        }
+                        continue;
+                    }
                     // What this builder has in hand has to be known before the
                     // step is asked for: a step the town can no longer pay for is
                     // still payable by the builder carrying it, because that
@@ -1683,7 +1725,7 @@ public final class PersonEntityManager {
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view != null && !view.isRemoved()) {
+            if (view != null && !view.isRemoved() && !view.isInDanger()) {
                 changed |= ShepherdWorker.work(level, settlement, view);
             }
         }
@@ -1704,7 +1746,7 @@ public final class PersonEntityManager {
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view != null && !view.isRemoved()) {
+            if (view != null && !view.isRemoved() && !view.isInDanger()) {
                 changed |= MinerWorker.work(level, settlement, view);
             }
         }
@@ -1719,7 +1761,7 @@ public final class PersonEntityManager {
                 continue;   // a hauling farmer is on the road, not in the rows
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view != null && !view.isRemoved()) {
+            if (view != null && !view.isRemoved() && !view.isInDanger()) {
                 FarmWorker.work(level, settlement, world.stepsElapsed(), view, person);
             }
         }
@@ -1739,7 +1781,7 @@ public final class PersonEntityManager {
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view != null && !view.isRemoved()) {
+            if (view != null && !view.isRemoved() && !view.isInDanger()) {
                 changed |= LumberjackWorker.work(level, settlement, view);
             }
         }
@@ -2238,8 +2280,8 @@ public final class PersonEntityManager {
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view == null || view.isRemoved()) {
-                continue;
+            if (view == null || view.isRemoved() || view.isInDanger()) {
+                continue;   // nobody fences a paddock with a creeper in the field
             }
             Worksite handed = Foreman.work(level, settlement, person, view, this::fetchLoad);
             if (handed != null) {
@@ -2427,6 +2469,71 @@ public final class PersonEntityManager {
     private static final int BELL_SEARCH_HEIGHT = 10;
 
     /**
+     * Who has something hostile standing too close to be working.
+     *
+     * <p>Runs before the day's errands are handed out, once a pass, and it does
+     * two jobs at once for every embodied settler: it tells the body where its
+     * own door is -- which the flee goal needs and cannot look up for itself --
+     * and it marks the body if anything the danger table scores above nothing is
+     * inside {@link FleeCreepersGoal#NOTICE} of it.
+     *
+     * <p>The mark is what stops work rather than delays it. Every work loop
+     * below checks it, so a miner mid-shaft downs tools on the pass a skeleton
+     * comes into range instead of finishing the block in hand, and -- the part
+     * that used to bite -- is not steered back down the shaft next pass while the
+     * skeleton is still standing there. A settler goes back to work when the
+     * radius is clear, not when they feel better.
+     *
+     * <p>Creepers get a faster answer than this: {@code FleeCreepersGoal} is a
+     * goal and runs every tick, so {@code isFleeing} is already set before this
+     * sweep next comes round. This is the wider net -- skeletons, raiders,
+     * anything modded that {@code Menace} has an opinion about -- and once a
+     * second is the right cadence for a thing that walks.
+     */
+    private void markPeril(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied()) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view == null || view.isRemoved()) {
+                continue;
+            }
+            SimPos home = homeOf(settlement, person);
+            SimPos shelter = home != null ? home : settlement.center();
+            view.setShelter(shelter == null ? null
+                    : new BlockPos(shelter.x(), shelter.y(), shelter.z()));
+            view.setThreatened(threatNear(view));
+        }
+    }
+
+    /** That settler's household home, or null if they are not housed. */
+    private SimPos homeOf(Settlement settlement, Person person) {
+        for (Household household : settlement.households()) {
+            if (household.isHoused() && household.members().contains(person.id())) {
+                return household.home();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether anything the town is afraid of is within notice of this body.
+     *
+     * <p>The same question the sighting sweep and the guards' target choice ask
+     * -- {@link Menace#threatens} and nothing else -- so a settler downs tools
+     * over exactly the creatures the bell is rung about. Asked at
+     * {@link FleeCreepersGoal#NOTICE}, because the distance at which it is too
+     * late to start walking away is the distance at which it is too late to still
+     * be swinging a pick.
+     */
+    private boolean threatNear(PersonEntity view) {
+        AABB box = view.getBoundingBox().inflate(FleeCreepersGoal.NOTICE);
+        return !level.getEntitiesOfClass(Mob.class, box,
+                creature -> creature.isAlive() && Menace.threatens(creature)).isEmpty();
+    }
+
+    /**
      * The village day. Threatened civilians run home; at night everyone but the
      * watch turns in; by day people head to their work — farmers to the fields,
      * builders to the site, traders to the storehouse, guards to the tower,
@@ -2515,6 +2622,13 @@ public final class PersonEntityManager {
                 target = person.haul().target();
                 speed = WALK_SPEED;
             } else if (night && !guard) {
+                target = home != null ? home : settlement.center();
+                speed = WALK_SPEED;
+            } else if (view.isThreatened()) {
+                // Something hostile is inside the notice radius. The workplace is
+                // where it is; the door is where it is not. This is the same
+                // destination the bell would send them to, at the same pace as
+                // every other errand -- judgment, not adrenaline.
                 target = home != null ? home : settlement.center();
                 speed = WALK_SPEED;
             } else {

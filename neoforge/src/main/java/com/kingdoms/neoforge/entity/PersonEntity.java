@@ -104,7 +104,7 @@ public final class PersonEntity extends PathfinderMob {
         // people who live behind them. Fence gates are not doors to vanilla and
         // are handled by the manager instead; see PersonEntityManager.tendGates.
         goalSelector.addGoal(2, new OpenDoorGoal(this, true));
-        goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.35));
+        goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, Pace.STROLL));
         goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F));
         goalSelector.addGoal(7, new RandomLookAroundGoal(this));
     }
@@ -222,6 +222,65 @@ public final class PersonEntity extends PathfinderMob {
     /** See {@link #fleeing}. Set by the goal that owns the flight. */
     public void setFleeing(boolean fleeing) {
         this.fleeing = fleeing;
+    }
+
+    /**
+     * Where this settler runs to when they would rather be indoors: their own
+     * house if the simulation knows of one, the town center otherwise.
+     *
+     * <p>Kept on the body because the goals cannot see the simulation and the
+     * manager can. It is refreshed every manager pass, which is often enough —
+     * a person's front door does not move between seconds — and it is the same
+     * destination the alarm already sends people to, deliberately: a settler who
+     * flees a creeper and a settler who is called in by the bell should be seen
+     * heading for the same door, or the town looks like it has two ideas about
+     * where safety is.
+     *
+     * <p>Null until the first pass, and null for a body whose record cannot be
+     * found. A flight with no shelter falls back to running away, which is what
+     * it always did.
+     */
+    private net.minecraft.core.BlockPos shelter;
+
+    /** See {@link #shelter}. */
+    public net.minecraft.core.BlockPos shelter() {
+        return shelter;
+    }
+
+    /** See {@link #shelter}. Set by the manager, which knows the town. */
+    public void setShelter(net.minecraft.core.BlockPos shelter) {
+        this.shelter = shelter;
+    }
+
+    /**
+     * Whether something the danger table calls hostile is inside this settler's
+     * notice radius.
+     *
+     * <p>Distinct from {@link #fleeing}, which is only ever about creepers and is
+     * set the instant one comes into view. This is the wider question — a
+     * skeleton, a raider, a modded horror, anything {@code Menace} scores above
+     * nothing — asked once a manager pass, and it is what stops a miner going
+     * back down the shaft while the thing is still standing there. Work resumes
+     * when the radius is clear, not when the fear wears off.
+     */
+    private boolean threatened;
+
+    /** See {@link #threatened}. */
+    public boolean isThreatened() {
+        return threatened;
+    }
+
+    /** See {@link #threatened}. Set by the manager's sweep. */
+    public void setThreatened(boolean threatened) {
+        this.threatened = threatened;
+    }
+
+    /**
+     * Whether this settler has any business being at work: no, if they are
+     * running from a creeper or standing within notice of anything hostile.
+     */
+    public boolean isInDanger() {
+        return fleeing || threatened;
     }
 
     /**

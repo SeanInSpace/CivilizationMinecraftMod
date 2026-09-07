@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.world;
 
+import com.kingdoms.neoforge.entity.Pace;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.work.DigYard;
@@ -93,7 +94,8 @@ public final class Excavation {
      */
     private static final double APPROACH_RADIUS = 24.0;
 
-    private static final double DIG_WALK_SPEED = 0.7;
+    /** A digger's walk to the next stand; see {@link Pace}. */
+    public static final double DIG_WALK_SPEED = Pace.WALK;
 
     /** Cells a digger may try in one tick before giving up until the next. */
     private static final int CELL_ATTEMPTS = 8;
@@ -434,6 +436,17 @@ public final class Excavation {
         yard.reconsider(tick);
         UUID id = digger.getUUID();
         Digging job = active.get(id);
+
+        if (digger.isInDanger()) {
+            // Down tools. A digger with a creeper inside the notice radius hands
+            // the cell straight back rather than finishing the block in hand --
+            // and, because the mark stands until the radius is clear, is not
+            // walked back into the pit next tick either.
+            if (job != null) {
+                abandon(level, digger, job, tick);
+            }
+            return false;
+        }
 
         if (job != null && !stillWanted(level, job)) {
             // Somebody else got there, or it fell, or a player mined it.

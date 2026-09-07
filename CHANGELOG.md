@@ -8,6 +8,41 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## Fear makes a settler think, not sprint
+
+### Changed
+
+- **Nobody moves faster because something scary is nearby.** A settler who
+  spotted a creeper used to break into a run more than twice their working
+  pace, a town under alarm ran for its doors half again as fast as it walked to
+  the fields, and a guard charged. All of that is gone. There is now one
+  walking pace, and every citizen moves at it in every state -- working,
+  called in by the bell, closing on a hostile, or running from a creeper. It is
+  the fastest walk the town already had, so nobody is slower than you have seen
+  them; what you no longer see is anyone who was plainly holding out on you all
+  morning.
+- **Settlers see a creeper coming much sooner.** The notice distance went from
+  ten blocks to eighteen -- worked out from how far somebody walking actually
+  needs in order to still be outside the blast, given a second to react and a
+  path that bends around a fence before it points away. Ten was short, which is
+  why a fleeing farmer needed to sprint to survive at all.
+- **A frightened settler runs somewhere, not just away.** Where their own house
+  is close enough to be shelter, they head for that door -- the same door the
+  alarm sends them to -- instead of picking a random direction and ending up
+  alone in a field. If the way home would take them past the creeper, they do
+  not take it; they get clear first.
+- **Work stops when the danger arrives, not when the block is finished.** A
+  miner, lumberjack, digger or builder with anything hostile inside the notice
+  radius downs tools that moment rather than completing the swing in hand, and
+  is not sent back to the workplace next second while the thing is still
+  standing there. They go to their door and stay there until the ground is
+  clear.
+- **What the alarm decides is unchanged.** Wary still walks people indoors and
+  alarmed still sends them home immediately. Only the speed it used to hand out
+  is gone.
+
+---
+
 ## A world of crossroads towns
 
 ### Changed
