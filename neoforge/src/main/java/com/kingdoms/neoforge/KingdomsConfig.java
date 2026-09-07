@@ -6,6 +6,7 @@ import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.settlement.PopulationPlanner;
 import com.kingdoms.sim.world.SimSettings;
 import com.kingdoms.sim.world.SimWorld;
+import com.kingdoms.sim.world.YieldPolicy;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.LinkedHashMap;
@@ -127,6 +128,66 @@ public final class KingdomsConfig {
         return table;
     }
 
+    /**
+     * How much of the clock's yield an unwatched building is credited.
+     *
+     * <p>The mod runs at two fidelities. A lumberjack you can see fells an
+     * actual tree; the same lumberjack out past the observed radius is a
+     * number, and the clock credits the timber for him. This table is how much
+     * of that credit a world actually wants. A hundred is the old behavior —
+     * everything abstract. Zero means a resource is only ever gained by hands a
+     * player could have watched, which is a hard world and a coherent one.
+     */
+    private static final Map<String, ModConfigSpec.IntValue> UNWATCHED_YIELD = unwatchedYield();
+
+    /**
+     * How much of the clock's yield a <em>watched</em> building is credited when
+     * the real hands have gone quiet.
+     *
+     * <p>A camp whose trees are all felled, a mine on flat grass with no shaft
+     * sunk, a farmer who cannot path to the field: after twelve steps without
+     * real work the clock used to step back in at full rate, so that being
+     * looked at could never starve a town. Default zero, because in front of a
+     * player only real work should count — raise it if you would rather a stuck
+     * worker cost the town nothing.
+     */
+    private static final Map<String, ModConfigSpec.IntValue> WATCHED_FLOOR = watchedFloor();
+
+    private static Map<String, ModConfigSpec.IntValue> unwatchedYield() {
+        BUILDER.comment(
+                "Percent of the simulation's yield credited when NO player is near",
+                "the producing building. 100 is fully abstract -- what the mod did",
+                "before this table existed. 0 means the resource is never conjured,",
+                "so an unwatched town gains none of it at all.",
+                "Fractions are carried between steps, so 70 really is 70 percent",
+                "even for a field that only makes one loaf a step.")
+                .push("economy.unwatched_yield_percent");
+        Map<String, ModConfigSpec.IntValue> table = new LinkedHashMap<>();
+        for (String resource : YieldPolicy.SCALED_RESOURCES) {
+            table.put(resource, BUILDER.defineInRange(
+                    resource, YieldPolicy.DEFAULT_UNWATCHED_PERCENT, 0, 100));
+        }
+        BUILDER.pop();
+        return table;
+    }
+
+    private static Map<String, ModConfigSpec.IntValue> watchedFloor() {
+        BUILDER.comment(
+                "Percent of the simulation's yield credited when a player IS near",
+                "but the real workers have not produced anything for a while.",
+                "0 -- the default -- means that in front of a player, only real",
+                "work counts. 100 restores the old floor, which credited a watched",
+                "building in full whenever its hands went quiet.")
+                .push("economy.watched_floor_percent");
+        Map<String, ModConfigSpec.IntValue> table = new LinkedHashMap<>();
+        for (String resource : YieldPolicy.SCALED_RESOURCES) {
+            table.put(resource, BUILDER.defineInRange(
+                    resource, YieldPolicy.DEFAULT_WATCHED_FLOOR_PERCENT, 0, 100));
+        }
+        BUILDER.pop();
+        return table;
+    }
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private KingdomsConfig() {
@@ -140,7 +201,27 @@ public final class KingdomsConfig {
                 MAX_VILLAGERS_PER_SETTLEMENT.get(),
                 RAID_INTERVAL_STEPS.get(),
                 RAIDS_ENABLED.get(),
-                MAX_SETTLEMENT_POPULATION.get());
+                MAX_SETTLEMENT_POPULATION.get())
+                .withYields(yieldPolicy());
+    }
+
+    /**
+     * The two abstraction tables, as the simulation wants them.
+     *
+     * <p>Before the config has loaded this is {@link YieldPolicy#DEFAULTS}
+     * rather than an empty policy, because an empty one means "everything
+     * abstract" and a world that has not read its file yet should behave like
+     * the file it is about to read.
+     */
+    public static YieldPolicy yieldPolicy() {
+        if (!SPEC.isLoaded()) {
+            return YieldPolicy.DEFAULTS;
+        }
+        Map<String, Integer> unwatched = new LinkedHashMap<>();
+        Map<String, Integer> floor = new LinkedHashMap<>();
+        UNWATCHED_YIELD.forEach((id, value) -> unwatched.put(id, value.get()));
+        WATCHED_FLOOR.forEach((id, value) -> floor.put(id, value.get()));
+        return new YieldPolicy(unwatched, floor);
     }
 
     /**

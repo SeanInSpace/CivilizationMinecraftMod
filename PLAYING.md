@@ -235,7 +235,38 @@ Per-world settings in `<world>/serverconfig/kingdoms-server.toml`:
 | `view.max_villagers_per_settlement` | 64 | Entity cap per town |
 | `defense.raids_enabled` | true | Turn off for peaceful building |
 | `defense.raid_interval_steps` | 50 | Time between raids |
+| `economy.unwatched_yield_percent.<resource>` | 70 | Share of the yield credited when nobody is near |
+| `economy.watched_floor_percent.<resource>` | 0 | Share credited when you *are* near but nobody is working |
 | `debug.commands_enabled` | true | The `/civ` operator commands |
+
+### How much of a town's income is imaginary
+
+Kingdoms runs at two fidelities. Stand near a lumber camp and a lumberjack fells
+an actual tree; walk away and he becomes a number, and the clock credits the
+timber on his behalf — otherwise every town you are not looking at would stop
+dead. Those two tables decide how much of that credit a world actually grants,
+one entry each for `wood`, `stone`, `food`, `iron` and `saplings`.
+
+**`economy.unwatched_yield_percent`** is the share an unwatched building earns.
+100 is the old behavior, where absence cost a town nothing. The default 70 makes
+the hands worth having: a town you live in outproduces one you abandoned. 0 means
+a resource is *only* ever gained by work somebody could have watched — a hard
+world, and a coherent one. Fractions are carried between steps, so a field
+earning one loaf a step really does bank seven loaves in ten at 70.
+
+**`economy.watched_floor_percent`** is the share a building earns while you are
+standing there and the real workers have produced nothing for a while — a camp
+that has felled every tree in its claim, a mine on flat grass with no shaft sunk,
+a farmer who cannot reach the field. This used to be full rate, so that being
+looked at could never starve a town. The default 0 means that in front of a
+player, only real work counts; raise it if you would rather a stuck worker cost
+the town nothing.
+
+`/civ info` prints both in effect, so you can always tell what a world is
+actually running. Foraging is the one exception in the code and stays on the
+unwatched rate whether or not you are there — nobody has ever embodied a
+forager, so a floor of zero would starve a founding party in front of the player
+who came to watch it.
 
 ## Custom building styles
 

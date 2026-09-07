@@ -1338,6 +1338,59 @@ public final class Settlement {
      *
      * @return how much was actually taken in
      */
+    /**
+     * The fraction of a scaled yield that has not yet added up to a whole unit.
+     *
+     * <p>Keyed by the producing place and the resource, so two lumber camps
+     * carry their own arithmetic and a camp's timber does not borrow from its
+     * saplings. Deliberately not saved: it is never more than one unit of
+     * anything, and a fraction is not a possession.
+     *
+     * <p>This is what stops a percentage from being a ban. A field yields one
+     * loaf a step; seventy percent of one, floored, is nothing at all, so a
+     * naive multiply would have set the food knob to a switch that is off
+     * everywhere below a hundred. Carrying the remainder makes seventy percent
+     * mean seven loaves in ten steps, which is what it says.
+     *
+     * <p>Counted in hundredths of a unit, as whole numbers, rather than in
+     * fractions of one. Ten steps of seven tenths in {@code double} comes to
+     * 6.999999999999999 and floors to six, and a town quietly losing a loaf
+     * every ten steps to binary is exactly the kind of bug nobody ever finds.
+     */
+    private final transient Map<String, Integer> yieldCarry = new LinkedHashMap<>();
+
+    /**
+     * A clock-credited yield, cut to the share the settings allow.
+     *
+     * <p>Only ever asked about the abstract fidelity. Work a player can watch
+     * being done is credited whole, by the platform layer, and never passes
+     * through here.
+     *
+     * @param place    where the yield was made — a building origin, usually
+     * @param resource what is being made
+     * @param amount   what the clock would credit if abstraction were total
+     * @param percent  the share the tables allow, 0..100
+     * @return whole units to credit this step, remainder carried
+     */
+    public int abstractYield(SimPos place, String resource, int amount, int percent) {
+        return abstractYield(place.x() + "," + place.y() + "," + place.z(),
+                resource, amount, percent);
+    }
+
+    /** The same, for yield that belongs to the town at large rather than a plot. */
+    public int abstractYield(String place, String resource, int amount, int percent) {
+        if (amount <= 0 || percent <= 0) {
+            return 0;
+        }
+        if (percent >= 100) {
+            return amount;
+        }
+        String key = place + "|" + resource;
+        int hundredths = yieldCarry.getOrDefault(key, 0) + amount * percent;
+        yieldCarry.put(key, hundredths % 100);
+        return hundredths / 100;
+    }
+
     public int produceNear(SimPos from, String resource, int amount, int ceiling) {
         int room = Math.max(0, ceiling - pooled.get(resource));
         int fitting = Math.min(Math.max(0, amount), room);

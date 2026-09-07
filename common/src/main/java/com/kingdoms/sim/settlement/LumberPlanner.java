@@ -3,6 +3,7 @@ package com.kingdoms.sim.settlement;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
+import com.kingdoms.sim.world.YieldPolicy;
 import java.util.List;
 
 /**
@@ -97,9 +98,15 @@ public final class LumberPlanner {
         if (camp == null || !wantsMoreTimber(settlement)) {
             return;
         }
-        if (ctx.bridge().playerWithin(camp, ctx.settings().observedRadius())
-                && cutRecently(settlement, ctx.step())) {
+        boolean watched = ctx.bridge().playerWithin(camp, ctx.settings().observedRadius());
+        if (watched && cutRecently(settlement, ctx.step())) {
             return;   // somebody is watching and the real axes are swinging
+        }
+        YieldPolicy policy = ctx.settings().yields();
+        int woodPercent = policy.percent(watched, TownStores.WOOD);
+        int saplingPercent = policy.percent(watched, TownStores.SAPLINGS);
+        if (woodPercent <= 0 && saplingPercent <= 0) {
+            return;   // this world does not conjure timber
         }
         int jacks = (int) settlement.residents().stream()
                 .filter(p -> p.profession() == Profession.LUMBERJACK && !p.isTooWeakToWork())
@@ -121,10 +128,14 @@ public final class LumberPlanner {
             }
             SimPos at = camps.isEmpty() ? settlement.center() : camps.get(i).origin();
             settlement.produceNear(at, TownStores.WOOD,
-                    share * WOOD_PER_STEP, woodCapacity(settlement));
+                    settlement.abstractYield(at, TownStores.WOOD,
+                            share * WOOD_PER_STEP, woodPercent),
+                    woodCapacity(settlement));
             // Capped: saplings are for replanting, not a stockpile. A playtest left
             // a town holding a thousand of them, which is noise in the ledger.
-            settlement.produceNear(at, TownStores.SAPLINGS, share, MAX_SAPLINGS);
+            settlement.produceNear(at, TownStores.SAPLINGS,
+                    settlement.abstractYield(at, TownStores.SAPLINGS, share, saplingPercent),
+                    MAX_SAPLINGS);
         }
     }
 

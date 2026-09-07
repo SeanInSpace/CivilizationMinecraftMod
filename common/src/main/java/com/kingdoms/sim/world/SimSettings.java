@@ -16,6 +16,7 @@ import com.kingdoms.sim.settlement.PopulationPlanner;
  * @param raidsEnabled            master switch for hostile pressure
  * @param maxSettlementPopulation births stop at this population; the growth ceiling
  * @param expansionEnabled        master switch for founding daughter settlements
+ * @param yields                  how much of the clock's abstract yield is credited
  */
 public record SimSettings(
         int simIntervalTicks,
@@ -25,8 +26,37 @@ public record SimSettings(
         int raidIntervalSteps,
         boolean raidsEnabled,
         int maxSettlementPopulation,
-        boolean expansionEnabled
+        boolean expansionEnabled,
+        YieldPolicy yields
 ) {
+
+    public SimSettings {
+        if (yields == null) {
+            yields = YieldPolicy.DEFAULTS;
+        }
+    }
+
+    /**
+     * The eight-field shape, from before abstraction was adjustable.
+     *
+     * <p>Takes the shipped {@link YieldPolicy#DEFAULTS}, so a caller that never
+     * heard of the tables gets the same world a fresh config file describes.
+     */
+    public SimSettings(int simIntervalTicks, int stepsPerBirth, double observedRadius,
+                       int embodyCapPerSettlement, int raidIntervalSteps,
+                       boolean raidsEnabled, int maxSettlementPopulation,
+                       boolean expansionEnabled) {
+        this(simIntervalTicks, stepsPerBirth, observedRadius, embodyCapPerSettlement,
+                raidIntervalSteps, raidsEnabled, maxSettlementPopulation, expansionEnabled,
+                YieldPolicy.DEFAULTS);
+    }
+
+    /** The same settings with a different abstraction policy. */
+    public SimSettings withYields(YieldPolicy policy) {
+        return new SimSettings(simIntervalTicks, stepsPerBirth, observedRadius,
+                embodyCapPerSettlement, raidIntervalSteps, raidsEnabled,
+                maxSettlementPopulation, expansionEnabled, policy);
+    }
 
     /**
      * The old six-field shape, which every caller but the two constants uses.
@@ -84,6 +114,18 @@ public record SimSettings(
      * Defaults with raids off. For tests that assert on growth arithmetic — raid
      * schedules hash the settlement's random id, which would make outcomes vary
      * run to run.
+     *
+     * <p>Its yield policy is {@link YieldPolicy#FULL} rather than the shipped
+     * default, and that is a deliberate choice rather than an oversight. SANDBOX
+     * exists so a test can state an exact number and have it stay true; a policy
+     * that credits seventy percent of everything makes every one of those
+     * numbers a rounding argument instead. So the constant that means "hold the
+     * arithmetic still" holds this still too, and a test that wants to watch the
+     * tables work says so — {@code SANDBOX.withYields(YieldPolicy.DEFAULTS)}, or
+     * whatever pair it is actually measuring.
+     *
+     * <p>{@link #DEFAULTS} does carry the shipped 70/0, because it is supposed
+     * to describe the world a player gets.
      */
     public static final SimSettings SANDBOX = new SimSettings(
             SimWorld.SIM_INTERVAL_TICKS,
@@ -92,7 +134,9 @@ public record SimSettings(
             64,
             DEFAULT_RAID_INTERVAL_STEPS,
             false,
-            DEFAULT_MAX_SETTLEMENT_POPULATION);
+            DEFAULT_MAX_SETTLEMENT_POPULATION,
+            false,
+            YieldPolicy.FULL);
 
     /** Convenience keeping the pre-raid signature; raids on at the default cadence. */
     public SimSettings(int simIntervalTicks, int stepsPerBirth, double observedRadius,
