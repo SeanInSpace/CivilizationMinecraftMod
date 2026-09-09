@@ -9,6 +9,7 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Founding;
 import com.kingdoms.sim.settlement.JobPlanner;
@@ -185,14 +186,15 @@ class SeededSettlementTest {
     void aSeededTownHoldsWhatItsOwnBuildingsCouldHold() {
         for (SettlementStage stage : SettlementStage.values()) {
             Settlement town = seeded(stage);
-            int fields = countOf(town, "farm");
-            int granaries = countOf(town, "granary");
-            int camps = countOf(town, "lumber_camp");
-            int mines = countOf(town, "mine");
+            int fields = countOf(town, BuildingRole.CROP_FARM);
+            int granaries = countOf(town, BuildingRole.GRANARY);
+            int camps = countOf(town, BuildingRole.LUMBER_CAMP);
+            int mines = countOf(town, BuildingRole.MINE);
             String where = stage.pretty() + ": ";
 
-            assertEquals(fields * FoodPlanner.FARM_STORE_CAP, farmStores(town),
-                    where + "every standing field holds one harvest, and no field none");
+            assertEquals(fields * FoodPlanner.FARM_GRAIN_CAP, FoodPlanner.farmGrain(town),
+                    where + "every standing field holds one harvest of grain, and no"
+                            + " field none");
             if (granaries == 0) {
                 assertTrue(town.foodStock() <= FoodPlanner.STARTING_PROVISIONS,
                         where + "a town with no granary holds no more than a "
@@ -216,33 +218,22 @@ class SeededSettlementTest {
                     where + "and so are weapons");
             assertEquals(0, town.stores().get(TownStores.ARMOR),
                     where + "and so is armour");
-            if (countOf(town, "smith") == 0) {
+            if (countOf(town, BuildingRole.SMITH) == 0) {
                 assertEquals(0, town.stores().get(TownStores.IRON),
                         where + "iron is mined and smelted; no smithy, no iron");
             }
         }
     }
 
-    /** Standing buildings of a role, counted the way the food chain counts them. */
-    private static int countOf(Settlement town, String suffix) {
-        int found = 0;
-        for (Building standing : town.buildings()) {
-            if (BuildPlanner.baseIdOf(standing.blueprintId()).endsWith(suffix)) {
-                found++;
-            }
-        }
-        return found;
-    }
-
-    /** Everything sitting in the fields, uncarried. */
-    private static int farmStores(Settlement town) {
-        int total = 0;
-        for (Building standing : town.buildings()) {
-            if (BuildPlanner.baseIdOf(standing.blueprintId()).endsWith("farm")) {
-                total += standing.foodStored();
-            }
-        }
-        return total;
+    /**
+     * Standing buildings of a role, counted the way the food chain counts them.
+     *
+     * <p>By {@link BuildingRole}, which is how the food chain counts them since
+     * "farm" as a suffix was found to match the animal compound as well as the
+     * crop field.
+     */
+    private static int countOf(Settlement town, BuildingRole role) {
+        return town.buildingsWithRole(role).size();
     }
 
     @Test

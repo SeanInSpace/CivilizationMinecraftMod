@@ -75,14 +75,28 @@ class FarmersNotFarmingTest {
         s.setFoodStock(100);
         s.setStock(TownStores.WOOD, 0);
         s.setStock(TownStores.STONE, 0);
+        // Somewhere to bake. A farmer's errand ends at the town's oven now, and
+        // a town with nowhere to take the grain sends nobody anywhere -- which
+        // is the point of the whole change and would quietly make every case
+        // below pass for the wrong reason. A hearth rather than a granary on
+        // purpose: it is an oven and not a larder, so BASE_GRANARY is still the
+        // capacity every number here was written against.
+        s.addBuilding(new Building("kingdoms:hearth", new SimPos(0, 64, 8), 1, true));
         return s;
     }
 
+    /** A field holding this many sheaves of cut wheat, waiting to be carried in. */
     private static Building field(Settlement s, int x, int held) {
         Building farm = new Building("kingdoms:farm", new SimPos(x, 64, 0), 1, true);
-        farm.setFoodStored(held);
+        farm.stores().set(TownStores.GRAIN, held);
         s.addBuilding(farm);
         return farm;
+    }
+
+    /** The oven every fedTown has, for the cases that need to fill or empty it. */
+    private static Building hearth(Settlement s) {
+        return s.buildingWithRole(
+                com.kingdoms.sim.settlement.BuildingRole.HEARTH);
     }
 
     private static Person farmer(Settlement s) {
@@ -154,10 +168,11 @@ class FarmersNotFarmingTest {
 
     @Test
     void aStarvingTownFetchesEveryLoafItHas() {
-        // The exemption, and the one this rule must never override. A loaf is a
+        // The exemption, and the one this rule must never override. A sheaf is a
         // life here, and the walk is worth making for any of it.
         Settlement s = new Settlement(Settlement.Id.random(), "Hungry", new SimPos(0, 64, 0), 512);
         s.setFoodStock(0);
+        s.addBuilding(new Building("kingdoms:hearth", new SimPos(0, 64, 8), 1, true));
         field(s, 40, 1);
         Person farmer = farmer(s);
 
@@ -168,15 +183,21 @@ class FarmersNotFarmingTest {
     }
 
     @Test
-    void aFullGranaryIsNotOverfilledByLoadsAlreadyOnTheRoad() {
-        // The cost of making every load a full twelve. The granary's stock does
-        // not move until a carrier arrives, so a budget that only subtracts this
-        // step's errands offers the same headroom again on every step of a walk
-        // that takes several -- and deposit spoils the overshoot rather than
-        // duplicating it. At one or two loaves a trip that was rounding; at
-        // twelve it is destroyed food.
+    void aFullBakeryIsNotOverfilledByLoadsAlreadyOnTheRoad() {
+        // The cost of making every load a full twelve, and the same arithmetic
+        // as before with the destination moved: what a farmer's errand fills is
+        // the shelf beside the oven, not the larder. The shelf does not move
+        // until a carrier arrives, so a budget that only subtracts this step's
+        // errands offers the same headroom again on every step of a walk that
+        // takes several -- and setDown does not check, so the overshoot would
+        // be grain over the cap.
         Settlement s = fedTown();
-        s.setFoodStock(FoodPlanner.BASE_GRANARY - 20);   // room for one load, not two
+        // A brimming larder, so the oven is idle for the two steps this watches:
+        // baking would take grain off the shelf and make room the second errand
+        // could honestly have, which is a different (and correct) story.
+        s.setFoodStock(FoodPlanner.BASE_GRANARY);
+        // Room for one load, not two.
+        hearth(s).stores().set(TownStores.GRAIN, FoodPlanner.BAKERY_GRAIN_CAP - 20);
         field(s, 40, FoodPlanner.WORTH_LEAVING_THE_ROWS);
         field(s, 80, FoodPlanner.WORTH_LEAVING_THE_ROWS);
         Person first = farmer(s);
@@ -287,7 +308,8 @@ class FarmersNotFarmingTest {
             FoodPlanner.advance(s, CTX);
         }
 
-        assertTrue(undrawn.foodStored() > 0, "and the harvest happens anyway");
+        assertTrue(com.kingdoms.sim.settlement.Field.grainStored(undrawn) > 0,
+                "and the harvest happens anyway");
         assertNull(FieldRoster.fieldFor(s, farmer));
     }
 }

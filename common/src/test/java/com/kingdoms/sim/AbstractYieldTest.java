@@ -225,9 +225,15 @@ class AbstractYieldTest {
         return town;
     }
 
-    /** Everything the field grew, wherever in town it has since been carried. */
+    /**
+     * Everything the field grew, wherever in town it has since been carried.
+     *
+     * <p>Grain counts. A cut block is a sheaf now and only becomes a loaf at an
+     * oven, and this fixture has no oven -- what is being measured is what the
+     * ground yields, not what a bakery does with it afterwards.
+     */
     private static int grown(Settlement town) {
-        return town.foodStock() + FoodPlanner.farmStock(town);
+        return town.foodStock() + FoodPlanner.farmStock(town) + FoodPlanner.farmGrain(town);
     }
 
     private static int grownOver(int steps, WorldBridge world, YieldPolicy policy) {

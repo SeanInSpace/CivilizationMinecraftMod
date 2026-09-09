@@ -27,9 +27,11 @@ import com.kingdoms.sim.world.SimSettings;
  * that to nothing forever.
  *
  * <p>What a field is worth, at the shipped hundred ticks a step and two farmers
- * on it: about nine tenths of a loaf a step, once cutting and tending have
- * found their balance. That is the number a town's whole food supply is now
- * made of, and there is no setting anywhere that changes it.
+ * on it: about nine tenths of a <em>sheaf</em> a step, once cutting and tending
+ * have found their balance. A sheaf is not a loaf — see {@link #deliver} — and
+ * what the town gets for it depends on where it bakes: one loaf at a hearth,
+ * one and a half at a working mill. That is the number a town's whole food
+ * supply is now made of, and there is no setting anywhere that changes it.
  */
 public final class Field {
 
@@ -111,14 +113,19 @@ public final class Field {
     public static final int GROWTH_STAGES = 7;
 
     /**
-     * What a fully staffed field brings in on the clock, loaves a step.
+     * What a fully staffed field brings in on the clock, sheaves a step.
+     *
+     * <p>Sheaves rather than loaves, since bread stopped growing on the stalk.
+     * The name is left alone because the arithmetic did not change: one cut
+     * block is one unit of harvest, whatever it is called on the way to the
+     * oven.
      *
      * <p>Two farmers swing {@link #BLOCKS_PER_FARMER_PER_STEP} times each per
      * step, and every swing either cuts a ripe block or tends an unripe one a
      * stage forward. A block takes {@link #GROWTH_STAGES} tendings and one cut,
-     * so in the steady state one loaf costs eight swings: eight swings a step,
-     * one loaf a step. The measured run settles a little under this, at nine
-     * loaves in ten, because a full store stops the cutting now and then.
+     * so in the steady state one sheaf costs eight swings: eight swings a step,
+     * one sheaf a step. The measured run settles a little under this, at nine
+     * in ten, because a full store stops the cutting now and then.
      */
     public static final int LOAVES_PER_STEP_TENDED =
             FoodPlanner.FARMERS_PER_FARM * BLOCKS_PER_FARMER_PER_STEP / (GROWTH_STAGES + 1);
@@ -223,21 +230,26 @@ public final class Field {
     }
 
     /**
-     * Put harvested food on the farm it came off.
+     * Put the cut wheat on the farm it came off.
      *
-     * <p>One method on purpose: today a cut block is a loaf of {@code FOOD} in
-     * the farm's own store, and the grain-and-bread economy will want it to be a
-     * sheaf of wheat waiting for a mill. When that day comes this is the one
-     * place that has to change.
+     * <p>One method on purpose, and the day it warned about has arrived: a cut
+     * block is a sheaf of {@link TownStores#GRAIN} on the farm's own shelf, not
+     * a loaf. Nobody can eat it there. It has to be carried to wherever the town
+     * bakes — {@link FoodPlanner#bakery} — and only then is it bread.
      *
-     * @return what was actually taken, once the farm's store is full
+     * <p>Grain rather than {@code foodStored} because they are different goods
+     * and a farm may hold both: {@code foodStored} on a field is loaves from an
+     * older save, still perfectly edible, and they are left exactly where they
+     * are.
+     *
+     * @return what was actually taken, once the farm's shelf is full
      */
     public static int deliver(Building farm, int amount) {
-        int room = Math.max(0, FoodPlanner.FARM_STORE_CAP - farm.foodStored());
-        int kept = Math.min(Math.max(0, amount), room);
-        if (kept > 0) {
-            farm.setFoodStored(farm.foodStored() + kept);
-        }
-        return kept;
+        return farm.stores().addCapped(TownStores.GRAIN, amount, FoodPlanner.FARM_GRAIN_CAP);
+    }
+
+    /** Sheaves waiting on this farm's shelf for somebody to carry them in. */
+    public static int grainStored(Building farm) {
+        return farm.stores().get(TownStores.GRAIN);
     }
 }

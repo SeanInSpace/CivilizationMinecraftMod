@@ -22,16 +22,26 @@ import java.util.Map;
  * <p>The chain that is supposed to make that unnecessary:
  *
  * <pre>
- *   fields grow → FARMERS haul → granary pool → TRADERS stock → market
- *                                                                  ↓
+ *   fields grow → FARMERS haul grain → the bakery bakes → granary pool
+ *                                                              ↓
+ *                                              TRADERS stock → market
+ *                                                              ↓
  *      mouths ← personal inventory ← family pantry ← a family member fetches
  * </pre>
  *
- * <p>Every link is real, held state: harvest waits at the farm until a farmer
- * carries it, the granary holds the town's bulk, market hands move retail stock,
- * one member per family keeps the pantry filled, and each person carries and
- * eats their own food. Break any link — no farmers, no granary space, no market
- * hands, a housebound family — and hunger arrives downstream.
+ * <p>Every link is real, held state: cut wheat waits on the farm as
+ * {@link TownStores#GRAIN} until a farmer carries it in, the bakery — the mill
+ * if one runs, the hearth or the granary otherwise — is the only place grain
+ * becomes food at all, the granary holds the town's bread, market hands move
+ * retail stock, one member per family keeps the pantry filled, and each person
+ * carries and eats their own food. Break any link — no farmers, nowhere to
+ * bake, no granary space, no market hands, a housebound family — and hunger
+ * arrives downstream.
+ *
+ * <p><strong>Nobody eats grain.</strong> A settlement with fields and no oven
+ * cuts wheat, stacks it and starves beside it, and that is the rule rather than
+ * a hole in it: {@code /civ info} prints the sacks so the answer is a building
+ * and not a mystery.
  *
  * <p><strong>Hunger</strong> rises every step and is scored 0–99:
  * <ul>
@@ -65,6 +75,104 @@ public final class FoodPlanner {
     // — see Field — and a watched field is farmed by hands or it is not farmed.
     public static final int FARMERS_PER_FARM = 2;
     public static final int FARM_STORE_CAP = 40;
+
+    /**
+     * Sheaves one farm's shelf holds before the cutting stops: the same forty.
+     *
+     * <p>Deliberately the same number under a new name rather than a rename,
+     * because both goods can sit on a farm at once — a save made before bread
+     * was a thing has loaves in {@code foodStored} and grain in the store, and
+     * the cap that stops the harvest is about the grain.
+     *
+     * <p>A full shelf stops the cut and the field stays standing, exactly as it
+     * did when the shelf held loaves. Nothing rots; the hauling is the
+     * bottleneck and it is meant to show.
+     */
+    public static final int FARM_GRAIN_CAP = FARM_STORE_CAP;
+
+    /**
+     * Sheaves the town's bakery will let pile up before it stops sending for
+     * more: two hundred.
+     *
+     * <p>{@link #BASE_GRANARY}'s number, and for the same reason — this is the
+     * bulk shelf beside the oven, and it should hold about what the larder next
+     * to it does. It is not a throttle in a town that is eating what it grows: a
+     * field brings in roughly one sheaf a step and the hearth alone bakes
+     * {@link #BAKE_PER_STEP} of them. What fills it is a town with more wheat
+     * than it can store bread — the oven stops when the larder is full, and
+     * then the sheaves stack up here and then in the fields. That backlog is
+     * the honest picture of a good harvest with nowhere to put it, and the way
+     * out of it is a bigger granary rather than a bigger number here.
+     */
+    public static final int BAKERY_GRAIN_CAP = 200;
+
+    /**
+     * Loaves a hearth turns out in a step, one for one from grain: four.
+     *
+     * <p>Sized off what a settlement eats. Hunger climbs
+     * {@link #HUNGER_PER_STEP} a step and a provision is worth thirty of it, so
+     * one mouth wants a loaf every fifteen steps and fifteen mouths want one a
+     * step. Four is that village fed four times over, which is the slack asked
+     * for — and, more to the point, it is comfortably above what the fields can
+     * deliver: {@link Field#LOAVES_PER_STEP_TENDED} is one sheaf a step per
+     * fully staffed field, so a town needs more than four fields before the
+     * oven rather than the ground is what limits it. The field stays the truth.
+     *
+     * <p>No profession is asked for. A camp bakes at its fire; whoever is there
+     * does it, and that is why the hearth the HOMESTEAD program raises is
+     * enough to keep a founding party alive without a miller in it.
+     */
+    public static final int BAKE_PER_STEP = 4;
+
+    /**
+     * The mill's bargain: two sheaves in, three loaves out.
+     *
+     * <p>The old flat "+ working/2" bonus, made honest. A mill used to add half
+     * again to the town's whole harvest out of nowhere, wherever the harvest
+     * happened to be standing. It now does the same thing by doing a real job in
+     * a real place: grain is carried to it and ground at three loaves for every
+     * two sheaves. Same fifty per cent, and a mill nobody hauls to grinds
+     * nothing.
+     */
+    public static final int MILL_GRAIN_PER_BATCH = 2;
+    public static final int MILL_LOAVES_PER_BATCH = 3;
+
+    /**
+     * Sheaves one miller can put through the stones in a step: six.
+     *
+     * <p>Half again the hearth's four, and then worth half again as much per
+     * sheaf — so one miller at a mill is nine loaves a step against a hearth's
+     * four. That is what a mill is for, and it is why the VILLAGE program
+     * bothers to order one.
+     */
+    public static final int MILL_GRAIN_PER_MILLER = 6;
+
+    /*
+     * There is no second haul, and that is a measured decision rather than an
+     * omission.
+     *
+     * The design this was built to was grain out to the mill and bread back
+     * from it: two legs, two errands. The second leg was written, and then run.
+     * A mill with one miller grinds nine loaves a step; a carrier shoulders
+     * FARMER_CARRY of them and a round trip across a town is the better part of
+     * ten steps, so one pair of hands moves about one loaf a step and a town
+     * with one spare pair of hands is every town below about forty people.
+     * HaulPlanner.courierFor is right to refuse the rest — it will not take a
+     * builder or a guard, and a farmer has a field — so the bread stacked up at
+     * the mill, the shelf filled, the stones stopped for want of anywhere to put
+     * the flour, and the grain backed up behind that. Measured on the rough-
+     * ground fixture: a hundred and twenty loaves stuck at the mill, a hundred
+     * and seventy-four sheaves stranded beside them, the granary draining, and a
+     * town that had reached eighteen people stopped there for good.
+     *
+     * So the flour goes where flour goes. The grain is carried to the mill —
+     * that leg is real, and it is the one that matters, because a mill nobody
+     * hauls to still grinds nothing — and what the miller makes joins the
+     * town's larder the same way the hearth's bread does. The granary pool was
+     * never a building anyway: it is the town's bread wherever the town keeps
+     * it, spread across whatever stores are standing.
+     */
+
     /**
      * What a farmer shoulders in one trip from the fields.
      *
@@ -281,6 +389,10 @@ public final class FoodPlanner {
 
         forage(settlement, ctx);
         growHarvest(settlement, ctx, starving);
+        // The oven runs on whatever reached it before today, which is why the
+        // grain has to be hauled: cutting wheat this step feeds nobody this
+        // step, and a town that has not built an oven is never fed by it at all.
+        bake(settlement);
         // Dinner before the day's errands, because that is the whole rule: a
         // person past the weak line is going to eat, and assignHauls skips
         // anybody who already has somewhere to be.
@@ -340,7 +452,7 @@ public final class FoodPlanner {
             if (want <= 0) {
                 continue;
             }
-            Building stall = fullestWithStock(settlement, "market", 1);
+            Building stall = fullestWithStock(settlement, BuildingRole.MARKET, 1);
             int got = 0;
             if (stall != null) {
                 got = Math.min(want, stall.foodStored());
@@ -451,7 +563,7 @@ public final class FoodPlanner {
         for (HaulTask.Store store : new HaulTask.Store[] {
                 HaulTask.Store.MARKET, HaulTask.Store.FARM}) {
             for (Building holder : buildingsOf(settlement,
-                    store == HaulTask.Store.MARKET ? "market" : "farm")) {
+                    store == HaulTask.Store.MARKET ? BuildingRole.MARKET : BuildingRole.CROP_FARM)) {
                 long d = person.position().horizontalDistanceSq(holder.origin());
                 if (holder.foodStored() > 0 && d < nearest) {
                     nearest = d;
@@ -543,6 +655,14 @@ public final class FoodPlanner {
         // A loaf is worth the walk while the town is starving; below that, a
         // farmer stays in the rows until there is a load worth carrying.
         int worthTheWalk = starving ? 1 : WORTH_LEAVING_THE_ROWS;
+        // Where the grain is going. Null is a town with no oven, and then the
+        // farmers stay in the rows and the sheaves stack up in the fields —
+        // which is the honest picture of a town that has not finished its food
+        // chain, and exactly what /civ info reports.
+        Building oven = bakery(settlement);
+        int ovenSpace = oven == null ? 0
+                : BAKERY_GRAIN_CAP - oven.stores().get(TownStores.GRAIN)
+                        - grainOnTheRoad(settlement);
 
         for (Person person : settlement.residents()) {
             if (person.haul() != null || heldBackByHunger(settlement, person, starving)) {
@@ -555,22 +675,32 @@ public final class FoodPlanner {
                     ? Profession.FARMER : person.profession();
             switch (arm) {
                 case FARMER -> {
-                    if (granarySpace < FARMER_CARRY) {
+                    // The farmer's errand is the same walk it always was — out
+                    // to the fullest field, back with a full load — and what is
+                    // on their back is grain now rather than bread. It goes to
+                    // the oven rather than the granary, because grain in a
+                    // larder is grain nobody is baking.
+                    if (oven == null || ovenSpace < FARMER_CARRY) {
                         continue;
                     }
                     Building field = fullestUnspoken(settlement, spokenFor, worthTheWalk);
                     if (field != null) {
-                        person.setHaul(new HaulTask(HaulTask.Store.FARM, field.origin(),
-                                HaulTask.Store.GRANARY, granary, FARMER_CARRY));
+                        // Store to store, on the generic bulk path: grain lives
+                        // on a building's own shelves, which is what makes the
+                        // farm's sacks and the oven's sacks two different piles
+                        // that somebody has to walk between.
+                        person.setHaul(new HaulTask(TownStores.GRAIN,
+                                HaulTask.Store.STORE, field.origin(),
+                                HaulTask.Store.STORE, oven.origin(), FARMER_CARRY));
                         spokenFor.merge(field.origin(), FARMER_CARRY, Integer::sum);
-                        granarySpace -= FARMER_CARRY;
+                        ovenSpace -= FARMER_CARRY;
                     }
                 }
                 case TRADER -> {
                     if (granaryStock < TRADER_CARRY) {
                         continue;
                     }
-                    Building stall = emptiestBelowCap(settlement, "market", MARKET_STOCK_CAP);
+                    Building stall = emptiestBelowCap(settlement, BuildingRole.MARKET, MARKET_STOCK_CAP);
                     if (stall != null) {
                         person.setHaul(new HaulTask(HaulTask.Store.GRANARY, granary,
                                 HaulTask.Store.MARKET, stall.origin(), TRADER_CARRY));
@@ -582,6 +712,19 @@ public final class FoodPlanner {
             }
         }
         assignPantryRuns(settlement, granary, starving);
+    }
+
+    /** Sheaves already on somebody's back or promised to a shoulder, town-wide. */
+    private static int grainOnTheRoad(Settlement settlement) {
+        int moving = 0;
+        for (Person person : settlement.residents()) {
+            HaulTask errand = person.haul();
+            if (errand == null || !TownStores.GRAIN.equals(errand.resource())) {
+                continue;
+            }
+            moving += errand.isLoaded() ? errand.carried() : errand.requested();
+        }
+        return moving;
     }
 
     /** One member of each hungry household goes shopping — market first, granary otherwise. */
@@ -603,7 +746,7 @@ public final class FoodPlanner {
             }
             int want = Math.min(FETCH_MAX, target - household.pantry());
 
-            Building stall = fullestWithStock(settlement, "market", 1);
+            Building stall = fullestWithStock(settlement, BuildingRole.MARKET, 1);
             if (stall != null) {
                 shopper.setHaul(new HaulTask(HaulTask.Store.MARKET, stall.origin(),
                         HaulTask.Store.HOME, household.home(), want));
@@ -694,11 +837,11 @@ public final class FoodPlanner {
 
     /** Where haulers meet the town's bulk store: a granary building, else the center. */
     public static SimPos granaryPos(Settlement settlement) {
-        List<Building> granaries = buildingsOf(settlement, "granary");
+        List<Building> granaries = buildingsOf(settlement, BuildingRole.GRANARY);
         if (!granaries.isEmpty()) {
             return granaries.getFirst().origin();
         }
-        List<Building> stores = buildingsOf(settlement, "storehouse");
+        List<Building> stores = buildingsOf(settlement, BuildingRole.STORE);
         return stores.isEmpty() ? settlement.center() : stores.getFirst().origin();
     }
 
@@ -711,9 +854,9 @@ public final class FoodPlanner {
         return null;
     }
 
-    private static Building fullestWithStock(Settlement settlement, String suffix, int minimum) {
+    private static Building fullestWithStock(Settlement settlement, BuildingRole role, int minimum) {
         Building best = null;
-        for (Building building : buildingsOf(settlement, suffix)) {
+        for (Building building : buildingsOf(settlement, role)) {
             if (building.foodStored() >= minimum
                     && (best == null || building.foodStored() > best.foodStored())) {
                 best = building;
@@ -733,8 +876,13 @@ public final class FoodPlanner {
         Map<SimPos, Integer> promised = new HashMap<>();
         for (Person person : settlement.residents()) {
             HaulTask errand = person.haul();
+            // By what is being carried rather than by which kind of store it
+            // left, because grain moves on the generic bulk path now: a load
+            // walking out of a field and a load walking out of a storehouse are
+            // both Store.STORE, and only the resource tells the field's errands
+            // apart.
             if (errand == null || errand.isLoaded()
-                    || errand.fromStore() != HaulTask.Store.FARM) {
+                    || !TownStores.GRAIN.equals(errand.resource())) {
                 continue;
             }
             promised.merge(errand.fromPos(), errand.requested(), Integer::sum);
@@ -777,7 +925,7 @@ public final class FoodPlanner {
      */
     static boolean hasStallToStock(Settlement settlement) {
         return settlement.foodStock() >= TRADER_CARRY
-                && emptiestBelowCap(settlement, "market", MARKET_STOCK_CAP) != null;
+                && emptiestBelowCap(settlement, BuildingRole.MARKET, MARKET_STOCK_CAP) != null;
     }
 
     /**
@@ -792,8 +940,8 @@ public final class FoodPlanner {
                                             Map<SimPos, Integer> spokenFor, int minimum) {
         Building best = null;
         int most = 0;
-        for (Building field : buildingsOf(settlement, "farm")) {
-            int left = field.foodStored() - spokenFor.getOrDefault(field.origin(), 0);
+        for (Building field : buildingsOf(settlement, BuildingRole.CROP_FARM)) {
+            int left = Field.grainStored(field) - spokenFor.getOrDefault(field.origin(), 0);
             if (left >= minimum && left > most) {
                 most = left;
                 best = field;
@@ -802,9 +950,9 @@ public final class FoodPlanner {
         return best;
     }
 
-    private static Building emptiestBelowCap(Settlement settlement, String suffix, int cap) {
+    private static Building emptiestBelowCap(Settlement settlement, BuildingRole role, int cap) {
         Building best = null;
-        for (Building building : buildingsOf(settlement, suffix)) {
+        for (Building building : buildingsOf(settlement, role)) {
             if (building.foodStored() < cap
                     && (best == null || building.foodStored() < best.foodStored())) {
                 best = building;
@@ -889,7 +1037,7 @@ public final class FoodPlanner {
      * bridge is asked, once, to make the blocks say what the ledger says.
      */
     private static void growHarvest(Settlement settlement, SimContext ctx, boolean starving) {
-        List<Building> farms = buildingsOf(settlement, "farm");
+        List<Building> farms = buildingsOf(settlement, BuildingRole.CROP_FARM);
         if (farms.isEmpty()) {
             return;
         }
@@ -902,8 +1050,6 @@ public final class FoodPlanner {
         // and dying: one farmer with three fields used to work one of them and
         // watch the other two stand ripe.
         int strokes = hands * Field.BLOCKS_PER_FARMER_PER_STEP;
-        int cutTotal = 0;
-        List<Building> reaped = new ArrayList<>();
         for (Building farm : farms) {
             boolean watched = ctx.bridge().playerWithin(
                     farm.origin(), ctx.settings().observedRadius());
@@ -924,13 +1070,11 @@ public final class FoodPlanner {
                 // the hauling bottleneck made visible rather than a loss: nothing
                 // rots, and the moment a farmer carries a load to the granary the
                 // field is still there waiting to be cut.
-                int room = Math.max(0, FARM_STORE_CAP - farm.foodStored());
+                int room = Math.max(0, FARM_GRAIN_CAP - Field.grainStored(farm));
                 int cut = Field.harvest(farm, Math.min(here, room));
                 here -= cut;
                 if (cut > 0) {
                     Field.deliver(farm, cut);
-                    cutTotal += cut;
-                    reaped.add(farm);
                 }
             }
             // Whatever the hands did not spend cutting, they spent in the rows.
@@ -938,17 +1082,86 @@ public final class FoodPlanner {
             // the same pace as the one a player is standing in.
             Field.tend(farm, here);
         }
-        // A working mill grinds the same harvest into half again as much bread.
-        // One number, deliberately: the full grain-and-bread economy stays a
-        // GOALS entry, but the mill has to be worth building the day it stands.
-        // Taken across the town's whole harvest rather than field by field, so a
-        // half-loaf is not rounded off at every farm.
-        if (cutTotal > 0 && millRuns(settlement)) {
-            int bonus = cutTotal / 2;
-            for (int i = 0; bonus > 0 && i < reaped.size() * FARM_STORE_CAP; i++) {
-                bonus -= Field.deliver(reaped.get(i % reaped.size()), 1);
+        // The mill's half-again bonus used to be applied right here, as a flat
+        // "cutTotal / 2" of extra loaves conjured onto whichever fields had
+        // just been reaped. It is gone. A mill is a building somebody carries
+        // grain to now, and what it gives back it gives back at the stones —
+        // see bake.
+    }
+
+    /**
+     * Where this town turns grain into bread, or null if it has nowhere.
+     *
+     * <p>Two answers, in order. A <strong>mill</strong> if one stands and a
+     * miller works it, because that is what a mill is for and it pays three
+     * loaves for two sheaves. Otherwise the <strong>hearth or the granary</strong>,
+     * whichever the town has raised, at one for one and with no profession
+     * asked for — a camp bakes at its fire, and whoever is standing by it does
+     * the baking.
+     *
+     * <p><strong>And null is a real answer.</strong> A settlement with fields
+     * and no oven cuts wheat, stacks it, and starves beside full sacks. That is
+     * not a hole in the rules; it is the rule. Grain is not food, and a town
+     * that has not built anywhere to bake has not finished its food chain.
+     * {@code /civ info} prints the sacks so the reason is visible rather than
+     * mysterious.
+     */
+    public static Building bakery(Settlement settlement) {
+        if (millRuns(settlement)) {
+            Building mill = settlement.buildingWithRole(BuildingRole.MILL);
+            if (mill != null) {
+                return mill;
             }
         }
+        Building granary = settlement.buildingWithRole(BuildingRole.GRANARY);
+        if (granary != null) {
+            return granary;
+        }
+        return settlement.buildingWithRole(BuildingRole.HEARTH);
+    }
+
+    /**
+     * One step at the oven: grain in, bread out.
+     *
+     * <p>Baking happens where the grain is, which is the whole reason grain has
+     * to be hauled at all. Only the bakery-of-record bakes — a second granary
+     * across town is a shelf, not an oven — so a town has exactly one place its
+     * bread comes from and exactly one queue to be short at.
+     *
+     * <p>A mill's bread lands on the mill's own shelf and waits for a carrier;
+     * a hearth's or a granary's goes straight into the town's larder, because
+     * that is the building the larder <em>is</em>.
+     */
+    private static void bake(Settlement settlement) {
+        Building oven = bakery(settlement);
+        if (oven == null) {
+            return;
+        }
+        int grain = oven.stores().get(TownStores.GRAIN);
+        if (grain <= 0) {
+            return;
+        }
+        // The larder's own ceiling, not a second one. Baking into a full larder
+        // would spoil the loaf and the sheaf both; leaving the grain on the
+        // shelf costs nothing and the oven picks it up again when there is room.
+        int room = granaryCapacity(settlement) - settlement.foodStock();
+        int spent;
+        int baked;
+        if (oven.role() == BuildingRole.MILL) {
+            int millers = JobPlanner.count(settlement, Profession.MILLER);
+            int batches = Math.min(Math.min(grain, millers * MILL_GRAIN_PER_MILLER)
+                    / MILL_GRAIN_PER_BATCH, room / MILL_LOAVES_PER_BATCH);
+            spent = batches * MILL_GRAIN_PER_BATCH;
+            baked = batches * MILL_LOAVES_PER_BATCH;
+        } else {
+            spent = Math.min(Math.min(grain, BAKE_PER_STEP), room);
+            baked = spent;
+        }
+        if (baked <= 0) {
+            return;
+        }
+        oven.stores().take(TownStores.GRAIN, spent);
+        settlement.stores().add(TownStores.FOOD, baked);
     }
 
 
@@ -969,7 +1182,8 @@ public final class FoodPlanner {
             person.setHunger(person.hunger() - nutrition);
             return true;
         }
-        for (String role : new String[] {"market", "farm", "granary"}) {
+        for (BuildingRole role : new BuildingRole[] {BuildingRole.MARKET,
+                BuildingRole.CROP_FARM, BuildingRole.GRANARY}) {
             Building holder = fullestWithStock(settlement, role, 1);
             if (holder != null && holder.foodStored() > 0) {
                 holder.setFoodStored(holder.foodStored() - 1);
@@ -1021,14 +1235,14 @@ public final class FoodPlanner {
                         // empty at the granary and have a hundred and fifty loaves on
                         // the market stall it just stocked, and somebody was starving
                         // to death in the square in front of it.
-                        Building stall = fullestWithStock(settlement, "market", 1);
+                        Building stall = fullestWithStock(settlement, BuildingRole.MARKET, 1);
                         if (stall == null) {
                             // And past the stalls, the fields themselves. Watched
                             // towns can jam with every store empty and hundreds of
                             // food capped at the farms — hauling is the bottleneck,
                             // not growing — and nobody starves in sight of a full
                             // field. The desperate eat straight from the rows.
-                            stall = fullestWithStock(settlement, "farm", 1);
+                            stall = fullestWithStock(settlement, BuildingRole.CROP_FARM, 1);
                         }
                         if (stall != null) {
                             int take = Math.min(CARRY_WHEN_EATING, stall.foodStored());
@@ -1089,21 +1303,42 @@ public final class FoodPlanner {
         // ceilings count them: a granary raised a level should hold more than it
         // did, or improving one is a change of scenery.
         int extensions = 0;
-        for (Building standing : buildingsOf(settlement, "granary")) {
+        for (Building standing : buildingsOf(settlement, BuildingRole.GRANARY)) {
             extensions += Math.max(1, standing.level());
         }
-        for (Building standing : buildingsOf(settlement, "storehouse")) {
+        for (Building standing : buildingsOf(settlement, BuildingRole.STORE)) {
             extensions += Math.max(1, standing.level());
         }
         return BASE_GRANARY + extensions * GRANARY_PER_BUILDING;
     }
 
     public static int marketStock(Settlement settlement) {
-        return buildingsOf(settlement, "market").stream().mapToInt(Building::foodStored).sum();
+        return buildingsOf(settlement, BuildingRole.MARKET).stream().mapToInt(Building::foodStored).sum();
     }
 
+    /**
+     * Loaves sitting on a field's shelf.
+     *
+     * <p>Nearly always nought now, and kept because it is not always: a save
+     * made before bread was a thing has loaves out in the fields, and they are
+     * still food somebody can walk to and eat. What a field holds <em>today</em>
+     * is grain — {@link #farmGrain} — and nobody eats that.
+     */
     public static int farmStock(Settlement settlement) {
-        return buildingsOf(settlement, "farm").stream().mapToInt(Building::foodStored).sum();
+        return buildingsOf(settlement, BuildingRole.CROP_FARM).stream()
+                .mapToInt(Building::foodStored).sum();
+    }
+
+    /** Sheaves standing on the town's fields, waiting for somebody to carry them in. */
+    public static int farmGrain(Settlement settlement) {
+        return buildingsOf(settlement, BuildingRole.CROP_FARM).stream()
+                .mapToInt(Field::grainStored).sum();
+    }
+
+    /** Sheaves that have reached the oven and not yet been baked. */
+    public static int bakeryGrain(Settlement settlement) {
+        Building oven = bakery(settlement);
+        return oven == null ? 0 : oven.stores().get(TownStores.GRAIN);
     }
 
     public static int pantryTotal(Settlement settlement) {
@@ -1135,19 +1370,19 @@ public final class FoodPlanner {
     }
 
     /**
-     * Matched by blueprint-path suffix so any catalog's "farm" counts. A
-     * placeholder for datapack-declared building roles, like the catalog itself.
+     * Every standing building of a kind, asked of {@link BuildingRole}.
+     *
+     * <p>This used to match a blueprint-path <em>suffix</em>, and that was a bug
+     * with a long tail: {@code kingdoms:animal_farm} ends with "farm", so every
+     * compound of sheep and cows in the mod has been counted as a crop field
+     * since the day the compound was added. It was handed a seventy-one-block
+     * ripeness ledger it has no wheat for, farmers were dispatched to it, and
+     * the harvest it "brought in" was food out of nowhere. The role table
+     * settles what a building is once, on its bare name, so {@code animal_farm}
+     * is {@link BuildingRole#ANIMAL_FARM} and nothing in the food chain ever
+     * mistakes it again. Levels and culture folders come off with it.
      */
-    private static List<Building> buildingsOf(Settlement settlement, String pathSuffix) {
-        List<Building> result = new ArrayList<>();
-        for (Building building : settlement.buildings()) {
-            // Strip the level first. An improved farm is still a farm — missing that
-            // drops every leveled building out of the food chain, out of the
-            // workplace lookup, and off the end of a path.
-            if (BuildPlanner.baseIdOf(building.blueprintId()).endsWith(pathSuffix)) {
-                result.add(building);
-            }
-        }
-        return result;
+    private static List<Building> buildingsOf(Settlement settlement, BuildingRole role) {
+        return settlement.buildingsWithRole(role);
     }
 }

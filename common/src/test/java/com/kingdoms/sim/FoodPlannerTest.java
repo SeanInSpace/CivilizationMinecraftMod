@@ -126,9 +126,9 @@ class FoodPlannerTest {
         ripe(farm, 20);
         SimContext watched = new SimContext(new WatchingBridge(), 5, SimSettings.SANDBOX);
         farm.touchRealHarvest(4);   // a farmer cut wheat here one step ago
-        int before = farm.foodStored();
+        int before = Field.grainStored(farm);
         FoodPlanner.advance(s, watched);
-        assertEquals(before, farm.foodStored(),
+        assertEquals(before, Field.grainStored(farm),
                 "where somebody is watching, the hands are the harvest");
     }
 
@@ -148,10 +148,10 @@ class FoodPlannerTest {
 
         SimContext watched = new SimContext(new WatchingBridge(), 100, SimSettings.SANDBOX);
         farm.touchRealHarvest(1);   // stale
-        int before = farm.foodStored();
+        int before = Field.grainStored(farm);
         FoodPlanner.advance(s, watched);
 
-        assertEquals(before, farm.foodStored(),
+        assertEquals(before, Field.grainStored(farm),
                 "no floor: an unworked watched field yields nothing at all");
         assertTrue(Field.ripeBlocks(farm) >= 20,
                 "and what it grew is still standing in it, waiting for somebody");
@@ -162,17 +162,22 @@ class FoodPlannerTest {
         Settlement s = settlement();
         s.setFoodStock(0);
         Building farm = ripe(addBuilding(s, FARM, 0), 20);
+        // Somewhere to take it. Cut wheat is grain, and grain is not food until
+        // an oven has had it -- so a town with no hearth has nothing to send
+        // anybody to and nothing would ever reach the larder.
+        s.addBuilding(new Building("kingdoms:hearth", new SimPos(0, 64, 8), 0, true));
         Person farmer = add(s, Profession.FARMER);
 
         // The field fills, and the farmer is sent to fetch — but nothing has
-        // reached the granary while they are still walking out to the field.
+        // reached the larder while they are still walking out to the field.
         chainSteps(s, 1);
-        assertTrue(farm.foodStored() > 0, "harvest sits in the field until collected");
+        assertTrue(Field.grainStored(farm) > 0, "harvest sits in the field until collected");
         assertEquals(0, s.foodStock(), "and cannot arrive before the farmer does");
         assertNotNull(farmer.haul(), "the farmer has been sent for it");
 
-        chainSteps(s, 6);
-        assertTrue(s.foodStock() > 0, "the harvest reached the granary on somebody's back");
+        chainSteps(s, 8);
+        assertTrue(s.foodStock() > 0,
+                "the harvest reached the oven on somebody's back, and was baked");
     }
 
     @Test
@@ -187,7 +192,7 @@ class FoodPlannerTest {
         FoodPlanner.advance(s, CTX);
 
         assertEquals(FoodPlanner.FARMERS_PER_FARM * Field.BLOCKS_PER_FARMER_PER_STEP,
-                s.foodStock() + FoodPlanner.farmStock(s),
+                FoodPlanner.farmGrain(s),
                 "one field feeds work to two farmers; the rest wait for more fields");
     }
 
@@ -298,7 +303,7 @@ class FoodPlannerTest {
 
         FoodPlanner.advance(s, CTX);
 
-        assertEquals(0, FoodPlanner.farmStock(s),
+        assertEquals(0, FoodPlanner.farmGrain(s),
                 "a farmer too weak to work brings in nothing while there is food to be had");
     }
 
@@ -318,7 +323,7 @@ class FoodPlannerTest {
 
         FoodPlanner.advance(s, CTX);
 
-        assertTrue(FoodPlanner.farmStock(s) > 0,
+        assertTrue(FoodPlanner.farmGrain(s) > 0,
                 "the hungry must be allowed to feed themselves, or hunger feeds on itself");
     }
 

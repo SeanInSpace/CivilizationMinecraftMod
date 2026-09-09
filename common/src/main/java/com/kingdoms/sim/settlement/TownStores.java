@@ -21,6 +21,25 @@ public final class TownStores implements Stock {
 
     /** Well-known ids. Not exhaustive — anything may be stored under any name. */
     public static final String FOOD = "food";
+
+    /**
+     * Cut wheat, before anybody has made it into anything.
+     *
+     * <p>The step the food chain was missing. A farmer used to swing at a block
+     * of wheat and a loaf of bread appeared on the shelf, which meant a town's
+     * bakery was the sickle. Now a cut block is a sheaf of grain, grain has to
+     * be carried to wherever the town bakes — the mill if one runs, the hearth
+     * or the granary otherwise — and only there does it become {@link #FOOD}.
+     *
+     * <p>Nobody eats it. That is the point: a town with full sacks and nowhere
+     * to bake starves next to them, and {@code /civ info} says so.
+     *
+     * <p>Kept in a building's own {@code stores()} rather than in a field of its
+     * own, so it saves and loads with everything else a building holds and the
+     * codecs needed nothing — see {@code KingdomsCodecs.BUILDING}, which writes
+     * the whole map.
+     */
+    public static final String GRAIN = "grain";
     public static final String WOOD = "wood";
     public static final String STONE = "stone";
     public static final String SAPLINGS = "saplings";
