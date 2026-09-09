@@ -405,10 +405,10 @@ public final class PathPlanner {
     /**
      * Opens one stretch on the clock, for a town nobody is looking at.
      *
-     * <p>The same test construction and the wall use, for the same reason: a
-     * clock running alongside a builder would open the road twice, and one
-     * running instead of a builder standing right there would have a street
-     * appear beside somebody doing nothing.
+     * <p>Two refusals, for two different reasons. The crew is coming, so a clock
+     * would open the road twice; or a player can see the stretch, in which case
+     * there is no clock at all — a street that unrolls itself in front of
+     * somebody is magic whether or not the town has anybody to send.
      */
     private static void openNextUnwatched(Settlement settlement, SimContext ctx,
                                           PathNetwork network) {
@@ -440,6 +440,16 @@ public final class PathPlanner {
             if (PublicWorks.leaveItToTheCrew(settlement, ctx.bridge(),
                     new PublicWorks.RoadWork())) {
                 return;   // somebody is there to walk it out themselves
+            }
+            // And whether or not anybody is coming, a street does not pave
+            // itself in front of a player. Asked at the stretch rather than at
+            // the town, so an outlying lane over the hill is still the clock's
+            // to open while the square is watched — and asked after the crew
+            // question rather than instead of it, because the two refuse for
+            // different reasons and both refusals stand.
+            if (ctx.bridge().playerWithin(segments.get(i).positions().getFirst(),
+                    ctx.settings().observedRadius())) {
+                return;   // watched ground: hands or nothing
             }
             network.markOpened(i);
             return;   // one stretch a step, watched or not

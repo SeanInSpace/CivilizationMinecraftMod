@@ -228,14 +228,14 @@ class PublicWorksTest {
      *
      * <p>The whole complaint, stated as a measurement: a watched town's wall
      * advances because somebody planted a post, and not because a step went by.
-     * The bridge says the line is loaded and the town has an embodied builder,
-     * which is exactly the case in which a player is standing there watching.
+     * The bridge says somebody is standing on the line, which is the only thing
+     * that decides it — not whether the crew turned up, and not for how long.
      */
     @Test
     void aWatchedWallIsRaisedByItsBuildersAndNotByTheStep() {
-        Settlement town = walled(new LoadedBridge());
+        Settlement town = walled(new WatchedBridge());
         embodyTheBuilder(town);
-        SimContext ctx = new SimContext(new LoadedBridge(), 1, SimSettings.SANDBOX);
+        SimContext ctx = new SimContext(new WatchedBridge(), 1, SimSettings.SANDBOX);
 
         for (int step = 1; step <= 20; step++) {
             PerimeterPlanner.advance(town, ctx);
@@ -515,7 +515,18 @@ class PublicWorksTest {
     }
 
     /** The ground of the wall is loaded, which is what makes hands possible. */
-    private static final class LoadedBridge extends QuietBridge {
+    private static class LoadedBridge extends QuietBridge {
         @Override public boolean isLoaded(SimPos pos) { return true; }
+    }
+
+    /**
+     * Loaded, and with somebody standing in it.
+     *
+     * <p>Kept apart from {@link LoadedBridge} because the two are not the same
+     * question and the clock now turns on the second one only: a chunk a hopper
+     * holds open has nobody in it to be fooled by a wall assembling itself.
+     */
+    private static final class WatchedBridge extends LoadedBridge {
+        @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
     }
 }

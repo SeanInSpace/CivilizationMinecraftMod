@@ -275,23 +275,26 @@ public final class PerimeterPlanner {
     }
 
     /**
-     * Whether somebody is actually there to raise the next post themselves.
+     * Whether a player can see the next post go up.
      *
-     * <p>The same test construction uses, for the same reason: a clock running
-     * alongside a builder would raise the wall twice, and one running instead of
-     * a builder standing right there would have posts appear beside somebody
-     * doing nothing.
+     * <p>The same test construction uses, for the same reason and with the same
+     * absoluteness: a post that appears in front of somebody was raised by
+     * nobody, and no shortage of hands makes that all right. It used to ask
+     * whether a builder was embodied on a loaded stretch, which meant a watched
+     * town whose crew was capped, hungry or simply elsewhere had its palisade
+     * assemble itself while a player stood in the gateway.
+     *
+     * <p>Judged at the post, not at the town: a ring stretch out behind the hill
+     * is unwatched even when the square is full of people.
      */
-    private static boolean handsAreOnIt(Settlement settlement, SimContext ctx,
-                                        Perimeter perimeter) {
+    private static boolean watchedAtTheWall(Settlement settlement, SimContext ctx,
+                                            Perimeter perimeter) {
         if (perimeter.laid() >= perimeter.length()) {
             return false;
         }
-        boolean anyEmbodied = settlement.residents().stream()
-                .anyMatch(person -> settlement.laborsAs(person, Profession.BUILDER)
-                        && person.isEmbodied() && !person.isTooWeakToWork());
-        return anyEmbodied
-                && ctx.bridge().isLoaded(perimeter.ringPositions().get(perimeter.laid()));
+        return ctx.bridge().playerWithin(
+                perimeter.ringPositions().get(perimeter.laid()),
+                ctx.settings().observedRadius());
     }
 
     /**
@@ -863,9 +866,10 @@ public final class PerimeterPlanner {
         }
         // Where there is a hand there is no clock. A watched town raises its
         // wall post by post, with a builder walking to each one -- see
-        // PerimeterWorker. The clock here is for the town nobody is looking at,
-        // exactly as it is for construction.
-        if (handsAreOnIt(settlement, ctx, perimeter)) {
+        // PerimeterWorker. The clock here is for the stretch nobody is looking
+        // at, exactly as it is for construction, and a watched stretch with no
+        // builder on it waits rather than raising itself.
+        if (watchedAtTheWall(settlement, ctx, perimeter)) {
             return;
         }
         int want = Math.min(hands * POSTS_PER_HAND,

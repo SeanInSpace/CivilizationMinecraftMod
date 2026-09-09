@@ -738,6 +738,13 @@ public final class KingdomsCommand {
                     sb.append("\n      building ").append(task.blueprintId())
                             .append(" ").append(task.progress()).append("/").append(task.requiredWork())
                             .append(" (").append(Math.round(task.completionFraction() * 100)).append("%)");
+                    // A watched site is built by hand or not at all, so "nought
+                    // per cent and staying there" is a normal state with a cause
+                    // rather than a bug -- and the cause is the only thing worth
+                    // printing, because it is the thing a player can go and fix.
+                    if (task.waitingOnHands() != null) {
+                        sb.append(" WAITING ON HANDS: ").append(task.waitingOnHands());
+                    }
                 }
                 if (s.buildQueue().isEmpty()) {
                     sb.append("\n      build queue empty");

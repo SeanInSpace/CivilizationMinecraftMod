@@ -120,25 +120,27 @@ public final class BuildTask {
     }
 
     /**
-     * Steps this build has been watched without a block actually going down.
+     * Why this site is standing still, when it is standing still because nobody
+     * is there to work it.
      *
-     * <p>Not persisted: it is a measure of what is happening right now, and a
-     * reload has by definition interrupted whatever that was.
+     * <p>A watched site is built by hand or not at all, so a crew that cannot
+     * reach it is a build that does not happen — and a player looking at bare
+     * ground deserves to be told which of the several reasons for that it is,
+     * rather than left to guess whether the town has forgotten the job. Read by
+     * {@code /civ info}.
+     *
+     * <p>Not persisted: it describes what is true right now, and a reload has by
+     * definition interrupted whatever that was.
      */
-    private int idleWatchedSteps;
+    private String waitingOnHands;
 
-    /** A block went down by hand. */
-    public void touchVisibleProgress() {
-        idleWatchedSteps = 0;
+    public String waitingOnHands() {
+        return waitingOnHands;
     }
 
-    /**
-     * A watched step passed with nothing laid.
-     *
-     * @return how many such steps have run together
-     */
-    public int noteWatchedIdleStep() {
-        return ++idleWatchedSteps;
+    /** Null once somebody is on it, or once the site is out of sight again. */
+    public void setWaitingOnHands(String reason) {
+        this.waitingOnHands = reason;
     }
 
     public int progress() {
@@ -330,10 +332,9 @@ public final class BuildTask {
     /** Records one step finished — a block dug or laid — and spends its cost. */
     public void recordStepDone(int cost) {
         int spent = Math.max(1, cost);
-        // A block going down is the only proof that hands are working. Granted
-        // work is not: the simulation goes on clearing a crew that never lays
-        // anything, which is exactly the state this distinguishes.
-        touchVisibleProgress();
+        // A block going down is the only proof that hands are working, and it is
+        // the one thing that answers the waiting line: somebody is plainly here.
+        waitingOnHands = null;
         stepsDone++;
         stepProgress = 0;
         workDone += spent;
