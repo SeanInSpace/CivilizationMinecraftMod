@@ -8,6 +8,7 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
+import com.kingdoms.sim.settlement.Field;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.HaulPlanner;
 import com.kingdoms.sim.settlement.Footprint;
@@ -65,6 +66,19 @@ class FoodPlannerTest {
     }
 
     /**
+     * A field with wheat standing ready on it.
+     *
+     * <p>Fields ripen at Minecraft's pace now — about a fifth of a block a step —
+     * so a test that wants to watch a harvest has to give the farm something to
+     * harvest first, exactly as three hundred and seventy steps of growing would
+     * have. See {@link Field}.
+     */
+    private static Building ripe(Building farm, int blocks) {
+        farm.setRipeHundredths(blocks * 100);
+        return farm;
+    }
+
+    /**
      * Runs the food chain and the haulers, without the rest of the settlement
      * step — job retraining would reassign the very people these tests rely on.
      */
@@ -109,38 +123,45 @@ class FoodPlannerTest {
         s.addBuilding(farm);
         add(s, Profession.FARMER);
 
+        ripe(farm, 20);
         SimContext watched = new SimContext(new WatchingBridge(), 5, SimSettings.SANDBOX);
         farm.touchRealHarvest(4);   // a farmer cut wheat here one step ago
         int before = farm.foodStored();
         FoodPlanner.advance(s, watched);
         assertEquals(before, farm.foodStored(),
-                "fresh real harvests suppress the clock entirely");
+                "where somebody is watching, the hands are the harvest");
     }
 
     @Test
-    void theClockFloorsAWatchedFarmNobodyCanReach() {
-        // Watched, but no real harvest for a long while: the farmers cannot get
-        // to the field. Being watched must never starve a town, so the clock
-        // takes over exactly as it would for an unwatched farm.
+    void aWatchedFieldNobodyCanReachJustStandsThereRipe() {
+        // Watched, and no real harvest for a long while: the farmers cannot get
+        // to the field. There used to be a floor here — after a grace period the
+        // clock took the watched farm back over, so that being looked at could
+        // never starve a town. It is gone, deliberately. A field of ripe wheat
+        // with nobody cutting it is the truth, and it is a truth a player can
+        // walk over and see.
         Settlement s = settlement();
         Building farm = new Building("kingdoms:farm", new SimPos(10, 64, 0), 1, true);
         s.addBuilding(farm);
         add(s, Profession.FARMER);
+        ripe(farm, 20);
 
-        long step = FoodPlanner.WATCHED_HARVEST_GRACE_STEPS + 10;
-        SimContext watched = new SimContext(new WatchingBridge(), step, SimSettings.SANDBOX);
+        SimContext watched = new SimContext(new WatchingBridge(), 100, SimSettings.SANDBOX);
         farm.touchRealHarvest(1);   // stale
         int before = farm.foodStored();
         FoodPlanner.advance(s, watched);
-        assertTrue(farm.foodStored() > before,
-                "a stale watched farm is fed by the clock, not left to starve the town");
+
+        assertEquals(before, farm.foodStored(),
+                "no floor: an unworked watched field yields nothing at all");
+        assertTrue(Field.ripeBlocks(farm) >= 20,
+                "and what it grew is still standing in it, waiting for somebody");
     }
 
     @Test
     void harvestWaitsAtTheFarmUntilSomebodyCarriesIt() {
         Settlement s = settlement();
         s.setFoodStock(0);
-        Building farm = addBuilding(s, FARM, 0);
+        Building farm = ripe(addBuilding(s, FARM, 0), 20);
         Person farmer = add(s, Profession.FARMER);
 
         // The field fills, and the farmer is sent to fetch — but nothing has
@@ -158,14 +179,14 @@ class FoodPlannerTest {
     void fieldsOnlyEmploySoManyHands() {
         Settlement s = settlement();
         s.setFoodStock(0);
-        addBuilding(s, FARM, 0);
+        ripe(addBuilding(s, FARM, 0), 40);
         for (int i = 0; i < 6; i++) {
             add(s, Profession.FARMER);
         }
 
         FoodPlanner.advance(s, CTX);
 
-        assertEquals(FoodPlanner.FARMERS_PER_FARM * FoodPlanner.FOOD_PER_FARMER_PER_STEP,
+        assertEquals(FoodPlanner.FARMERS_PER_FARM * Field.BLOCKS_PER_FARMER_PER_STEP,
                 s.foodStock() + FoodPlanner.farmStock(s),
                 "one field feeds work to two farmers; the rest wait for more fields");
     }
@@ -269,7 +290,7 @@ class FoodPlannerTest {
         // eaten is in no state to work a field.
         Settlement s = settlement();
         s.setFoodStock(100);
-        addBuilding(s, FARM, 0);
+        ripe(addBuilding(s, FARM, 0), 20);
         Person farmer = add(s, Profession.FARMER);
         farmer.setHunger(Person.HUNGER_WEAK);
 
@@ -289,7 +310,7 @@ class FoodPlannerTest {
         // their own dinner.
         Settlement s = settlement();
         s.setFoodStock(0);
-        addBuilding(s, FARM, 0);
+        ripe(addBuilding(s, FARM, 0), 20);
         Person farmer = add(s, Profession.FARMER);
         farmer.setHunger(Person.HUNGER_WEAK);
 

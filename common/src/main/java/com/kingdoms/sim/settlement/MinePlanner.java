@@ -59,8 +59,9 @@ public final class MinePlanner {
      * Steps a watched mine may go without real work before the clock takes
      * over again.
      *
-     * <p>Deliberately the same shape and the same number as
-     * {@code FoodPlanner.WATCHED_HARVEST_GRACE_STEPS}. What stood here was an
+     * <p>This used to be deliberately the same shape and the same number as a
+     * grace period the fields kept; the fields have since stopped keeping one,
+     * because a field's yield is now the field itself. What stood here was an
      * outright return the moment a player came within the observed radius —
      * which is ninety-six blocks, against a mine on a ring plot a dozen from
      * the town square. Standing in your own town suppressed the abstract yield

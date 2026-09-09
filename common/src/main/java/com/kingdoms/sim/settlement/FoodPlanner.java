@@ -58,20 +58,11 @@ public final class FoodPlanner {
     public static final int STARVATION_GRACE_STEPS = 10;
 
     // the chain's carrying numbers
-    public static final int FOOD_PER_FARMER_PER_STEP = 1;
-
-    /**
-     * Steps a watched farm may go without a real harvest before the clock
-     * resumes crediting it.
-     *
-     * <p>The floor under real farming, in the same spirit as the haul floor: a
-     * watched farm produces through actual hands on actual wheat, but if those
-     * hands cannot reach the field — a cliff, a fence, a pathing failure — the
-     * town must not starve for being looked at. Generous enough that a working
-     * farmer always suppresses it, short enough that a stuck one costs at most
-     * a minute of production.
-     */
-    public static final int WATCHED_HARVEST_GRACE_STEPS = 12;
+    //
+    // What a farmer brings in per step used to be a flat one loaf, and there
+    // used to be a grace period after which a watched farm went back on the
+    // clock. Both are gone: how much a field yields is the field's business now
+    // — see Field — and a watched field is farmed by hands or it is not farmed.
     public static final int FARMERS_PER_FARM = 2;
     public static final int FARM_STORE_CAP = 40;
     /**
@@ -871,46 +862,92 @@ public final class FoodPlanner {
     }
 
     /**
-     * Fields produce into their own stores, worked by healthy farmers.
+     * Fields ripen, and farmers cut what has ripened.
      *
-     * <p>Two fidelities, one field, following the lumber camp's rule exactly:
-     * where somebody is watching, the real hands are the harvest — a farmer
-     * cutting actual wheat credits the farm and the clock stands aside. The
-     * clock works every unwatched farm, and floors a watched one whose farmers
-     * have not managed a real harvest in {@link #WATCHED_HARVEST_GRACE_STEPS},
-     * because being watched must never starve a town.
+     * <p>No yield table is consulted here and there is nothing left for one to
+     * scale. Food is not conjured any more and it is not a percentage of an
+     * imagined harvest either: it is the field that actually stands in the
+     * world, growing at Minecraft's own rate, cut by the farmers the town
+     * actually has. See {@link Field}, which owns all of that arithmetic.
+     *
+     * <p>Two fidelities, one ledger. Every field ripens every step, watched or
+     * not, because the world grows crops in a loaded chunk and the ledger is
+     * only keeping count. Where somebody is watching, {@code FarmWorker}'s real
+     * hands do the cutting — they credit the farm and they debit the ledger
+     * through {@link Field#cut}, and the clock takes nothing. There is no floor
+     * under that any more: a watched farm whose farmers have stopped grows a
+     * field of ripe wheat that nobody cuts, and standing in it looking at it is
+     * the truthful thing for a player to be able to do.
+     *
+     * <p>Hands do two things in a field and both count. A swing goes into the
+     * harvest if there is anything ripe to take and into the rows if there is
+     * not — see {@link Field#tend}, which is what stops the unwatched clock
+     * running at a thirtieth of the pace a watched farmer sets.
+     *
+     * <p>And when a field flips from unwatched to watched, the world's crops are
+     * at whatever ages they were left at and the ledger is the authority — so the
+     * bridge is asked, once, to make the blocks say what the ledger says.
      */
     private static void growHarvest(Settlement settlement, SimContext ctx, boolean starving) {
         List<Building> farms = buildingsOf(settlement, "farm");
         if (farms.isEmpty()) {
             return;
         }
-        int working = Math.min(countFarmHands(settlement, starving), farms.size() * FARMERS_PER_FARM);
-        int harvest = working * FOOD_PER_FARMER_PER_STEP;
+        int hands = Math.min(countFarmHands(settlement, starving),
+                farms.size() * FARMERS_PER_FARM);
+        // Sickle-strokes to spend this step, across the whole town's fields
+        // rather than parcelled out one field at a time. A farmer who runs out
+        // of ripe wheat in this field walks into the next one, which is both
+        // what a farmer would do and the difference between a village living
+        // and dying: one farmer with three fields used to work one of them and
+        // watch the other two stand ripe.
+        int strokes = hands * Field.BLOCKS_PER_FARMER_PER_STEP;
+        int cutTotal = 0;
+        List<Building> reaped = new ArrayList<>();
+        for (Building farm : farms) {
+            boolean watched = ctx.bridge().playerWithin(
+                    farm.origin(), ctx.settings().observedRadius());
+            if (watched && !farm.wasWatched()) {
+                ctx.bridge().setFieldRipeness(farm.origin(), farm.footprint(),
+                        Field.ripeBlocks(farm));
+            }
+            farm.setWatched(watched);
+            Field.ripen(farm, ctx);
+            if (strokes <= 0) {
+                continue;   // the hands ran out before the fields did
+            }
+            // One field can only take so many hands, however many the town has.
+            int here = Math.min(strokes, FARMERS_PER_FARM * Field.BLOCKS_PER_FARMER_PER_STEP);
+            strokes -= here;
+            if (!watched) {
+                // A full farm stops the harvest and the field stays ripe. That is
+                // the hauling bottleneck made visible rather than a loss: nothing
+                // rots, and the moment a farmer carries a load to the granary the
+                // field is still there waiting to be cut.
+                int room = Math.max(0, FARM_STORE_CAP - farm.foodStored());
+                int cut = Field.harvest(farm, Math.min(here, room));
+                here -= cut;
+                if (cut > 0) {
+                    Field.deliver(farm, cut);
+                    cutTotal += cut;
+                    reaped.add(farm);
+                }
+            }
+            // Whatever the hands did not spend cutting, they spent in the rows.
+            // See Field.tend: this is what keeps the unwatched field running at
+            // the same pace as the one a player is standing in.
+            Field.tend(farm, here);
+        }
         // A working mill grinds the same harvest into half again as much bread.
         // One number, deliberately: the full grain-and-bread economy stays a
         // GOALS entry, but the mill has to be worth building the day it stands.
-        if (millRuns(settlement)) {
-            harvest += working / 2;
-        }
-        for (int i = 0; harvest > 0 && i < farms.size() * FARM_STORE_CAP; i++) {
-            Building farm = farms.get(i % farms.size());
-            if (farm.foodStored() >= FARM_STORE_CAP) {
-                continue;
+        // Taken across the town's whole harvest rather than field by field, so a
+        // half-loaf is not rounded off at every farm.
+        if (cutTotal > 0 && millRuns(settlement)) {
+            int bonus = cutTotal / 2;
+            for (int i = 0; bonus > 0 && i < reaped.size() * FARM_STORE_CAP; i++) {
+                bonus -= Field.deliver(reaped.get(i % reaped.size()), 1);
             }
-            boolean watched = ctx.bridge().playerWithin(
-                    farm.origin(), ctx.settings().observedRadius());
-            if (watched && farm.harvestedWithin(ctx.step(), WATCHED_HARVEST_GRACE_STEPS)) {
-                harvest--;   // real hands are working this one; their share is theirs
-                continue;
-            }
-            // One loaf at a time, so the percentage has to be carried rather
-            // than multiplied: seventy percent of a single loaf is nothing
-            // until the fourth step, and abstractYield is what remembers that.
-            int percent = ctx.settings().yields().percent(watched, TownStores.FOOD);
-            farm.setFoodStored(farm.foodStored()
-                    + settlement.abstractYield(farm.origin(), TownStores.FOOD, 1, percent));
-            harvest--;
         }
     }
 

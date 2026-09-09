@@ -448,9 +448,14 @@ public final class KingdomsCodecs {
             // survive the save or the town wakes up on bare ground. Optional and
             // false by default, so everything written before this reads as what
             // it is — a building somebody built.
-            Codec.BOOL.optionalFieldOf("seeded", false).forGetter(Building::isSeeded)
+            Codec.BOOL.optionalFieldOf("seeded", false).forGetter(Building::isSeeded),
+            // A farm's ripeness ledger, in hundredths of a crop block. See Field.
+            // This has to survive a save or a worldgen town, which can go whole
+            // sessions with nobody near it, would forget its harvest every time
+            // the game closed. Zero for every save written before fields counted.
+            Codec.INT.optionalFieldOf("ripe", 0).forGetter(Building::ripeHundredths)
     ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing, held,
-                census, damage, seeded) -> {
+                census, damage, seeded, ripe) -> {
         Building building = new Building(blueprint, origin, step, materialized);
         building.setSeeded(seeded);
         building.setFoodStored(food);
@@ -459,6 +464,7 @@ public final class KingdomsCodecs {
         building.setFacing(facing);
         building.setSoundCensus(census);
         building.setDamage(damage);
+        building.setRipeHundredths(ripe);
         if (!held.isEmpty()) {
             building.stores().restore(held);
         }

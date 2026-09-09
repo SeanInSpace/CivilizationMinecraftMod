@@ -41,13 +41,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * keep true rather than a second guarantee. Named so the list stays complete:
  * a farmer too weak with hunger downs tools while the town can still feed him
  * and keeps cutting once it cannot ({@code theWeakStopWorkingWhileTheTownCanStillFeedThem},
- * {@code theWeakKeepFarmingOnceTheTownIsStarving}), and a field no real hands
- * can reach — a cliff, a fence, a pathing failure — is credited by the clock
- * after {@code WATCHED_HARVEST_GRACE_STEPS}
- * ({@code theClockFloorsAWatchedFarmNobodyCanReach}). That last one is the
- * difference a player sees: the town does not starve, but the rows stand
- * untended while the granary fills, so a report of "farmers not farming" on a
- * fenced-in field is the floor working, not a fault.
+ * {@code theWeakKeepFarmingOnceTheTownIsStarving}), and a watched field no real
+ * hands can reach — a cliff, a fence, a pathing failure — yields nothing at all
+ * and simply stands there ripe
+ * ({@code aWatchedFieldNobodyCanReachJustStandsThereRipe}). That last one used
+ * to be floored by the clock so a watched town could never starve; it is not any
+ * more, so a report of "farmers not farming" on a fenced-in field is now a
+ * fault the player can both see and feel.
  */
 class FarmersNotFarmingTest {
 
@@ -281,7 +281,11 @@ class FarmersNotFarmingTest {
         Person farmer = farmer(s);
 
         assertTrue(FieldRoster.fields(s).isEmpty(), "nothing to walk to yet");
-        FoodPlanner.advance(s, CTX);
+        // A handful of steps rather than one: a field ripens now instead of
+        // paying out a flat loaf a step, so the first cut is a few steps in.
+        for (int step = 1; step <= 6; step++) {
+            FoodPlanner.advance(s, CTX);
+        }
 
         assertTrue(undrawn.foodStored() > 0, "and the harvest happens anyway");
         assertNull(FieldRoster.fieldFor(s, farmer));

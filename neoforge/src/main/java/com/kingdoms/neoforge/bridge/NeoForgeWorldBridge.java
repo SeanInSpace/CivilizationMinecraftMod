@@ -9,6 +9,8 @@ import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Danger;
 import com.kingdoms.sim.settlement.Footprint;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.platform.WorldBridge;
@@ -693,6 +695,60 @@ public final class NeoForgeWorldBridge implements WorldBridge {
             }
         }
         return standing;
+    }
+
+    /**
+     * Make a field's wheat agree with the ledger that has been feeding the town.
+     *
+     * <p>The reconciliation described on {@link WorldBridge#setFieldRipeness},
+     * done the cheapest way that is still honest: one pass over the field's own
+     * cells, in a fixed order, setting the first {@code ripeBlocks} crops to
+     * their maximum age and everything after them back to nought.
+     *
+     * <p>The order is west-to-east then north-to-south, which is stable and
+     * arbitrary and only has to be one of those. It does mean a field comes back
+     * ripe along one edge rather than in patches — a farmer harvesting and
+     * replanting a field row by row leaves it looking much the same way, and it
+     * is a great deal cheaper than caring.
+     *
+     * <p>Loaded chunks only, and one pass: this fires the instant a player walks
+     * into range of a town, which is already the busiest moment the mod has.
+     * Cells in unloaded chunks are skipped rather than waited for; there is no
+     * second attempt, because a farm that stays watched will be tended by real
+     * hands within seconds anyway.
+     */
+    @Override
+    public void setFieldRipeness(SimPos farmOrigin, Footprint plot, int ripeBlocks) {
+        if (!plot.isKnown()) {
+            return;
+        }
+        // The field inside the fence, not the plot it was recorded as — the same
+        // apron the farmers take back off in FarmWorker, for the same reason.
+        int half = Math.max(2, plot.width() / 2 - BlueprintPlacer.APRON_MARGIN);
+        int floor = plot.y();
+        int left = Math.max(0, ripeBlocks);
+        BlockPos.MutableBlockPos soil = new BlockPos.MutableBlockPos();
+        for (int dx = -half; dx <= half; dx++) {
+            for (int dz = -half; dz <= half; dz++) {
+                soil.set(farmOrigin.x() + dx, floor - 1, farmOrigin.z() + dz);
+                if (!level.isLoaded(soil)) {
+                    continue;
+                }
+                BlockPos cell = soil.above();
+                BlockState standing = level.getBlockState(cell);
+                if (!(standing.getBlock() instanceof CropBlock crop)) {
+                    continue;
+                }
+                int age = left > 0 ? crop.getMaxAge() : 0;
+                if (left > 0) {
+                    left--;
+                }
+                if (standing.getValue(CropBlock.AGE) != age) {
+                    level.setBlock(cell, standing.setValue(CropBlock.AGE, age),
+                            Block.UPDATE_CLIENTS);
+                }
+            }
+        }
     }
 
     /** How far a settler notices something wrong. */

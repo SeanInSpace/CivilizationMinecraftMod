@@ -2505,7 +2505,27 @@ public final class Settlement {
                 return moved;
             }
         }
+        // Nothing cleared, and where the plan put it is not always a safe place
+        // to leave it. A plot offered a setback narrower than this building's
+        // own keepout is a plot in the carriageway, and giving up on the move
+        // leaves the building there for a road to be routed round or run
+        // through its wall. Standing further back than its rank is untidy;
+        // standing in the street is the fault this method exists to prevent, so
+        // the retreat is taken even against a crowded rank.
+        SimPos retreat = broughtIn(fronts, plot, span, 1.0);
+        if (!retreat.equals(plot) && !isNearer(fronts, retreat, plot)
+                && isPlotFree(retreat, span, null)) {
+            return retreat;
+        }
         return plot;
+    }
+
+    /** Whether the first of two points stands closer to a street than the second. */
+    private static boolean isNearer(TownPlan.Street street, SimPos a, SimPos b) {
+        SimPos onA = nearestPointOn(street, a);
+        SimPos onB = nearestPointOn(street, b);
+        return Math.hypot(a.x() - onA.x(), a.z() - onA.z())
+                < Math.hypot(b.x() - onB.x(), b.z() - onB.z());
     }
 
     /**
@@ -2592,7 +2612,14 @@ public final class Settlement {
             return plot;   // already on the line; leave it alone
         }
         double wanted = PathPlanner.keepoutRound(span);
-        double to = away + (wanted - away) * part;
+        // A fraction is only ever safe coming IN. Going the other way — a
+        // building too big for the setback it was offered, backing off out of
+        // the carriageway — a fraction leaves it standing in the road, which is
+        // the whole thing this method exists to prevent. An animal farm on the
+        // green wants fifteen from the middle of its street and was left at
+        // thirteen by three quarters of a back-off. So the retreat is taken
+        // whole, and only the approach is negotiable.
+        double to = away >= wanted ? away + (wanted - away) * part : wanted;
         return new SimPos(
                 onStreet.x() + (int) Math.round(dx / away * to), plot.y(),
                 onStreet.z() + (int) Math.round(dz / away * to));

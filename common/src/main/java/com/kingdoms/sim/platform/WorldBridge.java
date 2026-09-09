@@ -294,6 +294,26 @@ public interface WorldBridge {
         return -1;
     }
 
+    /**
+     * Make a field's crops say what the simulation says is standing in it.
+     *
+     * <p>Called once, on the step a farm goes from nobody-near-it to somebody-
+     * standing-in-it. While a field is unwatched, {@code Field}'s ledger is the
+     * only record of how much has ripened; the blocks themselves are wherever
+     * they were left, and vanilla has been growing them or not depending on
+     * whether the chunk happened to stay loaded. The two disagree, and the
+     * ledger wins — it is what fed the town while nobody was looking.
+     *
+     * <p>So: set exactly {@code ripeBlocks} of the field's crops to mature and
+     * the rest back to young, in whatever stable order the platform likes. From
+     * that moment the real hands take over and the ledger only mirrors them.
+     *
+     * <p>No-op by default. A bridge with no world behind it has no crops to
+     * disagree with, and every test double is one.
+     */
+    default void setFieldRipeness(SimPos farmOrigin, Footprint plot, int ripeBlocks) {
+    }
+
     default int woodedness(SimPos center, int radius) {
         return 0;
     }

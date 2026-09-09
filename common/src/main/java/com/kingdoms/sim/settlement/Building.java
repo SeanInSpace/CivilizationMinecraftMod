@@ -72,6 +72,28 @@ public final class Building {
      */
     private long lastRealHarvestStep = Long.MIN_VALUE;
 
+    /**
+     * How much of this farm's field is standing ripe, in hundredths of a block.
+     *
+     * <p>See {@link Field}. Persisted, unlike the harvest stamp above, and that
+     * is the whole reason it is a saved number rather than something recomputed:
+     * a worldgen town can go whole sessions with nobody near it, and a field that
+     * forgot what it had grown every time the game closed would be a field that
+     * never fed anybody.
+     */
+    private int ripeHundredths;
+
+    /**
+     * Whether a player was near this farm the last time the clock looked.
+     *
+     * <p>Only ever compared against the current answer, to catch the moment a
+     * field goes from nobody-there to somebody-standing-in-it — which is when
+     * the world's crops have to be made to agree with the ledger. Not persisted:
+     * a reloaded world starts everybody unwatched, so the first watched step
+     * reconciles, which is exactly what wanted to happen anyway.
+     */
+    private boolean watched;
+
     public Building(String blueprintId, SimPos origin, long completedOnStep) {
         this(blueprintId, origin, completedOnStep, false);
     }
@@ -333,6 +355,24 @@ public final class Building {
 
     public void setFoodStored(int foodStored) {
         this.foodStored = Math.max(0, foodStored);
+    }
+
+    /** This farm's ripeness ledger, in hundredths of a crop block. See {@link Field}. */
+    public int ripeHundredths() {
+        return ripeHundredths;
+    }
+
+    public void setRipeHundredths(int hundredths) {
+        this.ripeHundredths = Math.max(0, hundredths);
+    }
+
+    /** Whether a player was near this building the last time the clock looked. */
+    public boolean wasWatched() {
+        return watched;
+    }
+
+    public void setWatched(boolean watched) {
+        this.watched = watched;
     }
 
     @Override

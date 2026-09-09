@@ -8,6 +8,79 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## The field is the harvest
+
+### Changed
+
+- **An unwatched town farms, and the farming is real.** Yesterday's change left
+  every town you walked away from starving, because food was a percentage of an
+  imagined harvest and the percentage now ships at zero. It is not a percentage
+  any more. Each farm knows the field it actually stands in -- 71 blocks of
+  wheat, counted off the blueprint the builders lay -- and that field ripens on
+  Minecraft's own clock, about thirty-one minutes from planting to mature,
+  whether or not anybody is there to see it. The town's farmers cut what has
+  ripened and put the rows back to seed. No setting anywhere scales it. A town
+  nobody has visited for a week has been farming that whole week, and there is a
+  field's worth of wheat behind every loaf in its granary.
+
+- **A field is worth what a field is worth.** Two farmers working one eleven-by
+  -eleven make a bit under a loaf a step, which feeds about thirteen people. It
+  used to be two loaves a step regardless, which fed thirty. Towns need more
+  fields than they did, and a town with one field has a ceiling.
+
+- **A full farm stops the harvest and the wheat stays standing.** Nothing rots
+  and nothing is lost -- the field simply waits, ripe, until a farmer carries a
+  load to the granary and comes back for the rest. If you find a town with
+  hundreds of loaves banked in its fields and an empty granary, that is hauling
+  and not growing, and now you can see it.
+
+- **Being watched no longer floors anything.** A watched farm used to fall back
+  to the clock after twelve steps without a real harvest, so that looking at a
+  town could never starve it. Gone. A field whose farmers cannot reach it grows
+  a fine crop of ripe wheat that nobody cuts, and you can walk over and see
+  exactly that. Where there is a hand there is no clock, with no exceptions
+  left.
+
+- **The crops agree with the ledger when you walk up.** The first moment a
+  player comes within range of a farm, its wheat is set to show what the town
+  has actually grown -- so many blocks mature, the rest young. Walk away for a
+  session and come back, and the field looks like the harvest the town has been
+  living on rather than whatever the chunk loader last happened to leave there.
+
+- **A field's growing survives a save.** How ripe a farm is now goes into the
+  world file. A worldgen village can sit unvisited across a dozen sessions and
+  keep the harvest it grew in each of them.
+
+- **A building too big for its plot backs off the road properly.** A compound
+  offered a street plot narrower than it needs used to be shuffled part of the
+  way out of the carriageway and left standing in it. It now retreats the whole
+  way, or stays where it was -- never half.
+
+### Notes
+
+- Measured at the shipped defaults, nothing conjured, nobody ever coming to
+  look, on ground with nothing edible on it. A founding party of four: step 400
+  a VILLAGE of 4 with 63 loaves, step 800 a VILLAGE of 4 with 148, step 1500 a
+  VILLAGE of 4 with 408 -- all of it off one field. It used to be out of bread
+  at 400 and empty at 800.
+
+- A seeded village of eight with three fields: 18 people and 739 loaves at step
+  400, and exactly the same at 800 and 1000. It fills its houses and then sits
+  there, fed.
+
+- The same founding party given fields to work and timber to build with:
+  a TOWN of 9 at step 400, 38 at 800 and 81 at 1500, with 958 loaves. That is
+  the shape the food chain has when nothing else is in its way.
+
+- **What is still in the way, and it is not the field.** The camp of four never
+  orders a second farm -- handed all the timber and stone it can use it raises
+  eighteen buildings by step 500 and exactly one of them is a field. And at the
+  shipped defaults it cannot build at all, because an unwatched lumber camp
+  still brings in no timber. Both are being looked at separately. Neither is
+  fixed by making wheat grow faster, and neither was papered over here.
+
+---
+
 ## No more supplies out of nowhere
 
 ### Changed

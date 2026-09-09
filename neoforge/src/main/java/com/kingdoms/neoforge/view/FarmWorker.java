@@ -6,6 +6,7 @@ import com.kingdoms.neoforge.world.BlueprintPlacer;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.Field;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.FieldRoster;
@@ -137,6 +138,10 @@ public final class FarmWorker {
                 farm.setFoodStored(farm.foodStored() + 1);
             }
             farm.touchRealHarvest(step);
+            // A real cut block is a ripe block gone. Without this the ledger
+            // fills up behind a watched field and pays the whole of it out the
+            // moment the player walks away.
+            Field.cut(farm, 1);
         } else if (target.equals(tend)) {
             BlockState standing = level.getBlockState(target);
             level.setBlock(target,

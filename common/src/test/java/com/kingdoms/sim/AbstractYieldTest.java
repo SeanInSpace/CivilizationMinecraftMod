@@ -32,9 +32,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * building whose hands have stopped.
  *
  * <p>What is pinned here is that the percentages mean what they say — including
- * for a field that makes a single loaf a step, where a naive multiply would
- * have made every setting below a hundred an off switch — and what the shipped
- * defaults, which are now zero and zero, actually do to a town left alone.
+ * carrying the remainder, where a naive multiply would have made every setting
+ * below a hundred an off switch — and what the shipped defaults, which are now
+ * zero and zero, actually do to a town left alone.
+ *
+ * <p>Food is no longer one of the things the tables govern. A field is not a
+ * percentage of an imagined harvest; it is seventy-one crop blocks that ripen
+ * and get cut. What is left here is the timber and the stone, and the two cases
+ * below that pin food's independence from the tables outright. See
+ * {@link UnwatchedFarmingTest} for the field's own arithmetic.
  */
 class AbstractYieldTest {
 
@@ -198,8 +204,16 @@ class AbstractYieldTest {
     }
 
     // --- rounding ---
+    //
+    // The rounding these cases were written for is still exactly the trap it
+    // always was — a percentage of one unit a step, floored, is nothing forever
+    // — but food is no longer one of the things a percentage is taken of. A
+    // field's yield is the field's own arithmetic now, carried in hundredths of
+    // a crop block by Field rather than in hundredths of a loaf by the tables,
+    // and it is pinned in UnwatchedFarmingTest. What is left here is the timber
+    // and stone the tables do still govern, above.
 
-    /** A field with one farmer on it: exactly one loaf a step at full yield. */
+    /** A field with one farmer on it. */
     private static Settlement oneField() {
         Settlement town = new Settlement(
                 Settlement.Id.random(), "Onefield", new SimPos(0, 64, 0), 256);
@@ -226,30 +240,32 @@ class AbstractYieldTest {
     }
 
     @Test
-    void aSingleLoafAStepAtSeventyPercentIsSevenLoavesInTen() {
-        // One field, one farmer, ten steps: ten loaves at full yield. Seventy
-        // percent of a single loaf, floored, is nothing — so this is the case
-        // that says whether the remainder is carried or thrown away.
-        assertEquals(7, grownOver(10, new Empty(), YieldPolicy.uniform(70, 0)),
-                "seventy percent of one loaf a step is seven loaves in ten, not none");
+    void noYieldTableHasAnySayOverWhatAFieldGrows() {
+        // The whole of the change, in one assertion. Food used to be the most
+        // table-governed thing in the mod; it is now the least. Nought percent
+        // and a hundred percent grow the same wheat, because the wheat is real.
+        assertEquals(grownOver(40, new Empty(), YieldPolicy.FULL),
+                grownOver(40, new Empty(), YieldPolicy.uniform(0, 0)),
+                "a field is not a percentage of anything");
+        assertTrue(grownOver(40, new Empty(), YieldPolicy.DEFAULTS) > 0,
+                "and at the shipped zeroes it still feeds the town");
     }
 
     @Test
-    void aSingleLoafAStepAtFullYieldIsTenLoavesInTen() {
-        assertEquals(10, grownOver(10, new Empty(), YieldPolicy.FULL),
-                "the golden figure the seventy-percent case is measured against");
-    }
-
-    @Test
-    void aWatchedFieldWithNobodyCuttingWheatGrowsNothingByDefault() {
+    void aWatchedFieldWithNobodyCuttingWheatGrowsNothing() {
         assertEquals(0, grownOver(10, new Watched(), YieldPolicy.DEFAULTS),
                 "a watched field is farmed by hands, or it is not farmed");
     }
 
     @Test
-    void aWatchedFieldStillGrowsWhenTheFloorIsRaisedToFull() {
-        assertEquals(10, grownOver(10, new Watched(), YieldPolicy.uniform(70, 100)),
-                "a floor of a hundred is the old behavior, and must still be reachable");
+    void aWatchedFieldWithNobodyCuttingWheatGrowsNothingAtAnySetting() {
+        // There used to be a floor: after a grace period the clock took a
+        // watched farm back over, and a table of a hundred restored the old
+        // conjuring outright. Both are gone, at every setting there is. A
+        // watched field of ripe wheat with nobody in it stays a field of ripe
+        // wheat, and the player can go and look at it.
+        assertEquals(0, grownOver(10, new Watched(), YieldPolicy.uniform(70, 100)),
+                "no table anywhere puts the clock back into a watched field");
     }
 
     // --- what the shipped defaults now are ---
@@ -270,28 +286,27 @@ class AbstractYieldTest {
                 "the shipped world conjures no timber");
         assertEquals(0, stoneOver(50, YieldPolicy.DEFAULTS),
                 "nor any stone");
-        assertEquals(0, grownOver(50, new Empty(), YieldPolicy.DEFAULTS),
-                "nor any bread");
     }
 
     /**
      * What a founding party actually does at the shipped defaults, measured.
      *
-     * <p>It dies, and that is the honest answer rather than a fault to be
-     * papered over. At 0/0 nothing anywhere is conjured, so the only food a
-     * town can gain is food real hands harvested in front of a player, or wild
-     * food actually growing where it pitched. A camp nobody ever visits has
-     * neither. Four pioneers left entirely alone on this ground reach four
-     * hundred steps still four strong and out of bread, two of them too weak to
-     * work, and by eight hundred there is nobody left.
+     * <p>It used to die. At 0/0 nothing anywhere is conjured, and when food was
+     * a percentage of an imagined harvest the percentage was nought — so a camp
+     * nobody visited reached four hundred steps out of bread with two of its
+     * four too weak to work, and by eight hundred there was nobody left. That
+     * was recorded here as the honest answer, and it was, to the wrong question.
      *
-     * <p>Measured here rather than argued about, because it is the whole shape
-     * of the setting: a world at 0/0 is a world where towns you never go back
-     * to eventually end, and a world at 70 is not. The same run at 70 percent
-     * unwatched ends at four hundred steps a TOWN of thirteen with 196 loaves.
+     * <p>Food is not a percentage any more. It is the field: seventy-one crop
+     * blocks that ripen and are cut by the town's own farmers, watched or not,
+     * with no table anywhere in the arithmetic. So the same four pioneers on the
+     * same ground reach four hundred steps a VILLAGE with bread in hand, and are
+     * still standing at fifteen hundred. What they do not do is grow, and that
+     * is a different fault in a different place — see
+     * {@code UnwatchedFarmingTest}, which owns the measurement now and names it.
      */
     @Test
-    void aCampLeftEntirelyAloneAtTheShippedDefaultsRunsDown() {
+    void aCampLeftEntirelyAloneAtTheShippedDefaultsLivesOffItsField() {
         Settlement camp = campOfFour();
 
         SimSettings settings = with(YieldPolicy.DEFAULTS);
@@ -299,10 +314,12 @@ class AbstractYieldTest {
             camp.step(new SimContext(new Empty(), step, settings));
         }
 
-        assertEquals(0, FoodPlanner.totalFood(camp),
-                "nothing was conjured, and there is nothing left");
-        assertTrue(camp.isStarving(),
-                "a town gaining nothing at all ends up starving, and this one is not");
+        assertEquals(4, camp.population(),
+                "the party that arrived is the party that is here");
+        assertTrue(FoodPlanner.totalFood(camp) > 0,
+                "and they have bread, out of a field, with nothing conjured");
+        assertTrue(camp.stores().get(TownStores.WOOD) == 0,
+                "which is not because the tables came back — no timber is conjured");
     }
 
     @Test
