@@ -85,6 +85,16 @@ public final class PerimeterLayer {
         if (perimeter == null) {
             return;
         }
+        // A town with nobody left in it neither raises its wall nor mends it.
+        // The roads can tell a first drawing from a repair, because a stretch
+        // is laid once and in order; this sweep cannot, since it wraps round
+        // the ring and skips unloaded ground, so a post missing from a dead
+        // town's palisade is taken for what it almost always is -- a hole --
+        // and left. The cost is that a ring staked and paid for but never yet
+        // stamped stays on paper until somebody lives here again.
+        if (!settlement.hasLivingResidents()) {
+            return;
+        }
         // Before the new wall, the old one comes down -- and it comes down even
         // when nothing is being raised, so a town that re-stakes and then runs
         // out of timber is not left standing inside two walls indefinitely.

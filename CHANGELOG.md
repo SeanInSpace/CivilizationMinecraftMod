@@ -106,6 +106,11 @@ messages carry the reasoning and the measurements.
   closed, so each start quietly drew the whole network again. For a living town
   that was invisible work; for a dead one it was the bug above, coming back
   every time you loaded the save.
+- **And so does its wall.** The sweep that keeps a palisade whole re-placed
+  any post missing from a dead town's ring exactly as it does for a living one.
+  It now stands aside for a town with nobody in it. A ring that was staked but
+  never stamped into the world waits on paper until somebody lives there again.
+
 
 ---
 
