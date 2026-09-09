@@ -6,6 +6,8 @@ import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.BuildPlanner;
+import com.kingdoms.sim.settlement.Danger;
+import com.kingdoms.sim.settlement.Garrison;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Footprint;
@@ -297,5 +299,66 @@ class BuildPlannerTest {
             s.abandonBuild(i, "the ground will not give");
         }
         assertEquals(6, seen.size());
+    }
+
+    // --- what a frightened town builds ---
+
+    /** A watchtower that actually defends, unlike the bare TOWER above. */
+    private static final BuildingType KEEP =
+            new BuildingType("test:keep", 20, 1, 0, 12, 60, 0, 3);
+    private static final BuildingType FORGE =
+            new BuildingType("test:smith", 20, 1, 1, 0, 57, 0);
+    private static final List<BuildingType> DEFENDED_CATALOG = List.of(HALL, HOUSE, KEEP, FORGE);
+
+    private static Settlement defendedTown(int population) {
+        Settlement s = new Settlement(Settlement.Id.random(), "Fearburg", new SimPos(0, 64, 0), 16);
+        s.setCatalog(DEFENDED_CATALOG);
+        for (int i = 0; i < population; i++) {
+            s.addResident(new Person(
+                    Person.Id.random(), "Person " + i, Profession.BUILDER, new SimPos(0, 64, 0)));
+        }
+        return s;
+    }
+
+    @Test
+    void acalmTownStillBuildsByThePriorityTable() {
+        Settlement s = defendedTown(12);
+
+        assertEquals(Optional.of(HALL), BuildPlanner.chooseNext(s, DEFENDED_CATALOG),
+                "nothing outside, so the hall's priority of 100 wins as it always did");
+    }
+
+    @Test
+    void aTownWithMoreThreatThanWatchRaisesTheTowerFirst() {
+        Settlement s = defendedTown(12);
+        s.setThreatLevel(Danger.OVERMATCH);   // no guards at all here
+
+        assertTrue(Garrison.outnumbered(s));
+        assertEquals(Optional.of(KEEP), BuildPlanner.chooseNext(s, DEFENDED_CATALOG),
+                "the only key allowed to outrank priority, and this is what it is for");
+        assertEquals(1, BuildPlanner.defendsTheTown(s, KEEP));
+        assertEquals(1, BuildPlanner.defendsTheTown(s, FORGE), "no forge yet, so it counts too");
+        assertEquals(0, BuildPlanner.defendsTheTown(s, HALL));
+    }
+
+    @Test
+    void theForgeStopsCountingOnceOneStands() {
+        Settlement s = defendedTown(12);
+        s.setThreatLevel(Danger.OVERMATCH);
+        s.addBuilding(new Building("test:smith", new SimPos(6, 64, 6), 1, true));
+
+        assertEquals(0, BuildPlanner.defendsTheTown(s, FORGE),
+                "a town with a forge does not need a second one to feel safe");
+    }
+
+    @Test
+    void theTowerLosesItsPlaceAgainWhenTheThreatDecays() {
+        Settlement s = defendedTown(12);
+        s.setThreatLevel(Danger.OVERMATCH);
+        assertEquals(Optional.of(KEEP), BuildPlanner.chooseNext(s, DEFENDED_CATALOG));
+
+        s.setThreatLevel(0);
+        assertEquals(Optional.of(HALL), BuildPlanner.chooseNext(s, DEFENDED_CATALOG),
+                "the displacement lapses on its own; nothing has to switch it off");
     }
 }

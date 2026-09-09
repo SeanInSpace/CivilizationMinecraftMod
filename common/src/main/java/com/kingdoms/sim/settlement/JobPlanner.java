@@ -149,6 +149,19 @@ public final class JobPlanner {
      * the crisis lane below asks a different one — is anybody farming? — and
      * makes somebody a farmer if the answer is no.
      *
+     * <p><strong>A frightened town is the second exception.</strong> The table
+     * wants one guard per eight residents and has no idea what is outside; a
+     * town of nine with a raid bearing down on it wanted exactly one guard and
+     * got exactly one guard, which is how a garrison of one met a raid of six.
+     * So when {@link Garrison#outnumbered} holds, GUARD jumps the table
+     * entirely — see {@link #spareHandsForTheWatch} for who pays for it. Still
+     * one person per step, and still nothing when the threat has decayed back
+     * under the watch: the table simply resumes, and the surplus guards it then
+     * sees drain away no faster than they ever did.
+     *
+     * <p>Hunger comes first of the two. A town can be wrong about the raid and
+     * live; it cannot be wrong about dinner.
+     *
      * @return true if somebody changed jobs
      */
     public static boolean retrainOne(Settlement settlement) {
@@ -166,6 +179,16 @@ public final class JobPlanner {
         // still runs -- a starving camp crystallizes a farmer, and should.
         if (StagePlanner.pioneersLabor(settlement.stage())) {
             return false;
+        }
+        if (Garrison.outnumbered(settlement)) {
+            Person recruit = spareHandsForTheWatch(settlement);
+            if (recruit != null) {
+                recruit.setProfession(Profession.GUARD);
+                return true;
+            }
+            // Nobody can be spared. Fall through rather than stopping: the town
+            // is in trouble either way, and a step spent staffing the farm it
+            // is short of is better than a step spent doing nothing at all.
         }
         Optional<Profession> needed = mostNeeded(settlement);
         if (needed.isEmpty()) {
@@ -217,6 +240,70 @@ public final class JobPlanner {
             return null;
         }
         Profession chosen = fullest;
+        return settlement.residents().stream()
+                .filter(p -> p.profession() == chosen)
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Whoever can be spared to take up the sword right now.
+     *
+     * <p>Idle hands first, exactly as everywhere else — an idler costs the town
+     * nothing. After that, the trade standing furthest above the minimum its own
+     * row of {@link #DEFAULT_NEEDS} states, so the militia is raised out of
+     * whatever the town has most of rather than out of whoever happens to be
+     * listed first.
+     *
+     * <p>This digs deeper than {@link #biggestSurplusDonor} on purpose. That one
+     * will not take a trade below its <em>desired</em> count — the right rule
+     * for shuffling jobs on an ordinary afternoon, and far too polite when
+     * something is coming: a town whose every trade is exactly staffed has no
+     * surplus at all and would raise not one guard. Under threat the floor drops
+     * to the row's minimum, which is the number the table itself says the town
+     * cannot do without.
+     *
+     * <p>Three things are never taken, whatever the arithmetic says:
+     * <ul>
+     *   <li><strong>Guards.</strong> Robbing the watch to pay the watch.</li>
+     *   <li><strong>The last farmer.</strong> A defended town that has stopped
+     *       growing food is a town that starves a fortnight after the raid it
+     *       won.</li>
+     *   <li><strong>The last builder.</strong> The watchtower this same threat
+     *       just moved to the front of the queue needs somebody to raise it.</li>
+     * </ul>
+     *
+     * @return the person to retrain, or null if nobody at all can be spared
+     */
+    private static Person spareHandsForTheWatch(Settlement settlement) {
+        Person idler = settlement.residents().stream()
+                .filter(p -> p.profession() == Profession.IDLER)
+                .findFirst()
+                .orElse(null);
+        if (idler != null) {
+            return idler;
+        }
+        Profession donorProfession = null;
+        int bestSpare = 0;
+        for (ProfessionNeed need : DEFAULT_NEEDS) {
+            Profession trade = need.profession();
+            if (trade == Profession.GUARD) {
+                continue;
+            }
+            int heads = count(settlement, trade);
+            if ((trade == Profession.FARMER || trade == Profession.BUILDER) && heads <= 1) {
+                continue;   // the last one of these is not spare, ever
+            }
+            int spare = heads - need.base();
+            if (spare > bestSpare) {
+                bestSpare = spare;
+                donorProfession = trade;
+            }
+        }
+        if (donorProfession == null) {
+            return null;
+        }
+        Profession chosen = donorProfession;
         return settlement.residents().stream()
                 .filter(p -> p.profession() == chosen)
                 .findFirst()

@@ -3,6 +3,8 @@ package com.kingdoms.sim;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.Danger;
+import com.kingdoms.sim.settlement.Garrison;
 import com.kingdoms.sim.settlement.JobPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Settlement;
@@ -183,5 +185,110 @@ class JobPlannerTest {
                 "a profession at its desired count must never be the donor");
         assertEquals(11, JobPlanner.count(s, Profession.FARMER), "the surplus farmer retrains instead");
         assertEquals(1, JobPlanner.count(s, Profession.GUARD));
+    }
+
+    /**
+     * The golden case: with nothing outside, the table is exactly what it was.
+     * Ten idlers and no threat still buy a builder first, not a militia.
+     */
+    @Test
+    void withNoThreatTheTableIsUntouched() {
+        Settlement s = settlement();
+        add(s, Profession.IDLER, 10);
+        assertEquals(0, s.threatLevel(), "a calm town");
+        assertFalse(Garrison.outnumbered(s));
+
+        assertTrue(JobPlanner.retrainOne(s));
+        assertEquals(1, JobPlanner.count(s, Profession.BUILDER),
+                "construction still gates everything when nobody is afraid");
+        assertEquals(0, JobPlanner.count(s, Profession.GUARD));
+    }
+
+    /**
+     * More threat than watch, so the sword outranks the table — one recruit a
+     * step until the number is met, and then not one more.
+     */
+    @Test
+    void aTownUnderThreatRecruitsUntilTheWatchIsEnough() {
+        Settlement s = settlement();
+        add(s, Profession.GUARD, 1);
+        add(s, Profession.FARMER, 5);
+        add(s, Profession.BUILDER, 3);   // population 9
+        s.setThreatLevel(Danger.OVERMATCH);
+        assertFalse(s.isStarving(), "provisioned, so this is the threat lane and not the famine one");
+        assertEquals(3, Garrison.neededGuards(s), "six danger is three guards");
+
+        assertTrue(JobPlanner.retrainOne(s));
+        assertEquals(2, JobPlanner.count(s, Profession.GUARD));
+        assertEquals(4, JobPlanner.count(s, Profession.FARMER),
+                "the trade furthest above its own minimum pays for it");
+
+        assertTrue(JobPlanner.retrainOne(s));
+        assertEquals(3, JobPlanner.count(s, Profession.GUARD));
+        assertEquals(3, JobPlanner.count(s, Profession.FARMER));
+        assertEquals(3, JobPlanner.count(s, Profession.BUILDER), "the crew was never touched");
+
+        assertFalse(Garrison.outnumbered(s), "the watch matches the threat now");
+        assertFalse(JobPlanner.retrainOne(s),
+                "and the town stops — a met threat does not conscript everybody");
+    }
+
+    /** Idle hands are always cheaper than a working trade, threat or no threat. */
+    @Test
+    void theWatchIsRaisedOutOfIdlersFirst() {
+        Settlement s = settlement();
+        add(s, Profession.GUARD, 1);
+        add(s, Profession.FARMER, 4);
+        add(s, Profession.BUILDER, 2);
+        add(s, Profession.IDLER, 2);   // population 9
+        s.setThreatLevel(Danger.OVERMATCH);
+
+        assertTrue(JobPlanner.retrainOne(s));
+        assertEquals(2, JobPlanner.count(s, Profession.GUARD));
+        assertEquals(4, JobPlanner.count(s, Profession.FARMER), "no working trade paid for it");
+        assertEquals(1, JobPlanner.count(s, Profession.IDLER));
+    }
+
+    /**
+     * The two floors nothing may cross. A town that answers a raid by taking its
+     * last field hand wins the raid and starves in the fortnight after it, and
+     * one that takes its last builder cannot raise the watchtower the same
+     * threat just put at the front of the queue.
+     */
+    @Test
+    void theLastFarmerAndTheLastBuilderAreNeverConscripted() {
+        Settlement s = settlement();
+        add(s, Profession.GUARD, 1);
+        add(s, Profession.FARMER, 1);
+        add(s, Profession.BUILDER, 1);
+        s.setThreatLevel(Danger.OVERMATCH);
+        assertTrue(Garrison.outnumbered(s), "one guard against six danger");
+
+        assertFalse(JobPlanner.retrainOne(s),
+                "there is nobody in this town who can be spared");
+        assertEquals(1, JobPlanner.count(s, Profession.FARMER));
+        assertEquals(1, JobPlanner.count(s, Profession.BUILDER));
+        assertEquals(1, JobPlanner.count(s, Profession.GUARD));
+    }
+
+    /**
+     * A trade at exactly its desired count is still spare under threat, down to
+     * the minimum its own row states. This is the case the ordinary surplus rule
+     * cannot serve: an evenly staffed town has no surplus at all and would
+     * otherwise raise nobody.
+     */
+    @Test
+    void underThreatTheFloorIsTheTableMinimumRatherThanTheDesiredCount() {
+        Settlement s = settlement();
+        add(s, Profession.GUARD, 1);
+        add(s, Profession.FARMER, 2);
+        add(s, Profession.BUILDER, 3);
+        add(s, Profession.TRADER, 4);   // population 10: trader wants 0, has 4
+        s.setThreatLevel(Danger.HOPELESS);   // 10 -> needs 5
+
+        assertTrue(JobPlanner.retrainOne(s));
+        assertEquals(2, JobPlanner.count(s, Profession.GUARD));
+        assertEquals(3, JobPlanner.count(s, Profession.TRADER),
+                "the fullest trade above its minimum goes first");
     }
 }

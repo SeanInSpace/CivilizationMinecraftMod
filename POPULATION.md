@@ -118,6 +118,7 @@ Builders lead because construction gates housing and housing gates growth — a 
 Two mechanisms move people into jobs:
 
 - **One person per step retrains** into the most-needed trade. Idlers volunteer first; failing that, someone from the profession with the **largest surplus** over its own desired count steps up. A profession at or below its desired staffing is never drained — retraining fills gaps from slack, never by opening new ones. *(The surplus rule came from live playtesting: a town of ninety-seven farmers had no idlers and stayed defenseless forever under the old idler-only rule.)*
+- **A town with more threat than watch retrains a guard first**, ahead of everything the table wants, and digs deeper for the donor: down to the *minimum* each row states rather than its desired count, so an evenly staffed town can still raise a militia. Never a guard, never the last farmer, never the last builder. It stops the moment the watch matches the threat, and the ordinary table resumes as soon as the threat decays. See [DEFENSE.md](DEFENSE.md).
 - **Newborns take the most-needed trade** if anything is still short at the moment of birth, falling back to the family's eldest member's trade. In practice retraining (one per step) outpaces births (one per eight steps), so children usually follow the family.
 
 ---

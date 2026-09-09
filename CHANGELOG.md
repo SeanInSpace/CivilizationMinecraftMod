@@ -8,6 +8,50 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## A town with more enemies than guards now goes and finds some guards
+
+### Changed
+
+- **A frightened town musters.** The staffing table wanted one guard per eight
+  residents and had no idea what was standing in the treeline, so a village of
+  nine kept exactly one guard and met a raid of six with him. A town now compares
+  what it is afraid of against the watch it has, and while the threat is the
+  bigger of the two, somebody takes up the sword every step until the numbers
+  meet. One person a step, as with every other change of trade — you can watch it
+  happen rather than finding a militia where your farmers were.
+
+- **The number it recruits to is the number it dies by.** A guard turns back two
+  of a raid, so the watch a fright calls for is half the threat, rounded up: three
+  guards for the tier that empties the streets, five for the worst thing on the
+  ladder, eight for the largest raid there is. A town that reaches its number
+  genuinely survives the raid that number was read off — the two used to be
+  separate sums that could quietly disagree. Standing watchtowers do not count
+  toward it, so a town keeps a margin in hand for the day one gets knocked down.
+
+- **The volunteers come from wherever they are least missed.** Idle hands first,
+  then whichever trade is standing furthest above the minimum the table says it
+  cannot do without. Never a guard, never the last farmer, and never the last
+  builder — a town that answers a raid by conscripting its only field hand wins
+  the raid and starves in the fortnight after. Hunger still outranks fear: a
+  starving town crystallizes its farmer before it raises its militia.
+
+- **A frightened town builds the watchtower next**, and the smithy too if it has
+  not got one — the forge is what puts a weapon in the hands it is busy
+  recruiting. This is the only thing allowed to jump the priority table, and it
+  does not interrupt anything: whatever is half-built gets finished first. Only a
+  famine is urgent enough to drop the job in hand.
+
+- **It all lapses on its own.** Threat fades a point a step, and the moment it
+  falls back under the watch the ordinary table resumes. Nothing has to be
+  switched off, and the guards already raised drain away no faster than surplus
+  guards ever did.
+
+- **`/civ info` says so.** A town that is short shows a `garrison` line — how many
+  guards it has, what it is afraid of, and how many it wants. A town that is not
+  short says nothing, because there is nothing to say.
+
+---
+
 ## How much of a town's income is imaginary is now yours to set
 
 ### New
