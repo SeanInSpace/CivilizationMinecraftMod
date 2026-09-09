@@ -510,6 +510,28 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **A dead town's roads and wall stay broken.** The road sweep tells a
+      first drawing from a repair by a persisted laid-through mark; the wall
+      sweep stands aside entirely for a town with nobody in it.
+- [x] **Nothing builds itself while a player is near.** The clock does no
+      building, wall, road or repair work at a site inside the observed radius,
+      judged at the site, with no grace fallthrough; the queue says what it is
+      waiting on.
+- [x] **More threat than guards means guards first.** Needed guards is
+      ceil(threat / 2), the number a raid is repelled by; retraining takes
+      idlers then the trade furthest above its minimum, never the last farmer
+      or builder; the watchtower and smithy lead the next choice while short.
+- [x] **A seeded lumber camp has a wood to work.** Up to twelve grown trees of
+      the biome's species on a five-block grid outside the houses, eight
+      saplings on the shelves, the claim widened to reach past the village.
+- [x] **No supplies out of nowhere.** Clock yield defaults to 0/0; foraging
+      takes only what a sampled survey of the ground finds and depletes it;
+      seeded towns hold what their own buildings could hold.
+- [ ] **At 0/0 an unattended town dies.** Foraging stops past HOMESTEAD and an
+      unwatched field at zero percent grows nothing, so any town nobody
+      revisits runs down: a founded camp is dead by step 800, a seeded village
+      by 600. Two levers, the user's to pull: pioneers keep foraging past
+      HOMESTEAD, or unwatched farms get a small floor tied to farm hands.
 - [x] **How much of a town's income is imaginary is a setting.** Two tables
       in the server config, one percentage per resource: the clock's yield for a
       town nobody is near (default 70) and the floor under real hands that have
