@@ -138,6 +138,15 @@ public final class KingdomsConfig {
      * resource is only ever gained by hands a player could have watched, so
      * every town supplies itself. A hundred is the old behavior, everything
      * abstract; seventy is the middle the mod shipped with for two days.
+     *
+     * <p><strong>There is no food row any more.</strong> Both tables are built
+     * from {@link YieldPolicy#SCALED_RESOURCES}, and food has left it: a loaf
+     * comes off a field that was sown and ripened, not off a percentage. An
+     * older config file that still carries {@code ...food} in either table
+     * loads perfectly well — {@code ModConfigSpec.correct} reports the key as
+     * {@code CorrectionAction.REMOVE}, drops it and writes the file back, which
+     * is the same thing that happens to any setting the mod stops using. It is
+     * a line in the log, not an error.
      */
     private static final Map<String, ModConfigSpec.IntValue> UNWATCHED_YIELD = unwatchedYield();
 
@@ -146,11 +155,10 @@ public final class KingdomsConfig {
      * the real hands have gone quiet.
      *
      * <p>A camp whose trees are all felled, a mine on flat grass with no shaft
-     * sunk, a farmer who cannot path to the field: after twelve steps without
-     * real work the clock used to step back in at full rate, so that being
-     * looked at could never starve a town. Default zero, because in front of a
-     * player only real work should count — raise it if you would rather a stuck
-     * worker cost the town nothing.
+     * sunk: after twelve steps without real work the clock used to step back in
+     * at full rate, so that being looked at could never cost a town its income.
+     * Default zero, because in front of a player only real work should count —
+     * raise it if you would rather a stuck worker cost the town nothing.
      */
     private static final Map<String, ModConfigSpec.IntValue> WATCHED_FLOOR = watchedFloor();
 
@@ -163,7 +171,8 @@ public final class KingdomsConfig {
                 "the mod shipped with before; 100 is fully abstract, which is what",
                 "it did before this table existed at all.",
                 "Fractions are carried between steps, so 70 really is 70 percent",
-                "even for a field that only makes one loaf a step.")
+                "even for a camp that only cuts one log a step.",
+                "Food is not on this table. A town eats what its fields grew.")
                 .push("economy.unwatched_yield_percent");
         Map<String, ModConfigSpec.IntValue> table = new LinkedHashMap<>();
         for (String resource : YieldPolicy.SCALED_RESOURCES) {
@@ -180,7 +189,8 @@ public final class KingdomsConfig {
                 "but the real workers have not produced anything for a while.",
                 "0 -- the default -- means that in front of a player, only real",
                 "work counts. 100 restores the old floor, which credited a watched",
-                "building in full whenever its hands went quiet.")
+                "building in full whenever its hands went quiet.",
+                "Food is not on this table either; the fields answer to the crop.")
                 .push("economy.watched_floor_percent");
         Map<String, ModConfigSpec.IntValue> table = new LinkedHashMap<>();
         for (String resource : YieldPolicy.SCALED_RESOURCES) {

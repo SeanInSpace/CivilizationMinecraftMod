@@ -176,9 +176,15 @@ class StageProgressionTest {
      * design</em>. A town walls itself at its charter and everything it builds
      * afterwards is a suburb, unwalled, on ground the wall never claimed —
      * which is what a faubourg is and where every medieval town put its growth.
-     * Measured on this ground: the wall is staked at step 284 around the sixteen
-     * buildings standing then, and the seventeenth, raised in the sixteen steps
-     * this run has left, goes up outside it.
+     * Measured on this ground: the wall is staked around whatever stands at the
+     * moment of staking, and anything raised afterwards goes up outside it.
+     *
+     * <p>The window is four hundred steps rather than three because the ladder
+     * got longer. A growing town now raises a second field on the way up —
+     * {@code BuildPlanner.farmsWanted} asks for one per fifteen mouths — and
+     * pays for it in builder-steps like anything else, which put the staking at
+     * 358 where it used to fall at 284. A slower founding is the price of a
+     * founding that feeds itself.
      *
      * <p>So the moment matters and the buildings are taken at it. What the
      * staking promises is containment of what stood <em>then</em>; what it
@@ -189,7 +195,7 @@ class StageProgressionTest {
         Settlement camp = foundingParty();
 
         List<Building> whenStaked = List.of();
-        for (int i = 1; i <= 300; i++) {
+        for (int i = 1; i <= 400; i++) {
             List<Building> stood = List.copyOf(camp.buildings());
             camp.step(at(i));
             if (whenStaked.isEmpty() && camp.perimeter() != null) {
@@ -198,7 +204,7 @@ class StageProgressionTest {
         }
 
         Perimeter ring = camp.perimeter();
-        assertTrue(ring != null, "three hundred steps is plenty to stake the ring");
+        assertTrue(ring != null, "four hundred steps is plenty to stake the ring");
         assertFalse(whenStaked.isEmpty(),
                 "the wall was staked around nothing at all");
         int west = ring.vertices().stream().mapToInt(v -> v.x()).min().orElseThrow();

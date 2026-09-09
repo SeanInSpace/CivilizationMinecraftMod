@@ -18,7 +18,7 @@ import java.util.Objects;
  * does not stop a town dead.
  *
  * <p>That second half is abstraction, and until now it was total and
- * unadjustable. Every log, every block of stone, every loaf of an unwatched
+ * unadjustable. Every log, every block of stone and every ingot of an unwatched
  * town appeared out of arithmetic — and so did the <em>watched floor</em>, the
  * yield credited to a camp a player is standing in when the real axes have not
  * managed a swing in {@code WATCHED_WORK_GRACE_STEPS}. Some players want a
@@ -53,11 +53,24 @@ public record YieldPolicy(
         Map<String, Integer> watchedFloorPercent
 ) {
 
-    /** Everything the simulation clock can credit out of nothing. */
+    /**
+     * Everything the simulation clock can credit out of nothing.
+     *
+     * <p><strong>Food is deliberately not here.</strong> It used to be, and
+     * that was the last place in the mod where a loaf could appear because a
+     * percentage said so. A field is not a percentage: it is sown, it ripens,
+     * and somebody cuts it, and what a town eats is whatever came off it. So
+     * the fields answer to the crop rather than to this table, at both
+     * fidelities and whether or not anybody is standing in them, and there is
+     * no knob here that can turn dinner on or off.
+     *
+     * <p>Anything absent from this list is credited in full — which is exactly
+     * right for food, because for food the clock is no longer the thing doing
+     * the crediting.
+     */
     public static final List<String> SCALED_RESOURCES = List.of(
             TownStores.WOOD,
             TownStores.STONE,
-            TownStores.FOOD,
             TownStores.IRON,
             TownStores.SAPLINGS);
 
@@ -77,14 +90,17 @@ public record YieldPolicy(
      *
      * <p>Zero on both tables. A town nobody is watching still runs — it builds,
      * it hauls, it eats, it spends what it holds and its people go on living
-     * their lives — but it gains nothing it did not already have. Every log,
-     * every block of stone, every loaf has to come from somewhere now: a real
-     * hand on a real tree, a harvest somebody could have stood and watched,
-     * wild food actually growing on the ground the camp is pitched on.
+     * their lives — but it gains nothing it did not already have. Every log and
+     * every block of stone has to come from somewhere now: a real hand on a
+     * real tree, a quarry somebody could have stood and watched.
      *
      * <p>Raise {@code economy.unwatched_yield_percent} if you would rather the
      * towns you left behind kept growing on their own. 70 is what shipped
      * before; 100 is total abstraction.
+     *
+     * <p>None of which touches food, and that is the point of leaving it out of
+     * {@link #SCALED_RESOURCES}. Whatever these numbers are set to, a town eats
+     * what its fields grew — see the food chain in {@code FoodPlanner}.
      */
     public static final YieldPolicy DEFAULTS =
             uniform(DEFAULT_UNWATCHED_PERCENT, DEFAULT_WATCHED_FLOOR_PERCENT);

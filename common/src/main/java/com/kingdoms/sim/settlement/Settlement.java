@@ -2252,6 +2252,20 @@ public final class Settlement {
         if (wanted == null) {
             return;
         }
+        orderUrgent(ctx, wanted);
+        logEvent(ctx.step(), "Starving — work on a " + readableName(wanted.id())
+                + " goes ahead of everything else");
+    }
+
+    /**
+     * Sites one building and puts it at the head of the queue.
+     *
+     * <p>The shared tail of the two lanes allowed to jump: the famine rescue in
+     * {@link #planSurvivalBuild} and the fields-before-famine rule in
+     * {@link #planFarmAhead}. Same siting, same claim, same facing as an
+     * ordinary order — only the place in the queue differs.
+     */
+    private void orderUrgent(SimContext ctx, BuildingType wanted) {
         SimPos flat = chooseSite(ctx, wanted);
         SimPos plot = new SimPos(flat.x(), ctx.bridge().surfaceHeight(flat), flat.z());
         if (!contains(plot)) {
@@ -2261,8 +2275,66 @@ public final class Settlement {
         BuildTask ordered = new BuildTask(wanted.id(), plot, wanted.workCost());
         ordered.setFacing(arrangement().facingFor(center, plot));
         enqueueUrgent(ordered);
-        logEvent(ctx.step(), "Starving — work on a " + readableName(wanted.id())
-                + " goes ahead of everything else");
+    }
+
+    /**
+     * Orders the field a growing town is about to need, before it needs it.
+     *
+     * <p>The counterpart to {@link #planSurvivalBuild} and deliberately its
+     * mirror image. That lane is a rescue: it fires on {@link #isStarving},
+     * and by then the town is arguing with a clock it cannot win against — the
+     * farm has to be sited, raised and staffed while the last loaves are being
+     * eaten. This one fires on arithmetic instead. The count it holds to is
+     * {@link BuildPlanner#farmsWanted}, which is derived from what a field
+     * actually feeds, so a town orders its next farm with the granary still
+     * half full and the rescue lane should rarely have anything left to do.
+     *
+     * <p>It is not a new queue lane; it is the ordinary one, asked a step
+     * earlier. When the builders are between jobs the farm is simply the next
+     * thing ordered, ahead of the catalog and after the stage's own program —
+     * so a homestead still raises its bunkhouse before its second field.
+     *
+     * <p><strong>It may displace a stalled head, and only a stalled one.</strong>
+     * The queue is head-blocking, so without this a town wanting a second farm
+     * behind a cottage it has no timber for would want it silently forever and
+     * meet its famine with a full queue. The guard is exactly the survival
+     * lane's — {@link #STALLED_HEAD_STEPS} of no progress at all — so nothing
+     * that is actually being built is ever dropped, and the displaced job keeps
+     * its plot and every unit of work already done.
+     *
+     * <p>Below HOMESTEAD it says nothing: a camp that has not got a bunkhouse
+     * up is not short of fields, it is short of a roof, and the CAMP program
+     * says so.
+     *
+     * @return true if a farm was ordered or moved to the front
+     */
+    private boolean planFarmAhead(SimContext ctx) {
+        if (!stage.atLeast(SettlementStage.HOMESTEAD)) {
+            return false;
+        }
+        if (countBuildings(BuildPlanner.FARM) >= BuildPlanner.farmsWanted(population())) {
+            return false;
+        }
+        boolean stalled = !buildQueue.isEmpty() && stalledSteps >= STALLED_HEAD_STEPS;
+        if (!buildQueue.isEmpty() && !stalled) {
+            return false;   // the head is moving; a town that is not hungry can wait
+        }
+        if (stalled && promoteQueuedSurvivalBuild(ctx, "farm")) {
+            return true;   // one was already ordered; it just could not be reached
+        }
+        Optional<BuildingType> field = BuildPlanner.farmAhead(this, catalog);
+        if (field.isEmpty()) {
+            return false;   // one is on the way after all
+        }
+        if (buildQueue.isEmpty()) {
+            orderBuild(ctx, field.get());
+        } else {
+            orderUrgent(ctx, field.get());
+            logEvent(ctx.step(), "A field goes ahead of the "
+                    + readableName(buildQueue.get(1).blueprintId())
+                    + " — the town will want feeding before it is finished");
+        }
+        return true;
     }
 
     /**
@@ -2365,6 +2437,12 @@ public final class Settlement {
 
     private void planNextBuild(SimContext ctx) {
         planSurvivalBuild(ctx);
+        // Fields, before the town is hungry rather than after. Asked ahead of
+        // the empty-queue test because it is the one want allowed to speak to a
+        // head that has stopped moving; see planFarmAhead.
+        if (planFarmAhead(ctx)) {
+            return;
+        }
         if (!buildQueue.isEmpty()) {
             return;
         }

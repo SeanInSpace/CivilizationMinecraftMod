@@ -245,24 +245,30 @@ Kingdoms runs at two fidelities. Stand near a lumber camp and a lumberjack fells
 an actual tree; walk away and he becomes a number, and the clock credits the
 timber on his behalf — otherwise every town you are not looking at would stop
 dead. Those two tables decide how much of that credit a world actually grants,
-one entry each for `wood`, `stone`, `food`, `iron` and `saplings`.
+one entry each for `wood`, `stone`, `iron` and `saplings`.
+
+**Food is not on either table, and there is no setting that puts it back.** A
+loaf is not a percentage — it is a crop that was sown, ripened and cut, and a
+town eats whatever came off its own fields. So a town you have walked away from
+does not get fed by arithmetic: it builds farms, puts farmers in them, harvests,
+hauls the grain in and eats it, exactly as it would with you standing there. If
+its fields fail, it goes hungry, and no number in this file will save it.
 
 **`economy.unwatched_yield_percent`** is the share an unwatched building earns.
 **The default is 0: nothing is conjured, anywhere.** An unwatched town still
 runs — it builds, hauls, eats, spends what it holds, and its people go on
-living — but it gains nothing it did not already have. Every log, every stone
-and every loaf has to come from a real hand, a real harvest, or wild food
-actually growing where the town stands. Raise it to 70 and a town you walk away
-from keeps producing at a discount; raise it to 100 and absence costs it
-nothing, which is what the mod did originally. Fractions are carried between
-steps, so a field earning one loaf a step really does bank seven loaves in ten
-at 70.
+living — but it gains nothing it did not already have. Every log and every
+stone has to come from a real hand or a real quarry. Raise it to 70 and a town
+you walk away from keeps producing at a discount; raise it to 100 and absence
+costs it nothing, which is what the mod did originally. Fractions are carried
+between steps, so a camp earning one log a step really does bank seven logs in
+ten at 70.
 
 **`economy.watched_floor_percent`** is the share a building earns while you are
 standing there and the real workers have produced nothing for a while — a camp
-that has felled every tree in its claim, a mine on flat grass with no shaft sunk,
-a farmer who cannot reach the field. This used to be full rate, so that being
-looked at could never starve a town. The default 0 means that in front of a
+that has felled every tree in its claim, a mine on flat grass with no shaft sunk.
+This used to be full rate, so that being looked at could never cost a town its
+income. The default 0 means that in front of a
 player, only real work counts; raise it if you would rather a stuck worker cost
 the town nothing.
 

@@ -2,6 +2,7 @@ package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 
@@ -718,6 +719,104 @@ public final class BuildPlanner {
         }
         boolean isForge = BuildingRole.of(type.id()) == BuildingRole.SMITH;
         return isForge && !SmithPlanner.hasSmithy(settlement) ? 1 : 0;
+    }
+
+    /** The blueprint every rule below is about. */
+    public static final String FARM = "kingdoms:farm";
+
+    /**
+     * How many mouths one farm is expected to keep fed.
+     *
+     * <p>Derived, not chosen, and the arithmetic is short enough to keep here
+     * where anybody changing it will read it:
+     *
+     * <ul>
+     *   <li>A farm is worked by {@link FoodPlanner#FARMERS_PER_FARM} hands, and
+     *       each brings in {@link FoodPlanner#FOOD_PER_FARMER_PER_STEP} a step:
+     *       <strong>two loaves a step</strong> off a fully staffed field.</li>
+     *   <li>A person gains {@link FoodPlanner#HUNGER_PER_STEP} hunger a step and
+     *       a loaf undoes {@code Foods.nutrition(PROVISION)} of it — thirty. So
+     *       one mouth costs <strong>2/30, a fifteenth of a loaf a step</strong>,
+     *       and a farm at full tilt covers <strong>thirty of them</strong>.</li>
+     *   <li>Halved for the margin, which is this number. A field hand is not in
+     *       the rows every step of their life: they walk loads to the granary,
+     *       they go weak and stop, the muster takes them when something is
+     *       coming, and grain in transit is not grain in a stomach. Half is the
+     *       cheapest honest allowance for all of it, and the cost of being
+     *       wrong in this direction is one spare farm.</li>
+     * </ul>
+     *
+     * <p>Fifteen, then. It is a floor on wanting, not a cap on having: the
+     * catalog's own row still asks for more farms than this in a grown town,
+     * and {@link #farmsWanted} takes whichever is larger.
+     */
+    public static final int MOUTHS_PER_FARM =
+            FoodPlanner.FARMERS_PER_FARM * FoodPlanner.FOOD_PER_FARMER_PER_STEP
+                    * (Foods.nutrition(Foods.PROVISION) / FoodPlanner.HUNGER_PER_STEP) / 2;
+
+    /**
+     * Farms a settlement of this size wants standing, whatever else it is doing.
+     *
+     * <p>{@code ceil(population / MOUTHS_PER_FARM)}, never less than one. Two
+     * deliberate departures from how every other want in the catalog is
+     * counted, and both of them are the whole point:
+     *
+     * <ul>
+     *   <li><strong>Rounded up.</strong> Every other row floors, which means a
+     *       town is allowed to be a fraction of a building short of what it
+     *       eats and only notices on the way past the next round number.
+     *       Rounding up puts the order in while there is still food in the
+     *       granary, which is the difference between a town that farms and a
+     *       town that reacts to famine.</li>
+     *   <li><strong>Never zero.</strong> A settlement with people in it wants a
+     *       field. The old row said {@code population / 6} and honestly meant
+     *       none at all below six residents — a founding party of four wanted no
+     *       farm from the catalog whatsoever, and only got one because the
+     *       homestead program happens to name one.</li>
+     * </ul>
+     */
+    public static int farmsWanted(int population) {
+        int needed = (Math.max(0, population) + MOUTHS_PER_FARM - 1) / MOUTHS_PER_FARM;
+        return Math.max(1, needed);
+    }
+
+    /**
+     * A farm, when the town is short of the count {@link #farmsWanted} demands.
+     *
+     * <p>The lane that keeps a town fed <em>before</em> it is hungry, and the
+     * counterpart to {@link Settlement#planSurvivalBuild}, which keeps it fed
+     * after. The survival lane is a rescue: it fires on {@code isStarving},
+     * shoves a farm over the head of the queue and is by then arguing with a
+     * clock. This one fires on arithmetic, orders like any other build, and
+     * means the rescue should rarely have anything to do.
+     *
+     * <p>It is <strong>not</strong> a new queue lane. It is asked in the same
+     * breath as the catalog, in {@link Settlement}'s ordinary build planning,
+     * after the stage's program has had its say — so a camp still raises its
+     * bunkhouse before its second field — and it yields an ordinary
+     * {@link BuildingType} that gets sited, paid for and queued like anything
+     * else.
+     *
+     * <p>What it adds over the catalog row is reach: the catalog does not run
+     * at all below VILLAGE, so a homestead could grow from four residents to
+     * twenty on the single farm its program ordered and never once want
+     * another. This is asked at every stage from HOMESTEAD up.
+     *
+     * <p>Queued farms count. Otherwise a town would order a second farm every
+     * step until the first one finished.
+     *
+     * @return the farm type, or empty when enough farms stand or are on the way
+     */
+    public static Optional<BuildingType> farmAhead(Settlement settlement,
+                                                   List<BuildingType> catalog) {
+        int standing = settlement.countBuildings(FARM);
+        long queued = settlement.buildQueue().stream()
+                .filter(task -> baseIdOf(task.blueprintId()).equals(FARM))
+                .count();
+        if (standing + queued >= farmsWanted(settlement.population())) {
+            return Optional.empty();
+        }
+        return catalog.stream().filter(type -> type.id().equals(FARM)).findFirst();
     }
 
     /**
