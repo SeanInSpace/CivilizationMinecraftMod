@@ -8,6 +8,34 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## A dead town's roads stay broken
+
+### Fixed
+
+- **A village with nobody left in it no longer mends its own streets.** The
+  clock had been taught to stop for a town whose last resident is buried, but
+  the road sweep never heard about it: it kept walking the network a stretch at
+  a second, putting the gravel back wherever grass had grown over it or a
+  player had dug it out. Laying a new road and patching an old one are the same
+  act down in the blocks, and nothing above them knew the difference. Now it
+  does. A plague village's roads go the way its fields do -- over, under, and
+  eventually gone -- and the place finally looks abandoned instead of
+  maintained.
+
+- **A road a dead town built before it died is still shown.** The rule cuts
+  between a record and a repair, exactly as it does for buildings: a town that
+  grew and walked its streets out while you were away still lays them on the
+  ground the first time you arrive, even if everyone died in the meantime.
+  After that they are on their own.
+
+- **Restarting the server no longer re-lays every road in every town.** Which
+  streets had actually been put down was remembered only until the world
+  closed, so each start quietly drew the whole network again. For a living town
+  that was invisible work; for a dead one it was the bug above, coming back
+  every time you loaded the save.
+
+---
+
 ## How much of a town's income is imaginary is now yours to set
 
 ### New

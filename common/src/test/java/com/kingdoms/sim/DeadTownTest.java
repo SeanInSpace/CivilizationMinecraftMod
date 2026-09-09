@@ -7,6 +7,7 @@ import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.PathNetwork;
+import com.kingdoms.sim.settlement.RoadUpkeep;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.world.SimContext;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -184,6 +186,86 @@ class DeadTownTest {
                 "the fixture laid its run on ground no road could use");
         assertEquals(0, town.paths().openedCount(),
                 "a town with nobody alive opened a road");
+    }
+
+    /**
+     * The road the dead town already has, and what happens to it after.
+     *
+     * <p>The half of the doctrine that was still leaking, and it leaked where
+     * nobody was looking for it: not in the clock, which had learned to stop,
+     * but in the sweep that keeps a laid road clear of the grass. Drawing a road
+     * for the first time and patching a broken one are one operation down in the
+     * blocks, so a town whose streets had been laid once had them re-laid every
+     * pass forever — every resident buried and the gravel still going back down.
+     *
+     * <p>Both halves are asserted, because a fix that simply stopped a dead town
+     * touching roads at all would pass the second and break the first: a village
+     * that opened its streets by the clock and then died before anybody arrived
+     * to see them must still show them, exactly as it still shows its houses.
+     */
+    @Test
+    void aDeadTownDrawsARoadOnceAndNeverMendsIt() {
+        TerrainFake ground = new TerrainFake(11);
+        Settlement town = new Settlement(Settlement.Id.random(), "Silent", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
+        town.setStage(SettlementStage.CAMP);
+        SimPos from = new SimPos(0, ground.groundAt(0, 0), 0);
+        SimPos to = new SimPos(0, ground.groundAt(0, 6), 6);
+        town.setPaths(new PathNetwork(
+                List.of(new PathNetwork.Segment(from, to)), List.of()));
+        // A street this town walked out while it still had people in it.
+        town.paths().markOpened(0);
+
+        assertTrue(RoadUpkeep.mayDraw(town, 0),
+                "a road the town opened while alive was never drawn, and now never will be");
+        assertFalse(RoadUpkeep.mayMend(town, 0),
+                "a town with nobody alive was allowed to mend a road");
+
+        // Drawn: the record goes down, once.
+        town.paths().setLaidThrough(1);
+
+        for (int step = 1; step <= SILENT_STEPS; step++) {
+            town.step(new SimContext(ground, step, SimSettings.SANDBOX));
+            assertFalse(RoadUpkeep.mayDraw(town, 0),
+                    "a dead town re-drew a road it had already laid, on step " + step);
+            assertFalse(RoadUpkeep.mayMend(town, 0),
+                    "a dead town mended its road on step " + step);
+        }
+        assertEquals(1, town.paths().openedCount(),
+                "a town with nobody alive opened another road");
+    }
+
+    /** A road once drawn stays drawn, so nothing can walk the mark backwards. */
+    @Test
+    void theMarkOnADrawnRoadOnlyEverGoesForward() {
+        PathNetwork paths = new PathNetwork(
+                List.of(new PathNetwork.Segment(new SimPos(0, 64, 0), new SimPos(0, 64, 6)),
+                        new PathNetwork.Segment(new SimPos(0, 64, 6), new SimPos(6, 64, 6))),
+                List.of());
+        paths.setLaidThrough(2);
+        paths.setLaidThrough(0);
+        assertEquals(2, paths.laidThrough(), "a road already drawn was forgotten");
+        assertTrue(paths.isLaid(1), "a drawn stretch stopped counting as drawn");
+        paths.setLaidThrough(99);
+        assertEquals(2, paths.laidThrough(),
+                "the mark ran past the end of the network");
+    }
+
+    /** The living half, so the fix cannot be "nobody ever mends anything". */
+    @Test
+    void aTownWithPeopleStillMendsTheRoadsItHasLaid() {
+        Settlement town = new Settlement(Settlement.Id.random(), "Lively", CENTER, 512);
+        town.addResident(new Person(
+                Person.Id.random(), "Ada", Profession.PIONEER, CENTER));
+        town.setPaths(new PathNetwork(
+                List.of(new PathNetwork.Segment(new SimPos(0, 64, 0), new SimPos(0, 64, 6))),
+                List.of()));
+        town.paths().markOpened(0);
+        town.paths().setLaidThrough(1);
+        assertTrue(RoadUpkeep.mayMend(town, 0),
+                "a town with people in it stopped keeping its own road");
+        assertFalse(RoadUpkeep.mayMend(town, 1),
+                "a stretch nobody has walked out yet was paved anyway");
     }
 
     /** The one thing an empty town does say, and it says it once. */

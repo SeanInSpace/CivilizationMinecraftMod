@@ -338,6 +338,40 @@ public final class PathNetwork {
         return opened.size();
     }
 
+    /**
+     * How far along the network the stones have actually gone down.
+     *
+     * <p>Opened is not laid. A town that grows unwatched opens its streets by
+     * the clock, with nobody standing on them and no blocks placed; the ground
+     * only gets its gravel when somebody is there to see it. So the network
+     * carries two marks, and the difference between them is the difference
+     * between the first drawing of a road and every visit after it.
+     *
+     * <p>A high-water mark rather than a set, because stretches are only ever
+     * appended and only ever laid in order — the same reason the sweep that
+     * lays them keeps one number. And persisted, which is the point: it used to
+     * live in the drawing code's memory, so every server start forgot that the
+     * roads had ever been drawn and laid the whole town again from the first
+     * stretch. For a living town that was invisible, because re-laying a sound
+     * road writes nothing. For a dead one it was a road crew.
+     */
+    private int laidThrough;
+
+    /** How many stretches have been drawn into the world at least once. */
+    public int laidThrough() {
+        return laidThrough;
+    }
+
+    /** Whether this stretch has ever been drawn into the world. */
+    public boolean isLaid(int index) {
+        return index >= 0 && index < laidThrough;
+    }
+
+    /** Moves the mark on. Never backwards: a road once drawn stays drawn. */
+    public void setLaidThrough(int through) {
+        laidThrough = Math.max(laidThrough, Math.min(through, segments.size()));
+    }
+
     public List<Segment> segments() {
         return List.copyOf(segments);
     }

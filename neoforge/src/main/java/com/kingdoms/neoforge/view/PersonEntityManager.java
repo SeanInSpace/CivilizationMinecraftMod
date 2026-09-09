@@ -43,6 +43,7 @@ import com.kingdoms.sim.settlement.FieldRoster;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
+import com.kingdoms.sim.settlement.RoadUpkeep;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.Stock;
 import com.kingdoms.sim.view.EmbodimentPlanner;
@@ -1622,6 +1623,14 @@ public final class PersonEntityManager {
      * mends worn ones through the same mechanism: a new segment is entirely
      * missing, so it gets laid; a sound one costs a few block reads.
      *
+     * <p>Which is why {@link RoadUpkeep} is asked first, and asked twice. Down
+     * in the blocks the first drawing of a road and the patching of a broken one
+     * are indistinguishable, so this is the only place the difference can be
+     * kept: the backlog below draws stretches that have never been drawn, which
+     * is a record of building the town did while it had people, and the
+     * round-robin at the bottom mends stretches that have, which is labor and
+     * needs somebody alive to do it.
+     *
      * <p>One a sweep, round-robin. A town with forty stretches of road looks at
      * each of them every forty seconds, which is far more often than grass
      * grows back over one.
@@ -1643,12 +1652,12 @@ public final class PersonEntityManager {
         // So: everything opened since the last sweep goes down together. Only
         // the tail is new, because segments are appended, so this costs nothing
         // on the steps where nothing has changed.
-        int swept = pathsSwept.getOrDefault(id, 0);
+        int swept = settlement.paths().laidThrough();
         if (swept < segments.size()) {
             int done = 0;
             int i = swept;
             for (; i < segments.size() && done < PAVE_AT_ONCE; i++) {
-                if (!settlement.paths().isOpened(i)) {
+                if (!RoadUpkeep.mayDraw(settlement, i)) {
                     break;   // the network is opened in order; wait for this one
                 }
                 if (!groundIsHere(segments.get(i))) {
@@ -1664,7 +1673,7 @@ public final class PersonEntityManager {
                 PathLayer.mend(level, segments.get(i));
                 done++;
             }
-            pathsSwept.put(id, i);
+            settlement.paths().setLaidThrough(i);
             if (done > 0) {
                 if (done > 4) {
                     KingdomsMod.LOGGER.info("PAVED {} laid {} stretches at once ({} of {})",
@@ -1676,10 +1685,15 @@ public final class PersonEntityManager {
 
         int cursor = pathCursor.merge(id, 1, Integer::sum) - 1;
         int index = Math.floorMod(cursor, segments.size());
-        // Only stretches somebody has actually opened. Paving one nobody has
-        // walked out yet would put a street on the ground ahead of the people
-        // laying it -- which is what this did before roads were a job.
-        if (!settlement.paths().isOpened(index)) {
+        // Only stretches somebody has actually opened, and only for a town with
+        // somebody left in it. Paving one nobody has walked out yet would put a
+        // street on the ground ahead of the people laying it -- which is what
+        // this did before roads were a job. Mending one for a town whose last
+        // resident is buried is the same mistake a generation on: this sweep is
+        // what kept a plague village's streets swept, because laying a new road
+        // and patching an old one are one operation down in the blocks and the
+        // difference between them can only be told up here.
+        if (!RoadUpkeep.mayMend(settlement, index)) {
             return false;
         }
         return PathLayer.mend(level, segments.get(index)) > 0;
@@ -1699,15 +1713,6 @@ public final class PersonEntityManager {
      * Sixty-four a pass clears any real backlog in a few seconds and is not felt.
      */
     private static final int PAVE_AT_ONCE = 64;
-
-    /**
-     * How far through each settlement's network the paving has swept.
-     *
-     * <p>Not a boolean: a town keeps growing, and roads planned while you were
-     * away are appended to the same list. Remembering the high-water mark makes
-     * the next arrival lay exactly the stretches added since the last one.
-     */
-    private final Map<UUID, Integer> pathsSwept = new HashMap<>();
 
 
     private boolean workShepherds(Settlement settlement) {

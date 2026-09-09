@@ -338,12 +338,23 @@ public final class KingdomsCodecs {
             Codec.INT.listOf().optionalFieldOf("streetsRouted", List.of())
                     .forGetter(PathNetwork::routedStreets),
             Codec.INT.listOf().optionalFieldOf("streetsRefused", List.of())
-                    .forGetter(PathNetwork::refusedStreets)
-    ).apply(i, (segments, joined, opened, streetsLaidFor, routed, refused) -> {
+                    .forGetter(PathNetwork::refusedStreets),
+            // How far the stones have actually gone down, as opposed to how far
+            // the town has walked its streets out. This lived in the drawing
+            // sweep's memory, so every server start forgot that the roads had
+            // ever been drawn and re-laid the lot -- which for a town with
+            // nobody left in it is a road crew nobody could have hired. Absent
+            // on any older save, and nought is the honest answer there: those
+            // worlds draw their network once more on the next visit and then
+            // remember it for good.
+            Codec.INT.optionalFieldOf("laidThrough", 0)
+                    .forGetter(PathNetwork::laidThrough)
+    ).apply(i, (segments, joined, opened, streetsLaidFor, routed, refused, laidThrough) -> {
         PathNetwork network = new PathNetwork(segments, joined);
         network.restoreOpened(opened);
         network.setStreetsLaidFor(streetsLaidFor);
         network.restoreStreets(routed, refused);
+        network.setLaidThrough(laidThrough);
         return network;
     }));
 
