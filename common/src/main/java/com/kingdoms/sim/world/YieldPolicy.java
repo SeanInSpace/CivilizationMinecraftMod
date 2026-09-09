@@ -29,9 +29,10 @@ import java.util.Objects;
  *
  * <ul>
  *   <li>{@link #unwatchedPercent} — the share credited when nobody is within the
- *       observed radius of the producing building. Default 70: an unwatched town
- *       keeps working, but a little slower than one somebody is living in, so
- *       that the hands are worth having.</li>
+ *       observed radius of the producing building. Default 0: an unwatched town
+ *       keeps working — building, hauling, eating, spending what it holds —
+ *       and conjures nothing at all while it does. A simulation worth the name
+ *       carries on with no player nearby; it does not have to be paid to.</li>
  *   <li>{@link #watchedFloorPercent} — the share credited when a player <em>is</em>
  *       near but the hands have not produced anything real within the grace
  *       steps. Default 0: in front of a player, only real work counts.</li>
@@ -60,7 +61,7 @@ public record YieldPolicy(
             TownStores.IRON,
             TownStores.SAPLINGS);
 
-    public static final int DEFAULT_UNWATCHED_PERCENT = 70;
+    public static final int DEFAULT_UNWATCHED_PERCENT = 0;
     public static final int DEFAULT_WATCHED_FLOOR_PERCENT = 0;
 
     /**
@@ -71,7 +72,20 @@ public record YieldPolicy(
      */
     public static final YieldPolicy FULL = new YieldPolicy(Map.of(), Map.of());
 
-    /** The shipped defaults: 70 percent unwatched, no floor in front of a player. */
+    /**
+     * The shipped defaults: nothing conjured, anywhere, ever.
+     *
+     * <p>Zero on both tables. A town nobody is watching still runs — it builds,
+     * it hauls, it eats, it spends what it holds and its people go on living
+     * their lives — but it gains nothing it did not already have. Every log,
+     * every block of stone, every loaf has to come from somewhere now: a real
+     * hand on a real tree, a harvest somebody could have stood and watched,
+     * wild food actually growing on the ground the camp is pitched on.
+     *
+     * <p>Raise {@code economy.unwatched_yield_percent} if you would rather the
+     * towns you left behind kept growing on their own. 70 is what shipped
+     * before; 100 is total abstraction.
+     */
     public static final YieldPolicy DEFAULTS =
             uniform(DEFAULT_UNWATCHED_PERCENT, DEFAULT_WATCHED_FLOOR_PERCENT);
 

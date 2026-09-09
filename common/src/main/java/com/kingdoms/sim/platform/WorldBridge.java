@@ -271,6 +271,36 @@ public interface WorldBridge {
         return 0;
     }
 
+    /**
+     * How many meals' worth of wild food is actually growing around here.
+     *
+     * <p>The counterpart to {@link #woodedness}, and it exists for the same
+     * reason: the simulation has no idea what is on the ground. Foraging used
+     * to be a headcount divided by three, which meant a camp pitched on bare
+     * superflat and a camp in a berry-thick taiga ate exactly the same, and a
+     * party in the middle of a desert lived on sand indefinitely. If it is a
+     * superflat world, what are they foraging?
+     *
+     * <p>So this is the answer: a count, in whole meals, of the edible things
+     * a forager could reach within {@code radius} of the camp — berry bushes,
+     * mushrooms, wild wheat and beetroot and carrots and potatoes nobody
+     * planted, melons and pumpkins, and apples under oak leaves at the rate
+     * apples actually fall. Grass yields seeds at a rate barely worth counting.
+     * Cactus is not food.
+     *
+     * <p>A standing quantity, not a rate: it is what is <em>there</em>, and the
+     * caller is expected to remember what it has already taken and let it grow
+     * back. Sampled rather than scanned, and only from chunks that happen to be
+     * loaded — nothing here loads one.
+     *
+     * <p>Zero when nothing is loaded and zero by default, which is the honest
+     * reading for a bridge with no world behind it: a fake forages nothing
+     * unless it says otherwise.
+     */
+    default int forageableNear(SimPos center, int radius) {
+        return 0;
+    }
+
     /** Structured logging that does not depend on a specific logging backend. */
     void log(String message);
 

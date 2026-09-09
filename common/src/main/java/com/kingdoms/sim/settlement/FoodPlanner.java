@@ -7,7 +7,6 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
-import com.kingdoms.sim.world.YieldPolicy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -149,6 +148,35 @@ public final class FoodPlanner {
      * berries keep a camp alive, and only a farm ever graduates it.
      */
     public static final int FORAGE_CEILING_PER_MOUTH = 5;
+
+    /**
+     * How far a forager will range from the camp for a handful of berries.
+     *
+     * <p>Forty-eight blocks: about the observed radius, and about as far as
+     * somebody would sensibly walk for a meal and be home the same step.
+     */
+    public static final int FORAGE_RADIUS = 48;
+
+    /**
+     * How often the camp actually looks at the ground it is standing on.
+     *
+     * <p>Counting what is growing nearby is a chunk read, and a camp forages
+     * every step. Twenty steps between surveys is cheap and still catches a
+     * wood the player has cut down, or a field somebody planted next door.
+     */
+    public static final int FORAGE_SURVEY_STEPS = 20;
+
+    /**
+     * Steps for one picked meal to grow back.
+     *
+     * <p>The whole of "and not forever". A patch yields what it yields and then
+     * has to recover, and it recovers at one meal every four steps — which is
+     * about what a founding party of four eats. So a camp in a wood can stand
+     * still and just about live off it; a camp that tries to <em>grow</em> on
+     * wild food strips the wood, and a camp on bare superflat had nothing to
+     * strip. Deliberately small: berries are a reprieve, not an economy.
+     */
+    public static final int FORAGE_REGROWTH_STEPS = 4;
 
     private FoodPlanner() {
     }
@@ -797,20 +825,31 @@ public final class FoodPlanner {
     /**
      * Wild food, gathered by hand — the camp's food source before the fields.
      *
-     * <p>Two deliberate limits. A handful of foragers turn up one meal a step,
-     * so a party survives on it without prospering; and foraging stops at a
-     * hand-to-mouth ceiling well below what the fed streak asks for, so no
-     * settlement graduates HOMESTEAD on berries. There is no weakness gate:
-     * the weak foraging anyway is precisely what stops the starvation spiral
-     * the founding rework exists to prevent.
+     * <p>Three limits, and the third is the one that matters. A handful of
+     * foragers turn up one meal a step, so a party survives on it without
+     * prospering. Foraging stops at a hand-to-mouth ceiling well below what the
+     * fed streak asks for, so no settlement graduates HOMESTEAD on berries.
+     * And — this is new — they can only bring back what is actually growing
+     * out there.
      *
-     * <p>Wild food is clock yield and is scaled like the rest of it — but by
-     * the unwatched share whether or not anybody is standing there, and never
-     * by the watched floor. The floor is the answer to "the real hands should
-     * have done this and did not"; there are no real hands here to have done
-     * it. Nobody has ever embodied a forager, so a floor of nothing would mean
-     * a founding party starving in front of the player who came to watch it,
-     * which is the one outcome every rule in this file is written against.
+     * <p>Foraging used to be a headcount divided by three and nothing else,
+     * which meant loaves out of thin air: the same meal every step whether the
+     * camp sat in a berry-thick taiga, in the middle of a desert, or on bare
+     * superflat with a hundred blocks of stone under it and sky above. If it is
+     * a superflat world, what are they foraging? So the ground is asked, through
+     * {@link com.kingdoms.sim.platform.WorldBridge#forageableNear}, and what it
+     * says is a hard ceiling on the hands.
+     *
+     * <p>And it depletes. Every meal is booked against the patch it came from
+     * and grows back at {@link #FORAGE_REGROWTH_STEPS}, so a wood feeds a camp
+     * for a while and then feeds it only as fast as it recovers. A camp with
+     * nothing growing nearby forages nothing at all, forever, and must farm or
+     * die — which is the point.
+     *
+     * <p>No yield table is consulted here and there is nothing left for one to
+     * scale. Wild food is not conjured any more; it is picked, out of a
+     * countable supply, and the settings that decide how much of a town's
+     * income is imaginary have no business with food that is not.
      */
     private static void forage(Settlement settlement, SimContext ctx) {
         if (!StagePlanner.pioneersLabor(settlement.stage())) {
@@ -823,10 +862,10 @@ public final class FoodPlanner {
         int hands = (int) settlement.residents().stream()
                 .filter(p -> settlement.laborsAs(p, Profession.FARMER))
                 .count();
-        int gathered = (hands + FORAGERS_PER_MEAL - 1) / FORAGERS_PER_MEAL;
-        gathered = settlement.abstractYield("forage", TownStores.FOOD,
-                gathered, ctx.settings().yields().unwatched(TownStores.FOOD));
+        int byHand = (hands + FORAGERS_PER_MEAL - 1) / FORAGERS_PER_MEAL;
+        int gathered = Math.min(byHand, settlement.forageAllowance(ctx));
         if (gathered > 0) {
+            settlement.recordForaged(gathered);
             settlement.stores().add(TownStores.FOOD, gathered);
         }
     }

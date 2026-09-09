@@ -33,8 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>What is pinned here is that the percentages mean what they say — including
  * for a field that makes a single loaf a step, where a naive multiply would
- * have made every setting below a hundred an off switch — and that a founding
- * party still survives at the shipped defaults.
+ * have made every setting below a hundred an off switch — and what the shipped
+ * defaults, which are now zero and zero, actually do to a town left alone.
  */
 class AbstractYieldTest {
 
@@ -252,10 +252,79 @@ class AbstractYieldTest {
                 "a floor of a hundred is the old behavior, and must still be reachable");
     }
 
-    // --- the founding still works at the shipped defaults ---
+    // --- what the shipped defaults now are ---
 
     @Test
-    void aCampLeftAloneAtTheShippedDefaultsStillGraduates() {
+    void theShippedDefaultsConjureNothingAtAll() {
+        for (String resource : YieldPolicy.SCALED_RESOURCES) {
+            assertEquals(0, YieldPolicy.DEFAULTS.unwatched(resource),
+                    resource + " is credited out of nothing to an unwatched town");
+            assertEquals(0, YieldPolicy.DEFAULTS.watchedFloor(resource),
+                    resource + " is credited out of nothing in front of a player");
+        }
+    }
+
+    @Test
+    void anUnwatchedCampAtTheShippedDefaultsBringsInNothing() {
+        assertEquals(0, timberOver(50, YieldPolicy.DEFAULTS),
+                "the shipped world conjures no timber");
+        assertEquals(0, stoneOver(50, YieldPolicy.DEFAULTS),
+                "nor any stone");
+        assertEquals(0, grownOver(50, new Empty(), YieldPolicy.DEFAULTS),
+                "nor any bread");
+    }
+
+    /**
+     * What a founding party actually does at the shipped defaults, measured.
+     *
+     * <p>It dies, and that is the honest answer rather than a fault to be
+     * papered over. At 0/0 nothing anywhere is conjured, so the only food a
+     * town can gain is food real hands harvested in front of a player, or wild
+     * food actually growing where it pitched. A camp nobody ever visits has
+     * neither. Four pioneers left entirely alone on this ground reach four
+     * hundred steps still four strong and out of bread, two of them too weak to
+     * work, and by eight hundred there is nobody left.
+     *
+     * <p>Measured here rather than argued about, because it is the whole shape
+     * of the setting: a world at 0/0 is a world where towns you never go back
+     * to eventually end, and a world at 70 is not. The same run at 70 percent
+     * unwatched ends at four hundred steps a TOWN of thirteen with 196 loaves.
+     */
+    @Test
+    void aCampLeftEntirelyAloneAtTheShippedDefaultsRunsDown() {
+        Settlement camp = campOfFour();
+
+        SimSettings settings = with(YieldPolicy.DEFAULTS);
+        for (int step = 1; step <= 400; step++) {
+            camp.step(new SimContext(new Empty(), step, settings));
+        }
+
+        assertEquals(0, FoodPlanner.totalFood(camp),
+                "nothing was conjured, and there is nothing left");
+        assertTrue(camp.isStarving(),
+                "a town gaining nothing at all ends up starving, and this one is not");
+    }
+
+    @Test
+    void theSameCampAtSeventyPercentProspers() {
+        Settlement camp = campOfFour();
+
+        SimSettings settings = with(YieldPolicy.uniform(70, 0));
+        for (int step = 1; step <= 400; step++) {
+            camp.step(new SimContext(new Empty(), step, settings));
+        }
+
+        assertTrue(camp.population() >= 4,
+                "seventy percent of the yield must still feed the party that arrived, "
+                        + "and " + camp.population() + " are left");
+        assertTrue(FoodPlanner.totalFood(camp) > 0,
+                "a camp at seventy percent must not be living on its last loaf");
+        assertTrue(camp.stage().ordinal() >= SettlementStage.HOMESTEAD.ordinal(),
+                "a camp left alone at seventy percent still earns its homestead, "
+                        + "and stood at " + camp.stage());
+    }
+
+    private static Settlement campOfFour() {
         Settlement camp = new Settlement(
                 Settlement.Id.random(), "Newholt", new SimPos(0, 64, 0), 128);
         camp.setCatalog(BuildCatalog.DEFAULT);
@@ -265,24 +334,6 @@ class AbstractYieldTest {
             camp.addResident(new Person(Person.Id.random(), name, Profession.PIONEER,
                     new SimPos(0, 64, 0)));
         }
-
-        SimSettings settings = with(YieldPolicy.DEFAULTS);
-        for (int step = 1; step <= 400; step++) {
-            camp.step(new SimContext(new Empty(), step, settings));
-        }
-
-        assertTrue(camp.population() >= 4,
-                "seventy percent of the yield must still feed the party that arrived, "
-                        + "and " + camp.population() + " are left");
-        assertTrue(FoodPlanner.totalFood(camp) > 0,
-                "a camp at the shipped defaults must not be living on its last loaf");
-        // Measured, so that a retune that quietly breaks the founding is caught
-        // here rather than in a world. Four hundred steps unwatched at 70/0
-        // ends at TOWN with thirteen people, 196 loaves and twenty buildings;
-        // the same run at full abstraction ends at TOWN with eighteen, 425 and
-        // twenty-five. Slower, plainly, and nowhere near starving.
-        assertTrue(camp.stage().ordinal() >= SettlementStage.HOMESTEAD.ordinal(),
-                "a camp left alone at the shipped defaults still earns its homestead, "
-                        + "and stood at " + camp.stage());
+        return camp;
     }
 }

@@ -235,7 +235,7 @@ Per-world settings in `<world>/serverconfig/kingdoms-server.toml`:
 | `view.max_villagers_per_settlement` | 64 | Entity cap per town |
 | `defense.raids_enabled` | true | Turn off for peaceful building |
 | `defense.raid_interval_steps` | 50 | Time between raids |
-| `economy.unwatched_yield_percent.<resource>` | 70 | Share of the yield credited when nobody is near |
+| `economy.unwatched_yield_percent.<resource>` | 0 | Share of the yield credited when nobody is near |
 | `economy.watched_floor_percent.<resource>` | 0 | Share credited when you *are* near but nobody is working |
 | `debug.commands_enabled` | true | The `/civ` operator commands |
 
@@ -248,11 +248,15 @@ dead. Those two tables decide how much of that credit a world actually grants,
 one entry each for `wood`, `stone`, `food`, `iron` and `saplings`.
 
 **`economy.unwatched_yield_percent`** is the share an unwatched building earns.
-100 is the old behavior, where absence cost a town nothing. The default 70 makes
-the hands worth having: a town you live in outproduces one you abandoned. 0 means
-a resource is *only* ever gained by work somebody could have watched — a hard
-world, and a coherent one. Fractions are carried between steps, so a field
-earning one loaf a step really does bank seven loaves in ten at 70.
+**The default is 0: nothing is conjured, anywhere.** An unwatched town still
+runs — it builds, hauls, eats, spends what it holds, and its people go on
+living — but it gains nothing it did not already have. Every log, every stone
+and every loaf has to come from a real hand, a real harvest, or wild food
+actually growing where the town stands. Raise it to 70 and a town you walk away
+from keeps producing at a discount; raise it to 100 and absence costs it
+nothing, which is what the mod did originally. Fractions are carried between
+steps, so a field earning one loaf a step really does bank seven loaves in ten
+at 70.
 
 **`economy.watched_floor_percent`** is the share a building earns while you are
 standing there and the real workers have produced nothing for a while — a camp
@@ -263,10 +267,43 @@ player, only real work counts; raise it if you would rather a stuck worker cost
 the town nothing.
 
 `/civ info` prints both in effect, so you can always tell what a world is
-actually running. Foraging is the one exception in the code and stays on the
-unwatched rate whether or not you are there — nobody has ever embodied a
-forager, so a floor of zero would starve a founding party in front of the player
-who came to watch it.
+actually running.
+
+Foraging does not go through these tables at all any more. A camp gathers only
+what is actually growing around it — berries, mushrooms, wild crops, windfall
+apples under oak — and gathering depletes the patch, which grows back slowly.
+On a superflat world or in a desert there is nothing to forage and a camp must
+farm or die. See **Living off the land** below.
+
+### Living off the land
+
+A new camp eats by foraging, and foraging only turns up what is actually
+growing where you pitched it. Berry bushes, mushrooms, melons and pumpkins,
+wild crops nobody planted, and apples under an oak canopy all count; grass
+yields a little seed. Cactus does not count, dead bushes do not count, and
+sand does not count — so a party dropped in a desert or on a bare superflat
+world forages **nothing at all**, and has to get a field in the ground or die
+trying.
+
+Picking depletes the patch. Every meal gathered is booked against the ground it
+came from and grows back at about one meal every four steps, which is roughly
+what four people eat. A camp in a wood can sit still and just about live off
+it; a camp trying to *grow* on wild food strips the wood and then goes hungry.
+Berries are a reprieve, not an economy.
+
+### Where a worldgen town's supplies come from
+
+Every town the world generates arrives holding what its own buildings could
+plausibly be holding, and nothing else:
+
+- one harvest sitting in each standing field, and a granary a quarter full
+- one building's worth of timber and stone per lumber camp and mine — enough
+  to mend a wall, not to raise the next thing on its list
+- no iron unless a smithy stands, and never any tools, weapons or armour: those
+  are forged out of iron somebody mined
+
+A town with no field, no granary and no camp of its own keeps a charter party's
+kit, because with none of those it is a charter party.
 
 ## Custom building styles
 

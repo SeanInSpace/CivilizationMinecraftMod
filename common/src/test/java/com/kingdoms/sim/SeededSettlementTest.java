@@ -172,6 +172,79 @@ class SeededSettlementTest {
                 "and an axe, because the palisade drinks more timber than any kit holds");
     }
 
+    /**
+     * Everything a seeded town holds is read off a building that is standing.
+     *
+     * <p>It used to be read off the population and a charter: a village with
+     * one granary and a village with three arrived holding exactly the same
+     * larder, and a town with no lumber camp of its own arrived with seven
+     * hundred logs. That is supplies from nowhere, which is the one thing a
+     * world where nothing is conjured cannot have.
+     */
+    @Test
+    void aSeededTownHoldsWhatItsOwnBuildingsCouldHold() {
+        for (SettlementStage stage : SettlementStage.values()) {
+            Settlement town = seeded(stage);
+            int fields = countOf(town, "farm");
+            int granaries = countOf(town, "granary");
+            int camps = countOf(town, "lumber_camp");
+            int mines = countOf(town, "mine");
+            String where = stage.pretty() + ": ";
+
+            assertEquals(fields * FoodPlanner.FARM_STORE_CAP, farmStores(town),
+                    where + "every standing field holds one harvest, and no field none");
+            if (granaries == 0) {
+                assertTrue(town.foodStock() <= FoodPlanner.STARTING_PROVISIONS,
+                        where + "a town with no granary holds no more than a "
+                                + "charter party's provisions");
+            } else {
+                assertEquals(granaries * FoodPlanner.GRANARY_PER_BUILDING / 4,
+                        town.foodStock(),
+                        where + "the granary arrives a quarter full, not brimming");
+            }
+            if (camps > 0) {
+                assertTrue(town.woodStock() < TownStores.FOUNDING_WOOD,
+                        where + "a town with its own camp keeps repair timber, not a kit");
+            }
+            if (mines > 0) {
+                assertTrue(town.stoneStock() < TownStores.FOUNDING_STONE,
+                        where + "and repair stone, not a kit");
+            }
+            assertEquals(0, town.stores().get(TownStores.TOOLS),
+                    where + "tools are made at a forge, not handed out at worldgen");
+            assertEquals(0, town.stores().get(TownStores.WEAPONS),
+                    where + "and so are weapons");
+            assertEquals(0, town.stores().get(TownStores.ARMOR),
+                    where + "and so is armour");
+            if (countOf(town, "smith") == 0) {
+                assertEquals(0, town.stores().get(TownStores.IRON),
+                        where + "iron is mined and smelted; no smithy, no iron");
+            }
+        }
+    }
+
+    /** Standing buildings of a role, counted the way the food chain counts them. */
+    private static int countOf(Settlement town, String suffix) {
+        int found = 0;
+        for (Building standing : town.buildings()) {
+            if (BuildPlanner.baseIdOf(standing.blueprintId()).endsWith(suffix)) {
+                found++;
+            }
+        }
+        return found;
+    }
+
+    /** Everything sitting in the fields, uncarried. */
+    private static int farmStores(Settlement town) {
+        int total = 0;
+        for (Building standing : town.buildings()) {
+            if (BuildPlanner.baseIdOf(standing.blueprintId()).endsWith("farm")) {
+                total += standing.foodStored();
+            }
+        }
+        return total;
+    }
+
     @Test
     void everyStageIsFedAndCanPayForItsNextBuilding() {
         for (SettlementStage stage : SettlementStage.values()) {

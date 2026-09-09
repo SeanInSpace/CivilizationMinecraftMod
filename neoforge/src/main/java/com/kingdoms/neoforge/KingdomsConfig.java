@@ -134,9 +134,10 @@ public final class KingdomsConfig {
      * <p>The mod runs at two fidelities. A lumberjack you can see fells an
      * actual tree; the same lumberjack out past the observed radius is a
      * number, and the clock credits the timber for him. This table is how much
-     * of that credit a world actually wants. A hundred is the old behavior —
-     * everything abstract. Zero means a resource is only ever gained by hands a
-     * player could have watched, which is a hard world and a coherent one.
+     * of that credit a world actually wants. Zero — the default — means a
+     * resource is only ever gained by hands a player could have watched, so
+     * every town supplies itself. A hundred is the old behavior, everything
+     * abstract; seventy is the middle the mod shipped with for two days.
      */
     private static final Map<String, ModConfigSpec.IntValue> UNWATCHED_YIELD = unwatchedYield();
 
@@ -156,9 +157,11 @@ public final class KingdomsConfig {
     private static Map<String, ModConfigSpec.IntValue> unwatchedYield() {
         BUILDER.comment(
                 "Percent of the simulation's yield credited when NO player is near",
-                "the producing building. 100 is fully abstract -- what the mod did",
-                "before this table existed. 0 means the resource is never conjured,",
-                "so an unwatched town gains none of it at all.",
+                "the producing building. 0 -- the default -- means the resource is",
+                "never conjured: an unwatched town still builds, hauls, eats and",
+                "spends what it holds, but gains nothing out of nothing. 70 is what",
+                "the mod shipped with before; 100 is fully abstract, which is what",
+                "it did before this table existed at all.",
                 "Fractions are carried between steps, so 70 really is 70 percent",
                 "even for a field that only makes one loaf a step.")
                 .push("economy.unwatched_yield_percent");

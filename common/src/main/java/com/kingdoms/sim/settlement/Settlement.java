@@ -1360,6 +1360,75 @@ public final class Settlement {
     private final transient Map<String, Integer> yieldCarry = new LinkedHashMap<>();
 
     /**
+     * How much wild food the ground around the camp held when it was last
+     * looked at, and when that was.
+     *
+     * <p>Asking the world what is growing nearby is a chunk read, and a camp
+     * asks every single step. So the answer is kept for
+     * {@link FoodPlanner#FORAGE_SURVEY_STEPS} and then asked again. Not saved:
+     * berries are a fact about the world, not a possession of the town, and a
+     * reloaded settlement should look at the ground it is actually standing on
+     * rather than trust a number from last week.
+     */
+    private transient int forageSupply = -1;
+    private transient long forageSurveyedAt = Long.MIN_VALUE;
+
+    /**
+     * Meals already picked out of that ground and not yet grown back.
+     *
+     * <p>This is what makes foraging run out. A patch of taiga is not an
+     * infinite larder: pick it and it is picked, and it comes back at
+     * {@link FoodPlanner#FORAGE_REGROWTH_STEPS} — one meal per that many steps,
+     * which is deliberately about what a small party eats. So a camp in a wood
+     * can sit still and just about live; a camp that tries to grow on berries
+     * empties the wood and then goes hungry, and a camp on bare ground never
+     * had anything to empty.
+     *
+     * <p>Unsaved, like the survey above and for the same reason. A reload is
+     * generous here — it forgets what the town had picked — and that is the
+     * safe direction to be wrong in.
+     */
+    private transient int foragedRecently;
+    private transient long forageRegrewAt = Long.MIN_VALUE;
+
+    /**
+     * Meals of wild food the town may actually gather this step.
+     *
+     * <p>What is growing there, less what has already been taken and not yet
+     * grown back. Zero on bare ground, zero in a desert, and zero for a camp
+     * that has stripped its own wood — all three by the same arithmetic.
+     */
+    public int forageAllowance(SimContext ctx) {
+        int radius = FoodPlanner.FORAGE_RADIUS;
+        if (forageSupply < 0 || ctx.step() - forageSurveyedAt >= FoodPlanner.FORAGE_SURVEY_STEPS) {
+            forageSupply = Math.max(0, ctx.bridge().forageableNear(center, radius));
+            forageSurveyedAt = ctx.step();
+        }
+        if (forageRegrewAt == Long.MIN_VALUE) {
+            forageRegrewAt = ctx.step();
+        }
+        long elapsed = ctx.step() - forageRegrewAt;
+        if (elapsed >= FoodPlanner.FORAGE_REGROWTH_STEPS) {
+            long grown = elapsed / FoodPlanner.FORAGE_REGROWTH_STEPS;
+            foragedRecently = (int) Math.max(0, foragedRecently - grown);
+            forageRegrewAt += grown * FoodPlanner.FORAGE_REGROWTH_STEPS;
+        }
+        return Math.max(0, forageSupply - foragedRecently);
+    }
+
+    /** Books meals against the ground they came out of, so the patch depletes. */
+    public void recordForaged(int meals) {
+        if (meals > 0) {
+            foragedRecently += meals;
+        }
+    }
+
+    /** What the town has picked and not yet seen grow back — for tests and reports. */
+    public int foragedRecently() {
+        return foragedRecently;
+    }
+
+    /**
      * A clock-credited yield, cut to the share the settings allow.
      *
      * <p>Only ever asked about the abstract fidelity. Work a player can watch
