@@ -70,6 +70,11 @@ public final class BuildCatalog {
             new BuildingType("kingdoms:longhouse",      55,     14,     0,           16,       78,        6,       0, plot("kingdoms:longhouse")),
             new BuildingType("kingdoms:croft",          60,     18,     0,           20,       77,        6,       0, plot("kingdoms:croft")),
             new BuildingType("kingdoms:granary",        40,      4,     1,           20,       75,        0,       0, plot("kingdoms:granary")),
+            // The farm row is a ceiling on wanting, not the floor. The floor is
+            // BuildPlanner.farmsWanted -- one field per MOUTHS_PER_FARM mouths,
+            // rounded up and never nought -- because this row alone said a
+            // founding party of four wanted no farm at all (nought plus
+            // four-sixths) and the catalog does not even run below VILLAGE.
             new BuildingType("kingdoms:farm",           45,      4,     0,            6,       70,        0,       0, plot("kingdoms:farm")),
             // Securing materials outranks trading and crafting them. A town that
             // cannot fell its own timber or cut its own stone has nothing to sell

@@ -35,23 +35,63 @@ public final class JobPlanner {
      * {@link BuildingType}: {@code base + population / perResidents}.
      */
     public record ProfessionNeed(Profession profession, int base, int perResidents, int priority,
-                                 BuildingRole requiresBuilding) {
+                                 BuildingRole requiresBuilding,
+                                 BuildingRole staffs, int staffPerBuilding) {
 
         public ProfessionNeed {
             Objects.requireNonNull(profession, "profession");
             if (perResidents < 0) {
                 throw new IllegalArgumentException("perResidents must not be negative");
             }
+            if (staffPerBuilding < 0) {
+                throw new IllegalArgumentException("staffPerBuilding must not be negative");
+            }
         }
 
         /** A need that applies to every settlement, whatever it has built. */
         public ProfessionNeed(Profession profession, int base, int perResidents, int priority) {
-            this(profession, base, perResidents, priority, null);
+            this(profession, base, perResidents, priority, null, null, 0);
+        }
+
+        /** A need that switches on once a building it can work at stands. */
+        public ProfessionNeed(Profession profession, int base, int perResidents, int priority,
+                              BuildingRole requiresBuilding) {
+            this(profession, base, perResidents, priority, requiresBuilding, null, 0);
         }
 
         public int desiredCount(int population) {
             int scaled = perResidents > 0 ? population / perResidents : 0;
             return base + scaled;
+        }
+
+        /**
+         * What this settlement actually wants, buildings included.
+         *
+         * <p>The table's own {@code base + population / perResidents}, or the
+         * staffing the buildings on the ground demand, whichever is larger.
+         *
+         * <p>The second half exists because the first half was quietly wrong
+         * about farms. A town of four with a field standing in it wanted
+         * {@code 4 / 5} farmers — none — so the field it had just spent a
+         * fortnight building had nobody in it, produced nothing, and the town
+         * ate its founding provisions and died with a farm in the middle of it.
+         * A building nobody works is not a building, it is a decoration, and
+         * "N hands per M residents" cannot express that however the numbers are
+         * tuned: the hands belong to the field, not to the census.
+         *
+         * <p>A floor, never a ceiling. Where the population row asks for more
+         * than the fields do — a grown town, which wants a field hand per five
+         * residents — the population row still wins.
+         */
+        public int desiredCount(Settlement settlement) {
+            int byPopulation = desiredCount(settlement.population());
+            if (staffs == null || staffPerBuilding == 0) {
+                return byPopulation;
+            }
+            int buildings = (int) settlement.buildings().stream()
+                    .filter(b -> b.role() == staffs)
+                    .count();
+            return Math.max(byPopulation, buildings * staffPerBuilding);
         }
 
         /**
@@ -79,7 +119,12 @@ public final class JobPlanner {
             //                 profession           base  perResidents  priority
             new ProfessionNeed(Profession.BUILDER,     1,            5,       90),
             new ProfessionNeed(Profession.GUARD,       0,            8,       80),
-            new ProfessionNeed(Profession.FARMER,      0,            5,       70),
+            // The farmer row is the one that answers to the ground rather than
+            // to the census: FARMERS_PER_FARM hands for every field standing,
+            // or one per five residents, whichever is more. See
+            // ProfessionNeed.desiredCount(Settlement).
+            new ProfessionNeed(Profession.FARMER,      0,            5,       70, null,
+                    BuildingRole.CROP_FARM, FoodPlanner.FARMERS_PER_FARM),
             new ProfessionNeed(Profession.LUMBERJACK,  1,           10,       60, BuildingRole.LUMBER_CAMP),
             new ProfessionNeed(Profession.MINER,       1,           12,       55, BuildingRole.MINE),
             new ProfessionNeed(Profession.SMITH,       1,           14,       52, BuildingRole.SMITH),
@@ -114,7 +159,7 @@ public final class JobPlanner {
         if (!need.appliesTo(settlement)) {
             return 0;
         }
-        return need.desiredCount(settlement.population()) - count(settlement, need.profession());
+        return need.desiredCount(settlement) - count(settlement, need.profession());
     }
 
     /**
@@ -311,11 +356,10 @@ public final class JobPlanner {
     }
 
     private static Person biggestSurplusDonor(Settlement settlement) {
-        int population = settlement.population();
         Profession donorProfession = null;
         int bestSurplus = 0;
         for (ProfessionNeed need : DEFAULT_NEEDS) {
-            int surplus = count(settlement, need.profession()) - need.desiredCount(population);
+            int surplus = count(settlement, need.profession()) - need.desiredCount(settlement);
             if (surplus > bestSurplus) {
                 bestSurplus = surplus;
                 donorProfession = need.profession();

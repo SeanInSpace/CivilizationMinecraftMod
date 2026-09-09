@@ -565,9 +565,10 @@ public final class KingdomsCommand {
     /**
      * The two abstraction tables in one line, per resource only where they differ.
      *
-     * <p>Almost every world runs one pair of numbers across the board, and five
-     * identical lines saying so would bury the line that matters underneath the
-     * four that do not.
+     * <p>Almost every world runs one pair of numbers across the board, and a
+     * line per resource saying so would bury the one that matters underneath
+     * the ones that do not. Food is not among them at all: it is grown, not
+     * credited, so no percentage has anything to say about it.
      */
     private static String describeYields(YieldPolicy policy) {
         int unwatched = policy.uniformUnwatched();

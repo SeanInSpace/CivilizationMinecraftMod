@@ -8,6 +8,42 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## Bread is grown, not granted
+
+### Changed
+
+- **Food has left the abstraction tables, and there is no setting that puts it
+  back.** Timber, stone, iron and saplings still answer to
+  `economy.unwatched_yield_percent` and `economy.watched_floor_percent`; a loaf
+  does not. A field is sown, ripens and is cut, and a town eats whatever came
+  off it — whether or not anybody was standing there to see it. An old config
+  file that still names food in either table loads perfectly well; the line is
+  simply dropped the first time the game reads it.
+
+- **A town orders its next field while the granary is still half full.** The
+  rule is one farm per fifteen mouths, rounded up and never nought, and it is
+  derived rather than guessed: two hands to a field, a loaf a step each, and a
+  loaf carries somebody fifteen steps — so a field flat out feeds thirty, and
+  the planner plans on half that for the walking, the hauling and the bad days.
+  A founding party of four wanted no farm at all under the old rule, and a
+  homestead could grow from four residents to twenty on the single field its
+  charter named. A field is also now the one thing allowed past a job that has
+  visibly stopped, so a town can no longer want a farm silently forever behind
+  a cottage it has no timber for.
+
+- **Somebody actually works the field.** The staffing table wanted a farmer per
+  five residents and had no idea what was standing in the town, so a party of
+  four with a farm in the middle of it wanted none — and got none. Measured
+  before the fix: the farm went up on step 30, nobody was ever sent to it, and
+  the party ate its founding provisions down to nothing and was extinct by step
+  500 with a working farm twenty paces away. Every field now claims two pairs
+  of hands the moment it stands, over and above whatever the population asks
+  for, and the town has them out there within twenty steps.
+
+- **A slower founding, deliberately.** A town that raises a second field on the
+  way up spends builder-steps on it like anything else, so the ladder to a
+  walled town takes about a quarter longer than it did. That is the price of a
+  founding that feeds itself.
 ## The field is the harvest
 
 ### Changed
