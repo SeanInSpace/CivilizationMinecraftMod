@@ -510,6 +510,29 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **An unwatched town lives off what stands in the world.** Each farm is
+      a ledger of its 71 real crop blocks ripening on Minecraft's schedule, cut
+      and tended by the farmers it has; each lumber camp a count of trees
+      standing and saplings coming up; each mine a seam of stone that runs out.
+      Grain is cut, carried to the mill or the hearth, baked, and eaten. Farms
+      are ordered one per seven mouths ahead of need and staffed two per field.
+      A camp of four alone for 1500 steps: TOWN of 45, 1012 loaves.
+- [ ] **The yield tables govern nothing now.** Food, wood, saplings, stone and
+      iron all left them for ledgers of real things; YieldPolicy, the two config
+      tables and Settlement.abstractYield are live code with no consumer.
+      Remove them, or keep one knob for people who want faster towns.
+- [ ] **A cut-out mine is a dead end.** requestProducer refuses a second mine
+      while any stands, exhausted or not; the seam of 2000 is gone by step 1500.
+      Proposed: skip producers that are visibly spent (Seam.isExhausted,
+      Stand.isBare with nothing planted).
+- [ ] **Timber is about four times scarcer than the conjured rate**, bounded by
+      240-step sapling growth. WOOD_PER_WORK = 4 was calibrated against conjured
+      timber; eight town-shape tests were handed timber to keep measuring
+      geometry. Rebalance build costs, or widen claims, with a town in view.
+- [ ] **Bread stays where it is baked.** The mill-to-granary leg was built and
+      measured to freeze a town (one miller bakes nine a step, one courier moves
+      one); it was dropped and the loaves join the larder at the oven. Late
+      towns bank grain at the granary ceiling; a bigger granary is the answer.
 - [x] **A dead town's roads and wall stay broken.** The road sweep tells a
       first drawing from a repair by a persisted laid-through mark; the wall
       sweep stands aside entirely for a town with nobody in it.
