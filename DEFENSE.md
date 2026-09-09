@@ -2,7 +2,7 @@
 
 **Status:** implemented and working. Companion to [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what gets built) and [POPULATION.md](POPULATION.md) (who lives there). This one covers who attacks, who fights back, and what it costs.
 
-Code: [`RaidPlanner`](common/src/main/java/com/kingdoms/sim/settlement/RaidPlanner.java) (all rules), [`PersonEntityManager`](neoforge/src/main/java/com/kingdoms/neoforge/view/PersonEntityManager.java) (guard combat), [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java) (raid spawning).
+Code: [`RaidPlanner`](common/src/main/java/com/kingdoms/sim/settlement/RaidPlanner.java) (all rules), [`Garrison`](common/src/main/java/com/kingdoms/sim/settlement/Garrison.java) (threat versus watch), [`PersonEntityManager`](neoforge/src/main/java/com/kingdoms/neoforge/view/PersonEntityManager.java) (guard combat), [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java) (raid spawning).
 
 ---
 
@@ -54,7 +54,7 @@ With the default staffing and build tables, a town's life arc looks like:
 The early game is deliberately dangerous: a town must grow through its vulnerable
 band, and growth is what saves it. Towers arrive at population 12.
 
-Guards arrive by **two** routes, and the first one matters most. The staffing table
+Guards arrive by **three** routes, and the first one matters most. The staffing table
 wants one guard per 8 residents (see [POPULATION.md](POPULATION.md)), but a
 settlement that reaches the **fortified** stage names its first sentry immediately,
 whatever its population — fortified means a watch and not a wall, which is exactly
@@ -64,6 +64,66 @@ only guard is replaced from the pioneers next step. It had to be. The playtest t
 forced the rule lost its sentry to a raid twelve steps after the stage named them,
 and the founding stalled for three hundred and fifty steps one post short of a
 stage it had already reached.
+
+## Mustering
+
+A third route, and the only one that looks outside. The staffing table wants one
+guard per eight residents and has no idea what is standing in the treeline — so a
+town of nine wanted exactly one guard, got exactly one guard, and met a raid of
+six with him.
+
+Now a town compares the two directly. **Threat** is the number on the town's own
+alarm — what its people can see, or the strength of the last raid, which are the
+same scale. **The watch** is its guards. Since a raid of strength *S* is turned
+back by `guards × 2`, the watch a given threat calls for is simply:
+
+```
+guards needed = threat ÷ 2, rounded up
+```
+
+| What is out there | Threat | Guards needed |
+|---|---|---|
+| nothing | 0 | 0 |
+| a zombie | 1 | 1 |
+| a skeleton | 2 | 1 |
+| a witch | 3 | 2 |
+| a creeper | 4 | 2 |
+| a ravager | 5 | 3 |
+| more than one guard can hold | 6 | 3 |
+| a warden | 10 | 5 |
+| the largest raid there is | 16 | 8 |
+
+Deliberately the pessimistic of the two numbers a guard is worth. He *holds* three
+danger's worth of wandering hostiles on an ordinary afternoon, but he only *counts*
+for two when the raid arrives all at once — and two is the one the town dies by, so
+two is the one it recruits by. Standing towers are not counted either: a town with a
+watchtower musters as though it had none, because a tower can be knocked down and
+the number a town steers by should be one it can carry on its own two feet.
+
+**While the threat outweighs the watch**, two things change and nothing else does:
+
+- **Somebody takes up the sword, one person per step.** An idler first; failing
+  that, whichever trade is standing furthest above the minimum its own row of the
+  staffing table states. Never a guard, never the last farmer, and never the last
+  builder — a town that answers a raid by conscripting its only field hand wins the
+  raid and starves in the fortnight after it, and one that takes its only builder
+  cannot raise the tower this same fright just ordered. Hunger still comes first of
+  the two crises: a town can be wrong about the raid and live.
+- **The watchtower goes to the front of the build table** — and the smithy too, if
+  the town has not got one, since a forge is what puts a weapon in the hands the
+  first rule is busy recruiting. This is the only thing in the whole catalog allowed
+  to outrank priority: the hall sits at 100 and the tower at 60, which is right nine
+  days in ten and wrong on the tenth. It does **not** shove aside whatever is
+  half-built, which is the difference between this and a famine. A famine is a clock
+  the town cannot argue with; threat decays every step and the raid may never come,
+  so the preference only speaks when the builders are between jobs.
+
+Both lapse on their own. Threat decays a point a step, and the moment it falls back
+under the watch the ordinary table resumes — nothing has to switch anything off, and
+the guards already recruited drain away no faster than surplus guards ever did.
+
+`/civ info` shows the comparison as `garrison: N guards vs threat T (needs M)`, and
+only while the town is short.
 
 ## The wall
 
@@ -149,7 +209,7 @@ Config: `defense.raids_enabled` (master switch — disable for peaceful building
 - **No building damage.** Raids cost lives, never structures. Razed buildings would be more dramatic; they are also block-cleanup complexity deferred until buildings are real structures rather than placeholders.
 - **Day-blind.** Raids can fire at noon, and observed noon-raid zombies burn. Harmless, mildly silly, unaddressed.
 - **Guards do not patrol.** They stand near home like everyone else until a hostile enters engagement range. Patrol routes belong with real schedules (Phase 6+ territory).
-- **Threat does nothing yet.** It is a visible alarm metric that rises and decays, but nothing reads it — construction does not pause, guards do not muster. First candidate for deepening.
+- **Construction does not pause for a raid.** A frightened town changes what it builds *next* (see "Mustering"), but it does not drop a half-built storehouse and run. Only starvation does that.
 - **An observed raid interrupted mid-fight** (player logs out) leaves zombies standing in the unloading chunks; they resume when someone returns rather than resolving statistically. Rare, self-correcting at dawn, accepted.
 
 ---
@@ -161,5 +221,6 @@ Config: `defense.raids_enabled` (master switch — disable for peaceful building
 | Gentler early game | Raise `MIN_POPULATION_FOR_RAIDS`, or lower strength scaling from `population ÷ 8` |
 | Tougher guards | `GUARD_POWER` (statistical) and `GUARD_DAMAGE` / ranges in `PersonEntityManager` (observed) |
 | Stronger towers | `defenseBonus` column in `BuildCatalog` |
+| A jumpier or calmer militia | `GUARD_POWER` again — it is the divisor in `Garrison.neededGuards`, so halving a guard's worth doubles the watch a fright calls for |
 | More/less frequent raids | `defense.raid_interval_steps` in config |
 | Raids off entirely | `defense.raids_enabled = false` |

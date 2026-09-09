@@ -20,6 +20,7 @@ import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
+import com.kingdoms.sim.settlement.Garrison;
 import com.kingdoms.sim.settlement.JobPlanner;
 import com.kingdoms.sim.settlement.LumberPlanner;
 import com.kingdoms.sim.settlement.PopulationPlanner;
@@ -643,6 +644,14 @@ public final class KingdomsCommand {
                 sb.append("(").append(embodied).append(" visible as villagers)");
                 sb.append("\n      defense ").append(RaidPlanner.defensePower(s))
                         .append(" (guards x").append(RaidPlanner.GUARD_POWER).append(" + structures)");
+                // Only when the watch is short. The line above says what the
+                // town can field; this one says what it is about to do about
+                // it, and on a calm afternoon there is nothing to say.
+                if (Garrison.outnumbered(s)) {
+                    sb.append("\n      garrison: ").append(Garrison.guardStrength(s))
+                            .append(" guards vs threat ").append(s.threatLevel())
+                            .append(" (needs ").append(Garrison.neededGuards(s)).append(")");
+                }
                 sb.append("\n      food: granary ").append(s.foodStock())
                         .append("/").append(FoodPlanner.granaryCapacity(s))
                         .append(", fields ").append(FoodPlanner.farmStock(s))

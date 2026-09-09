@@ -69,7 +69,7 @@ before anything later gets to ask.
 | 10 | `HaulPlanner.advance` | everybody carrying anything takes a step of their walk |
 | 11 | `LumberPlanner`, `MinePlanner`, `SmithPlanner` | unwatched production credited |
 | 12 | `equipWorkers` | one tool issued a step |
-| 13 | `JobPlanner.retrainOne` | at most one person changes trade |
+| 13 | `JobPlanner.retrainOne` | at most one person changes trade — a guard first if the threat outweighs the watch |
 | 14 | `PopulationPlanner.advance` | births, housing, eviction |
 | 15 | `trackFedStreak`, `decayThreat` | — |
 | 16 | `RaidPlanner.advance` | alarm tier; raid resolution |
@@ -272,6 +272,7 @@ fit rather than duplicating it.
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
 | 1 | always | counts `GUARD_POWER` = 2 toward the town's defense | — | `RaidPlanner` |
+| 1a | the town's threat needs more guards than it has | somebody else takes up the sword, one a step, until the number is met | — | `Garrison.outnumbered`, `JobPlanner.retrainOne` |
 | 2 | no hostile in sight | — | patrols the perimeter vertices; falls back to the watchtower | `patrolPost` |
 | 3 | hostile in sight | — | arms up, charges, strikes | `GUARD_STRIKE_RANGE` = 2.5, `GUARD_DAMAGE` = 4 |
 | 4 | the hostile blows up | — | one hit, retreat 12 blocks, back in after 45 ticks | `Menace.blowsUp`, `FUSE_RESET_TICKS` = 45 |
@@ -360,6 +361,7 @@ than to the bill, so one lever covers both fidelities.
 | 1 | anything wants carrying | **first choice of courier**, always | same | `HaulPlanner.courierFor` |
 | 2 | the family pantry is low | first choice of shopper | same | `FoodPlanner.freeMember` |
 | 3 | the town is short of a trade | first choice for retraining | — | `JobPlanner.retrainOne` |
+| 3a | the town has more threat than watch | first choice for the militia too, ahead of any working trade | — | `JobPlanner.retrainOne` |
 | 4 | nothing else | — | mills about the family home | `workplaceFor` |
 | — | tools | never issued one | — | `equipWorkers` skips idlers |
 

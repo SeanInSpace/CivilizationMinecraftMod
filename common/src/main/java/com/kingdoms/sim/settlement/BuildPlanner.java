@@ -655,6 +655,10 @@ public final class BuildPlanner {
      * it wants and the houses two fifths of theirs, and the storehouse goes
      * first. Nothing else needed changing: this is a tiebreak, and priority
      * still decides everything it has an opinion about.
+     *
+     * <p>With one exception, and it is the only key ranked <em>above</em>
+     * priority: {@link #defendsTheTown}. See its javadoc for why a frightened
+     * town is allowed to outrank the hall.
      */
     public static Optional<BuildingType> chooseNext(Settlement settlement, List<BuildingType> catalog) {
         int population = settlement.population();
@@ -663,10 +667,57 @@ public final class BuildPlanner {
                 .filter(type -> population >= type.minPopulation())
                 .filter(type -> shortfall(settlement, type, population) > 0)
                 .max(Comparator
-                        .comparingInt(BuildingType::priority)
+                        .comparingInt((BuildingType type) -> defendsTheTown(settlement, type))
+                        .thenComparingInt(BuildingType::priority)
                         .thenComparingInt((BuildingType type) -> makesSomethingScarce(settlement, type))
                         .thenComparingInt((BuildingType type) -> shareShort(settlement, type, population))
                         .thenComparing(BuildingType::id, Comparator.reverseOrder()));
+    }
+
+    /**
+     * Whether this is the building a frightened town should be raising.
+     *
+     * <p>Only ever 1 while {@link Garrison#outnumbered} holds — more threat than
+     * watch — and then only for two things: anything that adds to
+     * {@link RaidPlanner#defensePower} (the watchtower, and whatever else grows
+     * a {@code defenseBonus} later), and the smithy, but only if the town has
+     * not got one. The tower is the defense; the forge is what puts a weapon in
+     * the hand of every guard the staffing table is busy recruiting, and a town
+     * with a forge already standing does not need a second one to feel safe.
+     *
+     * <p><strong>Why this one key outranks priority.</strong> Every other
+     * tiebreak sits below it, because priority is the table's considered opinion
+     * about an ordinary town and should not be second-guessed. This is not an
+     * ordinary town. The catalog puts the hall at 100 and the watchtower at 60,
+     * which is right nine days in ten and wrong on the tenth — a town that keeps
+     * laying the hall's foundations while a raid it cannot hold walks up the
+     * road is not being sensible, it is being oblivious. Ranked as a tiebreak
+     * instead, the tower would never move at all: nothing at priority 60 beats
+     * housing at 80. So it goes above, narrowly and conditionally, and lapses on
+     * its own the step the threat decays.
+     *
+     * <p><strong>It does not displace the head of the queue</strong>, which is
+     * the difference between this and {@link Settlement#planSurvivalBuild}. A
+     * famine is a clock the town cannot argue with: it has a fixed number of
+     * steps left, so a farm goes in front of whatever is half-built and the
+     * half-built thing waits. Threat is not that clock — it decays every step,
+     * the raid may never come, and a town that dropped a half-finished
+     * storehouse every time a creeper wandered past would finish nothing all
+     * summer. So this only speaks when the builders are between jobs, which is
+     * the only moment {@link #chooseNext} is asked anything at all.
+     *
+     * @return 1 when the town is outnumbered and this building answers it, 0
+     *         otherwise — an int so it can be a comparator key like the rest
+     */
+    public static int defendsTheTown(Settlement settlement, BuildingType type) {
+        if (!Garrison.outnumbered(settlement)) {
+            return 0;
+        }
+        if (type.defenseBonus() > 0) {
+            return 1;
+        }
+        boolean isForge = BuildingRole.of(type.id()) == BuildingRole.SMITH;
+        return isForge && !SmithPlanner.hasSmithy(settlement) ? 1 : 0;
     }
 
     /**
