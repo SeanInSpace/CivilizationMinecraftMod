@@ -8,6 +8,7 @@ import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.settlement.Field;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Garrison;
 import com.kingdoms.sim.settlement.JobPlanner;
@@ -99,14 +100,14 @@ class FarmsAheadTest {
      * that people will change.
      */
     @Test
-    void aFarmIsReckonedToFeedFifteen() {
-        int loavesPerFarm = FoodPlanner.FARMERS_PER_FARM * FoodPlanner.FOOD_PER_FARMER_PER_STEP;
+    void aFarmIsReckonedToFeedSeven() {
+        int loavesPerFarm = Field.LOAVES_PER_STEP_TENDED;
         int stepsPerLoaf = Foods.nutrition(Foods.PROVISION) / FoodPlanner.HUNGER_PER_STEP;
 
-        assertEquals(2, loavesPerFarm, "a fully staffed field, per step");
+        assertEquals(1, loavesPerFarm, "a fully staffed, fully tended field, per step");
         assertEquals(15, stepsPerLoaf, "steps one loaf carries one person");
-        assertEquals(30, loavesPerFarm * stepsPerLoaf, "mouths a field covers flat out");
-        assertEquals(15, BuildPlanner.MOUTHS_PER_FARM,
+        assertEquals(15, loavesPerFarm * stepsPerLoaf, "mouths a field covers flat out");
+        assertEquals(7, BuildPlanner.MOUTHS_PER_FARM,
                 "and half of that is the margin the planner actually plans on");
     }
 
@@ -115,11 +116,11 @@ class FarmsAheadTest {
     void theFieldCountRoundsUpAndNeverReachesZero() {
         assertEquals(1, BuildPlanner.farmsWanted(1), "one settler still wants a field");
         assertEquals(1, BuildPlanner.farmsWanted(4), "and so does a founding charter");
-        assertEquals(1, BuildPlanner.farmsWanted(15));
-        assertEquals(2, BuildPlanner.farmsWanted(16), "one over, and the next is wanted");
-        assertEquals(2, BuildPlanner.farmsWanted(30));
-        assertEquals(3, BuildPlanner.farmsWanted(31));
-        assertEquals(3, BuildPlanner.farmsWanted(40));
+        assertEquals(1, BuildPlanner.farmsWanted(7));
+        assertEquals(2, BuildPlanner.farmsWanted(8), "one over, and the next is wanted");
+        assertEquals(2, BuildPlanner.farmsWanted(14));
+        assertEquals(3, BuildPlanner.farmsWanted(15));
+        assertEquals(6, BuildPlanner.farmsWanted(40));
     }
 
     // ---- the town -------------------------------------------------------
@@ -197,7 +198,7 @@ class FarmsAheadTest {
                     new SimPos(0, 64, 0)));
         }
         assertEquals(40, town.population());
-        assertEquals(3, BuildPlanner.farmsWanted(40));
+        assertEquals(6, BuildPlanner.farmsWanted(40));
 
         for (int at = 201; at <= 500; at++) {
             step(town, at);
@@ -205,7 +206,7 @@ class FarmsAheadTest {
                     "the fields were ordered late enough to let the town go hungry, step " + at);
         }
 
-        assertTrue(town.countBuildings(BuildPlanner.FARM) >= 3,
+        assertTrue(town.countBuildings(BuildPlanner.FARM) >= 6,
                 "forty mouths, and only " + town.countBuildings(BuildPlanner.FARM) + " fields");
     }
 

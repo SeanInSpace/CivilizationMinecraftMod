@@ -732,12 +732,13 @@ public final class BuildPlanner {
      *
      * <ul>
      *   <li>A farm is worked by {@link FoodPlanner#FARMERS_PER_FARM} hands, and
-     *       each brings in {@link FoodPlanner#FOOD_PER_FARMER_PER_STEP} a step:
-     *       <strong>two loaves a step</strong> off a fully staffed field.</li>
+     *       between them they bring in {@link Field#LOAVES_PER_STEP_TENDED} a
+     *       step: <strong>one loaf a step</strong> off a fully staffed field,
+     *       the field ripening as fast as they can tend it.</li>
      *   <li>A person gains {@link FoodPlanner#HUNGER_PER_STEP} hunger a step and
      *       a loaf undoes {@code Foods.nutrition(PROVISION)} of it — thirty. So
      *       one mouth costs <strong>2/30, a fifteenth of a loaf a step</strong>,
-     *       and a farm at full tilt covers <strong>thirty of them</strong>.</li>
+     *       and a farm at full tilt covers <strong>fifteen of them</strong>.</li>
      *   <li>Halved for the margin, which is this number. A field hand is not in
      *       the rows every step of their life: they walk loads to the granary,
      *       they go weak and stop, the muster takes them when something is
@@ -746,12 +747,12 @@ public final class BuildPlanner {
      *       wrong in this direction is one spare farm.</li>
      * </ul>
      *
-     * <p>Fifteen, then. It is a floor on wanting, not a cap on having: the
+     * <p>Seven, then. It is a floor on wanting, not a cap on having: the
      * catalog's own row still asks for more farms than this in a grown town,
      * and {@link #farmsWanted} takes whichever is larger.
      */
     public static final int MOUTHS_PER_FARM =
-            FoodPlanner.FARMERS_PER_FARM * FoodPlanner.FOOD_PER_FARMER_PER_STEP
+            Field.LOAVES_PER_STEP_TENDED
                     * (Foods.nutrition(Foods.PROVISION) / FoodPlanner.HUNGER_PER_STEP) / 2;
 
     /**

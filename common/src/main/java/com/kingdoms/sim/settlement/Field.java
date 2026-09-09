@@ -110,6 +110,19 @@ public final class Field {
      */
     public static final int GROWTH_STAGES = 7;
 
+    /**
+     * What a fully staffed field brings in on the clock, loaves a step.
+     *
+     * <p>Two farmers swing {@link #BLOCKS_PER_FARMER_PER_STEP} times each per
+     * step, and every swing either cuts a ripe block or tends an unripe one a
+     * stage forward. A block takes {@link #GROWTH_STAGES} tendings and one cut,
+     * so in the steady state one loaf costs eight swings: eight swings a step,
+     * one loaf a step. The measured run settles a little under this, at nine
+     * loaves in ten, because a full store stops the cutting now and then.
+     */
+    public static final int LOAVES_PER_STEP_TENDED =
+            FoodPlanner.FARMERS_PER_FARM * BLOCKS_PER_FARMER_PER_STEP / (GROWTH_STAGES + 1);
+
     /** Hundredths of a block, the unit the ledger is kept in. */
     private static final int PER_BLOCK = 100;
 
