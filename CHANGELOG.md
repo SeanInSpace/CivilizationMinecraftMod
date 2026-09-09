@@ -8,6 +8,50 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## A forester you find already has a wood to work
+
+### New
+
+- **A town you discover standing has trees around its lumber camp.** Every town
+  that was there before you were — the ones world generation puts on the map, and
+  the ones seeded by command — used to raise a lumber camp on whatever the
+  terrain generator happened to leave there, which on a plain is grass. Its
+  lumberjacks walked out, found nothing standing, and the town's only timber came
+  from a clock ticking somewhere out of sight. Now the wood is actually there: up
+  to a dozen full-grown trees, planted on the ground the camp claims, the day the
+  town is first drawn.
+
+- **They are the trees the country grows.** Spruce in the taiga, acacia on the
+  savanna, jungle in the jungle, birch in a birch forest, dark oak under a dark
+  forest, cherry in a grove, and oak everywhere else — grown with the same
+  generator the world uses, so a seeded wood looks like it has always been there
+  rather than like something that was placed.
+
+- **A camp on bad ground gets a smaller wood, not a levelled one.** Nothing is
+  filled, cleared or flattened to make room for a tree. A square that turns out
+  to be lake, cliff, bare stone or already under a canopy is simply passed over
+  and the next one tried, so a camp on a lakeshore ends up with the stand a camp
+  on a lakeshore would have.
+
+- **The trees stand where the forester will replant them.** Five blocks apart, so
+  two canopies do not grow through each other and a lumberjack who has felled one
+  is a short walk from the next; and out past the houses rather than between them,
+  because a tree in the village blocks the paths and is one the forester is
+  forbidden to put back. A seeded camp therefore claims its woodland a little
+  wider than a new one does, far enough out to have somewhere to replant.
+
+- **A seeded camp keeps saplings on hand.** Eight of them, on the shelves nearest
+  the camp — enough to put back what the stand loses while the wood renews itself.
+  It is a possession of a camp that has been standing for years, not something the
+  town produced.
+
+- **A town you found yourself is unchanged.** The four settlers off a charter get
+  the country they walked into, and their lumberjacks clear it and plant saplings
+  exactly as before. Only a town that skipped the road is handed a wood it is
+  supposed to have already had.
+
+---
+
 ## Nothing builds itself while you are standing there
 
 ### Changed

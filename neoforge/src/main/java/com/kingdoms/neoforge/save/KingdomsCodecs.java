@@ -441,10 +441,18 @@ public final class KingdomsCodecs {
             // somebody is there to look at it.
             Codec.INT.optionalFieldOf("sound_census", Building.UNCOUNTED)
                     .forGetter(Building::soundCensus),
-            Codec.INT.optionalFieldOf("damage", 0).forGetter(Building::damage)
+            Codec.INT.optionalFieldOf("damage", 0).forGetter(Building::damage),
+            // A debt the first drawing pays: a seeded camp has to have its wood
+            // planted around it. A world can be saved between the seeding and the
+            // day a player walks close enough to see it, so the debt has to
+            // survive the save or the town wakes up on bare ground. Optional and
+            // false by default, so everything written before this reads as what
+            // it is — a building somebody built.
+            Codec.BOOL.optionalFieldOf("seeded", false).forGetter(Building::isSeeded)
     ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing, held,
-                census, damage) -> {
+                census, damage, seeded) -> {
         Building building = new Building(blueprint, origin, step, materialized);
+        building.setSeeded(seeded);
         building.setFoodStored(food);
         building.setSurveyed(surveyed);
         building.setFootprint(footprint);

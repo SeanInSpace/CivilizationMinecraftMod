@@ -28,6 +28,9 @@ public final class Building {
 
     private boolean surveyed;
 
+    /** Standing since before the first step, with no history behind it. */
+    private boolean seeded;
+
     /** How much room it takes up; unknown until its plan has been built. */
     private Footprint footprint = Footprint.UNKNOWN;
 
@@ -291,6 +294,28 @@ public final class Building {
 
     public void setMaterialized(boolean materialized) {
         this.materialized = materialized;
+    }
+
+    /**
+     * Whether this building was seeded rather than built.
+     *
+     * <p>The difference nobody could see from the record: a building the town
+     * raised course by course has a history in the world around it — the ground
+     * it cleared, the wood it felled — and a seeded one has none, because
+     * {@code Founding.seeded} writes the building and stops. Anything that has
+     * to make the surroundings agree with the story needs to know which it is,
+     * and the only honest moment to act on it is the first drawing, when the
+     * chunk is finally loaded.
+     *
+     * <p>Cleared once acted on, so it is a debt rather than a label: a camp that
+     * has had its wood planted is thereafter an ordinary camp.
+     */
+    public boolean isSeeded() {
+        return seeded;
+    }
+
+    public void setSeeded(boolean seeded) {
+        this.seeded = seeded;
     }
 
     public int foodStored() {

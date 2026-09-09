@@ -3160,6 +3160,16 @@ public final class Settlement {
                     building.setSurveyed(true);
                 }
                 building.setMaterialized(true);
+                if (building.isSeeded()) {
+                    // The first and only moment the ground around a seeded
+                    // building is both known and still untouched. A seeded
+                    // lumber camp has its wood planted here; everything else
+                    // simply stops being a debt. Cleared before the work rather
+                    // than after, so a platform that plants nothing does not
+                    // come back and try again every step forever.
+                    building.setSeeded(false);
+                    ForesterStand.raise(this, building, ctx);
+                }
             }
         }
     }
