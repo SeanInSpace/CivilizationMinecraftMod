@@ -8,6 +8,7 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -553,31 +554,38 @@ public final class Founding {
     }
 
     /**
-     * What the town has by it: a larder, and materials to keep building with.
+     * What the town has by it — and every bit of it comes out of a building
+     * that is standing right there.
      *
      * <p><strong>Set, not added.</strong> A settlement is born holding the
      * founding kit — {@code Settlement.loosePile} is initialized with it — so
      * adding here gave a seeded camp twice the timber a chartered one gets, and
      * the doubling was invisible because both numbers looked plausible.
      *
-     * <p>The larder is {@link StagePlanner#FED_WINDOW_STEPS} steps of the whole
-     * town's appetite, which is not a number picked here: it is precisely the
-     * larder a homestead has to hold, for ten steps running, before it is
-     * allowed to graduate, so every stage above HOMESTEAD has demonstrably held
-     * it. Floored at what a charter party carries, because a camp is a charter
-     * party and must not arrive poorer than one, and capped by the granary so
-     * nothing starts over its own ceiling.
+     * <p>This used to hand a seeded town a larder sized against its
+     * <em>population</em> and the whole charter kit besides, whatever it had
+     * built. A village with one granary and a village with three arrived
+     * holding the same food; a town with no lumber camp arrived with seven
+     * hundred logs. That is supplies out of nowhere, and it is exactly what a
+     * world where nothing is conjured cannot have. So every figure below is
+     * read off the buildings instead:
      *
-     * <p>The materials are the founding kit, capped the same way. It is the only
-     * materials figure in this codebase sized against a real program (see
-     * {@link TownStores#FOUNDING_WOOD}), and a town that has just finished a
-     * stage is exactly a town partway through spending one. Restated here rather
-     * than left to the field initializer, so what a seeded town holds is a
-     * decision at this end and does not quietly change when that one does.
-     *
-     * <p>Left flat rather than scaled by population, deliberately: a fuller
-     * store would arrive at the timber ceiling, and a lumber camp that opens
-     * into a full store fells nothing at all.
+     * <ul>
+     *   <li><strong>Food</strong> — every standing field is holding a full
+     *       {@link FoodPlanner#FARM_STORE_CAP}, which is one harvest not yet
+     *       carried in, and the granary holds a quarter of what it could. A
+     *       town with neither keeps a charter party's provisions, because with
+     *       no field and no granary that is precisely what it is.</li>
+     *   <li><strong>Timber and stone</strong> — one building's worth for each
+     *       lumber camp and each mine: enough to mend what it has, not enough
+     *       to raise anything new. A town with no camp of its own keeps the
+     *       charter kit here too, for the same reason.</li>
+     *   <li><strong>Iron</strong> — nothing at all unless a smithy stands, and
+     *       a smithy's own bar or two if one does.</li>
+     *   <li><strong>Tools, weapons, armour</strong> — nothing, ever. Those are
+     *       made at a forge out of iron somebody mined, and a town that has not
+     *       made them does not have them.</li>
+     * </ul>
      *
      * <p>Whatever is left loose is then put away, which is the settlement's own
      * rule for where goods live — so a camp with nowhere to put anything leaves
@@ -585,13 +593,33 @@ public final class Founding {
      * shelves a builder can walk to.
      */
     private static void stockTheStores(Settlement town) {
-        town.setFoodStock(Math.min(FoodPlanner.granaryCapacity(town),
-                Math.max(FoodPlanner.STARTING_PROVISIONS,
-                        town.population() * StagePlanner.FED_WINDOW_STEPS)));
-        town.setWoodStock(Math.min(TownStores.FOUNDING_WOOD,
-                LumberPlanner.woodCapacity(town)));
-        town.setStoneStock(Math.min(TownStores.FOUNDING_STONE,
-                MinePlanner.stoneCapacity(town)));
+        List<Building> fields = roleOf(town, "farm");
+        int granaries = roleOf(town, "granary").size();
+        int camps = roleOf(town, "lumber_camp").size();
+        int mines = roleOf(town, "mine").size();
+        int smithies = roleOf(town, "smith").size();
+
+        town.setFoodStock(granaries > 0
+                ? Math.min(FoodPlanner.granaryCapacity(town),
+                        granaries * FoodPlanner.GRANARY_PER_BUILDING / SEEDED_GRANARY_SHARE)
+                : (fields.isEmpty() ? FoodPlanner.STARTING_PROVISIONS : 0));
+        town.setWoodStock(camps > 0
+                ? Math.min(LumberPlanner.woodCapacity(town), camps * SEEDED_WOOD_PER_CAMP)
+                : Math.min(TownStores.FOUNDING_WOOD, LumberPlanner.woodCapacity(town)));
+        town.setStoneStock(mines > 0
+                ? Math.min(MinePlanner.stoneCapacity(town), mines * SEEDED_STONE_PER_MINE)
+                : Math.min(TownStores.FOUNDING_STONE, MinePlanner.stoneCapacity(town)));
+        town.setStock(TownStores.IRON, smithies * SEEDED_IRON_PER_SMITHY);
+        town.setStock(TownStores.TOOLS, 0);
+        town.setStock(TownStores.WEAPONS, 0);
+        town.setStock(TownStores.ARMOR, 0);
+
+        // The fields last, because setStock empties every store in town and a
+        // field is not a store -- but a reader who did not know that would move
+        // this line up and quietly lose the harvest.
+        for (Building field : fields) {
+            field.setFoodStored(FoodPlanner.FARM_STORE_CAP);
+        }
         town.putAwayLoosePile();
         // The fed streak is deliberately NOT set here. It looked like something
         // a settled town should arrive holding, and it is inert: the only
@@ -600,6 +628,44 @@ public final class Founding {
         // at the end of the first step regardless. A line that reads as a
         // decision and does nothing is worse than no line.
     }
+
+    /** Every standing building whose base id ends this way, as FoodPlanner counts them. */
+    private static List<Building> roleOf(Settlement town, String suffix) {
+        List<Building> out = new ArrayList<>();
+        for (Building standing : town.buildings()) {
+            if (BuildPlanner.baseIdOf(standing.blueprintId()).endsWith(suffix)) {
+                out.add(standing);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * The share of a granary's capacity a seeded town arrives holding.
+     *
+     * <p>A quarter. A granary at its brim is a town that has just brought in a
+     * bumper year and eaten none of it, which is not what an ordinary Tuesday
+     * looks like; a quarter is a working larder with room to fill.
+     */
+    private static final int SEEDED_GRANARY_SHARE = 4;
+
+    /**
+     * Timber and stone a seeded town keeps against repairs, per camp and per mine.
+     *
+     * <p>One ordinary building's worth, measured the way everything else in the
+     * mod measures materials: builder-steps times the rate. A cottage-sized
+     * job, which is about what mending a hole in a wall costs — and nowhere
+     * near enough to raise the next thing on the program, which the town now
+     * has to actually go and cut.
+     */
+    private static final int SEEDED_REPAIR_WORK = 40;
+    private static final int SEEDED_WOOD_PER_CAMP =
+            BuildPlanner.WOOD_PER_WORK * SEEDED_REPAIR_WORK;
+    private static final int SEEDED_STONE_PER_MINE =
+            BuildPlanner.STONE_PER_WORK * SEEDED_REPAIR_WORK;
+
+    /** What a standing smithy has by it. No smithy, no iron — iron is mined. */
+    private static final int SEEDED_IRON_PER_SMITHY = 24;
 
     /**
      * Who does what, decided by the same two things that decide it in a growing

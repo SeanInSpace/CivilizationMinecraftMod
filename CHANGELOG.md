@@ -8,6 +8,61 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## No more supplies out of nowhere
+
+### Changed
+
+- **Nothing is conjured any more, by default.** The two abstraction knobs that
+  landed two days ago shipped at seventy percent unwatched; both now ship at
+  **zero**. A town you are not watching still runs -- it builds, hauls, eats,
+  spends what it holds and its people go on living their lives -- but it gains
+  nothing it did not already have. Every log, every block of stone and every
+  loaf now has to come from a real hand, a real harvest, or wild food actually
+  growing where the town stands. Set `economy.unwatched_yield_percent` back to
+  70, or to 100, if you would rather the towns you left behind kept producing.
+
+- **Foraging only turns up what is actually growing there.** A camp used to
+  conjure a meal per three pairs of hands every step, anywhere: a party on bare
+  superflat ate exactly as well as one in a berry-thick taiga, and a party in
+  the middle of a desert lived on sand indefinitely. Foragers now bring back
+  berry bushes, mushrooms, melons and pumpkins, wild crops nobody planted, and
+  apples from oak canopy -- what is really within reach of the camp, and no
+  more. Cactus is not food. A camp in a desert or on superflat forages nothing
+  at all and must get a field in the ground or die trying.
+
+- **And the patch runs out.** Everything picked is booked against the ground it
+  came from and grows back at roughly one meal every four steps, which is about
+  what four people eat. A camp in a wood can sit still and just about live off
+  it; a camp trying to grow on wild food strips the wood and then goes hungry.
+
+- **Worldgen towns arrive holding what their own buildings could hold.** One
+  harvest sitting in each standing field, a granary a quarter full, and one
+  building's worth of timber and stone per lumber camp and mine -- enough to
+  mend a wall, not to raise the next thing on the list. No iron unless a smithy
+  stands, and never any tools, weapons or armour: those are forged out of iron
+  somebody mined. A town with no field, no granary and no camp of its own keeps
+  a charter party's kit, because with none of those it is a charter party.
+
+### Notes
+
+- Measured at the new defaults, with nobody ever coming to look. A founding
+  party of four on ground with nothing edible on it reaches step 400 still four
+  strong, out of bread, two of them too weak to work, and is gone by step 800.
+  A seeded village of twelve reaches step 300 with one loaf between them, four
+  weak and two starving, and is empty by step 600. The same two runs at
+  seventy percent unwatched end as a town of thirteen with 196 loaves, and a
+  town of forty-two with 738.
+
+- That is the setting doing exactly what it says, not a bug: at zero, a town
+  nobody ever visits eventually ends. Foraging keeps a camp alive in a wood
+  while it is still a camp -- past HOMESTEAD, pioneers stop foraging and the
+  fields have to carry it, and unwatched fields at zero grow nothing. If you
+  want abandoned towns to persist on their own, the knob is the answer and it
+  is one line in the config.
+
+- The free first producer building (`isFreeToBuild`) and the `/civ found`
+  charter kit are untouched. A new camp still gets its start; what it does not
+  get is a supply of food and timber from nowhere for the rest of its life.
 ## A forester you find already has a wood to work
 
 ### New

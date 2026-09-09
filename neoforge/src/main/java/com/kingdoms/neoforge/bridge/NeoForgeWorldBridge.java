@@ -287,6 +287,94 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     /** How far below the surface a trunk still counts as standing on it. */
     private static final int WOOD_PROBE_DEPTH = 6;
 
+    /**
+     * How many meals' worth of wild food is growing around here.
+     *
+     * <p>Sampled, never scanned. A camp asks this every twenty steps and a
+     * world may hold hundreds of camps, so it walks a grid of columns at
+     * {@link #FORAGE_SAMPLE_STEP} and gives up after
+     * {@link #FORAGE_MAX_COLUMNS} of them. Only loaded chunks are read and
+     * nothing here loads one — an unloaded neighbourhood simply contributes
+     * nothing, which is the same answer {@link #woodedness} gives and for the
+     * same reason.
+     *
+     * <p>What counts as a meal is what a person could actually eat today: a
+     * sweet berry bush, a mushroom, a melon or pumpkin, a fully grown crop.
+     * Apples are counted from the canopy rather than the ground, at one meal
+     * per {@link #OAK_COLUMNS_PER_APPLE} columns of oak, because that is about
+     * how often an oak actually gives one up. Tall grass yields seeds at a rate
+     * barely worth writing down. Cactus is not food, dead bushes are not food,
+     * and sand is not food — so a desert answers nothing, and so does bare
+     * superflat, which is the whole reason this method exists.
+     */
+    @Override
+    public int forageableNear(SimPos center, int radius) {
+        BlockPos at = toBlockPos(center);
+        if (!level.isLoaded(at)) {
+            return 0;
+        }
+        int meals = 0;
+        int oak = 0;
+        int grass = 0;
+        int columns = 0;
+        outer:
+        for (int dx = -radius; dx <= radius; dx += FORAGE_SAMPLE_STEP) {
+            for (int dz = -radius; dz <= radius; dz += FORAGE_SAMPLE_STEP) {
+                if (columns >= FORAGE_MAX_COLUMNS) {
+                    break outer;
+                }
+                BlockPos column = at.offset(dx, 0, dz);
+                if (!level.isLoaded(column)) {
+                    continue;
+                }
+                columns++;
+                int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                        column.getX(), column.getZ());
+                for (int y = ground - 1; y <= ground + FORAGE_PROBE_UP; y++) {
+                    BlockState state = level.getBlockState(
+                            new BlockPos(column.getX(), y, column.getZ()));
+                    if (state.is(net.minecraft.world.level.block.Blocks.SWEET_BERRY_BUSH)
+                            || state.is(net.minecraft.world.level.block.Blocks.BROWN_MUSHROOM)
+                            || state.is(net.minecraft.world.level.block.Blocks.RED_MUSHROOM)
+                            || state.is(net.minecraft.world.level.block.Blocks.MELON)
+                            || state.is(net.minecraft.world.level.block.Blocks.PUMPKIN)
+                            || state.is(net.minecraft.tags.BlockTags.CROPS)) {
+                        meals++;
+                    } else if (state.is(net.minecraft.world.level.block.Blocks.TALL_GRASS)) {
+                        grass++;
+                    }
+                }
+                int canopy = level.getHeight(Heightmap.Types.WORLD_SURFACE,
+                        column.getX(), column.getZ());
+                if (level.getBlockState(new BlockPos(column.getX(), canopy - 1, column.getZ()))
+                        .is(net.minecraft.world.level.block.Blocks.OAK_LEAVES)) {
+                    oak++;
+                }
+            }
+        }
+        meals += oak / OAK_COLUMNS_PER_APPLE;
+        meals += grass / GRASS_COLUMNS_PER_SEED_MEAL;
+        return Math.min(meals, FORAGE_MEALS_CAP);
+    }
+
+    /** Every sixth column: enough to tell a berry wood from a lawn. */
+    private static final int FORAGE_SAMPLE_STEP = 6;
+
+    /** How far above the ground a bush or a crop still counts as reachable. */
+    private static final int FORAGE_PROBE_UP = 3;
+
+    /** The sample gives up here however wide the radius is. */
+    private static final int FORAGE_MAX_COLUMNS = 200;
+
+    /** Columns of oak canopy that add up to one apple worth walking for. */
+    private static final int OAK_COLUMNS_PER_APPLE = 8;
+
+    /** Columns of tall grass that add up to one meal's worth of seed. */
+    private static final int GRASS_COLUMNS_PER_SEED_MEAL = 24;
+
+    /** However rich the ground, a camp is not going to gather more than this. */
+    private static final int FORAGE_MEALS_CAP = 64;
+
     @Override
     public boolean standsInWater(SimPos plot, int radius) {
         if (level.isLoaded(toBlockPos(plot))) {
