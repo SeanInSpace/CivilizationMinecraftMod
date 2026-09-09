@@ -8,6 +8,97 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## Grain is not bread until somebody bakes it
+
+### New
+
+- **Wheat is cut as grain, and grain is not food.** A farmer swinging at a ripe
+  block used to produce a loaf of bread on the spot, which quietly made the
+  sickle the town's bakery. A cut block is a sheaf now. It sits on the farm's
+  own shelf until somebody carries it in, and nobody can eat it on the way.
+
+- **Towns bake.** Grain becomes bread at one building: the **mill**, if one
+  stands and a miller works it, and the **hearth or granary** otherwise. The
+  hearth needs no trade at all — a camp bakes at its fire, and whoever is there
+  does it — and turns out four loaves a step, one for each sheaf. That is a
+  fifteen-person village fed four times over, and comfortably more than four
+  fields can bring in, so the ground and not the oven is still what limits a
+  town's food.
+
+- **The mill earns its fifty per cent.** It used to add half again to the whole
+  town's harvest wherever that harvest happened to be lying. It now grinds
+  actual grain that somebody actually carried to it, six sheaves per miller per
+  step, at three loaves for every two sheaves — nine loaves a step against a
+  hearth's four, out of the same wheat. A mill nobody hauls to grinds nothing.
+
+- **A town with full sacks and no oven starves, and you can see why.**
+  `/civ info` grew a line: `grain: G on farms, F at the mill/granary · bread: B`,
+  and it says `NOBODY BAKES` when the settlement has raised nowhere to do it.
+  A hundred sheaves in the fields and an empty larder is now a readable fault
+  with a building-shaped fix rather than a mystery.
+
+### Changed
+
+- **Farmers carry grain to the oven instead of loaves to the larder.** Same
+  walk, same full load of twelve, same rule about not leaving the rows for less
+  — the destination moved. Traders still take bread from the larder to the
+  stall, and eating is unchanged: bread only, out of the pantry, the larder, the
+  stall, and finally the fields.
+
+- **A seeded town arrives mid-harvest.** Its fields start with a full shelf of
+  grain rather than a shelf of loaves, because a field is where wheat is cut and
+  not where it is baked. The granary still arrives a quarter full of bread.
+
+- **The flour is not walked back from the mill, deliberately.** The two-leg
+  design — grain out, bread home — was built and then measured, and it strangled
+  every town below about forty people: one miller grinds nine loaves a step and
+  one spare pair of hands moves about one, so the bread stacked up at the mill,
+  the stones stopped for want of shelf room, and the granary drained while the
+  town sat on four thousand loaves it could not reach. What the stones make now
+  joins the town's larder where it is made. The leg that is real is the one that
+  decides anything.
+
+### Fixed
+
+- **The animal farm has stopped pretending to be a wheat field.** Every place
+  the food chain looked for a farm matched the blueprint path's *suffix*, and
+  `kingdoms:animal_farm` ends in "farm" — so since the day the compound was
+  added, every pen of sheep and cows has been counted as a crop field: handed a
+  seventy-one-block ripeness ledger it has no wheat for, sent farmers, and
+  credited with a harvest out of nowhere. Buildings are matched by role now. A
+  town with a compound loses a phantom field's worth of food it was never
+  growing; the fix for that is a farm.
+
+### Notes
+
+Three unwatched survival runs at the shipped 0/0 yields, on ground with nothing
+to forage, nobody ever visiting. No deaths and nobody starving in any of them.
+Grain and bread split out, at the same marks as last time:
+
+| Run | Step | Pop | Bread (of it, larder) | Grain on fields | Grain at the oven |
+|---|---|---|---|---|---|
+| Camp of four, one field | 400 | 4 | 412 (400) | 6 | 4 |
+| | 800 | 4 | 756 (740) | 9 | 0 |
+| | 1500 | 4 | 1012 (1000) | 40 | 200 |
+| Camp of four, timber and stone given | 400 | 9 | 620 (589) | 45 on 3 | 0 |
+| | 800 | 39 | 1266 (998) | 228 on 6 | 182 (mill) |
+| | 1500 | 80 | 1438 (998) | 476 on 12 | 182 (mill) |
+| Seeded village of eight | 400 | 18 | 664 (597) | 120 on 3 | 192 (mill) |
+| | 800 | 18 | 665 (599) | 120 on 3 | 192 (mill) |
+| | 1000 | 18 | 664 (597) | 120 on 3 | 192 (mill) |
+
+The grain that banks up at the late marks is not a jam in the chain: those towns
+have filled their larders to capacity, the oven stops when there is nowhere to
+put a loaf, and the sheaves back up behind it — first at the mill, then in the
+fields. The way out of it is a bigger granary, which is the correct thing for a
+town with more wheat than shelves to be short of.
+
+The rough-ground fixture is the measurement that settled the mill's design. With
+the flour walked home it reached eighteen people and stopped there for good; with
+the flour baked into the larder it reaches thirty by step five hundred and a
+hundred and twenty-four by twelve hundred.
+
+---
 ## The wood is a wood, and the mine runs out
 
 ### Changed

@@ -133,10 +133,13 @@ public final class FarmWorker {
             // Harvest and replant in the same motion. No drops: the yield goes
             // straight onto the farm's stores, which is the whole point — this
             // is the visible form of the number the clock used to conjure.
+            //
+            // A sheaf of grain, not a loaf, and through the same Field.deliver
+            // the clock uses — so a watched cut and an unwatched cut put the
+            // identical thing on the identical shelf, and somebody still has to
+            // carry it to the oven before anybody eats.
             level.setBlock(target, Blocks.WHEAT.defaultBlockState(), Block.UPDATE_CLIENTS);
-            if (farm.foodStored() < FoodPlanner.FARM_STORE_CAP) {
-                farm.setFoodStored(farm.foodStored() + 1);
-            }
+            Field.deliver(farm, 1);
             farm.touchRealHarvest(step);
             // A real cut block is a ripe block gone. Without this the ledger
             // fills up behind a watched field and pays the whole of it out the

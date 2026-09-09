@@ -35,6 +35,14 @@ public enum BuildingRole {
     ANIMAL_FARM,
     /** The town's larder. */
     GRANARY,
+    /**
+     * The camp's fire, and its oven.
+     *
+     * <p>Where a settlement without a mill turns grain into bread. It is the
+     * first thing the HOMESTEAD program raises after a roof, which is why a
+     * town has somewhere to bake from the same stage it has somewhere to farm.
+     */
+    HEARTH,
     MARKET,
     SMITH,
     HALL,
@@ -52,6 +60,7 @@ public enum BuildingRole {
             Map.entry("farm", CROP_FARM),
             Map.entry("animal_farm", ANIMAL_FARM),
             Map.entry("granary", GRANARY),
+            Map.entry("hearth", HEARTH),
             Map.entry("market", MARKET),
             Map.entry("smith", SMITH),
             Map.entry("town_hall", HALL),

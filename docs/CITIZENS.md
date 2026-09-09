@@ -225,9 +225,10 @@ breaks the starvation spiral.
 
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
-| 1 | any crop farm stands | credits 1 food/step per working hand into a field, +50 % if a mill runs | `FarmWorker` harvests real wheat into the field's store | `FOOD_PER_FARMER_PER_STEP` = 1, `FARMERS_PER_FARM` = 2, `FARM_STORE_CAP` = 40 |
-| 2 | field has ≥ 12 unclaimed, granary has room | errand: field → granary, 12 | same errand; the body walks it | `WORTH_LEAVING_THE_ROWS` = `FARMER_CARRY` = 12 |
-| 2a | town is starving | errand fires for a single loaf | same | `Settlement.isStarving` |
+| 1 | any crop farm stands | cuts ripe blocks and credits **grain** into the field's own `stores()` | `FarmWorker` cuts real wheat and credits the same grain through `Field.deliver` | `FARMERS_PER_FARM` = 2, `FARM_GRAIN_CAP` = 40 |
+| 2 | field has ≥ 12 sheaves unclaimed, the oven has shelf room | errand: field → **bakery**, 12 of `GRAIN` | same errand; the body walks it | `WORTH_LEAVING_THE_ROWS` = `FARMER_CARRY` = 12, `BAKERY_GRAIN_CAP` = 200 |
+| 2a | town is starving | errand fires for a single sheaf | same | `Settlement.isStarving` |
+| 2b | **town has no bakery at all** | **no errand; the sheaves stack up in the field** | same | `FoodPlanner.bakery` returns null |
 | 3 | carrying an errand | 12 blocks per step toward it | steered by `workplaceFor`, floored after 12 stalled steps | `ABSTRACT_TRAVEL_BLOCKS`, `EMBODIED_STALL_STEPS` |
 | 4 | on the field, not hauling | — | one action per pass: **harvest, then plant, then tend** | `FarmWorker.nextJob` |
 | 5 | town has ≥ 2 fields | — | works the field the roster deals them, not the nearest | `FieldRoster` |
@@ -244,6 +245,14 @@ anyone with `haul() != null`, correctly, because they are on the road — so a
 watched field grew one loaf, emptied, grew one loaf, emptied, and three farmers
 walked laps. `FoodPlanner.alreadyPromised` additionally subtracts errands already
 outstanding, so two farmers are never dispatched to the same twelve loaves.
+
+Grain note on #1 and #2. A cut block is a **sheaf of `TownStores.GRAIN`**, not a
+loaf, and nobody can eat it. The farmer's errand therefore ends at the town's
+bakery-of-record rather than at the larder — the mill if one stands and a miller
+works it, the granary or the hearth otherwise — and only there does grain become
+`FOOD`. A town with fields and no oven cuts wheat, stacks it, and starves beside
+it; that is the rule, not a hole in it, and `/civ info` prints the sacks. The
+old flat "+50 % if a mill runs" bonus is gone: see MILLER.
 
 Two books are kept, and they close at opposite ends of the walk.
 `alreadyPromised` asks what a *field* still has to give and counts only errands
@@ -326,12 +335,24 @@ rather than sharing code with it.
 
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
-| 1 | a mill stands and at least one miller lives here | the whole town's harvest yields 50 % more | same | `FoodPlanner.millRuns`, `growHarvest` |
-| 2 | — | — | walks to the mill and stands there | `workplaceFor` |
-| 3 | **always**, mill or no mill | — | — | eligible as a bulk courier (tier 2) |
+| 1 | a mill stands and at least one miller lives here | the mill is the town's **bakery-of-record**: farmers carry grain here instead of to the granary | same | `FoodPlanner.millRuns`, `FoodPlanner.bakery` |
+| 2 | grain on the mill's shelf | grinds `MILL_GRAIN_PER_MILLER` = 6 sheaves per miller per step, at **2 sheaves → 3 loaves**, into the town's larder | same | `FoodPlanner.bake`, `MILL_GRAIN_PER_BATCH` = 2, `MILL_LOAVES_PER_BATCH` = 3 |
+| 3 | — | — | walks to the mill and stands there | `workplaceFor` |
+| 4 | **always**, mill or no mill | — | — | eligible as a bulk courier (tier 2) |
 
-The miller has no watched worker: the mill's effect is one line in `growHarvest`.
-The full grain-and-bread economy is still a GOALS entry.
+The miller still has no watched worker — the stones are a rate, not an animation
+— but the mill is no longer a bonus applied to a harvest wherever it happened to
+be standing. It is a place grain has to be carried to, and a mill nobody hauls to
+grinds nothing. One miller is nine loaves a step against a hearth's four
+(`BAKE_PER_STEP`), out of the same wheat, which is the same 50 % the old flat
+bonus gave and is now earned.
+
+**Why the flour is not hauled back.** The two-leg design — grain out, bread back
+— was written and measured, and it strangled every town below about forty
+people: one miller grinds nine loaves a step and one carrier moves about one, so
+the bread stacked at the mill, the stones stopped and the granary drained. What
+a miller makes joins the town's larder directly. The one leg that is real is the
+one that matters.
 
 ### CARPENTER
 

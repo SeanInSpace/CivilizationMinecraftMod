@@ -66,13 +66,23 @@ ordering function.
 | # | Flow | Exists today as | Notes |
 |---|---|---|---|
 | 1 | **materials to build sites** | `SupplyPlanner` | the only demand-driven one; the signal is a build |
-| 2 | **produce to granary** | farmers' own errands in `FoodPlanner` | field → granary, `FARMER_CARRY` = 12 |
-| 3 | **stock to market** | traders' own errands in `FoodPlanner` | granary → stall, `TRADER_CARRY` = 12 |
+| 2 | **grain to the bakery** | farmers' own errands in `FoodPlanner` | field → mill (if one runs) else granary/hearth, `FARMER_CARRY` = 12 of `GRAIN` |
+| 3 | **stock to market** | traders' own errands in `FoodPlanner` | granary → stall, `TRADER_CARRY` = 12 of `FOOD` |
 
 Build materials first because a build that is waiting is a build that has
-stopped, and the queue behind it is head-blocking. Produce second because it
-feeds people. Market stock last because the granary already feeds people and the
-stall is a convenience on top of it.
+stopped, and the queue behind it is head-blocking. Grain second because it
+becomes what feeds people. Market stock last because the larder already feeds
+people and the stall is a convenience on top of it.
+
+Flow 2 changed shape when bread stopped growing on the stalk. A cut block is a
+sheaf of `GRAIN` now, not a loaf, so the farmer's walk ends at the town's
+bakery-of-record rather than at the larder, and a settlement with nowhere to
+bake sends nobody anywhere — the sacks stack up in the fields, which is the
+honest picture and is what `/civ info` reports. There is deliberately **no**
+fourth flow carrying flour back from the mill: it was written, measured, and
+found to strangle any town with fewer spare hands than a miller can outpace, so
+what the stones make joins the larder where it is made. See `docs/CITIZENS.md`,
+MILLER.
 
 **Do farmers and traders keep their errands?** Yes, and this is the important
 design decision. A farmer carrying their own harvest to the granary is *farming*

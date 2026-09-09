@@ -11,6 +11,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
@@ -197,10 +198,18 @@ class HungerFirstTest {
         // twelve of grain, or a courier's sixty-four of timber. The errand they
         // have is left alone for the one step it takes to put it down properly.
         Settlement town = town();
-        stockTheGranary(town, 0);
+        // Stocked, deliberately. The larder used to be empty here and the field
+        // held thirty loaves, which kept the town off the starvation lane; a
+        // field holds thirty sheaves of grain now and grain is not food, so an
+        // empty larder would make this a starving town -- and a starving town
+        // suspends the very weakness rule this case exists to check.
+        stockTheGranary(town, 60);
         Building field = new Building("kingdoms:farm", new SimPos(-40, 64, 0), 0, true);
-        field.setFoodStored(30);
+        field.stores().set(TownStores.GRAIN, 30);
         town.addBuilding(field);
+        // The oven the errand is bound for. Without one the town has nowhere to
+        // send grain and there is no errand to interrupt.
+        town.addBuilding(new Building("kingdoms:hearth", new SimPos(8, 64, 0), 0, true));
         Person ada = settle(town, "Ada", Profession.FARMER);
         settle(town, "Bruno", Profession.BUILDER);
         ada.setPosition(field.origin());
@@ -210,22 +219,35 @@ class HungerFirstTest {
         assertNotNull(ada.haul(), "the fixture is a farmer out on an errand");
         assertTrue(ada.haul().isLoaded(), "with grain actually on their back");
         int carried = ada.haul().carried();
-        int onTheShelf = field.foodStored();
+        int onTheShelf = field.stores().get(TownStores.GRAIN);
 
         ada.setHunger(Person.HUNGER_WEAK);
         town.step(CTX);
 
-        assertEquals(onTheShelf + carried, field.foodStored(),
+        assertEquals(onTheShelf + carried, field.stores().get(TownStores.GRAIN),
                 "every grain of it went back where it came from");
         assertNull(ada.haul(), "and the errand is over");
 
         town.step(CTX);
 
-        // Standing in the rows they were hauling out of, so the errand is given
-        // and run inside the one step — which is the point: nothing was lost and
-        // nothing was delayed beyond the step it took to set the sacks down.
-        assertTrue(ada.inventory().foodCount() > 0,
-                "and the meal comes the step after, once their hands are empty");
+        // The dinner errand is given the very next step, once their hands are
+        // empty — which is the point: nothing was lost and nothing was delayed
+        // beyond the step it took to set the sacks down.
+        //
+        // It is a walk rather than an arrival now, and that is the grain
+        // economy showing: what they were standing in is a field of cut wheat,
+        // and cut wheat is not dinner. The nearest thing anybody can actually
+        // eat is the larder across the town, so they set off for it.
+        assertTrue(FoodPlanner.isGoingToEat(ada),
+                "and the meal errand comes the step after, once their hands are empty");
+
+        int hungry = ada.hunger();
+        int best = hungry;
+        for (int step = 0; step < 30; step++) {
+            town.step(CTX);
+            best = Math.min(best, ada.hunger());
+        }
+        assertTrue(best < hungry, "and they get there and eat");
     }
 
     @Test

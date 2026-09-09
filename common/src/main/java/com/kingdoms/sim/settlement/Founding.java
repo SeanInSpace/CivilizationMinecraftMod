@@ -8,7 +8,6 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -572,8 +571,12 @@ public final class Founding {
      *
      * <ul>
      *   <li><strong>Food</strong> — every standing field is holding a full
-     *       {@link FoodPlanner#FARM_STORE_CAP}, which is one harvest not yet
-     *       carried in, and the granary holds a quarter of what it could. A
+     *       {@link FoodPlanner#FARM_GRAIN_CAP} of <em>grain</em>, which is one
+     *       harvest cut and not yet carried to the oven, and the granary holds a
+     *       quarter of the bread it could. Grain rather than loaves because a
+     *       field is where wheat is cut, not where it is baked — a seeded town
+     *       arrives mid-chain like any other, with sacks in the fields and
+     *       somebody about to walk them in. A
      *       town with neither keeps a charter party's provisions, because with
      *       no field and no granary that is precisely what it is.</li>
      *   <li><strong>Timber and stone</strong> — one building's worth for each
@@ -593,11 +596,11 @@ public final class Founding {
      * shelves a builder can walk to.
      */
     private static void stockTheStores(Settlement town) {
-        List<Building> fields = roleOf(town, "farm");
-        int granaries = roleOf(town, "granary").size();
-        int camps = roleOf(town, "lumber_camp").size();
-        int mines = roleOf(town, "mine").size();
-        int smithies = roleOf(town, "smith").size();
+        List<Building> fields = roleOf(town, BuildingRole.CROP_FARM);
+        int granaries = roleOf(town, BuildingRole.GRANARY).size();
+        int camps = roleOf(town, BuildingRole.LUMBER_CAMP).size();
+        int mines = roleOf(town, BuildingRole.MINE).size();
+        int smithies = roleOf(town, BuildingRole.SMITH).size();
 
         town.setFoodStock(granaries > 0
                 ? Math.min(FoodPlanner.granaryCapacity(town),
@@ -618,7 +621,7 @@ public final class Founding {
         // field is not a store -- but a reader who did not know that would move
         // this line up and quietly lose the harvest.
         for (Building field : fields) {
-            field.setFoodStored(FoodPlanner.FARM_STORE_CAP);
+            field.stores().set(TownStores.GRAIN, FoodPlanner.FARM_GRAIN_CAP);
         }
         town.putAwayLoosePile();
         // The fed streak is deliberately NOT set here. It looked like something
@@ -629,15 +632,16 @@ public final class Founding {
         // decision and does nothing is worse than no line.
     }
 
-    /** Every standing building whose base id ends this way, as FoodPlanner counts them. */
-    private static List<Building> roleOf(Settlement town, String suffix) {
-        List<Building> out = new ArrayList<>();
-        for (Building standing : town.buildings()) {
-            if (BuildPlanner.baseIdOf(standing.blueprintId()).endsWith(suffix)) {
-                out.add(standing);
-            }
-        }
-        return out;
+    /**
+     * Every standing building of a kind, as FoodPlanner counts them.
+     *
+     * <p>By {@link BuildingRole} rather than by id suffix, which is the same
+     * fix and the same reason as {@code FoodPlanner.buildingsOf}: "farm" as a
+     * suffix matches {@code animal_farm}, so a seeded town with a compound in
+     * it used to arrive with a shelf of harvest sitting in the sheep pen.
+     */
+    private static List<Building> roleOf(Settlement town, BuildingRole role) {
+        return town.buildingsWithRole(role);
     }
 
     /**

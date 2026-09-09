@@ -661,6 +661,14 @@ public final class KingdomsCommand {
                         .append(", fields ").append(FoodPlanner.farmStock(s))
                         .append(", market ").append(FoodPlanner.marketStock(s))
                         .append(", pantries ").append(FoodPlanner.pantryTotal(s));
+                // Grain is not food and nobody can eat it, so it gets its own
+                // line: a town starving beside full sacks is a town with no
+                // oven, and that has to be readable rather than mysterious.
+                sb.append("\n      grain: ").append(FoodPlanner.farmGrain(s))
+                        .append(" on farms, ").append(FoodPlanner.bakeryGrain(s))
+                        .append(FoodPlanner.bakery(s) == null
+                                ? " at no bakery (NOBODY BAKES)" : " at the mill/granary")
+                        .append(" · bread: ").append(s.foodStock());
                 // What the trades are standing on. A town short of timber or
                 // stone used to give no reason for it anywhere, and the reason
                 // is now a countable thing: the trees left in the claim, the
