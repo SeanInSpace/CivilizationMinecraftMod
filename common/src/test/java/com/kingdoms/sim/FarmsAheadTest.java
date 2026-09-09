@@ -136,7 +136,12 @@ class FarmsAheadTest {
             step(town, at);
         }
 
-        assertEquals(4, town.population(), "the charter party is alive");
+        // Alive, and no longer only alive. The party used to still be four at
+        // fifteen hundred because an unwatched camp could not fell a log, so it
+        // never raised a house for a fifth settler; the timber trade is a real
+        // stand of trees now and the same run ends a TOWN of several dozen. See
+        // UnwatchedFarmingTest, which owns that measurement.
+        assertTrue(town.population() >= 4, "the charter party is alive");
         assertTrue(town.countBuildings(BuildPlanner.FARM) >= 1, "on a field it built itself");
         assertTrue(foodEverywhere(town) > FoodPlanner.STARTING_PROVISIONS,
                 "and holding more food than it set out with, having conjured none: "
@@ -193,7 +198,10 @@ class FarmsAheadTest {
         assertEquals(1, town.countBuildings(BuildPlanner.FARM),
                 "four settlers want exactly one field");
 
-        for (int i = 0; i < 36; i++) {
+        // Up to forty rather than plus thirty-six: a town that can now fell its
+        // own timber raises houses while it waits, so two hundred steps do not
+        // always end on the four who signed the charter.
+        for (int i = 0; town.population() < 40; i++) {
             town.addResident(new Person(Person.Id.random(), "Incomer" + i, Profession.IDLER,
                     new SimPos(0, 64, 0)));
         }
@@ -246,8 +254,16 @@ class FarmsAheadTest {
             if (farms == 0 || upheaval < 0 || at < upheaval + 20) {
                 continue;
             }
+            // The bound is the town itself, and the town now has more than
+            // fields to man. A camp that can fell timber and cut stone has a
+            // lumberjack and a miner in it, and a party of four with a builder
+            // as well has one hand left for the field however much it would
+            // like two. Those trades come off the top before the fields are
+            // held to their two apiece.
             int wanted = Math.min(farms * FoodPlanner.FARMERS_PER_FARM,
-                    town.population() - 1);
+                    town.population() - 1
+                            - JobPlanner.count(town, Profession.LUMBERJACK)
+                            - JobPlanner.count(town, Profession.MINER));
             assertTrue(farmers(town) >= wanted,
                     "step " + at + ": " + farms + " field(s), " + town.population()
                             + " residents, and only " + farmers(town) + " working them");

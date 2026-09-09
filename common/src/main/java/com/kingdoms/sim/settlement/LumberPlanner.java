@@ -3,7 +3,6 @@ package com.kingdoms.sim.settlement;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
-import com.kingdoms.sim.world.YieldPolicy;
 import java.util.List;
 
 /**
@@ -17,6 +16,13 @@ import java.util.List;
  *
  * <p>A camp claims its own surroundings when built. Players move or resize that
  * claim through the camp block, never through config.
+ *
+ * <p><strong>What a camp produces is its {@link Stand}.</strong> Timber used to
+ * be a percentage of an imagined felling, and at the shipped zero an unwatched
+ * camp brought in nothing — which is how a town nobody visited came to jam its
+ * build queue on a cottage forever. There is no percentage in this file any
+ * more. There are trees, there are saplings, and there are the lumberjacks the
+ * town actually has.
  */
 public final class LumberPlanner {
 
@@ -25,15 +31,15 @@ public final class LumberPlanner {
     public static final int MAX_RADIUS = 64;
     public static final int RADIUS_STEP = 8;
 
-    /** Timber one lumberjack brings in per step when nobody is watching them do it. */
     /**
-     * Timber one lumberjack brings in per step when nobody is watching them do it.
+     * Logs a lumberjack gets a usable sapling out of: one in four.
      *
-     * <p>Twice the miner's rate, because building spends wood twice as fast as
-     * stone. A playtest with them equal left a town sitting on 900 stone and
-     * sixteen planks, unable to raise anything.
+     * <p>Off the crown of the tree they just felled, and it is the world's own
+     * number — {@code LumberjackWorker} saves one sapling per four logs it cuts,
+     * keyed by position so it never drifts. The clock keeps the same rate for
+     * the same felling, because the two fidelities are felling the same trees.
      */
-    public static final int WOOD_PER_STEP = 8;
+    public static final int LOGS_PER_SAPLING = 4;
 
     /** Saplings worth keeping on hand for replanting. */
     public static final int MAX_SAPLINGS = 128;
@@ -53,26 +59,6 @@ public final class LumberPlanner {
     public static final int BASE_WOOD_STORAGE = 896;
     public static final int WOOD_PER_STOREHOUSE = 400;
 
-    /**
-     * Steps a watched camp may go without real work before the clock takes
-     * over again.
-     *
-     * <p>This used to be deliberately the same shape and the same number as a
-     * grace period the fields kept; the fields have since stopped keeping one,
-     * because a field's yield is now the field itself. What stood here was an
-     * outright return the moment a player came within the observed radius —
-     * which is ninety-six blocks, against a camp on a ring plot a dozen from
-     * the town square. Standing in your own town suppressed the abstract yield
-     * entirely, and that is only correct while the real hands are actually
-     * working: a camp whose trees have all been felled has nothing left to swing at,
-     * and one sited on open grass never had any. So the town received nothing at all for exactly as long
-     * as somebody was there to watch it fail.
-     *
-     * <p>Being watched must never starve a town, and it must not bankrupt one
-     * either.
-     */
-    public static final int WATCHED_WORK_GRACE_STEPS = 12;
-
     private LumberPlanner() {
     }
 
@@ -83,71 +69,139 @@ public final class LumberPlanner {
             settlement.logEvent(ctx.step(),
                     "The lumber camp claims the woodland around " + camp);
         }
-        fellUnwatched(settlement, ctx, camp);
+        workTheWood(settlement, ctx);
     }
 
     /**
-     * Timber brought in while nobody is looking.
+     * A step of the timber trade, camp by camp.
      *
-     * <p>Felling is world work — {@code LumberjackWorker} swings the axe — but that
-     * only runs where a player is close enough to see it. Without this an unwatched
-     * town produces nothing, and since building now costs materials, that means it
-     * stops building forever the moment you walk away. Hauling already works at both
-     * fidelities for exactly the same reason; so does this.
+     * <p>What a camp brings in is what its {@link Stand} holds, and nothing
+     * else. There is no yield table in this method and there is not supposed to
+     * be one: {@code YieldPolicy} still lists {@code wood} and {@code saplings},
+     * and nothing reads either any more.
+     *
+     * <p>Felling is world work — {@code LumberjackWorker} swings the axe — but
+     * that only runs where a player is close enough to see it, and an unwatched
+     * town that produced nothing stopped building forever the moment you walked
+     * away. So the clock fells too, off the same ledger, at the same pace, and
+     * puts the same saplings back. What it will not do is fell a tree that is
+     * not there.
      */
-    private static void fellUnwatched(Settlement settlement, SimContext ctx, SimPos camp) {
-        if (camp == null || !wantsMoreTimber(settlement)) {
+    private static void workTheWood(Settlement settlement, SimContext ctx) {
+        List<Building> camps = settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP);
+        if (camps.isEmpty()) {
             return;
-        }
-        boolean watched = ctx.bridge().playerWithin(camp, ctx.settings().observedRadius());
-        if (watched && cutRecently(settlement, ctx.step())) {
-            return;   // somebody is watching and the real axes are swinging
-        }
-        YieldPolicy policy = ctx.settings().yields();
-        int woodPercent = policy.percent(watched, TownStores.WOOD);
-        int saplingPercent = policy.percent(watched, TownStores.SAPLINGS);
-        if (woodPercent <= 0 && saplingPercent <= 0) {
-            return;   // this world does not conjure timber
         }
         int jacks = (int) settlement.residents().stream()
                 .filter(p -> p.profession() == Profession.LUMBERJACK && !p.isTooWeakToWork())
                 .count();
-        if (jacks <= 0) {
-            return;
-        }
-        // Put down at the camp that felled it, not into the town at large, and
-        // split between the camps rather than credited all to the first — a town
-        // with two camps works both, so its timber should pile up at both. The
-        // ceiling is still the whole town's: produceNear measures the room it
-        // has left before each drop.
-        List<Building> camps = settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP);
-        int places = Math.max(1, camps.size());
+        boolean wantsTimber = wantsMoreTimber(settlement);
+        int places = camps.size();
         for (int i = 0; i < places; i++) {
+            Building camp = camps.get(i);
+            boolean watched = reckonStand(settlement, camp, ctx);
+            // The wood grows whether or not the town wants it and whether or not
+            // anybody is there: a loaded chunk grows its own saplings and this is
+            // only mirroring them.
+            Stand.grow(camp, ctx);
+            if (watched) {
+                continue;   // where there is a hand there is no clock
+            }
             int share = Workforce.shareOf(jacks, i, places);
             if (share <= 0) {
                 continue;
             }
-            SimPos at = camps.isEmpty() ? settlement.center() : camps.get(i).origin();
-            settlement.produceNear(at, TownStores.WOOD,
-                    settlement.abstractYield(at, TownStores.WOOD,
-                            share * WOOD_PER_STEP, woodPercent),
-                    woodCapacity(settlement));
-            // Capped: saplings are for replanting, not a stockpile. A playtest left
-            // a town holding a thousand of them, which is noise in the ledger.
-            settlement.produceNear(at, TownStores.SAPLINGS,
-                    settlement.abstractYield(at, TownStores.SAPLINGS, share, saplingPercent),
-                    MAX_SAPLINGS);
+            // Put down at the camp that felled it, not into the town at large,
+            // and split between the camps rather than credited all to the first.
+            // The ceiling is still the whole town's: produceNear measures the
+            // room it has left before each drop.
+            if (wantsTimber) {
+                fell(settlement, camp, share);
+            }
+            // A jack with nothing left to cut, or a town with nowhere to put
+            // what he cuts, goes and puts the wood back — which is exactly what
+            // LumberjackWorker does with the same two conditions.
+            if (!wantsTimber || Stand.trees(camp) <= 0) {
+                replant(settlement, camp, share);
+            }
         }
     }
 
-    /** Whether any camp has seen a real log cut lately. */
-    private static boolean cutRecently(Settlement settlement, long step) {
-        for (Building camp : settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP)) {
-            if (camp.harvestedWithin(step, WATCHED_WORK_GRACE_STEPS)) {
-                return true;
+    /** One camp's felling for one step, and the saplings that come off the crowns. */
+    private static void fell(Settlement settlement, Building camp, int jacks) {
+        int room = Math.max(0, woodCapacity(settlement) - settlement.woodStock());
+        int logs = Stand.fell(camp, Math.min(jacks * Stand.LOGS_PER_JACK_PER_STEP, room));
+        if (logs <= 0) {
+            return;
+        }
+        SimPos at = camp.origin();
+        settlement.produceNear(at, TownStores.WOOD, logs, woodCapacity(settlement));
+        // Saplings off the crowns, counted against the running total of logs
+        // rather than against this step's felling. One in four of `logs` is
+        // nought for every step a camp cuts fewer than four — which is every
+        // step of the long stretch when a claim is living off its own regrowth,
+        // and it rounded the woodland's whole future away: the stand fell to
+        // nothing, the seed box emptied, and the camp stood idle beside ground
+        // it was never going to replant. The tally carries the remainder, and it
+        // is the same tally the real axe raises, so the two fidelities save seed
+        // at one rate between them.
+        //
+        // Capped: saplings are for replanting, not a stockpile. A playtest left a
+        // town holding a thousand of them, which is noise in the ledger.
+        int felledBefore = settlement.tallies().get(Tallies.TREES_FELLED);
+        int felledNow = settlement.tallies().record(Tallies.TREES_FELLED, logs);
+        settlement.produceNear(at, TownStores.SAPLINGS,
+                felledNow / LOGS_PER_SAPLING - felledBefore / LOGS_PER_SAPLING,
+                MAX_SAPLINGS);
+    }
+
+    /** Saplings out of the town's box and into the ground, at the jacks' own pace. */
+    private static void replant(Settlement settlement, Building camp, int jacks) {
+        int put = Math.min(jacks * Stand.SAPLINGS_PER_JACK_PER_STEP,
+                settlement.saplingStock());
+        for (int i = 0; i < put; i++) {
+            settlement.stores().takeUpTo(TownStores.SAPLINGS, 1);
+            Stand.plant(camp);
+        }
+    }
+
+    /**
+     * Counts the camp's trees when the ground can answer, and says whether
+     * anybody is watching.
+     *
+     * <p>The trees are their own truth, so this is the opposite of what a field
+     * does on the same flip. A field has to be <em>told</em> what its ledger
+     * says, because the age of a wheat block is invisible bookkeeping; a trunk
+     * either stands or it does not, so a camp somebody has just walked up to
+     * simply counts what is there and believes it.
+     *
+     * <p>It also runs once for a camp nobody has ever counted — which is not the
+     * same as a camp with nothing standing. A camp saved before a player ever
+     * reached it keeps {@link Stand#UNCOUNTED} until the day its chunks load,
+     * and only then finds out what it is standing in.
+     */
+    private static boolean reckonStand(Settlement settlement, Building camp, SimContext ctx) {
+        boolean watched = ctx.bridge().playerWithin(
+                camp.origin(), ctx.settings().observedRadius());
+        boolean arriving = watched && !camp.wasWatched();
+        if (arriving || !Stand.isCounted(camp)) {
+            if (ctx.bridge().isLoaded(camp.origin())) {
+                WorkArea area = settlement.lumberArea();
+                int radius = area == null ? DEFAULT_RADIUS : area.radius();
+                Stand.recount(camp, ctx.bridge().countTreesNear(camp.origin(), radius));
+            } else if (!Stand.isCounted(camp)) {
+                // Nobody can look, and nearly nobody ever can: a town on the far
+                // side of the world is unloaded almost all of its life. Treating
+                // that as "no trees" would have reinstated the fault this file
+                // was rewritten to fix — an unwatched town that produces nothing
+                // and jams its build queue forever. So the camp is credited with
+                // the stand its own siting implies until the day somebody can
+                // count it. See Stand.UNSURVEYED.
+                Stand.recount(camp, Stand.UNSURVEYED);
             }
         }
-        return false;
+        camp.setWatched(watched);
+        return watched;
     }
 
     /** Where the camp stands, or null if the town has not built one. */

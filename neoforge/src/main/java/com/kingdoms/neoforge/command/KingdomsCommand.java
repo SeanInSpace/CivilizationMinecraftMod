@@ -19,6 +19,9 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingRole;
+import com.kingdoms.sim.settlement.Seam;
+import com.kingdoms.sim.settlement.Stand;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Garrison;
 import com.kingdoms.sim.settlement.JobPlanner;
@@ -658,6 +661,35 @@ public final class KingdomsCommand {
                         .append(", fields ").append(FoodPlanner.farmStock(s))
                         .append(", market ").append(FoodPlanner.marketStock(s))
                         .append(", pantries ").append(FoodPlanner.pantryTotal(s));
+                // What the trades are standing on. A town short of timber or
+                // stone used to give no reason for it anywhere, and the reason
+                // is now a countable thing: the trees left in the claim, the
+                // saplings coming up, and the rock left under the mine head.
+                for (Building camp : s.buildingsWithRole(BuildingRole.LUMBER_CAMP)) {
+                    sb.append("\n      wood: ");
+                    if (!Stand.isCounted(camp)) {
+                        sb.append("camp at ").append(camp.origin())
+                                .append(" — nobody has counted its trees yet");
+                    } else {
+                        sb.append(Stand.trees(camp)).append(" trees standing, ")
+                                .append(Stand.growing(camp)).append(" coming up");
+                        if (Stand.isBare(camp)) {
+                            sb.append("  (BARE — nothing to fell and nothing planted)");
+                        }
+                    }
+                }
+                for (Building mine : s.buildingsWithRole(BuildingRole.MINE)) {
+                    sb.append("\n      stone: ");
+                    if (!Seam.isCounted(mine)) {
+                        sb.append("mine at ").append(mine.origin())
+                                .append(" — its ground has never been surveyed");
+                    } else if (Seam.isExhausted(mine)) {
+                        sb.append("the mine at ").append(mine.origin())
+                                .append(" is CUT OUT — it will yield nothing more");
+                    } else {
+                        sb.append(Seam.remaining(mine)).append(" blocks left in the seam");
+                    }
+                }
                 int worstHunger = s.residents().stream().mapToInt(Person::hunger).max().orElse(0);
                 long starving = s.residents().stream()
                         .filter(p -> p.hunger() >= Person.HUNGER_SEVERE).count();

@@ -84,6 +84,28 @@ public final class Building {
     private int ripeHundredths;
 
     /**
+     * A lumber camp's standing timber, in thousandths of a log. See {@link Stand}.
+     *
+     * <p>{@link Stand#UNCOUNTED} until the ground under the camp has been loaded
+     * with somebody asking, because "nobody has counted these trees" and "these
+     * trees have all been felled" are opposite facts, and only one of them means
+     * the camp should stop working.
+     */
+    private int standThousandths = Stand.UNCOUNTED;
+
+    /** A lumber camp's saplings, as the timber they are going to be. See {@link Stand}. */
+    private int growingThousandths;
+
+    /**
+     * A mine's remaining stone, in blocks. See {@link Seam}.
+     *
+     * <p>{@link Seam#UNCOUNTED} until the ground has been counted, for the same
+     * reason the stand is: a mine nobody has ever looked at is not a mine that
+     * has been cut out.
+     */
+    private int stoneSeam = Seam.UNCOUNTED;
+
+    /**
      * Whether a player was near this farm the last time the clock looked.
      *
      * <p>Only ever compared against the current answer, to catch the moment a
@@ -364,6 +386,38 @@ public final class Building {
 
     public void setRipeHundredths(int hundredths) {
         this.ripeHundredths = Math.max(0, hundredths);
+    }
+
+    /** This camp's standing timber, in thousandths of a log. See {@link Stand}. */
+    public int standThousandths() {
+        return standThousandths;
+    }
+
+    /**
+     * Deliberately not clamped at zero: {@link Stand#UNCOUNTED} lives in this
+     * field and means something no amount of felling can.
+     */
+    public void setStandThousandths(int thousandths) {
+        this.standThousandths = Math.max(Stand.UNCOUNTED, thousandths);
+    }
+
+    /** This camp's saplings, as the timber they are going to be. See {@link Stand}. */
+    public int growingThousandths() {
+        return growingThousandths;
+    }
+
+    public void setGrowingThousandths(int thousandths) {
+        this.growingThousandths = Math.max(0, thousandths);
+    }
+
+    /** This mine's remaining stone, in blocks. See {@link Seam}. */
+    public int stoneSeam() {
+        return stoneSeam;
+    }
+
+    /** Not clamped at zero either, and for the same reason: see {@link Seam#UNCOUNTED}. */
+    public void setStoneSeam(int blocks) {
+        this.stoneSeam = Math.max(Seam.UNCOUNTED, blocks);
     }
 
     /** Whether a player was near this building the last time the clock looked. */

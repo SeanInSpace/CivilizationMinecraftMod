@@ -15,6 +15,8 @@ import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Perimeter;
+import com.kingdoms.sim.settlement.Seam;
+import com.kingdoms.sim.settlement.Stand;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.settlement.TownStores;
@@ -453,9 +455,21 @@ public final class KingdomsCodecs {
             // This has to survive a save or a worldgen town, which can go whole
             // sessions with nobody near it, would forget its harvest every time
             // the game closed. Zero for every save written before fields counted.
-            Codec.INT.optionalFieldOf("ripe", 0).forGetter(Building::ripeHundredths)
+            Codec.INT.optionalFieldOf("ripe", 0).forGetter(Building::ripeHundredths),
+            // A lumber camp's stand and a mine's seam, which have to survive a
+            // save for the same reason a field's ripeness does: a town can go
+            // whole sessions with nobody near it, and a camp that forgot its
+            // trees every time the game closed would be a camp that never grew
+            // any. Both default to their UNCOUNTED sentinel rather than to zero
+            // — every save written before this is a save nobody counted, not a
+            // world of felled woods and exhausted mines. Sixteen fields, which
+            // is the ceiling on group(); the next one has to be a record.
+            Codec.INT.optionalFieldOf("stand", Stand.UNCOUNTED)
+                    .forGetter(Building::standThousandths),
+            Codec.INT.optionalFieldOf("growing", 0).forGetter(Building::growingThousandths),
+            Codec.INT.optionalFieldOf("seam", Seam.UNCOUNTED).forGetter(Building::stoneSeam)
     ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing, held,
-                census, damage, seeded, ripe) -> {
+                census, damage, seeded, ripe, stand, growing, seam) -> {
         Building building = new Building(blueprint, origin, step, materialized);
         building.setSeeded(seeded);
         building.setFoodStored(food);
@@ -465,6 +479,9 @@ public final class KingdomsCodecs {
         building.setSoundCensus(census);
         building.setDamage(damage);
         building.setRipeHundredths(ripe);
+        building.setStandThousandths(stand);
+        building.setGrowingThousandths(growing);
+        building.setStoneSeam(seam);
         if (!held.isEmpty()) {
             building.stores().restore(held);
         }

@@ -9,6 +9,8 @@ import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.Danger;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.settlement.ForesterStand;
+import com.kingdoms.sim.settlement.Seam;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -282,6 +284,144 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         }
         return false;
     }
+
+    /**
+     * The trees actually standing in a camp's claim, counted.
+     *
+     * <p>What sizes a camp's {@code Stand}, and it has to be a count rather than
+     * a density: a camp works trunks, not percentages. Every column on a coarse
+     * grid is probed for the top of a trunk with a canopy over it — a log at the
+     * motion-blocking-no-leaves height with leaves above it, which is a tree and
+     * not a fence post, a log cabin wall or the crown of a neighbor — and the
+     * sample is scaled back up by the ground it stood for.
+     *
+     * <p>The grid is {@link #TREE_SAMPLE_STEP} apart, which is the spacing a
+     * stand is planted at, so an evenly worked wood is counted about once per
+     * tree. It is a sample: a claim of scattered trees can read a little high or
+     * low, and the number is taken again every time a player walks up to the
+     * camp.
+     *
+     * <p>Loaded chunks only, and capped at {@link #TREE_MAX_COLUMNS} probes, so
+     * a wide claim costs a bounded amount rather than a spike at the busiest
+     * moment the mod has. Unloaded columns are not counted and not scaled for —
+     * a half-loaded claim reports the half it could see, which is the
+     * conservative answer.
+     */
+    @Override
+    public int countTreesNear(SimPos center, int radius) {
+        BlockPos at = toBlockPos(center);
+        if (!level.isLoaded(at)) {
+            return 0;
+        }
+        int probes = 0;
+        int trunks = 0;
+        outer:
+        for (int dx = -radius; dx <= radius; dx += TREE_SAMPLE_STEP) {
+            for (int dz = -radius; dz <= radius; dz += TREE_SAMPLE_STEP) {
+                if (probes >= TREE_MAX_COLUMNS) {
+                    break outer;
+                }
+                BlockPos column = at.offset(dx, 0, dz);
+                if (!level.isLoaded(column)) {
+                    continue;
+                }
+                probes++;
+                if (hasCrownedTrunk(column)) {
+                    trunks++;
+                }
+            }
+        }
+        // Each probe stood for the square of ground around it, and one tree of
+        // the stand occupies SPACING by SPACING of that.
+        int perProbe = Math.max(1,
+                TREE_SAMPLE_STEP * TREE_SAMPLE_STEP
+                        / (ForesterStand.SPACING * ForesterStand.SPACING));
+        return trunks * perProbe;
+    }
+
+    /** A trunk with foliage over it: a tree, rather than a post or a wall. */
+    private boolean hasCrownedTrunk(BlockPos column) {
+        int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                column.getX(), column.getZ()) - 1;
+        BlockPos head = new BlockPos(column.getX(), top, column.getZ());
+        if (!level.getBlockState(head).is(net.minecraft.tags.BlockTags.LOGS)) {
+            return false;
+        }
+        for (int up = 1; up <= TREE_CANOPY_PROBE; up++) {
+            if (level.getBlockState(head.above(up)).is(net.minecraft.tags.BlockTags.LEAVES)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * How much stone is under a mine head, in blocks.
+     *
+     * <p>What sizes a mine's {@code Seam}. Columns on the same coarse grid, each
+     * read from the head down to {@code depth} — no deeper, because
+     * {@code MinerWorker} will not cut deeper — counting the blocks a miner
+     * would actually take out. The sample is scaled by the columns it stood for,
+     * so a mountain mine reads in the tens of thousands and a mine sunk into a
+     * superflat reads in the dozens, which is the whole reason the seam replaced
+     * a flat yield number.
+     *
+     * <p>Ground nobody has loaded answers {@code Seam.UNSURVEYED} rather than
+     * zero: an unread hillside is a mine of unknown worth, not an empty one, and
+     * reporting nothing would tell the town its mine was exhausted the day it
+     * was dug.
+     */
+    @Override
+    public int countStoneBelow(SimPos center, int radius, int depth) {
+        BlockPos at = toBlockPos(center);
+        if (!level.isLoaded(at)) {
+            return Seam.UNSURVEYED;
+        }
+        int floor = Math.max(level.getMinY() + 1, at.getY() - depth);
+        int probes = 0;
+        long stone = 0;
+        outer:
+        for (int dx = -radius; dx <= radius; dx += STONE_SAMPLE_STEP) {
+            for (int dz = -radius; dz <= radius; dz += STONE_SAMPLE_STEP) {
+                if (probes >= STONE_MAX_COLUMNS) {
+                    break outer;
+                }
+                BlockPos column = at.offset(dx, 0, dz);
+                if (!level.isLoaded(column)) {
+                    continue;
+                }
+                probes++;
+                for (int y = at.getY(); y >= floor; y--) {
+                    BlockState state = level.getBlockState(
+                            new BlockPos(column.getX(), y, column.getZ()));
+                    if (state.is(net.minecraft.tags.BlockTags.BASE_STONE_OVERWORLD)
+                            || state.is(net.minecraft.tags.BlockTags.IRON_ORES)) {
+                        stone++;
+                    }
+                }
+            }
+        }
+        if (probes == 0) {
+            return Seam.UNSURVEYED;
+        }
+        long scaled = stone * STONE_SAMPLE_STEP * STONE_SAMPLE_STEP;
+        return (int) Math.min(Integer.MAX_VALUE, scaled);
+    }
+
+    /** Every fifth column, which is the spacing a stand of trees is planted at. */
+    private static final int TREE_SAMPLE_STEP = 5;
+
+    /** Blocks of foliage looked for above a trunk before calling it a tree. */
+    private static final int TREE_CANOPY_PROBE = 3;
+
+    /** Columns probed for trunks before the count gives up and reports what it has. */
+    private static final int TREE_MAX_COLUMNS = 400;
+
+    /** Every fourth column: a seam is thousands of blocks and does not need every one. */
+    private static final int STONE_SAMPLE_STEP = 4;
+
+    /** Columns probed for stone; each one is read twenty deep, so this is the real cost. */
+    private static final int STONE_MAX_COLUMNS = 200;
 
     /** Every fourth column: enough to tell a wood from a meadow. */
     private static final int WOOD_SAMPLE_STEP = 4;

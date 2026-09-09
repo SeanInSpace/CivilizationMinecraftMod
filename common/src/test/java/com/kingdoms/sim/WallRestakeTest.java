@@ -11,6 +11,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Perimeter;
 import com.kingdoms.sim.settlement.PerimeterPlanner;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
@@ -260,6 +261,13 @@ class WallRestakeTest {
             // when it was staked, and holding the wall to ground nobody had
             // built on yet would be asking it to see the future.
             List<Building> stood = List.copyOf(town.buildings());
+            // The trades are stocked by hand, because what is measured here is the
+            // shape of a town and not the pace of its timber. Felling is a real
+            // stand of trees now rather than a percentage of an imagined one — see
+            // Stand — and a claim renews itself far more slowly than a fixture that
+            // wants a grown town by step four hundred can afford to wait for.
+            town.stores().add(TownStores.WOOD, 8);
+            town.stores().add(TownStores.STONE, 6);
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
             if (reachedTown < 0 && town.stage() == SettlementStage.TOWN) {
                 reachedTown = step;

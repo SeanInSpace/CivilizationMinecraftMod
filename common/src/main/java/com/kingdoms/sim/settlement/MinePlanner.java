@@ -3,7 +3,6 @@ package com.kingdoms.sim.settlement;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.world.SimContext;
-import com.kingdoms.sim.world.YieldPolicy;
 import java.util.List;
 
 /**
@@ -21,6 +20,11 @@ import java.util.List;
  * <p>Deliberately mirrors LumberPlanner rather than sharing code with it. The two
  * trades are the same shape today and will not stay that way — ore, depth and
  * tool tiers all belong here and nowhere near the woodland.
+ *
+ * <p><strong>What a mine produces is its {@link Seam}</strong>, and the seam does
+ * not grow back. A camp felled bare puts its own saplings in; a mine cut out is
+ * cut out, and the town has to find more ground. No yield table has any say in
+ * either.
  */
 public final class MinePlanner {
 
@@ -28,19 +32,6 @@ public final class MinePlanner {
     public static final int MIN_RADIUS = 8;
     public static final int MAX_RADIUS = 48;
     public static final int RADIUS_STEP = 8;
-
-    /** Stone one miner cuts per step when nobody is watching them do it. */
-    /**
-     * Stone one miner cuts per step when nobody is watching them do it.
-     *
-     * <p>A little above break-even against what building spends. At exactly
-     * break-even a town hovers near zero stone and stalls at random, which reads
-     * as a bug even though the arithmetic is working.
-     */
-    public static final int STONE_PER_STEP = 6;
-
-    /** Iron turned up per miner per step: ore is rarer than rock. */
-    public static final int IRON_PER_STEP = 1;
 
     /**
      * Iron worth keeping on hand.
@@ -55,26 +46,6 @@ public final class MinePlanner {
     public static final int BASE_STONE_STORAGE = 512;
     public static final int STONE_PER_STOREHOUSE = 400;
 
-    /**
-     * Steps a watched mine may go without real work before the clock takes
-     * over again.
-     *
-     * <p>This used to be deliberately the same shape and the same number as a
-     * grace period the fields kept; the fields have since stopped keeping one,
-     * because a field's yield is now the field itself. What stood here was an
-     * outright return the moment a player came within the observed radius —
-     * which is ninety-six blocks, against a mine on a ring plot a dozen from
-     * the town square. Standing in your own town suppressed the abstract yield
-     * entirely, and that is only correct while the real hands are actually
-     * working: on ordinary flat grassland there is no exposed stone to swing at until
-     * a shaft has been sunk. So the town received nothing at all for exactly as long
-     * as somebody was there to watch it fail.
-     *
-     * <p>Being watched must never starve a town, and it must not bankrupt one
-     * either.
-     */
-    public static final int WATCHED_WORK_GRACE_STEPS = 12;
-
     private MinePlanner() {
     }
 
@@ -84,62 +55,84 @@ public final class MinePlanner {
             settlement.setMineArea(new WorkArea(mine, DEFAULT_RADIUS));
             settlement.logEvent(ctx.step(), "The mine claims the stone around " + mine);
         }
-        cutUnwatched(settlement, ctx, mine);
+        workTheStone(settlement, ctx);
     }
 
     /**
-     * Stone and iron won while nobody is looking. See
-     * {@code LumberPlanner.fellUnwatched} — same reasoning, one layer down.
+     * A step of the stone trade, mine by mine. See {@code LumberPlanner} — same
+     * reasoning, one layer down, minus the regrowth.
      */
-    private static void cutUnwatched(Settlement settlement, SimContext ctx, SimPos mine) {
-        if (mine == null || !wantsMoreStone(settlement)) {
+    private static void workTheStone(Settlement settlement, SimContext ctx) {
+        List<Building> mines = settlement.buildingsWithRole(BuildingRole.MINE);
+        if (mines.isEmpty()) {
             return;
-        }
-        boolean watched = ctx.bridge().playerWithin(mine, ctx.settings().observedRadius());
-        if (watched && cutRecently(settlement, ctx.step())) {
-            return;   // somebody is watching and the real picks are cutting
-        }
-        YieldPolicy policy = ctx.settings().yields();
-        int stonePercent = policy.percent(watched, TownStores.STONE);
-        int ironPercent = policy.percent(watched, TownStores.IRON);
-        if (stonePercent <= 0 && ironPercent <= 0) {
-            return;   // this world does not conjure stone
         }
         int miners = (int) settlement.residents().stream()
                 .filter(p -> p.profession() == Profession.MINER && !p.isTooWeakToWork())
                 .count();
-        if (miners <= 0) {
-            return;
-        }
-        // At the mine head that cut it, split between the mines for the same
-        // reason the timber is split between the camps.
-        List<Building> mines = settlement.buildingsWithRole(BuildingRole.MINE);
-        int places = Math.max(1, mines.size());
+        boolean wantsStone = wantsMoreStone(settlement);
+        int places = mines.size();
         for (int i = 0; i < places; i++) {
+            Building mine = mines.get(i);
+            if (reckonSeam(settlement, mine, ctx)) {
+                continue;   // where there is a hand there is no clock
+            }
             int share = Workforce.shareOf(miners, i, places);
-            if (share <= 0) {
+            if (share <= 0 || !wantsStone) {
                 continue;
             }
-            SimPos at = mines.isEmpty() ? settlement.center() : mines.get(i).origin();
-            settlement.produceNear(at, TownStores.STONE,
-                    settlement.abstractYield(at, TownStores.STONE,
-                            share * STONE_PER_STEP, stonePercent),
-                    stoneCapacity(settlement));
-            settlement.produceNear(at, TownStores.IRON,
-                    settlement.abstractYield(at, TownStores.IRON,
-                            share * IRON_PER_STEP, ironPercent),
-                    MAX_IRON);
+            dig(settlement, mine, share, ctx);
         }
     }
 
-    /** Whether any mine has seen a real block cut lately. */
-    private static boolean cutRecently(Settlement settlement, long step) {
-        for (Building mine : settlement.buildingsWithRole(BuildingRole.MINE)) {
-            if (mine.harvestedWithin(step, WATCHED_WORK_GRACE_STEPS)) {
-                return true;
+    /** One mine's digging for one step, and the ore turned up while cutting it. */
+    private static void dig(Settlement settlement, Building mine, int miners, SimContext ctx) {
+        int room = Math.max(0, stoneCapacity(settlement) - settlement.stoneStock());
+        int cut = Seam.cut(mine,
+                Math.min(miners * Seam.STONE_PER_MINER_PER_STEP, room));
+        if (cut <= 0) {
+            return;
+        }
+        // At the mine head that cut it, for the same reason the timber is put
+        // down at the camp: the load lands on the nearest shelves.
+        SimPos at = mine.origin();
+        settlement.produceNear(at, TownStores.STONE, cut, stoneCapacity(settlement));
+        settlement.produceNear(at, TownStores.IRON, cut / Seam.STONE_PER_IRON, MAX_IRON);
+        if (Seam.isExhausted(mine)) {
+            settlement.logEvent(ctx.step(),
+                    "The mine at " + at + " is cut out — there is no stone left in it");
+        }
+    }
+
+    /**
+     * Counts the stone under the mine when the ground can answer, and says
+     * whether anybody is watching.
+     *
+     * <p>The rock is its own truth, exactly as the trees are: a mine somebody
+     * has just walked up to counts what is actually down there rather than being
+     * told what the ledger believed. That is also what keeps a watched mine
+     * honest — real picks debit the seam block by block, and the next arrival
+     * squares the books against the hole they left.
+     */
+    private static boolean reckonSeam(Settlement settlement, Building mine, SimContext ctx) {
+        boolean watched = ctx.bridge().playerWithin(
+                mine.origin(), ctx.settings().observedRadius());
+        boolean arriving = watched && !mine.wasWatched();
+        if (arriving || !Seam.isCounted(mine)) {
+            if (ctx.bridge().isLoaded(mine.origin())) {
+                WorkArea area = settlement.mineArea();
+                int radius = area == null ? DEFAULT_RADIUS : area.radius();
+                Seam.recount(mine, ctx.bridge().countStoneBelow(
+                        mine.origin(), radius, Seam.WORKINGS_DEPTH));
+            } else if (!Seam.isCounted(mine)) {
+                // Ground nobody can read is a mine of unknown worth rather than
+                // an empty one — see Seam.UNSURVEYED, and LumberPlanner for the
+                // same reasoning at the surface.
+                Seam.recount(mine, Seam.UNSURVEYED);
             }
         }
-        return false;
+        mine.setWatched(watched);
+        return watched;
     }
 
     /** Where the mine stands, or null if the town has not built one. */

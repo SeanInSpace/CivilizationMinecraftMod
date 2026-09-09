@@ -8,6 +8,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.LumberPlanner;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.Stand;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.WorkArea;
 import net.minecraft.core.BlockPos;
@@ -47,8 +48,12 @@ public final class LumberjackWorker {
     /** Timber yielded per log. */
     private static final int WOOD_PER_LOG = 1;
 
-    /** One log in four leaves a usable sapling, keyed by position so it never drifts. */
-    private static final int SAPLING_EVERY = 4;
+    /**
+     * One log in four leaves a usable sapling, keyed by position so it never
+     * drifts. The rate lives in {@link LumberPlanner#LOGS_PER_SAPLING} so the
+     * clock replants at exactly the rate the axe does.
+     */
+    private static final int SAPLING_EVERY = LumberPlanner.LOGS_PER_SAPLING;
 
     private LumberjackWorker() {
     }
@@ -119,6 +124,10 @@ public final class LumberjackWorker {
         Building campBuilding = settlement.buildingWithRole(BuildingRole.LUMBER_CAMP);
         if (campBuilding != null) {
             campBuilding.touchRealHarvest(stepOf(level));
+            // A log a real axe took is a log off the stand, whoever counted it.
+            // Without this the ledger stands full behind a watched camp and pays
+            // the whole wood out the moment the player walks away.
+            Stand.fell(campBuilding, 1);
         }
         SimPos camp = LumberPlanner.campPos(settlement);
         SimPos at = camp == null ? settlement.center() : camp;
@@ -141,6 +150,13 @@ public final class LumberjackWorker {
 
         level.setBlockAndUpdate(spot, Blocks.OAK_SAPLING.defaultBlockState());
         settlement.stores().takeUpTo(TownStores.SAPLINGS, 1);
+        // And the camp's ledger knows the wood is coming back, so that a stand
+        // replanted in front of a player is a stand the clock will find when
+        // they leave.
+        Building campBuilding = settlement.buildingWithRole(BuildingRole.LUMBER_CAMP);
+        if (campBuilding != null) {
+            Stand.plant(campBuilding);
+        }
         return true;
     }
 

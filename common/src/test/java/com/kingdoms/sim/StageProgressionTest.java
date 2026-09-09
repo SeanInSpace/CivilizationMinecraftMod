@@ -11,6 +11,7 @@ import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.JobPlanner;
 import com.kingdoms.sim.settlement.Perimeter;
 import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.settlement.StagePlanner;
 import com.kingdoms.sim.world.SimContext;
@@ -143,6 +144,13 @@ class StageProgressionTest {
         // beyond it stay outside — a second circuit needs the cooldown to run
         // out first, and the whole ladder is shorter than the cooldown.
         for (int i = 1; i <= 560; i++) {
+            // The trades are stocked by hand, because what is measured here is the
+            // shape of a town and not the pace of its timber. Felling is a real
+            // stand of trees now rather than a percentage of an imagined one — see
+            // Stand — and a claim renews itself far more slowly than a fixture that
+            // wants a grown town by step four hundred can afford to wait for.
+            camp.stores().add(TownStores.WOOD, 8);
+            camp.stores().add(TownStores.STONE, 6);
             camp.step(at(i));
         }
 
@@ -197,6 +205,8 @@ class StageProgressionTest {
         List<Building> whenStaked = List.of();
         for (int i = 1; i <= 400; i++) {
             List<Building> stood = List.copyOf(camp.buildings());
+            camp.stores().add(TownStores.WOOD, 8);
+            camp.stores().add(TownStores.STONE, 6);
             camp.step(at(i));
             if (whenStaked.isEmpty() && camp.perimeter() != null) {
                 whenStaked = stood;

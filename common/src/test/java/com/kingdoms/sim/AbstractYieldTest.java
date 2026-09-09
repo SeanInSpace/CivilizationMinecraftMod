@@ -31,16 +31,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * one for a building with nobody near it, one for the floor under a watched
  * building whose hands have stopped.
  *
- * <p>What is pinned here is that the percentages mean what they say — including
- * carrying the remainder, where a naive multiply would have made every setting
- * below a hundred an off switch — and what the shipped defaults, which are now
- * zero and zero, actually do to a town left alone.
+ * <p><strong>The tables now govern nothing.</strong> That is what this file has
+ * become, and it is worth stating plainly rather than deleting quietly. Food
+ * went first: a field is not a percentage of an imagined harvest, it is
+ * seventy-one crop blocks that ripen and get cut. Timber and stone have
+ * followed it. A camp's yield is the stand of trees it actually claims and a
+ * mine's is the rock actually under it — see {@code Stand} and {@code Seam} —
+ * so {@code wood}, {@code saplings}, {@code stone} and {@code iron} are keys
+ * that still exist in {@link YieldPolicy} and that nothing anywhere reads.
  *
- * <p>Food is no longer one of the things the tables govern. A field is not a
- * percentage of an imagined harvest; it is seventy-one crop blocks that ripen
- * and get cut. What is left here is the timber and the stone, and the two cases
- * below that pin food's independence from the tables outright. See
- * {@link UnwatchedFarmingTest} for the field's own arithmetic.
+ * <p>So what is pinned here is the negative: every setting the tables have,
+ * including the ones a player can still write into a config file, makes no
+ * difference to anything a town produces. The record itself is left standing
+ * for whoever removes it — a knob that quietly does nothing is worth a test
+ * saying so, and worth more than a knob that quietly does something.
  */
 class AbstractYieldTest {
 
@@ -120,36 +124,37 @@ class AbstractYieldTest {
     }
 
     @Test
-    void seventyPercentCreditsSeventyPercentOfTheTimber() {
+    void noTableHasAnySayOverWhatACampFells() {
         int full = timberOver(20, YieldPolicy.FULL);
-        int cut = timberOver(20, YieldPolicy.uniform(70, 0));
+        int throttled = timberOver(20, YieldPolicy.uniform(70, 0));
+        int off = timberOver(20, YieldPolicy.uniform(0, 0));
 
-        assertTrue(Math.abs(cut - full * 70 / 100) <= 1,
-                "twenty steps at seventy percent of " + full + " should be about "
-                        + (full * 70 / 100) + ", not " + cut);
+        assertEquals(full, throttled, "seventy percent of a tree is a tree");
+        assertEquals(full, off,
+                "and nought percent of one is still a tree — a camp fells what is"
+                        + " standing in its claim, and no number in a config file"
+                        + " is standing in its claim");
+        assertTrue(full > 0, "which is to say it fells something");
     }
 
     @Test
-    void seventyPercentCreditsSeventyPercentOfTheStone() {
+    void noTableHasAnySayOverWhatAMineCuts() {
         int full = stoneOver(20, YieldPolicy.FULL);
-        int cut = stoneOver(20, YieldPolicy.uniform(70, 0));
+        int throttled = stoneOver(20, YieldPolicy.uniform(70, 0));
+        int off = stoneOver(20, YieldPolicy.uniform(0, 0));
 
-        assertTrue(Math.abs(cut - full * 70 / 100) <= 1,
-                "twenty steps at seventy percent of " + full + " should be about "
-                        + (full * 70 / 100) + ", not " + cut);
+        assertEquals(full, throttled);
+        assertEquals(full, off, "the rock under a mine is not a percentage either");
+        assertTrue(full > 0);
     }
 
     @Test
-    void zeroPercentMeansAnUnwatchedTownConjuresNothing() {
-        assertEquals(0, timberOver(50, YieldPolicy.uniform(0, 0)),
-                "at zero the only timber is timber somebody felled");
-        assertEquals(0, stoneOver(50, YieldPolicy.uniform(0, 0)));
-    }
-
-    @Test
-    void aResourceCanBeThrottledWithoutTouchingItsNeighbors() {
+    void switchingOffOneResourceNoLongerSwitchesOffAnything() {
         Settlement town = townWith("kingdoms:mine", Profession.MINER);
-        // Stone off, iron left alone.
+        // Stone off, as far as the table is concerned — and the table is no
+        // longer concerned. Kept as a case because this is the shape of config a
+        // player may already have written, and it must not now be read as some
+        // other instruction; it must simply do nothing.
         YieldPolicy policy = new YieldPolicy(
                 java.util.Map.of(TownStores.STONE, 0),
                 java.util.Map.of());
@@ -158,10 +163,10 @@ class AbstractYieldTest {
             MinePlanner.advance(town, new SimContext(new Empty(), step, settings));
         }
 
-        assertEquals(0, town.stores().get(TownStores.STONE),
-                "stone is switched off in this world");
+        assertTrue(town.stores().get(TownStores.STONE) > 0,
+                "the seam is cut whatever the table says about stone");
         assertTrue(town.stores().get(TownStores.IRON) > 0,
-                "iron was never mentioned, so it is credited in full");
+                "and the ore comes up with it");
     }
 
     // --- the watched floor ---
@@ -180,14 +185,20 @@ class AbstractYieldTest {
     }
 
     @Test
-    void aWatchedCampStillEarnsWhenTheFloorIsRaisedToFull() {
+    void noTablePutsTheClockBackIntoAWatchedCamp() {
+        // There used to be a floor, and a table of a hundred restored the old
+        // conjuring outright. It is gone at every setting there is, exactly as
+        // it went from the fields: a watched camp is worked by axes or it is not
+        // worked. See WatchedProductionTest.
         Settlement town = townWith("kingdoms:lumber_camp", Profession.LUMBERJACK);
         SimSettings settings = with(YieldPolicy.uniform(70, 100));
 
-        LumberPlanner.advance(town, new SimContext(new Watched(), 100, settings));
+        for (int step = 1; step <= 30; step++) {
+            LumberPlanner.advance(town, new SimContext(new Watched(), step, settings));
+        }
 
-        assertTrue(town.stores().get(TownStores.WOOD) > 0,
-                "a floor of a hundred is the old behavior, and must still be reachable");
+        assertEquals(0, town.stores().get(TownStores.WOOD),
+                "no table anywhere fells a tree in front of a player");
     }
 
     @Test
@@ -281,11 +292,16 @@ class AbstractYieldTest {
     }
 
     @Test
-    void anUnwatchedCampAtTheShippedDefaultsBringsInNothing() {
-        assertEquals(0, timberOver(50, YieldPolicy.DEFAULTS),
-                "the shipped world conjures no timber");
-        assertEquals(0, stoneOver(50, YieldPolicy.DEFAULTS),
-                "nor any stone");
+    void anUnwatchedCampAtTheShippedDefaultsWorksAnyway() {
+        // The line that has moved furthest. At the shipped zeroes an unwatched
+        // camp used to bring in nothing whatever, which was recorded here as the
+        // honest answer — and it was, to the wrong question. Nothing is conjured
+        // now either; the timber is simply real, and a camp works its claim
+        // whether or not anybody is there to watch it.
+        assertTrue(timberOver(50, YieldPolicy.DEFAULTS) > 0,
+                "the shipped world fells real trees");
+        assertTrue(stoneOver(50, YieldPolicy.DEFAULTS) > 0,
+                "and cuts real rock");
     }
 
     /**
@@ -314,12 +330,13 @@ class AbstractYieldTest {
             camp.step(new SimContext(new Empty(), step, settings));
         }
 
-        assertEquals(4, camp.population(),
-                "the party that arrived is the party that is here");
+        assertTrue(camp.population() >= 4,
+                "the party that arrived is here, and then some");
         assertTrue(FoodPlanner.totalFood(camp) > 0,
                 "and they have bread, out of a field, with nothing conjured");
-        assertTrue(camp.stores().get(TownStores.WOOD) == 0,
-                "which is not because the tables came back — no timber is conjured");
+        assertTrue(camp.tallies().get(com.kingdoms.sim.settlement.Tallies.TREES_FELLED) > 0,
+                "and the timber they built with came off a claim they felled,"
+                        + " which is what the tables being at zero now means");
     }
 
     @Test

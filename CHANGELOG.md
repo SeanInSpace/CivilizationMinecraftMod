@@ -8,6 +8,87 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## The wood is a wood, and the mine runs out
+
+### Changed
+
+- **A lumber camp's timber is the trees it is actually standing in.** Wood used
+  to be a percentage of an imagined felling, and the percentage ships at zero —
+  so a town you walked away from brought in no timber at all, jammed its build
+  queue on the first cottage it could not pay for, and never raised another
+  building as long as it stood. Every camp now keeps a stand: so many trees
+  standing, so many saplings coming up. Lumberjacks fell four logs each a step
+  out of it, save a sapling off every fourth log, and plant them back on ground
+  they have cleared. It is the same ledger whether you are watching or not.
+
+- **A mine's stone is the rock actually under it, and there is a finite amount
+  of it.** A mine is sized from the ground when its chunks are first read — a
+  mine in a mountainside is worth a great deal and a mine sunk into a superflat
+  is worth almost nothing — and its miners cut six blocks a step out of that,
+  with an ingot's worth of iron for every six. **When the seam is empty the mine
+  is cut out.** It stops for good, `/civ info` says CUT OUT, and the town's
+  history records the day. Nothing grows back down there.
+
+- **`/civ info` says what the trades are standing on.** Two new lines per town:
+  the trees left in each camp's claim and the saplings coming up behind them,
+  and the blocks left in each mine. A camp on open grass with no seed in the box
+  reads BARE — which is a real state a town can be in, and the honest answer to
+  "why is my town not building". Ground nobody has loaded says so too, rather
+  than reading as felled.
+
+- **Walking up to a camp or a mine counts what is really there.** The trees are
+  their own truth: on the step a player arrives the claim is re-counted and the
+  world's number wins, whatever the ledger believed. Real axes and real picks
+  debit the same ledger block by block, so watching a town work no longer pays
+  it twice — and no longer pays it at all for standing still.
+
+- **Being watched floors nothing here either.** The twelve-step grace that put
+  the clock back into a watched camp or mine is gone, the way it went from the
+  fields. In front of a player, only real work counts.
+
+- **The yield tables now govern nothing.** `economy.unwatched_yield_percent` and
+  `economy.watched_floor_percent` still exist and still load, and there is no
+  longer anything in the game that reads them: food went first, and timber,
+  saplings, stone and iron have followed. Nothing in the mod is conjured any
+  more. Old config files load unchanged and simply have no effect.
+
+- **A stand and a seam survive a save.** Both go into the world file. A save
+  written before today comes back *uncounted* rather than empty — an old camp
+  finds out what it stands in the day somebody loads its ground, and an old mine
+  is unsurveyed rather than spent.
+
+- **Timber is scarcer than it was, everywhere.** A claim renews itself out of
+  saplings that take an in-game day to come up, so a town is timber-poor for its
+  first few hundred steps and then compounds as its replanting comes in. Towns
+  build more slowly early and want more camps than they used to.
+
+### Notes
+
+- The numbers, all derived off the watched worker rather than picked: a log is
+  20 ticks for a settler with an axe (hardness 2, iron axe speed 6, doubled by
+  `Excavation.LABOR_FACTOR`), so a hundred-tick step is five logs of chopping
+  and four after the walk between trunks. A block of stone is 16 ticks, so six
+  and a quarter a step, and six after the shuffle to the next face. A tree is
+  six logs — a vanilla oak trunk is four to six, and one oak in ten comes up
+  fancy at twenty-odd. A sapling comes up in about 24,000 ticks, 240 steps: one
+  random tick per 1,365, one advance in seven, two advances to a tree, plus the
+  nights it sleeps through.
+
+- Measured at the shipped 0/0, unwatched, nobody ever visiting, on ground with a
+  stand of 12 and a seam of 2,000. A founding party of four: a VILLAGE of 7 with
+  11 buildings at step 400 (267 logs felled, 34 trees coming up, 990 left in the
+  seam); the same village with 14 buildings at 800 (793 felled, seam 726); and a
+  TOWN of 45 with 37 buildings and seven fields at 1500, having cut 3,857 logs
+  and dug the mine out entirely. It used to be four people and one field
+  forever.
+
+- A seeded village of eight on the same ground: 13 buildings and 14 people at
+  400, a TOWN of 16 at 800, and 42 buildings, 65 people and ten fields at 1500,
+  with the mine cut out under it.
+
+- A camp with nothing standing and no seed in the box brings in nothing, at
+  either fidelity, for as long as that is true. That is not tuned around.
+
 ## Bread is grown, not granted
 
 ### Changed

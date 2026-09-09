@@ -281,11 +281,18 @@ fit rather than duplicating it.
 
 ### LUMBERJACK
 
+A camp's yield is its **stand** — the trees actually standing in its claim — and
+no yield table has any say in it. See `Stand`.
+
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
-| 1 | camp stands, `wantsMoreTimber` | 8 timber + 1 sapling per head per step, split evenly between camps | `LumberjackWorker` fells real trunks, 1 timber per log, 1 sapling per 4 | `WOOD_PER_STEP` = 8, `Workforce.shareOf`, `MAX_SAPLINGS` = 128 |
-| 2 | stores full, or no trunks left | stops | replants a sapling on bare ground | `wantsMoreTimber` |
-| 3 | axes idle 12 steps while watched | clock resumes crediting | — | `WATCHED_WORK_GRACE_STEPS` |
+| 1 | camp stands, `wantsMoreTimber` | fells 4 logs per head per step **off the stand**, 1 timber a log, split evenly between camps | `LumberjackWorker` fells real trunks, 1 timber per log | `Stand.LOGS_PER_JACK_PER_STEP` = 4, `LOGS_PER_TREE` = 6, `Workforce.shareOf` |
+| 1a | logs cut | 1 sapling per 4 logs, counted off the running `TREES_FELLED` tally so a claim cutting less than four a step still saves seed | same rate, keyed by block position | `LOGS_PER_SAPLING` = 4, `MAX_SAPLINGS` = 128 |
+| 2 | stores full, or no trunks left | plants 2 saplings per head per step out of the town's box, into the stand | replants a sapling on bare ground, and credits the same stand | `Stand.SAPLINGS_PER_JACK_PER_STEP` = 2 |
+| 2a | saplings in the ground | come up over about one in-game day, spread out — some in minutes, some in days | vanilla grows them | `Stand.GROWING_TICKS` = 24,000 (240 steps) |
+| 3 | nothing standing and nothing planted | **nothing** — the camp is idle and `/civ info` says BARE | nothing to swing at | `Stand.isBare` |
+| 3a | a player walks up | the claim is **re-counted** and the world's number wins | — | `WorldBridge.countTreesNear` |
+| 3b | ground nobody can load | the claim its siting implies, until somebody can look | — | `Stand.UNSURVEYED` = 72 trees |
 | 4 | alarm at **WARY** or above | — | comes inside | `worksBeyondTheWalls` |
 | 5 | at the timber ceiling | — | — | eligible as a bulk courier (tier 2) |
 
@@ -296,9 +303,12 @@ rather than sharing code with it.
 
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
-| 1 | mine stands, `wantsMoreStone` | 6 stone + 1 iron per head per step, split between mine heads | `MinerWorker` cuts real faces, 1 stone / 2 iron per block | `STONE_PER_STEP` = 6, `IRON_PER_STEP` = 1, `MAX_IRON` = 256 |
-| 2 | — | — | cuts downward and inward, never below `FLOOR_MARGIN` = 6 or past `MAX_DEPTH` = 20 | |
-| 3 | picks idle 12 steps while watched | clock resumes crediting | — | `WATCHED_WORK_GRACE_STEPS` |
+| 1 | mine stands, `wantsMoreStone` | cuts 6 blocks per head per step **out of the seam**, split between mine heads | `MinerWorker` cuts real faces, 1 stone / 2 iron per block | `Seam.STONE_PER_MINER_PER_STEP` = 6, `MAX_IRON` = 256 |
+| 1a | stone cut | 1 iron per 6 blocks — the ratio the mine always ran at, off the same seam | ore found while cutting | `Seam.STONE_PER_IRON` = 6 |
+| 2 | — | — | cuts downward and inward, never below `FLOOR_MARGIN` = 6 or past `Seam.WORKINGS_DEPTH` = 20 | |
+| 2a | a player walks up | the ground is **re-counted** down to the working depth and the world's number wins | — | `WorldBridge.countStoneBelow` |
+| 2b | ground nobody can load | a stated conservative estimate, until somebody can look | — | `Seam.UNSURVEYED` = 2,000 blocks |
+| 3 | the seam is empty | **the mine is cut out**: it stops for good, `/civ info` says CUT OUT, and the town's history records it. There is no regrowth down here | nothing | `Seam.isExhausted` |
 | 4 | alarm at **WARY** or above | — | comes inside | `worksBeyondTheWalls` |
 | 5 | at the stone ceiling | — | — | eligible as a bulk courier (tier 2) |
 

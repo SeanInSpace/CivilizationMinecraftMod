@@ -170,7 +170,17 @@ public final class ForesterStand {
             woodland = standing;
         }
         int planted = ctx.bridge().plantGrownTrees(candidates(town, woodland), TREES_WANTED);
+        // The camp's ledger is sized from what actually went in, rather than
+        // being made to go and count trees the platform has just this moment
+        // planted and knows the number of. Everywhere else a stand is counted
+        // off the ground — see {@code LumberPlanner.reckonStand} — and this is
+        // the one moment the world can simply say.
+        //
+        // Only when something went in. A platform that planted nothing has not
+        // told us the ground is bare — it may be thick with trees the generator
+        // put there — so the camp is left uncounted and counts for itself.
         if (planted > 0) {
+            Stand.recount(camp, planted);
             town.logEvent(ctx.step(), "The wood around the lumber camp stands "
                     + planted + " trees deep");
         }

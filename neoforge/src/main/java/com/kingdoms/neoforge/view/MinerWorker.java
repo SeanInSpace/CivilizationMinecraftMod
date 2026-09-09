@@ -47,8 +47,14 @@ public final class MinerWorker {
     /** Never cut below this, so nobody digs into the void or strips bedrock. */
     private static final int FLOOR_MARGIN = 6;
 
-    /** How far below the mine head the workings may reach. */
-    private static final int MAX_DEPTH = 20;
+    /**
+     * How far below the mine head the workings may reach.
+     *
+     * <p>Read off {@link com.kingdoms.sim.settlement.Seam} rather than kept
+     * here, because the seam is counted to exactly this depth: a mine credited
+     * with rock its miners will never reach is a mine that never runs out.
+     */
+    private static final int MAX_DEPTH = com.kingdoms.sim.settlement.Seam.WORKINGS_DEPTH;
 
     private MinerWorker() {
     }
@@ -93,6 +99,11 @@ public final class MinerWorker {
             com.kingdoms.sim.world.SimWorld simWorld =
                     com.kingdoms.neoforge.KingdomsMod.simulationFor(level);
             mineBuilding.touchRealHarvest(simWorld == null ? 0L : simWorld.stepsElapsed());
+            // And a block a real pick took is a block out of the seam, ore or
+            // rock alike — it is the same workings either way. Without this the
+            // ledger stands full behind a watched mine and pays it all out again
+            // the moment the player leaves.
+            com.kingdoms.sim.settlement.Seam.cut(mineBuilding, 1);
         }
         // Where the rock actually came out, so the load lands on the nearest
         // shelves rather than wherever the town happens to list first.

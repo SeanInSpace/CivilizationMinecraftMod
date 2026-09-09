@@ -319,6 +319,50 @@ public interface WorldBridge {
     }
 
     /**
+     * How many trees are actually standing inside a lumber camp's claim.
+     *
+     * <p>The measurement a camp's {@code Stand} is sized from, and the reason
+     * timber is no longer a percentage of anything: a camp raised in a forest
+     * has a woodland to fell and a camp raised on a meadow does not, and the
+     * simulation cannot tell the difference on its own. Counted rather than
+     * inferred, so it does not matter whether the trees grew there, were planted
+     * by a seeded town's forester, or were left standing by a player who cleared
+     * the rest.
+     *
+     * <p>A trunk, not a log: whole trees, however tall each one happens to be.
+     * Sampled rather than scanned and read only out of chunks that are already
+     * loaded — nothing here loads one — so a claim half of which is out of range
+     * reads as the half that could be seen, scaled.
+     *
+     * <p>Zero when nothing is loaded and zero by default, which is honest for a
+     * bridge with no world behind it. Callers must not treat that as "the wood
+     * has been felled": see {@code Stand.UNCOUNTED}, and ask only when
+     * {@link #isLoaded} says the ground can answer.
+     */
+    default int countTreesNear(SimPos center, int radius) {
+        return 0;
+    }
+
+    /**
+     * How much stone is actually under a mine head, in blocks.
+     *
+     * <p>The measurement a mine's {@code Seam} is sized from. A mine sunk into a
+     * mountainside is worth a great deal and a mine sunk into a superflat is
+     * worth almost nothing, and the mine that ran on a yield table could not
+     * tell the two apart. Counted down to {@code depth} below the head, because
+     * that is as far as {@code MinerWorker} will ever cut.
+     *
+     * <p>Sampled rather than scanned, loaded chunks only. Zero by default so
+     * test doubles stay small; a real platform answers, and answers
+     * {@code Seam.UNSURVEYED} rather than zero where it cannot read the ground,
+     * because a mine that nobody could survey is a mine of unknown worth rather
+     * than an empty one.
+     */
+    default int countStoneBelow(SimPos center, int radius, int depth) {
+        return 0;
+    }
+
+    /**
      * How many meals' worth of wild food is actually growing around here.
      *
      * <p>The counterpart to {@link #woodedness}, and it exists for the same

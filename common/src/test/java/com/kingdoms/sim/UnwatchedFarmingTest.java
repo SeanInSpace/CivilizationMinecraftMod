@@ -231,20 +231,22 @@ class UnwatchedFarmingTest {
      * to reach four hundred steps out of bread with two of its four too weak to
      * work, and be gone by eight hundred.
      *
-     * <p>It now feeds itself, comfortably, on one field and nothing else.
-     * Measured: a VILLAGE of four with 63 loaves at step 400, 148 at 800 and 408
-     * at 1500 — a surplus that grows, out of a single eleven-by-eleven of wheat
-     * that nobody has ever looked at.
+     * <p>It now feeds itself, comfortably, on one field and nothing else — and
+     * since the woodland and the seam became real too, it no longer stops there.
      *
-     * <p><strong>What it does not do is grow, and that is not the field.</strong>
-     * The camp stays four people in one field for the whole run, because at 0/0
-     * an unwatched lumber camp brings in no timber, so the build queue jams on a
-     * cottage it cannot pay for and no house is ever raised for a fifth settler.
-     * Hand it timber and stone and it still only ever orders one farm — eighteen
-     * buildings by step five hundred, one of them a field. Neither is fixed by
-     * making wheat grow faster.
-     * {@link #aCampWithFieldsToWorkProspersUnwatched} is the same camp with
-     * fields, and it reaches eighty-one people.
+     * <p><strong>It used not to grow, and that was never the field.</strong> The
+     * camp stayed four people in one field for the whole run because at 0/0 an
+     * unwatched lumber camp brought in no timber, so the build queue jammed on a
+     * cottage it could not pay for and no house was ever raised for a fifth
+     * settler. A camp's timber is now the stand of trees it actually claims and
+     * a mine's stone is the rock actually under it — see {@code Stand} and
+     * {@code Seam} — so the same four pioneers on the same untouched ground now
+     * fell, cut, build and fill their houses.
+     *
+     * <p>Measured, at the shipped 0/0, with nobody ever visiting: a TOWN of 7
+     * with 389 loaves at step 400, of 36 with 1,299 at step 800, and of 73 with
+     * 1,687 loaves in eleven fields at step 1500. Every loaf of it cut off a
+     * field and every plank of it felled off a claim.
      */
     @Test
     void aCampLeftEntirelyAloneAtTheShippedDefaultsFeedsItselfOffOneField() {
@@ -259,14 +261,17 @@ class UnwatchedFarmingTest {
             }
         }
 
-        assertEquals(4, camp.population(),
-                "the party that used to be dead by step eight hundred is all here"
-                        + " at fifteen hundred." + log);
+        assertTrue(camp.population() > 4,
+                "the party that used to be dead by step eight hundred — and then,"
+                        + " once the fields were honest, stuck at four for want of"
+                        + " a plank — is a town by fifteen hundred." + log);
         assertTrue(FoodPlanner.totalFood(camp) > FoodPlanner.STARTING_PROVISIONS,
                 "with more bread than it set out with, and every loaf of it cut"
                         + " off a field somebody would have had to walk to." + log);
         assertTrue(camp.stage().ordinal() >= SettlementStage.VILLAGE.ordinal(),
                 "and it got its village out of that one field." + log);
+        assertTrue(camp.countBuildings("kingdoms:farm") > 1,
+                "and once it had timber for a second field, it dug one." + log);
     }
 
     /**
