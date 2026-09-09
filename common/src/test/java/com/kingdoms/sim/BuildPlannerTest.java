@@ -33,10 +33,16 @@ class BuildPlannerTest {
 
     private static final List<BuildingType> CATALOG = List.of(HALL, HOUSE, TOWER);
 
-    /** An unwatched town: the chunk is not loaded, so building runs on the clock. */
+    /**
+     * An unwatched town: nobody is standing anywhere near it, so building runs
+     * on the clock. It used to answer yes to {@code playerWithin} and no to
+     * {@code isLoaded}, which was a contradiction nothing read — the clock was
+     * gated on the chunk back then. It is gated on the audience now, so the
+     * fake has to mean one thing.
+     */
     private static final class LoadedBridge implements WorldBridge {
         Integer surfaceOverride = null;
-        @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
+        @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
         @Override public boolean isLoaded(SimPos pos) { return false; }
         @Override public int surfaceHeight(SimPos pos) { return surfaceOverride != null ? surfaceOverride : pos.y(); }
         @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed, int facing) {

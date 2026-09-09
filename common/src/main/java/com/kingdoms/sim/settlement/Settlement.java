@@ -2633,28 +2633,29 @@ public final class Settlement {
             return;   // it moved; start on the new ground next step
         }
 
-        if (isBuiltByHand(ctx, current, present)) {
+        if (isWatched(ctx, current.site())) {
             // Somebody is here to watch, so the masonry is the truth: this step
             // clears the builders to lay their share, and progress is whatever
             // they actually get down. Nothing finishes until the last block does,
             // which is what stops a completed task being stamped over work that
             // is still visibly going up.
+            //
+            // And there is no other way out of this branch. The clock does not
+            // build at a site a player can see, for any reason: not because the
+            // crew is capped out of its bodies, not because nobody has walked
+            // over yet, not after any number of patient steps. A building that
+            // rises in front of somebody with nobody laying it is magic, and
+            // there is no amount of waiting that turns it into anything else.
+            // If the hands cannot get here the work simply waits, and the town
+            // says so on its own report.
+            current.setWaitingOnHands(reasonHandsAreMissing(present));
             current.grantWork(current.workForStep(present));
             current.syncProgressToWork();
             if (!current.isVisuallyComplete()) {
-                // Unless the hands have plainly stopped. Builders can be
-                // embodied and standing on a loaded site and still lay nothing
-                // for a good while: mob navigation cannot climb everything a
-                // town builds on, and /civ step passes no game ticks at all, so
-                // the player who typed it is the switch that turned the clock
-                // off while nothing turned the hands on. Ten thousand steps of
-                // that and everybody is dead.
-                if (current.noteWatchedIdleStep() <= WATCHED_BUILD_GRACE_STEPS) {
-                    return;
-                }
-                // Fall through to the clock, exactly as if nobody were here.
+                return;   // the work waits for hands; there is no clock here
             }
         } else {
+            current.setWaitingOnHands(null);
             // Nobody watching. Nothing to look at, so the clock runs instead and
             // the finished building materializes whole when a chunk next loads.
             List<String> missing = payForProgress(current, able);
@@ -3082,16 +3083,35 @@ public final class Settlement {
     }
 
     /**
-     * Watched steps a build may sit without a block going down before the clock
-     * takes over.
+     * Whether a player can see this spot, which is the only question that
+     * decides whether the clock may work here.
      *
-     * <p>Same shape and the same number as the harvest and cutting graces. Being
-     * watched must never starve a town, and it must not stop it building either.
+     * <p>Asked of the work site and never of the town center. A town whose
+     * square is full of players and whose next plot is two hundred blocks out
+     * over the ridge is unwatched <em>at the plot</em>, and the clock is welcome
+     * to raise it: nobody is there to see it happen.
+     *
+     * <p>Deliberately not {@code isLoaded}. A loaded chunk is not an audience —
+     * a forceloaded chunk, or one held open by a player on the far side of the
+     * village, has nobody in it — and asking the wrong one of the two is how a
+     * town came to build in front of people while the code believed it was
+     * alone.
      */
-    public static final int WATCHED_BUILD_GRACE_STEPS = 12;
+    private boolean isWatched(SimContext ctx, SimPos site) {
+        return ctx.bridge().playerWithin(site, ctx.settings().observedRadius());
+    }
 
-    private boolean isBuiltByHand(SimContext ctx, BuildTask task, int embodiedBuilders) {
-        return embodiedBuilders > 0 && ctx.bridge().isLoaded(task.site());
+    /**
+     * Why a watched site is not moving, in the words the town's report uses, or
+     * null when the crew is there and it is simply slow going.
+     */
+    private String reasonHandsAreMissing(int embodiedBuilders) {
+        if (embodiedBuilders > 0) {
+            return null;   // they are here; whatever is wrong is out in the world
+        }
+        return ableBuilders() == 0
+                ? "no builder fit to work"
+                : "no builder has reached the site";
     }
 
     /**

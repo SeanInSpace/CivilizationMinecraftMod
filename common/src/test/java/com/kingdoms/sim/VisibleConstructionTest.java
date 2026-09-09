@@ -29,17 +29,23 @@ class VisibleConstructionTest {
     private static final BuildingType HOUSE =
             new BuildingType("test:house", 20, 1, 1, 0, 80, 4);
 
-    /** A bridge with chunk load switchable, since that is the whole subject here. */
+    /**
+     * A bridge with chunk load and audience switchable, and switchable apart:
+     * they are different questions, and telling them apart is half the subject
+     * here. A forceloaded chunk is loaded and has nobody in it.
+     */
     private static final class SiteBridge implements WorldBridge {
         boolean loaded;
+        boolean watched;
         int stamped;
         Boolean lastSurveyed;
 
         SiteBridge(boolean loaded) {
             this.loaded = loaded;
+            this.watched = loaded;
         }
 
-        @Override public boolean playerWithin(SimPos pos, double radius) { return loaded; }
+        @Override public boolean playerWithin(SimPos pos, double radius) { return watched; }
         @Override public boolean isLoaded(SimPos pos) { return loaded; }
         @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
         @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed, int facing) {
@@ -185,51 +191,58 @@ class VisibleConstructionTest {
     }
 
     @Test
-    void abuilderInTheWorldIsGivenAFairSpellBeforeTheClockRuns() {
+    void awatchedSiteNeverFallsThroughToTheClock() {
+        // There is no spell, fair or otherwise. A watched crew that lays nothing
+        // used to be given a dozen steps of patience and then have the building
+        // raised for it, which is a house going up in front of a player with
+        // nobody touching it. Five hundred steps and it is still bare ground.
         Settlement s = townWithBuilders(1, true);
         s.enqueueBuild(surveyedTask(200));
         SimContext ctx = new SimContext(new SiteBridge(true), 0, SimSettings.SANDBOX);
 
-        // Inside the grace: the hands are there and might yet start.
-        for (int step = 0; step < Settlement.WATCHED_BUILD_GRACE_STEPS; step++) {
+        for (int step = 0; step < 500; step++) {
             s.step(ctx);
         }
 
-        assertEquals(1, s.buildQueue().size(),
-                "the task is still queued, because no block has actually been laid");
+        assertFalse(s.buildQueue().isEmpty(), "the task is still queued");
         assertEquals(0.0, s.buildQueue().getFirst().completionFraction(), 1e-9,
-                "and it reads as untouched while the crew still has its chance");
+                "and reads as untouched, because not one block was ever laid");
         assertTrue(s.buildings().isEmpty(), "and nothing was recorded as built");
     }
 
     @Test
-    void aCrewThatNeverLaysABlockDoesNotStopTheTownBuilding() {
-        // The failure this replaced an invariant for. Builders can be embodied
-        // and standing on a loaded site and lay nothing for a very long time:
-        // mob navigation cannot climb everything a town builds on, and /civ step
-        // passes no game ticks at all — so the player who typed it is the switch
-        // that turned the clock off while nothing turned the hands on. Ten
-        // thousand steps of that used to leave everybody dead.
-        Settlement s = townWithBuilders(1, true);
+    void aWatchedSiteWithNobodyOnItBuildsNothingAndSaysWhy() {
+        // The report the user actually filed: a player standing in the village
+        // watching buildings appear. Nobody is embodied — capped out, or not
+        // spawned yet, or too weak — and the clock used to take that as its cue.
+        Settlement s = townWithBuilders(1, false);
         s.enqueueBuild(surveyedTask(200));
-        SimContext ctx = new SimContext(new SiteBridge(true), 0, SimSettings.SANDBOX);
+        SiteBridge bridge = new SiteBridge(true);
+        SimContext ctx = new SimContext(bridge, 0, SimSettings.SANDBOX);
 
-        for (int step = 0; step < 120; step++) {
+        for (int step = 0; step < 500; step++) {
             s.step(ctx);
         }
 
-        assertTrue(s.buildQueue().isEmpty() || s.buildQueue().getFirst().progress() > 0,
-                "after a fair spell of nothing, the clock has to be what runs");
+        assertTrue(s.buildings().isEmpty(),
+                "a watched town builds by hand or not at all");
+        assertEquals(0, bridge.stamped, "and nothing is ever stamped in front of anybody");
+        assertEquals("no builder has reached the site",
+                s.buildQueue().getFirst().waitingOnHands(),
+                "and the town can say which kind of nothing this is");
     }
 
     @Test
-    void aloadedChunkWithEveryoneReleasedDoesNotFreeze() {
-        // Roughly 128-160 blocks out: chunks still loaded, but every settler has
-        // been released. Nobody can lay a block, so the clock has to be what runs
-        // — otherwise construction stops dead in a band you walk through often.
+    void aLoadedChunkWithNobodyInItIsStillUnwatched() {
+        // A forceloaded chunk, or one held open by a player on the far side of
+        // the village. Loaded is not an audience: with nobody there to see it,
+        // the clock is welcome to run — otherwise construction would stop dead
+        // in every chunk a hopper keeps alive.
         Settlement s = townWithBuilders(1, false);
         s.enqueueBuild(surveyedTask(200));
-        SiteBridge bridge = new SiteBridge(true);   // loaded...
+        SiteBridge bridge = new SiteBridge(false);
+        bridge.loaded = true;       // loaded...
+        bridge.watched = false;     // ...and empty
         SimContext ctx = new SimContext(bridge, 0, SimSettings.SANDBOX);
 
         for (int step = 0; step < 25; step++) {
@@ -240,7 +253,7 @@ class VisibleConstructionTest {
         // improving what it has, so there is always something queued. What matters
         // is that this build finished.
         assertEquals(1, s.buildings().size(),
-                "...but with nobody embodied, it must still progress");
+                "nobody is looking, so it must still progress");
         assertEquals(1, bridge.stamped, "and it is stamped in, since no hand laid it");
     }
 
@@ -297,20 +310,13 @@ class VisibleConstructionTest {
     }
 
     @Test
-    void awatchedCrewThatCanNeverLayABlockDoesNotWedgeTheQueue() {
-        // The regression the carry rule most risks, and the reason the stall
-        // assist was closed rather than deleted. Builders can now refuse to lay
-        // anything at all — an empty town, or shelves they cannot path to — and
-        // the assist no longer papers over it by placing blocks for empty hands.
-        // A watched town that could never finish a building would be a worse bug
-        // than the one the rule fixes, so the simulation's own patience has to be
-        // what ends it: WATCHED_BUILD_GRACE_STEPS of nothing, and then the head
-        // stops being the head.
-        //
-        // Deliberately says nothing about how it resolves. Whether a build the
-        // hands abandoned should be raised free, charged for, or given up on is
-        // an older question than this rule and lives in advanceBuildQueue; all
-        // that is asserted here is that the site does not sit there forever.
+    void awatchedCrewThatCanNeverLayABlockLeavesTheSiteUnbuilt() {
+        // And this is the price, stated out loud rather than papered over. A
+        // watched build whose crew can never lay a block never finishes: the
+        // queue head stays, the ground stays bare, and the town keeps saying it
+        // is waiting. That is the intended consequence, and the answer to it is
+        // to fix whatever is stopping the builders getting there — not to hand
+        // the job to a clock a player would watch do it.
         Settlement s = townWithBuilders(1, true);
         BuildTask stuck = surveyedTask(200);
         s.enqueueBuild(stuck);
@@ -318,12 +324,13 @@ class VisibleConstructionTest {
 
         // The view layer stands in as a crew with nothing in hand: it is given
         // work every step and lays not one block of it.
-        for (int step = 0; step < Settlement.WATCHED_BUILD_GRACE_STEPS + 2; step++) {
+        for (int step = 0; step < 500; step++) {
             s.step(ctx);
         }
 
-        assertFalse(s.buildQueue().contains(stuck),
-                "a site that cannot be worked has to come off the queue eventually");
+        assertTrue(s.buildQueue().contains(stuck), "the job is still on the books");
+        assertEquals(0, stuck.workDone(), "with nothing whatever done to it");
+        assertTrue(s.buildings().isEmpty(), "and nothing raised behind its back");
     }
 
     @Test

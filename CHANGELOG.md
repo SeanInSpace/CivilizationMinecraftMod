@@ -8,6 +8,41 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## Nothing builds itself while you are standing there
+
+### Changed
+
+- **A town you are watching builds with hands or not at all.** Walls, houses,
+  streets and repairs all had a way of falling back to the clock while a player
+  stood in front of them -- after a dozen patient steps, or whenever the crew
+  happened to have nobody in the world just then: capped out of bodies, not yet
+  spawned, too hungry to work, or simply on the far side of the village. The
+  result was a building that assembled itself in front of you. That fallback is
+  gone entirely. If anybody is inside the observed radius of the work, only real
+  hands laying real blocks move it forward.
+
+- **Judged at the work, not at the town.** A plot, a wall stretch or a lane far
+  enough out that nobody is near it is still built on the clock, even while the
+  square is full of people. Standing in the market does not freeze the outskirts.
+
+- **A town that grew while you were away is untouched.** With nobody in range
+  the clock runs exactly as it always has, and what it finished still appears
+  whole when you walk back into the chunk.
+
+- **`/civ info` says why a site is not moving.** A watched build with nobody on
+  it now reads `WAITING ON HANDS` and names the reason -- no builder has reached
+  the site, or none is fit to work -- instead of sitting at nought per cent with
+  no explanation.
+
+### Notes
+
+- The consequence is real and intended: a watched site whose builders can never
+  reach it never finishes. That is a navigation problem to fix, not something to
+  paper over with masonry out of the air. The idle report is there to point at
+  the culprit.
+
+---
+
 ## How much of a town's income is imaginary is now yours to set
 
 ### New

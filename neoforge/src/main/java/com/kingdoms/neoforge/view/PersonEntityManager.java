@@ -1156,10 +1156,13 @@ public final class PersonEntityManager {
      * builder who can reach neither the block nor the shelves loses out, and
      * that is a builder in a hole rather than a site in a deadlock.
      *
-     * <p>Nothing wedges forever on the strength of this refusing. A watched build
-     * that lays nothing for {@code Settlement.WATCHED_BUILD_GRACE_STEPS}
-     * simulation steps stops being the queue head on its own, and that backstop
-     * belongs to the simulation rather than to this loop.
+     * <p>There is no backstop behind this any more, and that is deliberate. A
+     * watched build that lays nothing used to fall through to the clock after a
+     * dozen simulation steps; it does not, because a building finishing itself
+     * in front of a player is the bug that rule was hiding. A watched site with
+     * no hands on it waits, says so on {@code /civ info}, and waits — so this
+     * assist is the whole answer to a block nobody can path to, and the answer
+     * to a crew that never arrives is navigation, not masonry out of the air.
      *
      * @return true if a block went down
      */
