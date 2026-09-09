@@ -137,6 +137,33 @@ public interface WorldBridge {
     }
 
     /**
+     * Grows trees on ground a seeded town's forester is supposed to have been
+     * working.
+     *
+     * <p>Grown trees, not saplings, and that is the whole point: the camp has
+     * been standing since before the first step, so its wood has had years to
+     * come up. A seeded town handed saplings is a town with no timber for as
+     * long as it takes them to grow, which is the fault this exists to fix.
+     *
+     * <p>The positions are candidates in the order the simulation prefers them —
+     * see {@code ForesterStand.candidates} — and there are deliberately more of
+     * them than are wanted. The platform walks the list, skips every square the
+     * ground refuses (water, stone, a cliff, a canopy already there), and stops
+     * once it has planted {@code wanted}. It never levels, fills or clears
+     * anything to make a square usable: a camp on a lakeshore simply gets a
+     * smaller stand, which is what a camp on a lakeshore would have.
+     *
+     * <p>Default zero, so a platform with no world plants nothing and says so.
+     *
+     * @param spots  candidate trunk positions, nearest the camp first
+     * @param wanted how many trees to stop at
+     * @return how many actually went in
+     */
+    default int plantGrownTrees(java.util.List<SimPos> spots, int wanted) {
+        return 0;
+    }
+
+    /**
      * Whether a plot is fit to build on.
      *
      * <p>Plots are handed out by geometry alone — rings around the center — which

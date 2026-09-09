@@ -389,6 +389,22 @@ public final class Founding {
     private static Building standing(Settlement town, BuildingType type, TownPlan.Plot plot) {
         Building raised = new Building(type.id(), plot.at(), BEFORE_THE_FIRST_STEP, false);
         raised.setFacing(plot.facing());
+        // Standing since before the first step, with nothing behind it. The
+        // world around a seeded building has to be made to agree with that story,
+        // and only the first drawing can do it — see {@link ForesterStand}.
+        raised.setSeeded(true);
+        if (raised.role() == BuildingRole.LUMBER_CAMP) {
+            // A working camp has a box of seed in it. A possession of a standing
+            // building rather than a yield: nothing conjured it and nothing will
+            // conjure any more. Put down at the camp the same way a felled log
+            // is, so it lands on the shelves nearest the camp — or in the loose
+            // pile, if the program has not raised a storehouse yet, which
+            // stockTheStores then sweeps up. Written straight into the camp's own
+            // ledger it would be invisible: a camp is not one of the town's
+            // holders, and the forester reads the town's stock.
+            town.produceNear(raised.origin(), TownStores.SAPLINGS,
+                    ForesterStand.SAPLINGS_ON_HAND, LumberPlanner.MAX_SAPLINGS);
+        }
         int span = BuildPlanner.plotSpanOf(type.id(), town.catalog());
         raised.setFootprint(new Footprint(plot.at().y(), span, span, A_STORY));
         // Left unsurveyed on purpose. Surveyed means somebody stood on this

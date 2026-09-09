@@ -122,6 +122,22 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     /**
+     * Grows the stand a seeded town's forester has supposedly been working.
+     *
+     * <p>See {@link com.kingdoms.neoforge.world.Woodland}. Runs once, from the
+     * first drawing of a seeded lumber camp, and plants nothing on ground it
+     * would have to change first.
+     */
+    @Override
+    public int plantGrownTrees(java.util.List<SimPos> spots, int wanted) {
+        int planted = com.kingdoms.neoforge.world.Woodland.plant(level, spots, wanted);
+        if (planted > 0) {
+            KingdomsMod.LOGGER.info("Grew {} trees for a seeded lumber camp", planted);
+        }
+        return planted;
+    }
+
+    /**
      * Lays the blocks a standing building is short of, and no others.
      *
      * <p>The origin is taken as given rather than snapped to the surface the way
