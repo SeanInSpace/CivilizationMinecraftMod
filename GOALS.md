@@ -510,6 +510,11 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **The watch carries a sword and a bow.** Every guard holds a wooden
+      sword with a bow in the off hand from the day they take the post; the
+      smithy's iron sword is an upgrade, billed once against a ledger. Creepers
+      are shot from a band of eight to fourteen blocks with real arrows at the
+      vanilla skeleton's rate; everything else meets the sword.
 - [x] **An unwatched town lives off what stands in the world.** Each farm is
       a ledger of its 71 real crop blocks ripening on Minecraft's schedule, cut
       and tended by the farmers it has; each lumber camp a count of trees
