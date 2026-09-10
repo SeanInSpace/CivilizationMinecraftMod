@@ -2,7 +2,7 @@
 
 **Status:** implemented and working. Companion to [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what gets built) and [POPULATION.md](POPULATION.md) (who lives there). This one covers who attacks, who fights back, and what it costs.
 
-Code: [`RaidPlanner`](common/src/main/java/com/kingdoms/sim/settlement/RaidPlanner.java) (all rules), [`Garrison`](common/src/main/java/com/kingdoms/sim/settlement/Garrison.java) (threat versus watch), [`PersonEntityManager`](neoforge/src/main/java/com/kingdoms/neoforge/view/PersonEntityManager.java) (guard combat), [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java) (raid spawning).
+Code: [`RaidPlanner`](common/src/main/java/com/kingdoms/sim/settlement/RaidPlanner.java) (all rules), [`Garrison`](common/src/main/java/com/kingdoms/sim/settlement/Garrison.java) (threat versus watch), [`GuardStance`](common/src/main/java/com/kingdoms/sim/combat/GuardStance.java) (sword or bow, and how close to stand), [`PersonEntityManager`](neoforge/src/main/java/com/kingdoms/neoforge/view/PersonEntityManager.java) (guard combat and the kit), [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java) (raid spawning).
 
 ---
 
@@ -168,10 +168,75 @@ One protection: **someone a player can currently see is never killed by arithmet
 No arithmetic at all. The raid becomes **real zombies**, spawned in a ring 32 blocks from the town center and pointed inward. From there, vanilla and the guard system decide:
 
 - Zombies hunt villagers on their own — that is vanilla behavior.
-- **Guards fight back.** Once a second, every visible guard picks the nearest hostile within 20 blocks: in melee reach they strike (4 damage, with a swing); otherwise they charge. Hostiles retaliate through normal aggression, so **guards genuinely can lose**.
+- **Guards fight back.** Once a second, every visible guard picks the nearest hostile within 20 blocks and takes a stance against it — see below. Hostiles retaliate through normal aggression, so **guards genuinely can lose**.
 - Any villager death — guard or civilian — kills the person it represents, permanently, through the same death path that already existed. The loss is logged.
 
 Guard combat is deliberately puppeteered from the manager rather than grafted into the villager brain: vanilla villagers cannot fight, and bolting goals onto a brain-driven mob makes two AIs wrestle over navigation. One decision per second per guard is cheap and looks right.
+
+## The watch's kit
+
+**Every guard carries a sword and a bow, on duty or off, from the moment he takes
+the profession.** Not only when something hostile appears, and not only if the
+town has a forge — the wooden sword and the bow are the watch's own equipment and
+cost the stores nothing. The leading weapon is in the main hand and the spare in
+the off hand, where it can be seen.
+
+What the **smithy** buys is the upgrade. The first iron sword on the weapons rack
+replaces a guard's wooden one — one debit from `WEAPONS`, once — and stays with
+him. Armor works as it always has: one iron chestplate off the `ARMOUR` rack when
+one is available.
+
+| In the main hand | Damage a swing |
+|---|---|
+| bare hands | 4 |
+| wooden sword (the watch's own) | 5 |
+| iron sword (off the rack) | 7 |
+
+**A guard who stops being a guard hands the kit back.** The wooden sword and bow
+vanish with the job; the iron sword returns to the rack, because the town paid a
+smith to make it. The same happens when a body is released — the player walked out
+of sight — so the weapon count does not leak every time a town is left alone.
+
+**Arrows are infinite.** There is no arrow store, no fletcher, and nothing to
+haul. A quiver would mean a fourth item on the ledger for the smith to make, the
+haulers to carry and the player to run out of mid-raid, to answer a question
+nobody was asking.
+
+## The two stances
+
+The whole decision is a distance and one question — *does this thing explode?* —
+and it lives as a pure function in `GuardStance` (`:common`), with a test on it.
+
+**Sword, for everything that does not explode.** Out of reach, walk at it; within
+reach (2.5 blocks), swing. A guard never gives ground to a zombie: what is behind
+him is a farmer.
+
+**Bow, for creepers.** A creeper cannot be fought with a sword — its fuse is
+shorter than its health, so a guard who stands in reach and swings dies with it.
+So the bow comes up and the sword goes to the off hand, and he holds a band:
+
+- **inside 8 blocks** — in the blast. Back off, at a walk, still shooting.
+- **8 to 14 blocks** — where he wants to be. Stand still and shoot.
+- **beyond 14** — too far for a useful shot. Close in.
+
+Eight is one block clear of the seven a creeper's blast hurts at, which is the
+same seven the flight goal runs on. Fourteen is inside the 20 a guard notices
+anything at, and vanilla's own skeleton holds fifteen.
+
+He looses **one arrow every 20 ticks** — vanilla's skeleton rate on hard
+difficulty; a skeleton on anything easier fires half as often. The arrow is a
+real `AbstractArrow`, built and fired exactly the way `AbstractSkeleton.performRangedAttack`
+builds and fires one (`ProjectileUtil.getMobArrow`, then
+`Projectile.spawnProjectileUsingShoot` with vanilla's lead, arc and
+difficulty-scaled spread), so it does what any other arrow in the game does:
+about 4 damage a hit, four or five hits for a creeper's 20 health. Arrows are
+marked unpickupable, so a well-defended town does not silt up with free ammunition.
+
+Once the creeper is dead or out of sight, the sword comes back to the main hand.
+A guard with the bow up who is charged by a zombie is looking at the zombie by
+then — it is the nearer threat — so he draws the sword as it comes into reach.
+
+**No speed above a walk, in either stance**, retreat included. See `Pace`.
 
 ---
 

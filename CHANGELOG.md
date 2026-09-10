@@ -6,6 +6,53 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The watch carries a sword and a bow, and shoots the creepers
+
+### New
+
+- **Every guard is holding a weapon, from his first day.** He used to stand
+  around empty-handed and only reached for a blade when something hostile
+  wandered into view — and then only if the smithy had made one, so most towns
+  had a watch of unarmed men who looked exactly like farmers. A guard now carries
+  a **wooden sword and a bow** the moment he takes the post, out of nobody's
+  stores, whether or not there is anything to fight. It is the watch's own kit,
+  and a town that has never built a forge still posts somebody who is armed.
+
+- **The bow is visible in his off hand.** Sword in the leading hand, bow in the
+  other, and they swap over when the fight calls for it, so you can tell a guard
+  from a villager at a glance and tell what he thinks of what he is looking at.
+
+- **Creepers are shot, not stabbed.** A guard who sees one draws the bow, walks
+  to a range of **eight to fourteen blocks** — outside the blast, inside a
+  reliable shot — and looses an arrow a second until it is dead, four or five of
+  them. If the creeper closes inside eight he backs away, still shooting. This
+  replaces the old hit-and-run dance, where he swung once, ran, waited out the
+  fuse and walked back in: it worked, and it looked like a man who had never
+  been told what a bow is for.
+
+- **Guards do not run out of arrows.** There is no arrow store, no fletcher, and
+  nothing to haul. That is a deliberate simplification: an ammunition economy is
+  a lot of new machinery to answer a question nobody was asking.
+
+### Changed
+
+- **The smithy now buys an upgrade rather than a weapon.** The first iron sword
+  off the rack replaces a guard's wooden one, once, and stays with him. In
+  damage: bare hands **4** a swing, the watch's wooden sword **5**, the forge's
+  iron sword **7**. A forge is still worth building — it is just no longer the
+  difference between armed and unarmed.
+
+- **A guard who stops being a guard hands the kit back.** The wooden sword and
+  the bow vanish with the job; the iron sword goes back on the rack for the next
+  man, including when a body is put away because you walked out of sight of the
+  town. The town's weapon count stopped quietly leaking.
+
+- **Everything else is still met with the sword**, unchanged — walked up to and
+  hit, never backed away from. A guard with the bow up who is charged by a zombie
+  draws the sword again as it comes into reach.
+
+- **Nothing moves faster than a walk**, retreat included. That rule is untouched.
+
 ---
 
 ## Grain is not bread until somebody bakes it

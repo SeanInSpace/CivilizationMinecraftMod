@@ -17,6 +17,7 @@ import com.kingdoms.neoforge.world.Excavation;
 import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.neoforge.world.PerimeterLayer;
 import com.kingdoms.neoforge.world.StoreSync;
+import com.kingdoms.sim.combat.GuardStance;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Tallies;
@@ -31,6 +32,9 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.neoforge.bridge.Menace;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.phys.Vec3;
 import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.sim.economy.Economy;
@@ -275,8 +279,8 @@ public final class PersonEntityManager {
     private final Map<UUID, Integer> homeAccessFailures = new HashMap<>();
 
     /** Guards engage hostiles within this range, strike within melee reach. */
-    private static final double GUARD_ENGAGE_RANGE = 20.0;
-    private static final double GUARD_STRIKE_RANGE = 2.5;
+    public static final double GUARD_ENGAGE_RANGE = 20.0;
+    public static final double GUARD_STRIKE_RANGE = 2.5;
     /**
      * A guard closing on something, and backing off a creeper afterwards.
      *
@@ -396,6 +400,7 @@ public final class PersonEntityManager {
                 StoreSync.reconcile(level, settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
+                tendKit(settlement);
                 guardCombat(settlement);
             }
         }
@@ -1964,6 +1969,10 @@ public final class PersonEntityManager {
             PersonEntity view = entry.getValue();
             tracked.remove(entry.getKey());
             forgetDigger(entry.getKey());
+            // No refund: the settlement that would take the sword back is the one
+            // that has just stopped having this person in it.
+            issuedIron.remove(entry.getKey());
+            shots.remove(entry.getKey());
             if (view != null && !view.isRemoved()) {
                 view.hurtServer(level, level.damageSources().starve(), Float.MAX_VALUE);
                 if (!view.isRemoved() && !view.isDeadOrDying()) {
@@ -1974,37 +1983,184 @@ public final class PersonEntityManager {
     }
 
     /**
-     * Guards fight. Once a second each embodied guard picks the nearest hostile
-     * in range: close enough, they strike; otherwise they close the distance.
+     * Every guard in the town carries the watch's kit, and nobody else does.
      *
-     * <p>Deliberately puppeteered from here rather than grafted onto the view
-     * brain â€” vanilla villagers cannot fight, and mixing custom goals into a
-     * brain-driven mob makes two AIs wrestle over the navigator. The hostiles
-     * retaliate through normal vanilla anger, so guards genuinely can lose.
+     * <p>Run once a pass, before the fighting, and it is the whole of the
+     * arming rule: a guard has a weapon in his hand from the moment he takes the
+     * profession, whether or not anything hostile is in sight, and hands it back
+     * the moment he stops being one. Idempotent by construction — everything
+     * below asks what is already in the slot before it puts anything in it — so
+     * running it every second costs nothing and there is no separate hook for
+     * embodiment, for a new body, or for a change of trade. A body that appears
+     * wearing nothing is armed on the next pass because it is a guard, not
+     * because anybody noticed it appear.
      */
-    /**
-     * Draws a guard whatever the forge has made for them.
-     *
-     * <p>Taken from the rack once and kept: the stores pay for the kit, the guard
-     * wears it, and a town that never built a smithy sends its watch out with
-     * bare hands. That is the whole reason to build one.
-     */
-    private void arm(Settlement settlement, PersonEntity guard) {
-        if (guard.getMainHandItem().isEmpty()
-                && settlement.stores().take(TownStores.WEAPONS, 1)) {
-            guard.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+    private void tendKit(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied()) {
+                continue;
+            }
+            PersonEntity body = tracked.get(person.id().value());
+            if (body == null || body.isRemoved()) {
+                continue;
+            }
+            if (person.profession() == Profession.GUARD) {
+                arm(settlement, person.id().value(), body);
+            } else {
+                standDown(settlement, person.id().value(), body);
+            }
         }
+    }
+
+    /**
+     * Draws a guard the watch's kit, and whatever the forge has made for them.
+     *
+     * <p><strong>The sword and the bow are the watch's own.</strong> Every guard
+     * carries a wooden sword and a bow from his first day, out of nobody's
+     * stores — a town that has never built a smithy still posts a man who is
+     * holding something, which is both what the player asked for and what a
+     * militia actually looks like. What the forge buys is the upgrade: the first
+     * iron sword on the rack replaces the wood, once, and stays with him. That
+     * is still the whole reason to build a smithy — it is the difference between
+     * a guard who does 5 damage a swing and one who does 7.
+     *
+     * <p><strong>Arrows are infinite and there is no arrow store.</strong> A
+     * guard never runs dry. The alternative is a fourth thing on the ledger for
+     * the smith to make, the haulers to carry and the player to run out of
+     * during a raid, which is a whole economy nobody asked for to answer a
+     * question — "did the watch have enough arrows?" — nobody was asking. If
+     * fletching ever earns its place it goes in here, at {@link #loose}.
+     */
+    private void arm(Settlement settlement, UUID guardId, PersonEntity guard) {
+        if (!issuedIron.contains(guardId)
+                && settlement.stores().take(TownStores.WEAPONS, 1)) {
+            issuedIron.add(guardId);         // the forge has caught up
+        }
+        // Whichever weapon is leading stays leading: the fight decides that, and
+        // this pass runs first. Re-seating the sword here every second would
+        // yank the bow out of a bowman's hand between shots.
+        wield(guard, swordFor(guardId), guard.getMainHandItem().is(Items.BOW));
         if (guard.getItemBySlot(EquipmentSlot.CHEST).isEmpty()
                 && settlement.stores().take(TownStores.ARMOR, 1)) {
             guard.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
         }
     }
 
-    /** A sword hits harder than a fist. */
-    private static float armedBonus(PersonEntity guard) {
-        return guard.getMainHandItem().is(Items.IRON_SWORD) ? 3.0F : 0.0F;
+    /**
+     * Somebody who is no longer of the watch gives the kit back.
+     *
+     * <p>The wooden sword and the bow were never anybody's property and simply
+     * vanish; an iron sword goes back on the rack for the next guard, because it
+     * came off the rack and the town paid a smith to make it. The chestplate
+     * stays on him, as it always has — armor is not a weapon and nobody has ever
+     * asked for it back.
+     *
+     * <p>Called for every non-guard every pass, which is how a change of trade is
+     * noticed without anything having to announce one, and costs a set lookup
+     * for everybody who never held a sword.
+     */
+    private void standDown(Settlement settlement, UUID personId, PersonEntity body) {
+        if (issuedIron.remove(personId)) {
+            settlement.stores().add(TownStores.WEAPONS, 1);
+        }
+        for (EquipmentSlot hand : HANDS) {
+            if (isKit(body.getItemBySlot(hand))) {
+                body.setItemSlot(hand, ItemStack.EMPTY);
+            }
+        }
     }
 
+    /**
+     * Who is holding an iron sword the town paid for.
+     *
+     * <p><strong>The ledger, and not the hand, is what the rack is settled
+     * against.</strong> Reading the tier back off whatever is in the guard's
+     * hands looks tidier and is a slow leak: anything that empties a hand for its
+     * own reasons — a haul display, a tool, a mod — reads as "this guard has no
+     * sword", and the next pass buys him another one off the rack, forever. One
+     * sword is issued per guard, once, and the same record hands it back.
+     *
+     * <p>Not persisted. An unembodied guard has no outstanding sword: releasing a
+     * body puts it back on the rack, and embodying one draws it again.
+     */
+    private final Set<UUID> issuedIron = new HashSet<>();
+
+    /** The sword this guard is entitled to: the forge's if the town bought him one. */
+    private Item swordFor(UUID guardId) {
+        return issuedIron.contains(guardId) ? Items.IRON_SWORD : Items.WOODEN_SWORD;
+    }
+
+    /** The two slots the kit lives in. */
+    private static final List<EquipmentSlot> HANDS =
+            List.of(EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND);
+
+    /** Whether a held item is part of the watch's kit rather than somebody's lunch. */
+    private static boolean isKit(ItemStack held) {
+        return held.is(Items.WOODEN_SWORD) || held.is(Items.IRON_SWORD) || held.is(Items.BOW);
+    }
+
+    /**
+     * Puts both halves of the kit where they belong: whichever weapon is leading
+     * in the main hand, the other in the off hand where it can be seen.
+     *
+     * <p>Both hands full at all times, deliberately. The ask was a guard who is
+     * visibly carrying a sword <em>and</em> a bow, and an off-hand slot is where
+     * a mob's spare weapon renders.
+     */
+    private static void wield(PersonEntity guard, Item sword, boolean bowLeads) {
+        hold(guard, EquipmentSlot.MAINHAND, bowLeads ? Items.BOW : sword);
+        hold(guard, EquipmentSlot.OFFHAND, bowLeads ? sword : Items.BOW);
+    }
+
+    /** One slot, set only when it is not already right, and never lootable. */
+    private static void hold(PersonEntity guard, EquipmentSlot slot, Item item) {
+        if (!guard.getItemBySlot(slot).is(item)) {
+            guard.setItemSlot(slot, new ItemStack(item));
+        }
+        // The kit is issued, not owned: a guard who falls must not carpet the
+        // square with swords the player can pick up and the town cannot.
+        guard.setDropChance(slot, 0.0F);
+    }
+
+    /**
+     * What the weapon in a guard's hand is worth on top of his fists.
+     *
+     * <p>Three tiers and they are the whole of the smithy's argument: bare hands
+     * <strong>0</strong>, the watch's wooden sword <strong>+1</strong>, the
+     * forge's iron sword <strong>+3</strong>. On the {@link #GUARD_DAMAGE} base
+     * of 4 that is 4, 5 and 7 a swing. Every guard is at least at the middle rung
+     * now — the bottom one is left in because a body can be caught between the
+     * pass that spawns it and the pass that arms it, and a nullish 0 is a better
+     * answer there than a lie.
+     */
+    private static float armedBonus(PersonEntity guard) {
+        ItemStack held = guard.getMainHandItem();
+        if (held.is(Items.IRON_SWORD)) {
+            return 3.0F;
+        }
+        return held.is(Items.WOODEN_SWORD) ? 1.0F : 0.0F;
+    }
+
+    /**
+     * Guards fight. Once a second each embodied guard picks the nearest hostile
+     * in range and takes a stance against it: sword up and walk at it, or bow up
+     * and hold the range band and shoot. Which of the two is
+     * {@link GuardStance}'s decision and nothing here second-guesses it.
+     *
+     * <p>Deliberately puppeteered from here rather than grafted onto the view
+     * brain â€” vanilla villagers cannot fight, and mixing custom goals into a
+     * brain-driven mob makes two AIs wrestle over the navigator. The hostiles
+     * retaliate through normal vanilla anger, so guards genuinely can lose.
+     *
+     * <p><strong>The creeper dance is gone.</strong> A guard used to hit a
+     * creeper once, run out of the blast for {@code FUSE_RESET_TICKS}, walk back
+     * in and do it again. He shoots it now, which is what the bow is for, and
+     * the only retreating left is the plain "it got inside eight blocks, walk
+     * away from it" that {@link GuardStance.Move#BACK_OFF} asks for.
+     *
+     * <p><strong>Nothing here moves faster than a walk</strong>, retreat
+     * included. See {@link Pace}.
+     */
     private void guardCombat(Settlement settlement) {
         for (Person person : settlement.residents()) {
             if (person.profession() != Profession.GUARD || !person.isEmbodied()) {
@@ -2014,31 +2170,36 @@ public final class PersonEntityManager {
             if (guard == null || guard.isRemoved()) {
                 continue;
             }
+            creditKill(settlement, person.id().value());
             Mob target = nearestHostile(guard);
             if (target == null) {
-                backingOff.remove(person.id().value());
-                continue;
-            }
-            arm(settlement, guard);
-
-            // A creeper is not fought the way a zombie is fought. Standing in
-            // reach and swinging until it dies kills the guard too — the fuse is
-            // shorter than the creeper's health. So: one hit, then out of the
-            // blast until the fuse has had time to reset, then back in. It takes
-            // longer and the guard survives it.
-            boolean volatileFoe = Menace.blowsUp(target);
-            long now = level.getGameTime();
-            Long clear = backingOff.get(person.id().value());
-            if (clear != null && now >= clear) {
-                backingOff.remove(person.id().value());
-                clear = null;
-            }
-            if (volatileFoe && clear != null) {
-                retreatFrom(guard, target);
+                // Nothing to fight: the bow goes away and the sword comes back
+                // up, so a guard standing on the wall is a guard holding a sword.
+                shots.remove(person.id().value());
+                wield(guard, swordFor(person.id().value()), false);
                 continue;
             }
 
-            if (guard.distanceTo(target) <= GUARD_STRIKE_RANGE) {
+            double range = guard.distanceTo(target);
+            GuardStance.Stance stance =
+                    GuardStance.against(Menace.blowsUp(target), range, GUARD_STRIKE_RANGE);
+            wield(guard, swordFor(person.id().value()),
+                    stance.weapon() == GuardStance.Weapon.BOW);
+            guard.getLookControl().setLookAt(target, 30.0F, 30.0F);
+
+            switch (stance.move()) {
+                case CLOSE_IN -> guard.getNavigation().moveTo(target, GUARD_CHARGE_SPEED);
+                case BACK_OFF -> retreatFrom(guard, target);
+                // Standing his ground is a decision, and it has to cancel the
+                // path he was walking or vanilla carries him on into the blast.
+                case HOLD -> guard.getNavigation().stop();
+            }
+
+            if (stance.weapon() == GuardStance.Weapon.BOW) {
+                if (stance.shoot()) {
+                    loose(person.id().value(), guard, target);
+                }
+            } else if (range <= GUARD_STRIKE_RANGE) {
                 guard.swing(InteractionHand.MAIN_HAND);
                 boolean wasAlive = target.isAlive();
                 target.hurtServer(level, level.damageSources().mobAttack(guard),
@@ -2046,32 +2207,109 @@ public final class PersonEntityManager {
                 if (wasAlive && !target.isAlive()) {
                     settlement.tallies().record(Tallies.MOBS_SLAIN);
                 }
-                if (volatileFoe && target.isAlive()) {
-                    backingOff.put(person.id().value(), now + FUSE_RESET_TICKS);
-                    retreatFrom(guard, target);
-                }
-            } else {
-                guard.getNavigation().moveTo(target, GUARD_CHARGE_SPEED);
             }
         }
     }
 
     /**
-     * When each guard mid-retreat may turn round again, by game time.
+     * One guard's shooting: when he may loose again, and at what.
      *
-     * <p>Not persisted, and it does not need to be: an unloaded guard is not
-     * standing next to a creeper.
+     * <p>Not persisted, and it does not need to be — an unloaded guard is not
+     * drawing a bow on anything.
+     *
+     * <p>{@code nextShot} is the game time the next arrow may leave the string.
+     * {@code quarry} is what the last one was loosed at, kept so that a kill
+     * landing a beat after the shot can still be credited to the town.
      */
-    private final Map<UUID, Long> backingOff = new HashMap<>();
+    private static final class Shots {
+        long nextShot;
+        Mob quarry;
+    }
+
+    private final Map<UUID, Shots> shots = new HashMap<>();
 
     /**
-     * How long a guard stays out of it after hitting a creeper.
-     *
-     * <p>The fuse runs thirty ticks and stops climbing once its target is more
-     * than seven blocks off, so this is that plus enough margin to have covered
-     * the seven blocks. Too short and the guard walks back into its own detonation.
+     * An arrow kills a beat after it is loosed, so the tally is settled a pass
+     * late: whatever this guard last shot at, if it is dead and he was the last
+     * thing to hurt it, the town killed it.
      */
-    private static final int FUSE_RESET_TICKS = 45;
+    private void creditKill(Settlement settlement, UUID guardId) {
+        Shots shooting = shots.get(guardId);
+        if (shooting == null || shooting.quarry == null || shooting.quarry.isAlive()) {
+            return;
+        }
+        Mob dead = shooting.quarry;
+        shooting.quarry = null;
+        PersonEntity guard = tracked.get(guardId);
+        if (guard != null && dead.getLastHurtByMob() == guard) {
+            settlement.tallies().record(Tallies.MOBS_SLAIN);
+        }
+    }
+
+    /**
+     * How often a guard may loose an arrow, in ticks.
+     *
+     * <p>Vanilla's own skeleton fires every 20 ticks on hard and every 40 on
+     * anything easier. A guard is a trained man with one job, so he gets the
+     * hard-difficulty rate flat — and never anything quicker, which is the rule
+     * this number exists to be checked against.
+     */
+    public static final int BOW_COOLDOWN_TICKS = 20;
+
+    /**
+     * The draw. Vanilla passes 1.0 to {@code setBaseDamageFromMob}, which becomes
+     * a base of 2.0 plus a difficulty wobble; the arrow then does
+     * {@code ceil(speed × base)} on impact, so at {@link #BOW_SPEED} that is
+     * three to five a hit and a twenty-health creeper takes four or five arrows.
+     * Exactly what a vanilla bow already does — the number is not tuned, it is
+     * copied, so a guard's arrow is worth what any other arrow is worth.
+     */
+    private static final float BOW_DRAW = 1.0F;
+
+    /** A fully drawn bow's launch speed. Vanilla's, unchanged. */
+    private static final float BOW_SPEED = 1.6F;
+
+    /**
+     * Looses one arrow at something, with vanilla's lead and vanilla's spread.
+     *
+     * <p>A real {@code AbstractArrow} built by {@code ProjectileUtil.getMobArrow}
+     * and fired with {@code Projectile.spawnProjectileUsingShoot}, which is
+     * line-for-line what {@code AbstractSkeleton.performRangedAttack} does: aim
+     * at a third of the target's height, add a fifth of the flat distance to the
+     * vertical so the shaft arcs, and let the difficulty pick the spread
+     * ({@code 14 - difficulty × 4}). Doing it any other way would be inventing a
+     * ballistics model when the game already ships one.
+     *
+     * <p>The arrow is conjured rather than drawn from a quiver: guards do not run
+     * out (see {@link #arm}), and it is marked unpickupable so a defended town
+     * does not silt up with free arrows.
+     */
+    private void loose(UUID guardId, PersonEntity guard, Mob target) {
+        Shots shooting = shots.computeIfAbsent(guardId, id -> new Shots());
+        long now = level.getGameTime();
+        if (now < shooting.nextShot) {
+            return;
+        }
+        shooting.nextShot = now + BOW_COOLDOWN_TICKS;
+        shooting.quarry = target;
+
+        ItemStack bow = guard.getMainHandItem();
+        ItemStack shaft = new ItemStack(Items.ARROW);
+        AbstractArrow arrow = ProjectileUtil.getMobArrow(guard, shaft, BOW_DRAW, bow);
+        arrow.pickup = AbstractArrow.Pickup.DISALLOWED;
+
+        double dx = target.getX() - guard.getX();
+        double dy = target.getY(0.3333333333333333) - arrow.getY();
+        double dz = target.getZ() - guard.getZ();
+        double flat = Math.sqrt(dx * dx + dz * dz);
+        Projectile.spawnProjectileUsingShoot(arrow, level, shaft,
+                dx, dy + flat * 0.2, dz, BOW_SPEED,
+                14 - level.getDifficulty().getId() * 4);
+
+        guard.swing(InteractionHand.MAIN_HAND);
+        guard.playSound(SoundEvents.ARROW_SHOOT, 1.0F,
+                1.0F / (guard.getRandom().nextFloat() * 0.4F + 0.8F));
+    }
 
     /** How far to get before turning round. */
     private static final int RETREAT_DISTANCE = 12;
@@ -2141,6 +2379,13 @@ public final class PersonEntityManager {
                 // and let the next plan respawn it if anyone is still watching.
                 tracked.remove(person.id().value());
                 forgetDigger(person.id().value());
+                shots.remove(person.id().value());
+                // The body went with the chunk; the person did not. Their issued
+                // sword goes back on the rack rather than out of the world with
+                // an entity nobody chose to remove.
+                if (issuedIron.remove(person.id().value())) {
+                    settlement.stores().add(TownStores.WEAPONS, 1);
+                }
                 person.setEmbodied(false);
                 changed = true;
                 continue;
@@ -2259,8 +2504,14 @@ public final class PersonEntityManager {
         // town's stone out of its own reckoning every time the player walked
         // away, and hand it back to nobody.
         BuildLoad.putBack(settlement.stores(), person);
+        shots.remove(person.id().value());
         PersonEntity view = tracked.remove(person.id().value());
         if (view != null && !view.isRemoved()) {
+            // Same reasoning, for the other thing the stores paid for. A guard's
+            // iron sword is on the town's books; a body discarded because the
+            // player walked away must not take it off them. The wooden sword and
+            // the bow were never on the books and go with the body.
+            standDown(settlement, person.id().value(), view);
             person.setPosition(NeoForgeWorldBridge.toSimPos(view.blockPosition()));
             view.discard();
         }
@@ -2608,8 +2859,19 @@ public final class PersonEntityManager {
             }
             // Show the load: a hauler carrying grain is visibly carrying grain,
             // and sets it down the moment it is delivered.
+            //
+            // Except a guard, whose hands are not free. The watch's kit is issued
+            // by tendKit and lives in both hands permanently, and this used to
+            // wipe the main hand of every non-builder every single pass — which
+            // was invisible while a guard was only armed on sighting a hostile
+            // and is a rack-emptying loop now that he is armed all day: sword
+            // cleared here, missing when tendKit looks, another iron sword taken
+            // off the town to replace it, once a second. A guard carrying grain
+            // simply carries it out of sight.
             HaulTask carrying = person.haul();
-            if (carrying != null && carrying.isLoaded()) {
+            if (guard) {
+                // hands stay as the watch left them
+            } else if (carrying != null && carrying.isLoaded()) {
                 carry(view, CARGO_ITEM);
             } else if (person.profession() != Profession.BUILDER) {
                 clearHands(view);
@@ -2775,6 +3037,11 @@ public final class PersonEntityManager {
         UUID personId = view.getData(KingdomsAttachments.PERSON_ID.get());
         forgetDigger(personId);
         tracked.remove(personId);
+        shots.remove(personId);
+        // No refund. A guard's sword is lost on the field with the guard — the
+        // town is short a man and short a blade, which is what losing a fight
+        // ought to cost.
+        issuedIron.remove(personId);
 
         Person.Id id = new Person.Id(personId);
         world.settlementOf(id).ifPresent(settlement -> {
