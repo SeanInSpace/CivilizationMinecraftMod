@@ -3,6 +3,7 @@ package com.kingdoms.neoforge.item;
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
+import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.person.Foods;
@@ -79,7 +80,7 @@ public final class FoundingCharterItem extends Item {
         }
 
         String name = SettlementNames.forPosition(site);
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, Culture.NORMAN.id());
         // The party itself is simulation, not right-clicking — see Founding,
         // which /civ found now comes through as well, so a scripted run founds
         // what a player's charter founds.

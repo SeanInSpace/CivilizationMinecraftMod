@@ -34,6 +34,15 @@ catalog — currently only the **watchtower, at +3**. (The bonus is a column in 
 same table as everything else, so datapack cultures can have their own defensive
 structures later.)
 
+**Race is not in this number, deliberately.** An orc guard is tougher and hits
+harder in a real fight, but the statistical raid still counts heads, because this
+formula and the one the town recruits by (`guards needed = threat ÷ 2`) are
+exactly each other inverted — that is the whole point of there being one
+comparison in one place. Weighting an orc guard here without weighting him there
+would make a town recruit by a number it does not fight by, which is the fault
+`Garrison` exists to prevent. When it goes in it goes in both ends at once,
+alongside the weapon weighting the same paragraph has been waiting for.
+
 **The wall is not in this number yet.** A town rings itself with a real wall and
 real gates, and a sentry really walks it — but the arithmetic above still counts
 only guards and towers, so the wall currently buys physical obstruction and
@@ -191,6 +200,13 @@ one is available.
 | bare hands | 4 |
 | wooden sword (the watch's own) | 5 |
 | iron sword (off the rack) | 7 |
+
+**And then the body he was born into.** A guard's race adds to every swing on top
+of the table above: humans nothing, orcs one, goblins nothing — so an orc guard
+with an iron sword hits for 8 where a human hits for 7. An orc also carries 30
+health against a human's 20 and a goblin's 14, so an orc watch is harder to break
+as well as harder to survive. He is a tenth slower closing the distance, which is
+the price. See the race table in [PLAYING.md](PLAYING.md).
 
 **A guard who stops being a guard hands the kit back.** The wooden sword and bow
 vanish with the job; the iron sword returns to the rack, because the town paid a

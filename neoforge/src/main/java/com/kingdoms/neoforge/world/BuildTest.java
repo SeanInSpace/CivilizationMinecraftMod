@@ -128,13 +128,13 @@ public final class BuildTest {
                 center, Math.max(96, count * 2));
         town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.TOWN);
-        town.setCultureId("kingdoms:orc");
+        town.setCultureId("kingdoms:orc/warhost");
         // The arrangement actually drawn, not whatever the orcs would have
         // chosen here. A drawing whose recorded layout disagreed with its own
         // streets would answer /civ info with a shape that is not on the ground.
         town.setLayoutId(arrangement.id());
         town.setDrawnOnly(true);
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Buildtest", "kingdoms:orc");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Buildtest", "kingdoms:orc/warhost");
         kingdom.restoreSettlement(town);
         var world = KingdomsMod.simulationFor(level);
         if (world != null) {

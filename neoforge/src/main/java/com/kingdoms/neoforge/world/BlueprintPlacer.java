@@ -2476,13 +2476,13 @@ public final class BlueprintPlacer {
     private static DyeColor bedColor(Culture culture) {
         return switch (culture == null ? "" : culture.id()) {
             // Townsfolk, who can afford madder and want it seen.
-            case "kingdoms:burgher" -> DyeColor.RED;
+            case "kingdoms:human/burgher" -> DyeColor.RED;
             // Hill people, whose wool is the color the sheep grew it.
-            case "kingdoms:highland" -> DyeColor.BROWN;
+            case "kingdoms:human/highland" -> DyeColor.BROWN;
             // Vale folk get woad, the one dye a farming village makes itself.
-            case "kingdoms:vale" -> DyeColor.LIGHT_BLUE;
-            case "kingdoms:goblin" -> DyeColor.GREEN;
-            case "kingdoms:orc" -> DyeColor.BLACK;
+            case "kingdoms:human/vale" -> DyeColor.LIGHT_BLUE;
+            case "kingdoms:goblin/mire" -> DyeColor.GREEN;
+            case "kingdoms:orc/warhost" -> DyeColor.BLACK;
             // The lowlanders, and anybody a datapack adds without an opinion.
             default -> DyeColor.WHITE;
         };

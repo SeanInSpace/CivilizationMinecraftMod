@@ -130,7 +130,7 @@ class RealTerrainRoadsTest {
         Settlement town = new Settlement(Settlement.Id.random(), "Rough", CENTER, 512);
         town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
-        town.setCultureId("kingdoms:vale");
+        town.setCultureId("kingdoms:human/vale");
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
                     Person.Id.random(), name, Profession.PIONEER, CENTER));

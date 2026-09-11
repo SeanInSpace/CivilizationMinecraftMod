@@ -79,9 +79,9 @@ class HouseStyleTest {
         // The fallback, said out loud. A culture id from a save this build has
         // never heard of must get a house, and a null id -- which is what a world
         // written before cultures had names carries -- must not throw.
-        assertEquals(HouseStyle.forCulture("kingdoms:norman"),
+        assertEquals(HouseStyle.forCulture("kingdoms:human/norman"),
                 HouseStyle.forCulture("kingdoms:nobody_has_drawn_these"));
-        assertEquals(HouseStyle.forCulture("kingdoms:norman"),
+        assertEquals(HouseStyle.forCulture("kingdoms:human/norman"),
                 HouseStyle.forCulture(null));
     }
 
@@ -103,9 +103,9 @@ class HouseStyleTest {
         // A style is allowed to opt out of the whole vocabulary, and this is the
         // one that does. Worth pinning: a later pass that "fixed" the roofless
         // people would be undoing a decision rather than filling a gap.
-        assertEquals(HouseStyle.Roof.FLAT, HouseStyle.forCulture("kingdoms:orc").roof());
-        assertEquals(HouseStyle.Roof.HIP, HouseStyle.forCulture("kingdoms:highland").roof());
-        assertEquals(HouseStyle.Roof.GABLE, HouseStyle.forCulture("kingdoms:norman").roof());
+        assertEquals(HouseStyle.Roof.FLAT, HouseStyle.forCulture("kingdoms:orc/warhost").roof());
+        assertEquals(HouseStyle.Roof.HIP, HouseStyle.forCulture("kingdoms:human/highland").roof());
+        assertEquals(HouseStyle.Roof.GABLE, HouseStyle.forCulture("kingdoms:human/norman").roof());
     }
 
     // --- and no two of their houses are the same one -------------------------

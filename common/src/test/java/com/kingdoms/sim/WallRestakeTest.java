@@ -246,8 +246,8 @@ class WallRestakeTest {
         Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTER, 512);
         town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
-        town.setCultureId("kingdoms:burgher");
-        town.setLayoutId(Culture.of("kingdoms:burgher").layouts().get(0));
+        town.setCultureId("kingdoms:human/burgher");
+        town.setLayoutId(Culture.of("kingdoms:human/burgher").layouts().get(0));
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(Person.Id.random(), name, Profession.PIONEER, CENTER));
         }

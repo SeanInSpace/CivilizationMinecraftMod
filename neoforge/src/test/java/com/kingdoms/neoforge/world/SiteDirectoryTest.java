@@ -99,13 +99,27 @@ class SiteDirectoryTest {
     @DisplayName("a people and a shape read as words, not as identifiers")
     void aPeopleAndAShapeReadAsWordsNotAsIdentifiers() {
         assertEquals("a Norman crossroads",
-                SiteDirectory.describe("kingdoms:norman", "kingdoms:crossroads"));
+                SiteDirectory.describe("kingdoms:human/norman", "kingdoms:crossroads"));
         assertEquals("a Burgher high street",
-                SiteDirectory.describe("kingdoms:burgher", "kingdoms:high_street"));
-        assertEquals("an Orc warren",
-                SiteDirectory.describe("kingdoms:orc", "kingdoms:warren"));
+                SiteDirectory.describe("kingdoms:human/burgher", "kingdoms:high_street"));
         assertEquals("high street", SiteDirectory.readable("kingdoms:high_street"));
         assertEquals("plain", SiteDirectory.readable("plain"));
+        // The race is a path segment now, and it is not the people's name.
+        assertEquals("norman", SiteDirectory.readable("kingdoms:human/norman"));
+    }
+
+    @Test
+    @DisplayName("humans go unsaid and everybody else is named")
+    void humansGoUnsaidAndEverybodyElseIsNamed() {
+        // What a player wants off this line is whether the neighbors are people.
+        // Human is the unmarked case -- "a human Norman crossroads" is a label on
+        // a specimen -- so only the races worth a warning get the word.
+        assertEquals("an orc Warhost stronghold",
+                SiteDirectory.describe("kingdoms:orc/warhost", "kingdoms:stronghold"));
+        assertEquals("a goblin Mire warren",
+                SiteDirectory.describe("kingdoms:goblin/mire", "kingdoms:warren"));
+        assertEquals("a Vale crescents",
+                SiteDirectory.describe("kingdoms:human/vale", "kingdoms:crescents"));
     }
 
     @Test

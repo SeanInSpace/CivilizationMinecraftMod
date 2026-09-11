@@ -257,6 +257,7 @@ Per-world settings in `<world>/serverconfig/kingdoms-server.toml`:
 | `worldgen.region` | 512 | Blocks across a region, which holds at most one town — **the density dial** |
 | `worldgen.site_chance` | 35 | Percent of regions that hold a town at all |
 | `worldgen.wayfinder_on_join` | true | Whether you are handed a wayfinder on your first join |
+| `worldgen.arrangements.<shape>` | see below | How likely each town shape is, weighted against the others |
 | `debug.commands_enabled` | true | The `/civ` operator commands |
 
 ### Finding the towns you did not found
@@ -277,6 +278,7 @@ Settlements within 1024 blocks:
   Haldstead — 186 blocks NE
   Corbray — 604 blocks S
   a Norman crossroads — 911 blocks W (not raised yet)
+  an orc Warhost stronghold — 980 blocks NE (not raised yet)
 ```
 
 A town with a name has been raised and has people in it. One described by its
@@ -284,6 +286,11 @@ people and its shape is a place the seed says a town *will* be, which nobody has
 been close enough to build yet — walk at it and it will be standing by the time
 you arrive. `/civ sites` prints the same list on demand, with the operator
 detail underneath it.
+
+The line names the race when the neighbors are **not** human — "an orc Warhost
+stronghold", "a goblin Mire warren" — and leaves it off when they are, because
+"a human Norman crossroads" is a mouthful for the ordinary case. `/civ info`
+names the race of every town outright.
 
 **The wayfinder.** A compass whose needle points at a settlement instead of at
 spawn. You are given one on your first join (turn that off with
@@ -335,6 +342,40 @@ town and the rest of the map is empty.
 Changing either dial on an existing world moves every site that has not been
 raised yet. Towns already standing stay exactly where they are — the ledger
 remembers what was decided, not what the arithmetic would say today.
+
+### Who lives out there, and what they build
+
+Three **races**, and a race has several **cultures** — the race is the body, the
+culture is the town.
+
+| Race | Cultures | Health | Attack | Pace |
+|---|---|---|---|---|
+| **Humans** | Norman, highland, burgher, vale | 20 | — | normal |
+| **Orcs** | one for now: the Warhost | 30 | +1 | a tenth slower |
+| **Goblins** | one for now: the Mire folk | 14 | — | a tenth quicker |
+
+Orcs take half again the punishment a man does, hit for one more, and are a shade
+slower on their feet — never faster than their own walking pace, because nobody in
+this mod has a second gear. Goblins are the other end of it.
+
+Which shape a town is laid out in is a weighted draw, and the shape decides who
+builds it. The human arrangements ship on:
+
+| Shape | Weight | Who builds it |
+|---|---|---|
+| `green` | 100 | Norman |
+| `crossroads` | 100 | burgher |
+| `thorp` | 70 | highland |
+| `ring_streets` | 70 | vale |
+| `radial_concentric` | 60 | burgher |
+| `crescents` | 40 | vale |
+| `high_street` | 40 | burgher |
+| `bastide` | 30 | Norman |
+
+Everything else is at **0**, which means never: the four road-less lattices
+(`ring`, `warren`, `stronghold`, `organic`) would give you a world of scattered
+huts, and the orc and goblin shapes are off until there is an orc town worth
+walking into. Set any of them above zero in the config and they come back.
 
 ### How much of a town's income is imaginary
 
@@ -435,7 +476,9 @@ Files you scan yourself take precedence over those.
 
 Cultures get their own architecture for free: a blueprint named
 `kingdoms:norman/house` is used by Norman settlements, and anything a culture has
-not drawn falls back to the common building.
+not drawn falls back to the common building. The folder is the culture's own name
+and not its race's, so a Norman town draws from `norman/` even though its id is
+`kingdoms:human/norman`.
 
 See **[KEYSTONE.md](KEYSTONE.md)** for the full tool.
 

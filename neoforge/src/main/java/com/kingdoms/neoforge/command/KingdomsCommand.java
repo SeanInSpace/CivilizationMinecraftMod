@@ -438,7 +438,7 @@ public final class KingdomsCommand {
         }
 
         SimPos center = toSimPos(source.getPosition());
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, Culture.NORMAN.id());
         // The same founding a charter performs, party and all. This used to
         // raise a settlement with a kit and nobody to spend it, so every
         // scripted run had to follow with /civ populate and no test ever
@@ -473,7 +473,7 @@ public final class KingdomsCommand {
      * produce towns of the same people and a seeded one can be compared
      * directly with a grown one.
      */
-    private static final String SEEDED_CULTURE = "kingdoms:norman";
+    private static final String SEEDED_CULTURE = "kingdoms:human/norman";
 
     /**
      * Raises a settlement that is already built, staffed and stocked at a stage.
@@ -791,8 +791,14 @@ public final class KingdomsCommand {
                     s.tallies().all().forEach((stat, count) ->
                             sb.append(" ").append(stat).append("=").append(count));
                 }
+                // The race as well as the people. Four cultures share the human
+                // body and the id alone does not say which of a town's numbers
+                // are the culture's doing and which are the body's -- which is
+                // precisely the question somebody reading this report has when
+                // an orc town's guards will not go down.
                 sb.append("\n      culture ").append(s.cultureId())
-                        .append(", equipped ")
+                        .append(" (").append(Culture.of(s.cultureId()).race().word())
+                        .append("), equipped ")
                         .append(s.residents().stream().filter(Person::hasTool).count())
                         .append("/").append(s.population());
                 for (BuildTask task : s.buildQueue()) {

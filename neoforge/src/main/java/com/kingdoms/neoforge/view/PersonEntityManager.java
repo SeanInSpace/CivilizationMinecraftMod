@@ -19,6 +19,8 @@ import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.neoforge.world.PerimeterLayer;
 import com.kingdoms.neoforge.world.StoreSync;
 import com.kingdoms.sim.combat.FiringPoint;
+import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.culture.Race;
 import com.kingdoms.sim.combat.GuardStance;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.TownStores;
@@ -318,6 +320,17 @@ public final class PersonEntityManager {
     public static final double GUARD_CHARGE_SPEED = Pace.WALK;
     private static final float GUARD_DAMAGE = 4.0F;
 
+    /**
+     * What kind of people a town is, for the numbers that follow from a body.
+     *
+     * <p>The settlement's own culture rather than the person's, because a person
+     * has no culture of their own: they are a resident of a town, and the town
+     * is the thing that says what its people are.
+     */
+    private static Race raceOf(Settlement settlement) {
+        return Culture.of(settlement.cultureId()).race();
+    }
+
     private final ServerLevel level;
     private final SimWorld world;
 
@@ -404,7 +417,7 @@ public final class PersonEntityManager {
                     changed = true;
                 }
                 for (Person person : plan.toEmbody()) {
-                    changed |= embody(person);
+                    changed |= embody(settlement, person);
                 }
 
                 pickUpLitter(settlement);
@@ -2357,8 +2370,12 @@ public final class PersonEntityManager {
             } else if (range <= GUARD_STRIKE_RANGE) {
                 guard.swing(InteractionHand.MAIN_HAND);
                 boolean wasAlive = target.isAlive();
+                // Base, then the body, then what is in its hands. An orc guard
+                // hits for one more than a human guard with the same sword, and
+                // the smithy never has to learn what an orc is.
                 target.hurtServer(level, level.damageSources().mobAttack(guard),
-                        GUARD_DAMAGE + armedBonus(guard));
+                        GUARD_DAMAGE + raceOf(settlement).attackBonus()
+                                + armedBonus(guard));
                 if (wasAlive && !target.isAlive()) {
                     settlement.tallies().record(Tallies.MOBS_SLAIN);
                 }
@@ -2803,8 +2820,17 @@ public final class PersonEntityManager {
         return haul.resource() + " " + haul + ", heading for " + haul.target();
     }
 
-    private boolean embody(Person person) {
+    /**
+     * Gives a person a body, and gives the body their race.
+     *
+     * <p>The settlement is passed in for the culture alone. A person does not
+     * carry one — the town does, every resident of a town is of its people, and
+     * a person who could disagree with their own settlement about what they are
+     * would be a fault rather than a feature.
+     */
+    private boolean embody(Settlement settlement, Person person) {
         PersonEntity view = new PersonEntity(KingdomsEntities.PERSON.get(), level);
+        view.applyRace(Culture.of(settlement.cultureId()).race());
         SimPos pos = person.position();
         int y = standableY(pos);
         view.setPos(pos.x() + 0.5, y, pos.z() + 0.5);
