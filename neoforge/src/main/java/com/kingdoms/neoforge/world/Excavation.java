@@ -18,8 +18,6 @@ import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.tags.BlockTags;
 
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -113,9 +111,6 @@ public final class Excavation {
 
     /** How long a block nobody could reach waits before it is tried again. */
     private static final int DEFER_TICKS = 100;
-
-    /** Most blocks one stroke of felling may bring down, so a forest is not one tree. */
-    private static final int MAX_TREE_BLOCKS = 512;
 
     /**
      * How long a digger may hold a cell without landing a single tick of work.
@@ -247,11 +242,19 @@ public final class Excavation {
     }
 
     /**
-     * Swaps every tree in the target list for the stump it stands on.
+     * Swaps every trunk in the target list for the stump it stands on.
      *
-     * <p>The rest of the tree stops being the excavation's business: felling the
-     * stump takes it. This is what stops a crown ten blocks up being set aside as
+     * <p>The rest of the trunk stops being the excavation's business: felling the
+     * stump takes it. This is what stops a branch ten blocks up being set aside as
      * unreachable — which it genuinely is, from anywhere a person can stand.
+     *
+     * <p><strong>Trunks, not canopies.</strong> This used to treat a leaf as a
+     * piece of tree and flood out through the foliage from the stump, which in a
+     * close-grown wood is the whole wood: interlocking crowns joined every oak on
+     * the horizon into one "tree" and a single stroke took the lot. Leaves in the
+     * footprint are now ordinary blocks — cheap ones — and the leaves that the
+     * felling orphans come down by themselves under vanilla's decay rule. See
+     * {@link Felling}.
      */
     private List<SimPos> reduceTrees(ServerLevel level, List<SimPos> targets) {
         Set<BlockPos> handled = new HashSet<>();
@@ -259,22 +262,19 @@ public final class Excavation {
         for (SimPos target : targets) {
             BlockPos pos = new BlockPos(target.x(), target.y(), target.z());
             if (handled.contains(pos)) {
-                continue;   // already coming down with a tree we have seen
+                continue;   // already coming down with a trunk we have seen
             }
-            if (!isTree(level.getBlockState(pos))) {
+            if (!level.getBlockState(pos).is(BlockTags.LOGS)) {
                 reduced.add(target);
                 continue;
             }
             BlockPos stump = stumpUnder(level, pos);
-            Set<BlockPos> tree = gatherTree(level, stump);
+            Set<BlockPos> tree = Felling.treeAt(stump, isLogAt(level));
             handled.addAll(tree);
 
             int ticks = 0;
             for (BlockPos part : tree) {
-                BlockState state = level.getBlockState(part);
-                if (state.is(BlockTags.LOGS)) {
-                    ticks += digTicks(level, part, state);
-                }
+                ticks += digTicks(level, part, level.getBlockState(part));
             }
             stumps.put(stump, Math.max(1, ticks));
             reduced.add(new SimPos(stump.getX(), stump.getY(), stump.getZ()));
@@ -282,65 +282,23 @@ public final class Excavation {
         return reduced;
     }
 
-    private static boolean isTree(BlockState state) {
-        return state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES);
+    /** "Is there wood here?", asked of a live level, for {@link Felling}. */
+    private static java.util.function.Predicate<BlockPos> isLogAt(ServerLevel level) {
+        return at -> level.isLoaded(at) && level.getBlockState(at).is(BlockTags.LOGS);
     }
 
     /** The bottom of the trunk this block belongs to, which is where an axe goes. */
     private static BlockPos stumpUnder(ServerLevel level, BlockPos pos) {
         BlockPos stump = pos;
-        // Down through the leaves first, if that is where we came in, then down
-        // the trunk itself until there is ground under it.
-        while (!level.getBlockState(stump).is(BlockTags.LOGS)
-                && level.getBlockState(stump.below()).is(BlockTags.LOGS)) {
-            stump = stump.below();
-        }
         while (level.getBlockState(stump.below()).is(BlockTags.LOGS)) {
             stump = stump.below();
         }
         return stump;
     }
 
-    /**
-     * Everything that comes down with one tree.
-     *
-     * <p>Logs and leaves together, out from the stump. Leaves bridge to a
-     * neighbor in a close-grown wood, so this is capped: felling two trees at
-     * once is a fair outcome, felling the forest is not.
-     */
-    private static Set<BlockPos> gatherTree(ServerLevel level, BlockPos stump) {
-        Set<BlockPos> found = new HashSet<>();
-        Deque<BlockPos> queue = new ArrayDeque<>();
-        found.add(stump);
-        queue.add(stump);
-        while (!queue.isEmpty() && found.size() < MAX_TREE_BLOCKS) {
-            BlockPos at = queue.removeFirst();
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    for (int dz = -1; dz <= 1; dz++) {
-                        if (dx == 0 && dy == 0 && dz == 0) {
-                            continue;
-                        }
-                        BlockPos next = at.offset(dx, dy, dz);
-                        if (found.contains(next) || !level.isLoaded(next)
-                                || !isTree(level.getBlockState(next))) {
-                            continue;
-                        }
-                        found.add(next);
-                        queue.add(next);
-                        if (found.size() >= MAX_TREE_BLOCKS) {
-                            return found;
-                        }
-                    }
-                }
-            }
-        }
-        return found;
-    }
-
-    /** Brings a whole tree down at the stump. */
+    /** Brings a whole trunk down at the stump. */
     private void fell(ServerLevel level, BlockPos stump) {
-        for (BlockPos part : gatherTree(level, stump)) {
+        for (BlockPos part : Felling.treeAt(stump, isLogAt(level))) {
             if (part.equals(stump)) {
                 continue;   // the stump itself is retired by the caller
             }
