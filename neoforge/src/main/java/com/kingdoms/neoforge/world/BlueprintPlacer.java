@@ -1580,7 +1580,7 @@ public final class BlueprintPlacer {
     static int[] draw(Site site, List<Placement> blocks, String blueprintPath, BlockPos base) {
         String path = blueprintPath.substring(blueprintPath.lastIndexOf('/') + 1);
         int[] dims = switch (path) {
-            case "town_hall" -> cabin(site, blocks, base, sized("town_hall"), 5, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
+            case "town_hall" -> townHall(site, blocks, base);
             case "house" -> house(site, blocks, base);
             case "granary" -> granary(site, blocks, base);
             case "farm" -> farm(site, blocks, base);
@@ -1608,7 +1608,11 @@ public final class BlueprintPlacer {
             default -> marker(blocks, base);
         };
         if (path.equals("town_hall")) {
-            add(blocks, base.offset(0, 5, 0), Blocks.GOLD_BLOCK);
+            // The gold used to go here, at the top of the wall course, because a
+            // hall had no roof for it to stand on. It now finishes the cupola —
+            // see CivicParts#cupola — because a hall with a pitched roof buries a
+            // block at that height in its own attic, which is a marker nobody in
+            // the world can see.
             add(blocks, base.offset(0, 1, -1), KingdomsBlocks.TOWN_HALL.get());
             // The board hangs in the hall: one place to read what the town wants.
             add(blocks, base.offset(-2, 1, -2), KingdomsBlocks.QUEST_BOARD.get());
@@ -2231,44 +2235,46 @@ public final class BlueprintPlacer {
      * was next to it, because the ground was reserved from a number in the
      * catalog and the walls were drawn from a literal in this file.
      */
-    private static int[] library(Site site, List<Placement> blocks, BlockPos base) {
-        BuildingSizes.Size size = sized("library");
-        int[] dims = cabin(site, blocks, base, size, 6,
-                Blocks.STONE_BRICKS, Blocks.POLISHED_ANDESITE);
-        int rx = size.width() / 2;
-        int rz = size.depth() / 2;
-        add(blocks, base.offset(0, 1, rz - 1), KingdomsBlocks.LIBRARY.get());
+    /** How high a library's walls stand: two storeys, because it has two floors. */
+    private static final int LIBRARY_WALL = 7;
 
-        // Ranks of shelves running the length of the room, with an aisle down
-        // the middle and a walkway at each end. Two courses: a rank one block
-        // high reads as furniture, two reads as a library.
-        for (int dz = -rz + 3; dz <= rz - 3; dz += 3) {
-            for (int dx = -rx + 2; dx <= rx - 2; dx++) {
-                if (Math.abs(dx) <= 1) {
-                    continue;   // the aisle, which is how anybody gets down the room
-                }
-                add(blocks, base.offset(dx, 1, dz), Blocks.BOOKSHELF);
-                add(blocks, base.offset(dx, 2, dz), Blocks.BOOKSHELF);
-            }
-        }
-        // Lit properly. One lantern at the center is what a cabin gets and it is
-        // nowhere near enough for a room this size -- the far corners would sit
-        // dark enough to spawn things in.
-        for (int dx = -rx + 3; dx <= rx - 3; dx += 6) {
-            for (int dz = -rz + 2; dz <= rz - 2; dz += 5) {
-                add(blocks, base.offset(dx, 5, dz), Blocks.LANTERN.defaultBlockState()
-                        .setValue(net.minecraft.world.level.block.LanternBlock.HANGING, true));
-            }
-        }
-        // Reading desks down the aisle, and the town's own record at the head of
-        // the room where the hall's quest board would be.
-        for (int dz = -rz + 4; dz <= rz - 4; dz += 4) {
-            add(blocks, base.offset(-1, 1, dz), Blocks.LECTERN);
-            add(blocks, base.offset(1, 1, dz), Blocks.LECTERN);
-        }
+    private static int[] library(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("library");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        // Stone, whoever builds it — but this people's stone, and their stairs
+        // and their shutters. A capped hip because a gable takes its rise from
+        // the depth and this building is seventeen deep: the Norman roof that
+        // suits a cottage would rise nine courses here and stand over the hall.
+        HouseStyle masonry = CivicParts.walledIn(style, style.plinth(),
+                HouseStyle.Roof.HIP, LIBRARY_ROOF_CAP);
+        int rz = size.depth() / 2;
+
+        cabin(site, blocks, base, size, LIBRARY_WALL, masonry.wall(), masonry.frame());
+        Parts.dress(blocks, base, size, LIBRARY_WALL, masonry);
+        CivicParts.archedWindows(blocks, base, size, 3, masonry.roofStairs());
+
+        Set<BlockPos> clear = CivicParts.wayIn(base, size, 0, 0);
+        CivicParts.shelves(blocks, base, size, clear);
+        CivicParts.gallery(blocks, base, size, LIBRARY_GALLERY, 2,
+                masonry.roofRidge(), style.post(), masonry.roofStairs());
+        CivicParts.readingTable(blocks, base, 0, -2, CivicParts.slabOf(masonry.wall()));
+        // Two heights of light: over the open middle from the roof, and under the
+        // gallery from the gallery itself, because the ring beneath a mezzanine
+        // is exactly the part of a big room that sits dark enough to spawn in.
+        CivicParts.chandeliers(blocks, base, size, LIBRARY_WALL, 5);
+        CivicParts.wallLanterns(blocks, base, size, 1, LIBRARY_GALLERY - 1, 4);
         add(blocks, base.offset(0, 1, -rz + 2), Blocks.CHISELED_BOOKSHELF);
-        return dims;
+
+        CivicParts.keepClear(blocks, clear);
+        add(blocks, base.offset(0, 1, rz - 1), KingdomsBlocks.LIBRARY.get());
+        return measured(blocks, base, size, from);
     }
+
+    /** Where the gallery floor sits, and how far the roof over it may rise. */
+    private static final int LIBRARY_GALLERY = 4;
+
+    private static final int LIBRARY_ROOF_CAP = 3;
 
     /** The mill: a grindstone under a spruce roof, hay in every corner. */
     private static int[] mill(Site site, List<Placement> blocks, BlockPos base) {
@@ -2292,20 +2298,60 @@ public final class BlueprintPlacer {
         return dims;
     }
 
-    /** The inn: the village's biggest roof, lanterns lit for the road. */
+    /** How high an inn's walls stand: two storeys of rooms over a taproom. */
+    private static final int INN_WALL = 6;
+
+    /**
+     * The inn: two storeys, a sign over the door, and a stable against the gable.
+     *
+     * <p>The one building in a town that is for people who do not live there, so
+     * everything that marks it out is aimed at the road — the sign, the lanterns
+     * on their posts either side of the door, the lean-to where a traveller puts
+     * a beast. Inside it is a taproom with a bar and tables and a flight of stairs
+     * to the rooms, which is the only building here with an upstairs at all.
+     */
     private static int[] inn(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("inn"), 4, Blocks.SPRUCE_PLANKS, Blocks.OAK_LOG);
-        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.INN.get());
-        add(blocks, base.offset(-2, 1, -1), Blocks.WOOL.white());
-        add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
-        add(blocks, base.offset(1, 1, -1), Blocks.BARREL);
-        add(blocks, base.offset(2, 1, -1), Blocks.BARREL);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("inn");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        DyeColor colors = bedColor(site.culture());
+
+        cabin(site, blocks, base, size, INN_WALL, style.wall(), style.frame());
+        Parts.dress(blocks, base, size, INN_WALL, style);
+        CivicParts.upperFloor(blocks, base, size, INN_UPPER,
+                style.roofRidge(), style.roofStairs());
+        CivicParts.innSign(blocks, base, size, 3);
+        CivicParts.stable(blocks, base, size, -1, style);
+        CivicParts.doorLanterns(blocks, base, size, 3, style.post());
+        // The bar down the back wall, east of the stair, so the flight and the
+        // counter are not fighting over the same corner of the taproom.
+        CivicParts.bar(blocks, base, size, 1, 3, CivicParts.slabOf(style.wall()));
+        CivicParts.table(blocks, base, -3, 2, style.post(), colors);
+        CivicParts.table(blocks, base, 3, 2, style.post(), colors);
+        CivicParts.table(blocks, base, -3, -1, style.post(), colors);
+        CivicParts.chandeliers(blocks, base, size, INN_UPPER - 1, 4);
         add(blocks, base.offset(2, 1, 1), Blocks.CRAFTING_TABLE);
-        return dims;
+
+        CivicParts.keepClear(blocks, CivicParts.wayIn(base, size, 0, -1));
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.INN.get());
+        return measured(blocks, base, size, from);
     }
 
-    /** The staked claim: a flag of a building, the first thing a founding party raises. */
+    /** The course the inn's upper floor is laid on. */
+    private static final int INN_UPPER = 4;
+
+    /**
+     * The staked claim: a flag of a building, the first thing a founding party raises.
+     *
+     * <p>Now literally a flag. Three by three of trodden ground says nothing about
+     * who trod it; the colors on a pole beside the post say which people have
+     * claimed this ground, in the one color that people uses for everything else
+     * it dyes.
+     */
     private static int[] campPost(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("camp_post");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
         foundation(site, blocks, base, 3, 3);
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
@@ -2316,25 +2362,39 @@ public final class BlueprintPlacer {
                         center ? Blocks.COARSE_DIRT : Blocks.DIRT_PATH);
             }
         }
-        add(blocks, base.offset(0, 1, 0), KingdomsBlocks.CAMP_POST.get());
         add(blocks, base.offset(1, 1, 1), Blocks.OAK_FENCE);
         add(blocks, base.offset(1, 2, 1), Blocks.LANTERN);
-        return new int[]{3, 3, 3};
+        CivicParts.campBanner(blocks, base, -1, -1, style.timber(), bedColor(site.culture()));
+        CivicParts.keepClear(blocks, CivicParts.box(base, 0, 0, 0, 0, 1, 2));
+        add(blocks, base.offset(0, 1, 0), KingdomsBlocks.CAMP_POST.get());
+        return measured(blocks, base, size, from);
     }
 
-    /** The pooled supplies: barrels on boards, out in the weather. */
+    /**
+     * The pooled supplies: barrels on boards, under a sheet of cloth.
+     *
+     * <p>The tarpaulin is the whole of the difference between this and a pile of
+     * crates. Two posts at the front and the barrels themselves at the back hold
+     * it up — which is why the cache reads as somebody's stores kept out of the
+     * rain rather than as three barrels somebody left in a field.
+     */
     private static int[] cache(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("cache");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
         foundation(site, blocks, base, 3, 3);
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-                add(blocks, base.offset(dx, 0, dz), Blocks.SPRUCE_PLANKS);
+                add(blocks, base.offset(dx, 0, dz), style.roofRidge());
             }
         }
-        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.CACHE.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.BARREL);
         add(blocks, base.offset(1, 1, -1), Blocks.BARREL);
-        add(blocks, base.offset(-1, 1, 1), Blocks.COMPOSTER);
-        return new int[]{3, 3, 2};
+        add(blocks, base.offset(-1, 1, 0), Blocks.COMPOSTER);
+        CivicParts.tarpaulin(blocks, base, 3, style.post(), bedColor(site.culture()));
+        CivicParts.keepClear(blocks, CivicParts.box(base, 0, 0, -1, 1, 1, 2));
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.CACHE.get());
+        return measured(blocks, base, size, from);
     }
 
     /** One room the whole party sleeps in — housing before there are families. */
@@ -2349,25 +2409,45 @@ public final class BlueprintPlacer {
         return measured(blocks, base, size, from);
     }
 
-    /** The open fire the camp cooks on: a cobble pad, log seats, nothing overhead. */
+    /**
+     * The open fire the camp cooks on, under a roof on four posts.
+     *
+     * <p>Walls are the one thing a hearth must not have — it is a fire people
+     * stand round, and a room with a fire in it is a kitchen. A roof is the one
+     * thing it must: an open fire is a fire that goes out. Four corner posts and
+     * a hip over them is the oldest answer to that and still the right one, and
+     * it is also what makes the hearth read from across a camp as a place rather
+     * than as a campfire somebody left burning.
+     */
     private static int[] hearth(Site site, List<Placement> blocks, BlockPos base) {
-        foundation(site, blocks, base, 5, 5);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("hearth");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        foundation(site, blocks, base, size.width(), size.depth());
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 boolean pad = Math.abs(dx) <= 1 && Math.abs(dz) <= 1;
                 add(blocks, base.offset(dx, 0, dz),
-                        pad ? Blocks.COBBLESTONE : Blocks.DIRT_PATH);
+                        pad ? style.plinth() : Blocks.DIRT_PATH);
             }
         }
+        CivicParts.canopy(blocks, base, size, HEARTH_POST, style.post());
+        Parts.hipRoof(blocks, base, size, HEARTH_POST + 1,
+                style.roofStairs(), style.roofRidge(), 0);
         add(blocks, base.offset(0, 1, 0), Blocks.CAMPFIRE);
-        for (int dx = -2; dx <= 2; dx += 4) {
-            for (int dz = -2; dz <= 2; dz += 4) {
-                add(blocks, base.offset(dx, 1, dz), Blocks.STRIPPED_OAK_LOG);
-            }
-        }
+        add(blocks, base.offset(-1, 1, -1), Blocks.CAULDRON);
+        // Seats at the middle of three sides. The fourth is the post, which is
+        // the right height to sit on anyway.
+        add(blocks, base.offset(-2, 1, 0), style.timber());
+        add(blocks, base.offset(2, 1, 0), style.timber());
+        add(blocks, base.offset(0, 1, 2), style.timber());
+        CivicParts.keepClear(blocks, CivicParts.box(base, 0, 0, -2, -1, 1, 2));
         add(blocks, base.offset(0, 1, -2), KingdomsBlocks.HEARTH.get());
-        return new int[]{5, 5, 2};
+        return measured(blocks, base, size, from);
     }
+
+    /** How tall the posts of the hearth's canopy stand, below its roof plate. */
+    private static final int HEARTH_POST = 3;
 
     private static int[] storehouse(Site site, List<Placement> blocks, BlockPos base) {
         int[] dims = cabin(site, blocks, base, sized("storehouse"), 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
@@ -2387,35 +2467,43 @@ public final class BlueprintPlacer {
         return dims;
     }
 
+    /**
+     * The market: a paved square with a well in it and six stalls round the edge.
+     *
+     * <p>It used to be a nine-by-nine lid of spruce on eight posts, which is a bus
+     * shelter — and it is the shape that made a market indistinguishable from
+     * every other roofed box in the town. A market is not one roof, it is one
+     * <em>open square</em> with a small roof over each trader, and the open part
+     * is the half that does the work: the thing a player recognizes is the empty
+     * middle with a well in it and striped awnings round the outside.
+     *
+     * <p>Deliberately has no walls and no roof over the middle. The fault a
+     * watertight check would report here is the design.
+     */
     private static int[] market(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
         BuildingSizes.Size size = sized("market");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        DyeColor colors = bedColor(site.culture());
         int rx = size.width() / 2;
         int rz = size.depth() / 2;
         foundation(site, blocks, base, size.width(), size.depth());
-        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.MARKET.get());
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
-                add(blocks, base.offset(dx, 0, dz), Blocks.OAK_PLANKS);
-                add(blocks, base.offset(dx, 3, dz), Blocks.SPRUCE_PLANKS);
+                add(blocks, base.offset(dx, 0, dz), style.plinth());
             }
         }
-        // A post at each corner and one at the middle of each side: a nine-wide
-        // roof on four posts sags visually across the span, and a market is
-        // supposed to read as a covered place rather than a lid on stilts.
-        for (int dx = -rx; dx <= rx; dx += rx) {
-            for (int dz = -rz; dz <= rz; dz += rz) {
-                if (dx == 0 && dz == 0) {
-                    continue;   // the middle is where people stand
-                }
-                add(blocks, base.offset(dx, 1, dz), Blocks.STRIPPED_OAK_LOG);
-                add(blocks, base.offset(dx, 2, dz), Blocks.STRIPPED_OAK_LOG);
-            }
+        // One block south of true center, because true center's northern
+        // neighbour is the market post and that is a cell nothing may take.
+        CivicParts.well(blocks, base, 0, 1, style.plinth(), style.post());
+        int[][] pitches = {{-3, -3}, {3, -3}, {-3, 0}, {3, 0}, {-3, 3}, {3, 3}};
+        for (int i = 0; i < pitches.length; i++) {
+            CivicParts.stall(blocks, base, pitches[i][0], pitches[i][1],
+                    pitches[i][1] > 0 ? -1 : 1, style.post(), colors, i);
         }
-        add(blocks, base.offset(-1, 1, 0), Blocks.HAY_BLOCK);
-        add(blocks, base.offset(0, 1, 0), Blocks.BARREL);
-        add(blocks, base.offset(1, 1, 0), Blocks.HAY_BLOCK);
-        add(blocks, base.offset(0, 2, 0), Blocks.LANTERN);
-        return new int[]{size.width(), size.depth(), 4};
+        CivicParts.keepClear(blocks, CivicParts.box(base, -1, 1, -2, -1, 1, 2));
+        add(blocks, base.offset(0, 1, -1), KingdomsBlocks.MARKET.get());
+        return measured(blocks, base, size, from);
     }
 
     private static int[] farm(Site site, List<Placement> blocks, BlockPos base) {
@@ -2457,45 +2545,42 @@ public final class BlueprintPlacer {
         return new int[]{2 * r + 1, 2 * r + 1, 3};
     }
 
+    /** The last course of the tower's shaft, below its deck. Two storeys taller
+     * than the six it stood at: a watchtower you cannot see over the roofs is a
+     * watchtower that is not doing its job. */
+    private static final int WATCHTOWER_SHAFT = 12;
+
+    /**
+     * The watchtower: the one building in a town that is nothing but height.
+     *
+     * <p>A plinth, and the tower proper standing on the middle of it — a
+     * three-wide shaft straight out of the grass reads as a chimney, and the
+     * step-in at the base is what makes it a tower. Above that everything says
+     * fortification rather than house: arrow loops instead of windows, a ladder
+     * bolted to the outside instead of a stair eating the room, merlons round the
+     * top, and a fire burning on it that can be seen from the next valley.
+     */
     private static int[] watchtower(Site site, List<Placement> blocks, BlockPos base) {
-        // A plinth, and the tower proper standing on the middle of it. A
-        // three-wide shaft straight out of the grass reads as a chimney; the
-        // step-in at the base is what makes it a tower.
+        int from = blocks.size();
         BuildingSizes.Size size = sized("watchtower");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
         int rx = size.width() / 2;
         int rz = size.depth() / 2;
         foundation(site, blocks, base, size.width(), size.depth());
         for (int dx = -rx; dx <= rx; dx++) {
             for (int dz = -rz; dz <= rz; dz++) {
-                add(blocks, base.offset(dx, 0, dz), Blocks.COBBLESTONE);
+                add(blocks, base.offset(dx, 0, dz), style.plinth());
             }
         }
-        for (int y = 1; y < 7; y++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    boolean shell = Math.abs(dx) == 1 || Math.abs(dz) == 1;
-                    if (y == 6) {
-                        add(blocks, base.offset(dx, y, dz), Blocks.COBBLESTONE);
-                    } else if (shell && !(dz == 1 && dx == 0 && y <= 2)) {
-                        add(blocks, base.offset(dx, y, dz), Blocks.COBBLESTONE);
-                    }
-                }
-            }
-        }
-        for (int dx = -1; dx <= 1; dx += 2) {
-            for (int dz = -1; dz <= 1; dz += 2) {
-                add(blocks, base.offset(dx, 7, dz), Blocks.COBBLESTONE_WALL);
-            }
-        }
-        // The bell goes at the peak, where the watch can reach it and the whole
-        // town can hear it. The lantern moves inside, hung from the roof it was
-        // sitting on — a tower with a light on top and nothing to ring is a
-        // tower that cannot raise the alarm.
-        add(blocks, base.offset(0, 7, 0), Blocks.BELL);
-        add(blocks, base.offset(0, 5, 0), Blocks.LANTERN.defaultBlockState()
-                .setValue(net.minecraft.world.level.block.LanternBlock.HANGING, true));
+        int deck = CivicParts.shaft(blocks, base, 1, WATCHTOWER_SHAFT, style.plinth());
+        // Up the east face, which is the one the loops are kept out of. The top
+        // rung is level with the deck, so a climber steps off onto it.
+        CivicParts.ladder(blocks, base, 2, 0, Direction.EAST, 1, deck);
+        CivicParts.crown(blocks, base, deck, style.plinth());
+        CivicParts.hang(blocks, base.offset(0, deck - 1, 0));
+        CivicParts.keepClear(blocks, CivicParts.box(base, 0, 0, 0, 1, 1, 2));
         add(blocks, base.offset(0, 1, 0), KingdomsBlocks.WATCHTOWER.get());
-        return new int[]{sized("watchtower").width(), sized("watchtower").depth(), 9};
+        return measured(blocks, base, size, from);
     }
 
     /** How far a repair flight may run before giving up on reaching the ground. */
@@ -2544,6 +2629,56 @@ public final class BlueprintPlacer {
         }
         add(blocks, base.offset(0, 1, 0), Blocks.GOLD_BLOCK);
         return new int[]{5, 5, 2};
+    }
+
+    /** How high a hall's walls stand, which is one course more than an inn's. */
+    private static final int TOWN_HALL_WALL = 6;
+
+    /**
+     * The town hall: the tallest roof on the street, and the thing on top of it.
+     *
+     * <p>It used to be the plain box in stone brick, told apart from a storehouse
+     * only by being bigger — and by a gold block sitting at the top of its wall
+     * course, which was visible for exactly as long as halls had no roofs.
+     *
+     * <p>Five things now say hall, and they are aimed at five different distances.
+     * From across the valley, the cupola and its gold finial standing clear of
+     * every other ridge in the town. From the end of the street, walls a course
+     * higher than anything else and a two-course stone base under them. From the
+     * far side of the square, banners in the town's own color and a flag on its
+     * own pole. From the doorstep, an entrance three blocks wide with a paved
+     * landing in front of it. And from under the porch, a bell.
+     *
+     * <p>The order is the usual one and matters for the usual reason: the base
+     * courses go on after the dressing so the windows are already cut and survive
+     * them, and the porch goes on after the roof — the one place this departs from
+     * {@link Parts#dress} — because a bell needs a solid block to hang from and an
+     * eave of stairs is not one.
+     */
+    private static int[] townHall(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("town_hall");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        DyeColor colors = bedColor(site.culture());
+
+        cabin(site, blocks, base, size, TOWN_HALL_WALL, style.wall(), style.frame());
+        Parts.dress(blocks, base, size, TOWN_HALL_WALL, CivicParts.porchless(style));
+        CivicParts.baseCourses(blocks, base, size, 2, 2, style);
+        CivicParts.porchWithBell(blocks, base, size, TOWN_HALL_WALL, style);
+        CivicParts.doorBanners(blocks, base, size, 2, 3, colors);
+        CivicParts.landing(blocks, base, size, 2, style.plinth());
+        CivicParts.flagpole(blocks, base, -4, size.depth() / 2 + 1, 5,
+                style.frame(), colors);
+        CivicParts.chandeliers(blocks, base, size, TOWN_HALL_WALL, 4);
+        // Measured over the middle rather than over the whole plan: a chimney
+        // climbs the gable end and stands proud of the ridge, and a cupola put on
+        // the tallest thing in the plan would be put on the chimney pot.
+        CivicParts.cupola(blocks, base, CivicParts.topOver(blocks, base, from, 1), style);
+
+        Set<BlockPos> clear = CivicParts.wayIn(base, size, 1, -1);
+        clear.addAll(CivicParts.box(base, -2, -2, -2, -2, 1, 1));   // the quest board
+        CivicParts.keepClear(blocks, clear);
+        return measured(blocks, base, size, from);
     }
 
     /**

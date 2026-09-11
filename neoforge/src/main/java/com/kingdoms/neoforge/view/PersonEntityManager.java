@@ -2811,8 +2811,17 @@ public final class PersonEntityManager {
         return null;
     }
 
-    /** How far up a tower the bell might have ended up. */
-    private static final int BELL_SEARCH_HEIGHT = 10;
+    /**
+     * How far up a tower the bell might have ended up.
+     *
+     * <p>Comfortably past the top of the tallest tower the placer draws, and
+     * deliberately not exactly it. The tower grew two storeys when the civic
+     * buildings were given shapes of their own, and this number — which had been
+     * a snug fit round the old one — silently stopped finding the bell: the
+     * search runs up the tower's own origin column, so a bell one course above it
+     * is a town that cannot raise the alarm and says nothing about why.
+     */
+    private static final int BELL_SEARCH_HEIGHT = 24;
 
     /**
      * Who has something hostile standing too close to be working.

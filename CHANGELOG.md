@@ -6,6 +6,57 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## You can tell the hall from the inn from the library
+
+### Changed
+
+- **The town hall is the tallest roof on the street, and it says so.** It used
+  to be the plain box in stone brick, told apart from a storehouse only by being
+  bigger, with a gold block sitting invisibly at the top of its wall. It now has
+  a belfry on the ridge with the gold on top of it — the thing you pick a town's
+  middle out by from a hillside — a two-course stone base under walls a course
+  higher than anything else on the street, an entrance three blocks wide with a
+  paved landing in front of it, a bell hanging under the porch, the town's
+  banners either side of the door, and its colors on a pole.
+
+- **The market has no roof, and that is what makes it a market.** It was a
+  nine-by-nine lid of spruce on eight posts, which is a bus shelter. It is now a
+  paved open square: a well in the middle and six traders' pitches round the
+  edge, each with its own striped awning over a barrel. Cheaper than the lid it
+  replaces, and you can see the sky from the middle of it.
+
+- **The inn has two storeys, a sign, and somewhere to put a horse.** A sign over
+  the door, lanterns on posts either side of it, a stable lean-to against the
+  gable end with fodder in it, and inside a taproom with a bar, tables and a
+  flight of stairs up to the rooms. It is the only building in a town with an
+  upstairs.
+
+- **The library is a reading room rather than a stack room.** Books line the
+  walls two courses high instead of standing in ranks across the floor, tall
+  arched windows are cut into the stone, and a galleried walkway runs round an
+  open middle so you can see the whole room from either level.
+
+- **The watchtower is two storeys taller and stopped pretending to be a house.**
+  Arrow loops instead of glass, a ladder up the outside instead of a stair
+  eating the room, merlons round the top, and a fire burning on it that can be
+  seen from the next valley. The bell is still up there and the watch can still
+  reach it.
+
+- **The hearth has a roof and the camp has its colors.** The cooking fire now
+  stands under a canopy on four corner posts, with a cauldron beside it and log
+  seats round it, so it stops going out in the rain. The claim post flies a
+  banner, and the supply cache keeps its barrels under a tarpaulin.
+
+- **All of it in the palette of whoever built it.** Every one of these is drawn
+  in its own people's stone, timber and roofing, the same way their houses are,
+  so a burgher hall and a goblin hall are recognizably the same building and
+  recognizably not the same town.
+
+- **The civic buildings cost more to build.** Roughly double for the hall, the
+  inn and the library, and about three quarters more for the tower; the market
+  got slightly cheaper. This is blocks somebody has to carry, so a town spends
+  longer on its hall than it used to.
+
 ## Houses have roofs, and every people builds its own
 
 ### New
