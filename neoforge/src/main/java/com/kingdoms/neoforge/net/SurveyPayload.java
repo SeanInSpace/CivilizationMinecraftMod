@@ -99,14 +99,23 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
     }
 
     /**
-     * One building's ground, as a rectangle centered on its origin.
+     * One building's room, as a box centered on its origin.
      *
-     * <p>{@code facing} is the quarter turns the building was given, which is
-     * what tells the client which side the door is on — the lamp draws a short
-     * tick there so a plot reads as a building rather than a box.
+     * <p>A rectangle on the floor was the first answer and it is the wrong shape
+     * to read from anywhere but straight overhead: a plan drawn flat tells you
+     * where a building's ground is and nothing about the building, so two houses
+     * and a tower all looked the same from the hill the lamp is carried up. The
+     * box says how much air the plan has spoken for as well as how much ground,
+     * which is the question you are standing on the hill to ask.
+     *
+     * <p>{@code height} is courses from the floor to the roof, one short on the
+     * wire like the offsets. {@code facing} is the quarter turns the building was
+     * given, which is what tells the client which side the door is on — the lamp
+     * draws a short tick there, along the bottom edge, so a plot reads as a
+     * building rather than a crate.
      */
-    public record Plot(int dx, int dy, int dz, int width, int depth, int facing,
-                       String blueprintId, boolean finished) {
+    public record Plot(int dx, int dy, int dz, int width, int depth, int height,
+                       int facing, String blueprintId, boolean finished) {
 
         public Plot {
             dx = Vertex.clamp(dx);
@@ -114,6 +123,7 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
             dz = Vertex.clamp(dz);
             width = Math.max(1, Math.min(MAX_SPAN, width));
             depth = Math.max(1, Math.min(MAX_SPAN, depth));
+            height = Math.max(1, Math.min(MAX_HEIGHT, height));
             facing = Math.floorMod(facing, 4);
             blueprintId = clip(blueprintId);
         }
@@ -156,6 +166,28 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
     /** The widest plot rectangle the wire will carry. */
     public static final int MAX_SPAN = 256;
 
+    /**
+     * The tallest plot box the wire will carry.
+     *
+     * <p>Four times the tallest thing a town builds, which is the point: it is a
+     * clamp against a nonsense number reaching the encoder, not a judgement about
+     * how high a building may be. A short would carry twenty times this.
+     */
+    public static final int MAX_HEIGHT = 256;
+
+    /**
+     * How tall a queued building is drawn before anybody has measured one: six.
+     *
+     * <p>Width and depth have a declared size to fall back on and height has
+     * none — a blueprint's height is what {@code BlueprintPlacer} measures off
+     * the placements once the thing is drawn, because a roof that rises with the
+     * depth and a chimney that has to clear the ridge are not in the catalog. Six
+     * is what an ordinary cottage comes out at: three courses of wall and its
+     * roof. The box is redrawn at the true height on the step the building is
+     * raised, so this is only ever what an order looks like while it is waiting.
+     */
+    public static final int PLANNED_HEIGHT = 6;
+
     private static final int MAX_ID = 96;
 
     private static final StreamCodec<io.netty.buffer.ByteBuf, Integer> SHORT_INT =
@@ -181,6 +213,7 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
                     SHORT_INT, Plot::dz,
                     ByteBufCodecs.VAR_INT, Plot::width,
                     ByteBufCodecs.VAR_INT, Plot::depth,
+                    SHORT_INT, Plot::height,
                     ByteBufCodecs.VAR_INT, Plot::facing,
                     ByteBufCodecs.stringUtf8(MAX_ID), Plot::blueprintId,
                     ByteBufCodecs.BOOL, Plot::finished,
@@ -279,7 +312,8 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
                 continue;
             }
             found.add(new Near(plot(origin, building.origin(), footprint.width(),
-                    footprint.depth(), building.facing(), building.blueprintId(), true),
+                    footprint.depth(), footprint.height(), building.facing(),
+                    building.blueprintId(), true),
                     distance(eye, building.origin())));
         }
         for (BuildTask task : settlement.buildQueue()) {
@@ -290,7 +324,10 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
             int span = BuildPlanner.plotSpanOf(task.blueprintId(), settlement.catalog());
             int width = footprint.isKnown() ? footprint.width() : span;
             int depth = footprint.isKnown() ? footprint.depth() : span;
-            found.add(new Near(plot(origin, task.origin(), width, depth,
+            // A footprint is known by its ground, so a task that has one may
+            // still carry no height: an order is measured when it is drawn.
+            int height = footprint.height() > 0 ? footprint.height() : PLANNED_HEIGHT;
+            found.add(new Near(plot(origin, task.origin(), width, depth, height,
                     task.facing(), task.blueprintId(), false),
                     distance(eye, task.origin())));
         }
@@ -302,10 +339,10 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
         return plots;
     }
 
-    private static Plot plot(BlockPos origin, SimPos at, int width, int depth,
+    private static Plot plot(BlockPos origin, SimPos at, int width, int depth, int height,
                              int facing, String blueprintId, boolean finished) {
         return new Plot(at.x() - origin.getX(), at.y() - origin.getY(), at.z() - origin.getZ(),
-                width, depth, facing, blueprintId, finished);
+                width, depth, height, facing, blueprintId, finished);
     }
 
     /**

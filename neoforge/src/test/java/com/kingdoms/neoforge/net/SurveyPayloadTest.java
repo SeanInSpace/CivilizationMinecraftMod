@@ -72,8 +72,10 @@ class SurveyPayloadTest {
                                 new SurveyPayload.Vertex(-7, -8, -9),
                                 new SurveyPayload.Vertex(10, 11, 12),
                                 new SurveyPayload.Vertex(13, 14, 15)))),
-                List.of(new SurveyPayload.Plot(16, 17, 18, 19, 20, 3, "kingdoms:cottage", true),
-                        new SurveyPayload.Plot(-21, -22, -23, 24, 25, 1, "kingdoms:market", false)));
+                List.of(new SurveyPayload.Plot(16, 17, 18, 19, 20, 21, 3,
+                                "kingdoms:cottage", true),
+                        new SurveyPayload.Plot(-21, -22, -23, 24, 25, 26, 1,
+                                "kingdoms:market", false)));
 
         SurveyPayload read = roundTrip(sent);
 
@@ -109,7 +111,7 @@ class SurveyPayloadTest {
                 List.of(new SurveyPayload.Run(SurveyPayload.WALL, List.of(
                         new SurveyPayload.Vertex(900_000, -900_000, 900_000),
                         new SurveyPayload.Vertex(0, 0, 0)))),
-                List.of(new SurveyPayload.Plot(900_000, 0, 0, 100_000, 100_000, 9,
+                List.of(new SurveyPayload.Plot(900_000, 0, 0, 100_000, 100_000, 100_000, 9,
                         "b".repeat(500), true)));
 
         SurveyPayload.Vertex far = wild.runs().getFirst().path().getFirst();
@@ -118,8 +120,24 @@ class SurveyPayloadTest {
         SurveyPayload.Plot plot = wild.plots().getFirst();
         assertTrue(plot.blueprintId().length() < 500, "the blueprint id was not clipped");
         assertEquals(SurveyPayload.MAX_SPAN, plot.width());
+        assertEquals(SurveyPayload.MAX_HEIGHT, plot.height(),
+                "a height that would not fit a short reached the encoder");
         assertEquals(1, plot.facing(), "nine quarter turns is one quarter turn");
         assertEquals(wild, roundTrip(wild));
+    }
+
+    @Test
+    void aPlotIsNeverFlatterThanOneCourse() {
+        // The box is drawn from the floor to the top, so a height of nought
+        // would be a building with no walls -- which is what a building raised
+        // before heights were recorded reports. One course is the floor itself.
+        SurveyPayload.Plot flat = new SurveyPayload.Plot(0, 0, 0, 9, 9, 0, 0,
+                "kingdoms:cottage", true);
+        SurveyPayload.Plot sunk = new SurveyPayload.Plot(0, 0, 0, 9, 9, -40, 0,
+                "kingdoms:cottage", true);
+
+        assertEquals(1, flat.height());
+        assertEquals(1, sunk.height(), "a building cannot be drawn below its own floor");
     }
 
     @Test
@@ -237,6 +255,7 @@ class SurveyPayloadTest {
         assertEquals(-8, plot.dz());
         assertEquals(9, plot.width());
         assertEquals(11, plot.depth(), "width and depth are not interchangeable");
+        assertEquals(5, plot.height(), "the box is as tall as the building was drawn");
         assertEquals(3, plot.facing(), "the facing is what puts the tick at the door");
         assertEquals("kingdoms:cottage", plot.blueprintId());
         assertTrue(plot.finished());

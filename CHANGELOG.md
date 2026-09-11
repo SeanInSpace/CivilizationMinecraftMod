@@ -6,6 +6,34 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The wood the road went through, and a lamp that draws in three dimensions
+
+### Fixed
+
+- **A road no longer fells the forester's wood on its way past.** A lumber camp
+  has its stand planted out past the houses, because that is the only ground its
+  forester is allowed to replant on — and the town kept building afterwards, so
+  the lane run out to the last farm was laid straight through the belt and took
+  the trunks with it. The camp was left standing in a field it had been paid for.
+  Roads now hold off the stand the way they hold off anybody's plot, and a lane
+  with no way round waits for the network to spread rather than driving through.
+
+- **And where a way does pass under the wood, only the branches come off.** The
+  litter on the stones and the boughs over the carriageway are still cleared, so
+  a road through a wood reads as a road through a wood; the trunks themselves are
+  left standing. A road under a bough is fine. A road through a trunk was never
+  a road, it was a felling.
+
+### Changed
+
+- **The surveyor's lamp draws buildings as boxes.** A plot used to be four lines
+  on the grass, which tells you where a building's ground is and nothing about
+  the building — so from the hill you carry the lamp up to, a cottage, a tower
+  and the town hall all looked alike. Every plot is now the twelve edges of the
+  room it occupies, floor course to roof, with the door tick still on the bottom
+  edge where the door is. A queued building shows the volume it has claimed, at a
+  single storey's height until it is raised and measured.
+
 ## A world starts beside a town, and says where the others are
 
 ### New

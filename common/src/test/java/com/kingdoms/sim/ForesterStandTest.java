@@ -278,6 +278,64 @@ class ForesterStandTest {
         }
     }
 
+    // --- the roads that come afterwards ---
+
+    @Test
+    void theStandIsTheDozenNearestSquaresAndIsAnsweredWithoutStoringIt() {
+        // The camp keeps a count of its trees and never kept their squares. It
+        // does not have to: the stand is a function of the camp, the claim and
+        // what is standing, all three of which the settlement already knows.
+        Settlement town = seeded();
+        town.setLumberArea(ForesterStand.woodlandFor(campOf(town).origin(),
+                town.center(), town.claimRadius()));
+        List<SimPos> standing = ForesterStand.stand(town);
+
+        assertFalse(standing.isEmpty(), "a camp with a belt has a stand in it");
+        assertTrue(standing.size() <= ForesterStand.TREES_WANTED,
+                "a stand is a dozen trees, not the whole belt: " + standing.size());
+        assertEquals(standing, ForesterStand.candidates(town, town.lumberArea())
+                        .subList(0, standing.size()),
+                "the squares planted are the nearest of the squares offered");
+    }
+
+    @Test
+    void aTownWithNoCampHasNoStandToKeepARoadOffOf() {
+        assertTrue(ForesterStand.stand(Founding.party(SITE, "Testburg")).isEmpty(),
+                "four people in a field have no forester and no belt");
+    }
+
+    @Test
+    void noRoadASeededTownOpensIsLaidThroughTheStand() {
+        // The fault in one line: the town goes on building after the stand is
+        // planted, and the streets and lanes it walks out afterwards used to be
+        // routed straight through the belt. What the paving then did to those
+        // trunks is Overgrowth's half of the same bug.
+        Settlement town = seeded();
+        Planted world = new Planted();
+        for (int step = 1; step <= 12; step++) {
+            town.step(new SimContext(world, step, SimSettings.SANDBOX));
+        }
+        List<SimPos> standing = ForesterStand.stand(town);
+        assertFalse(standing.isEmpty(), "nothing to test if the camp got no wood");
+
+        List<com.kingdoms.sim.settlement.PathNetwork.Segment> runs =
+                town.paths().segments();
+        assertFalse(runs.isEmpty(), "a seeded village walks its roads out at once");
+        for (int i = 0; i < runs.size(); i++) {
+            if (!town.paths().isOpened(i)) {
+                continue;
+            }
+            int half = runs.get(i).paveHalf();
+            for (SimPos at : runs.get(i).positions()) {
+                for (SimPos trunk : standing) {
+                    assertFalse(Math.abs(at.x() - trunk.x()) <= half
+                                    && Math.abs(at.z() - trunk.z()) <= half,
+                            "an opened road gravels the stand at " + trunk);
+                }
+            }
+        }
+    }
+
     @Test
     void aTownThatWasFoundedIsPlantedNothing() {
         Settlement town = Founding.party(SITE, "Testburg");

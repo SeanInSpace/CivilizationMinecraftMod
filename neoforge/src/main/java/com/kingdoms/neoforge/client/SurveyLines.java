@@ -193,25 +193,48 @@ public final class SurveyLines {
     }
 
     /**
-     * One building's ground: the rectangle it holds, and a tick at its door.
+     * One building's room: the box it holds, and a tick at its door.
      *
-     * <p>The tick is what makes a plot a building. Four white lines on the grass
-     * say a rectangle is spoken for; the same four with a mark on one side say
-     * which way the place faces, which is the question the lamp exists to answer
-     * about a street.
+     * <p>A box rather than the rectangle this drew before, and the difference is
+     * the whole point of carrying a height on the wire. Four lines on the grass
+     * say a piece of ground is spoken for and say it only to somebody directly
+     * above them; from the hill the lamp is actually carried up to, a flat plan
+     * of a village is a scatter of foreshortened slivers with no way to tell a
+     * cottage from the hall. Twelve edges stand the plan up: you read the height
+     * of what is going there, you can see a plot behind another one, and a queued
+     * order reads as the volume it has claimed rather than as a mark on the
+     * floor.
+     *
+     * <p>The tick stays on the bottom edge, where a door is. It is what makes a
+     * box a building: the same twelve lines with a mark on one side at ground
+     * level say which way the place faces, which is the question the lamp exists
+     * to answer about a street.
+     *
+     * <p>The floor course is lifted clear of the ground the way every other line
+     * here is, and the top is not — it is the true roof line. A building one
+     * course tall therefore draws as the flat rectangle it is, which is right.
      */
     private static void plot(Pen pen, BlockPos origin, SurveyPayload.Plot plot) {
         double x = origin.getX() + plot.dx() + 0.5;
         double y = origin.getY() + plot.dy() + LIFT;
+        double top = origin.getY() + plot.dy() + Math.max(plot.height(), LIFT);
         double z = origin.getZ() + plot.dz() + 0.5;
         double rx = plot.width() / 2.0;
         double rz = plot.depth() / 2.0;
         int color = plot.finished() ? PLOT_COLOR : PLANNED_PLOT_COLOR;
 
-        pen.line(x - rx, y, z - rz, x + rx, y, z - rz, color, PLOT_WIDTH);
-        pen.line(x + rx, y, z - rz, x + rx, y, z + rz, color, PLOT_WIDTH);
-        pen.line(x + rx, y, z + rz, x - rx, y, z + rz, color, PLOT_WIDTH);
-        pen.line(x - rx, y, z + rz, x - rx, y, z - rz, color, PLOT_WIDTH);
+        for (double course : new double[] {y, top}) {
+            pen.line(x - rx, course, z - rz, x + rx, course, z - rz, color, PLOT_WIDTH);
+            pen.line(x + rx, course, z - rz, x + rx, course, z + rz, color, PLOT_WIDTH);
+            pen.line(x + rx, course, z + rz, x - rx, course, z + rz, color, PLOT_WIDTH);
+            pen.line(x - rx, course, z + rz, x - rx, course, z - rz, color, PLOT_WIDTH);
+        }
+        // The four corner posts, which are what make the two squares one box
+        // rather than two plots at different heights.
+        pen.line(x - rx, y, z - rz, x - rx, top, z - rz, color, PLOT_WIDTH);
+        pen.line(x + rx, y, z - rz, x + rx, top, z - rz, color, PLOT_WIDTH);
+        pen.line(x + rx, y, z + rz, x + rx, top, z + rz, color, PLOT_WIDTH);
+        pen.line(x - rx, y, z + rz, x - rx, top, z + rz, color, PLOT_WIDTH);
 
         // Facing counts quarter turns the way the simulation does: nought is a
         // door on the +Z wall, and each turn moves it a quarter clockwise.
