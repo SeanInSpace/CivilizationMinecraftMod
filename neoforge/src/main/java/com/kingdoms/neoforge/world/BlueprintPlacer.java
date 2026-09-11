@@ -1016,8 +1016,15 @@ public final class BlueprintPlacer {
      * <p>Both halves matter: the positions swing round the origin, and every block
      * state turns with them. Rotating positions alone would leave a house with its
      * stairs and its door facing the way they were drawn while the walls moved.
+     *
+     * <p>The state half is {@code BlockState.rotate}, which every block answers
+     * for itself — a stair turns its {@code FACING} and keeps its {@code SHAPE},
+     * because left and right are measured from the facing and the facing is what
+     * moved. That was already true before anything in this file drew a pitched
+     * roof and nothing had ever depended on it; {@code PartsTest} now does,
+     * which is why this is reachable from a test at all.
      */
-    private static void turn(List<Placement> blocks, BlockPos base, Rotation rotation) {
+    static void turn(List<Placement> blocks, BlockPos base, Rotation rotation) {
         if (rotation == Rotation.NONE) {
             return;
         }
@@ -1569,7 +1576,7 @@ public final class BlueprintPlacer {
         String path = blueprintPath.substring(blueprintPath.lastIndexOf('/') + 1);
         int[] dims = switch (path) {
             case "town_hall" -> cabin(site, blocks, base, sized("town_hall"), 5, Blocks.STONE_BRICKS, Blocks.SPRUCE_LOG);
-            case "house" -> cabin(site, blocks, base, sized("house"), 4, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
+            case "house" -> house(site, blocks, base);
             case "granary" -> granary(site, blocks, base);
             case "farm" -> farm(site, blocks, base);
             case "market" -> market(site, blocks, base);
@@ -2001,14 +2008,67 @@ public final class BlueprintPlacer {
         return dims;
     }
 
+    /**
+     * A home: the box, and everything its people put on a box.
+     *
+     * <p>The one door every house goes through, so that a style is applied in
+     * one place and a sixth home cannot quietly be built in nobody's idiom.
+     * {@link Parts#dress} decides what goes on; {@link HouseStyle} decides what
+     * it is made of; this only knows which of the two boxes a footprint wants —
+     * {@link #hall} for the one shape with a corner cut out of it, {@link #cabin}
+     * for everything else.
+     *
+     * <p>Returns the declared size rather than the drawn dimensions, because a
+     * home's height is no longer a number the box can report: a roof, and a
+     * chimney over the roof, are drawn after the walls and by somebody else. See
+     * {@link #measured}.
+     */
+    private static BuildingSizes.Size home(Site site, List<Placement> blocks, BlockPos base,
+                                           String path, int wallHeight) {
+        BuildingSizes.Size size = sized(path);
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        if (size.notch().isCut()) {
+            hall(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        } else {
+            cabin(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        }
+        Parts.dress(blocks, base, size, wallHeight, style);
+        return size;
+    }
+
+    /**
+     * What a building turned out to be: its declared footprint, and the height
+     * actually drawn.
+     *
+     * <p>The height is measured off the placements rather than added up from the
+     * parts. A roof that rises with the depth and a chimney that has to clear
+     * the ridge are two more pieces of arithmetic that could disagree with the
+     * number reported here, and the site is cleared to that number — so a house
+     * that under-reported would be a house with a hillside through its roof.
+     *
+     * @param from where this building's own placements start in the list
+     */
+    private static int[] measured(List<Placement> blocks, BlockPos base,
+                                  BuildingSizes.Size size, int from) {
+        return new int[]{size.width(), size.depth(), Parts.topOf(blocks, base, from) + 1};
+    }
+
+    /** A house: two households under one roof, and the commonest thing in a town. */
+    private static int[] house(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = home(site, blocks, base, "house", 4);
+        return measured(blocks, base, size, from);
+    }
+
     /** A family's own house: the smallest roof a household can grow under. */
     private static int[] cottage(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("cottage"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = home(site, blocks, base, "cottage", 3);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.COTTAGE.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
         add(blocks, base.offset(1, 1, -1), Blocks.WOOL.white());
         add(blocks, base.offset(-1, 1, 1), Blocks.BARREL);
-        return dims;
+        return measured(blocks, base, size, from);
     }
 
     /**
@@ -2035,9 +2095,8 @@ public final class BlueprintPlacer {
      * a short high street actually did.
      */
     private static int[] longhouse(Site site, List<Placement> blocks, BlockPos base) {
-        BuildingSizes.Size size = sized("longhouse");
-        int[] dims = cabin(site, blocks, base, size, 4,
-                Blocks.DARK_OAK_PLANKS, Blocks.DARK_OAK_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = home(site, blocks, base, "longhouse", 4);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.LONGHOUSE.get());
         // Six beds down the cold wall, a bay apiece.
         for (int dx = -5; dx <= 5; dx += 2) {
@@ -2052,7 +2111,7 @@ public final class BlueprintPlacer {
         }
         add(blocks, base.offset(3, 1, 2), Blocks.BARREL);
         add(blocks, base.offset(-3, 1, 2), Blocks.CRAFTING_TABLE);
-        return dims;
+        return measured(blocks, base, size, from);
     }
 
     /**
@@ -2065,9 +2124,8 @@ public final class BlueprintPlacer {
      * rather than a notch in a floor plan.
      */
     private static int[] croft(Site site, List<Placement> blocks, BlockPos base) {
-        BuildingSizes.Size size = sized("croft");
-        int[] dims = hall(site, blocks, base, size, 4,
-                Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = home(site, blocks, base, "croft", 4);
         add(blocks, base.offset(0, 1, 3), KingdomsBlocks.CROFT.get());
         // Three beds up the wing, three along the range: six, and the household
         // is split between the two arms the way the building is.
@@ -2089,7 +2147,7 @@ public final class BlueprintPlacer {
         }
         add(blocks, base.offset(6, 0, -5),
                 Blocks.OAK_FENCE_GATE.defaultBlockState().setValue(FenceGateBlock.OPEN, true));
-        return dims;
+        return measured(blocks, base, size, from);
     }
 
     /**
@@ -2210,7 +2268,8 @@ public final class BlueprintPlacer {
 
     /** One room the whole party sleeps in — housing before there are families. */
     private static int[] bunkhouse(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("bunkhouse"), 3, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = home(site, blocks, base, "bunkhouse", 3);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.BUNKHOUSE.get());
         // Bedrolls in a row along the north wall; the mod cannot place real
         // beds, whose two halves need paired states.
@@ -2219,7 +2278,7 @@ public final class BlueprintPlacer {
         add(blocks, base.offset(1, 1, -1), Blocks.WOOL.white());
         add(blocks, base.offset(2, 1, -1), Blocks.WOOL.white());
         add(blocks, base.offset(2, 1, 1), Blocks.BARREL);
-        return dims;
+        return measured(blocks, base, size, from);
     }
 
     /** The open fire the camp cooks on: a cobble pad, log seats, nothing overhead. */

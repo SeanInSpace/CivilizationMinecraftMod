@@ -6,6 +6,57 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Houses have roofs, and every people builds its own
+
+### New
+
+- **Every home has a real roof.** Cottages, houses, longhouses, crofts and the
+  camp bunkhouse used to be finished off with a flat slab laid across the top of
+  the walls, which is why a village read as a row of sheds however well the
+  streets were laid out. They now have pitched roofs — stairs rising from the
+  eaves to a ridge, the gable ends closed in, and the eaves overhanging the wall
+  by a block so a house looks like it is sheltering something. The roof is
+  entirely above the walls, so no room got shorter.
+
+- **Seven peoples, and you can tell whose town you are standing in.** House
+  styles are now a property of the culture rather than of the building. The
+  lowlanders build oak with the frame showing through, a cobble course at the
+  foot of the wall and a porch over the door. The hill folk build spruce on
+  stone with a hipped roof and a chimney. The vale folk build in pale stripped
+  oak with dormer windows in the front slope. The burghers build in brick on a
+  stone-brick plinth under a dark oak roof, with a chimney on every house. The
+  goblins build dark oak and mud under a squat capped hip. The orcs keep their
+  flat roof and get battlements round it, because that is their look and not an
+  oversight.
+
+- **No two houses on a street are the same house.** Which side the chimney
+  climbs, whether the windows have shutters, and how close together the extra
+  panes sit are all decided by where the building stands. A row of cottages is a
+  row rather than one cottage repeated — and a given house is the same house
+  every time you come back to it, so nothing a repair crew looks at ever
+  changes under them.
+
+- **Windows you can count.** A building used to get one pane on each wall. It
+  now gets a row of them, spaced between the timber uprights, plus shutters
+  either side where the style calls for them. Glass costs the town nothing, so
+  this is free light.
+
+- **The croft keeps its L and gets a roof that bends round it.** The one
+  building in the game that is not a rectangle is roofed by measuring, so the
+  hip wraps the corner and puts a valley in the crook by itself instead of
+  stepping over the yard.
+
+### Changed
+
+- **Houses cost more to build, by roughly three quarters.** A roof is blocks
+  somebody has to carry: a lowland cottage went from about 190 blocks of work to
+  about 330, and a longhouse from about 440 to about 730. A new settlement's
+  charter grant still covers its camp comfortably — the bunkhouse is the only
+  home a founding party raises, and it takes about half the timber the charter
+  hands over.
+
+---
+
 ## A town you founded gets its roads walked out
 
 ### Fixed
