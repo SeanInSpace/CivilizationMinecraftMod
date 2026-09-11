@@ -65,7 +65,7 @@ public final class KingdomsNetwork {
                 SurveyPayload.TYPE,
                 SurveyPayload.STREAM_CODEC,
                 SurveyPayload::handle);
-        // The two that travel the other way. Everything else this mod sends is a
+        // The three that travel the other way. Everything else this mod sends is a
         // report: a market is the one screen a player can press, and a town map
         // is the one that has to keep asking whether what it shows is still true.
         registrar.playToServer(
@@ -76,6 +76,7 @@ public final class KingdomsNetwork {
                 TownMapRequestPayload.TYPE,
                 TownMapRequestPayload.STREAM_CODEC,
                 TownMapRequestPayload::handle);
+        registrar.playToServer(
                 QuestActionPayload.TYPE,
                 QuestActionPayload.STREAM_CODEC,
                 QuestActionPayload::handle);
