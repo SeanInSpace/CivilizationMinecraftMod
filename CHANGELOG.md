@@ -86,6 +86,13 @@ messages carry the reasoning and the measurements.
   end the same way they always did: the settler stands at home through the night.
   Nobody goes hunting the village for a spare mattress.
 
+- **A generated town is built in the arrangement the world chose.** The layout
+  was handed to the town after its buildings had already been stood on the
+  plots of its people's default arrangement, so the streets were drawn for one
+  shape around houses sited by another. Towns generated from now on are laid
+  out in the arrangement the config weights picked; towns already generated
+  keep their ground.
+
 ---
 
 ## A town you founded gets its roads walked out

@@ -295,12 +295,32 @@ public final class Founding {
     public static Settlement seeded(SimPos site, String name, SettlementStage stage,
                                     List<BuildingType> catalog, String cultureId,
                                     int residents) {
+        return seeded(site, name, stage, catalog, cultureId, residents, null);
+    }
+
+    /**
+     * The same, in an arrangement named outright rather than left to the people.
+     *
+     * <p>World generation chooses the arrangement first and the people second,
+     * and used to hand the town its layout only after every building had been
+     * stood on the plots of the people's default one. The streets were then
+     * routed for one arrangement around houses sited by another. The layout has
+     * to be on the town before the first plot is asked for, which is here.
+     *
+     * @param layoutId the arrangement to build in, or null for the people's own
+     */
+    public static Settlement seeded(SimPos site, String name, SettlementStage stage,
+                                    List<BuildingType> catalog, String cultureId,
+                                    int residents, String layoutId) {
         Objects.requireNonNull(site, "site");
         Objects.requireNonNull(stage, "stage");
         Settlement town = new Settlement(Settlement.Id.random(), name, site, INITIAL_CLAIM);
         // Culture before anything else: the arrangement is read from it, and
         // every plot below comes out of that arrangement's plan.
         town.setCultureId(cultureId);
+        if (layoutId != null) {
+            town.setLayoutId(layoutId);
+        }
         town.setCatalog(Objects.requireNonNull(catalog, "catalog"));
 
         raiseThePrograms(town, stage);

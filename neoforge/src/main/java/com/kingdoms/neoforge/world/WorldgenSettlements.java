@@ -143,12 +143,14 @@ public final class WorldgenSettlements {
                 ? "Wayside"
                 : pickName(site);
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, site.cultureId());
-        Settlement settlement = Founding.seeded(chosen, name, STAGE,
-                BuildCatalog.DEFAULT, site.cultureId());
         // The arrangement the world was told it wanted, not the one this people
         // would have picked for this spot. A culture may build several ways; the
-        // weights are how a world says which of them it wants to see.
-        settlement.setLayoutId(site.layoutId());
+        // weights are how a world says which of them it wants to see. Named
+        // before a single plot is taken: set afterwards, the buildings stood on
+        // the people's default plan and the streets were drawn for this one.
+        Settlement settlement = Founding.seeded(chosen, name, STAGE,
+                BuildCatalog.DEFAULT, site.cultureId(),
+                Founding.AS_THE_STAGE_HOUSES, site.layoutId());
         kingdom.addSettlement(settlement);
 
         world.addKingdom(kingdom);
