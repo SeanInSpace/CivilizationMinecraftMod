@@ -611,6 +611,17 @@ public final class Layouts {
      */
     public static final Layout GREEN = new GreenLayout();
 
+    /**
+     * The orc war camp: a great hut on the middle, a yard, huts facing in.
+     *
+     * <p>The first round arrangement in the table that is not a village. Both of
+     * the orcs' other shapes are rectangles, which said that an orc settlement is
+     * a garrison and nothing else; this is what they build when they are living
+     * somewhere. See {@link OrcRingLayout} for what makes it a camp rather than a
+     * Rundling -- the short answer is that no lane crosses the yard.
+     */
+    public static final Layout ORC_RING = new OrcRingLayout();
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     /**
@@ -634,7 +645,7 @@ public final class Layouts {
     static {
         for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
                 HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC,
-                CROSSROADS, BASTIDE, THORP, CRESCENTS, GREEN}) {
+                CROSSROADS, BASTIDE, THORP, CRESCENTS, GREEN, ORC_RING}) {
             KNOWN.put(layout.id(), layout);
         }
         STREETS_FIRST.put(RING.id(), RING_STREETS.id());

@@ -142,7 +142,14 @@ public final class KingdomsConfig {
      * names.
      */
     private static final Map<String, Integer> STARTING_WEIGHTS =
-            Map.of(Culture.LAYOUT_CROSSROADS, 100);
+            Map.of(Culture.LAYOUT_CROSSROADS, 100,
+                    // And the orc war camp, at the same weight, so a fresh world
+                    // holds both a town somebody surveyed and a camp somebody
+                    // drew round a chief. Two entries rather than one now: the
+                    // note above is about the burghers' crossroads and stands,
+                    // but "one arrangement and nothing else" stopped being true
+                    // the moment a second people had a shape worth seeing.
+                    Culture.LAYOUT_ORC_RING, 100);
 
     /**
      * How often each arrangement is drawn.

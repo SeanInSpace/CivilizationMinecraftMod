@@ -9,6 +9,7 @@ import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.culture.GridStreetLayout;
+import com.kingdoms.sim.culture.OrcRingLayout;
 import com.kingdoms.sim.culture.RadialStreetLayout;
 import com.kingdoms.sim.culture.StreetLayout;
 import com.kingdoms.sim.culture.TownPlan;
@@ -291,6 +292,9 @@ class LayoutTest {
         if (like instanceof CrossroadsLayout c) {
             return new CrossroadsLayout(c.id(), c.wander());
         }
+        if (like instanceof OrcRingLayout o) {
+            return new OrcRingLayout(o.id(), o.wander());
+        }
         return like;
     }
 
@@ -484,9 +488,13 @@ class LayoutTest {
     void aCulturePicksItsOwnArrangement() {
         assertSame(Layouts.RING, Layouts.of(Culture.NORMAN.layouts().get(0)));
         assertSame(Layouts.WARREN, Culture.GOBLIN.arrangementFor(CENTER));
-        // The orcs build in two now, so this asks for the one they have always
-        // built in rather than for whatever this center happens to choose.
-        assertSame(Layouts.STRONGHOLD, Layouts.of(Culture.ORC.layouts().get(0)));
+        // The orcs build in three now, so this asks for the head of their list
+        // rather than for whatever this center happens to choose. The camp leads
+        // it: a people whose only shapes were rectangles read as a garrison and
+        // nothing else, and the two rectangles are still there behind it.
+        assertSame(Layouts.ORC_RING, Layouts.of(Culture.ORC.layouts().get(0)));
+        assertTrue(Culture.ORC.layouts().contains(Culture.LAYOUT_STRONGHOLD),
+                "the stronghold was dropped rather than demoted");
     }
 
     @Test

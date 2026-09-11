@@ -66,6 +66,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     public static final String LAYOUT_THORP = "thorp";
     public static final String LAYOUT_CRESCENTS = "crescents";
     public static final String LAYOUT_GREEN = "green";
+    public static final String LAYOUT_ORC_RING = "orc_ring";
 
     /**
      * Which of this people's arrangements a town centered here is laid out in.
@@ -286,7 +287,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     public static final Culture ORC = new Culture(
             "kingdoms:orc",
             List.of("minecraft:pig", "minecraft:cow", "minecraft:goat", "minecraft:wolf"),
-            List.of(LAYOUT_STRONGHOLD, LAYOUT_STRONGHOLD_STREETS),
+            List.of(LAYOUT_ORC_RING, LAYOUT_STRONGHOLD, LAYOUT_STRONGHOLD_STREETS),
             List.of("Karrgurd", "Dromgar", "Ironmaw", "Bloodpost", "Skullwatch",
                     "Grimhold", "Ashfang", "Warmoot"),
             List.of("Gorehand", "Skullsplit", "Ironjaw", "Blacktusk", "Redaxe",
