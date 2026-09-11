@@ -197,6 +197,37 @@ class StandTest {
     }
 
     @Test
+    void theLedgerIsSpentByWhatTheAxeTookAndNotByATreeAtATime() {
+        // LumberjackWorker calls this once per log it actually destroys, so a
+        // stand of two trees goes out one log at a time and lands exactly on
+        // empty. Debiting a flat tree's worth per stroke — or a tree's worth for
+        // a stroke that took one log — is how a ledger drifts off the wood.
+        Building camp = camp();
+        Stand.recount(camp, 2);
+
+        int taken = 0;
+        for (int stroke = 0; stroke < 2 * Stand.LOGS_PER_TREE; stroke++) {
+            taken += Stand.fell(camp, 1);
+        }
+
+        assertEquals(2 * Stand.LOGS_PER_TREE, taken, "every log asked for was there");
+        assertEquals(0, Stand.logs(camp), "and the stand is spent, to the log");
+        assertEquals(0, Stand.fell(camp, 1), "with nothing left to take");
+    }
+
+    @Test
+    void aStandIsDebitedOneTreePerTreeFelled() {
+        // The same rule read the other way: a whole tree's worth of logs off the
+        // stand is one tree off the stand, whoever swung the axe.
+        Building camp = camp();
+        Stand.recount(camp, 3);
+
+        Stand.fell(camp, Stand.LOGS_PER_TREE);
+
+        assertEquals(2, Stand.trees(camp), "three trees less the one that came down");
+    }
+
+    @Test
     void walkingUpToACampCountsWhatIsActuallyThere() {
         Settlement town = campTown(1);
         Standing arriving = new Standing();

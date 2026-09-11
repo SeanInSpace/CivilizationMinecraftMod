@@ -3,6 +3,7 @@ package com.kingdoms.neoforge.view;
 import com.kingdoms.neoforge.entity.Pace;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.world.Bridge;
+import com.kingdoms.neoforge.world.Felling;
 import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.neoforge.world.PerimeterLayer;
@@ -618,49 +619,36 @@ public final class Foreman {
     }
 
     /**
-     * Brings down the whole tree the given block belongs to.
+     * Brings down the tree the block that gave belongs to.
      *
-     * <p>Breadth-first from the block that gave, through logs and leaves only,
-     * so a felled trunk takes its own canopy with it rather than leaving a
-     * crown floating over the wall it was in the way of. Bounded, because a
-     * dark oak in a forest is joined to a great many of its neighbors by
-     * touching leaves and a wall builder should not be made to clear a county.
+     * <p>The block itself always goes — that is the one the builder just spent
+     * an axe's worth of ticks on — and if it was wood, the rest of its trunk
+     * goes with it, so a crown fifteen blocks up does not have to be picked at
+     * from a ladder nobody has.
+     *
+     * <p><strong>Wood only, and never through the leaves.</strong> This used to
+     * flood through logs and leaves alike, which in a wood means every tree
+     * whose canopy touches any other: a builder clearing one oak off the line
+     * flattened the horizon behind it. The trunk comes down; its leaves then
+     * decay by themselves, which is vanilla's own rule and what a player
+     * expects to see. See {@link Felling}, which owns the shape of a tree and
+     * the bounds on it.
      */
     private static void fell(ServerLevel level, BlockPos from) {
-        java.util.Deque<BlockPos> queue = new java.util.ArrayDeque<>();
-        java.util.Set<BlockPos> seen = new java.util.HashSet<>();
-        queue.add(from);
-        seen.add(from);
-        int taken = 0;
-        while (!queue.isEmpty() && taken < MOST_OF_ONE_TREE) {
-            BlockPos at = queue.poll();
-            if (!level.isLoaded(at)) {
-                continue;
-            }
-            if (!WallClearing.isGrowth(level.getBlockState(at))) {
-                continue;
-            }
-            level.destroyBlock(at, false, null, 512);
-            taken++;
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    for (int dz = -1; dz <= 1; dz++) {
-                        BlockPos next = at.offset(dx, dy, dz);
-                        if (seen.add(next)) {
-                            queue.add(next);
-                        }
-                    }
-                }
-            }
+        if (!level.isLoaded(from)) {
+            return;
+        }
+        java.util.function.Predicate<BlockPos> isLog =
+                at -> level.isLoaded(at)
+                        && level.getBlockState(at).is(net.minecraft.tags.BlockTags.LOGS);
+        for (BlockPos log : Felling.treeAt(from, isLog)) {
+            level.destroyBlock(log, false, null, 512);
+        }
+        // A lone leaf over the line belongs to a tree rooted somewhere else. It
+        // is taken one leaf at a time, the way a person would, and the tree it
+        // hangs on is left standing.
+        if (!level.getBlockState(from).isAir()) {
+            level.destroyBlock(from, false, null, 512);
         }
     }
-
-    /**
-     * Blocks one felling will take at most.
-     *
-     * <p>Generous for a tree and small for a forest. Whatever is left standing
-     * is simply found again on the next pass, so the cap costs a little time
-     * and never leaves the wall permanently blocked.
-     */
-    private static final int MOST_OF_ONE_TREE = 400;
 }

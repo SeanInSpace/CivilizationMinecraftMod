@@ -6,6 +6,35 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Felling one tree fells one tree
+
+### Fixed
+
+- **A tree is its trunk, and nothing else comes down with it.** Chopping a tree
+  used to take every tree whose leaves touched it — and in a forest, where the
+  canopies all run into one another, that is the whole wood. One builder clearing
+  a single oak off the line of a wall could flatten the horizon behind it in a
+  tick. Now a felling follows the wood and only the wood: the logs joined to the
+  stump, out to the far tip of a fancy oak's branches, and there it stops. Two
+  oaks whose crowns have grown into each other are two trees and come down one at
+  a time.
+
+- **Trunks that really are one tree still come down as one.** A dark oak's
+  double-thick trunk, the branch columns hung on its corners, an acacia's bend, a
+  fancy oak's diagonal limbs, and two saplings somebody pushed into the ground
+  side by side are all one piece of wood and all come down together — because
+  they are actually touching, which is the only test there is.
+
+- **Leaves are left to fall on their own.** Nothing rips a canopy out any more.
+  Pull the logs and the leaves start dropping by themselves over the following
+  minute, the way they do when you cut a tree down yourself, with the odd sapling
+  and apple in the litter. A wall builder who only needs a branch out of the way
+  takes the branch and leaves the tree it grew on standing.
+
+- **A felling can no longer run away with itself.** One stroke of an axe is
+  capped at a tree's worth of wood and confined to the space a tree can occupy,
+  so even a wood grown into one solid tangle comes apart a tree at a time instead
+  of in one enormous bite.
 ## A guard does not shoot through a wall
 
 ### Fixed
