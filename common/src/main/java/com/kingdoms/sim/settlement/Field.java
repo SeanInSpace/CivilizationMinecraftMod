@@ -136,6 +136,32 @@ public final class Field {
     private Field() {
     }
 
+    /** Whether this kind of building is a field at all. */
+    public static boolean isField(String blueprintId) {
+        return "farm".equals(BuildingRole.bareName(blueprintId));
+    }
+
+    /**
+     * How many crop blocks <em>this</em> farm actually has.
+     *
+     * <p>{@link #CROP_BLOCKS} is what the drawn farm has, and for most of this
+     * mod's life that was the same thing as what every farm has. It stopped
+     * being once a player could hand the town a field they built themselves: a
+     * hand-authored farm is however many rows the author laid, and a ledger run
+     * off the constant would credit a town for crops that are not in the ground
+     * — or starve one whose field is bigger than ours.
+     *
+     * <p>Counted off the placed building rather than declared in the file. What
+     * the file claims is the author's word for it; what was placed is the
+     * wheat.
+     */
+    public static int cropBlocksOf(Building farm) {
+        if (farm != null && farm.isAuthored() && farm.authored().cropBlocks() > 0) {
+            return farm.authored().cropBlocks();
+        }
+        return CROP_BLOCKS;
+    }
+
     /** How many simulation steps a block of wheat takes to ripen, at these settings. */
     public static int ripeningSteps(SimSettings settings) {
         return Math.max(1, RIPENING_TICKS / Math.max(1, settings.simIntervalTicks()));
@@ -148,9 +174,12 @@ public final class Field {
      * continuously harvested and replanted looks like from a distance: at the
      * shipped hundred ticks a step that is 71 blocks over 372 steps, nineteen
      * hundredths of a block each.
+     *
+     * <p>Proportional to the field, not to the constant: half the rows ripen half
+     * as fast, which is the whole of what a smaller field means.
      */
-    public static int ripeningPerStep(SimSettings settings) {
-        return Math.max(1, CROP_BLOCKS * PER_BLOCK / ripeningSteps(settings));
+    public static int ripeningPerStep(Building farm, SimSettings settings) {
+        return Math.max(1, cropBlocksOf(farm) * PER_BLOCK / ripeningSteps(settings));
     }
 
     /** Blocks standing ready on this farm right now. */
@@ -167,8 +196,8 @@ public final class Field {
      * granary hidden in the soil.
      */
     public static void ripen(Building farm, SimContext ctx) {
-        int grown = farm.ripeHundredths() + ripeningPerStep(ctx.settings());
-        farm.setRipeHundredths(Math.min(CROP_BLOCKS * PER_BLOCK, grown));
+        int grown = farm.ripeHundredths() + ripeningPerStep(farm, ctx.settings());
+        farm.setRipeHundredths(Math.min(cropBlocksOf(farm) * PER_BLOCK, grown));
     }
 
     /**
@@ -193,7 +222,7 @@ public final class Field {
      */
     public static void tend(Building farm, int actions) {
         if (actions > 0) {
-            farm.setRipeHundredths(Math.min(CROP_BLOCKS * PER_BLOCK,
+            farm.setRipeHundredths(Math.min(cropBlocksOf(farm) * PER_BLOCK,
                     farm.ripeHundredths() + actions * (PER_BLOCK / GROWTH_STAGES)));
         }
     }

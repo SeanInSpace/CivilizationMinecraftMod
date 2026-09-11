@@ -136,6 +136,40 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
     public static final SurveyPayload NONE =
             new SurveyPayload(BlockPos.ZERO, List.of(), List.of());
 
+    /**
+     * The blueprint id a pending scan region is drawn under.
+     *
+     * <p>Not a building, and deliberately shaped like one anyway. The lamp
+     * already draws a box with a tick on the side a thing faces, which is
+     * exactly the instrument somebody laying out a scan wants: it is the same
+     * question — how much room does this take and which way round is it — asked
+     * about a region instead of about a plot. A second kind of line on the wire
+     * would have been a second renderer, a second budget and a second thing to
+     * keep in step, for a picture that is already drawn.
+     */
+    public static final String SCAN_REGION = "kingdoms:scan_region";
+
+    /** An empty survey measured from somewhere in particular. */
+    public static SurveyPayload empty(BlockPos origin) {
+        return new SurveyPayload(origin, List.of(), List.of());
+    }
+
+    /**
+     * The same survey with one more box in it.
+     *
+     * <p>Added past the {@link #MAX_PLOTS} cap on purpose: the cap exists so a
+     * city's worth of buildings cannot grow the packet without limit, and this
+     * is one box that the person holding the lamp asked for by name. Losing it
+     * behind ninety-six houses would make the frame useless in exactly the place
+     * somebody is most likely to be authoring a building.
+     */
+    public SurveyPayload with(Plot extra) {
+        List<Plot> both = new ArrayList<>(plots.size() + 1);
+        both.addAll(plots);
+        both.add(extra);
+        return new SurveyPayload(origin, runs, both);
+    }
+
     /** How far from the player a survey reaches, in blocks. */
     public static final double RANGE = 128.0;
 

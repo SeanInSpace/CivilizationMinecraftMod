@@ -7,6 +7,7 @@ import com.keystone.preview.PlacementPreview;
 import com.keystone.source.DatapackSource;
 import com.keystone.source.FolderSource;
 import com.keystone.source.StructurizeSource;
+import com.keystone.source.WorldSource;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -36,6 +37,10 @@ public final class KeystoneMod {
     public KeystoneMod(IEventBus modBus, ModContainer container) {
         // Order matters only through priority: a blueprint you scanned yourself
         // beats one shipped in a datapack of the same name.
+        // Highest first is not required -- Blueprints sorts by priority -- but
+        // the order they are written in is the order they are consulted, and a
+        // reader should not have to look up three priority numbers to see it.
+        Blueprints.register(WorldSource.create());
         Blueprints.register(new FolderSource());
         Blueprints.register(new StructurizeSource());
         Blueprints.register(new DatapackSource());

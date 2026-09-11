@@ -93,6 +93,34 @@ public final class Transforms {
         // the blocks turned would line the building up by whatever happened to
         // land in the old cell.
         return new Blueprint(size(size, rotation), moved,
-                position(blueprint.anchor(), size, rotation, mirror));
+                position(blueprint.anchor(), size, rotation, mirror),
+                // And the stated front turns too, for exactly the reason the
+                // anchor does: it names a side of this structure, and a side
+                // that stayed put while the walls turned would point at a
+                // different wall. A mirror is deliberately not applied to it —
+                // a reflection sends a front wall to the opposite front wall
+                // only when the front lies on the mirrored axis, and nothing
+                // here mirrors a building anyway.
+                blueprint.meta().turned(quarters(rotation)));
+    }
+
+    /** Quarter turns clockwise, as the facing convention counts them. */
+    public static int quarters(Rotation rotation) {
+        return switch (rotation) {
+            case CLOCKWISE_90 -> 1;
+            case CLOCKWISE_180 -> 2;
+            case COUNTERCLOCKWISE_90 -> 3;
+            default -> 0;
+        };
+    }
+
+    /** The turn that takes a structure facing {@code from} round to face {@code to}. */
+    public static Rotation between(int from, int to) {
+        return switch (Math.floorMod(to - from, 4)) {
+            case 1 -> Rotation.CLOCKWISE_90;
+            case 2 -> Rotation.CLOCKWISE_180;
+            case 3 -> Rotation.COUNTERCLOCKWISE_90;
+            default -> Rotation.NONE;
+        };
     }
 }

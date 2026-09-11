@@ -175,6 +175,27 @@ public final class StructurizeNbt {
         }
     }
 
+    /**
+     * Whether this tag is a Structurize blueprint rather than a vanilla structure.
+     *
+     * <p>Told apart by the shape of the size fields, which is the one difference
+     * neither format can fake: Structurize writes three separate shorts,
+     * {@code size_x/y/z}, and vanilla writes a single three-element {@code size}
+     * list. Nothing else is as reliable — {@code palette} and {@code blocks}
+     * exist in both, with completely different contents, and the extension is
+     * only ever what somebody happened to save the file as.
+     *
+     * <p>This is what lets a Structurize export dropped into the blueprint
+     * folder under any name at all be read correctly rather than read as a
+     * zero-by-zero structure with no explanation.
+     */
+    public static boolean looksStructurize(CompoundTag tag) {
+        return tag != null
+                && tag.getShort(SIZE_X).isPresent()
+                && tag.getShort(SIZE_Y).isPresent()
+                && tag.getShort(SIZE_Z).isPresent();
+    }
+
     /** Decodes a {@code .blueprint} tag into the common blueprint model. */
     public static Blueprint read(CompoundTag tag, HolderGetter<Block> blocks) {
         byte version = tag.getByteOr(VERSION, KNOWN_VERSION);

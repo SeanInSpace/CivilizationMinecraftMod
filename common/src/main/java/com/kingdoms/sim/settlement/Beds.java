@@ -217,6 +217,24 @@ public final class Beds {
         return layoutOf(blueprintId).size();
     }
 
+    /**
+     * How many heads <em>this</em> building has a bed for.
+     *
+     * <p>The table is what a drawn building holds. An authored one holds the beds
+     * that were actually found in its plan, which is the whole point of checking
+     * the file: a cottage the validator passed has three, and a cottage somebody
+     * placed without checking may have two — and a town that went on believing
+     * the table would send a third settler to stand in the dark.
+     */
+    public static int countIn(Building building) {
+        if (building == null) {
+            return 0;
+        }
+        return building.isAuthored()
+                ? building.authored().bedCount()
+                : countIn(building.blueprintId());
+    }
+
     /** Whether anybody sleeps in this kind of building at all. */
     public static boolean isHome(String blueprintId) {
         return !layoutOf(blueprintId).isEmpty();
@@ -251,6 +269,55 @@ public final class Beds {
     /**
      * Where the foot half of one bed stands in the world, or null if this
      * building has no such bed.
+     *
+     * <p>Read from the file where there is one. An authored building's beds were
+     * found in its plan when it was raised and written on the record; the table
+     * below knows only where the <em>drawn</em> version of this kind puts them,
+     * which for somebody else's cottage is an answer about a different cottage.
+     */
+    public static SimPos footOf(Building building, int index) {
+        if (building == null) {
+            return null;
+        }
+        if (building.isAuthored()) {
+            return offset(building, building.authored().bedFeet(), index);
+        }
+        return footOf(building.blueprintId(), building.origin(), building.facing(), index);
+    }
+
+    /** Where the head half of that same bed stands. */
+    public static SimPos headOf(Building building, int index) {
+        if (building == null) {
+            return null;
+        }
+        if (building.isAuthored()) {
+            return offset(building, building.authored().bedHeads(), index);
+        }
+        return headOf(building.blueprintId(), building.origin(), building.facing(), index);
+    }
+
+    /**
+     * One of an authored building's recorded cells, in the world.
+     *
+     * <p>Already turned: an authored plan is turned before it is laid, so what
+     * was found in it is in the frame the building actually stands in. Turning it
+     * again here is the mistake this method exists to not make.
+     */
+    private static SimPos offset(Building building, List<SimPos> cells, int index) {
+        if (index < 0 || index >= cells.size()) {
+            return null;
+        }
+        SimPos origin = building.origin();
+        SimPos cell = cells.get(index);
+        return new SimPos(origin.x() + cell.x(), origin.y() + cell.y(), origin.z() + cell.z());
+    }
+
+    /**
+     * The same, for a kind of building rather than a particular one.
+     *
+     * <p>Reads the table and nothing else, which is what the placer's drawing
+     * methods and their tests want: what does a cottage look like, rather than
+     * what does this cottage hold.
      */
     public static SimPos footOf(String blueprintId, SimPos origin, int facing, int index) {
         List<Slot> slots = layoutOf(blueprintId);
@@ -332,7 +399,7 @@ public final class Beds {
         if (standing == null) {
             return -1;
         }
-        int beds = countIn(standing.blueprintId());
+        int beds = countIn(standing);
         int rank = 0;
         for (Person other : sleepersIn(settlement, home)) {
             if (other.id().equals(person.id())) {
@@ -360,7 +427,6 @@ public final class Beds {
         if (standing == null) {
             return null;
         }
-        return footOf(standing.blueprintId(), standing.origin(), standing.facing(),
-                indexIn(settlement, home, person));
+        return footOf(standing, indexIn(settlement, home, person));
     }
 }

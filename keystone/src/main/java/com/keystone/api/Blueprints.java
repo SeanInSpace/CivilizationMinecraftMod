@@ -46,6 +46,22 @@ public final class Blueprints {
                 }
             };
 
+    /**
+     * The same structures before they were turned.
+     *
+     * <p>Kept separately because of {@link #loadFacing}, which cannot know which
+     * rotation it wants until it has read the file and seen which way the author
+     * pointed the front. Without this, discovering that would mean reading and
+     * parsing the file twice for every building a town raises.
+     */
+    private static final Map<Identifier, Blueprint> RAW_CACHE =
+            new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Identifier, Blueprint> eldest) {
+                    return size() > CACHE_LIMIT;
+                }
+            };
+
     private record Key(Identifier id, Rotation rotation, Mirror mirror) {
     }
 
@@ -66,6 +82,7 @@ public final class Blueprints {
     /** Drops resolved blueprints. Call when datapacks reload or files change. */
     public static void clearCache() {
         CACHE.clear();
+        RAW_CACHE.clear();
     }
 
     public static Optional<LoadedBlueprint> load(ServerLevel level, BlockPos base, Identifier id) {
@@ -80,6 +97,31 @@ public final class Blueprints {
             return Optional.of(cached);
         }
 
+        Optional<Blueprint> raw = raw(level, base, id);
+        if (raw.isEmpty()) {
+            return Optional.empty();
+        }
+        LoadedBlueprint resolved = new LoadedBlueprint(Transforms.apply(raw.get(), rotation, mirror));
+        if (RAW_CACHE.containsKey(id)) {
+            // Cacheable is a property of the source, and the raw cache already
+            // decided it: a structure in there came from a source that said its
+            // answer travels, so a turned copy of it travels too.
+            CACHE.put(key, resolved);
+        }
+        return Optional.of(resolved);
+    }
+
+    /**
+     * The structure as the file holds it, before any turn.
+     *
+     * <p>Separated out because {@link #loadFacing} has to see the file's own
+     * stated front before it can know which way to turn it.
+     */
+    private static Optional<Blueprint> raw(ServerLevel level, BlockPos base, Identifier id) {
+        Blueprint cached = RAW_CACHE.get(id);
+        if (cached != null) {
+            return Optional.of(cached);
+        }
         for (BlueprintSource source : SOURCES) {
             Optional<Blueprint> found;
             try {
@@ -92,12 +134,45 @@ public final class Blueprints {
             if (found.isEmpty()) {
                 continue;
             }
-            LoadedBlueprint resolved =
-                    new LoadedBlueprint(Transforms.apply(found.get(), rotation, mirror));
             if (source.cacheable()) {
-                CACHE.put(key, resolved);
+                RAW_CACHE.put(id, found.get());
             }
-            return Optional.of(resolved);
+            return found;
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Loads a structure and turns it so its own front faces the way asked.
+     *
+     * <p>The difference between this and passing a {@link Rotation} is the whole
+     * of what a stated facing buys. A consumer turning a building to face its
+     * street knows which way it wants the door to end up; it does not know, and
+     * should not have to know, which way the author happened to be standing when
+     * they scanned it. Asking for a rotation assumes every file was drawn with
+     * its door southward, and a file that was not gets a blank wall on the
+     * street and a door into the hillside behind it.
+     *
+     * @param quarters where the front should end up, in quarter turns clockwise
+     *                 from {@code +z}
+     * @return a structure whose {@code facing()} is {@code quarters}
+     */
+    public static Optional<LoadedBlueprint> loadFacing(ServerLevel level, BlockPos base,
+                                                       Identifier id, int quarters) {
+        Optional<Blueprint> raw = raw(level, base, id);
+        return raw.map(blueprint -> new LoadedBlueprint(Transforms.apply(blueprint,
+                Transforms.between(blueprint.facing(), quarters), Mirror.NONE)));
+    }
+
+    /** The first of these ids that resolves, turned to face the way asked. */
+    public static Optional<LoadedBlueprint> loadFirstFacing(ServerLevel level, BlockPos base,
+                                                            List<Identifier> candidates,
+                                                            int quarters) {
+        for (Identifier id : candidates) {
+            Optional<LoadedBlueprint> found = loadFacing(level, base, id, quarters);
+            if (found.isPresent()) {
+                return found;
+            }
         }
         return Optional.empty();
     }
@@ -116,6 +191,21 @@ public final class Blueprints {
         Path file = FolderSource.fileFor(id)
                 .orElseThrow(() -> new IOException("Blueprint id escapes the blueprint folder: " + id));
         Blueprint blueprint = Scanner.scan(level, a, b);
+        BlueprintNbt.writeFile(blueprint, file);
+        clearCache();
+        return blueprint;
+    }
+
+    /**
+     * Writes a structure somebody has already scanned to a file of their choosing.
+     *
+     * <p>The half of {@link #save} that is not scanning, for callers who want
+     * the blueprint to say more than a bare region can — an anchor cell, which
+     * way the front points, how many crops are in it. Drops the cache for the
+     * same reason: a re-saved blueprint that went on serving its old contents is
+     * a maddening thing to debug.
+     */
+    public static Blueprint saveTo(Blueprint blueprint, Path file) throws IOException {
         BlueprintNbt.writeFile(blueprint, file);
         clearCache();
         return blueprint;

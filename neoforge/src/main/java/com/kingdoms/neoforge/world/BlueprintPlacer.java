@@ -18,6 +18,7 @@ import com.kingdoms.sim.work.Spoil;
 import com.kingdoms.sim.world.SimWorld;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.settlement.BuildPlanner;
+import com.kingdoms.sim.settlement.BlueprintCheck;
 import com.kingdoms.sim.settlement.BuildingSizes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -136,12 +137,26 @@ public final class BlueprintPlacer {
      */
     private record StructurePlan(int width, int depth, int height, List<Step> steps,
                                  List<BlockPos> digTargets, List<BlockPos> strip,
-                                 boolean blocked, BuildingSizes.Notch notch) {
+                                 boolean blocked, BuildingSizes.Notch notch,
+                                 com.kingdoms.sim.settlement.Building.Authored authored) {
 
         StructurePlan(int width, int depth, int height, List<Step> steps,
                       List<BlockPos> digTargets, boolean blocked) {
             this(width, depth, height, steps, digTargets, List.of(), blocked,
-                    BuildingSizes.Notch.NONE);
+                    BuildingSizes.Notch.NONE, null);
+        }
+
+        /**
+         * The same plan, remembering what a file put in it.
+         *
+         * <p>Carried on the plan rather than looked up again later because the
+         * plan is the one place both facts exist at once: the blueprint that was
+         * chosen, and the turn it was given. A second lookup would have to guess
+         * at both.
+         */
+        StructurePlan withAuthored(com.kingdoms.sim.settlement.Building.Authored facts) {
+            return new StructurePlan(width, depth, height, steps, digTargets, strip,
+                    blocked, notch, facts);
         }
 
         int placeWork() {
@@ -1344,7 +1359,8 @@ public final class BlueprintPlacer {
         // it does not re-open the site, and a branch that has grown back over a
         // roof in the years since is scenery rather than damage.
         return new StructurePlan(plan.width(), plan.depth(), plan.height(),
-                List.copyOf(once), List.of(), List.of(), false, plan.notch());
+                List.copyOf(once), List.of(), List.of(), false, plan.notch(),
+                plan.authored());
     }
 
     /**
@@ -1488,11 +1504,22 @@ public final class BlueprintPlacer {
         Rotation rotation = rotationOf(facing);
         Site site = siteAt(level, base);
 
-        Optional<LoadedBlueprint> authored = Blueprints.loadFirst(level, base,
-                styleCandidates(id, site.culture()), rotation, Mirror.NONE);
+        // Turned to face the street by its own stated front rather than by a
+        // bare rotation. A file records which way its author was looking when
+        // they scanned it, which is the side the door is on; turning it by the
+        // building's facing alone assumes every file in the world was drawn
+        // southward, and one that was not gets a blank wall on the street.
+        Optional<LoadedBlueprint> authored = Blueprints.loadFirstFacing(level, base,
+                styleCandidates(id, site.culture()), facing);
         if (authored.isPresent()) {
-            return fromBlueprint(level, site, authored.get(), base,
-                    BuildPlanner.baseIdOf(id.getPath()));
+            String path = BuildPlanner.baseIdOf(id.getPath());
+            StructurePlan fromFile = fromBlueprint(level, site, authored.get(), base,
+                    path, facing);
+            if (fromFile != null) {
+                return fromFile;
+            }
+            // Refused. Fall through and draw the built-in shape, which is the
+            // one thing known to fit the ground the plan set aside.
         }
         // Styles degrade too: with no norman/house drawn, a norman town still
         // gets the built-in house rather than an unknown-blueprint marker. So does
@@ -1524,7 +1551,7 @@ public final class BlueprintPlacer {
      * produces one today, but a datapack asking for a specific style outright
      * should get it rather than have the local culture imposed on top.
      */
-    private static List<Identifier> styleCandidates(Identifier id, Culture culture) {
+    static List<Identifier> styleCandidates(Identifier id, Culture culture) {
         String path = id.getPath();
         int slash = path.lastIndexOf('/');
         if (slash >= 0) {
@@ -1554,8 +1581,12 @@ public final class BlueprintPlacer {
      */
     private static StructurePlan fromBlueprint(ServerLevel level, Site site,
                                                LoadedBlueprint blueprint,
-                                               BlockPos base, String path) {
+                                               BlockPos base, String path, int facing) {
         Vec3i size = blueprint.size();
+        AuthoredReading.Reading reading = AuthoredReading.read(path, blueprint, facing);
+        if (!refuseOversize(path, reading.survey())) {
+            return null;
+        }
         // The origin that puts the blueprint's own anchor cell on the plot.
         //
         // Its height is deliberately ignored. A stated anchor names a cell in
@@ -1579,7 +1610,86 @@ public final class BlueprintPlacer {
         if (!hasPost) {
             addPost(blocks, anchor, size, filled, path);
         }
-        return finish(level, base, blocks, size.getX(), size.getZ(), size.getY());
+        // The declared bite, and only where the file fills the declared box.
+        //
+        // A notch is a statement about a shape -- the croft wraps a yard, and
+        // the yard has to stay walkable ground rather than be scraped flat with
+        // the rest of the plot. A file the same size as the declared building is
+        // that building, so its corner is that yard. A file of some other size
+        // is some other shape, and digging a bite out of a corner it may well
+        // have built in would leave a hole under somebody's wall.
+        BuildingSizes.Size declared = BuildingSizes.of(path);
+        boolean quarter = Math.floorMod(facing, 2) == 1;
+        int drawnWidth = quarter ? size.getZ() : size.getX();
+        int drawnDepth = quarter ? size.getX() : size.getZ();
+        BuildingSizes.Notch notch =
+                declared != null && declared.notch().isCut()
+                        && drawnWidth == declared.width() && drawnDepth == declared.depth()
+                        ? (quarter ? turned(declared.notch(), rotationOf(facing))
+                                   : declared.notch())
+                        : BuildingSizes.Notch.NONE;
+        return finish(level, base, blocks, size.getX(), size.getZ(), size.getY(), notch)
+                .withAuthored(reading.facts());
+    }
+
+    /**
+     * Says so, loudly, when an authored file is bigger than the ground reserved
+     * for it — and refuses to place it.
+     *
+     * <p>The same fault the {@code SIZE MISMATCH} line below watches for in the
+     * drawings, arriving by the other road. A drawing that outgrows its plot is
+     * a bug somebody can be made to fix; a file that outgrows its plot is a
+     * player's honest mistake, and it will be made constantly, because nine by
+     * nine is a perfectly reasonable thing to build when the cottage you are
+     * replacing happens to be seven.
+     *
+     * <p>Refused rather than logged and placed anyway, which is the difference
+     * from the drawing's check. Placing it writes the file's walls through
+     * whatever the plan put on the next plot, and the town has no idea: the
+     * neighbour is still recorded as standing, still repaired toward a shape
+     * that is half gone, forever. Falling back to the built-in shape gives the
+     * player a building that is visibly not theirs, which is a complaint they
+     * can act on.
+     *
+     * @return whether the file may be used
+     */
+    private static boolean refuseOversize(String path, BlueprintCheck.Survey survey) {
+        List<BlueprintCheck.Finding> findings = BlueprintCheck.of(survey);
+        boolean allowed = true;
+        for (BlueprintCheck.Finding finding : findings) {
+            if (!finding.severity().isFault()) {
+                continue;
+            }
+            // Only the size faults stop a placement. Everything else the check
+            // has to say -- a bed short, no door, an eave on the doorstep -- is
+            // the author's business and is reported by /civ blueprint check; it
+            // makes for a worse building, not for a building standing in
+            // somebody else's.
+            if (!finding.message().startsWith("SIZE MISMATCH")
+                    && !finding.message().startsWith("this file plus its doorstep")
+                    && !finding.message().startsWith("both spans")
+                    && !finding.message().startsWith("the file has no volume")) {
+                continue;
+            }
+            KingdomsMod.LOGGER.error("Refusing authored blueprint {}: {}", path,
+                    finding.message());
+            allowed = false;
+        }
+        return allowed;
+    }
+
+    /**
+     * What a file put in a building, for the settlement to remember.
+     *
+     * <p>Null for anything the code drew, which is what tells the simulation to
+     * go on reading its tables. See {@link com.kingdoms.sim.settlement.Building.Authored}.
+     */
+    public static com.kingdoms.sim.settlement.Building.Authored authoredFacts(
+            ServerLevel level, String blueprintId, BlockPos base, int facing) {
+        if (!level.isLoaded(base)) {
+            return null;
+        }
+        return planFor(level, blueprintId, base, facing).authored();
     }
 
     /**
@@ -1990,7 +2100,7 @@ public final class BlueprintPlacer {
             }
         }
         return new StructurePlan(width, depth, height, steps,
-                List.copyOf(digTargets), clearing.stripped(), blocked, notch);
+                List.copyOf(digTargets), clearing.stripped(), blocked, notch, null);
     }
 
     /**

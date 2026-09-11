@@ -31,6 +31,32 @@ public final class Scanner {
 
     /** Captures everything between two corners, inclusive, in either order. */
     public static Blueprint scan(ServerLevel level, BlockPos a, BlockPos b) {
+        return scan(level, a, b, null, Blueprint.Meta.NONE);
+    }
+
+    /**
+     * The same, told what the author meant by the region.
+     *
+     * <p>The two facts a bare box cannot carry, and the two that decide whether
+     * an authored building lands on its plot the right way round:
+     *
+     * <ul>
+     *   <li>the <strong>anchor</strong>, in world coordinates, which is the cell
+     *       that will be put on the build plot — usually wherever the post
+     *       stands. A cell outside the region is refused rather than stored,
+     *       because a structure cannot be lined up by something it does not
+     *       contain;</li>
+     *   <li>the <strong>front</strong>, in {@code meta}, which is the side the
+     *       door is on. A scan taken by a player facing their own front door
+     *       records the way they were looking, and the building is turned by
+     *       that when it is raised.</li>
+     * </ul>
+     *
+     * @param anchor the cell to line up by, in world coordinates, or null for
+     *               the middle of the floor
+     */
+    public static Blueprint scan(ServerLevel level, BlockPos a, BlockPos b,
+                                 BlockPos anchor, Blueprint.Meta meta) {
         BlockPos min = new BlockPos(
                 Math.min(a.getX(), b.getX()),
                 Math.min(a.getY(), b.getY()),
@@ -62,7 +88,28 @@ public final class Scanner {
                 }
             }
         }
-        return new Blueprint(size, blocks);
+        return new Blueprint(size, blocks, relative(anchor, min, size), meta);
+    }
+
+    /**
+     * The anchor as a cell of the structure, or null to take the default.
+     *
+     * <p>An anchor outside the scanned region is dropped with a complaint rather
+     * than stored. Storing it would move the whole building by however far
+     * outside it lay, which is a fault nobody would connect back to a mistyped
+     * coordinate three commands ago.
+     */
+    private static BlockPos relative(BlockPos anchor, BlockPos min, Vec3i size) {
+        if (anchor == null) {
+            return null;
+        }
+        BlockPos cell = anchor.subtract(min);
+        if (Blueprint.anchorFits(cell, size)) {
+            return cell;
+        }
+        com.keystone.KeystoneMod.LOG.warn(
+                "Anchor {} is outside the scanned region; centering instead", anchor);
+        return null;
     }
 
     /** Chest contents, sign text and the like, so a scan keeps what was inside. */

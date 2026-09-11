@@ -52,6 +52,21 @@ public final class BlueprintNbt {
     private static final String NBT = "nbt";
     private static final String DATA_VERSION = "DataVersion";
 
+    /**
+     * Where everything vanilla has no word for lives: one compound, under our
+     * own name.
+     *
+     * <p>Deliberately a side pocket rather than new top-level keys. A file
+     * written here still loads in a vanilla structure block, and a file written
+     * by a structure block still loads here — it simply has no pocket, and every
+     * field in it has a defined answer when absent. That is the whole
+     * compatibility story, and it is worth the one extra level of nesting.
+     */
+    private static final String KEYSTONE = "keystone";
+    private static final String ANCHOR = "anchor";
+    private static final String FACING = "facing";
+    private static final String CROP_BLOCKS = "crop_blocks";
+
     private BlueprintNbt() {
     }
 
@@ -60,6 +75,23 @@ public final class BlueprintNbt {
     /** Reads a structure file, gzipped (as vanilla writes them) or plain. */
     public static Blueprint readFile(Path file, HolderGetter<Block> blocks) throws IOException {
         return read(readTag(file), blocks);
+    }
+
+    /**
+     * Reads a file in whichever of the two formats it turns out to be in.
+     *
+     * <p>By what is inside it, not by what it is called. An author who exports a
+     * Structurize building and saves it as {@code cottage.nbt} has done nothing
+     * wrong, and a loader that read the extension would hand them a
+     * zero-by-zero structure and no explanation. The tag says which format it
+     * is far more reliably than the filename does — see
+     * {@link StructurizeNbt#looksStructurize}.
+     */
+    public static Blueprint readAnyFile(Path file, HolderGetter<Block> blocks) throws IOException {
+        CompoundTag tag = readTag(file);
+        return StructurizeNbt.looksStructurize(tag)
+                ? StructurizeNbt.read(tag, blocks)
+                : read(tag, blocks);
     }
 
     /** Reads a gzipped structure from an arbitrary stream, e.g. a datapack resource. */
@@ -110,7 +142,42 @@ public final class BlueprintNbt {
         if (skipped > 0) {
             KeystoneMod.LOG.warn("Skipped {} block(s) with an out-of-range palette index", skipped);
         }
-        return new Blueprint(new Vec3i(size[0], size[1], size[2]), out);
+        Vec3i bounds = new Vec3i(size[0], size[1], size[2]);
+        return new Blueprint(bounds, out, readAnchor(tag, bounds), readMeta(tag));
+    }
+
+    /**
+     * The anchor the file names, or the default when it names none.
+     *
+     * <p>Refused rather than honored when it falls outside the structure: a file
+     * naming a cell it does not contain would line the building up by nothing,
+     * and the middle of the floor is a better answer than a guess. Same rule
+     * {@link StructurizeNbt} applies to {@code primary_offset}, and for the same
+     * reason.
+     */
+    private static BlockPos readAnchor(CompoundTag tag, Vec3i size) {
+        Optional<CompoundTag> ours = tag.getCompound(KEYSTONE);
+        if (ours.isEmpty() || ours.get().getListOrEmpty(ANCHOR).isEmpty()) {
+            return Blueprint.defaultAnchor(size);
+        }
+        int[] cell = triple(ours.get(), ANCHOR);
+        BlockPos anchor = new BlockPos(cell[0], cell[1], cell[2]);
+        if (Blueprint.anchorFits(anchor, size)) {
+            return anchor;
+        }
+        KeystoneMod.LOG.warn("Ignoring an anchor at {} that is outside a {} structure",
+                anchor, size);
+        return Blueprint.defaultAnchor(size);
+    }
+
+    private static Blueprint.Meta readMeta(CompoundTag tag) {
+        Optional<CompoundTag> ours = tag.getCompound(KEYSTONE);
+        if (ours.isEmpty()) {
+            return Blueprint.Meta.NONE;
+        }
+        return new Blueprint.Meta(
+                ours.get().getIntOr(FACING, 0),
+                ours.get().getIntOr(CROP_BLOCKS, Blueprint.UNCOUNTED));
     }
 
     private static List<BlockState> readPalette(CompoundTag tag, HolderGetter<Block> blocks) {
@@ -180,7 +247,24 @@ public final class BlueprintNbt {
         tag.put(BLOCKS, blockList);
         // Vanilla always writes the key; an absent one trips stricter readers.
         tag.put(ENTITIES, new ListTag());
-        tag.putInt(DATA_VERSION, SharedConstants.getCurrentVersion().dataVersion().version());
+        // The compiled-in number rather than the detected one. They are the same
+        // value in a running game, and only one of them can be asked for
+        // without a game behind it: getCurrentVersion() throws when nobody has
+        // detected a version, which is every context that is not a launched
+        // client or server. A structure writer that cannot be exercised outside
+        // a launched game is a structure writer nobody tests.
+        tag.putInt(DATA_VERSION, SharedConstants.WORLD_VERSION);
+
+        // Always written, even when it is all defaults. A pocket that appeared
+        // only sometimes would mean "no anchor stated" and "anchor happens to be
+        // the middle" were the same file, and a re-save of a scanned building
+        // would quietly lose the cell the author lined it up by.
+        CompoundTag ours = new CompoundTag();
+        BlockPos anchor = blueprint.anchor();
+        ours.put(ANCHOR, intList(anchor.getX(), anchor.getY(), anchor.getZ()));
+        ours.putInt(FACING, blueprint.meta().facing());
+        ours.putInt(CROP_BLOCKS, blueprint.meta().cropBlocks());
+        tag.put(KEYSTONE, ours);
         return tag;
     }
 
