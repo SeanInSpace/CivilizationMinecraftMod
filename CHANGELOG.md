@@ -6,6 +6,38 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town you founded gets its roads walked out
+
+### Fixed
+
+- **A settlement you founded now has roads.** A camp raised from a charter
+  planned a track from every new door to whatever passed nearest, and then left
+  almost all of them as lines on a plan. Nobody ever walked them: the town you
+  are standing in has no clock — that is the rule, and it stays — and the only
+  moment it would spare anybody for a street was the single step between one
+  building being finished and the next being ordered. A growing town plans two
+  stretches for every building it raises and was walking out about one, so the
+  untrodden half grew for as long as the town did. Fifty steps into a founding,
+  a camp had four of its eight stretches; two hundred steps in, seventeen of
+  twenty-seven. It now has all of them.
+
+- **A party of four puts three on the bunkhouse and one on the road.** Shelter
+  and stores still come first, and that has not been loosened — it is now a rule
+  about the *last* pair of hands rather than about all of them. A settlement down
+  to one able builder still keeps them at the building site and its streets wait,
+  exactly as before.
+
+- **Only the roads get this.** The palisade still waits for the build queue to
+  clear, because a post is a plank the next building is owed and a ring is
+  hundreds of them. A track costs the town nothing but somebody's afternoon.
+
+- **The paver is left alone while they are out there.** Whoever is spared is off
+  the building site for as long as the work lasts, so the site and the foreman
+  are not steering the same person in two directions, and the day's routine no
+  longer walks them back to the square halfway down a lane.
+
+---
+
 ## The watch carries a sword and a bow, and shoots the creepers
 
 ### New

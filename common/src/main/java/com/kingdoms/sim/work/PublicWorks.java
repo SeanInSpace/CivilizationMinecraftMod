@@ -59,6 +59,46 @@ public final class PublicWorks {
     }
 
     /**
+     * Hands a town keeps on its buildings before it spares any for the roads.
+     *
+     * <p>One, and the whole argument for the number is that a road is the only
+     * public work a busy town can afford to send anybody to. Shelter and stores
+     * still come first and the last pair of hands in a settlement stays on them;
+     * the second pair is what a founding party has four of, and putting all four
+     * on the same doorframe is how a town you were standing in came to have no
+     * roads at all.
+     *
+     * <p>The wall does not get this exemption and must not. A post costs a plank
+     * the build queue is owed and the ring is hundreds of them, so a wall that
+     * interleaved with building would be the town spending its timber on a fence
+     * while its bunkhouse waited. A track is trodden — see
+     * {@link RoadWork#material} — so the only thing it ever takes from the queue
+     * is one person's afternoon.
+     */
+    public static final int HANDS_KEPT_ON_BUILDINGS = 1;
+
+    /**
+     * The works this town may put a spare hand on right now.
+     *
+     * <p>Everything it has outstanding when there is nothing to build, and the
+     * roads alone while there is. That second case is the interleave, and it
+     * exists because "shelter and stores before roads and walls" was written for
+     * a queue that empties. A settlement's stage program orders the next building
+     * on the same step the last one is struck off, so from the moment a camp is
+     * founded until the day it stops growing its queue is empty for at most one
+     * step in ten — and a watched town, which is any town you are standing in,
+     * has no clock to fall back on. The roads were not merely late; they arrived
+     * at one stretch for every two the town planned, which is a gap that widens
+     * for ever.
+     */
+    public static List<Worksite> availableTo(Settlement settlement) {
+        if (settlement.buildQueue().isEmpty()) {
+            return of(settlement);
+        }
+        return List.of(new RoadWork());
+    }
+
+    /**
      * The work a town's spare hands would be put on right now, or null when it
      * has none free or nothing of its own within reach.
      *
@@ -71,11 +111,17 @@ public final class PublicWorks {
      *
      * <p>It is the foreman's own choice, made without a world: the build queue
      * first, because shelter and stores come before all of this and a repair is
-     * work in that queue too; then the list in order, taking the first work with
-     * a job in a loaded chunk that the town can start and has the materials for.
-     * The platform adds two refusals this cannot see — a route nothing can path
-     * and growth in the way — and both of those only ever mean the crew is one
-     * pass later than this says.
+     * work in that queue too; then {@link #availableTo} in order, taking the
+     * first work with a job in a loaded chunk that the town can start and has the
+     * materials for. The platform adds two refusals this cannot see — a route
+     * nothing can path and growth in the way — and both of those only ever mean
+     * the crew is one pass later than this says.
+     *
+     * <p>"The build queue first" is a rule about the <em>last</em> pair of hands
+     * rather than about all of them. A town raising something keeps
+     * {@link #HANDS_KEPT_ON_BUILDINGS} on it and may send whatever is left to the
+     * roads — and only to the roads. A settlement with one builder therefore
+     * behaves exactly as it always did: the house, and nothing else.
      *
      * <p>{@code PerimeterPlanner} asks a blunter question of its own and is left
      * to: a wall must never go up beside a builder who is standing right there,
@@ -84,10 +130,10 @@ public final class PublicWorks {
      * builds, which is the priority this list states anyway.
      */
     public static Worksite handsAreOn(Settlement settlement, WorldBridge bridge) {
-        if (!settlement.buildQueue().isEmpty() || !hasSpareHands(settlement)) {
+        if (!canSpareAHand(settlement)) {
             return null;   // shelter and stores before roads and walls
         }
-        for (Worksite work : of(settlement)) {
+        for (Worksite work : availableTo(settlement)) {
             if (!work.isWorthStarting(settlement)) {
                 continue;
             }
@@ -106,24 +152,57 @@ public final class PublicWorks {
 
     /** Whether anybody in this town is both able to build and standing in the world. */
     private static boolean hasSpareHands(Settlement settlement) {
+        return workingHands(settlement) > 0;
+    }
+
+    /**
+     * Whether the town has a pair of hands it could send to a public work.
+     *
+     * <p>Any of them when there is nothing queued; one more than the queue keeps
+     * while there is. See {@link #HANDS_KEPT_ON_BUILDINGS}.
+     */
+    public static boolean canSpareAHand(Settlement settlement) {
+        int hands = workingHands(settlement);
+        if (hands == 0) {
+            return false;
+        }
+        return settlement.buildQueue().isEmpty() || hands > HANDS_KEPT_ON_BUILDINGS;
+    }
+
+    /**
+     * How many people here can build and are standing in the world.
+     *
+     * <p>Embodied, because a public work is walked to: somebody who exists only
+     * on the roster cannot carry a plank or tread a road, and counting them is
+     * how the clock came to stand aside for a crew that was never coming.
+     */
+    public static int workingHands(Settlement settlement) {
+        int hands = 0;
         for (Person person : settlement.residents()) {
             if (settlement.laborsAs(person, Profession.BUILDER)
                     && person.isEmbodied() && !person.isTooWeakToWork()) {
-                return true;
+                hands++;
             }
         }
-        return false;
+        return hands;
     }
 
     /**
      * Whether the clock should leave this work to the town's own people.
      *
      * <p>Two ways it should. The crew is on it now, which is
-     * {@link #handsAreOn}; or the crew is raising a house, in which case they are
-     * coming back to it — a build queue is a finite thing a town works through,
-     * the foreman defers to it by design, and a clock that opened a street while
-     * the builders were busy would be opening it in front of the very people who
-     * were on their way to open it.
+     * {@link #handsAreOn}; or the crew is raising a house <em>and every pair of
+     * hands is on it</em>, in which case they are coming back — a build queue is
+     * a finite thing a town works through, the foreman defers to it by design,
+     * and a clock that opened a street while the builders were busy would be
+     * opening it in front of the very people who were on their way to open it.
+     *
+     * <p>The second clause once said only "the crew is raising a house", and that
+     * is the sentence a founded camp's roads died of. A town that can spare a
+     * hand for the street already has one walking out there, so if the foreman
+     * has nonetheless chosen something else — an unread chunk at the near end of
+     * the run, most often — then nobody is coming to that stretch and the clock
+     * is all it has.
      *
      * <p>What it does <em>not</em> wait for is a crew on a public work above this
      * one. That is the distinction the reordering forced, and it is a real one: a
@@ -140,7 +219,8 @@ public final class PublicWorks {
         if (chosen != null && chosen.getClass() == work.getClass()) {
             return true;
         }
-        return !settlement.buildQueue().isEmpty() && hasSpareHands(settlement);
+        return !settlement.buildQueue().isEmpty() && hasSpareHands(settlement)
+                && !canSpareAHand(settlement);
     }
 
     /**

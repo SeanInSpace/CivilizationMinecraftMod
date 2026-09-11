@@ -164,6 +164,23 @@ public final class PersonEntityManager {
     private final Set<UUID> steeredByBuild = new HashSet<>();
 
     /**
+     * The one builder each town has spared for a public work while it is building.
+     *
+     * <p>A settlement's stage program orders the next building on the same step
+     * the last one is struck off, so a growing town's build queue is almost never
+     * empty — and a rule that gave every hand to that queue gave the streets
+     * nothing. One hand is spared instead (see {@code PublicWorks.availableTo}),
+     * and this is who: recorded by town so it stays the same person from one pass
+     * to the next, and read by {@link #embodiedBuilders} so the construction pass
+     * leaves them alone. Without that, the site and the foreman would both steer
+     * the same body every tick and it would go nowhere.
+     *
+     * <p>Not saved. A reload puts everybody back on the houses and the next pass
+     * spares somebody again, which costs a street one tick.
+     */
+    private final Map<UUID, UUID> sparedForWorks = new HashMap<>();
+
+    /**
      * Builders with no route to the block they were sent for, by person id.
      *
      * <p>Vanilla navigation drops whatever path it was running when it is asked
@@ -912,6 +929,9 @@ public final class PersonEntityManager {
         repathTries.remove(personId);
         homeAccessFailures.remove(personId);
         steeredByBuild.remove(personId);
+        // A body that has gone is not the hand the town spared, or the next pass
+        // would keep a builder who no longer exists off every site it has.
+        sparedForWorks.values().remove(personId);
     }
 
     public void tickConstruction() {
@@ -1917,12 +1937,32 @@ public final class PersonEntityManager {
         return present;
     }
 
+    /**
+     * Whether this is the hand the town spared for the streets.
+     *
+     * <p>They are steered by the foreman rather than by the site, so the day's
+     * routine must leave them alone exactly as it leaves a builder laying
+     * courses alone — otherwise the town walks its paver back to the square
+     * every pass and no stretch is ever finished.
+     */
+    private boolean isOnAPublicWork(Settlement settlement, Person person) {
+        UUID spared = sparedForWorks.get(settlement.id().value());
+        return spared != null && spared.equals(person.id().value());
+    }
+
     private List<PersonEntity> embodiedBuilders(Settlement settlement) {
         List<PersonEntity> builders = new ArrayList<>();
+        UUID spared = sparedForWorks.get(settlement.id().value());
         for (Person person : settlement.residents()) {
             if (!settlement.laborsAs(person, Profession.BUILDER)
                     || !person.isEmbodied()
                     || person.isTooWeakToWork()) {
+                continue;
+            }
+            if (spared != null && spared.equals(person.id().value())) {
+                // Out on the street with a shovel. Left in this list they would
+                // be steered by the site as well as by the foreman, and a body
+                // pulled two ways every tick walks to neither.
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
@@ -2521,22 +2561,41 @@ public final class PersonEntityManager {
     /**
      * Sends a spare builder to whatever public work needs a body next.
      *
-     * <p>Only when there is nothing else for them: shelter and stores before
-     * roads and walls, which is the same order the abstract clock uses. A
-     * builder with a building to raise is not spared for fencing.
+     * <p>Shelter and stores before roads and walls, which is the same order the
+     * abstract clock uses — but that is a rule about the <em>last</em> pair of
+     * hands, not about all of them. A town with something on the go keeps
+     * {@code PublicWorks.HANDS_KEPT_ON_BUILDINGS} on it and may walk whatever is
+     * left out to the streets; the wall is not offered at all until the queue is
+     * clear, because a post is a plank the build queue is owed and a track is
+     * only somebody's afternoon.
+     *
+     * <p>One person, and always the same one while the work lasts: whoever is
+     * spared is taken off {@link #embodiedBuilders}, so the construction pass
+     * does not also steer them at the site. Two hands on one body is the reason
+     * this could not simply be let through.
      *
      * <p>Which work, and in what order, is the settlement's own opinion — see
      * {@code PublicWorks}. This only finds somebody free to go and do it.
      */
     private boolean workWall(Settlement settlement) {
-        if (!settlement.buildQueue().isEmpty()) {
+        UUID town = settlement.id().value();
+        boolean raising = !settlement.buildQueue().isEmpty();
+        if (!raising) {
+            sparedForWorks.remove(town);   // everybody is free; nobody is "the one"
+        }
+        if (!PublicWorks.canSpareAHand(settlement)) {
+            sparedForWorks.remove(town);
             return false;   // shelter and stores before roads and walls
         }
+        UUID spared = sparedForWorks.get(town);
         for (Person person : settlement.residents()) {
             if (!settlement.laborsAs(person, Profession.BUILDER)
                     || !person.isEmbodied() || person.isTooWeakToWork()
                     || person.haul() != null) {
                 continue;
+            }
+            if (raising && spared != null && !spared.equals(person.id().value())) {
+                continue;   // one hand off the houses, not a second
             }
             PersonEntity view = tracked.get(person.id().value());
             if (view == null || view.isRemoved() || view.isInDanger()) {
@@ -2544,6 +2603,9 @@ public final class PersonEntityManager {
             }
             Worksite handed = Foreman.work(level, settlement, person, view, this::fetchLoad);
             if (handed != null) {
+                if (raising) {
+                    sparedForWorks.put(town, person.id().value());
+                }
                 // One station at a time, by one pair of hands. Whether the old
                 // line is the work those hands are on decides whether the sweep
                 // that would otherwise pull it down stands aside -- where there
@@ -2556,6 +2618,7 @@ public final class PersonEntityManager {
                 return handed instanceof PublicWorks.DismantleWork;
             }
         }
+        sparedForWorks.remove(town);   // nothing to go to; they are builders again
         return false;
     }
 
@@ -2835,6 +2898,7 @@ public final class PersonEntityManager {
             if (settlement.laborsAs(person, Profession.BUILDER)
                     && !alarm.callsIn(person.profession()) && !night
                     && (steeredByBuild.contains(person.id().value())
+                            || isOnAPublicWork(settlement, person)
                             || isClearing(settlement))
                     && !person.isTooWeakToWork()) {
                 continue;

@@ -82,7 +82,10 @@ public final class Foreman {
      */
     public static Worksite work(ServerLevel level, Settlement settlement, Person carrier,
                                 PersonEntity builder, Loader loader) {
-        List<Worksite> works = PublicWorks.of(settlement);
+        // What the town may put a spare hand on right now, which is not always
+        // everything it has outstanding: while something is being raised, the
+        // roads are the only work offered. See PublicWorks.availableTo.
+        List<Worksite> works = PublicWorks.availableTo(settlement);
         for (Worksite work : works) {
             if (!work.isWorthStarting(settlement)) {
                 continue;
