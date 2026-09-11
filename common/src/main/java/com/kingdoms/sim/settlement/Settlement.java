@@ -827,27 +827,130 @@ public final class Settlement {
      * measured town stood on an eight-wide carriageway, and every one of them
      * was a farm or an animal farm.
      *
-     * <p>So the rule moves to where every siting path already passes. Only
-     * carriageways count: a footpath is a <em>consequence</em> of a building —
-     * the track worn from its door — so refusing a plot for standing on one
-     * would be circular, and would refuse ground the town itself made.
+     * <p>So the rule moves to where every siting path already passes.
+     *
+     * <p><strong>Footpaths count too, and the reason they did not is worth
+     * keeping.</strong> A track is a <em>consequence</em> of a building — the
+     * lane worn from its door — so refusing a plot for standing on one reads as
+     * circular, and refusing them all would have the town refuse ground it made
+     * itself. That argument is sound about the lane a plot is <em>replacing</em>
+     * and wrong about every other lane in the settlement, and treating all of
+     * them as the first kind is how a measured town came to have 972 buildings
+     * gravelled through by a footpath, every one of them a track.
+     *
+     * <p>So the two are told apart, and the network's own graph tells them
+     * apart. A lane that dead-ends inside this plot is a lane to a door that is
+     * not there any more — nothing else can be standing on it, or the overlap
+     * check above would have refused the plot first — and a plot may be laid
+     * over it. A track that merely passes through is somebody's way to somewhere
+     * and the plot goes elsewhere.
+     *
+     * <p>The clearance differs with the kind, and deliberately. A carriageway
+     * keeps its curb: a house is set back off the road. A track is held only off
+     * the <em>walls</em>, because a lane that ends at a doorstep is a doorstep,
+     * and that is the whole of what a lane is for.
      */
     private boolean standsOnAWay(SimPos candidate, int span) {
         if (paths == null) {
             return false;
         }
-        double half = span / 2.0 + CURB;
-        for (PathNetwork.Segment run : paths.segments()) {
-            if (run.width() <= PathNetwork.TRACK_WIDTH) {
-                continue;
-            }
+        List<PathNetwork.Segment> runs = paths.segments();
+        for (PathNetwork.Segment run : runs) {
+            boolean track = run.width() <= PathNetwork.TRACK_WIDTH;
+            double half = track ? wallsOffATrack(span) : span / 2.0 + CURB;
             // A cheap way to say no first. This runs for every candidate on the
             // give-up path, against every run in a town that has hundreds, and
             // the real distance is not free.
             if (farOff(candidate, run.from(), run.to(), half + run.width())) {
                 continue;
             }
-            if (run.touches(candidate, half)) {
+            if (!run.touches(candidate, half)) {
+                continue;
+            }
+            if (track && isDisusedSpurEndingInside(run, runs, candidate, span)) {
+                continue;   // this plot's own old lane; it may be built over
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * How much of a plot a track may not touch: its walls, to the block.
+     *
+     * <p>{@code touches} asks whether a way comes within half its own width of
+     * the square it is given, which for a three-wide track is a block and a
+     * half. The gravel is a block. So the square handed over is the walls less
+     * the half block of slack that arithmetic carries, and what comes out is
+     * exactly the rule wanted — a track may run right up against a doorstep and
+     * may not lay a stone on a wall — rather than a rule half a block stricter,
+     * which measured as a young town spread wider than it needed to be and a
+     * grown one four stretches of street short.
+     */
+    private static double wallsOffATrack(int span) {
+        return Math.max(0, span / 2.0 - BuildingSizes.APRON - 0.5);
+    }
+
+    /**
+     * Whether this track dead-ends inside the plot being offered, at a door
+     * that is not there any more.
+     *
+     * <p>A dead end is an endpoint no other run in the network touches. Every
+     * lane has exactly one — the doorstep it was run out to — and a through way
+     * has none, which is precisely the distinction the siting code needs and
+     * could not make while the network was only ever asked about one run at a
+     * time.
+     *
+     * <p>Being a dead end is not on its own enough, and assuming it was put
+     * twenty-seven buildings back on top of a lane. A doorstep sits just outside
+     * its own building's walls, and a big enough plot offered next door reaches
+     * it without fouling that building's claim — so the plot was told it had
+     * found a disused spur when what it had found was the way to the neighbor's
+     * front door. So the doors that are standing are asked too, and a lane still
+     * serving one is a lane.
+     *
+     * <p>Asked only of a track that has already been found to touch the
+     * candidate, so the walk over the whole network happens for the handful of
+     * plots that are actually in question rather than for every offer.
+     */
+    private boolean isDisusedSpurEndingInside(PathNetwork.Segment run,
+                                              List<PathNetwork.Segment> runs,
+                                              SimPos candidate, int span) {
+        int reach = span / 2;
+        for (SimPos end : List.of(run.from(), run.to())) {
+            if (Math.abs(end.x() - candidate.x()) > reach
+                    || Math.abs(end.z() - candidate.z()) > reach) {
+                continue;   // the loose end is not on this plot
+            }
+            if (servesAStandingDoor(end)) {
+                continue;
+            }
+            boolean shared = false;
+            for (PathNetwork.Segment other : runs) {
+                if (other == run) {
+                    continue;
+                }
+                if (other.touches(end, 0)) {
+                    shared = true;
+                    break;
+                }
+            }
+            if (!shared) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether some building that is still standing opens onto this column. */
+    private boolean servesAStandingDoor(SimPos end) {
+        for (Building standing : buildings) {
+            if (!BuildPlanner.holdsGround(standing.blueprintId())) {
+                continue;
+            }
+            SimPos door = standing.doorstep();
+            if (Math.abs(door.x() - end.x()) <= PathNetwork.TRACK_WIDTH
+                    && Math.abs(door.z() - end.z()) <= PathNetwork.TRACK_WIDTH) {
                 return true;
             }
         }

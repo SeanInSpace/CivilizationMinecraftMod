@@ -158,10 +158,32 @@ class PavedStreetsTest {
         assertTrue(grown > young,
                 "the town grew from " + young + " to " + grown
                         + " stretches of street, which is not growth");
-        assertTrue(young < grown / 2,
+        assertTrue(young * 100 < grown * EARLY_SHARE,
                 "a village of nine buildings already had " + young
                         + " of the " + grown + " stretches a town of sixty needs");
     }
+
+    /**
+     * How much of a grown town's street a village is allowed to have laid.
+     *
+     * <p>Fifty-five per cent, against a measured forty-five of eighty-eight.
+     * It was a bare half, and it moved when tracks stopped being ground a
+     * building could be raised on: a village that keeps off its own lanes sites
+     * its first plots a little wider, and a street is laid where the town has
+     * reached, so more of the plan falls near something. Measured on this
+     * fixture, before that rule and after:
+     *
+     * <pre>
+     *   41 of 92   a village that built over its own footpaths
+     *   45 of 88   a village that does not
+     * </pre>
+     *
+     * <p>The bar is here to catch the fault it was written for — laying the
+     * whole plan, which was 405 stretches around sixty-two buildings — and a
+     * village at just over half is not that. Raised rather than deleted so the
+     * number still cannot double quietly.
+     */
+    private static final int EARLY_SHARE = 55;
 
     private static int streetsOf(Settlement town) {
         int wide = 0;

@@ -3,6 +3,7 @@ package com.kingdoms.sim;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.platform.WorldBridge;
 import com.kingdoms.sim.settlement.BuildCatalog;
+import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
@@ -69,6 +70,26 @@ class PathNetworkTest {
     private static Building raise(Settlement s, String blueprintId, SimPos at, int facing) {
         Building building = new Building(blueprintId, at, 0, true);
         building.setFootprint(new Footprint(at.y(), 5, 5, 4));
+        building.setFacing(facing);
+        s.addBuilding(building);
+        return building;
+    }
+
+    /**
+     * The same, at the size the catalog actually reserves for it.
+     *
+     * <p>{@link #raise} gives everything a five-by-five footprint, which suits
+     * the tests that only care where a doorstep is. It will not do for a test
+     * about walls: a five-wide house whose catalog entry says nine has a door
+     * standing <em>inside</em> its own walls, which is a shape no builder can
+     * produce and which makes nonsense of any keepout drawn round it.
+     */
+    private static Building asBuilt(Settlement s, String blueprintId, SimPos at,
+                                    int facing) {
+        int[] half = BuildPlanner.wallsHalfOf(blueprintId, facing, s.catalog());
+        Building building = new Building(blueprintId, at, 0, true);
+        building.setFootprint(
+                new Footprint(at.y(), 2 * half[0] + 1, 2 * half[1] + 1, 4));
         building.setFacing(facing);
         s.addBuilding(building);
         return building;
@@ -144,6 +165,77 @@ class PathNetworkTest {
         int laid = added.stream().mapToInt(PathNetwork.Segment::length).sum();
         assertTrue(laid < 40,
                 "branching should cost a short spur, not a sixty-block run; was " + laid);
+    }
+
+    /**
+     * A lane goes round a house rather than through it.
+     *
+     * <p>The fault a player reported, at its smallest. Joining a door used to be
+     * two straight runs from the doorstep to the nearest road with nothing
+     * consulted in between, so a building standing on that line was gravelled
+     * from one wall to the other — and since a lane is three wide and sited
+     * ground was only ever kept off <em>carriageways</em>, nothing anywhere
+     * objected.
+     */
+    @Test
+    void alaneGoesRoundAHouseRatherThanThroughIt() {
+        Settlement s = town();
+        asBuilt(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
+        // Squarely on the line from the far house's door to the hub.
+        Building between = asBuilt(s, "kingdoms:house", new SimPos(30, 64, 0), 0);
+        asBuilt(s, "kingdoms:cottage", new SimPos(60, 64, 0), 1);
+
+        for (int i = 0; i < 8; i++) {
+            PathPlanner.advance(s, CTX);
+        }
+
+        int[] half = BuildPlanner.wallsHalfOf(between.blueprintId(), between.facing(),
+                s.catalog());
+        for (PathNetwork.Segment run : s.paths().segments()) {
+            for (SimPos at : run.positions()) {
+                assertFalse(Math.abs(at.x() - between.origin().x()) <= half[0]
+                                && Math.abs(at.z() - between.origin().z()) <= half[1],
+                        "a way runs through the house at " + between.origin()
+                                + ": " + run.from() + " -> " + run.to());
+            }
+        }
+    }
+
+    /**
+     * A plot may not be raised on a footpath somebody else is still using.
+     *
+     * <p>The other half of the same fault. Tracks were exempt from the siting
+     * rule outright, on the argument that a lane is a consequence of a building
+     * and refusing a plot for standing on one would be circular. That is true of
+     * the lane a plot <em>replaces</em> and false of every other lane in town,
+     * and the difference is whether the way dead-ends inside the plot.
+     */
+    @Test
+    void aplotMayNotStandOnATrackThatRunsThrough() {
+        Settlement s = town();
+        raise(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
+        // A way from one side of the settlement to the other: no loose end.
+        s.paths().add(new PathNetwork.Segment(new SimPos(-40, 64, 20), new SimPos(40, 64, 20)));
+
+        assertFalse(s.isPlotFree(new SimPos(0, 64, 20), 11, null),
+                "a plot squarely on a through footpath is not free ground");
+        assertTrue(s.isPlotFree(new SimPos(0, 64, 40), 11, null),
+                "and one well clear of it still is");
+    }
+
+    /** But a lane that dead-ends on the plot is the plot's own, and goes under it. */
+    @Test
+    void aplotMayBeRaisedOverALaneToADoorThatIsGone() {
+        Settlement s = town();
+        raise(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
+        // A spur off nothing, ending where the new building wants to stand --
+        // which is what is left behind when the house it served is pulled down.
+        s.paths().add(new PathNetwork.Segment(new SimPos(0, 64, 40), new SimPos(0, 64, 60)));
+
+        assertTrue(s.isPlotFree(new SimPos(0, 64, 60), 11, null),
+                "the loose end of a lane is ground the plot it served may be rebuilt on");
+        assertFalse(s.isPlotFree(new SimPos(0, 64, 48), 11, null),
+                "but the middle of the same lane is still a way somebody walks");
     }
 
     @Test

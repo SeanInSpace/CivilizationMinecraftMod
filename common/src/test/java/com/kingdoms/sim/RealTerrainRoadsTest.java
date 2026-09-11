@@ -260,6 +260,52 @@ class RealTerrainRoadsTest {
         }
     }
 
+    /**
+     * And nothing is paved through a wall, footpaths included.
+     *
+     * <p>The rule above is about the plot and lets a footpath alone, which was
+     * the whole of the fault a player reported: of 972 buildings found with a
+     * way's gravel inside their walls, across every arrangement on two terrains,
+     * <strong>every single one was a track</strong>. Not one was a carriageway.
+     *
+     * <p>So this asks the other question, and asks it of the blocks rather than
+     * the claim: does any column this way is paved in fall inside the building?
+     * The apron is left out on purpose — a lane ending on a doorstep is a lane
+     * doing its job.
+     */
+    @Test
+    void nothingIsPavedThroughAWall() {
+        Settlement town = town();
+        PathNetwork paths = town.paths();
+        List<PathNetwork.Segment> runs = paths.segments();
+        List<String> through = new ArrayList<>();
+        for (int i = 0; i < runs.size(); i++) {
+            if (!paths.isOpened(i)) {
+                continue;
+            }
+            PathNetwork.Segment run = runs.get(i);
+            for (Building b : holdingGround(town)) {
+                int[] half = halfWalls(b);
+                for (SimPos at : run.positions()) {
+                    if (Math.abs(at.x() - b.origin().x()) <= half[0] + run.paveHalf()
+                            && Math.abs(at.z() - b.origin().z()) <= half[1] + run.paveHalf()) {
+                        through.add(b.blueprintId() + " at " + b.origin() + " under a "
+                                + run.width() + "-wide way at " + at);
+                        break;
+                    }
+                }
+            }
+        }
+        assertTrue(through.isEmpty(), through.size() + " of " + runs.size()
+                + " opened ways are paved through somebody's walls: "
+                + (through.size() > 4 ? through.subList(0, 4) : through));
+    }
+
+    /** How far a building's walls reach either side of its origin, as it stands. */
+    private static int[] halfWalls(Building of) {
+        return BuildPlanner.wallsHalfOf(of.blueprintId(), of.facing(), BuildCatalog.DEFAULT);
+    }
+
     @Test
     void theTownStillGrowsOnRoughGround() {
         // The floor under the rest. Rough ground refuses far more candidates

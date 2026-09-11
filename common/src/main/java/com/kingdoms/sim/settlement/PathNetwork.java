@@ -113,6 +113,25 @@ public final class PathNetwork {
                     from.z() + (int) Math.round(dz * t));
         }
 
+        /**
+         * How far either side of the centerline this way is actually paved.
+         *
+         * <p>A way's {@code width} is what the plan called it; this is what the
+         * ground ends up covered in, and the two are not the same number. The
+         * layer paves a square of this half-width at every column of the run, so
+         * a three-wide track lays a three-by-three patch and an eight-wide
+         * carriageway lays five across.
+         *
+         * <p>It lives here because the siting code and the layer have to agree
+         * about it. They did not: siting reasoned about the centerline and the
+         * layer paved a block either side of it, so a building whose wall stood
+         * one block off a lane was reported clear and was gravelled anyway.
+         * {@code PathLayer.crossSectionAt} computes exactly this.
+         */
+        public int paveHalf() {
+            return Math.max(1, width / 3);
+        }
+
         /** Whether this run keeps the right-angle rule that routing must. */
         public boolean isAxisAligned() {
             return from.x() == to.x() || from.z() == to.z();

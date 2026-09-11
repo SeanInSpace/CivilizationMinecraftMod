@@ -384,12 +384,12 @@ public final class PathPlanner {
                 // nearest road and its town hall fourteen, which is a town whose
                 // two most important doors open onto a field.
                 if (!network.isEmpty()) {
-                    join(network, building, hub, groundUnder(ctx));
+                    join(settlement, network, building, hub);
                 }
                 network.markJoined(building.origin());
                 return;
             }
-            if (join(network, building, hub, groundUnder(ctx))) {
+            if (join(settlement, network, building, hub)) {
                 network.markJoined(building.origin());
                 return;   // one road a step: a town lays its network as it grows
             }
@@ -472,7 +472,7 @@ public final class PathPlanner {
                         || network.hasJoined(building.origin())) {
                     continue;
                 }
-                if (join(network, building, hub, ground)) {
+                if (join(settlement, network, building, hub)) {
                     network.markJoined(building.origin());
                     joinedAny = true;
                 }
@@ -483,7 +483,7 @@ public final class PathPlanner {
         // a town whose most important door opens onto a field.
         if (hubBuilding != null && !network.hasJoined(hubBuilding.origin())) {
             if (!network.isEmpty()) {
-                join(network, hubBuilding, hub, ground);
+                join(settlement, network, hubBuilding, hub);
             }
             network.markJoined(hubBuilding.origin());
         }
@@ -559,10 +559,11 @@ public final class PathPlanner {
     /**
      * Runs a road from this building's door to whatever it should join.
      *
-     * @return false if the route is too long to lay yet
+     * @return false if there is no lane to be had yet — too long, or no line to
+     *         any road that does not go through somebody's house
      */
-    private static boolean join(PathNetwork network, Building building, SimPos hub,
-                                com.kingdoms.sim.geom.TerrainSense ground) {
+    private static boolean join(Settlement settlement, PathNetwork network,
+                                Building building, SimPos hub) {
         SimPos door = building.doorstep();
         if (door.equals(hub)) {
             SimPos onNetwork = network.nearestPoint(door);
@@ -572,36 +573,309 @@ public final class PathPlanner {
             hub = onNetwork;   // the hub joins the streets, not itself
         }
 
+        Walls walls = wallsOf(settlement, building);
+
         // The nearest existing road wins unless the hub itself is closer, which
         // it only is for the first few buildings — after that the network is
         // always the better answer, and that is what makes it branch.
-        SimPos target = hub;
-        SimPos onNetwork = network.nearestPoint(door);
-        if (onNetwork != null
-                && onNetwork.horizontalDistanceSq(door) < hub.horizontalDistanceSq(door)) {
-            target = onNetwork;
+        //
+        // Nearest is now the first ANSWER rather than the only one. A lane is
+        // two straight runs and there is no guarantee the pair that reaches the
+        // closest road misses every wall between here and there; when it does
+        // not, the next road out is asked, and the one after that. A slightly
+        // longer lane round the back of a house is a lane. A short one through
+        // the middle of it is what this is for.
+        for (SimPos target : targetsFor(network, door, hub)) {
+            // Straight out of the door first, and then a block or two further
+            // out if the turn will not fit. A lane turns in front of the house
+            // it leaves, and "in front of" has to clear the gravel as well as
+            // the wall -- turn on the threshold itself and the three-wide track
+            // lays a stripe down the front of the building for the whole length
+            // of the turn. Walking the corner out is a shorter answer than
+            // giving up on the door, and the stem it adds runs along the door's
+            // own axis, where nothing of the building can possibly be.
+            for (int out = 0; out <= STAND_OFF; out++) {
+                SimPos from = stepOut(door, building.facing(), out);
+                PathNetwork.Segment stem = new PathNetwork.Segment(door, from);
+                if (out > 0 && walls.crossedBy(stem, target)) {
+                    break;   // cannot even get clear of the door this way
+                }
+                List<PathNetwork.Segment> lane =
+                        layLane(from, building.facing(), target, walls);
+                if (lane != null) {
+                    // The stem first, so the network reads the way somebody
+                    // walks it: out of the door, out to the turn, and away.
+                    if (out > 0) {
+                        network.add(stem);
+                    }
+                    lane.forEach(network::add);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * How far a lane may walk its corner out from the door before giving up.
+     *
+     * <p>Small on purpose. A door that cannot turn within a few blocks of itself
+     * is hemmed in by something, and the answer to that is to wait for the
+     * network to spread rather than to march a stem across the town.
+     */
+    private static final int STAND_OFF = 4;
+
+    /** A point this many blocks straight out from a door, on the door's own axis. */
+    private static SimPos stepOut(SimPos door, int facing, int blocks) {
+        return switch (Math.floorMod(facing, 4)) {
+            case 1 -> new SimPos(door.x() - blocks, door.y(), door.z());
+            case 2 -> new SimPos(door.x(), door.y(), door.z() - blocks);
+            case 3 -> new SimPos(door.x() + blocks, door.y(), door.z());
+            default -> new SimPos(door.x(), door.y(), door.z() + blocks);
+        };
+    }
+
+    /**
+     * Roads this door might join, nearest first.
+     *
+     * <p>The hub is always in the list and always last: it is the answer of last
+     * resort for a building whose every neighboring road is walled off from it,
+     * and for the first few buildings in a town it is the only road there is.
+     */
+    private static List<SimPos> targetsFor(PathNetwork network, SimPos door, SimPos hub) {
+        record Reach(SimPos at, long away) { }
+        List<Reach> reaches = new java.util.ArrayList<>();
+        for (PathNetwork.Segment run : network.segments()) {
+            SimPos nearest = run.nearestTo(door);
+            long away = nearest.horizontalDistanceSq(door);
+            if (away > (long) MAX_ROUTE * MAX_ROUTE) {
+                continue;   // nothing on this road is within a lane's reach
+            }
+            reaches.add(new Reach(nearest, away));
+            // And further along the same road, which is the whole difference
+            // between a door that joins and one that never does. The point on a
+            // road CLOSEST to a door is the one most likely to have the door's
+            // own neighbors between it and the door; a stretch of the same road
+            // a few blocks along is reached by a lane that goes round them. A
+            // seeded village left a farm off its network entirely for want of
+            // this, its only near road being on the far side of the market.
+            List<SimPos> along = run.positions();
+            for (int i = 0; i < along.size(); i += ALONG_A_ROAD) {
+                SimPos at = along.get(i);
+                reaches.add(new Reach(at, at.horizontalDistanceSq(door)));
+            }
+            SimPos last = along.get(along.size() - 1);
+            reaches.add(new Reach(last, last.horizontalDistanceSq(door)));
+        }
+        reaches.sort(java.util.Comparator.comparingLong(Reach::away));
+        List<SimPos> out = new java.util.ArrayList<>();
+        for (Reach reach : reaches) {
+            if (!out.contains(reach.at())) {
+                out.add(reach.at());
+            }
+            if (out.size() >= TARGETS_TRIED) {
+                break;
+            }
+        }
+        // The hub before the far end of the network rather than after it: a road
+        // to the middle of town is a road, and one to the far side of a spur is
+        // usually a lane the long way round the whole settlement.
+        if (hub.horizontalDistanceSq(door) < (out.isEmpty() ? Long.MAX_VALUE
+                : out.get(out.size() - 1).horizontalDistanceSq(door))) {
+            out.add(0, hub);
+        } else {
+            out.add(hub);
+        }
+        return out;
+    }
+
+    /**
+     * How many roads a door is offered before it is left for another step.
+     *
+     * <p>Enough that a house hemmed in on one side has somewhere else to look,
+     * few enough that joining one door stays a handful of line tests. A door
+     * that all of these refuse is nearly always one whose neighbors have not
+     * been built yet, and the network spreads toward it on its own.
+     */
+    private static final int TARGETS_TRIED = 16;
+
+    /** How often a road offers a door another place to meet it, in blocks. */
+    private static final int ALONG_A_ROAD = 4;
+
+    /**
+     * Lays the two runs of a lane, if either order of them clears every wall.
+     *
+     * <p>The right angle, always. Routing the door track through
+     * {@link RoadRouter} instead was tried twice — once before the layer could
+     * grade a two-block step and once after — and measured worse both times: six
+     * stranded doors became nine, then seven. The reason is not the line. Those
+     * doors stand on ground where no track under two blocks a step exists at
+     * all, so a router has nothing better to find and its longer answer only
+     * spends the town's one-stretch-a-step opening budget.
+     *
+     * <p>What is new is the second order. A lane turns once, and which of its
+     * two legs comes first used to be settled entirely by the way the door
+     * faces — sound, and it is still the order tried first, because a road you
+     * walk straight out of the door onto is what a door is for. But when that
+     * order drives the second leg back across the building's own kitchen, or
+     * through the neighbor's, the other order is very often clear and was never
+     * asked for. Measured: 415 of 972 buildings gravelled by a lane were
+     * gravelled by their <em>own</em>.
+     *
+     * @return the two runs, in walking order, or null if neither order is clear
+     */
+    private static List<PathNetwork.Segment> layLane(SimPos door, int facing,
+                                                     SimPos target, Walls walls) {
+        SimPos preferred = cornerFor(door, facing, target);
+        SimPos other = preferred.x() == door.x()
+                ? new SimPos(target.x(), door.y(), door.z())
+                : new SimPos(door.x(), door.y(), target.z());
+        for (SimPos corner : List.of(preferred, other)) {
+            int length = Math.abs(corner.x() - door.x()) + Math.abs(corner.z() - door.z())
+                    + Math.abs(target.x() - corner.x()) + Math.abs(target.z() - corner.z());
+            if (length > MAX_ROUTE) {
+                continue;
+            }
+            PathNetwork.Segment out = new PathNetwork.Segment(door, corner);
+            PathNetwork.Segment on = new PathNetwork.Segment(corner, target);
+            if (walls.crossedBy(out, target) || walls.crossedBy(on, target)) {
+                continue;
+            }
+            return List.of(out, on);
+        }
+        return null;
+    }
+
+    /**
+     * Every wall a lane must miss, as a question a run can be asked.
+     *
+     * <p>Standing buildings and ordered ones both, for the reason the street
+     * keepout already gives: a building is ordered onto clear ground and takes
+     * many steps to go up, and a lane run through that gap completes underneath
+     * it.
+     *
+     * <p>Walls rather than plots, deliberately. A plot is a claim with an apron
+     * round it and the apron is the <em>doorstep</em> — a lane that ends on one
+     * is a lane doing its job, and a keepout drawn at the plot would leave every
+     * door in a close-built town unreachable. So the line is the blocks
+     * themselves, plus the block either side that the layer actually gravels.
+     *
+     * <p>The building being joined is held to the same line as its neighbors,
+     * with one thing excused: the way straight out of its own door. A door
+     * stands off the wall it is cut into, and the gravel laid on the threshold
+     * and on the few blocks leading away from it necessarily laps that wall —
+     * which is a doorstep and not a road through a kitchen. Everything else is
+     * held off, and that is the case that was actually going wrong: a lane that
+     * left the door, turned, and came back down the length of the building's own
+     * side wall, gravelling it end to end.
+     *
+     * <p>Its own door, and nobody else's. Excusing the threshold against every
+     * wall in the settlement was tried and is the last six buildings this fault
+     * had left: a house standing tight against the market got its doorstep, and
+     * the gravel of that doorstep went down the market's side wall.
+     */
+    private static final class Walls {
+
+        private record Claim(SimPos at, int halfX, int halfZ) {
+
+            boolean covers(int x, int z) {
+                return Math.abs(x - at.x()) <= halfX && Math.abs(z - at.z()) <= halfZ;
+            }
         }
 
-        SimPos corner = cornerFor(door, building.facing(), target);
-        int length = Math.abs(corner.x() - door.x()) + Math.abs(corner.z() - door.z())
-                + Math.abs(target.x() - corner.x()) + Math.abs(target.z() - corner.z());
-        if (length > MAX_ROUTE) {
+        private final List<Claim> claims = new java.util.ArrayList<>();
+        private Claim own;
+        private SimPos doorstep;
+        private int facing;
+
+        void add(SimPos at, int[] half, int margin) {
+            claims.add(new Claim(at, half[0] + margin, half[1] + margin));
+        }
+
+        /** The walls of the building whose door this lane is for, and its door. */
+        void ownedBy(SimPos at, int[] half, int margin, SimPos door, int faces) {
+            own = new Claim(at, half[0] + margin, half[1] + margin);
+            doorstep = door;
+            facing = faces;
+        }
+
+        /**
+         * Whether this column is on the way straight out of the door.
+         *
+         * <p>The threshold and the line leading away from it, on the door's own
+         * axis. It cannot cross the building it belongs to — it points away from
+         * it — so excusing it excuses a doorstep and nothing else, and without it
+         * a building whose door sits inside its own keepout could never be
+         * joined to anything at all.
+         */
+        private boolean onTheWayOut(int x, int z) {
+            if (doorstep == null) {
+                return false;
+            }
+            return switch (facing) {
+                case 1 -> z == doorstep.z() && x <= doorstep.x();
+                case 2 -> x == doorstep.x() && z <= doorstep.z();
+                case 3 -> z == doorstep.z() && x >= doorstep.x();
+                default -> x == doorstep.x() && z >= doorstep.z();
+            };
+        }
+
+        /**
+         * Whether any column this run would gravel stands inside somebody's walls.
+         *
+         * @param arriving where the lane is going, which it is always allowed to
+         *                 reach: either a point on a road, which stands in
+         *                 nobody's walls by construction, or the hub's own
+         *                 threshold, which is a door and is what a road is for
+         */
+        boolean crossedBy(PathNetwork.Segment run, SimPos arriving) {
+            for (SimPos at : run.positions()) {
+                if (at.x() == arriving.x() && at.z() == arriving.z()) {
+                    continue;
+                }
+                for (Claim claim : claims) {
+                    if (claim.covers(at.x(), at.z())) {
+                        return true;
+                    }
+                }
+                if (own != null && own.covers(at.x(), at.z())
+                        && !onTheWayOut(at.x(), at.z())) {
+                    return true;   // its own wall, anywhere but out of its door
+                }
+            }
             return false;
         }
-        // The right angle, always. Routing the door track instead was tried
-        // twice -- once before the layer could grade a two-block step and once
-        // after -- and measured worse both times: six stranded doors became nine,
-        // then seven. The reason is not the line. Those doors stand on ground
-        // where no track under two blocks a step exists at all, so a router has
-        // nothing better to find and its longer answer only spends the town's
-        // one-stretch-a-step opening budget.
-        //
-        // What would actually reach them is leveling the ground they stand on,
-        // which is what a town does when it builds somewhere awkward. That is
-        // the plot terraforming, not the road.
-        network.add(new PathNetwork.Segment(door, corner));
-        network.add(new PathNetwork.Segment(corner, target));
-        return true;
+    }
+
+    /** How far outside a wall a lane's own gravel reaches; see Segment.paveHalf. */
+    private static final int LANE_PAVE_HALF =
+            new PathNetwork.Segment(new SimPos(0, 0, 0), new SimPos(1, 0, 0)).paveHalf();
+
+    private static Walls wallsOf(Settlement settlement, Building joining) {
+        Walls walls = new Walls();
+        for (Building building : settlement.buildings()) {
+            if (!BuildPlanner.holdsGround(building.blueprintId())) {
+                continue;
+            }
+            int[] half = BuildPlanner.wallsHalfOf(building.blueprintId(),
+                    building.facing(), settlement.catalog());
+            if (building == joining) {
+                walls.ownedBy(building.origin(), half, LANE_PAVE_HALF,
+                        building.doorstep(), building.facing());
+            } else {
+                walls.add(building.origin(), half, LANE_PAVE_HALF);
+            }
+        }
+        for (BuildTask queued : settlement.queued()) {
+            if (!BuildPlanner.holdsGround(queued.blueprintId())) {
+                continue;
+            }
+            walls.add(queued.origin(),
+                    BuildPlanner.wallsHalfOf(queued.blueprintId(), queued.facing(),
+                            settlement.catalog()),
+                    LANE_PAVE_HALF);   // never drawn, so the catalog is all there is
+        }
+        return walls;
     }
 
     /**
