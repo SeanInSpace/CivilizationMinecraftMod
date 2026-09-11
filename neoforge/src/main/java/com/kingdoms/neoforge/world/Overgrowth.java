@@ -264,20 +264,41 @@ public final class Overgrowth {
     // --- the rules ---
 
     /**
+     * The growth that has to come off a plot, split by who takes it off.
+     *
+     * <p><strong>Wood is dug and foliage is stripped, and the difference is
+     * whether anybody can reach it.</strong> A log anywhere in the column is
+     * reachable however high it is, because {@code Excavation} swaps a log for
+     * the stump of the trunk it belongs to and prices the whole tree there — one
+     * job, at ground level, with an axe. A leaf is not: a crown eight blocks over
+     * a roof has no square beside it anybody can stand on, so handing it to the
+     * crew buys thirty-six failed searches for footing and then an abandoned
+     * cell, and the canopy is still there. So the leaves are simply taken, at the
+     * moment the site opens, on both fidelities. They cost nothing, they yield
+     * nothing, and nobody was ever going to climb up for them.
+     *
+     * @param dug      trunks and ground cover: the crew's job list
+     * @param stripped leaves over the plot: taken outright when the site opens
+     */
+    public record Clearing(List<BlockPos> dug, List<BlockPos> stripped) {
+
+        public static final Clearing NOTHING = new Clearing(List.of(), List.of());
+    }
+
+    /**
      * Everything that has to come off a plot before a building can stand clear
      * on it: the growth over it, and the trunks leaning on it.
      *
-     * <p>Returned as bare cells in no particular order, because that is what the
-     * excavation wants — it works out its own order from the terrain, and a
-     * canopy cell handed to it is collapsed into the stump of the tree it
-     * belongs to, so one job at ground level fells the whole thing.
+     * <p>The dug half is returned as bare cells in no particular order, because
+     * that is what the excavation wants — it works out its own order from the
+     * terrain as the ground comes away.
      *
      * @param base  the floor line of the building; the sweep starts here
      * @param plot  the footprint with its doorstep ring, notch and all
      */
-    public static List<BlockPos> overPlot(Sky sky, BlockPos base, Footprint plot,
-                                          Spared spared) {
-        List<BlockPos> cleared = new ArrayList<>();
+    public static Clearing overPlot(Sky sky, BlockPos base, Footprint plot, Spared spared) {
+        List<BlockPos> dug = new ArrayList<>();
+        List<BlockPos> stripped = new ArrayList<>();
         int reachX = plot.width() / 2 + BAND_PAST_THE_PLOT;
         int reachZ = plot.depth() / 2 + BAND_PAST_THE_PLOT;
         for (int dx = -reachX; dx <= reachX; dx++) {
@@ -285,14 +306,14 @@ public final class Overgrowth {
                 int x = base.getX() + dx;
                 int z = base.getZ() + dz;
                 if (plot.covers(base.getX(), base.getZ(), x, z)) {
-                    clearColumn(sky, cleared, x, z, base.getY());
+                    clearColumn(sky, dug, stripped, x, z, base.getY());
                 } else if (plot.inClearanceBand(base.getX(), base.getZ(), x, z,
                         BAND_PAST_THE_PLOT) && !spared.covers(x, z)) {
-                    fellTrunk(sky, cleared, x, z, base.getY());
+                    fellTrunk(sky, dug, x, z, base.getY());
                 }
             }
         }
-        return cleared;
+        return new Clearing(dug, stripped);
     }
 
     /**
@@ -304,15 +325,18 @@ public final class Overgrowth {
      * canopy over it would never be reached; and in the doorstep ring the first
      * thing may be the hillside, with a branch above it.
      */
-    private static void clearColumn(Sky sky, List<BlockPos> cleared, int x, int z, int floor) {
+    private static void clearColumn(Sky sky, List<BlockPos> dug, List<BlockPos> stripped,
+                                    int x, int z, int floor) {
         int top = sky.topOf(x, z);
         if (top == Integer.MIN_VALUE) {
             return;   // nobody can see this column
         }
         for (int y = floor; y <= top; y++) {
             Cover cover = sky.at(x, y, z);
-            if (cover == Cover.GROUND || cover == Cover.LEAF || cover == Cover.LOG) {
-                cleared.add(new BlockPos(x, y, z));
+            if (cover == Cover.GROUND || cover == Cover.LOG) {
+                dug.add(new BlockPos(x, y, z));
+            } else if (cover == Cover.LEAF) {
+                stripped.add(new BlockPos(x, y, z));
             }
         }
     }

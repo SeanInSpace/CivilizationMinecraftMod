@@ -2,7 +2,7 @@
 
 **Status:** implemented and working. Companion to [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what gets built) and [POPULATION.md](POPULATION.md) (who lives there). This one covers who attacks, who fights back, and what it costs.
 
-Code: [`RaidPlanner`](common/src/main/java/com/kingdoms/sim/settlement/RaidPlanner.java) (all rules), [`Garrison`](common/src/main/java/com/kingdoms/sim/settlement/Garrison.java) (threat versus watch), [`GuardStance`](common/src/main/java/com/kingdoms/sim/combat/GuardStance.java) (sword or bow, and how close to stand), [`PersonEntityManager`](neoforge/src/main/java/com/kingdoms/neoforge/view/PersonEntityManager.java) (guard combat and the kit), [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java) (raid spawning).
+Code: [`RaidPlanner`](common/src/main/java/com/kingdoms/sim/settlement/RaidPlanner.java) (all rules), [`Garrison`](common/src/main/java/com/kingdoms/sim/settlement/Garrison.java) (threat versus watch), [`GuardStance`](common/src/main/java/com/kingdoms/sim/combat/GuardStance.java) (sword or bow, and how close to stand), [`FiringPoint`](common/src/main/java/com/kingdoms/sim/combat/FiringPoint.java) (where to stand when the shot is blocked), [`PersonEntityManager`](neoforge/src/main/java/com/kingdoms/neoforge/view/PersonEntityManager.java) (guard combat and the kit), [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java) (raid spawning).
 
 ---
 
@@ -231,6 +231,14 @@ builds and fires one (`ProjectileUtil.getMobArrow`, then
 difficulty-scaled spread), so it does what any other arrow in the game does:
 about 4 damage a hit, four or five hits for a creeper's 20 health. Arrows are
 marked unpickupable, so a well-defended town does not silt up with free ammunition.
+
+**He only shoots down a line he actually has.** Before an arrow is loosed the
+guard needs an unobstructed view of the creeper — vanilla's `hasLineOfSight`, a
+single block clip from his eye to its eye — held for a full second, and no
+townsperson standing on the arrow's path; a guard holding the band with a barn
+or a farmer in the way walks to a stand on a ring around the creeper that he can
+shoot from, or, failing that, to the near edge of the band, and never inside the
+blast. Which stand is `FiringPoint` (`:common`), with a test on it.
 
 Once the creeper is dead or out of sight, the sword comes back to the main hand.
 A guard with the bow up who is charged by a zombie is looking at the zombie by

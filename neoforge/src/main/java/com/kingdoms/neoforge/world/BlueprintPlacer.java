@@ -133,12 +133,12 @@ public final class BlueprintPlacer {
      * — bedrock, in practice. Obsidian is merely slow and does not count.
      */
     private record StructurePlan(int width, int depth, int height, List<Step> steps,
-                                 List<BlockPos> digTargets, boolean blocked,
-                                 BuildingSizes.Notch notch) {
+                                 List<BlockPos> digTargets, List<BlockPos> strip,
+                                 boolean blocked, BuildingSizes.Notch notch) {
 
         StructurePlan(int width, int depth, int height, List<Step> steps,
                       List<BlockPos> digTargets, boolean blocked) {
-            this(width, depth, height, steps, digTargets, blocked,
+            this(width, depth, height, steps, digTargets, List.of(), blocked,
                     BuildingSizes.Notch.NONE);
         }
 
@@ -225,6 +225,7 @@ public final class BlueprintPlacer {
     public static Footprint place(ServerLevel level, String blueprintId, BlockPos base,
                                  int facing) {
         StructurePlan plan = planFor(level, blueprintId, base, facing);
+        strip(level, plan);
         for (BlockPos dig : plan.digTargets()) {
             if (!level.getBlockState(dig).isAir()) {
                 // The plant on top goes first, silently, or it pops off as an
@@ -546,6 +547,14 @@ public final class BlueprintPlacer {
             // The site announces itself the moment it is surveyed: the post
             // stands at its final spot while the ground is still being cut.
             layPosts(level, plan);
+            // And the branches over it come down with the same stroke. Not the
+            // crew's work, however much it ought to be: a crown eight blocks over
+            // the plot has no square beside it anybody can stand on, so a leaf
+            // handed to the diggers is searched for footing three dozen times and
+            // then abandoned — and the canopy is still lying across the roof when
+            // the building is finished, which is the whole complaint. The trunks
+            // are the crew's; the foliage is scenery, and it is simply taken.
+            strip(level, plan);
             task.setSitePrepared(true);
             changed = true;
         }
@@ -851,6 +860,23 @@ public final class BlueprintPlacer {
         if (at != task.stepsDone()) {
             task.setStepsDone(at);
             task.setStepProgress(0);
+        }
+    }
+
+    /**
+     * Takes the foliage off a plot, once, when its site opens.
+     *
+     * <p>Silently and with no drops, the way the excavation takes everything
+     * else: a site knee-deep in loose leaf items is worse than a site with
+     * leaves on it. Idempotent, because a cell that has already been cleared
+     * reads as air and is skipped — which matters, since {@link #place} is also
+     * the finishing pass that runs over a building that is already whole.
+     */
+    private static void strip(ServerLevel level, StructurePlan plan) {
+        for (BlockPos leaf : plan.strip()) {
+            if (level.isLoaded(leaf) && !level.getBlockState(leaf).isAir()) {
+                level.setBlock(leaf, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            }
         }
     }
 
@@ -1249,8 +1275,11 @@ public final class BlueprintPlacer {
                 once.add(plan.steps().get(i));
             }
         }
+        // No digs and no stripping. A repair puts back what a building has lost;
+        // it does not re-open the site, and a branch that has grown back over a
+        // roof in the years since is scenery rather than damage.
         return new StructurePlan(plan.width(), plan.depth(), plan.height(),
-                List.copyOf(once), List.of(), false, plan.notch());
+                List.copyOf(once), List.of(), List.of(), false, plan.notch());
     }
 
     /**
@@ -1856,9 +1885,15 @@ public final class BlueprintPlacer {
         // belong to the excavation box, which is the building's own size and stops
         // at its roof; this is a canopy rule, and cutting a shaft to the build
         // limit through a mountain is not what anybody meant by it.
-        digTargets.addAll(Overgrowth.overPlot(Overgrowth.over(level), base,
+        //
+        // Only the half of it somebody can get at is dug: see Overgrowth.Clearing.
+        // Wood at any height is reachable, because a log is swapped for the stump
+        // of its own trunk and felled from the ground; a crown eight blocks over a
+        // roof is reachable from nowhere at all.
+        Overgrowth.Clearing clearing = Overgrowth.overPlot(Overgrowth.over(level), base,
                 plotOf(base.getY(), width, depth, height, notch),
-                Overgrowth.woodlandAround(level, base)));
+                Overgrowth.woodlandAround(level, base));
+        digTargets.addAll(clearing.dug());
 
         solid.sort(Comparator
                 .comparingInt((Placement q) -> q.pos().getY())
@@ -1886,7 +1921,7 @@ public final class BlueprintPlacer {
             }
         }
         return new StructurePlan(width, depth, height, steps,
-                List.copyOf(digTargets), blocked, notch);
+                List.copyOf(digTargets), clearing.stripped(), blocked, notch);
     }
 
     /**

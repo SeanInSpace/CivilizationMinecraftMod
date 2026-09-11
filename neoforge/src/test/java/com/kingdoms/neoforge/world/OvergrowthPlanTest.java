@@ -114,6 +114,27 @@ class OvergrowthPlanTest {
         return new HashSet<>(plan);
     }
 
+    /** What the crew is sent to take out. */
+    private static Set<BlockPos> dug(Overgrowth.Clearing clearing) {
+        return new HashSet<>(clearing.dug());
+    }
+
+    /** What is simply taken when the site opens, because nobody can reach it. */
+    private static Set<BlockPos> stripped(Overgrowth.Clearing clearing) {
+        return new HashSet<>(clearing.stripped());
+    }
+
+    private static Set<BlockPos> everything(Overgrowth.Clearing clearing) {
+        Set<BlockPos> all = dug(clearing);
+        all.addAll(clearing.stripped());
+        return all;
+    }
+
+    private static Overgrowth.Clearing clear(Overgrowth.Sky sky, Footprint plot,
+                                             Overgrowth.Spared spared) {
+        return Overgrowth.overPlot(sky, new BlockPos(0, FLOOR, 0), plot, spared);
+    }
+
     // --- a building's own sky ---
 
     @Test
@@ -123,8 +144,8 @@ class OvergrowthPlanTest {
         // exactly what a player sees lying across the roof of a house in a wood.
         FakeSky wood = new FakeSky().ground(8).canopy(FLOOR + 8, 8);
 
-        Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
-                wood, new BlockPos(0, FLOOR, 0), plot(), Overgrowth.NOTHING_SPARED));
+        Overgrowth.Clearing clearing = clear(wood, plot(), Overgrowth.NOTHING_SPARED);
+        Set<BlockPos> cleared = stripped(clearing);
 
         for (int dx = -4; dx <= 4; dx++) {
             for (int dz = -4; dz <= 4; dz++) {
@@ -132,6 +153,8 @@ class OvergrowthPlanTest {
                         "the canopy over " + dx + "," + dz + " is still on the roof");
             }
         }
+        assertTrue(clearing.dug().isEmpty(),
+                "and nobody is sent to climb eight blocks of air for a leaf");
     }
 
     @Test
@@ -141,8 +164,8 @@ class OvergrowthPlanTest {
         FakeSky overhang = new FakeSky().ground(6)
                 .put(2, FLOOR + 9, 2, Overgrowth.Cover.KEEP);
 
-        Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
-                overhang, new BlockPos(0, FLOOR, 0), plot(), Overgrowth.NOTHING_SPARED));
+        Set<BlockPos> cleared = everything(
+                clear(overhang, plot(), Overgrowth.NOTHING_SPARED));
 
         assertFalse(cleared.contains(new BlockPos(2, FLOOR + 9, 2)));
     }
@@ -158,13 +181,34 @@ class OvergrowthPlanTest {
         }
         built.put(0, FLOOR + 9, 0, Overgrowth.Cover.LEAF);
 
-        Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
-                built, new BlockPos(0, FLOOR, 0), plot(), Overgrowth.NOTHING_SPARED));
+        Set<BlockPos> cleared = everything(clear(built, plot(), Overgrowth.NOTHING_SPARED));
 
         assertTrue(cleared.contains(new BlockPos(0, FLOOR + 9, 0)),
                 "the roof is stepped over, not stopped at");
         assertFalse(cleared.contains(new BlockPos(0, FLOOR + 2, 0)),
                 "and the roof itself is never in the list");
+    }
+
+    @Test
+    void aTrunkOverThePlotIsTheCrewsAndTheFoliageIsNot() {
+        // The split that decides who takes what, and it is about reach. A log is
+        // reachable however high it stands, because the excavation swaps it for
+        // the stump of its own trunk and fells the tree from the ground. A leaf
+        // is reachable from nowhere, so it is taken outright when the site opens
+        // instead of being searched for footing three dozen times and abandoned.
+        FakeSky wood = new FakeSky().ground(6)
+                .put(1, FLOOR + 7, 1, Overgrowth.Cover.LOG)
+                .put(1, FLOOR + 8, 1, Overgrowth.Cover.LEAF)
+                .put(0, FLOOR + 1, 0, Overgrowth.Cover.GROUND);
+
+        Overgrowth.Clearing clearing = clear(wood, plot(), Overgrowth.NOTHING_SPARED);
+
+        assertTrue(dug(clearing).contains(new BlockPos(1, FLOOR + 7, 1)), "wood is dug");
+        assertTrue(dug(clearing).contains(new BlockPos(0, FLOOR + 1, 0)),
+                "and so is what is underfoot");
+        assertTrue(stripped(clearing).contains(new BlockPos(1, FLOOR + 8, 1)),
+                "foliage is stripped");
+        assertFalse(dug(clearing).contains(new BlockPos(1, FLOOR + 8, 1)));
     }
 
     // --- the trunks leaning on it ---
@@ -178,8 +222,7 @@ class OvergrowthPlanTest {
         FakeSky stand = new FakeSky().ground(10)
                 .trunk(5, 0, 6).trunk(6, 0, 6);
 
-        Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
-                stand, new BlockPos(0, FLOOR, 0), plot(), Overgrowth.NOTHING_SPARED));
+        Set<BlockPos> cleared = everything(clear(stand, plot(), Overgrowth.NOTHING_SPARED));
 
         for (int dy = 1; dy <= 6; dy++) {
             assertTrue(cleared.contains(new BlockPos(5, FLOOR + dy, 0)),
@@ -198,8 +241,7 @@ class OvergrowthPlanTest {
                 .trunk(5, 0, 5)
                 .put(5, FLOOR + 6, 0, Overgrowth.Cover.LEAF);
 
-        Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
-                stand, new BlockPos(0, FLOOR, 0), plot(), Overgrowth.NOTHING_SPARED));
+        Set<BlockPos> cleared = everything(clear(stand, plot(), Overgrowth.NOTHING_SPARED));
 
         assertTrue(cleared.contains(new BlockPos(5, FLOOR + 5, 0)), "the trunk goes");
         assertFalse(cleared.contains(new BlockPos(5, FLOOR + 6, 0)), "its crown stays");
@@ -213,8 +255,7 @@ class OvergrowthPlanTest {
         FakeSky stand = new FakeSky().ground(10).trunk(5, 0, 6).trunk(-5, 0, 6);
         Overgrowth.Spared woodland = (x, z) -> x > 0;
 
-        Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
-                stand, new BlockPos(0, FLOOR, 0), plot(), woodland));
+        Set<BlockPos> cleared = everything(clear(stand, plot(), woodland));
 
         assertFalse(cleared.contains(new BlockPos(5, FLOOR + 1, 0)),
                 "the camp's tree is the camp's");
@@ -231,8 +272,7 @@ class OvergrowthPlanTest {
                 new BuildingSizes.Notch(2, 2, 1, 1));
         FakeSky wood = new FakeSky().ground(8).trunk(3, 3, 4);
 
-        Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
-                wood, new BlockPos(0, FLOOR, 0), ell, Overgrowth.NOTHING_SPARED));
+        Set<BlockPos> cleared = everything(clear(wood, ell, Overgrowth.NOTHING_SPARED));
 
         assertTrue(cleared.contains(new BlockPos(3, FLOOR + 4, 3)));
     }

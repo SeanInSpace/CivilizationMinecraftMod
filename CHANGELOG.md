@@ -52,6 +52,64 @@ messages carry the reasoning and the measurements.
   road is not treated as damage — it does not block anything, and a town that
   repaved a street over a flower would be rewriting half of itself every sweep.
 
+## Felling one tree fells one tree
+
+### Fixed
+
+- **A tree is its trunk, and nothing else comes down with it.** Chopping a tree
+  used to take every tree whose leaves touched it — and in a forest, where the
+  canopies all run into one another, that is the whole wood. One builder clearing
+  a single oak off the line of a wall could flatten the horizon behind it in a
+  tick. Now a felling follows the wood and only the wood: the logs joined to the
+  stump, out to the far tip of a fancy oak's branches, and there it stops. Two
+  oaks whose crowns have grown into each other are two trees and come down one at
+  a time.
+
+- **Trunks that really are one tree still come down as one.** A dark oak's
+  double-thick trunk, the branch columns hung on its corners, an acacia's bend, a
+  fancy oak's diagonal limbs, and two saplings somebody pushed into the ground
+  side by side are all one piece of wood and all come down together — because
+  they are actually touching, which is the only test there is.
+
+- **Leaves are left to fall on their own.** Nothing rips a canopy out any more.
+  Pull the logs and the leaves start dropping by themselves over the following
+  minute, the way they do when you cut a tree down yourself, with the odd sapling
+  and apple in the litter. A wall builder who only needs a branch out of the way
+  takes the branch and leaves the tree it grew on standing.
+
+- **A felling can no longer run away with itself.** One stroke of an axe is
+  capped at a tree's worth of wood and confined to the space a tree can occupy,
+  so even a wood grown into one solid tangle comes apart a tree at a time instead
+  of in one enormous bite.
+## A guard does not shoot through a wall
+
+### Fixed
+
+- **Guards no longer loose arrows at creepers they cannot see.** A guard picked
+  his range off the distance to the creeper and nothing else, so a creeper on the
+  far side of a barn, a hill or a closed door put him in exactly the right place
+  to stand still and fire into the masonry between them — a whole fight's worth
+  of arrows, none of which ever arrived. Every shot now needs a clear line from
+  his eye to the creeper's, and a guard who has not got one does not take it.
+
+- **He goes and finds an angle instead of standing there.** Rather than holding a
+  range he cannot shoot down, a guard with the shot blocked walks round to a spot
+  he can shoot from — the nearest one he can reach, at his usual walking pace, on
+  a ring around the creeper at the middle of the band he already fights in. If
+  there is genuinely nowhere, he closes to the near edge of the band and no
+  further: he will never walk into the blast looking for a shot.
+
+- **And he does not fire through a farmer.** A townsperson standing on the arrow's
+  path now stops the shot. The guard waits or moves for the angle, which is what
+  he should have been doing all along instead of putting a shaft through his own
+  neighbor's back.
+
+- **He watches for a second before the first arrow.** A creeper that flickers
+  into view crossing a doorway used to be enough to trigger a shot at where it no
+  longer was. He now needs an unbroken view of it before he draws — the same wait
+  a vanilla skeleton takes — so the first arrow of a fight goes where the creeper
+  is.
+
 ## You can tell a smithy from a mill without clicking on it
 
 ### Changed
