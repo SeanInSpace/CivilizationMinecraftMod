@@ -22,6 +22,7 @@ import com.kingdoms.sim.combat.FiringPoint;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Race;
 import com.kingdoms.sim.combat.GuardStance;
+import com.kingdoms.sim.combat.Weaponry;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Tallies;
@@ -74,6 +75,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -318,7 +320,8 @@ public final class PersonEntityManager {
      * when to turn, not how fast to run.
      */
     public static final double GUARD_CHARGE_SPEED = Pace.WALK;
-    private static final float GUARD_DAMAGE = 4.0F;
+    /** What a guard's bare fist is worth, before whatever is in it. */
+    public static final float GUARD_DAMAGE = 4.0F;
 
     /**
      * What kind of people a town is, for the numbers that follow from a body.
@@ -437,6 +440,7 @@ public final class PersonEntityManager {
                 applyHungerEffects(settlement);
                 tendKit(settlement);
                 guardCombat(settlement);
+                civilianDefense(settlement);
             }
         }
         reapOrphans();
@@ -1629,6 +1633,27 @@ public final class PersonEntityManager {
         builder.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
     }
 
+    /**
+     * A load carried in the off hand, for somebody whose fist is already full.
+     *
+     * <p>Only ever the cargo item goes in or comes out, so this cannot take a
+     * bow, a parked weapon or anything else off anybody: it puts the load there
+     * when there is one and takes the load away when there is not, and is blind
+     * to everything else in the slot.
+     */
+    private static void shoulderLoad(PersonEntity person, boolean loaded) {
+        ItemStack offHand = person.getItemBySlot(EquipmentSlot.OFFHAND);
+        if (loaded) {
+            if (!offHand.is(CARGO_ITEM)) {
+                person.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(CARGO_ITEM));
+                // Scenery, not loot, for the same reason a builder's cobblestone is.
+                person.setDropChance(EquipmentSlot.OFFHAND, 0.0F);
+            }
+        } else if (offHand.is(CARGO_ITEM)) {
+            person.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+        }
+    }
+
     /** Down tools — nothing left to lay, or the day is done. */
     private static void clearHands(PersonEntity builder) {
         if (!builder.getMainHandItem().isEmpty()) {
@@ -2179,10 +2204,11 @@ public final class PersonEntityManager {
                 && settlement.stores().take(TownStores.WEAPONS, 1)) {
             issuedIron.add(guardId);         // the forge has caught up
         }
+        Kit kit = kitFor(settlement, guardId);
         // Whichever weapon is leading stays leading: the fight decides that, and
         // this pass runs first. Re-seating the sword here every second would
         // yank the bow out of a bowman's hand between shots.
-        wield(guard, swordFor(guardId), guard.getMainHandItem().is(Items.BOW));
+        wield(guard, kit, kit.bow() && guard.getMainHandItem().is(Items.BOW));
         if (guard.getItemBySlot(EquipmentSlot.CHEST).isEmpty()
                 && settlement.stores().take(TownStores.ARMOR, 1)) {
             guard.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
@@ -2206,11 +2232,46 @@ public final class PersonEntityManager {
         if (issuedIron.remove(personId)) {
             settlement.stores().add(TownStores.WEAPONS, 1);
         }
-        for (EquipmentSlot hand : HANDS) {
-            if (isKit(body.getItemBySlot(hand))) {
-                body.setItemSlot(hand, ItemStack.EMPTY);
-            }
+        // The off hand goes back whoever this is. A bow is the watch's, and a
+        // weapon parked there is the watch's too; what an orc keeps in it is a
+        // hauled load, which is not kit and is put there by dailyRoutine.
+        if (isKit(body.getItemBySlot(EquipmentSlot.OFFHAND))) {
+            body.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
         }
+        Item own = civilianWeapon(settlement, personId);
+        ItemStack mainHand = body.getItemBySlot(EquipmentSlot.MAINHAND);
+        if (own != null) {
+            // A cleaver is not a trowel. Somebody with a block or a sack in his
+            // fist is working, and his weapon waits for him to put the job
+            // down — otherwise this pass and the construction pass spend the
+            // day taking things out of each other's hands.
+            if (mainHand.isEmpty() || isKit(mainHand)) {
+                hold(body, EquipmentSlot.MAINHAND, own);
+            }
+            return;
+        }
+        if (isKit(mainHand)) {
+            body.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+        }
+    }
+
+    /**
+     * What somebody who is not of the watch carries here, or nothing.
+     *
+     * <p>Nothing, for every people but one. <strong>An orc is armed all the
+     * time</strong> — a cleaver or a hand axe, dealt by who he is and kept for
+     * as long as he lives in the town, whether he is a farmer, a hauler or the
+     * miller. It is not the watch's kit, the town never bought it and the rack
+     * never sees it back; it is his, the way a scythe is.
+     *
+     * <p>Main hand only, and never a bow. A civilian who drew a bow would be a
+     * guard nobody posted, and the off hand is where his load rides.
+     */
+    private Item civilianWeapon(Settlement settlement, UUID personId) {
+        if (!Weaponry.armsEveryone(raceOf(settlement))) {
+            return null;
+        }
+        return KingdomsItems.orcWeapon(Weaponry.forCivilian(personId), false);
     }
 
     /**
@@ -2228,31 +2289,101 @@ public final class PersonEntityManager {
      */
     private final Set<UUID> issuedIron = new HashSet<>();
 
-    /** The sword this guard is entitled to: the forge's if the town bought him one. */
-    private Item swordFor(UUID guardId) {
-        return issuedIron.contains(guardId) ? Items.IRON_SWORD : Items.WOODEN_SWORD;
+    /**
+     * What one guard is issued: the weapon in his fist and whether a hand is
+     * left for a bow.
+     *
+     * <p>Two people's answers in one record, because the second half is not a
+     * property of the guard but of the thing he is holding, and every place that
+     * puts the weapon in his hand has to know both at once.
+     */
+    private record Kit(Item weapon, boolean bow) {
     }
 
-    /** The two slots the kit lives in. */
-    private static final List<EquipmentSlot> HANDS =
-            List.of(EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND);
+    /**
+     * The kit this guard is entitled to: the forge's if the town bought him one.
+     *
+     * <p>The lowland watch is what it always was, a wooden sword and a bow until
+     * the smithy catches up and then an iron one. <strong>An orc watch is dealt
+     * from its own armory</strong> — a greatsword, a falchion, an axe or a
+     * morningstar, decided once by who the guard is and never re-rolled, and the
+     * rack upgrade swaps the crude one for the forged one of the same shape
+     * rather than handing him somebody else's weapon.
+     *
+     * <p>The two-handers carry no bow, which is the whole cost of carrying one:
+     * see {@link #guardCombat} for what that means when a creeper turns up.
+     */
+    private Kit kitFor(Settlement settlement, UUID guardId) {
+        boolean forged = issuedIron.contains(guardId);
+        if (Weaponry.armsEveryone(raceOf(settlement))) {
+            Weaponry dealt = Weaponry.forGuard(guardId);
+            Item weapon = KingdomsItems.orcWeapon(dealt, forged);
+            if (weapon != null) {
+                return new Kit(weapon, dealt.carriesBow());
+            }
+        }
+        return new Kit(forged ? Items.IRON_SWORD : Items.WOODEN_SWORD, true);
+    }
 
-    /** Whether a held item is part of the watch's kit rather than somebody's lunch. */
+    /** Whether a held item is a weapon rather than somebody's lunch or a wall block. */
     private static boolean isKit(ItemStack held) {
-        return held.is(Items.WOODEN_SWORD) || held.is(Items.IRON_SWORD) || held.is(Items.BOW);
+        return held.is(Items.WOODEN_SWORD) || held.is(Items.IRON_SWORD) || held.is(Items.BOW)
+                || orcWeaponIn(held) != null;
+    }
+
+    /**
+     * Which of the orc armory a held stack is, or null for anything else.
+     *
+     * <p>Read off the registry key rather than by comparing against ten
+     * {@code Item} references, so this answers the same way in a test JVM, on a
+     * server and in a world where the armory has grown a sixth weapon. The name
+     * is what {@code :common} keys its table by and it is what comes back.
+     */
+    private static Weaponry orcWeaponIn(ItemStack held) {
+        if (held.isEmpty()) {
+            return null;
+        }
+        Identifier id = BuiltInRegistries.ITEM.getKey(held.getItem());
+        if (id == null || !id.getNamespace().equals(KingdomsMod.MOD_ID)) {
+            return null;
+        }
+        return Weaponry.byName(id.getPath());
+    }
+
+    /** Whether a held stack is the smithy's version of an orc weapon. */
+    private static boolean isForgedOrcWeapon(ItemStack held) {
+        if (held.isEmpty()) {
+            return false;
+        }
+        Identifier id = BuiltInRegistries.ITEM.getKey(held.getItem());
+        return id != null && id.getNamespace().equals(KingdomsMod.MOD_ID)
+                && Weaponry.isForged(id.getPath());
     }
 
     /**
      * Puts both halves of the kit where they belong: whichever weapon is leading
      * in the main hand, the other in the off hand where it can be seen.
      *
-     * <p>Both hands full at all times, deliberately. The ask was a guard who is
-     * visibly carrying a sword <em>and</em> a bow, and an off-hand slot is where
-     * a mob's spare weapon renders.
+     * <p>Both hands full at all times for anybody whose weapon leaves a hand,
+     * deliberately. The ask was a guard who is visibly carrying a sword
+     * <em>and</em> a bow, and an off-hand slot is where a mob's spare weapon
+     * renders.
+     *
+     * <p><strong>A two-hander empties the other hand instead.</strong> A
+     * greatsword slung over an orc's shoulder with a bow in his off hand would
+     * be a guard carrying a bow he is never allowed to use, and the off hand is
+     * where the player looks to see whether this one shoots.
      */
-    private static void wield(PersonEntity guard, Item sword, boolean bowLeads) {
-        hold(guard, EquipmentSlot.MAINHAND, bowLeads ? Items.BOW : sword);
-        hold(guard, EquipmentSlot.OFFHAND, bowLeads ? sword : Items.BOW);
+    private static void wield(PersonEntity guard, Kit kit, boolean bowLeads) {
+        if (!kit.bow()) {
+            hold(guard, EquipmentSlot.MAINHAND, kit.weapon());
+            if (!guard.getItemBySlot(EquipmentSlot.OFFHAND).isEmpty()) {
+                guard.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            }
+            return;
+        }
+        hold(guard, EquipmentSlot.MAINHAND, bowLeads ? Items.BOW : kit.weapon());
+        hold(guard, EquipmentSlot.OFFHAND, bowLeads ? kit.weapon() : Items.BOW);
     }
 
     /** One slot, set only when it is not already right, and never lootable. */
@@ -2278,6 +2409,13 @@ public final class PersonEntityManager {
      */
     private static float armedBonus(PersonEntity guard) {
         ItemStack held = guard.getMainHandItem();
+        // The orc armory is two rungs above, at +2 crude and +4 forged, and the
+        // tier is read off which of the two items he is holding. Every weapon in
+        // it is worth the same as every other at the same tier — see Weaponry
+        // for why the shape a guard was dealt must not decide his damage.
+        if (orcWeaponIn(held) != null) {
+            return Weaponry.bonusFor(isForgedOrcWeapon(held));
+        }
         if (held.is(Items.IRON_SWORD)) {
             return 3.0F;
         }
@@ -2323,26 +2461,35 @@ public final class PersonEntityManager {
                 continue;
             }
             creditKill(settlement, person.id().value());
+            Kit kit = kitFor(settlement, person.id().value());
             Mob target = nearestHostile(guard);
             if (target == null) {
                 // Nothing to fight: the bow goes away and the sword comes back
                 // up, so a guard standing on the wall is a guard holding a sword.
                 shots.remove(person.id().value());
-                wield(guard, swordFor(person.id().value()), false);
+                wield(guard, kit, false);
                 continue;
             }
 
             double range = guard.distanceTo(target);
             GuardStance.Stance stance =
                     GuardStance.against(Menace.blowsUp(target), range, GUARD_STRIKE_RANGE);
-            wield(guard, swordFor(person.id().value()),
-                    stance.weapon() == GuardStance.Weapon.BOW);
+            // A guard with both hands on a haft is handed the bow stance all the
+            // same -- the stance is arithmetic on a distance and knows nothing
+            // about what he is carrying -- and keeps its feet without ever
+            // loosing. He holds the band, gives ground when the creeper closes,
+            // and waits for somebody who can shoot. That is a stand-off rather
+            // than a kill, and it is the price of the greatsword: the town wants
+            // both kinds of guard on the wall, which is what dealing four
+            // weapons round the watch gets it.
+            boolean shooting = kit.bow() && stance.weapon() == GuardStance.Weapon.BOW;
+            wield(guard, kit, shooting);
             guard.getLookControl().setLookAt(target, 30.0F, 30.0F);
 
             // The bow wants a line, and whether there is one changes what the
             // feet do as much as it changes whether an arrow leaves the string.
             boolean mayLoose = false;
-            if (stance.weapon() == GuardStance.Weapon.BOW) {
+            if (shooting) {
                 mayLoose = sighted(person.id().value(), guard, target)
                         && arrowPathIsClearOfTownsfolk(guard, target);
                 if (!mayLoose && stance.move() != GuardStance.Move.CLOSE_IN) {
@@ -2364,6 +2511,10 @@ public final class PersonEntityManager {
             }
 
             if (stance.weapon() == GuardStance.Weapon.BOW) {
+                // The two-hander falls in here too, with nothing to loose, and
+                // that is the point: he keeps the band and does not swing.
+                // Walking into a creeper's reach is the one thing the band
+                // exists to stop, and a greatsword is no answer to a fuse.
                 if (stance.shoot() && mayLoose) {
                     loose(person.id().value(), guard, target);
                 }
@@ -2379,6 +2530,78 @@ public final class PersonEntityManager {
                 if (wasAlive && !target.isAlive()) {
                     settlement.tallies().record(Tallies.MOBS_SLAIN);
                 }
+            }
+        }
+    }
+
+    /**
+     * Everybody else hits back.
+     *
+     * <p>An armed settler who is not of the watch answers the thing that just
+     * hurt him and nothing else. The whole rule is three refusals:
+     *
+     * <ul>
+     *   <li><strong>He does not go looking.</strong> The target is whatever last
+     *       struck him — vanilla's own {@code lastHurtByMob} — not the nearest
+     *       hostile. A farmer who picks fights is a guard, and the town did not
+     *       post him.
+     *   <li><strong>He does not chase.</strong> Past
+     *       {@link Weaponry#CIVILIAN_REACH} the quarrel is over. Nothing here
+     *       ever touches the navigator, so whatever the day's routine or the
+     *       bell was steering him toward keeps steering him: he swings on his
+     *       way to the door.
+     *   <li><strong>He does not stand up to a creeper.</strong> Anything that
+     *       explodes is left to {@link FleeCreepersGoal} exactly as before. A
+     *       cleaver has never been the answer to a fuse and giving one to a
+     *       miller does not make it one.
+     * </ul>
+     *
+     * <p>He hits for {@link Weaponry#CIVILIAN_BASE_DAMAGE} plus his weapon,
+     * which is deliberately below a guard's — see the reasoning there. A kill
+     * still counts on the town's tally, because it was still the town that did
+     * it.
+     */
+    private void civilianDefense(Settlement settlement) {
+        for (Person person : settlement.residents()) {
+            if (person.profession() == Profession.GUARD || !person.isEmbodied()) {
+                continue;
+            }
+            PersonEntity body = tracked.get(person.id().value());
+            if (body == null || body.isRemoved()) {
+                continue;
+            }
+            if (orcWeaponIn(body.getMainHandItem()) == null) {
+                continue;       // unarmed, or hands full of somebody's wall
+            }
+            if (!(body.getLastHurtByMob() instanceof Mob aggressor) || !aggressor.isAlive()) {
+                continue;
+            }
+            if (Menace.blowsUp(aggressor)) {
+                continue;       // the flight goal has this one, and always did
+            }
+            double range = body.distanceTo(aggressor);
+            // Two bounds and the tighter one binds, which is deliberate. He can
+            // only land a blow inside the watch's own melee reach and must never
+            // out-reach it; past CIVILIAN_REACH the thing has walked off and is
+            // no longer his quarrel at all. Because he never takes a step toward
+            // it, the second bound is a statement of intent that the first one
+            // already enforces -- and it is the one that would have to change
+            // first if anybody ever let a civilian follow.
+            if (range > GUARD_STRIKE_RANGE || range > Weaponry.CIVILIAN_REACH) {
+                continue;
+            }
+            body.getLookControl().setLookAt(aggressor, 30.0F, 30.0F);
+            body.swing(InteractionHand.MAIN_HAND);
+            boolean wasAlive = aggressor.isAlive();
+            // Base, then the body, then what is in its hands, in the same order
+            // and from the same two tables the guard's own strike uses. A
+            // settler is not a guard and the base says so; his arms and his
+            // weapon are worth exactly what a guard's are.
+            aggressor.hurtServer(level, level.damageSources().mobAttack(body),
+                    Weaponry.CIVILIAN_BASE_DAMAGE + raceOf(settlement).attackBonus()
+                            + armedBonus(body));
+            if (wasAlive && !aggressor.isAlive()) {
+                settlement.tallies().record(Tallies.MOBS_SLAIN);
             }
         }
     }
@@ -3283,7 +3506,13 @@ public final class PersonEntityManager {
                     && !person.isTooWeakToWork()) {
                 continue;   // steered row by row in workFarmers
             }
-            if (person.profession() == Profession.BUILDER) {
+            // An orc who is not of the watch is carrying his own weapon, and it
+            // is not a tool, a load or anything else this pass is entitled to
+            // take off him. Everything below stands aside for it exactly the way
+            // it stands aside for a guard.
+            boolean ownWeapon = !guard && orcWeaponIn(view.getMainHandItem()) != null;
+
+            if (person.profession() == Profession.BUILDER && !ownWeapon) {
                 // Reached only when not on an active site — work is finished, the
                 // day is over, danger is near, or they are too hungry. Down tools.
                 clearHands(view);
@@ -3300,9 +3529,18 @@ public final class PersonEntityManager {
             // off the town to replace it, once a second. A guard carrying grain
             // simply carries it out of sight.
             HaulTask carrying = person.haul();
+            boolean loaded = carrying != null && carrying.isLoaded();
             if (guard) {
                 // hands stay as the watch left them
-            } else if (carrying != null && carrying.isLoaded()) {
+            } else if (ownWeapon) {
+                // The weapon stays in the fist and the load rides in the other
+                // hand. The alternative -- hiding the weapon while he carries --
+                // was rejected because a town of orcs spends most of the day
+                // hauling something, so the weapon would be the thing nobody
+                // ever saw. A sack under one arm and a cleaver in the other is
+                // also simply what a laden orc looks like.
+                shoulderLoad(view, loaded);
+            } else if (loaded) {
                 carry(view, CARGO_ITEM);
             } else if (person.profession() != Profession.BUILDER) {
                 clearHands(view);
