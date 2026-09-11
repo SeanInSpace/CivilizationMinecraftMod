@@ -171,10 +171,12 @@ class OvergrowthPlanTest {
 
     @Test
     void aTrunkTwoBlocksOffTheWallComesDownAndOneThreeBlocksOffDoesNot() {
-        // The plot reaches four each way. Five is one past the doorstep ring, six
-        // is two past it, seven is somebody else's tree.
+        // The walls of the cottage reach three each way and its doorstep ring
+        // makes the plot four. So five is two blocks off the wall — a tree with
+        // branches through the eaves — and six is three off, which is a tree in
+        // the yard next door and none of the town's business.
         FakeSky stand = new FakeSky().ground(10)
-                .trunk(5, 0, 6).trunk(6, 0, 6).trunk(7, 0, 6);
+                .trunk(5, 0, 6).trunk(6, 0, 6);
 
         Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
                 stand, new BlockPos(0, FLOOR, 0), plot(), Overgrowth.NOTHING_SPARED));
@@ -182,8 +184,7 @@ class OvergrowthPlanTest {
         for (int dy = 1; dy <= 6; dy++) {
             assertTrue(cleared.contains(new BlockPos(5, FLOOR + dy, 0)),
                     "a trunk against the wall is felled the whole way up");
-            assertTrue(cleared.contains(new BlockPos(6, FLOOR + dy, 0)));
-            assertFalse(cleared.contains(new BlockPos(7, FLOOR + dy, 0)),
+            assertFalse(cleared.contains(new BlockPos(6, FLOOR + dy, 0)),
                     "three blocks off is a tree in the yard next door");
         }
     }
@@ -195,15 +196,13 @@ class OvergrowthPlanTest {
         // mean every house in a wood standing in a bald ring of its own making.
         FakeSky stand = new FakeSky().ground(10)
                 .trunk(5, 0, 5)
-                .put(5, FLOOR + 6, 0, Overgrowth.Cover.LEAF)
-                .put(6, FLOOR + 5, 0, Overgrowth.Cover.LEAF);
+                .put(5, FLOOR + 6, 0, Overgrowth.Cover.LEAF);
 
         Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(
                 stand, new BlockPos(0, FLOOR, 0), plot(), Overgrowth.NOTHING_SPARED));
 
         assertTrue(cleared.contains(new BlockPos(5, FLOOR + 5, 0)), "the trunk goes");
         assertFalse(cleared.contains(new BlockPos(5, FLOOR + 6, 0)), "its crown stays");
-        assertFalse(cleared.contains(new BlockPos(6, FLOOR + 5, 0)));
     }
 
     @Test
@@ -229,7 +228,7 @@ class OvergrowthPlanTest {
         // up against two walls: a tree growing there leans on the house exactly as
         // one outside the gable end does.
         Footprint ell = new Footprint(FLOOR, 9, 9, 5,
-                new BuildingSizes.Notch(3, 3, 1, 1));
+                new BuildingSizes.Notch(2, 2, 1, 1));
         FakeSky wood = new FakeSky().ground(8).trunk(3, 3, 4);
 
         Set<BlockPos> cleared = clearedOf(Overgrowth.overPlot(

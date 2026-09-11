@@ -3,6 +3,7 @@ package com.kingdoms.neoforge.world;
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
+import com.kingdoms.sim.settlement.BuildingSizes;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.WorkArea;
@@ -104,14 +105,27 @@ public final class Overgrowth {
     public static final Spared NOTHING_SPARED = (x, z) -> false;
 
     /**
-     * How far past a plot a trunk is still leaning on the building.
+     * How far past a building's outer wall a trunk is still leaning on it.
      *
-     * <p>Two. The plot already carries a doorstep ring, so in practice this is
-     * the one further ring beyond it — the cells whose tree would have branches
+     * <p>Two, measured from the wall rather than from the plot. The plot already
+     * carries a doorstep ring one block wide, so what this actually comes to is
+     * the single further ring beyond that — the cells whose tree has branches
      * through the eaves. Three would have every house in a wood standing in a
-     * clearing of its own making.
+     * bald ring of its own making, which is the scraped-pad look the doorstep
+     * ring was shrunk from two blocks to one to be rid of.
      */
     public static final int TRUNK_CLEARANCE = 2;
+
+    /**
+     * The same reach, counted out from the edge of the plot.
+     *
+     * <p>What {@link Footprint#inClearanceBand} wants, because the footprint a
+     * building records is its walls <em>plus</em> its doorstep ring. Reading
+     * {@link BuildingSizes#APRON} rather than writing 1 means the band cannot
+     * quietly widen if the doorstep ever narrows again.
+     */
+    private static final int BAND_PAST_THE_PLOT =
+            Math.max(0, TRUNK_CLEARANCE - BuildingSizes.APRON);
 
     /**
      * The tallest trunk the band takes, in blocks.
@@ -264,8 +278,8 @@ public final class Overgrowth {
     public static List<BlockPos> overPlot(Sky sky, BlockPos base, Footprint plot,
                                           Spared spared) {
         List<BlockPos> cleared = new ArrayList<>();
-        int reachX = plot.width() / 2 + TRUNK_CLEARANCE;
-        int reachZ = plot.depth() / 2 + TRUNK_CLEARANCE;
+        int reachX = plot.width() / 2 + BAND_PAST_THE_PLOT;
+        int reachZ = plot.depth() / 2 + BAND_PAST_THE_PLOT;
         for (int dx = -reachX; dx <= reachX; dx++) {
             for (int dz = -reachZ; dz <= reachZ; dz++) {
                 int x = base.getX() + dx;
@@ -273,7 +287,7 @@ public final class Overgrowth {
                 if (plot.covers(base.getX(), base.getZ(), x, z)) {
                     clearColumn(sky, cleared, x, z, base.getY());
                 } else if (plot.inClearanceBand(base.getX(), base.getZ(), x, z,
-                        TRUNK_CLEARANCE) && !spared.covers(x, z)) {
+                        BAND_PAST_THE_PLOT) && !spared.covers(x, z)) {
                     fellTrunk(sky, cleared, x, z, base.getY());
                 }
             }
