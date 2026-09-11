@@ -6,6 +6,51 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The towns have started asking for things
+
+### New
+
+- **Towns ask you for help now, and they ask for things that are actually wrong.**
+  The board in the town hall carries up to five notices, each with the reason
+  under it: bread when the granary is scraping, logs when every job on the books
+  has stopped waiting for them, saplings when the cutting ground is bare to the
+  dirt, hostiles thinned out when there is too much abroad after dark, a wreck
+  cleared when something has moved into it. Nothing on it is invented — you can
+  walk out and see the empty shelf or the stripped wood that put it there.
+
+- **And they ask you to come and look at things.** A town with nothing wrong still
+  has something to say: the mine whose seam is finished, the wood it has felled
+  flat, the building nobody ever laid a path to. Walk out to the mark and that is
+  the whole job. It is the one ask that is not a chore, and it is how a settlement
+  shows you what it is rather than telling you.
+
+- **Accept, abandon, claim.** Each notice is a row you take, and then either give
+  back or collect on. Giving one back loses whatever you had done toward it.
+  Somebody else's job shows as taken and is not yours to finish or to collect for.
+  An offer nobody takes comes down after a while; work you have finished waits for
+  you however long you leave it.
+
+- **Deliveries are made the way they always were.** Carry logs, cobble or bread to
+  the storehouse door as usual — the board simply notices, and says how much of
+  what you handed over counted. Carrying more than was asked is not wasted; the
+  rest is a donation, which is what all of it always was.
+
+- **The town pays out of its own purse.** Emeralds, from the same treasury the
+  market stall trades from, so a coin earned at the board buys grain at the stall.
+  A town that has gone broke pays what it has left rather than promising money it
+  has not got. Fighting jobs also throw in sixteen of whatever the town has more
+  of than it can store.
+
+- **Standing, and it is that town's alone.** Every job you finish raises what a
+  settlement thinks of you — Stranger, Trusted, Honored, Sworn — shown at the top
+  of its board. A town with a friend asks for more and pays better: a strange
+  town's first board wants sixteen loaves, and the one you have been supplying all
+  winter wants forty. Helping a village on one coast buys you nothing on the
+  other, which is the point.
+
+- **The same town stepped to the same number posts the same board.** There is no
+  dice roll anywhere in it, so `/civ step` reproduces a board exactly — a fault
+  seen once can be looked at again.
 ## A town you can read, not just a town you can see
 
 ### New

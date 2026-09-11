@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.block;
 
+import com.kingdoms.sim.quest.QuestPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.StorehousePlanner;
 import com.kingdoms.sim.settlement.TownStores;
@@ -152,6 +153,20 @@ public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
                 "  " + settlement.name() + " takes " + taken + " " + resource
                         + " with thanks.")
                 .withStyle(ChatFormatting.GREEN));
+
+        // And the board notices, if the board asked. Counted here rather than
+        // being a second way of giving the town things: a donation is the
+        // ordinary gesture and a quest is the town having wanted it. A player
+        // carrying more than was asked for is not wasting it — the surplus is a
+        // donation, which is what all of it always was.
+        int counted = QuestPlanner.creditDelivery(settlement, player.getUUID(),
+                resource, taken);
+        if (counted > 0) {
+            player.sendSystemMessage(Component.literal(
+                    "  " + counted + " of that is against what they asked for. "
+                            + "Collect at the board.")
+                    .withStyle(ChatFormatting.GOLD));
+        }
     }
 
     /** Which store this item feeds, or null if the town has no use for it. */

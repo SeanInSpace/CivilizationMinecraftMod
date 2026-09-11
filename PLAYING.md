@@ -261,6 +261,60 @@ keeps seed corn: a town cannot be bought out of its own repairs. If you want a
 settlement walled sooner, carrying logs to this door is the fastest way to do it —
 the wall waits on town stage, and town stage waits on everything built before it.
 
+## The quest board
+
+The **Quest Board** hangs inside the town hall. Right-click it and the town tells
+you what it is short of, what is frightening it, and what it would like somebody
+to go and look at — five notices at most, each with the reason written under it.
+
+Nothing on that board is invented. A town asking for bread is a town whose
+granary is empty; one asking for saplings has felled its cutting ground bare; one
+asking you to walk out to the mine has cut the seam out and would like a
+stranger's eyes on it. You can go and check every one of them.
+
+| Kind of ask | What it wants | How it is finished |
+|---|---|---|
+| **Deliver** | Food, timber, stone, iron or saplings | Hand them in at the **storehouse** |
+| **Slay** | Hostiles put down inside the town's bounds | Kill them yourself — the guards doing it does not count |
+| **Clear** | Whatever has moved into a wrecked building | Kill them near the wreck |
+| **Visit** | Somewhere the town wants looked at | Stand within six blocks of the mark |
+
+Each row carries **Accept**, and then **Abandon** or **Claim** once it is yours.
+Giving a job back loses whatever you had done toward it, so take one you mean to
+finish. Somebody else's job shows as *Taken* and has no button. An offer nobody
+takes comes down after a while; a job you have accepted gets a much longer leash,
+and finished work waits for you however long you leave it.
+
+The **Done** tab on the footer is what the town remembers being done for it — the
+last ten jobs anybody finished there.
+
+### Standing
+
+Every job you finish raises your **standing** with that settlement, shown in the
+board's header. It is that town's opinion and nobody else's — helping a village on
+one coast buys you nothing on the other.
+
+| Standing | They call you |
+|---|---|
+| 0 | Stranger |
+| 20 | Trusted |
+| 60 | Honored |
+| 120 | Sworn |
+
+A town that has a friend asks for more and pays better, which is the whole
+progression: the first board you read at a strange settlement wants sixteen
+loaves, and the board at the town you have been supplying all winter wants forty
+and pays for them.
+
+### What it pays
+
+**Coin, in emeralds, out of the town's own treasury** — the same purse the market
+stall trades from, so a coin earned at the board buys grain at the stall. A poor
+town offers less, and says so on the row rather than promising money it has not
+got. Slaying and clearing also throw in sixteen of whatever the town has more of
+than it can store.
+
+## The town overview
 ## The town's books
 
 **Right-click the Town Hall post** and the town map opens — see [The town

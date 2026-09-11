@@ -2,6 +2,7 @@ package com.kingdoms.neoforge.client;
 
 import com.kingdoms.neoforge.net.MarketPayload;
 import com.kingdoms.neoforge.net.PersonInventoryPayload;
+import com.kingdoms.neoforge.net.QuestBoardPayload;
 import com.kingdoms.neoforge.net.SupplyPayload;
 import com.kingdoms.neoforge.net.TownMapPayload;
 import com.kingdoms.neoforge.net.TownOverviewPayload;
@@ -77,6 +78,24 @@ public final class KingdomsScreens {
             open.update(market);
         } else if (market.opening()) {
             client.setScreenAndShow(new MarketScreen(market));
+        }
+    }
+
+    /**
+     * Opens the board, or refreshes the one already open.
+     *
+     * <p>The same rule the stall follows, for the same two reasons. A board
+     * still showing a row as unclaimed after the reward has been collected is
+     * worse than no board; and a reply that arrives after the player has hit
+     * escape must not put the panel back up, which is what {@code opening} is
+     * for.
+     */
+    public static void openQuestBoard(QuestBoardPayload board) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.gui.screen() instanceof QuestBoardScreen open) {
+            open.update(board);
+        } else if (board.opening()) {
+            client.setScreenAndShow(new QuestBoardScreen(board));
         }
     }
 }

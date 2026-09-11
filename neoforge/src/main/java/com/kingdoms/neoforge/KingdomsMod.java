@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge;
 
+import com.kingdoms.neoforge.bridge.Menace;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.client.KingdomsClient;
 import com.kingdoms.neoforge.command.KingdomsCommand;
@@ -12,6 +13,10 @@ import com.kingdoms.neoforge.view.TickRate;
 import com.kingdoms.neoforge.world.StoreSync;
 import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.neoforge.world.TownAuditor;
+import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.kingdom.Kingdom;
+import com.kingdoms.sim.quest.QuestPlanner;
+import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimSettings;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.server.level.ServerLevel;
@@ -578,6 +583,7 @@ public final class KingdomsMod {
         if (!(living.level() instanceof ServerLevel level)) {
             return;
         }
+        creditSlaying(event, living, level);
         if (!living.hasData(KingdomsAttachments.PERSON_ID.get())) {
             return;
         }
@@ -590,6 +596,47 @@ public final class KingdomsMod {
             return;   // a stale body; the person is not in it
         }
         manager.onViewEntityDeath(living);
+    }
+
+    /**
+     * A hostile a player put down inside somebody's claim, counted against
+     * whatever that town asked for.
+     *
+     * <p>Attributed to the hand that did it — {@code getEntity} on the damage
+     * source is the archer rather than the arrow — and to nobody at all when the
+     * town's own guards did the killing. A player who takes a slaying quest and
+     * then watches the watch finish it has not done the job.
+     *
+     * <p>What counts as a hostile is {@link Menace}'s question, not a class
+     * name, so a modded horror counts and a wolf minding its own business does
+     * not. The same table decides whether the town was frightened of it in the
+     * first place, which is the only way the ask and the answer can agree.
+     *
+     * <p>Every town whose claim covers the spot is credited, which matters for
+     * the handful of places two claims overlap: a kill in the overlap was done
+     * for both of them, and neither should be told it was not.
+     */
+    private static void creditSlaying(LivingDeathEvent event, LivingEntity dead,
+                                      ServerLevel level) {
+        if (dead.hasData(KingdomsAttachments.PERSON_ID.get())
+                || !Menace.threatens(dead)) {
+            return;   // a settler, or something nobody was afraid of
+        }
+        if (!(event.getSource().getEntity() instanceof ServerPlayer killer)) {
+            return;   // the guards did it, or gravity did
+        }
+        SimWorld world = SIMULATIONS.get(level);
+        if (world == null) {
+            return;
+        }
+        SimPos where = NeoForgeWorldBridge.toSimPos(dead.blockPosition());
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                if (settlement.contains(where)) {
+                    QuestPlanner.creditKill(settlement, killer.getUUID(), where);
+                }
+            }
+        }
     }
 
     /** Access the simulation for a given dimension, or null if the server is not running. */
