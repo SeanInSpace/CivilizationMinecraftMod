@@ -19,11 +19,12 @@ public final class KingdomsNetwork {
      * their own, "4" when the market got a board and, with it, the first thing
      * this mod's client ever says back, and "5" when the surveyor's lamp
      * stopped drawing itself out of particles and started sending its survey to
-     * be drawn. An optional channel that silently mismatches does not refuse; it
-     * decodes the new bytes with the old codec and shows nonsense, which is
-     * worse than not having the screen at all.
+     * be drawn, and "6" when the lamp's plots gained a height and became boxes.
+     * An optional channel that silently mismatches does not refuse; it decodes
+     * the new bytes with the old codec and shows nonsense, which is worse than
+     * not having the screen at all.
      */
-    private static final String VERSION = "5";
+    private static final String VERSION = "6";
 
     private KingdomsNetwork() {
     }

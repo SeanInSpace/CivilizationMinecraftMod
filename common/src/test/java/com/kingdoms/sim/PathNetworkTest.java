@@ -6,6 +6,7 @@ import com.kingdoms.sim.settlement.BuildCatalog;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
+import com.kingdoms.sim.settlement.ForesterStand;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.PathPlanner;
 import com.kingdoms.sim.settlement.Perimeter;
@@ -337,6 +338,92 @@ class PathNetworkTest {
         assertTrue(openings >= 2 * ring.gates().size(),
                 "only " + openings + " posts are gateways for " + ring.gates().size()
                         + " gates — the wall is solid where it should be open");
+    }
+
+    // --- the forester's belt ---
+
+    /** The outlying farm whose lane is the one that used to go through the wood. */
+    private static final SimPos OUTLYING = new SimPos(45, 64, 10);
+
+    /**
+     * A town small enough to have a countryside, with a camp working it.
+     *
+     * <p>The default fixture claims 128 blocks, which swallows any lumber claim
+     * whole — and the belt is by definition the part of the claim <em>outside</em>
+     * the village, so a town that big has no belt to put a stand in and nothing
+     * to test.
+     *
+     * @param camped whether the camp has a woodland claim at all, which is the
+     *               difference between the fault and the fix
+     * @param spread whether anything else has been built out past the belt, and
+     *               so whether there is a road out there to take a lane round
+     */
+    private static Settlement withAStand(boolean camped, boolean spread) {
+        Settlement s = town();
+        s.setClaimRadius(20);
+        raise(s, "kingdoms:camp_post", new SimPos(0, 64, 0), 0);
+        Building camp = raise(s, "kingdoms:lumber_camp", new SimPos(10, 64, 0), 1);
+        if (camped) {
+            s.setLumberArea(ForesterStand.woodlandFor(camp.origin(), s.center(),
+                    s.claimRadius()));
+        }
+        if (spread) {
+            raise(s, "kingdoms:granary", new SimPos(30, 64, 32), 2);
+        }
+        raise(s, "kingdoms:farm", OUTLYING, 1);
+        for (int i = 0; i < 12; i++) {
+            PathPlanner.advance(s, CTX);
+        }
+        return s;
+    }
+
+    /** The tree of the stand some stretch of road gravels, if any does. */
+    private static SimPos felledBy(PathNetwork network, List<SimPos> stand) {
+        for (PathNetwork.Segment run : network.segments()) {
+            int half = run.paveHalf();
+            for (SimPos at : run.positions()) {
+                for (SimPos trunk : stand) {
+                    if (Math.abs(at.x() - trunk.x()) <= half
+                            && Math.abs(at.z() - trunk.z()) <= half) {
+                        return trunk;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    @Test
+    void aLaneIsNeverGravelledOverTheForestersStand() {
+        // The complaint, and the same town twice. A camp's stand is planted out
+        // past the houses because that is the only ground a lumberjack will
+        // replant on; the town then goes on building, and the lane run out to
+        // the last farm was laid straight through the belt and felled it.
+        Settlement standing = withAStand(true, false);
+        List<SimPos> stand = ForesterStand.stand(standing);
+        assertFalse(stand.isEmpty(), "a camp with a belt has somewhere to put a tree");
+
+        assertEquals(new SimPos(20, 64, 10),
+                felledBy(withAStand(false, false).paths(), stand),
+                "the same town with no wood to protect lays the lane straight "
+                        + "through the belt, which is the fault being fixed");
+        assertEquals(null, felledBy(standing.paths(), stand),
+                "and with the wood there, a lane was still gravelled over a trunk");
+    }
+
+    @Test
+    void andTheLaneIsLaidAnywayOnceThereIsARoadToTakeItRound() {
+        // The stand is held off exactly as a plot is, which means a door with no
+        // clear lane left of it waits rather than being given a bad one -- and,
+        // like a plot, it is joined the moment the network spreads far enough to
+        // offer a way round. Without this the fix would read as "the farm never
+        // gets a road", which is a worse bug than the one it cures.
+        Settlement s = withAStand(true, true);
+
+        assertTrue(s.paths().hasJoined(OUTLYING),
+                "the outlying farm is still on the network");
+        assertEquals(null, felledBy(s.paths(), ForesterStand.stand(s)),
+                "and it got there without gravelling the wood");
     }
 
     @Test

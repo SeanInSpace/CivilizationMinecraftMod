@@ -11,19 +11,14 @@ import com.kingdoms.sim.person.Profession;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
-import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.Perimeter;
-import com.kingdoms.sim.settlement.Seam;
-import com.kingdoms.sim.settlement.Stand;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
-import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.SettlementEvent;
 import com.kingdoms.sim.settlement.WorkArea;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import java.util.List;
@@ -42,6 +37,19 @@ import java.util.UUID;
  * <p>If you later add a Fabric module, move this class into a shared module that
  * depends on {@code com.mojang:datafixerupper} — both loaders bundle it, so the
  * codecs themselves port unchanged.
+ *
+ * <p><strong>The save format is not frozen, and nothing here migrates.</strong>
+ * A record that grows a field grows a field; a record that has outgrown one flat
+ * list of fields is split into sub-records that say what they are. Worlds written
+ * by an older build of the mod do not load, by design — the alternative was a
+ * codec that kept a British save key for ever and carried four dead legacy
+ * fields so that a save nobody still has would open.
+ *
+ * <p>The practical rule for a new field: give it {@code fieldOf} unless a town
+ * that has never had the thing the field describes is meaningfully different from
+ * a town whose value for it is the default. An {@code optionalFieldOf} with a
+ * default here means "a fresh town honestly starts here", never "an old save
+ * omits this".
  */
 public final class KingdomsCodecs {
 
@@ -53,8 +61,10 @@ public final class KingdomsCodecs {
             Codec.STRING.xmap(UUID::fromString, UUID::toString);
 
     /**
-     * Enum codec that degrades gracefully. An unknown profession in an old save
-     * becomes IDLER rather than throwing and taking the whole world with it.
+     * Enum codec that degrades gracefully. An unknown profession — from a
+     * datapack that has since been removed, or a build of the mod that had one
+     * more than this one — becomes IDLER rather than throwing and taking the
+     * whole world with it.
      */
     private static final Codec<Profession> PROFESSION = Codec.STRING.xmap(
             name -> {
@@ -108,11 +118,10 @@ public final class KingdomsCodecs {
             SIM_POS.fieldOf("to_pos").forGetter(HaulTask::toPos),
             Codec.INT.fieldOf("requested").forGetter(HaulTask::requested),
             Codec.INT.optionalFieldOf("carried", 0).forGetter(HaulTask::carried),
-            // Optional and defaulted to food, because every errand saved before
-            // couriers existed was one, and a load in transit must survive the
-            // reload that taught the game about timber.
-            Codec.STRING.optionalFieldOf("resource", TownStores.FOOD)
-                    .forGetter(HaulTask::resource)
+            // Which goods the errand is for. Required: an errand is meaningless
+            // without one, and "assume food" was only ever the right answer for
+            // a save written before couriers carried anything else.
+            Codec.STRING.fieldOf("resource").forGetter(HaulTask::resource)
     ).apply(i, (fromStore, fromPos, toStore, toPos, requested, carried, resource) -> {
         HaulTask task = new HaulTask(resource, fromStore, fromPos, toStore, toPos, requested);
         task.setCarried(carried);
@@ -158,93 +167,85 @@ public final class KingdomsCodecs {
         return person;
     }));
 
+    /**
+     * The ground a job is being done on: the height the crew settled on for the
+     * floor, and whether they have finished making it flat.
+     */
+    private record Site(int y, boolean prepared) {
+        static Site of(BuildTask task) {
+            return new Site(task.siteY(), task.isSitePrepared());
+        }
+    }
+
+    private static final Codec<Site> SITE = RecordCodecBuilder.create(i -> i.group(
+            Codec.INT.optionalFieldOf("y", BuildTask.UNSET_SITE_Y).forGetter(Site::y),
+            Codec.BOOL.optionalFieldOf("prepared", false).forGetter(Site::prepared)
+    ).apply(i, Site::new));
+
+    /**
+     * How far a build has actually got, in every unit the job is measured in.
+     *
+     * <p>Seven numbers that only mean anything together, and which used to sit
+     * loose among the task's own fields. {@code digDone} is the excavation half
+     * and {@code workDone} the masonry half of the same total; {@code stepsDone}
+     * and {@code stepProgress} are the cursor into the block list; the two plan
+     * figures are what the job was estimated at before anyone lifted a spade.
+     */
+    private record Work(int stepsDone, int stepProgress, int digDone, int workDone,
+                        int pendingWork, int planWork, int planPlaceWork) {
+        static Work of(BuildTask task) {
+            return new Work(task.stepsDone(), task.stepProgress(), task.digDone(),
+                    task.workDone(), task.pendingWork(), task.planWork(), task.planPlaceWork());
+        }
+    }
+
+    private static final Codec<Work> WORK = RecordCodecBuilder.create(i -> i.group(
+            Codec.INT.optionalFieldOf("steps_done", 0).forGetter(Work::stepsDone),
+            Codec.INT.optionalFieldOf("step_progress", 0).forGetter(Work::stepProgress),
+            // Required. This was optional and defaulted to a sentinel that meant
+            // "a save from before excavation was split out of the step list", and
+            // reading it triggered a rewind of the whole cursor. Nothing writes a
+            // task without it now, so the sentinel and the rewind are both gone.
+            Codec.INT.fieldOf("dig_done").forGetter(Work::digDone),
+            Codec.INT.optionalFieldOf("work_done", 0).forGetter(Work::workDone),
+            Codec.INT.optionalFieldOf("pending_work", 0).forGetter(Work::pendingWork),
+            Codec.INT.optionalFieldOf("plan_work", 0).forGetter(Work::planWork),
+            Codec.INT.optionalFieldOf("plan_place_work", 0).forGetter(Work::planPlaceWork)
+    ).apply(i, Work::new));
+
     public static final Codec<BuildTask> BUILD_TASK = RecordCodecBuilder.create(i -> i.group(
             Codec.STRING.fieldOf("blueprint").forGetter(BuildTask::blueprintId),
             SIM_POS.fieldOf("origin").forGetter(BuildTask::origin),
+            Codec.INT.optionalFieldOf("facing", 0).forGetter(BuildTask::facing),
             Codec.INT.fieldOf("required_work").forGetter(BuildTask::requiredWork),
             Codec.INT.fieldOf("progress").forGetter(BuildTask::progress),
-            Codec.INT.optionalFieldOf("site_y", BuildTask.UNSET_SITE_Y).forGetter(BuildTask::siteY),
-            Codec.BOOL.optionalFieldOf("site_prepared", false).forGetter(BuildTask::isSitePrepared),
-            Codec.INT.optionalFieldOf("steps_done", 0).forGetter(BuildTask::stepsDone),
-            Codec.INT.optionalFieldOf("step_progress", 0).forGetter(BuildTask::stepProgress),
-            Codec.INT.optionalFieldOf("work_done", 0).forGetter(BuildTask::workDone),
-            Codec.INT.optionalFieldOf("plan_work", 0).forGetter(BuildTask::planWork),
-            Codec.INT.optionalFieldOf("plan_place_work", 0).forGetter(BuildTask::planPlaceWork),
-            Codec.INT.optionalFieldOf("pending_work", 0).forGetter(BuildTask::pendingWork),
-            Codec.INT.optionalFieldOf("facing", 0).forGetter(BuildTask::facing),
-            // Work booked against a building that already stands, and which kind of
-            // it this is. Both were left out while upgrading was the only thing that
-            // set them and nothing produced one any more; repairs revived the field
-            // and made the omission dangerous. A reloaded repair that had forgotten
-            // it was a repair is an ordinary build of the same blueprint on the same
-            // spot -- so the crew's first act is to excavate the footprint, which is
-            // to say pull down the house they were sent to mend, and on finishing it
-            // the town records a second building on the plot.
+            SITE.fieldOf("site").forGetter(Site::of),
+            WORK.fieldOf("work").forGetter(Work::of),
+            // Work booked against a building that already stands, and which kind
+            // of it this is. A reloaded repair that had forgotten it was a repair
+            // is an ordinary build of the same blueprint on the same spot -- so
+            // the crew's first act is to excavate the footprint, which is to say
+            // pull down the house they were sent to mend, and on finishing it the
+            // town records a second building on the plot.
             SIM_POS.optionalFieldOf("upgrade_of").forGetter(
                     task -> Optional.ofNullable(task.upgradeOf())),
-            Codec.BOOL.optionalFieldOf("repair", false).forGetter(BuildTask::isRepair),
-            // Absent means a save from before excavation was split out of the step
-            // list. See the rewind below.
-            Codec.INT.optionalFieldOf("dig_done", -1).forGetter(BuildTask::digDone)
-    ).apply(i, (blueprint, origin, requiredWork, progress, siteY, prepared,
-                stepsDone, stepProgress, workDone, planWork, planPlaceWork, pending, facing,
-                upgradeOf, repair, digDone) -> {
+            Codec.BOOL.optionalFieldOf("repair", false).forGetter(BuildTask::isRepair)
+    ).apply(i, (blueprint, origin, facing, requiredWork, progress, site, work, upgradeOf, repair) -> {
         BuildTask task = new BuildTask(blueprint, origin, requiredWork);
         task.addProgress(progress);
-        task.setSiteY(siteY);
-        task.setSitePrepared(prepared);
-        task.setPlan(planWork, planPlaceWork);
+        task.setSiteY(site.y());
+        task.setSitePrepared(site.prepared());
+        task.setPlan(work.planWork(), work.planPlaceWork());
         task.setFacing(facing);
         upgradeOf.ifPresent(task::setUpgradeOf);
         task.setRepair(repair);
-        if (digDone < 0) {
-            // An older save. Its step cursor indexed a combined dig-and-lay list;
-            // the same number now indexes masonry alone, so resuming from it would
-            // skip straight past however many courses the digging used to account
-            // for. Rewind the visible half instead: laying over blocks that already
-            // stand is harmless, and a building with a wall missing is not.
-            task.setStepsDone(0);
-            task.setStepProgress(0);
-            task.setWorkDone(0);
-            task.setPendingWork(0);
-        } else {
-            task.setStepsDone(stepsDone);
-            task.setStepProgress(stepProgress);
-            task.setWorkDone(workDone);
-            task.setPendingWork(pending);
-            task.setDigDone(digDone);
-        }
+        task.setStepsDone(work.stepsDone());
+        task.setStepProgress(work.stepProgress());
+        task.setWorkDone(work.workDone());
+        task.setPendingWork(work.pendingWork());
+        task.setDigDone(work.digDone());
         return task;
     }));
-
-    /**
-     * Everything that would not fit shares one slot of the settlement codec:
-     * culture, stage, the fed streak, the perimeter and the roads.
-     *
-     * <p>The settlement group already sits at DFU's sixteen-field cap, and a
-     * {@code MapCodec} used directly in a group flattens its fields into the
-     * parent map without spending another slot or changing the wire format --
-     * "culture" reads and writes exactly as it always did.
-     */
-    private record Flavor(String culture, String stage, int fedStreak,
-                          boolean perimeterClosed, Optional<Perimeter> perimeter,
-                          Optional<PathNetwork> paths, boolean drawnOnly,
-                          Optional<String> layout, boolean seededRoadsOwed) {
-        static Flavor of(Settlement s) {
-            return new Flavor(s.cultureId(), s.stage().pretty(), s.fedStreak(),
-                    s.perimeterClosed(), Optional.ofNullable(s.perimeter()),
-                    s.paths().isEmpty() && s.paths().joined().isEmpty()
-                            ? Optional.empty() : Optional.of(s.paths()),
-                    s.isDrawnOnly(),
-                    // Always written, whether the town has been told its
-                    // arrangement or is still reading it off its people: this is
-                    // where the derived answer stops being derived. Only saves
-                    // from before the field existed come back without one, which
-                    // is the whole of the compatibility rule below.
-                    Optional.of(s.layoutId()),
-                    s.seededRoadsOwed());
-        }
-    }
 
     /**
      * A wall a town has replaced. The raised count travels with the line
@@ -266,27 +267,22 @@ public final class KingdomsCodecs {
             // in the ground until the layer has pulled them down. It has to
             // survive a save or a town reloaded mid-demolition keeps its old
             // wall for ever, with the new one outside it -- two walls, which is
-            // the one thing this must not leave behind. Absent from every world
-            // saved before a town could outgrow its ring, and an empty list is
-            // exactly right for those: they have one wall and always had.
-            RETIRED_LINE.listOf().optionalFieldOf("retired", List.of())
-                    .forGetter(Perimeter::retired),
+            // the one thing this must not leave behind. Required and usually an
+            // empty list: a town that has never moved its wall says so.
+            RETIRED_LINE.listOf().fieldOf("retired").forGetter(Perimeter::retired),
             // The step the standing line was staked on, which is what says
             // whether the town may move it yet. Saved because a restart is not
             // a generation. Note that the counter it will be compared against
             // is NOT saved -- SimWorld starts every session at step zero -- so
             // this comes back looking like a step in the future; Perimeter.ageAt
-            // is where that is read for what it is. Absent means a world saved
-            // before walls had an age, and zero is the honest answer for those.
-            Codec.LONG.optionalFieldOf("staked_on", 0L).forGetter(Perimeter::stakedOn),
+            // is where that is read for what it is.
+            Codec.LONG.fieldOf("staked_on").forGetter(Perimeter::stakedOn),
             // How far along the retired line the crew has got pulling it up. A
             // prefix like "laid", and saved for the same reason: a reload that
             // forgot it would send builders back to the head of a line they have
             // already taken half of, to walk the whole of it again finding
-            // nothing. Absent from every world saved before the old wall came
-            // down by hand, and nought is right for those -- the sweep is what
-            // took theirs down and it keeps its own place.
-            Codec.INT.optionalFieldOf("pulled", 0).forGetter(Perimeter::pulled)
+            // nothing.
+            Codec.INT.fieldOf("pulled").forGetter(Perimeter::pulled)
     ).apply(i, KingdomsCodecs::perimeterOf));
 
     /**
@@ -309,11 +305,11 @@ public final class KingdomsCodecs {
             RecordCodecBuilder.create(i -> i.group(
                     SIM_POS.fieldOf("from").forGetter(PathNetwork.Segment::from),
                     SIM_POS.fieldOf("to").forGetter(PathNetwork.Segment::to),
-                    // Absent in every world saved before streets were planned,
-                    // and those are all footpaths, so the old width is the
-                    // default rather than a migration.
-                    Codec.INT.optionalFieldOf("width", PathNetwork.TRACK_WIDTH)
-                            .forGetter(PathNetwork.Segment::width)
+                    // How wide the stretch is. Required: a footpath and a street
+                    // are the same two endpoints and a different road, and
+                    // guessing the narrower of them was only ever a way of
+                    // reading a save from before streets were planned.
+                    Codec.INT.fieldOf("width").forGetter(PathNetwork.Segment::width)
             ).apply(i, PathNetwork.Segment::new));
 
     /**
@@ -331,35 +327,27 @@ public final class KingdomsCodecs {
             // road is a job now, not a line on a plan, so without this a reload
             // would send the builders out to open every street the town already
             // has -- the same mistake the joined set exists to prevent, one
-            // level down. Optional, so a save from before roads were work loads
-            // with none opened and re-opens them as its builders get to them.
-            Codec.INT.listOf().optionalFieldOf("opened", List.of())
-                    .forGetter(PathNetwork::openedSegments),
-            // How many buildings the planned streets were last laid for. Absent
-            // on a world saved before streets existed, and minus one is right for
-            // those: it matches no count, so they lay theirs on the next step
-            // rather than never.
-            Codec.INT.optionalFieldOf("streetsLaidFor", -1)
-                    .forGetter(PathNetwork::streetsLaidFor),
+            // level down.
+            Codec.INT.listOf().fieldOf("opened").forGetter(PathNetwork::openedSegments),
+            // How many buildings the planned streets were last laid for. Minus
+            // one on a network that has never laid any, which matches no count
+            // and so lays them on the next step rather than never.
+            Codec.INT.fieldOf("streets_laid_for").forGetter(PathNetwork::streetsLaidFor),
             // Which planned streets were routed onto the ground and which the
             // ground refused. Persisted because routing is not cheap and, more
             // importantly, because its answer is a road: re-deriving it after a
             // reload could pick a different line through the same hill and lay
             // the street twice. The network is the authority once a road exists.
-            Codec.INT.listOf().optionalFieldOf("streetsRouted", List.of())
+            Codec.INT.listOf().optionalFieldOf("streets_routed", List.of())
                     .forGetter(PathNetwork::routedStreets),
-            Codec.INT.listOf().optionalFieldOf("streetsRefused", List.of())
+            Codec.INT.listOf().optionalFieldOf("streets_refused", List.of())
                     .forGetter(PathNetwork::refusedStreets),
             // How far the stones have actually gone down, as opposed to how far
             // the town has walked its streets out. This lived in the drawing
             // sweep's memory, so every server start forgot that the roads had
             // ever been drawn and re-laid the lot -- which for a town with
-            // nobody left in it is a road crew nobody could have hired. Absent
-            // on any older save, and nought is the honest answer there: those
-            // worlds draw their network once more on the next visit and then
-            // remember it for good.
-            Codec.INT.optionalFieldOf("laidThrough", 0)
-                    .forGetter(PathNetwork::laidThrough)
+            // nobody left in it is a road crew nobody could have hired.
+            Codec.INT.fieldOf("laid_through").forGetter(PathNetwork::laidThrough)
     ).apply(i, (segments, joined, opened, streetsLaidFor, routed, refused, laidThrough) -> {
         PathNetwork network = new PathNetwork(segments, joined);
         network.restoreOpened(opened);
@@ -368,41 +356,6 @@ public final class KingdomsCodecs {
         network.setLaidThrough(laidThrough);
         return network;
     }));
-
-    private static final MapCodec<Flavor> FLAVOR = RecordCodecBuilder.mapCodec(i -> i.group(
-            Codec.STRING.optionalFieldOf("culture", Culture.DEFAULT.id()).forGetter(Flavor::culture),
-            Codec.STRING.optionalFieldOf("stage", "").forGetter(Flavor::stage),
-            Codec.INT.optionalFieldOf("fed_streak", 0).forGetter(Flavor::fedStreak),
-            Codec.BOOL.optionalFieldOf("perimeter_closed", false).forGetter(Flavor::perimeterClosed),
-            PERIMETER.optionalFieldOf("perimeter").forGetter(Flavor::perimeter),
-            PATH_NETWORK.optionalFieldOf("paths").forGetter(Flavor::paths),
-            // A town drawn by /civ buildtest, which must stay a drawing across a
-            // save. Without this it reloaded as an ordinary settlement and began
-            // planning on top of the render -- quietly destroying the one thing
-            // the instrument exists to hold still.
-            Codec.BOOL.optionalFieldOf("drawn_only", false).forGetter(Flavor::drawnOnly),
-            // Which of its people's arrangements this town was laid out in. A
-            // culture carries several now and picks between them by hashing the
-            // center, so the answer has to be written down rather than worked
-            // out again: a town that grew half its streets under one derivation
-            // and half under another would be neither shape.
-            //
-            // Written as the id the settlement holds rather than the arrangement
-            // it resolves to, the same way "culture" is. Layouts.of answers an
-            // id it does not know with rings, so resolving on the way out would
-            // quietly rewrite a datapack's arrangement -- or one from a newer
-            // build of the mod -- into a village, permanently and in the file.
-            Codec.STRING.optionalFieldOf("layout").forGetter(Flavor::layout),
-            // A town world generation wrote down whose streets have not been
-            // walked out yet. It has to survive a save for the same reason the
-            // lumber camp's wood does: a town generated in one session and
-            // found in another is exactly the town that still owes them, and a
-            // flag that reset to false on load would strand its roads for good.
-            // Absent from every world saved before roads were owed, and false is
-            // right for those -- their towns walked out every road they have.
-            Codec.BOOL.optionalFieldOf("seeded_roads_owed", false)
-                    .forGetter(Flavor::seededRoadsOwed)
-    ).apply(i, Flavor::new));
 
     public static final Codec<Household.Id> HOUSEHOLD_ID =
             UUID_CODEC.xmap(Household.Id::new, Household.Id::value);
@@ -424,8 +377,7 @@ public final class KingdomsCodecs {
     }));
 
     public static final Codec<WorkArea> WORK_AREA = RecordCodecBuilder.create(i -> i.group(
-            // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
-            SIM_POS.fieldOf("centre").forGetter(WorkArea::center),
+            SIM_POS.fieldOf("center").forGetter(WorkArea::center),
             Codec.INT.fieldOf("radius").forGetter(WorkArea::radius)
     ).apply(i, WorkArea::new));
 
@@ -441,65 +393,110 @@ public final class KingdomsCodecs {
             Codec.INT.fieldOf("h").forGetter(Footprint::height)
     ).apply(i, Footprint::new));
 
+    /**
+     * Where a building stands and how much room it takes: its corner, the box a
+     * survey found around it, and the quarter it turns to face.
+     *
+     * <p>The three answer one question — which ground is this building's — and a
+     * reader wanting the plot no longer has to know that two of them live next
+     * to the food count.
+     */
+    private record Plot(SimPos origin, Footprint footprint, int facing) {
+        static Plot of(Building building) {
+            return new Plot(building.origin(), building.footprint(), building.facing());
+        }
+    }
+
+    private static final Codec<Plot> PLOT = RecordCodecBuilder.create(i -> i.group(
+            SIM_POS.fieldOf("origin").forGetter(Plot::origin),
+            FOOTPRINT.optionalFieldOf("footprint", Footprint.UNKNOWN).forGetter(Plot::footprint),
+            Codec.INT.optionalFieldOf("facing", 0).forGetter(Plot::facing)
+    ).apply(i, Plot::new));
+
+    /**
+     * How sound a building is: what the last survey counted whole, and what has
+     * happened to it since.
+     */
+    private record Condition(int soundCensus, int damage) {
+        static Condition of(Building building) {
+            return new Condition(building.soundCensus(), building.damage());
+        }
+    }
+
+    private static final Codec<Condition> CONDITION = RecordCodecBuilder.create(i -> i.group(
+            // Required, and usually the uncounted sentinel: a building nobody
+            // has stood in front of has no census, which is a different fact
+            // from a building counted and found whole.
+            Codec.INT.fieldOf("sound_census").forGetter(Condition::soundCensus),
+            Codec.INT.fieldOf("damage").forGetter(Condition::damage)
+    ).apply(i, Condition::new));
+
+    /**
+     * What the ground a building works has been quietly doing, in the units the
+     * building counts it in.
+     *
+     * <p>All four are the only record of an unwatched town's trade: a farm's
+     * ripeness, a lumber camp's standing and regrowing timber, a mine's seam. A
+     * town can go whole sessions with nobody within sight of it, so a ledger
+     * rebuilt from the blocks at every load would be rebuilt from blocks nobody
+     * has generated — which is to say from nothing.
+     *
+     * <p>{@code stand} and {@code seam} are required and carry their UNCOUNTED
+     * sentinels rather than zero, because "nobody has counted this" and "felled
+     * bare" are opposite facts and zero is the second one.
+     */
+    private record Ledgers(int ripeHundredths, int stand, int growing, int seam) {
+        static Ledgers of(Building building) {
+            return new Ledgers(building.ripeHundredths(), building.standThousandths(),
+                    building.growingThousandths(), building.stoneSeam());
+        }
+    }
+
+    private static final Codec<Ledgers> LEDGERS = RecordCodecBuilder.create(i -> i.group(
+            // Hundredths of a crop block. See Field.
+            Codec.INT.fieldOf("ripe").forGetter(Ledgers::ripeHundredths),
+            // Thousandths of a tree, standing and coming up. See Stand.
+            Codec.INT.fieldOf("stand").forGetter(Ledgers::stand),
+            Codec.INT.fieldOf("growing").forGetter(Ledgers::growing),
+            // Blocks of stone left in the seam. See Seam.
+            Codec.INT.fieldOf("seam").forGetter(Ledgers::seam)
+    ).apply(i, Ledgers::new));
+
     public static final Codec<Building> BUILDING = RecordCodecBuilder.create(i -> i.group(
             Codec.STRING.fieldOf("blueprint").forGetter(Building::blueprintId),
-            SIM_POS.fieldOf("origin").forGetter(Building::origin),
+            PLOT.fieldOf("plot").forGetter(Plot::of),
             Codec.LONG.fieldOf("completed_on_step").forGetter(Building::completedOnStep),
             Codec.BOOL.fieldOf("materialized").forGetter(Building::isMaterialized),
-            Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored),
             Codec.BOOL.optionalFieldOf("surveyed", false).forGetter(Building::isSurveyed),
-            FOOTPRINT.optionalFieldOf("footprint", Footprint.UNKNOWN).forGetter(Building::footprint),
-            Codec.INT.optionalFieldOf("facing", 0).forGetter(Building::facing),
+            // A debt the first drawing pays: a seeded camp has to have its wood
+            // planted around it. A world can be saved between the seeding and the
+            // day a player walks close enough to see it, so the debt has to
+            // survive the save or the town wakes up on bare ground. Required,
+            // because "written into existence" and "built by somebody" is a
+            // distinction a save has to carry rather than assume.
+            Codec.BOOL.fieldOf("seeded").forGetter(Building::isSeeded),
+            Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored),
             // Where the town's goods actually are. Optional and omitted when
             // empty, because most buildings hold nothing and a map apiece
             // would be written for every hut in every town.
             Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("stores", Map.of())
                     .forGetter(b -> b.hasStores() ? b.stores().all() : Map.<String, Integer>of()),
-            // The building's condition. Both optional so every save written
-            // before buildings could be damaged still loads: an old record comes
-            // back uncounted and undamaged, and is counted afresh the first time
-            // somebody is there to look at it.
-            Codec.INT.optionalFieldOf("sound_census", Building.UNCOUNTED)
-                    .forGetter(Building::soundCensus),
-            Codec.INT.optionalFieldOf("damage", 0).forGetter(Building::damage),
-            // A debt the first drawing pays: a seeded camp has to have its wood
-            // planted around it. A world can be saved between the seeding and the
-            // day a player walks close enough to see it, so the debt has to
-            // survive the save or the town wakes up on bare ground. Optional and
-            // false by default, so everything written before this reads as what
-            // it is — a building somebody built.
-            Codec.BOOL.optionalFieldOf("seeded", false).forGetter(Building::isSeeded),
-            // A farm's ripeness ledger, in hundredths of a crop block. See Field.
-            // This has to survive a save or a worldgen town, which can go whole
-            // sessions with nobody near it, would forget its harvest every time
-            // the game closed. Zero for every save written before fields counted.
-            Codec.INT.optionalFieldOf("ripe", 0).forGetter(Building::ripeHundredths),
-            // A lumber camp's stand and a mine's seam, which have to survive a
-            // save for the same reason a field's ripeness does: a town can go
-            // whole sessions with nobody near it, and a camp that forgot its
-            // trees every time the game closed would be a camp that never grew
-            // any. Both default to their UNCOUNTED sentinel rather than to zero
-            // — every save written before this is a save nobody counted, not a
-            // world of felled woods and exhausted mines. Sixteen fields, which
-            // is the ceiling on group(); the next one has to be a record.
-            Codec.INT.optionalFieldOf("stand", Stand.UNCOUNTED)
-                    .forGetter(Building::standThousandths),
-            Codec.INT.optionalFieldOf("growing", 0).forGetter(Building::growingThousandths),
-            Codec.INT.optionalFieldOf("seam", Seam.UNCOUNTED).forGetter(Building::stoneSeam)
-    ).apply(i, (blueprint, origin, step, materialized, food, surveyed, footprint, facing, held,
-                census, damage, seeded, ripe, stand, growing, seam) -> {
-        Building building = new Building(blueprint, origin, step, materialized);
+            CONDITION.fieldOf("condition").forGetter(Condition::of),
+            LEDGERS.fieldOf("ledgers").forGetter(Ledgers::of)
+    ).apply(i, (blueprint, plot, step, materialized, surveyed, seeded, food, held,
+                condition, ledgers) -> {
+        Building building = new Building(blueprint, plot.origin(), step, materialized);
         building.setSeeded(seeded);
         building.setFoodStored(food);
         building.setSurveyed(surveyed);
-        building.setFootprint(footprint);
-        building.setFacing(facing);
-        building.setSoundCensus(census);
-        building.setDamage(damage);
-        building.setRipeHundredths(ripe);
-        building.setStandThousandths(stand);
-        building.setGrowingThousandths(growing);
-        building.setStoneSeam(seam);
+        building.setFootprint(plot.footprint());
+        building.setFacing(plot.facing());
+        building.setSoundCensus(condition.soundCensus());
+        building.setDamage(condition.damage());
+        building.setRipeHundredths(ledgers.ripeHundredths());
+        building.setStandThousandths(ledgers.stand());
+        building.setGrowingThousandths(ledgers.growing());
+        building.setStoneSeam(ledgers.seam());
         if (!held.isEmpty()) {
             building.stores().restore(held);
         }
@@ -507,119 +504,162 @@ public final class KingdomsCodecs {
     }));
 
     /**
-     * The four running totals, gathered so the settlement codec stays inside
-     * {@code group()}'s sixteen-field ceiling.
-     *
-     * <p>A {@link MapCodec} rather than a nested object on purpose: its fields are
-     * written flat into the settlement, so this costs one slot instead of four and
-     * every save written before it existed still reads.
+     * The terms a town exists under: whose people raised it, how far along it
+     * is, which of that people's arrangements it was laid out in, and the two
+     * flags that say it was written rather than built.
      */
-    /**
-     * The town ledger, plus the four flat fields it grew out of.
-     *
-     * <p>Written as a single {@code stores} map so a new resource never needs a
-     * codec change. The legacy keys are still read — a save written before the
-     * ledger existed carries its food, timber and stone across — and written back
-     * out as zero-defaulted duplicates only when the map is absent, which it never
-     * is once a world has been saved again.
-     */
-    private record Stores(Map<String, Integer> amounts, int food, int wood, int saplings,
-                          int stone, int treasury) {
-
-        TownStores toTownStores() {
-            TownStores out = new TownStores();
-            out.restore(amounts);
-            // Legacy fields fill in only what the map did not carry.
-            if (!amounts.containsKey(TownStores.FOOD)) {
-                out.set(TownStores.FOOD, food);
-            }
-            if (!amounts.containsKey(TownStores.WOOD)) {
-                out.set(TownStores.WOOD, wood);
-            }
-            if (!amounts.containsKey(TownStores.SAPLINGS)) {
-                out.set(TownStores.SAPLINGS, saplings);
-            }
-            if (!amounts.containsKey(TownStores.STONE)) {
-                out.set(TownStores.STONE, stone);
-            }
-            return out;
-        }
-
-        static Stores of(Settlement settlement) {
-            // The loose pile alone. The rest of the town's goods are saved by
-            // the buildings holding them, so writing the total here as well
-            // would restore every log twice.
-            return new Stores(settlement.loosePile().all(), 0, 0, 0, 0, settlement.treasury());
+    private record Charter(String culture, String stage, String layout,
+                           boolean drawnOnly, boolean seededRoadsOwed) {
+        static Charter of(Settlement s) {
+            return new Charter(s.cultureId(), s.stage().pretty(),
+                    // The id the settlement holds rather than the arrangement it
+                    // resolves to, the same way "culture" is. Layouts.of answers
+                    // an id it does not know with rings, so resolving on the way
+                    // out would quietly rewrite a datapack's arrangement -- or
+                    // one from a newer build of the mod -- into a village,
+                    // permanently and in the file.
+                    s.layoutId(),
+                    s.isDrawnOnly(), s.seededRoadsOwed());
         }
     }
 
-    private static final MapCodec<Stores> STORES = RecordCodecBuilder.mapCodec(i -> i.group(
-            Codec.unboundedMap(Codec.STRING, Codec.INT)
-                    .optionalFieldOf("stores", Map.of()).forGetter(Stores::amounts),
-            Codec.INT.optionalFieldOf("food", FoodPlanner.STARTING_PROVISIONS).forGetter(Stores::food),
-            Codec.INT.optionalFieldOf("wood", 0).forGetter(Stores::wood),
-            Codec.INT.optionalFieldOf("saplings", 0).forGetter(Stores::saplings),
-            Codec.INT.optionalFieldOf("stone", 0).forGetter(Stores::stone),
-            // Rides here rather than in the settlement group, which is already
-            // at the sixteen fields group() allows. Optional, so a save written
-            // before the town had money loads with an empty treasury and earns
-            // its first coin from the next thing it produces.
-            Codec.INT.optionalFieldOf("treasury", Settlement.FOUNDING_TREASURY)
-                    .forGetter(Stores::treasury)
-    ).apply(i, Stores::new));
+    private static final Codec<Charter> CHARTER = RecordCodecBuilder.create(i -> i.group(
+            Codec.STRING.optionalFieldOf("culture", Culture.DEFAULT.id()).forGetter(Charter::culture),
+            Codec.STRING.fieldOf("stage").forGetter(Charter::stage),
+            // Which of its people's arrangements this town was laid out in. A
+            // culture carries several now and picks between them by hashing the
+            // center, so the answer has to be written down rather than worked
+            // out again: a town that grew half its streets under one derivation
+            // and half under another would be neither shape. Required — saving
+            // is an asking, and a town always has an answer by the time it is
+            // written.
+            Codec.STRING.fieldOf("layout").forGetter(Charter::layout),
+            // A town drawn by /civ buildtest, which must stay a drawing across a
+            // save. Without this it reloaded as an ordinary settlement and began
+            // planning on top of the render -- quietly destroying the one thing
+            // the instrument exists to hold still.
+            Codec.BOOL.optionalFieldOf("drawn_only", false).forGetter(Charter::drawnOnly),
+            // A town world generation wrote down whose streets have not been
+            // walked out yet. It has to survive a save for the same reason the
+            // lumber camp's wood does: a town generated in one session and found
+            // in another is exactly the town that still owes them, and a flag
+            // that reset to false on load would strand its roads for good.
+            Codec.BOOL.fieldOf("seeded_roads_owed").forGetter(Charter::seededRoadsOwed)
+    ).apply(i, Charter::new));
 
-    // "buildings" is optional so saves written before it existed still load.
+    /**
+     * What the town owns and how well it has been eating.
+     *
+     * <p>{@code stores} is the loose pile alone — the rest of the town's goods
+     * are saved by the buildings holding them, so writing the total here as well
+     * would restore every log twice. One map rather than a field per resource, so
+     * that a new resource is a datapack change rather than a codec change.
+     */
+    private record Holdings(Map<String, Integer> goods, int treasury,
+                            Map<String, Integer> tallies, int fedStreak) {
+        static Holdings of(Settlement s) {
+            return new Holdings(s.loosePile().all(), s.treasury(), s.tallies().all(),
+                    s.fedStreak());
+        }
+    }
+
+    private static final Codec<Holdings> HOLDINGS = RecordCodecBuilder.create(i -> i.group(
+            Codec.unboundedMap(Codec.STRING, Codec.INT)
+                    .optionalFieldOf("stores", Map.of()).forGetter(Holdings::goods),
+            Codec.INT.fieldOf("treasury").forGetter(Holdings::treasury),
+            Codec.unboundedMap(Codec.STRING, Codec.INT)
+                    .optionalFieldOf("tallies", Map.of()).forGetter(Holdings::tallies),
+            Codec.INT.optionalFieldOf("fed_streak", 0).forGetter(Holdings::fedStreak)
+    ).apply(i, Holdings::new));
+
+    /**
+     * What stands between the town and whatever is outside it: how badly it is
+     * being pressed, whether its ring is closed, and the ring itself.
+     */
+    private record Defense(int threatLevel, boolean perimeterClosed,
+                           Optional<Perimeter> perimeter) {
+        static Defense of(Settlement s) {
+            return new Defense(s.threatLevel(), s.perimeterClosed(),
+                    Optional.ofNullable(s.perimeter()));
+        }
+    }
+
+    private static final Codec<Defense> DEFENSE = RecordCodecBuilder.create(i -> i.group(
+            Codec.INT.fieldOf("threat_level").forGetter(Defense::threatLevel),
+            Codec.BOOL.optionalFieldOf("perimeter_closed", false).forGetter(Defense::perimeterClosed),
+            // Absent means a town that has never staked a line, which is a real
+            // state and not a missing field.
+            PERIMETER.optionalFieldOf("perimeter").forGetter(Defense::perimeter)
+    ).apply(i, Defense::new));
+
+    /**
+     * Everything the town has built, is building, or works: the queue, the
+     * standing buildings, the plot cursor that says where the next one goes, the
+     * roads, and the two areas its outdoor trades are worked in.
+     */
+    private record Works(List<BuildTask> buildQueue, List<Building> buildings, int nextPlot,
+                         Optional<PathNetwork> paths, Optional<WorkArea> lumberArea,
+                         Optional<WorkArea> mineArea) {
+        static Works of(Settlement s) {
+            return new Works(s.buildQueue(), s.buildings(), s.nextPlotIndex(),
+                    s.paths().isEmpty() && s.paths().joined().isEmpty()
+                            ? Optional.empty() : Optional.of(s.paths()),
+                    Optional.ofNullable(s.lumberArea()),
+                    Optional.ofNullable(s.mineArea()));
+        }
+    }
+
+    private static final Codec<Works> WORKS = RecordCodecBuilder.create(i -> i.group(
+            BUILD_TASK.listOf().fieldOf("build_queue").forGetter(Works::buildQueue),
+            BUILDING.listOf().fieldOf("buildings").forGetter(Works::buildings),
+            // Where the next plot is taken from. Required: a cursor derived from
+            // the building count instead is a cursor that forgets every plot the
+            // town offered and refused.
+            Codec.INT.fieldOf("next_plot").forGetter(Works::nextPlot),
+            PATH_NETWORK.optionalFieldOf("paths").forGetter(Works::paths),
+            WORK_AREA.optionalFieldOf("lumber_area").forGetter(Works::lumberArea),
+            WORK_AREA.optionalFieldOf("mine_area").forGetter(Works::mineArea)
+    ).apply(i, Works::new));
+
     public static final Codec<Settlement> SETTLEMENT = RecordCodecBuilder.create(i -> i.group(
             SETTLEMENT_ID.fieldOf("id").forGetter(Settlement::id),
             Codec.STRING.fieldOf("name").forGetter(Settlement::name),
-            // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
-            SIM_POS.fieldOf("centre").forGetter(Settlement::center),
+            SIM_POS.fieldOf("center").forGetter(Settlement::center),
             Codec.INT.fieldOf("claim_radius").forGetter(Settlement::claimRadius),
-            Codec.INT.fieldOf("threat_level").forGetter(Settlement::threatLevel),
+            CHARTER.fieldOf("charter").forGetter(Charter::of),
             PERSON.listOf().fieldOf("residents").forGetter(s -> List.copyOf(s.residents())),
-            BUILD_TASK.listOf().fieldOf("build_queue").forGetter(Settlement::buildQueue),
-            BUILDING.listOf().optionalFieldOf("buildings", List.of()).forGetter(Settlement::buildings),
             HOUSEHOLD.listOf().optionalFieldOf("households", List.of()).forGetter(Settlement::households),
             SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events),
-            STORES.forGetter(Stores::of),
-            Codec.unboundedMap(Codec.STRING, Codec.INT)
-                    .optionalFieldOf("tallies", Map.of()).forGetter(s -> s.tallies().all()),
-            FLAVOR.forGetter(Flavor::of),
-            WORK_AREA.optionalFieldOf("lumber_area").forGetter(s -> Optional.ofNullable(s.lumberArea())),
-            WORK_AREA.optionalFieldOf("mine_area").forGetter(s -> Optional.ofNullable(s.mineArea())),
-            Codec.INT.optionalFieldOf("next_plot", -1).forGetter(Settlement::nextPlotIndex)
-    ).apply(i, (id, name, center, claimRadius, threatLevel, residents, buildQueue, buildings, households, events, stores, tallies, flavor, lumberArea, mineArea, nextPlot) -> {
+            HOLDINGS.fieldOf("holdings").forGetter(Holdings::of),
+            DEFENSE.fieldOf("defense").forGetter(Defense::of),
+            WORKS.fieldOf("works").forGetter(Works::of)
+    ).apply(i, (id, name, center, claimRadius, charter, residents, households, events,
+                holdings, defense, works) -> {
         Settlement settlement = new Settlement(id, name, center, claimRadius);
-        settlement.setThreatLevel(threatLevel);
-        settlement.loosePile().restore(stores.toTownStores().all());
-        settlement.setTreasury(stores.treasury());
-        settlement.tallies().restore(tallies);
-        settlement.setCultureId(flavor.culture());
-        // A save written before the layout was recorded takes the head of its
-        // people's list, which is the arrangement that people has always built
-        // in. Deriving one from the center instead would rearrange every town
-        // already standing in somebody's world, which is exactly what a new
-        // arrangement is not allowed to do.
-        settlement.setLayoutId(flavor.layout()
-                .orElseGet(() -> Culture.of(flavor.culture()).layouts().get(0)));
-        // Saves from before stages existed carry no stage; they load as TOWN,
-        // which is the behavior they were built under. Only fresh charters camp.
-        settlement.setStage(SettlementStage.parse(flavor.stage(), SettlementStage.TOWN));
-        settlement.setDrawnOnly(flavor.drawnOnly());
-        settlement.setSeededRoadsOwed(flavor.seededRoadsOwed());
-        settlement.setFedStreak(flavor.fedStreak());
-        settlement.setPerimeterClosed(flavor.perimeterClosed());
-        flavor.perimeter().ifPresent(settlement::setPerimeter);
-        flavor.paths().ifPresent(settlement::setPaths);
-        lumberArea.ifPresent(settlement::setLumberArea);
-        mineArea.ifPresent(settlement::setMineArea);
+        settlement.setThreatLevel(defense.threatLevel());
+        settlement.loosePile().restore(holdings.goods());
+        settlement.setTreasury(holdings.treasury());
+        settlement.tallies().restore(holdings.tallies());
+        settlement.setCultureId(charter.culture());
+        settlement.setLayoutId(charter.layout());
+        // An unknown stage name -- from a datapack, or a build of the mod that
+        // had one more -- reads as TOWN rather than refusing the whole world.
+        settlement.setStage(SettlementStage.parse(charter.stage(), SettlementStage.TOWN));
+        settlement.setDrawnOnly(charter.drawnOnly());
+        settlement.setSeededRoadsOwed(charter.seededRoadsOwed());
+        settlement.setFedStreak(holdings.fedStreak());
+        settlement.setPerimeterClosed(defense.perimeterClosed());
+        defense.perimeter().ifPresent(settlement::setPerimeter);
+        works.paths().ifPresent(settlement::setPaths);
+        works.lumberArea().ifPresent(settlement::setLumberArea);
+        works.mineArea().ifPresent(settlement::setMineArea);
         residents.forEach(settlement::addResident);
-        buildQueue.forEach(settlement::enqueueBuild);
-        buildings.forEach(settlement::addBuilding);
+        works.buildQueue().forEach(settlement::enqueueBuild);
+        works.buildings().forEach(settlement::addBuilding);
         households.forEach(settlement::addHousehold);
         events.forEach(e -> settlement.logEvent(e.step(), e.message()));
-        // Saves written before the cursor existed carry on from their building count.
-        settlement.setNextPlotIndex(nextPlot >= 0 ? nextPlot : buildings.size());
+        // After the buildings, because adding one can push the cursor past it.
+        settlement.setNextPlotIndex(works.nextPlot());
         return settlement;
     }));
 

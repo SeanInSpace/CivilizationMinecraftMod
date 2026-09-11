@@ -186,7 +186,7 @@ public final class Market {
         // The list is checked here and not only where the board is built,
         // because the board is not what a request is answered against. A
         // settlement's ledger takes any word at all: the smith stocks "weapons"
-        // and "armour", they have no base price, and a sell price of "at least
+        // and "armor", they have no base price, and a sell price of "at least
         // base plus one" and a reserve of "nothing" would have sold a town's
         // whole armory at a coin an ingot to anyone who could name it.
         if (!TRADED.contains(resource)) {

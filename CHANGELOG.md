@@ -6,6 +6,125 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The save file spells American, and no record is full up
+
+### Changed
+
+- **The last four British save keys are gone.** The spelling sweep converted 2042
+  hits across the tree and then had to stop at four, because a save key was a
+  migration and nobody was willing to pay for one: a settlement's `centre`, a work
+  area's `centre`, a site ledger entry's `centre`, and the store the smith fills,
+  which was written `armour` however the code spelled it. They are `center`,
+  `center`, `center` and `armor`. The stores panel and `/civ info` read **Armor**
+  now, which is the thing that was actually wrong with it.
+
+- **Records that had run out of room are split into sub-objects that say what they
+  are.** A settlement, a building and a build task had each grown to the sixteen
+  fields a codec group allows, and two of them had already been worked around —
+  a `flavor` map and a `stores` map that flattened their contents into the parent
+  to buy back slots. Both are gone. A settlement now writes a `charter` (whose
+  people, what stage, which arrangement), `holdings` (what it owns and how long it
+  has been fed), `defense` (the threat, the ring) and `works` (the queue, the
+  buildings, the roads, the claims). A building writes a `plot`, a `condition` and
+  a `ledgers` — its field's ripeness, its stand, its seam. A build task writes a
+  `site` and a `work`. Nothing lost a meaning and nothing is at the ceiling: the
+  fullest group is eleven of sixteen.
+
+- **A field that is always written is now always required.** Two dozen fields were
+  optional with a default, and about half of those defaults existed only so that a
+  world written before the field existed would open — a farm with no ripeness read
+  as an empty field, a camp with no stand read as an uncounted wood, a task with no
+  dig count silently rewound its whole cursor and laid every course again. Those
+  are required now and a record missing one is refused rather than guessed at; the
+  rewind is deleted. The defaults that stayed are the ones a fresh town honestly
+  starts at, and they still keep the field out of the file when it is unchanged.
+
+- **A test writes one crowded kingdom and reads back every key in it**, so the next
+  British spelling to reach a save key fails a build instead of being frozen into
+  the format for another year.
+
+### Notes
+
+**A world saved before this version will not load.** There is no migration and
+none is planned: every key that moved, moved because the only thing holding it
+was the promise not to move it. Start a new world.
+
+## Orcs carry their own steel
+
+### New
+
+- **An orc town is armed to the last miller.** Everybody in it walks around with
+  something in his fist all day — a cleaver or a hand axe for the farmers, the
+  haulers and the smith's wife, and one of four heavier things for the watch: a
+  greatsword, a falchion, an axe or a morningstar. Which one a given orc carries
+  is decided by who he is and never changes, so the one with the greatsword is
+  the one with the greatsword every time you come back. Lowland, highland, vale,
+  burgher and goblin towns are untouched.
+
+- **Five new weapons, forged twice each.** They are real items with real
+  durability, enchanting and repair — the forged axe is an iron axe exactly — and
+  they sit in the Kingdoms creative tab. The greatsword and the morningstar hit
+  hardest and swing slowest; the falchion is quick; the cleaver is a falchion and
+  a bit, paid for in speed. There is no recipe: the creative tab is the only way
+  a player gets one, and a killed orc drops nothing, the same as the lowland
+  watch's kit.
+
+- **The smithy is worth more to an orc town than to anybody else's.** Its weapons
+  rack upgrades a guard's crude weapon to the forged one of the same shape, once
+  and for keeps, and you can see which guards it has reached: crude is pitted
+  grey iron, forged is bright steel. Counting the orc's own body, an orc guard
+  hits for 7 a swing before the smithy and 9 after, against a human militiaman's
+  5 and 7.
+
+- **A greatsword takes both hands, and its bearer carries no bow.** He has no
+  answer to a creeper: he keeps his distance, gives ground when it closes and
+  waits for a comrade who can shoot. Half the watch is dealt a one-handed weapon
+  and keeps the bow, so the wall always has somebody who can.
+
+- **An orc who is attacked hits back.** Not only guards. He answers whatever just
+  struck him, if it is still within arm's reach, and nothing more than that — he
+  never goes looking for a fight, never chases, and still runs from creepers. He
+  hits for rather less than a trained guard, which is the point of having
+  trained guards. A settler carrying a load holds it in his other hand rather
+  than putting the weapon away.
+
+### Notes
+
+**The icons are placeholders.** Ten hand-drawn 16×16 silhouettes generated by a
+script that ships beside them, so they can be redrawn and regenerated. Anybody
+with better art can drop a 16×16 PNG over the one of the same name and nothing
+else in the mod needs touching.
+
+---
+
+## The wood the road went through, and a lamp that draws in three dimensions
+
+### Fixed
+
+- **A road no longer fells the forester's wood on its way past.** A lumber camp
+  has its stand planted out past the houses, because that is the only ground its
+  forester is allowed to replant on — and the town kept building afterwards, so
+  the lane run out to the last farm was laid straight through the belt and took
+  the trunks with it. The camp was left standing in a field it had been paid for.
+  Roads now hold off the stand the way they hold off anybody's plot, and a lane
+  with no way round waits for the network to spread rather than driving through.
+
+- **And where a way does pass under the wood, only the branches come off.** The
+  litter on the stones and the boughs over the carriageway are still cleared, so
+  a road through a wood reads as a road through a wood; the trunks themselves are
+  left standing. A road under a bough is fine. A road through a trunk was never
+  a road, it was a felling.
+
+### Changed
+
+- **The surveyor's lamp draws buildings as boxes.** A plot used to be four lines
+  on the grass, which tells you where a building's ground is and nothing about
+  the building — so from the hill you carry the lamp up to, a cottage, a tower
+  and the town hall all looked alike. Every plot is now the twelve edges of the
+  room it occupies, floor course to roof, with the door tick still on the bottom
+  edge where the door is. A queued building shows the volume it has claimed, at a
+  single storey's height until it is raised and measured.
+
 ## The four human towns open, and orcs get a body of their own
 
 ### New
@@ -67,6 +186,8 @@ there is an orc town worth walking into.
 counts for the same 2 in the raid arithmetic, because the number a town recruits
 by and the number it dies by have to stay the same number. Weighting one without
 the other is how a town comes to recruit by a figure it does not fight by.
+
+---
 
 ## A world starts beside a town, and says where the others are
 

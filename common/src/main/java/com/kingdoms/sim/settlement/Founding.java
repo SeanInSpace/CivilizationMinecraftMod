@@ -611,7 +611,7 @@ public final class Founding {
      *       charter kit here too, for the same reason.</li>
      *   <li><strong>Iron</strong> — nothing at all unless a smithy stands, and
      *       a smithy's own bar or two if one does.</li>
-     *   <li><strong>Tools, weapons, armour</strong> — nothing, ever. Those are
+     *   <li><strong>Tools, weapons, armor</strong> — nothing, ever. Those are
      *       made at a forge out of iron somebody mined, and a town that has not
      *       made them does not have them.</li>
      * </ul>

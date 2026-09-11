@@ -46,6 +46,12 @@ import java.util.List;
  *       the plot — see {@link Footprint#inClearanceBand} — and logs only. The
  *       crown left behind decays on vanilla's own leaf-distance rule, which is
  *       what happens to any tree anybody cuts down.</li>
+ *   <li><strong>The forester's trees are nobody else's.</strong> A trunk rooted
+ *       in a lumber camp's belt is left standing whatever is being built or laid
+ *       over it — see {@link Spared}. Both the plot rules and the paving rule ask
+ *       it, and for the same reason: those trunks are the stand the camp was
+ *       planted to work, and a town that fells them has paid itself out of its
+ *       own woodshed.</li>
  * </ul>
  *
  * <p><strong>Why the world is behind a seam.</strong> Block tags are bound when
@@ -241,6 +247,27 @@ public final class Overgrowth {
         if (towns.isEmpty()) {
             return NOTHING_SPARED;
         }
+        return beltOf(towns);
+    }
+
+    /**
+     * The belt of one town, which is the answer where the town is already known.
+     *
+     * <p>{@link #woodlandAround} has to find the town from a position, and it
+     * finds it by asking which claims contain the point — which is the right
+     * question for a building, standing inside the village by definition, and
+     * the wrong one for a road. The belt a road runs through lies <em>outside</em>
+     * the claim, so a lane paved out there matched no town at all and spared
+     * nothing. Paving already knows whose road it is laying, so it says.
+     */
+    public static Spared woodlandOf(Settlement town) {
+        if (town == null || town.lumberArea() == null) {
+            return NOTHING_SPARED;
+        }
+        return beltOf(List.of(town));
+    }
+
+    private static Spared beltOf(List<Settlement> towns) {
         return (x, z) -> {
             for (Settlement town : towns) {
                 WorkArea stand = town.lumberArea();
@@ -373,9 +400,23 @@ public final class Overgrowth {
      * <p>This is asked of the paved cells only. The verge — the cells either
      * side of the carriageway — is never handed here, which is the whole of what
      * makes a laid road read as a road through a meadow.
+     *
+     * <p><strong>Except the forester's trunks, which no road fells.</strong>
+     * {@link #overPlot} has always asked {@code spared} before taking a tree off
+     * a wall and this never asked at all, so a lane routed through the belt came
+     * out having cut down the stand the camp was planted to work. What is spared
+     * is the wood and only the wood: the litter on the stones and the branches
+     * over the carriageway still come off, because a road under a bough is a road
+     * through a wood and reads as one. A trunk standing in the middle of the
+     * carriageway is not something to clear round — it means the road should
+     * never have been routed there, which is {@code PathPlanner}'s job and is now
+     * its rule.
      */
-    public static List<BlockPos> overPaving(Sky sky, BlockPos surface) {
+    public static List<BlockPos> overPaving(Sky sky, BlockPos surface, Spared spared) {
         List<BlockPos> cleared = new ArrayList<>();
+        // A trunk is a column, so the column being paved is the column it is
+        // rooted in: no separate search for a stump is needed or wanted.
+        boolean theForesters = spared.covers(surface.getX(), surface.getZ());
         int top = Math.min(sky.topOf(surface.getX(), surface.getZ()),
                 surface.getY() + TRUNK_COLUMN);
         for (int y = surface.getY() + 1; y <= top; y++) {
@@ -385,6 +426,9 @@ public final class Overgrowth {
             }
             if (cover == Cover.KEEP) {
                 return cleared;   // somebody's floor: the road goes under it
+            }
+            if (cover == Cover.LOG && theForesters) {
+                continue;   // the camp's tree; the road may pass, not fell
             }
             cleared.add(new BlockPos(surface.getX(), y, surface.getZ()));
         }

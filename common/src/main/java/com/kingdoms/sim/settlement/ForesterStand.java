@@ -162,6 +162,22 @@ public final class ForesterStand {
      * its dozen.
      */
     public static List<SimPos> candidates(Settlement town, WorkArea area) {
+        return freeOf(town, grid(town, area), Integer.MAX_VALUE);
+    }
+
+    /**
+     * Every square of the camp's grid a tree could stand on, nearest first, on
+     * the geometry alone.
+     *
+     * <p>Split out from {@link #candidates} so the two questions can be asked at
+     * two prices. This half is arithmetic and costs nothing; the other half asks
+     * the settlement whether each square is somebody's plot, road or wall, which
+     * walks every building and every stretch of way in the town. A claim widened
+     * round a long-armed city holds thousands of squares and only the nearest
+     * dozen are ever planted, so the dear question is worth asking in order and
+     * stopping — see {@link #stand}.
+     */
+    private static List<SimPos> grid(Settlement town, WorkArea area) {
         SimPos camp = area.center();
         int radius = area.radius();
         int claim = town.claimRadius();
@@ -178,14 +194,63 @@ public final class ForesterStand {
                 if (spot.horizontalDistanceSq(town.center()) <= (long) claim * claim) {
                     continue;   // the village; a tree here is in somebody's way
                 }
-                if (!town.isPlotFree(spot, SPACING, null)) {
-                    continue;   // a plot, a road, or the wall
-                }
                 spots.add(spot);
             }
         }
         spots.sort(Comparator.comparingLong(spot -> spot.horizontalDistanceSq(camp)));
         return spots;
+    }
+
+    /**
+     * The squares of that grid the town has not already spoken for, at most
+     * {@code wanted} of them.
+     *
+     * <p>Sorting before the filter rather than after it, which is the same list:
+     * the sort is stable and keyed on distance alone, so dropping squares from
+     * an ordered list and ordering what is left of an unfiltered one come to the
+     * same order. What it buys is the stopping — a caller that wants a dozen
+     * asks the expensive question a dozen-odd times instead of four thousand.
+     */
+    private static List<SimPos> freeOf(Settlement town, List<SimPos> grid, int wanted) {
+        List<SimPos> free = new ArrayList<>();
+        for (SimPos spot : grid) {
+            if (free.size() >= wanted) {
+                break;
+            }
+            if (town.isPlotFree(spot, SPACING, null)) {
+                free.add(spot);   // not a plot, not a road, not the wall
+            }
+        }
+        return free;
+    }
+
+    /**
+     * Where this town's stand actually stands, worked out rather than stored.
+     *
+     * <p>The camp keeps a count of its trees and never kept their squares, and it
+     * does not have to: the stand is the nearest {@link #TREES_WANTED} squares of
+     * the camp's own grid that the town has not spoken for, which is a function
+     * of the camp, the claim and what is standing — all three of which the
+     * settlement already knows. A list on the building would be one more thing to
+     * write, to load, and to get out of step with the ground.
+     *
+     * <p>What it is for is the roads. A town goes on building after its stand is
+     * planted, and a lane run out to the last farm on the edge of the claim used
+     * to be laid straight through the belt, felling the very trunks the camp
+     * exists to cut — see {@code PathPlanner}, which holds a road off these
+     * squares exactly as it holds one off a plot.
+     *
+     * <p>Empty for a town with no lumber camp, and empty before the camp has a
+     * woodland claim to work. It stays answerable afterwards whether the stand was
+     * seeded or grew: the squares are where a stand goes either way, and keeping a
+     * road off a dozen squares of a forester's belt costs the network nothing.
+     */
+    public static List<SimPos> stand(Settlement town) {
+        WorkArea wood = town.lumberArea();
+        if (wood == null || town.buildingWithRole(BuildingRole.LUMBER_CAMP) == null) {
+            return List.of();
+        }
+        return freeOf(town, grid(town, wood), TREES_WANTED);
     }
 
     /**

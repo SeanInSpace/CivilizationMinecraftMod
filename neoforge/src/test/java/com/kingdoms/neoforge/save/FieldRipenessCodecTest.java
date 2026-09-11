@@ -60,17 +60,25 @@ class FieldRipenessCodecTest {
     }
 
     @Test
-    void asaveFromBeforeFieldsWereCountedStillLoads() {
-        // Every world written until now. A farm in one of them comes back with
-        // an empty field and grows one, which is the honest answer: nothing was
-        // recorded, so nothing is claimed.
+    void aFarmWithNoRipenessWrittenIsNotASettlementAtAll() {
+        // The ledger is required, not defaulted. It used to fall back to zero so
+        // that a save from before fields were counted would open, and with save
+        // compatibility gone that fallback only served to turn a corrupt or
+        // truncated record into a town with a silently emptied harvest. Refusing
+        // the parse says so where it can still be seen.
         JsonObject written = encode(townWithAFarm(1750)).getAsJsonObject();
-        JsonObject farm = written.getAsJsonArray("buildings").get(0).getAsJsonObject();
-        assertTrue(farm.has("ripe"), "the ledger is not being written at all");
-        farm.remove("ripe");
+        JsonObject ledgers = ledgersOf(written);
+        assertTrue(ledgers.has("ripe"), "the ledger is not being written at all");
+        ledgers.remove("ripe");
 
-        assertEquals(0, decode(written).buildings().getFirst().ripeHundredths(),
-                "an old save came back claiming a harvest it never had");
+        assertTrue(KingdomsCodecs.SETTLEMENT.parse(JsonOps.INSTANCE, written).result().isEmpty(),
+                "a record with no harvest written came back as a town with none");
+    }
+
+    /** The farm's ledgers, at {@code works.buildings[0].ledgers}. */
+    private static JsonObject ledgersOf(JsonObject town) {
+        return town.getAsJsonObject("works").getAsJsonArray("buildings")
+                .get(0).getAsJsonObject().getAsJsonObject("ledgers");
     }
 
     private static JsonElement encode(Settlement town) {

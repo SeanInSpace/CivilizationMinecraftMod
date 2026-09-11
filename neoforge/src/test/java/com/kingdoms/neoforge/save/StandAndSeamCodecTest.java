@@ -74,22 +74,46 @@ class StandAndSeamCodecTest {
     }
 
     @Test
-    void aSaveFromBeforeAnyOfThisStillLoadsAsUncounted() {
+    void anUncountedClaimIsWrittenAsUncountedRatherThanLeftOut() {
+        // The sentinel is what has to travel, and it travels as a number like
+        // any other. A camp nobody has looked at writes UNCOUNTED into the file;
+        // it does not write nothing and hope the reader guesses.
+        Settlement fresh = new Settlement(
+                Settlement.Id.random(), "Newstead", new SimPos(0, 64, 0), 128);
+        fresh.addBuilding(new Building("kingdoms:lumber_camp", new SimPos(20, 64, 0), 3, true));
+
+        JsonObject camp = ledgersOf(encode(fresh).getAsJsonObject(), 0);
+        assertEquals(Stand.UNCOUNTED, camp.get("stand").getAsInt(),
+                "a camp nobody has counted was written as a wood felled bare");
+
+        Building back = decode(encode(fresh)).buildings().getFirst();
+        assertTrue(!Stand.isCounted(back),
+                "a camp wakes up not knowing what it stands in, and finds out"
+                        + " the day somebody loads its ground");
+    }
+
+    @Test
+    void aBuildingWithNoLedgersWrittenIsRefusedRatherThanGuessedAt() {
+        // These were optional so that a save from before anything was counted
+        // would open with the sentinels. Nothing writes such a save any more, so
+        // an absent ledger is a damaged record rather than an old one — and the
+        // two possible guesses, "uncounted" and "cut out", are far enough apart
+        // that guessing is the wrong thing to do with it.
         JsonObject written = encode(townWithTrades(31_500, 6_000, 900)).getAsJsonObject();
-        JsonObject camp = written.getAsJsonArray("buildings").get(0).getAsJsonObject();
-        JsonObject mine = written.getAsJsonArray("buildings").get(1).getAsJsonObject();
+        JsonObject camp = ledgersOf(written, 0);
+        JsonObject mine = ledgersOf(written, 1);
         assertTrue(camp.has("stand") && camp.has("growing") && mine.has("seam"),
                 "the ledgers are not being written at all");
         camp.remove("stand");
-        camp.remove("growing");
-        mine.remove("seam");
 
-        Settlement back = decode(written);
-        assertTrue(!Stand.isCounted(back.buildings().getFirst()),
-                "an old camp wakes up not knowing what it stands in, and finds"
-                        + " out the day somebody loads its ground");
-        assertTrue(!Seam.isCounted(back.buildings().get(1)),
-                "and an old mine wakes up unsurveyed rather than spent");
+        assertTrue(KingdomsCodecs.SETTLEMENT.parse(JsonOps.INSTANCE, written).result().isEmpty(),
+                "a camp with no stand written came back as some stand or other");
+    }
+
+    /** One building's ledgers, at {@code works.buildings[n].ledgers}. */
+    private static JsonObject ledgersOf(JsonObject town, int building) {
+        return town.getAsJsonObject("works").getAsJsonArray("buildings")
+                .get(building).getAsJsonObject().getAsJsonObject("ledgers");
     }
 
     private static JsonElement encode(Settlement town) {

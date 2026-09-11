@@ -192,7 +192,7 @@ the off hand, where it can be seen.
 
 What the **smithy** buys is the upgrade. The first iron sword on the weapons rack
 replaces a guard's wooden one — one debit from `WEAPONS`, once — and stays with
-him. Armor works as it always has: one iron chestplate off the `ARMOUR` rack when
+him. Armor works as it always has: one iron chestplate off the `ARMOR` rack when
 one is available.
 
 | In the main hand | Damage a swing |
@@ -212,11 +212,92 @@ the price. See the race table in [PLAYING.md](PLAYING.md).
 vanish with the job; the iron sword returns to the rack, because the town paid a
 smith to make it. The same happens when a body is released — the player walked out
 of sight — so the weapon count does not leak every time a town is left alone.
+(An orc keeps something: he goes back to the cleaver or hand axe he owns. See
+[The orc kit](#the-orc-kit).)
 
 **Arrows are infinite.** There is no arrow store, no fletcher, and nothing to
 haul. A quiver would mean a fourth item on the ledger for the smith to make, the
 haulers to carry and the player to run out of mid-raid, to answer a question
 nobody was asking.
+
+## The orc kit
+
+**An orc town arms everybody.** Not only the watch — a farmer, a hauler, the
+miller: everyone walks around with something in his fist, all day, for as long as
+he lives there. It is his own, the town never bought it, and the rack never sees
+it back. Which weapon is decided once by who he is and never re-rolled, so the
+big one at the gate is the big one at the gate every time you come back.
+
+Five weapons, each forged twice — a **crude** one the camp beats out cold, and a
+**forged** one off the smithy's rack. The smithy upgrade swaps the crude one for
+the forged one of the same shape; nobody is ever handed somebody else's weapon.
+
+| Weapon | Who carries it | Damage (player, crude / forged) | Swings a second | Hands |
+|---|---|---|---|---|
+| greatsword | watch | 9 / 10 | 0.8 | **two** |
+| falchion | watch | 5 / 6 | 1.8 | one |
+| axe | watch and everybody else | 8 / 9 | 0.9 | one |
+| morningstar | watch | 10 / 11 | 0.6 | **two** |
+| cleaver | everybody else | 6 / 7 | 1.6 | one |
+
+Those are the figures a **player** sees on the tooltip, because these are real
+items built the way vanilla builds its own: same cooldown sweep, same enchanting,
+same repair, same durability bar. The forged axe is an iron axe, exactly.
+
+What a **settler** does with one is a much flatter table. A guard's swing is base,
+then the body, then what is in his hand — an orc's body is worth +1, so on the
+same base of 4:
+
+| Guard, in the main hand | Damage a swing |
+|---|---|
+| human, bare hands | 4 |
+| human, wooden sword (the watch's own) | 5 |
+| human, iron sword (off the rack) | 7 |
+| **orc, any crude weapon** | **7** |
+| **orc, any forged weapon** | **9** |
+
+Every orc weapon is worth the same as every other at the same tier, deliberately.
+A guard must not be quietly handicapped by which of five weapons the deal gave
+him — two guards of the same town with the same smithy behind them doing
+different damage for no reason either of them chose is a cosmetic roll with a
+hidden cost.
+
+**The two-handers carry no bow.** A greatsword or a morningstar takes both fists,
+so its bearer has an empty off hand and no answer to a creeper: he keeps the
+band, gives ground when it closes, and waits for somebody who can shoot. That is
+a stand-off rather than a kill, and it is the price of the big weapon. The watch
+is dealt from four weapons, two of which leave a hand, so half the wall can still
+shoot — and the arithmetic that guarantees at least one of them can has a test on
+it.
+
+**Everybody else fights back.** An armed settler who is not of the watch answers
+the thing that just hit him, and the rule is three refusals: he does not go
+looking (his target is whatever last struck him, never the nearest hostile), he
+does not chase (nothing here ever touches his feet — he swings on his way to the
+door, and past 4 blocks the quarrel is over), and he does not stand up to a
+creeper (anything that explodes is left to the flight goal exactly as before). He
+hits for **2, plus the body, plus his weapon** — 5 with a crude cleaver, the same
+three terms in the same order as a guard's swing — which is below a guard's on
+purpose, and below it by the two bases and nothing else. A farmer who swings as
+hard as the watch is a town with no reason to post one. A player who hits a
+settler is not answered at all; only mobs are.
+
+**A load rides in the off hand.** An orc carrying grain to the storehouse keeps
+the weapon in his fist and the sack in the other hand. The alternative — hiding
+the weapon while carrying — was rejected because a town of orcs spends most of
+the day hauling something, so the weapon would be the thing nobody ever saw.
+A block is different: somebody with a wall block in his fist is working, and the
+weapon waits until he puts the job down.
+
+**Nothing drops.** Same as the lowland kit: a killed orc does not carpet the
+square with weapons the player can pick up and the town cannot. They are not
+craftable either — the five and their forged twins are in the creative tab and
+that is the only way a player gets one.
+
+**The art is placeholder.** Every icon is a 16×16 silhouette laid out by hand in
+`neoforge/tools/orc_weapon_art.py` and written straight out as a PNG. They are
+meant to be replaced file for file — drop a real 16×16 (a Blockbench export, say)
+over the PNG of the same name and nothing else has to change.
 
 ## The two stances
 

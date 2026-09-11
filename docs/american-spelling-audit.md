@@ -7,9 +7,16 @@ can rewrite blind and which are names and keys that need a real rename or a save
 
 Audited at commit `b688247` on branch `worktree-agent-a816151d692cfe68c`.
 
-> **Status: the conversion has been done.** Categories A and B — prose and free-text
-> strings — are converted; category C, the identifiers and keys, follows in the next
-> commit. Everything below this line is the audit as it was written, describing the tree
+> **Status: the conversion has been done, and is now complete.** Categories A and B
+> — prose and free-text strings — were converted first; category C, the identifiers
+> and keys, followed in the next commit, all but four save keys that a codec
+> migration stood in the way of. Save compatibility was later waived and those four
+> moved too, so no name this project chose is British any more. What is left is
+> vocabulary, Mojang's own names, this document — and whatever prose has drifted
+> back in since, which is free text and can be rewritten blind the way category A
+> always could.
+>
+> Everything below this line is the audit as it was written, describing the tree
 > before any of it moved: read the tables as the worklist that was worked, not as the
 > state of the tree. What was deliberately left British, and why, is in **Converted** at
 > the end. The counts below are also one commit stale — the tree grew between the audit
@@ -979,7 +986,11 @@ document, as the audit has always excluded itself — returns **83 hits across 1
 forms**. Thirteen of those are the CHANGELOG entry for this change, which has to
 name `centre`, `BuildCatalogue`, `KERB`, `laboursAs`, `carriageway`, `tarmac`,
 `metalled` and `"armour"` in order to say what moved and what did not. Subtract
-them and the residue proper is **70 hits across 10 forms**, every one deliberate:
+them and the residue proper was **70 hits across 10 forms**, every one deliberate
+at the time. Two of those forms — `centre` and `armour`, the six hits that were the
+four save keys and the comments describing them — have since been converted; see
+*The save keys, converted* below. The residue now stands at **64 hits across 8
+forms**, and none of them is a name this project chose:
 
 (Counting this document too returns 796, because its appendix names all 265
 British forms on purpose. That is why the sweep skips it, and why its body was
@@ -992,8 +1003,8 @@ being able to find anything.)
 | `tyre` | 5 | False positive: `EntityRenderersEvent`, `EntityRendererProvider`, `registerEntityRenderer` — vanilla names, "Enti**tyRe**ndere…". |
 | `behaviour` | 4 | `BlockBehaviour` — `net.minecraft.world.level.block.state.BlockBehaviour`. Mojang's name, not ours. |
 | `programme` | 4 | `programmer` in `LICENSE:664` (verbatim GPL text) and `programmed` ×3 in `Settlement.java:2200-2202`, which is already American — the audit's `programme(s\|d\|r\|rs)?` pattern over-caught it. |
-| `armour` | 3 | The frozen save value in `TownStores.java`, the comment in `Market.java:189` that quotes it, and the `{@code armour}` in `MarketTest.java:420` that names it. All three describe the key, so all three keep its spelling. |
-| `centre` | 3 | The three frozen save keys: `fieldOf("centre")` ×2 in `KingdomsCodecs.java` and `optionalFieldOf("centre")` in `SiteLedger.java`. |
+| `armour` | 0 | **Converted.** Was the frozen save value in `TownStores.java` plus the two comments quoting it. See *The save keys, converted* below. |
+| `centre` | 0 | **Converted.** Was the three frozen save keys. See *The save keys, converted* below. |
 | `tarmac` | 2 | Vocabulary. |
 | `offence` | 1 | False positive: `aPostIsTwoCoursesO**fFence**OnItsFooting`. |
 | `cosy` | 1 | False positive: `e**cosy**stem`. |
@@ -1002,13 +1013,40 @@ being able to find anything.)
 `timber` was checked and is not a British spelling at all — it is the same word in
 both dialects and appears nowhere in the pattern list.
 
-The four save keys stayed exactly as written, and each now carries a one-line comment
-beside it saying it is a save key spelled as first written and that changing it is a
-codec migration rather than a spelling. **The Java names around them all moved**:
-`Settlement.centre()` is `center()`, `WorkArea::centre` is `WorkArea::center`,
-`SiteLedger.Entry::centre` is `Entry::center`, and `TownStores.ARMOUR` is
-`TownStores.ARMOR` with its value still `"armour"`.
+### The save keys, converted
 
-One player-visible string still reads British and is meant to: the stores panel shows
-**Armour**, because `Tallies.pretty` capitalizes the store key rather than holding a
-word of its own. It will read `Armor` the day the key migrates, and not before.
+The four save keys were held back at the time of the sweep and are converted now.
+**The Java names around them had already moved** in the sweep itself:
+`Settlement.centre()` became `center()`, `WorkArea::centre` became
+`WorkArea::center`, `SiteLedger.Entry::centre` became `Entry::center`, and
+`TownStores.ARMOUR` became `TownStores.ARMOR` with its value still `"armour"`.
+Only the four strings were left, each carrying a comment saying it was a save key
+spelled as first written and that changing it was a codec migration rather than a
+spelling.
+
+Save compatibility was subsequently waived outright, which removed the only thing
+holding them. All four moved in the codec-restructuring commit:
+
+| Was | Is | Where |
+| --- | --- | --- |
+| `fieldOf("centre")` | `fieldOf("center")` | `KingdomsCodecs.SETTLEMENT` |
+| `fieldOf("centre")` | `fieldOf("center")` | `KingdomsCodecs.WORK_AREA` |
+| `optionalFieldOf("centre")` | `optionalFieldOf("center")` | `SiteLedger.Entry.CODEC` |
+| `ARMOR = "armour"` | `ARMOR = "armor"` | `TownStores` |
+
+The three comments that quoted the old spelling in order to describe the key
+(`Market.java`, `MarketTest.java`, and the audit rows above) moved with it, and the
+four "this is a save key, do not rename" comments are deleted. There is no
+migration: a world saved before that commit does not load, which is stated in the
+CHANGELOG entry and in the class javadoc of `KingdomsCodecs`.
+
+`SaveKeySpellingTest` now writes one deliberately crowded kingdom, walks the
+encoded JSON and asserts that no field name anywhere in it — map keys included, so
+the store ids are covered — contains any of the British forms in the appendix. A
+future key cannot be frozen into the format the way these four were without
+failing a build first.
+
+One player-visible string moved with the key: the stores panel reads **Armor**,
+because `Tallies.pretty` capitalizes the store id rather than holding a word of its
+own. That was always the plan — "it will read `Armor` the day the key migrates" —
+and the day came.

@@ -322,7 +322,7 @@ times as many towns for the same ground. Two things pay for it:
 - **Towns grow into each other.** The margin that keeps neighbours apart is a
   fraction of the region, so halving the region halves the minimum separation:
   320 blocks becomes 160. A grown town here is 150 to 300 blocks across. Two
-  centres 160 apart means two towns building on the same ground, with each
+  centers 160 apart means two towns building on the same ground, with each
   other's claims, fields and roads arguing over it — and neither town knows the
   other exists until both are standing.
 - **Every town costs tick budget.** A raised town is a simulation step, a
@@ -443,7 +443,7 @@ plausibly be holding, and nothing else:
 - one harvest sitting in each standing field, and a granary a quarter full
 - one building's worth of timber and stone per lumber camp and mine — enough
   to mend a wall, not to raise the next thing on its list
-- no iron unless a smithy stands, and never any tools, weapons or armour: those
+- no iron unless a smithy stands, and never any tools, weapons or armor: those
   are forged out of iron somebody mined
 
 A town with no field, no granary and no camp of its own keeps a charter party's

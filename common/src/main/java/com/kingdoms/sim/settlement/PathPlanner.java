@@ -163,8 +163,35 @@ public final class PathPlanner {
         return false;
     }
 
+    /**
+     * The forester's stand, worked out at most once a pass and only if asked.
+     *
+     * <p>{@code ForesterStand.stand} walks the camp's grid and asks the town
+     * about each square it reaches, which is not a question to put at every
+     * step of a search — and most passes through here lay no road at all. So the
+     * answer is fetched the first time something actually needs it and held for
+     * the rest of the pass, which is exactly as long as it can be trusted: the
+     * squares move when the town builds.
+     */
+    private static final class StandGround {
+
+        private final Settlement town;
+        private List<SimPos> spots;
+
+        private StandGround(Settlement town) {
+            this.town = town;
+        }
+
+        private List<SimPos> spots() {
+            if (spots == null) {
+                spots = ForesterStand.stand(town);
+            }
+            return spots;
+        }
+    }
+
     static void layPlannedStreets(Settlement settlement, PathNetwork network,
-                                  SimContext ctx) {
+                                  SimContext ctx, StandGround stand) {
         if (!Layouts.isStreetsFirst(settlement.arrangement())) {
             return;
         }
@@ -180,7 +207,7 @@ public final class PathPlanner {
         SimPos center = settlement.center();
         TownPlan plan = settlement.arrangement().planFor(center, 1);
         com.kingdoms.sim.geom.TerrainSense ground = groundUnder(ctx);
-        RoadRouter.Keepout held = heldGround(settlement, plan);
+        RoadRouter.Keepout held = heldGround(settlement, plan, stand.spots());
 
         for (int i = 0; i < plan.streets().size(); i++) {
             TownPlan.Street street = plan.streets().get(i);
@@ -289,7 +316,20 @@ public final class PathPlanner {
     /** Half the widest carriageway a plan draws, which the keepout must clear. */
     private static final int WIDEST_ROAD_HALF = 4;
 
-    private static RoadRouter.Keepout heldGround(Settlement settlement, TownPlan plan) {
+    /**
+     * How wide a tree of the stand is held to be: one column, its trunk.
+     *
+     * <p>Not its crown. A road under a bough is a road through a wood and reads
+     * as one; a road through a trunk is a felled tree, and it is the trunk the
+     * camp is counting. Measuring the keepout at the crown instead would fence
+     * off the whole belt — the stand is planted five blocks apart and a canopy is
+     * about that wide, so every square out there would be within reach of one and
+     * no lane could leave the village at all.
+     */
+    private static final int TRUNK_SPAN = 1;
+
+    private static RoadRouter.Keepout heldGround(Settlement settlement, TownPlan plan,
+                                                 List<SimPos> stand) {
         // Marked onto the router's own lattice once, rather than asked building
         // by building at every step of the search. A corridor is examined
         // thousands of times and a town has hundreds of claims; a set lookup is
@@ -317,6 +357,13 @@ public final class PathPlanner {
         // can be kept off all of them from the start.
         for (TownPlan.Plot plot : plan.plots()) {
             claim(blocked, plot.at(), keepoutRound(plot.span()));
+        }
+        // And the forester's stand, which is ground the town has spoken for as
+        // surely as any plot. The trees were planted out past the houses because
+        // that is the only ground a lumberjack will replant on, and a street
+        // routed through the belt afterwards came out having felled them.
+        for (SimPos trunk : stand) {
+            claim(blocked, trunk, keepoutRound(TRUNK_SPAN));
         }
         return (x, z) -> blocked.contains(cell(x, z));
     }
@@ -364,9 +411,10 @@ public final class PathPlanner {
         Building hubBuilding = hubBuilding(settlement);
         SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.center();
         PathNetwork network = settlement.paths();
+        StandGround stand = new StandGround(settlement);
 
         // The streets come first, which is the whole point of planning them.
-        layPlannedStreets(settlement, network, ctx);
+        layPlannedStreets(settlement, network, ctx, stand);
 
         for (Building building : settlement.buildings()) {
             if (!building.footprint().isKnown()) {
@@ -384,12 +432,12 @@ public final class PathPlanner {
                 // nearest road and its town hall fourteen, which is a town whose
                 // two most important doors open onto a field.
                 if (!network.isEmpty()) {
-                    join(settlement, network, building, hub);
+                    join(settlement, network, building, hub, stand);
                 }
                 network.markJoined(building.origin());
                 return;
             }
-            if (join(settlement, network, building, hub)) {
+            if (join(settlement, network, building, hub, stand)) {
                 network.markJoined(building.origin());
                 return;   // one road a step: a town lays its network as it grows
             }
@@ -455,10 +503,11 @@ public final class PathPlanner {
         // as long as the town stands. The segments are left where they are; a
         // road planned twice is the same two runs, and the network drops a
         // repeat.
+        StandGround stand = new StandGround(settlement);
         for (Building building : settlement.buildings()) {
             network.forget(building.origin());
         }
-        layPlannedStreets(settlement, network, ctx);
+        layPlannedStreets(settlement, network, ctx, stand);
 
         Building hubBuilding = hubBuilding(settlement);
         SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.center();
@@ -472,7 +521,7 @@ public final class PathPlanner {
                         || network.hasJoined(building.origin())) {
                     continue;
                 }
-                if (join(settlement, network, building, hub)) {
+                if (join(settlement, network, building, hub, stand)) {
                     network.markJoined(building.origin());
                     joinedAny = true;
                 }
@@ -483,7 +532,7 @@ public final class PathPlanner {
         // a town whose most important door opens onto a field.
         if (hubBuilding != null && !network.hasJoined(hubBuilding.origin())) {
             if (!network.isEmpty()) {
-                join(settlement, network, hubBuilding, hub);
+                join(settlement, network, hubBuilding, hub, stand);
             }
             network.markJoined(hubBuilding.origin());
         }
@@ -563,7 +612,7 @@ public final class PathPlanner {
      *         any road that does not go through somebody's house
      */
     private static boolean join(Settlement settlement, PathNetwork network,
-                                Building building, SimPos hub) {
+                                Building building, SimPos hub, StandGround stand) {
         SimPos door = building.doorstep();
         if (door.equals(hub)) {
             SimPos onNetwork = network.nearestPoint(door);
@@ -573,7 +622,7 @@ public final class PathPlanner {
             hub = onNetwork;   // the hub joins the streets, not itself
         }
 
-        Walls walls = wallsOf(settlement, building);
+        Walls walls = wallsOf(settlement, building, stand.spots());
 
         // The nearest existing road wins unless the hub itself is closer, which
         // it only is for the first few buildings — after that the network is
@@ -851,8 +900,17 @@ public final class PathPlanner {
     private static final int LANE_PAVE_HALF =
             new PathNetwork.Segment(new SimPos(0, 0, 0), new SimPos(1, 0, 0)).paveHalf();
 
-    private static Walls wallsOf(Settlement settlement, Building joining) {
+    private static Walls wallsOf(Settlement settlement, Building joining,
+                                 List<SimPos> stand) {
         Walls walls = new Walls();
+        // A trunk of the forester's stand, held off exactly as a wall is: the
+        // lane may pass under its branches and may not gravel the column it
+        // grows out of. A lane is the case the street keepout never covered —
+        // the streets are drawn from a plan and stop at the village edge, and
+        // what actually runs out into the belt is the track to the last farm.
+        for (SimPos trunk : stand) {
+            walls.add(trunk, new int[] {TRUNK_SPAN / 2, TRUNK_SPAN / 2}, LANE_PAVE_HALF);
+        }
         for (Building building : settlement.buildings()) {
             if (!BuildPlanner.holdsGround(building.blueprintId())) {
                 continue;

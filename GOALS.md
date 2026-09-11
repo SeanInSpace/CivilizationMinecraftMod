@@ -689,9 +689,10 @@ kept only until a run has been watched over it.*
       across 212 files converted from the audit's marks; `BuildCatalogue`,
       `KerbTest` and `LevellingTest` renamed with their types; the survey
       contract moved on all four sides. What remains is what must: the four
-      save keys spelled as first written (`centre` x3, the value `armour`),
-      Mojang's `BlockBehaviour`, and vocabulary (carriageway, tarmac, metalled).
-      The stores panel still shows "Armour" until that key migrates.
+      Mojang's `BlockBehaviour` and vocabulary (carriageway, tarmac, metalled).
+      The four save keys held out one release longer than the rest and are
+      converted now that nothing migrates -- `center` x3 and the store `armor`,
+      which is also what the stores panel reads.
 
 - [x] **Two blocks between any two walls.** The bare block that belonged to
       neither building is gone, and every literal spacing is the sum it was
