@@ -510,6 +510,10 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **A founded town's roads are walked out.** The crew was offered public
+      works only on the one step in ten the build queue was empty; now the roads
+      alone are offered whenever the town can spare a hand beyond the last one
+      kept on buildings. A charter party opens every stretch it plans.
 - [x] **The watch carries a sword and a bow.** Every guard holds a wooden
       sword with a bow in the off hand from the day they take the post; the
       smithy's iron sword is an upgrade, billed once against a ledger. Creepers
