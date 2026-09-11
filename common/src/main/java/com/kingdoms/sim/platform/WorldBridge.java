@@ -456,4 +456,21 @@ public interface WorldBridge {
      */
     default void spawnHostiles(int count, SimPos around) {
     }
+
+    /**
+     * Which players are standing near this point, by id.
+     *
+     * <p>{@link #playerWithin} answers whether <em>anybody</em> is about, which
+     * is the fidelity switch and deliberately anonymous — the simulation does
+     * not care who is watching a town grow. This asks the other question: a
+     * quest given to one person is finished by that person walking to the mark,
+     * and "somebody is there" is not that.
+     *
+     * <p>Empty by default, and that is an honest answer rather than a stub: a
+     * platform with no notion of players has nobody standing anywhere, and a
+     * quest that waits for an arrival simply waits.
+     */
+    default java.util.List<java.util.UUID> playersWithin(SimPos pos, double radius) {
+        return java.util.List.of();
+    }
 }

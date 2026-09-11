@@ -11,6 +11,9 @@ import com.kingdoms.sim.economy.Economy;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.quest.QuestBoard;
+import com.kingdoms.sim.quest.QuestPlanner;
+import com.kingdoms.sim.quest.Reputation;
 import com.kingdoms.sim.work.Spoil;
 import com.kingdoms.sim.world.SimContext;
 
@@ -219,6 +222,18 @@ public final class Settlement {
     private Layout arrangement;
 
     private final Tallies tallies = new Tallies();
+
+    /**
+     * What the town is asking passers-by for. See {@link QuestBoard}.
+     *
+     * <p>The counterpart to {@link #tallies}, and deliberately beside it: one is
+     * what the town has seen done and the other is what it still wants doing.
+     * The board block shows both because they are the same noticeboard.
+     */
+    private final QuestBoard quests = new QuestBoard();
+
+    /** What the town thinks of each person who has helped it. {@link Reputation}. */
+    private final Reputation standing = new Reputation();
 
     /** Everything the town owns, by name. See {@link TownStores}. */
     /**
@@ -1347,6 +1362,16 @@ public final class Settlement {
         return tallies;
     }
 
+    /** The noticeboard: what this town is asking for. */
+    public QuestBoard quests() {
+        return quests;
+    }
+
+    /** What this town thinks of the people who have done things for it. */
+    public Reputation standing() {
+        return standing;
+    }
+
     /**
      * Everything the town owns, as one view over the places holding it.
      *
@@ -2348,6 +2373,11 @@ public final class Settlement {
         // Last, and after the raid pass on purpose: whatever a raid just knocked
         // down is counted on the same step it happens rather than the next one.
         RepairPlanner.advance(this, ctx);
+        // And the board last of all, because every quest on it is a reading of
+        // something one of the passes above has just settled: the food is this
+        // step's food, the threat is this step's threat, and a building the
+        // raid flattened is on the board the moment it is flattened.
+        QuestPlanner.advance(this, ctx);
     }
 
     /**

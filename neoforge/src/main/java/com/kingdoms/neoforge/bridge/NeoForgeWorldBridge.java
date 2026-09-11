@@ -60,6 +60,34 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         return level.hasNearbyAlivePlayer(pos.x(), pos.y(), pos.z(), radius);
     }
 
+    /**
+     * Who, by name, rather than whether.
+     *
+     * <p>A quest given to one person is finished by that person walking to the
+     * mark, which the anonymous check above cannot answer. Spectators are
+     * excluded: standing somewhere in spectator mode is looking at it, not going
+     * to it.
+     *
+     * <p>Measured to the block's middle, so "within six" means six from the
+     * thing rather than six from its north-west corner — the same convention
+     * every reach check in this mod uses.
+     */
+    @Override
+    public java.util.List<java.util.UUID> playersWithin(SimPos pos, double radius) {
+        java.util.List<java.util.UUID> near = new java.util.ArrayList<>();
+        double reach = radius * radius;
+        for (net.minecraft.server.level.ServerPlayer player : level.players()) {
+            if (!player.isAlive() || player.isSpectator()) {
+                continue;
+            }
+            if (toBlockPos(pos).distToCenterSqr(player.getX(), player.getY(),
+                    player.getZ()) <= reach) {
+                near.add(player.getUUID());
+            }
+        }
+        return near;
+    }
+
     @Override
     public boolean isLoaded(SimPos pos) {
         return level.isLoaded(toBlockPos(pos));

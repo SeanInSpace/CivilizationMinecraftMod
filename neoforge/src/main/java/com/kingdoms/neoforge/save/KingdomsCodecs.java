@@ -8,6 +8,10 @@ import com.kingdoms.sim.person.Household;
 import com.kingdoms.sim.person.Inventory;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.quest.Quest;
+import com.kingdoms.sim.quest.QuestKind;
+import com.kingdoms.sim.quest.QuestState;
+import com.kingdoms.sim.quest.Reward;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
@@ -503,6 +507,70 @@ public final class KingdomsCodecs {
         return building;
     }));
 
+    private static final Codec<QuestKind> QUEST_KIND =
+            Codec.STRING.xmap(QuestKind::parse, QuestKind::name);
+
+    private static final Codec<QuestState> QUEST_STATE = Codec.STRING.xmap(
+            name -> QuestState.parse(name, QuestState.OFFERED),
+            QuestState::name);
+
+    private static final Codec<Reward> REWARD = RecordCodecBuilder.create(i -> i.group(
+            Codec.INT.optionalFieldOf("coin", 0).forGetter(Reward::coin),
+            // The ledger word for a rider off the town's own shelves, and empty
+            // for the ordinary case. Optional because most rewards are coin.
+            Codec.STRING.optionalFieldOf("goods", "").forGetter(Reward::goods),
+            Codec.INT.optionalFieldOf("goods_amount", 0).forGetter(Reward::goodsAmount),
+            Codec.INT.optionalFieldOf("standing", 0).forGetter(Reward::standing)
+    ).apply(i, Reward::new));
+
+    /**
+     * The notice itself: what is being asked, in what words, and where.
+     *
+     * <p>The words are stored rather than re-derived, and that is the whole
+     * reason this is a record of its own. A town asks for grain because it is
+     * starving; by the time anybody reads the board it may have eaten. What the
+     * town said when it asked is what it asked, so it travels with the quest and
+     * into the file.
+     */
+    private record Notice(QuestKind kind, String title, String detail, String target,
+                          Optional<SimPos> place) {
+        static Notice of(Quest quest) {
+            return new Notice(quest.kind(), quest.title(), quest.detail(), quest.target(),
+                    Optional.ofNullable(quest.place()));
+        }
+    }
+
+    private static final Codec<Notice> NOTICE = RecordCodecBuilder.create(i -> i.group(
+            QUEST_KIND.fieldOf("kind").forGetter(Notice::kind),
+            Codec.STRING.fieldOf("title").forGetter(Notice::title),
+            Codec.STRING.fieldOf("detail").forGetter(Notice::detail),
+            Codec.STRING.optionalFieldOf("target", "").forGetter(Notice::target),
+            // Absent for the kinds that are not anywhere in particular — a
+            // delivery happens at the storehouse, wherever that is today.
+            SIM_POS.optionalFieldOf("place").forGetter(Notice::place)
+    ).apply(i, Notice::new));
+
+    public static final Codec<Quest> QUEST = RecordCodecBuilder.create(i -> i.group(
+            Codec.STRING.fieldOf("id").forGetter(Quest::id),
+            NOTICE.fieldOf("notice").forGetter(Notice::of),
+            Codec.INT.fieldOf("amount").forGetter(Quest::amount),
+            Codec.INT.optionalFieldOf("progress", 0).forGetter(Quest::progress),
+            REWARD.fieldOf("reward").forGetter(Quest::reward),
+            Codec.LONG.fieldOf("offered_on").forGetter(Quest::offeredOn),
+            // When it goes stale. Saved rather than re-derived from the offer
+            // step, because accepting moves it -- a job somebody is doing gets a
+            // longer leash than the ask it came off.
+            Codec.LONG.fieldOf("expires_on").forGetter(Quest::expiresOn),
+            QUEST_STATE.fieldOf("state").forGetter(Quest::state),
+            // Whose job it is. Absent for anything still on the board, which is
+            // a real state and not a missing field.
+            UUID_CODEC.optionalFieldOf("accepted_by").forGetter(
+                    quest -> Optional.ofNullable(quest.acceptedBy()))
+    ).apply(i, (id, notice, amount, progress, reward, offeredOn, expiresOn, state,
+                acceptedBy) -> new Quest(id, notice.kind(), notice.title(),
+            notice.detail(), notice.target(), notice.place().orElse(null), amount,
+            progress, reward, offeredOn, expiresOn, state, acceptedBy.orElse(null))));
+
     /**
      * The terms a town exists under: whose people raised it, how far along it
      * is, which of that people's arrangements it was laid out in, and the two
@@ -621,6 +689,33 @@ public final class KingdomsCodecs {
             WORK_AREA.optionalFieldOf("mine_area").forGetter(Works::mineArea)
     ).apply(i, Works::new));
 
+    /**
+     * The noticeboard: what the town is asking for, what it remembers being
+     * done, and what it thinks of whoever did it.
+     *
+     * <p>A group of its own rather than three more fields under {@code holdings},
+     * because standing is not a holding — it is not spent, cannot run out, and
+     * belongs to a person rather than to the town. The three together are one
+     * subject, and it is the subject a player interacts with.
+     */
+    private record Quests(List<Quest> offered, List<Quest> done,
+                          Map<UUID, Integer> standing) {
+        static Quests of(Settlement s) {
+            return new Quests(s.quests().offered(), s.quests().completed(),
+                    s.standing().all());
+        }
+    }
+
+    private static final Codec<Quests> QUESTS = RecordCodecBuilder.create(i -> i.group(
+            QUEST.listOf().optionalFieldOf("offered", List.of()).forGetter(Quests::offered),
+            QUEST.listOf().optionalFieldOf("done", List.of()).forGetter(Quests::done),
+            // Who has earned what here. Per settlement rather than per kingdom:
+            // helping a village on one coast buys nothing on the other, which is
+            // the entire point of a standing being this town's.
+            Codec.unboundedMap(UUID_CODEC, Codec.INT)
+                    .optionalFieldOf("standing", Map.of()).forGetter(Quests::standing)
+    ).apply(i, Quests::new));
+
     public static final Codec<Settlement> SETTLEMENT = RecordCodecBuilder.create(i -> i.group(
             SETTLEMENT_ID.fieldOf("id").forGetter(Settlement::id),
             Codec.STRING.fieldOf("name").forGetter(Settlement::name),
@@ -632,9 +727,10 @@ public final class KingdomsCodecs {
             SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events),
             HOLDINGS.fieldOf("holdings").forGetter(Holdings::of),
             DEFENSE.fieldOf("defense").forGetter(Defense::of),
-            WORKS.fieldOf("works").forGetter(Works::of)
+            WORKS.fieldOf("works").forGetter(Works::of),
+            QUESTS.fieldOf("quests").forGetter(Quests::of)
     ).apply(i, (id, name, center, claimRadius, charter, residents, households, events,
-                holdings, defense, works) -> {
+                holdings, defense, works, quests) -> {
         Settlement settlement = new Settlement(id, name, center, claimRadius);
         settlement.setThreatLevel(defense.threatLevel());
         settlement.loosePile().restore(holdings.goods());
@@ -658,6 +754,8 @@ public final class KingdomsCodecs {
         works.buildings().forEach(settlement::addBuilding);
         households.forEach(settlement::addHousehold);
         events.forEach(e -> settlement.logEvent(e.step(), e.message()));
+        settlement.quests().restore(quests.offered(), quests.done());
+        settlement.standing().restore(quests.standing());
         // After the buildings, because adding one can push the cursor past it.
         settlement.setNextPlotIndex(works.nextPlot());
         return settlement;

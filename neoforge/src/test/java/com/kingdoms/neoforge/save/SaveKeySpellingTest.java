@@ -75,7 +75,11 @@ class SaveKeySpellingTest {
             "buildings", "next_plot", "plot", "footprint", "condition", "ledgers",
             "stand", "seam", "ripe", "paths", "segments", "width", "lumber_area",
             "mine_area", "haul", "pockets", "households", "events", "seeded",
-            "seeded_roads_owed", "dig_done", "laid_through", "streets_laid_for");
+            "seeded_roads_owed", "dig_done", "laid_through", "streets_laid_for",
+            // The board, which is the fifth group beside charter/holdings/
+            // defense/works and reaches three levels down into a reward.
+            "quests", "offered", "notice", "kind", "detail", "reward", "offered_on",
+            "expires_on", "accepted_by", "goods_amount", "standing");
 
     @Test
     void noSaveKeyIsSpelledBritish() {
@@ -164,6 +168,27 @@ class SaveKeySpellingTest {
         town.setTreasury(77);
         town.tallies().record("built", 4);
         town.setFedStreak(12);
+
+        // A board with one of each shape a quest can take: an offer nobody has
+        // touched, a job somebody is halfway through at a place, and one the
+        // town remembers being finished.
+        town.quests().post(com.kingdoms.sim.quest.Quest.offered(
+                "q40D", com.kingdoms.sim.quest.QuestKind.DELIVER,
+                "Stone for the works", "The walls want facing.", TownStores.STONE,
+                null, 32, com.kingdoms.sim.quest.Reward.of(48, 2), 40, 640));
+        town.quests().post(com.kingdoms.sim.quest.Quest.offered(
+                        "q80C", com.kingdoms.sim.quest.QuestKind.CLEAR,
+                        "Take the place back", "Something is in the wreck.", "wreck",
+                        new SimPos(500, 70, -520), 5,
+                        new com.kingdoms.sim.quest.Reward(40, TownStores.STONE, 16, 4),
+                        80, 680)
+                .takenBy(java.util.UUID.randomUUID(), 1_280)
+                .withProgress(2));
+        town.quests().recordDone(com.kingdoms.sim.quest.Quest.offered(
+                "q10S", com.kingdoms.sim.quest.QuestKind.SLAY, "Thin them out",
+                "Too much abroad after dark.", "hostiles", null, 4,
+                com.kingdoms.sim.quest.Reward.of(24, 3), 10, 610));
+        town.standing().add(java.util.UUID.randomUUID(), 37);
 
         Person miner = new Person(Person.Id.random(), "Alden", Profession.MINER,
                 new SimPos(520, 72, -500));
