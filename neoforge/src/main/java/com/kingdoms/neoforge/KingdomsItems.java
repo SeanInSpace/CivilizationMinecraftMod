@@ -2,11 +2,16 @@ package com.kingdoms.neoforge;
 
 import com.kingdoms.neoforge.item.ExcavationStakeItem;
 import com.kingdoms.neoforge.item.FoundingCharterItem;
+import com.kingdoms.neoforge.item.OrcWeapons;
 import com.kingdoms.neoforge.item.TownMapItem;
 import com.kingdoms.neoforge.item.WayfinderItem;
+import com.kingdoms.sim.combat.Weaponry;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** Item registration. Everything here lands in the mod's own tab; see {@link KingdomsTabs}. */
 public final class KingdomsItems {
@@ -104,6 +109,54 @@ public final class KingdomsItems {
             ITEMS.registerSimpleBlockItem(KingdomsBlocks.ANIMAL_FARM, () -> new Item.Properties());
     public static final DeferredItem<net.minecraft.world.item.BlockItem> QUEST_BOARD =
             ITEMS.registerSimpleBlockItem(KingdomsBlocks.QUEST_BOARD, () -> new Item.Properties());
+
+    /**
+     * The orcs' armory: five weapons, each forged twice.
+     *
+     * <p>Registered from the table in {@code :common} rather than written out
+     * ten times, so a sixth weapon is one line there and nothing here. The map
+     * is keyed by the registered name — {@code orc_falchion},
+     * {@code orc_falchion_forged} — because that is the key the simulation
+     * side speaks in and it cannot see an {@code Item} to speak in any other.
+     *
+     * <p>Ordered, so the creative tab lists them in the table's own order rather
+     * than in whatever order a hash bucket happened to fall out in. See
+     * {@link KingdomsTabs}, which walks the whole registry.
+     */
+    private static final Map<String, DeferredItem<Item>> ORC_WEAPONS = registerOrcWeapons();
+
+    private static Map<String, DeferredItem<Item>> registerOrcWeapons() {
+        Map<String, DeferredItem<Item>> armory = new LinkedHashMap<>();
+        for (Weaponry weapon : Weaponry.values()) {
+            for (boolean forged : new boolean[] {false, true}) {
+                String name = weapon.nameAt(forged);
+                armory.put(name, ITEMS.registerItem(
+                        name,
+                        properties -> OrcWeapons.make(weapon, forged, properties),
+                        // Single stack: a weapon with a durability bar cannot
+                        // stack anyway, and saying so here is cheaper than
+                        // finding out from the game.
+                        () -> new Item.Properties().stacksTo(1)));
+            }
+        }
+        return java.util.Collections.unmodifiableMap(armory);
+    }
+
+    /** The registered item of that name, or null if the armory has no such thing. */
+    public static Item orcWeapon(String name) {
+        DeferredItem<Item> entry = ORC_WEAPONS.get(name);
+        return entry == null ? null : entry.get();
+    }
+
+    /** The registered item for one weapon at one tier. */
+    public static Item orcWeapon(Weaponry weapon, boolean forged) {
+        return orcWeapon(weapon.nameAt(forged));
+    }
+
+    /** Every name the armory registered, for anything that wants to check them all. */
+    public static java.util.Set<String> orcWeaponNames() {
+        return ORC_WEAPONS.keySet();
+    }
 
     private KingdomsItems() {
     }
