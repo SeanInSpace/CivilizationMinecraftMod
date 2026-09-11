@@ -510,6 +510,17 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **Nothing a citizen breaks is thrown away.** One yield table beside the
+      building materials: logs are timber, rock is stone, soil is earth, iron
+      ore is iron, leaves and litter nothing. A body carries what it breaks in
+      pockets of sixteen and walks it to the nearest store when full or when
+      the hole is done; the unwatched clock credits exactly what a site's dig
+      list would have yielded in place of the abstract earth spoil.
+- [ ] **Dug goods past a store's ceiling are refused, not piled.** The loose
+      pile sits inside the pooled total the ceiling measures, so sending
+      overflow there would make the timber cap a no-op. What the ceiling
+      refuses is not created, exactly as a lumberjack felling into a full
+      store today. Decide whether a town clearing a forest should bank it.
 - [x] **A guard does not shoot through a wall.** One block-collision ray per
       guard per pass, a full second of unbroken sight before the first arrow,
       a walk round to a clear stand on the creeper's ring when there is none,
