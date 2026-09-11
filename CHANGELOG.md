@@ -235,6 +235,10 @@ messages carry the reasoning and the measurements.
   out in the arrangement the config weights picked; towns already generated
   keep their ground.
 
+- **No shutter across a doorway.** A window one block from the door hung its
+  shutter leaf in the cell outside the doorway. The leaf is skipped wherever the
+  wall behind it is a gap.
+
 ---
 
 ## A town you founded gets its roads walked out

@@ -249,6 +249,29 @@ class PartsTest {
     // --- the wall parts ------------------------------------------------------
 
     @Test
+    void ashutterNeverHangsAcrossTheDoorway() {
+        // A shutter leaf hangs beside a window, one cell outside the wall. A
+        // window one block from the door put its leaf in the cell outside the
+        // doorway, which reads as a door with a trapdoor nailed across it. The
+        // leaf is skipped wherever the wall cell behind it is a gap.
+        for (Culture culture : Culture.all()) {
+            for (String home : HOMES.keySet()) {
+                BuildingSizes.Size size = BuildingSizes.of("kingdoms:" + home);
+                int rz = size.depth() / 2;
+                Set<BlockPos> filled = new HashSet<>();
+                for (BlueprintPlacer.Placement block : drawn(culture, home, BASE)) {
+                    filled.add(block.pos());
+                }
+                for (int y = 1; y <= 2; y++) {
+                    assertFalse(filled.contains(BASE.offset(0, y, rz + 1)),
+                            culture.id() + "'s " + home + " has something hanging"
+                                    + " across the outside of its doorway at height " + y);
+                }
+            }
+        }
+    }
+
+    @Test
     void aplinthNeverBricksUpTheDoorway() {
         // The rule that makes the replacing parts safe: they write only where the
         // wall is already standing, and a doorway is a gap that holds nothing. A

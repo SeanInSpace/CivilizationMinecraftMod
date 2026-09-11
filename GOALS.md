@@ -510,6 +510,31 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **A town the world put there arrives with its streets and its wood.**
+      Roads are recorded as a debt at seeding and paid once on the first step
+      with a world; the forester's stand waits for its belt to load rather than
+      cancelling on unread ground; the arrangement is named before a plot is
+      taken.
+- [x] **The town goes to bed.** Real beds, one per bed of capacity, tinted by
+      culture; each resident has a deterministic bed and sleeps in it from dusk
+      to dawn unless the alarm, danger, or real weakness wakes them.
+- [x] **Houses have roofs and every people builds its own.** Gable and hip
+      roofs of stairs, chimneys, porches, half-timbering, plinths, shutters,
+      dormers, battlements; one style per culture; per-plot variation from the
+      plot's own coordinates.
+- [x] **Every trade and civic building reads as what it is.** Forge bay and
+      chimney, windmill sails, lean-to and log stacks, headframe and rail stub,
+      staddle-stone granary, canopied storehouse, two-story warehouse, belfry
+      and bell on the hall, open market square with stalls and a well, two-story
+      inn with a stable, galleried library, crenellated tower, roofed hearth.
+- [ ] **Buildings cost more now.** Homes about three quarters more, trades
+      about half more, the warehouse and hall double, the library 2377 blocks.
+      The founding grant still covers a camp, but build lengths were calibrated
+      against the boxes. Rebalance costs or the grant with a town in view; the
+      library's gallery and wall height are the first fat to trim.
+- [ ] **The granary is not raised and the hall's floor is not stepped up.**
+      Both would bury the building post at its fixed floor-course cell. Moving
+      the post cells is the enabling change if either look is wanted.
 - [x] **A founded town's roads are walked out.** The crew was offered public
       works only on the one step in ten the build queue was empty; now the roads
       alone are offered whenever the town can spare a hand beyond the last one

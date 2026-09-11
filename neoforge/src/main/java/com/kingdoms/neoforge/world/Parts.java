@@ -599,6 +599,13 @@ final class Parts {
                             dx + out.getStepX() + (onZ ? side : 0),
                             y,
                             dz + out.getStepZ() + (onZ ? 0 : side));
+                    // A leaf hangs on the wall cell behind it. Where that cell
+                    // holds nothing the wall has a gap there, and the only gap
+                    // in a wall at this height is a doorway -- a shutter across
+                    // the door is a door nobody can use.
+                    if (drawn.get(beside.relative(out.getOpposite())) == null) {
+                        continue;
+                    }
                     add(blocks, beside, leaf);
                 }
             }
