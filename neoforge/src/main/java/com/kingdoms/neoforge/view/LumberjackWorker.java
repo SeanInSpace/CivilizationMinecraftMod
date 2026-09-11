@@ -235,11 +235,19 @@ public final class LumberjackWorker {
         return best;
     }
 
-    /** Bare ground in the area with headroom, for putting a sapling back. */
     /**
      * Somewhere to put a sapling — inside the woodland claim, and never in the
      * village. Replanting where the town walks is how the paths got blocked in
      * the first place.
+     *
+     * <p>The soil is {@code #minecraft:supports_vegetation}, which is the list
+     * vanilla checks before it will let a sapling stand at all. It used to be
+     * {@code #minecraft:dirt}, which is dirt, coarse dirt and rooted dirt and
+     * does <em>not</em> contain grass — so a forester standing in a meadow, a
+     * plain or a plain-flat world walked the whole of their claim, found no
+     * square they were willing to put a sapling on, and carried it home again.
+     * See {@code Woodland.rootFor}, which asks the same question of the same
+     * ground and had the same answer.
      */
     private static BlockPos findPlantingSpot(ServerLevel level, Settlement settlement,
                                              WorkArea area, BlockPos from) {
@@ -268,7 +276,7 @@ public final class LumberjackWorker {
                 int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 BlockPos ground = new BlockPos(x, surface - 1, z);
                 BlockPos above = ground.above();
-                if (!level.getBlockState(ground).is(BlockTags.DIRT)) {
+                if (!level.getBlockState(ground).is(BlockTags.SUPPORTS_VEGETATION)) {
                     continue;
                 }
                 if (!level.getBlockState(above).isAir()

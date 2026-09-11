@@ -77,6 +77,39 @@ public final class ForesterStand {
      */
     public static final int BELT = 3 * SPACING;
 
+    /**
+     * How many candidate squares the stand is actually chosen from.
+     *
+     * <p>The nearest three dozen, and it is a bound on <em>reading the world</em>
+     * rather than on planting. Every square a tree might go on has to be ground
+     * somebody can see before any of them is planted — that is what makes the
+     * stand the whole dozen nearest the camp rather than whichever half happened
+     * to be inside the horizon — and a village that has grown out past its camp
+     * has a belt hundreds of squares long. Demanding the whole of one is
+     * demanding more loaded ground than a server keeps: the debt would never
+     * settle, and a camp owed its wood forever is the same bare field as a camp
+     * that was never owed any.
+     *
+     * <p>Three times what is wanted, for the reason there are more candidates
+     * than trees at all: the ground gets a say, and a camp on a lakeshore has to
+     * be able to lose two squares in three and still come out with a stand.
+     */
+    public static final int STAND_SEARCH = 3 * TREES_WANTED;
+
+    /**
+     * How many further belts a camp will look out before settling for what it
+     * has: four.
+     *
+     * <p>A bound rather than a budget. Measured across every people and every
+     * arrangement they build, on flat ground, at the size a town settles at: the
+     * first belt offers between forty-eight and ninety-seven squares, so the
+     * loop below almost never runs at all, and one further belt has always been
+     * enough where it does. Four is that with room to spare, and it is here so
+     * that a camp walled in by its own town stops rather than claiming the
+     * county.
+     */
+    public static final int BELTS_OUT = 4;
+
     private ForesterStand() {
     }
 
@@ -85,15 +118,27 @@ public final class ForesterStand {
      *
      * <p>Centered on the camp, like any other, and no smaller than the default —
      * but widened until it reaches {@link #BELT} blocks beyond the village edge,
-     * because that annulus is the only ground a lumberjack will replant on. Still
-     * clamped to what a player may set through the camp block, so nothing here
-     * produces a claim they could not have made themselves.
+     * because that annulus is the only ground a lumberjack will replant on.
+     *
+     * <p><strong>Widened as far as it actually takes, and that is the whole of
+     * the second bug this method has had.</strong> It used to stop at
+     * {@code LumberPlanner.MAX_RADIUS} — what a player can dial up on the camp
+     * block — on the grounds that nothing here should produce a claim they could
+     * not have made themselves. That reasoning holds only while a village stays
+     * inside sixty-four blocks of its own lumber camp, which the concentric
+     * rings did and no other arrangement does: a crossroads town flings its
+     * frontage out along four arms, a warren buds knots off knots, and the
+     * claim circle that contains the outermost of them is a hundred blocks and
+     * more. Clamped, the camp's whole claim then lay <em>inside</em> the village,
+     * every square of it was refused as somebody's doorstep, and the camp
+     * settled its debt having planted nothing at all. A claim that cannot reach
+     * the countryside is not a claim; the reach is the requirement and the dial
+     * is the convenience, so the dial gives way.
      */
     public static WorkArea woodlandFor(SimPos camp, SimPos center, int claimRadius) {
         int outFromTheHouses = claimRadius
                 - (int) Math.floor(camp.horizontalDistance(center)) + BELT;
-        int radius = LumberPlanner.clampRadius(
-                Math.max(LumberPlanner.DEFAULT_RADIUS, outFromTheHouses));
+        int radius = Math.max(LumberPlanner.DEFAULT_RADIUS, outFromTheHouses);
         return new WorkArea(camp, radius);
     }
 
@@ -163,10 +208,19 @@ public final class ForesterStand {
      * plants nothing on ground it cannot read and says so by returning nought,
      * and the debt used to have been cancelled a line earlier: every town raised
      * by world generation lost its wood at exactly the moment it was supposed to
-     * get one. So the camp keeps its mark until the whole woodland can be seen,
-     * and is asked again on the next step until it can. It terminates because
-     * standing at the camp is what loads the belt, and a camp with no candidate
-     * squares at all settles on the first ask.
+     * get one. So the camp keeps its mark until the stand can be seen, and is
+     * asked again on the next step until it can. It terminates because standing
+     * at the camp is what loads the belt, and a camp with no candidate squares at
+     * all settles on the first ask.
+     *
+     * <p>The stand, and not the belt. What has to be readable is the
+     * {@link #STAND_SEARCH} squares nearest the camp — the ones a tree is
+     * actually going to go on — rather than every square of the claim. The
+     * difference does not show on a tidy ring town, whose belt is a few dozen
+     * squares either way; it is the difference between a stand and a bare field
+     * on a town whose arms have carried the village edge a hundred blocks out,
+     * because no server keeps that much ground loaded at once and a camp waiting
+     * for it would wait forever.
      *
      * @return whether the debt is settled — false means the ground is still
      *         unread and the camp is owed its wood yet
@@ -180,15 +234,35 @@ public final class ForesterStand {
         // Never overrule a claim somebody has moved. A camp block the player has
         // already pointed somewhere else is their decision, and widening it back
         // would undo it silently.
-        if (standing == null || standing.center().equals(woodland.center())) {
-            town.setLumberArea(woodland);
-        } else {
+        boolean ours = standing == null || standing.center().equals(woodland.center());
+        if (!ours) {
             woodland = standing;
         }
-        if (!edgesAreRead(woodland, ctx)) {
-            return false;   // the belt is over the horizon; ask again another step
+        if (!ctx.bridge().isLoaded(camp.origin())) {
+            if (ours) {
+                town.setLumberArea(woodland);
+            }
+            return false;   // the camp's own ground is dark; ask again another step
         }
         List<SimPos> spots = candidates(town, woodland);
+        // And further out again while the belt is too thin to hold a stand. The
+        // geometry usually settles this on the first ask — a village edge with
+        // three ranks of trees outside it offers several dozen squares — but a
+        // long-armed arrangement can leave the annulus a sliver: a ring road
+        // laid along it, an arm of frontage across it, and the dozen squares
+        // wanted are four. A camp does not stop at four. It looks another belt
+        // out, and another, which is what anybody working that wood would do.
+        for (int wider = 0; ours && wider < BELTS_OUT && spots.size() < STAND_SEARCH;
+                wider++) {
+            woodland = woodland.withRadius(woodland.radius() + BELT);
+            spots = candidates(town, woodland);
+        }
+        if (ours) {
+            town.setLumberArea(woodland);
+        }
+        if (spots.size() > STAND_SEARCH) {
+            spots = spots.subList(0, STAND_SEARCH);
+        }
         for (SimPos spot : spots) {
             if (!ctx.bridge().isLoaded(spot)) {
                 return false;   // some of the wood is still unread
@@ -210,24 +284,5 @@ public final class ForesterStand {
                     + planted + " trees deep");
         }
         return true;
-    }
-
-    /**
-     * Whether the whole of the camp's woodland is ground somebody can see.
-     *
-     * <p>Four points and the middle, at the reach of the claim, asked before the
-     * candidate squares are worked out at all. That order is the point: a camp
-     * whose belt is still over the horizon is the ordinary case for a good many
-     * steps, and scanning several hundred squares every one of them to discover
-     * it again would be a real cost for no answer.
-     */
-    private static boolean edgesAreRead(WorkArea woodland, SimContext ctx) {
-        SimPos camp = woodland.center();
-        int reach = woodland.radius();
-        return ctx.bridge().isLoaded(camp)
-                && ctx.bridge().isLoaded(camp.offset(reach, 0, 0))
-                && ctx.bridge().isLoaded(camp.offset(-reach, 0, 0))
-                && ctx.bridge().isLoaded(camp.offset(0, 0, reach))
-                && ctx.bridge().isLoaded(camp.offset(0, 0, -reach));
     }
 }

@@ -110,17 +110,45 @@ class ForesterStandTest {
     }
 
     @Test
-    void theWoodlandIsAClaimAPlayerCouldHaveMadeThemselves() {
+    void theWoodlandIsNoWiderThanReachingPastTheHousesTakes() {
         Settlement town = seeded();
         WorkArea wood = ForesterStand.woodlandFor(
                 campOf(town).origin(), town.center(), town.claimRadius());
 
-        assertEquals(wood.radius(), LumberPlanner.clampRadius(wood.radius()),
-                "nothing here may set a radius the camp block refuses");
+        int fromTheCamp = (int) Math.floor(
+                campOf(town).origin().horizontalDistance(town.center()));
+        assertTrue(wood.radius() <= Math.max(LumberPlanner.DEFAULT_RADIUS,
+                        town.claimRadius() - fromTheCamp + ForesterStand.BELT),
+                "the reach past the houses is the whole reason to widen a claim, "
+                        + "so nothing may be widened past it");
         assertTrue(wood.radius() >= LumberPlanner.DEFAULT_RADIUS,
                 "and never smaller than the claim an ordinary camp takes");
         assertEquals(campOf(town).origin(), wood.center(),
                 "a camp works the ground around itself");
+    }
+
+    @Test
+    void aVillageThatHasOutgrownItsCampIsStillReachedPast() {
+        // The fault that took this file's third fix. The claim used to stop at
+        // what a player can dial up on the camp block, which is sixty-four
+        // blocks. A village laid out in rings never outgrows that and every
+        // other arrangement does — a crossroads town's arms, a warren's knots —
+        // and a camp whose whole claim lies inside the village has nowhere its
+        // forester is allowed to plant, so the stand was never laid at all.
+        Settlement town = seeded();
+        SimPos camp = campOf(town).origin();
+        int outgrown = 3 * LumberPlanner.MAX_RADIUS;
+        town.setClaimRadius(outgrown);
+        WorkArea wood = ForesterStand.woodlandFor(camp, town.center(), outgrown);
+
+        int outward = (int) Math.round(camp.horizontalDistance(town.center()))
+                + wood.radius();
+        assertTrue(outward >= outgrown + ForesterStand.BELT,
+                "a claim of " + wood.radius() + " reaches " + outward
+                        + " and the village is " + outgrown + " across: every "
+                        + "square of that claim is somebody's doorstep");
+        assertFalse(ForesterStand.candidates(town, wood).isEmpty(),
+                "and so there is somewhere to put a tree");
     }
 
     // --- the stand ---
