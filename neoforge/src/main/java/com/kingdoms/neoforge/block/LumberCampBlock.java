@@ -70,7 +70,17 @@ public class LumberCampBlock extends Block {
                     settlement.name() + "'s lumberjacks will now work around " + here
                             + " (radius " + area.radius() + ")."));
         } else {
-            int next = area.radius() + LumberPlanner.RADIUS_STEP;
+            // A town whose village has grown out past its own lumber camp widens
+            // that camp's claim further than this dial reaches — see
+            // ForesterStand.woodlandFor, where the reach past the houses is the
+            // requirement and the dial is the convenience. Such a claim comes
+            // down to the dial's own top on the first click rather than
+            // collapsing to the minimum, so one idle right-click cannot leave a
+            // camp with no wood in reach.
+            int radius = area.radius();
+            int next = radius > LumberPlanner.MAX_RADIUS
+                    ? LumberPlanner.MAX_RADIUS
+                    : radius + LumberPlanner.RADIUS_STEP;
             if (next > LumberPlanner.MAX_RADIUS) {
                 next = LumberPlanner.MIN_RADIUS;
             }

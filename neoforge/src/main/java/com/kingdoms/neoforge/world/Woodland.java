@@ -78,10 +78,21 @@ public final class Woodland {
      * tree.
      *
      * <p>Deliberately the same three questions {@code LumberjackWorker} asks of a
-     * planting spot — dirt underfoot, air above — so a tree planted here is a
+     * planting spot — soil underfoot, air above — so a tree planted here is a
      * tree the town's own forester would have planted, and the ground it stands
      * on is ground they will replant when it comes down. Never loads a chunk:
      * ground nobody has loaded is simply not planted on.
+     *
+     * <p><strong>The soil is the tag a sapling itself stands on, and asking a
+     * narrower one cost every town on a grass world its whole wood.</strong>
+     * {@code #minecraft:dirt} is dirt, coarse dirt and rooted dirt — and nothing
+     * else. It does not contain grass, which is what the top block of a plain, a
+     * forest, a meadow or a superflat actually is, so a camp on any of them was
+     * offered two dozen perfectly good squares and refused every one of them in
+     * turn. {@code #minecraft:supports_vegetation} is the list vanilla itself
+     * checks before it will let a sapling stand — grass, podzol and mycelium,
+     * the dirts, mud, moss and farmland — and "where a sapling may stand" is
+     * exactly the question being asked here.
      */
     private static BlockPos rootFor(ServerLevel level, SimPos spot) {
         BlockPos column = new BlockPos(spot.x(), spot.y(), spot.z());
@@ -91,7 +102,7 @@ public final class Woodland {
         int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 spot.x(), spot.z());
         BlockPos ground = new BlockPos(spot.x(), surface - 1, spot.z());
-        if (!level.getBlockState(ground).is(BlockTags.DIRT)) {
+        if (!level.getBlockState(ground).is(BlockTags.SUPPORTS_VEGETATION)) {
             return null;   // water, stone, sand, or somebody's roof
         }
         BlockPos foot = ground.above();

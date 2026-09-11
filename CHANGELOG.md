@@ -6,6 +6,60 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A forester in a meadow is standing on good ground
+
+### Fixed
+
+- **A town you find has trees around its lumber camp again — on a superflat, on
+  a plain, and in every arrangement its people build in.** Two separate faults
+  were between a seeded camp and its wood, and either one alone was enough to
+  leave it standing in an empty field.
+
+- **The ground a tree may be planted on now includes grass.** Both the stand a
+  seeded camp is given and the saplings its forester puts back were checking for
+  bare dirt underfoot — dirt, coarse dirt and rooted dirt, and nothing else.
+  Grass is what the top block of a plain, a meadow, a forest or a flat world
+  actually is, so a camp on any of them was offered two dozen perfectly good
+  squares and turned down every one of them in turn. The test is now the same one
+  the game itself applies before it will let a sapling stand: grass, podzol and
+  mycelium as well as the dirts, mud, moss and farmland. On a superflat — where
+  there is no other wood in the world to hide it — this was the difference
+  between a dozen trees and none.
+
+- **A camp's woodland now reaches out past the houses however far the town has
+  grown.** The claim a seeded camp takes has to clear the edge of the village,
+  because a forester will not replant among the houses and trees planted there
+  are felled once and never come back. That claim used to stop at sixty-four
+  blocks, which is as far as the dial on a camp block goes. A village laid out in
+  rings never outgrows that; a crossroads town carries its frontage out along
+  four arms, a warren buds knots off knots, and both leave the village edge a
+  hundred blocks and more from the middle. The camp's whole claim then lay
+  *inside* the town, every square of it was refused as somebody's doorstep, and
+  the camp quietly wrote off its debt having planted nothing. It now widens as far
+  as it actually takes, and looks another belt further out again when the first
+  one is too hemmed in by lanes and frontage to hold a stand.
+
+- **A town raised at the far end of a flight is no longer the one that suffers.**
+  World generation raises a settlement long before its chunks load, so it builds
+  on for however long the flight in takes, and by the time its lumber camp is
+  drawn the village has grown. That was exactly the case that lost the wood: the
+  same town reached immediately was fine. Nine of the fourteen arrangements in
+  the table lost the whole stand this way, the two ring plans kept theirs, and
+  that is why it went unnoticed until towns started being built in the
+  arrangement the world chose.
+
+- **And a camp waiting to be given its wood no longer waits forever.** It needs
+  to see the ground before it plants, so that the trees it gets are the dozen
+  nearest the camp rather than whichever half happened to be loaded. What it
+  waits for is now those squares rather than every square of a claim that may be
+  three hundred blocks across — which no server keeps loaded at once.
+
+- **One idle right-click on a camp block no longer strips a camp of its wood.**
+  A claim the town widened past the dial's own top comes down to that top on the
+  first click, instead of collapsing to the smallest claim there is.
+
+---
+
 ## Nothing a citizen breaks is thrown away
 
 ### Changed
