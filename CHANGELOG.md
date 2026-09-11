@@ -6,6 +6,39 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The surveyor's lamp holds still
+
+### Changed
+
+- **The lamp draws solid white lines that stay put.** It used to paint the town
+  out of particles once every four seconds, which meant the picture spent most
+  of its life fading and you were reading a flicker. The plan is now drawn every
+  frame, so you can stand still and look at it, walk along a street and watch it
+  hold, or back off onto a rise and see the whole shape at once.
+
+- **The lines say what they are.** Roads the town has opened are solid; stretches
+  it has drawn but not opened are dashed, because a street nobody has walked out
+  yet is not somewhere you can go and drawing it the same as a real one was a lie
+  told in light. The streets the plan laid out are drawn fainter behind both, and
+  the wall's ring is gray rather than white so it is not mistaken for a road.
+
+- **Buildings are drawn as their plots, with a mark at the door.** A flat
+  rectangle on the ground — the walls plus the land cleared around them — and a
+  short tick on the side the building faces. The old wireframe boxes described a
+  volume nobody was asking about and hid the building inside them; what the lamp
+  is for is reading how a town is arranged, and a door you can see is most of
+  that. A plot that is queued rather than built is drawn fainter.
+
+- **It reaches further and shows through hills.** The survey runs out to about
+  128 blocks instead of 48, and the lines are drawn over the terrain rather than
+  behind it. The view worth having is from a rise looking down, and that is
+  precisely the view the ground would have blocked.
+
+- **The lamp now needs Kingdoms on the client.** A vanilla client on a Kingdoms
+  server sees nothing when it holds one. The Founding Charter's claim ring is
+  unchanged and still works for anybody, because a ring is one circle and a plan
+  is not.
+
 ## Nothing a citizen breaks is thrown away
 
 ### Changed

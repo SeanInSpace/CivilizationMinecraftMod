@@ -149,15 +149,30 @@ Buildings only appear once their size is known, which happens when they are
 actually built.
 
 Craft or grab a **Surveyor's Lamp** from the Kingdoms creative tab and hold it.
-Every building within about 48 blocks draws its own outline in sparks — the floor
-and roof rectangles and the four corner posts. The outline is the building's whole
-**plot**: the walls plus the ground cleared around them, which is the land the town
-has taken for it. It places nothing and changes nothing; it is
-purely a lens.
+The nearest town's plan is drawn over the world in steady white lines out to
+about 128 blocks, following the lie of the land a block above the ground:
+
+- **Solid white** — the roads the town has opened, which is where you can walk.
+- **Dashed white** — stretches it has drawn but not opened yet.
+- **Faint white** — the streets the plan laid out, whether or not anybody has
+  walked them.
+- **Gray** — the wall's ring, closed or not.
+- **White rectangles** — each building's whole **plot**: the walls plus the
+  ground cleared around them, which is the land the town has taken for it. A
+  short tick on one side marks the door, so you can see what a building faces.
+  A plot that is queued rather than standing is drawn fainter.
+
+The lines are drawn through terrain on purpose — the view worth having is from a
+rise, and that is exactly the view a hill would hide. Buildings only appear once
+their size is known. It places nothing and changes nothing; it is purely a lens.
 
 It pairs with the Founding Charter, which shows the town's *claim* as a ring of
 green sparkles. One tells you where the town ends, the other where each building
 begins.
+
+The lamp needs Kingdoms installed on the client. A vanilla client connected to a
+Kingdoms server still gets the charter's ring, which is made of ordinary
+particles, but not the survey.
 
 ## Supplying a build
 

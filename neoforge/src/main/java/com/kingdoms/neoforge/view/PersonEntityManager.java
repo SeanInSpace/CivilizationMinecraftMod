@@ -61,7 +61,6 @@ import com.kingdoms.sim.work.Worksite;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -349,7 +348,7 @@ public final class PersonEntityManager {
     /** How long each embodied body has been standing where it stands, by person id. */
     private final Map<UUID, IdleWatch> idleWatch = new HashMap<>();
 
-    /** Ticks between survey redraws. */
+    /** Passes between claim-ring redraws. */
     private static final int SURVEY_EVERY = 4;
 
     private int surveyBeat;
@@ -386,13 +385,11 @@ public final class PersonEntityManager {
         // First thing in the pass, so what is timed is how often the pass
         // arrives rather than how long it takes.
         rate.mark();
-        // The survey draws every fourth tick rather than every one. Its lines are
-        // solid now, which is roughly eight times the particles of the old dotted
-        // ones, and a spark outlives four ticks many times over -- so the picture
-        // is continuous to look at while costing less than the dots did.
+        // The claim ring redraws every fourth pass rather than every one: a
+        // sparkle outlives four passes many times over, so the circle is
+        // continuous to look at at a quarter of the particles.
         if (++surveyBeat % SURVEY_EVERY == 0) {
             renderClaimBorders();
-            renderBuildingBorders();
         }
         tendGates();
         boolean changed = false;
@@ -3521,44 +3518,22 @@ public final class PersonEntityManager {
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
-    // --- surveying ---
-
-    /**
-     * Blocks between sparks along a surveyed line.
-     *
-     * <p>A quarter of a block, each mark a little over natural size, so the
-     * marks touch and a surveyed edge reads as a drawn line. It used to be two
-     * blocks apart: that drew a row of separate floating dots, and you could see
-     * that something had been measured but not what shape it was. Tried larger
-     * marks further apart first -- that reads as a line at surveying distance
-     * and as a row of blobs when you stand next to it, so the marks are small
-     * and the step is short instead.
-     */
-    private static final double SPARK_STEP = 0.25;
-
-    /**
-     * What a surveyed line is drawn with.
-     *
-     * <p>Colored dust rather than end rods. An end rod spark is a point of
-     * light: a row of them half a block apart still reads as a row of dots,
-     * which was the whole complaint. A dust particle takes a size, so at one and
-     * a half it is wider than the gap between two of them and the row closes
-     * into a line. It also takes a color, which lets the streets be told apart
-     * from the buildings at a glance -- amber ways, white walls.
-     */
-    private static final DustParticleOptions WALL_LINE =
-            new DustParticleOptions(0xFFFFFF, 1.2f);
-
-    private static final DustParticleOptions STREET_LINE =
-            new DustParticleOptions(0xFFA326, 1.2f);
-
     // --- claim borders ---
 
     /** How far from the border line a player still sees it. */
     private static final double BORDER_VIEW_RANGE = 64.0;
 
-    /** Blocks between sparkles along the border. */
-    private static final double BORDER_POINT_SPACING = SPARK_STEP;
+    /**
+     * Blocks between sparkles along the border.
+     *
+     * <p>A quarter of a block, so the marks touch and the ring reads as a drawn
+     * line rather than a row of floating dots. The surveyor's lamp used to be
+     * drawn the same way and is not any more — its lines are sent to the client
+     * and held still there — but a claim ring is one circle rather than a whole
+     * plan, and drawing it out of particles is what lets a vanilla client see
+     * it too.
+     */
+    private static final double BORDER_POINT_SPACING = 0.25;
 
     /**
      * Players holding a Founding Charter see every nearby settlement's claim as a
@@ -3600,177 +3575,5 @@ public final class PersonEntityManager {
             int y = world.bridge().surfaceHeight(new SimPos((int) Math.floor(x), center.y(), (int) Math.floor(z)));
             level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y + 0.6, z, 1, 0.0, 0.0, 0.0, 0.0);
         }
-    }
-
-    // --- building outlines ---
-
-    /** How far a building's outline is drawn from the player. */
-    private static final double OUTLINE_VIEW_RANGE = 48.0;
-
-    /** Tallest outline drawn, so a watchtower does not become a pillar of light. */
-    private static final int OUTLINE_MAX_HEIGHT = 12;
-
-    /**
-     * Players holding a Surveyor's Lamp see every nearby building's bounds as a
-     * wireframe of sparks.
-     *
-     * <p>Server-side particles, like the charter's claim ring — no client render
-     * code, so a vanilla client sees it too. Only the floor and roof rectangles
-     * and the four corner posts are drawn: filling the volume would hide the
-     * building it is meant to describe.
-     *
-     * <p>Buildings whose plan has never been built have no recorded size and are
-     * skipped rather than guessed at.
-     */
-    private void renderBuildingBorders() {
-        for (ServerPlayer player : level.players()) {
-            if (!holdingLamp(player)) {
-                continue;
-            }
-            for (Kingdom kingdom : world.kingdoms()) {
-                for (Settlement settlement : kingdom.settlements()) {
-                    surveyStreets(player, settlement);
-                    for (Building building : settlement.buildings()) {
-                        outline(player, building);
-                    }
-                    // Planned work lights up too: the lamp is for reading the
-                    // town's shape, and a plot that has been claimed but not yet
-                    // built is part of that shape.
-                    for (BuildTask task : settlement.buildQueue()) {
-                        if (!BuildPlanner.holdsGround(task.blueprintId())) {
-                            continue;
-                        }
-                        Footprint footprint = task.footprint();
-                        if (!footprint.isKnown()) {
-                            int span = BuildPlanner.plotSpanOf(
-                                    task.blueprintId(), settlement.catalog());
-                            footprint = new Footprint(task.site().y(), span, span, 3);
-                        }
-                        outline(player, task.site(), footprint);
-                    }
-                }
-            }
-        }
-    }
-
-    private static boolean holdingLamp(ServerPlayer player) {
-        return player.getMainHandItem().is(KingdomsItems.SURVEYORS_LAMP.get())
-                || player.getOffhandItem().is(KingdomsItems.SURVEYORS_LAMP.get());
-    }
-
-    private void outline(ServerPlayer player, Building building) {
-        Footprint footprint = building.footprint();
-        if (!footprint.isKnown()) {
-            // Raised before sizes were recorded. Measure it once, now that
-            // somebody is here to look at it, so worlds that predate this
-            // feature light up too rather than staying dark forever.
-            footprint = BlueprintPlacer.measure(level, building.blueprintId(),
-                    new BlockPos(building.origin().x(), building.origin().y(),
-                            building.origin().z()));
-            if (!footprint.isKnown()) {
-                return;
-            }
-            building.setFootprint(footprint);
-            KingdomsSavedData.get(level).setDirty();
-        }
-        outline(player, building.origin(), footprint);
-    }
-
-    private void outline(ServerPlayer player, SimPos origin, Footprint footprint) {
-        double dx = player.getX() - origin.x();
-        double dz = player.getZ() - origin.z();
-        if (dx * dx + dz * dz > OUTLINE_VIEW_RANGE * OUTLINE_VIEW_RANGE) {
-            return;
-        }
-
-        int rx = footprint.width() / 2;
-        int rz = footprint.depth() / 2;
-        int floor = origin.y();
-        int roof = floor + Math.min(footprint.height(), OUTLINE_MAX_HEIGHT);
-
-        // The two rectangles, floor and roof.
-        for (double x = -rx; x <= rx; x += SPARK_STEP) {
-            spark(origin.x() + x, floor, origin.z() - rz);
-            spark(origin.x() + x, floor, origin.z() + rz);
-            spark(origin.x() + x, roof, origin.z() - rz);
-            spark(origin.x() + x, roof, origin.z() + rz);
-        }
-        for (double z = -rz; z <= rz; z += SPARK_STEP) {
-            spark(origin.x() - rx, floor, origin.z() + z);
-            spark(origin.x() + rx, floor, origin.z() + z);
-            spark(origin.x() - rx, roof, origin.z() + z);
-            spark(origin.x() + rx, roof, origin.z() + z);
-        }
-        // And the four posts joining them, so the box reads as a volume.
-        for (double y = floor; y <= roof; y += SPARK_STEP) {
-            spark(origin.x() - rx, y, origin.z() - rz);
-            spark(origin.x() - rx, y, origin.z() + rz);
-            spark(origin.x() + rx, y, origin.z() - rz);
-            spark(origin.x() + rx, y, origin.z() + rz);
-        }
-    }
-
-    // --- streets ---
-
-    /**
-     * Draws the streets a settlement has opened, as lines along the ground.
-     *
-     * <p>The lamp used to light buildings and nothing else, which showed a town
-     * as a field of unrelated boxes. The streets are what make it a town -- what
-     * the buildings face, what the plan is actually made of -- so a survey that
-     * omits them cannot answer the question anybody picks the lamp up to ask,
-     * which is whether the place hangs together.
-     *
-     * <p>Drawn only where opened: a street that has been planned but not yet
-     * walked out is not somewhere you can go, and drawing it the same as a real
-     * one would be a lie told in light.
-     */
-    private void surveyStreets(ServerPlayer player, Settlement settlement) {
-        PathNetwork paths = settlement.paths();
-        List<PathNetwork.Segment> runs = paths.segments();
-        for (int i = 0; i < runs.size(); i++) {
-            if (!paths.isOpened(i)) {
-                continue;
-            }
-            PathNetwork.Segment run = runs.get(i);
-            if (!withinLamp(player, run.from()) && !withinLamp(player, run.to())) {
-                continue;
-            }
-            traceOnGround(run.from(), run.to());
-        }
-    }
-
-    private boolean withinLamp(ServerPlayer player, SimPos at) {
-        double dx = player.getX() - at.x();
-        double dz = player.getZ() - at.z();
-        return dx * dx + dz * dz <= OUTLINE_VIEW_RANGE * OUTLINE_VIEW_RANGE;
-    }
-
-    /**
-     * A line between two points, laid on whatever the ground turns out to be.
-     *
-     * <p>A street climbs, so a line drawn at one height would sink into a rise
-     * and float over a dip. Each spark asks the world how high the ground is
-     * beneath it -- a heightmap lookup, which is cheap, and only for the stretch
-     * a player is close enough to see.
-     */
-    private void traceOnGround(SimPos from, SimPos to) {
-        double dx = to.x() - from.x();
-        double dz = to.z() - from.z();
-        double run = Math.hypot(dx, dz);
-        int steps = Math.max(1, (int) Math.ceil(run / SPARK_STEP));
-        for (int i = 0; i <= steps; i++) {
-            double x = from.x() + dx * i / steps;
-            double z = from.z() + dz * i / steps;
-            int y = BlueprintPlacer.groundLevel(level,
-                    (int) Math.floor(x), (int) Math.floor(z));
-            level.sendParticles(STREET_LINE,
-                    x + 0.5, y + 0.3, z + 0.5, 1, 0.0, 0.0, 0.0, 0.0);
-        }
-    }
-
-    private void spark(double x, double y, double z) {
-        level.sendParticles(WALL_LINE,
-                x + 0.5, y + 0.5, z + 0.5, 1, 0.0, 0.0, 0.0, 0.0);
     }
 }

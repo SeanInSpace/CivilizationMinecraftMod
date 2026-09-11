@@ -69,6 +69,10 @@ public final class KingdomsMod {
         modBus.addListener(KingdomsEntities::createAttributes);
         if (FMLEnvironment.getDist() == Dist.CLIENT) {
             modBus.addListener(KingdomsClient::registerRenderers);
+            // The surveyor's lamp draws with a line pipeline of its own, which
+            // has to be registered before anything can render with it.
+            modBus.addListener(KingdomsClient::registerPipelines);
+            KingdomsClient.listen();
         }
 
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onServerStarted);
@@ -118,6 +122,8 @@ public final class KingdomsMod {
         // And where each paving crew had got along its run, which is a place in
         // a network that is going away with the world it belonged to.
         com.kingdoms.neoforge.view.Foreman.forget();
+        // And who was holding a lamp, which is about hands in a world closing.
+        com.kingdoms.neoforge.view.Surveyor.forget();
     }
 
     /** Our own tick count — the level clock is not trusted for cadence (it can freeze). */
@@ -138,6 +144,14 @@ public final class KingdomsMod {
             for (ServerLevel level : event.getServer().getAllLevels()) {
                 com.kingdoms.neoforge.world.WorldgenSettlements.tick(level);
             }
+        }
+        // Surveys go out on their own beat, not the manager's. A lamp has to
+        // answer the moment it is drawn, and the manager's pass is a second
+        // wide — this reads two item stacks a tick and builds a survey only on
+        // the interval or when somebody's hand changes.
+        for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
+            com.kingdoms.neoforge.view.Surveyor.tick(
+                    entry.getKey(), entry.getValue(), tickCounter);
         }
         for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
             if (entry.getValue().onGameTick()) {
