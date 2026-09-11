@@ -56,6 +56,7 @@ import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.Stock;
 import com.kingdoms.sim.view.EmbodimentPlanner;
 import com.kingdoms.sim.work.PublicWorks;
+import com.kingdoms.sim.work.Spoil;
 import com.kingdoms.sim.work.Worksite;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
@@ -480,7 +481,7 @@ public final class PersonEntityManager {
                 Excavation hole = siteDig(settlement);
                 if (hole != null && !hole.isComplete()) {
                     builders.getFirst().swing(InteractionHand.MAIN_HAND);
-                    hole.flush(level);
+                    hole.flush(level, settlement);
                 }
                 task.creditExcavation();
                 // Deliberately not gated on the carry rule. No game ticks pass
@@ -668,6 +669,7 @@ public final class PersonEntityManager {
         tickHandWork();
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
+                deliverSpoil(settlement);
                 // No hands, no hole. Opening one for an unwatched town would both
                 // log a dig nobody is doing and leave the build waiting on it,
                 // when what should happen out of sight is the abstract clock.
@@ -717,6 +719,63 @@ public final class PersonEntityManager {
     }
 
     /**
+     * Walks what a citizen has dug up to somewhere the town can keep it.
+     *
+     * <p>The second half of one rule: a block a citizen breaks yields its
+     * material to that citizen, and what a citizen carries ends up in the town's
+     * supplies. The first half happens at the swing — see {@code Excavation} and
+     * {@code Foreman} — and this is the walk.
+     *
+     * <p>Two moments send somebody off: their pockets are full, or there is no
+     * hole left in front of them. A crew that dug a plot out and has half an
+     * armful each must not stand on the finished site holding it, and a crew
+     * mid-dig must not drop everything for one log — so one trip per full load
+     * while the work lasts, and a last trip when it is over.
+     *
+     * <p>{@code HaulPlanner} does the arriving and the setting down, so this is
+     * the only new thing about the errand: where it starts. See
+     * {@code Spoil.startDelivery}.
+     */
+    private void deliverSpoil(Settlement settlement) {
+        // Runs on every tick of every town, so the question that costs anything
+        // is asked only once somebody is actually holding something. Almost
+        // always nobody is.
+        Boolean digging = null;
+        for (Person person : settlement.residents()) {
+            if (person.haul() != null || person.pockets().isEmpty()
+                    || !person.isEmbodied()) {
+                continue;
+            }
+            if (!person.pockets().isFull()
+                    && settlement.laborsAs(person, Profession.BUILDER)
+                    && !person.isTooWeakToWork()) {
+                if (digging == null) {
+                    digging = hasOpenDig(settlement);
+                }
+                if (digging) {
+                    continue;   // still ground in front of them; the rest can wait
+                }
+            }
+            Spoil.startDelivery(settlement, person);
+        }
+    }
+
+    /** Whether this settlement has a hole open that somebody could still be in. */
+    private boolean hasOpenDig(Settlement settlement) {
+        Excavation ordered = clearOrders.get(settlement.id().value());
+        if (ordered != null && !ordered.isComplete()) {
+            return true;
+        }
+        for (Map.Entry<DigKey, SiteDig> held : siteDigs.entrySet()) {
+            if (held.getKey().settlement().equals(settlement.id().value())
+                    && !held.getValue().yard.isComplete()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Puts every embodied builder to work on a hole.
      *
      * @return false once there is nothing left in it
@@ -726,7 +785,14 @@ public final class PersonEntityManager {
             return false;
         }
         for (PersonEntity digger : embodiedBuilders(settlement)) {
-            yard.serve(level, digger, tick);
+            Person record = personOf(settlement, digger);
+            if (record != null && record.pockets().isFull()) {
+                // Arms full. They are due at a store -- deliverSpoil sends them
+                // -- and a digger who kept swinging would be breaking blocks they
+                // have nowhere to put.
+                continue;
+            }
+            yard.serve(level, settlement, record, digger, tick);
             // The hole has them, and it makes the same claim on the body that
             // laying a block does. Construction bails out above the builder loop
             // while there is ground in the way, so without this the day's
@@ -1715,7 +1781,7 @@ public final class PersonEntityManager {
                     // find the work already crossed out.
                     break;
                 }
-                PathLayer.mend(level, segments.get(i));
+                PathLayer.mend(level, settlement, segments.get(i));
                 done++;
             }
             settlement.paths().setLaidThrough(i);
@@ -1741,7 +1807,7 @@ public final class PersonEntityManager {
         if (!RoadUpkeep.mayMend(settlement, index)) {
             return false;
         }
-        return PathLayer.mend(level, segments.get(index)) > 0;
+        return PathLayer.mend(level, settlement, segments.get(index)) > 0;
     }
 
     /** Whether this stretch's ground is loaded, and so can actually be paved. */
@@ -1977,6 +2043,13 @@ public final class PersonEntityManager {
             if (!settlement.laborsAs(person, Profession.BUILDER)
                     || !person.isEmbodied()
                     || person.isTooWeakToWork()) {
+                continue;
+            }
+            if (person.haul() != null) {
+                // On an errand, which for a builder means walking their own
+                // diggings to a store. Steered by the site as well they would be
+                // pulled two ways and arrive nowhere, and the load would never
+                // reach the shelves.
                 continue;
             }
             if (spared != null && spared.equals(person.id().value())) {
@@ -3162,6 +3235,12 @@ public final class PersonEntityManager {
             // roof, exactly as reported.
             if (settlement.laborsAs(person, Profession.BUILDER)
                     && !alarm.callsIn(person.profession()) && !night
+                    // An errand outranks the site, exactly as it does for a
+                    // lumberjack and a farmer below. A builder walking a load of
+                    // dug timber to the storehouse is not on the site, and left
+                    // in here they would be spared the routine that is the only
+                    // thing steering them to the shelves.
+                    && person.haul() == null
                     && (steeredByBuild.contains(person.id().value())
                             || isOnAPublicWork(settlement, person)
                             || isClearing(settlement))

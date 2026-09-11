@@ -8,6 +8,7 @@ import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.neoforge.world.PerimeterLayer;
 import com.kingdoms.neoforge.world.WallClearing;
+import com.kingdoms.neoforge.world.Yield;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.person.BuildLoad;
 import com.kingdoms.sim.person.Person;
@@ -18,6 +19,7 @@ import com.kingdoms.sim.work.PublicWorks;
 import com.kingdoms.sim.work.Worksite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -178,7 +180,7 @@ public final class Foreman {
                     // Fell the whole tree from the one block that gave, so a
                     // crown fifteen blocks up does not have to be picked at from
                     // a ladder nobody has.
-                    fell(level, growth);
+                    fell(level, settlement, carrier, growth);
                 }
                 return work;   // still clearing; the post is not due yet
             }
@@ -196,7 +198,7 @@ public final class Foreman {
                     at.getX() + 0.5, at.getY() + 1.0, at.getZ() + 0.5);
             builder.swing(InteractionHand.MAIN_HAND);
             level.playSound(null, at, SoundEvents.WOOD_PLACE, SoundSource.BLOCKS, 0.7F, 1.0F);
-            Swing swing = swingAt(level, settlement, work, station);
+            Swing swing = swingAt(level, settlement, carrier, work, station);
             if (fresh && owed != null && swing.worked()) {
                 // Only once a block is actually in the ground. A course the
                 // column refuses -- the line grazing somebody's wall, which
@@ -285,8 +287,8 @@ public final class Foreman {
      *
      * @return whether the station is finished, and whether there was work in it
      */
-    private static Swing swingAt(ServerLevel level, Settlement settlement, Worksite work,
-                                 SimPos station) {
+    private static Swing swingAt(ServerLevel level, Settlement settlement, Person carrier,
+                                 Worksite work, SimPos station) {
         if (work instanceof PublicWorks.WallWork) {
             return plantPost(level, settlement);
         }
@@ -298,7 +300,7 @@ public final class Foreman {
             return new Swing(true, PerimeterLayer.pullDownOurs(level, station));
         }
         if (work instanceof PublicWorks.RoadWork road) {
-            return new Swing(paveOne(level, settlement, road), true);
+            return new Swing(paveOne(level, settlement, carrier, road), true);
         }
         return new Swing(true, true);
     }
@@ -530,7 +532,7 @@ public final class Foreman {
      *
      * @return whether this cross-section is done with
      */
-    private static boolean paveOne(ServerLevel level, Settlement settlement,
+    private static boolean paveOne(ServerLevel level, Settlement settlement, Person paver,
                                    PublicWorks.RoadWork work) {
         int index = work.nextRun(settlement);
         if (index < 0) {
@@ -548,9 +550,9 @@ public final class Foreman {
                 PAVING.remove(settlement.id());
                 return true;
             }
-            Bridge.span(level, run);
+            Bridge.span(level, settlement, run);
         }
-        PathLayer.paveAt(level, run, at);
+        PathLayer.paveAt(level, run, at, settlement, paver);
         moveOn(settlement, work, along, true);
         return true;
     }
@@ -634,7 +636,8 @@ public final class Foreman {
      * expects to see. See {@link Felling}, which owns the shape of a tree and
      * the bounds on it.
      */
-    private static void fell(ServerLevel level, BlockPos from) {
+    private static void fell(ServerLevel level, Settlement settlement, Person carrier,
+                             BlockPos from) {
         if (!level.isLoaded(from)) {
             return;
         }
@@ -642,13 +645,30 @@ public final class Foreman {
                 at -> level.isLoaded(at)
                         && level.getBlockState(at).is(net.minecraft.tags.BlockTags.LOGS);
         for (BlockPos log : Felling.treeAt(from, isLog)) {
+            BlockState state = level.getBlockState(log);
             level.destroyBlock(log, false, null, 512);
+            keep(settlement, carrier, state, log);
         }
         // A lone leaf over the line belongs to a tree rooted somewhere else. It
         // is taken one leaf at a time, the way a person would, and the tree it
         // hangs on is left standing.
         if (!level.getBlockState(from).isAir()) {
+            BlockState state = level.getBlockState(from);
             level.destroyBlock(from, false, null, 512);
+            keep(settlement, carrier, state, from);
         }
+    }
+
+    /**
+     * The timber off the wall line goes to the town, like every other block.
+     *
+     * <p>A crew taking an oak off the palisade's route is doing exactly what a
+     * lumberjack does, for a different reason, and the tree is exactly as much
+     * wood either way. See {@link Yield}, which is the one place that rule is
+     * written down.
+     */
+    private static void keep(Settlement settlement, Person carrier,
+                             BlockState broken, BlockPos at) {
+        Yield.keep(settlement, carrier, broken, at);
     }
 }

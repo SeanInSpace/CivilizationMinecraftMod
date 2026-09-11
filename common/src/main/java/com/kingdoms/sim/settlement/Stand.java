@@ -1,5 +1,6 @@
 package com.kingdoms.sim.settlement;
 
+import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.world.SimContext;
 import com.kingdoms.sim.world.SimSettings;
 
@@ -258,6 +259,37 @@ public final class Stand {
             camp.setStandThousandths(camp.standThousandths() - taken * PER_LOG);
         }
         return taken;
+    }
+
+    /**
+     * One log off the camp's ledger, but only if it stood in the camp's wood.
+     *
+     * <p>For every axe that is not a lumberjack's. A site crew clearing a plot,
+     * a wall crew taking a tree off the line and a road crew driving through one
+     * all fell real trunks, and a trunk that came out of the camp's
+     * {@link WorkArea} is one trunk fewer standing there whoever took it — leave
+     * it on the books and the clock pays the town for it again the moment
+     * everybody walks away.
+     *
+     * <p>And only then. A tree on a house plot in the middle of the village is
+     * not the forester's, so felling it must not make the camp any poorer: the
+     * town gets the timber and the stand is untouched. Same argument for the
+     * mine, which is why nothing anywhere debits a {@link Seam} for a foundation
+     * — the rock under somebody's floor was never part of the workings.
+     *
+     * @return the logs actually taken off the ledger, zero when the tree was not
+     *         the camp's
+     */
+    public static int fellInArea(Settlement settlement, SimPos where) {
+        if (settlement == null) {
+            return 0;
+        }
+        WorkArea wood = settlement.lumberArea();
+        if (wood == null || !wood.contains(new SimPos(where.x(), wood.center().y(), where.z()))) {
+            return 0;
+        }
+        Building camp = settlement.buildingWithRole(BuildingRole.LUMBER_CAMP);
+        return camp == null ? 0 : fell(camp, 1);
     }
 
 }

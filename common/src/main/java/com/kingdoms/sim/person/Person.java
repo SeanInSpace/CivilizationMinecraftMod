@@ -46,6 +46,15 @@ public final class Person {
     /** What they are actually carrying. Real items, eaten from directly. */
     private final Inventory inventory = new Inventory();
 
+    /**
+     * What they have dug up and not yet put anywhere. See {@link Pockets}.
+     *
+     * <p>Deliberately not the same pocket as {@link #carriedMaterial}: one is a
+     * load fetched from a store to be spent into a wall, the other is what came
+     * out of the ground under them, and a settler routinely has both.
+     */
+    private final Pockets pockets = new Pockets();
+
     /** Consecutive steps spent at maximum hunger. Death comes when it runs out. */
     private int starvingSteps;
 
@@ -173,6 +182,16 @@ public final class Person {
 
     public Inventory inventory() {
         return inventory;
+    }
+
+    /**
+     * What this person has broken out of the ground and is still holding.
+     *
+     * <p>Every block a citizen breaks yields its material into here, and what is
+     * in here is walked to the town's stores. See {@code Spoil}.
+     */
+    public Pockets pockets() {
+        return pockets;
     }
 
     public HaulTask haul() {

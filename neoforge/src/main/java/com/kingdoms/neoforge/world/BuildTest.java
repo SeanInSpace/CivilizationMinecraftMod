@@ -244,7 +244,7 @@ public final class BuildTest {
         for (int i = 0; i < RUNS_PER_TICK && paved < toPave.size(); i++) {
             PathNetwork.Segment run = toPave.get(paved++);
             level.getChunk(run.from().x() >> 4, run.from().z() >> 4);
-            PathLayer.mend(level, run);
+            PathLayer.mend(level, town, run);
         }
         if (pending.isEmpty()) {
             if (paved < toPave.size()) {

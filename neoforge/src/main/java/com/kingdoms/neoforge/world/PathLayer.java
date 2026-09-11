@@ -1,7 +1,9 @@
 package com.kingdoms.neoforge.world;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.settlement.PathNetwork;
+import com.kingdoms.sim.settlement.Settlement;
 
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -68,13 +70,13 @@ public final class PathLayer {
      *
      * @return blocks paved — zero for a road that is already sound
      */
-    public static int mend(ServerLevel level, PathNetwork.Segment segment) {
+    public static int mend(ServerLevel level, Settlement town, PathNetwork.Segment segment) {
         // Before the steepness check and before anything else, because a
         // crossing is the one part of a way that is not paving at all: there is
         // no ground under it to be too steep, and the columns it covers read as
         // OTHER to every count below -- water is not a road with holes in it, it
         // is a road with a river across it.
-        int decked = Bridge.span(level, segment);
+        int decked = Bridge.span(level, town, segment);
         if (tooSteepToPave(level, segment)) {
             return decked;
         }
@@ -105,7 +107,7 @@ public final class PathLayer {
         for (SimPos pos : segment.positions()) {
             for (int ox = -half; ox <= half; ox++) {
                 for (int oz = -half; oz <= half; oz++) {
-                    laid += pave(level, pos.x() + ox, pos.z() + oz);
+                    laid += pave(level, pos.x() + ox, pos.z() + oz, town, null);
                 }
             }
         }
@@ -167,7 +169,8 @@ public final class PathLayer {
      * @return blocks laid, which is zero for a column that is already a road, is
      *         somebody's floor, or stands a wall above the one behind it
      */
-    public static int paveAt(ServerLevel level, PathNetwork.Segment segment, int index) {
+    public static int paveAt(ServerLevel level, PathNetwork.Segment segment, int index,
+                             Settlement town, Person hands) {
         List<SimPos> along = segment.positions();
         if (index < 0 || index >= along.size()) {
             return 0;
@@ -177,7 +180,7 @@ public final class PathLayer {
             return laid;
         }
         for (SimPos column : crossSectionAt(segment, index)) {
-            laid += pave(level, column.x(), column.z());
+            laid += pave(level, column.x(), column.z(), town, hands);
         }
         return laid;
     }
@@ -389,7 +392,7 @@ public final class PathLayer {
      *
      * @return 1 if anything was laid
      */
-    private static int pave(ServerLevel level, int x, int z) {
+    private static int pave(ServerLevel level, int x, int z, Settlement town, Person hands) {
         BlockPos surface = surfaceOf(level, x, z);
         if (surface == null) {
             return 0;
@@ -399,14 +402,23 @@ public final class PathLayer {
             return 0;   // a floor, a roof, or water: not ours to pave
         }
         level.setBlock(surface, Blocks.DIRT_PATH.defaultBlockState(), Block.UPDATE_CLIENTS);
-        clearOver(level, surface);
+        clearOver(level, surface, town, hands);
         return 1;
     }
 
-    /** Takes the growth off one paved block, from the stones to the sky. */
-    static void clearOver(ServerLevel level, BlockPos surface) {
+    /**
+     * Takes the growth off one paved block, from the stones to the sky.
+     *
+     * <p>What comes off is the crew's, like every other block a citizen breaks:
+     * a way driven through a wood is a way through a wood's worth of timber. See
+     * {@link Yield}. The clock's mending sweep passes no hands, so what it takes
+     * off a road goes straight to the town's nearest shelves.
+     */
+    static void clearOver(ServerLevel level, BlockPos surface, Settlement town, Person hands) {
         for (BlockPos above : Overgrowth.overPaving(Overgrowth.over(level), surface)) {
+            BlockState growth = level.getBlockState(above);
             level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            Yield.keep(town, hands, growth, above);
         }
     }
 

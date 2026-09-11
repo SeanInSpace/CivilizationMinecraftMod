@@ -11,6 +11,7 @@ import com.kingdoms.sim.economy.Economy;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.platform.Sighting;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.work.Spoil;
 import com.kingdoms.sim.world.SimContext;
 
 import java.util.ArrayDeque;
@@ -3039,14 +3040,21 @@ public final class Settlement {
 
         Building raised = new Building(
                 current.blueprintId(), current.site(), ctx.step(), current.isVisuallyComplete());
-        // The spoil out of its foundations. Excavation has always thrown this
-        // away -- there was nowhere to put it and a site knee-deep in dirt items
-        // is worse than none -- and now there is somewhere: it is what pays to
-        // level the next awkward plot. A town's first buildings stand on ground
-        // that was already flat, and they are what make the uneven ground
-        // afterwards affordable.
-        int span = BuildPlanner.plotSpanOf(current.blueprintId(), catalog);
-        loosePile.add(TownStores.EARTH, span * span * SPOIL_COURSES);
+        // The spoil out of its foundations, estimated: a course of earth over
+        // the footprint, which is what pays to level the next awkward plot.
+        //
+        // Only where the platform cannot count the real thing. Every block a
+        // citizen breaks now yields its material into that citizen's pockets and
+        // from there into the stores, and a site drawn out of sight is counted
+        // block by block as it is cleared -- see WorldBridge.materializeBlueprint
+        // and Spoil. Crediting this estimate as well would pay a town twice for
+        // one hole, and pay it in earth for a plot that was mostly trees. It
+        // stays for the bridges with nothing to count, which is every one that
+        // has never heard of a block, so their towns keep the behavior they had.
+        if (!ctx.bridge().countsSpoil()) {
+            int span = BuildPlanner.plotSpanOf(current.blueprintId(), catalog);
+            loosePile.add(TownStores.EARTH, span * span * SPOIL_COURSES);
+        }
         // Surveyed sites keep the height the builders actually worked to; only an
         // unsurveyed one may be snapped to the ground at placement time.
         raised.setSurveyed(current.siteY() != BuildTask.UNSET_SITE_Y);
@@ -3478,9 +3486,17 @@ public final class Settlement {
                 if (relocatePending(ctx, building)) {
                     continue;
                 }
+                // Whatever the drawing has to clear off the plot belongs to the
+                // town, exactly as it would if a crew had dug it by hand: the
+                // trees standing on it, the growth over it, the hillside under
+                // its floor. Credited where it was cleared, so it lands on the
+                // shelves nearest the new building rather than wherever the town
+                // happens to list first.
+                SimPos site = building.origin();
                 Footprint placed = ctx.bridge().materializeBlueprint(
                         building.blueprintId(), building.origin(), building.isSurveyed(),
-                        building.facing());
+                        building.facing(),
+                        (resource, amount) -> Spoil.credit(this, site, resource, amount));
                 if (placed.isKnown()) {
                     // Where it really stands and how big it is, so everyone who
                     // walks here arrives and anything drawing it has its bounds.

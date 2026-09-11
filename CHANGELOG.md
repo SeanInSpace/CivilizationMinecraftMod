@@ -6,6 +6,47 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Nothing a citizen breaks is thrown away
+
+### Changed
+
+- **Every block a citizen breaks now goes into the town's supplies.** Clearing a
+  building plot, taking a tree off the line of a wall, driving a road through a
+  wood, cutting the hillside out from under a floor — all of it used to be
+  destroyed on the argument that only a lumber camp makes timber and only a mine
+  makes stone. Six oaks felled to stand a cottage on their stumps are six oaks'
+  worth of timber, whatever the felling was for, and now the town has it. A camp
+  is what makes wood grow back; it was never what made a felled tree real.
+
+- **You can watch it happen.** A settler fills their pockets as they dig — one
+  armful, about a stack — and when those are full, or when the hole is finished,
+  they shoulder the load, walk it to the nearest storehouse and set it down.
+  Several materials means several trips, in the order they picked them up. A town
+  with no storehouse yet piles it on the ground where it was dug, which is how
+  the first storehouse gets paid for.
+
+- **A town built out of sight is credited with the same thing.** Where nobody is
+  watching, a building is drawn all at once and the ground it clears is counted
+  block by block as it goes. What used to be credited there was a flat guess —
+  one course of earth over the plot's footprint, whether the plot was a meadow or
+  a forest. It is the real count now.
+
+- **Logs, stone, earth and iron; leaves and litter are still worth nothing.** A
+  town keeps four bulk materials, so that is what a broken block can come to: any
+  log is timber, stone and its cousins and the ores of metals the town does not
+  track are stone, dirt and sand and gravel and clay are earth, and iron ore is
+  iron. A crown of leaves, a crop, a pane of glass and somebody's furnace are
+  worth nothing, as before.
+
+- **A store that is full still refuses what will not fit.** Dug timber lands
+  under exactly the ceiling a lumberjack's timber lands under: a town does not
+  gain the capacity to keep a forest just because it cleared one. A tree taken
+  out of the lumber camp's own wood also comes off the camp's books, so the same
+  trunk is never paid for twice — a tree standing on a house plot in the middle
+  of the village was never the forester's and leaves the camp's ledger alone.
+
+---
+
 ## The footpath goes round the house
 
 ### Fixed

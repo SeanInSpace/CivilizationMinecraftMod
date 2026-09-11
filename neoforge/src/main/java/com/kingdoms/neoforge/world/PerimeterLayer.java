@@ -143,7 +143,7 @@ public final class PerimeterLayer {
             if (level.isLoaded(new BlockPos(pos.x(), pos.y(), pos.z()))) {
                 drawn += perimeter.isGateway(pos)
                         ? drawGateway(level, perimeter, pos)
-                        : drawPost(level, pos, i);
+                        : drawPost(level, settlement, pos, i);
                 looked++;
             }
             examined++;
@@ -561,12 +561,13 @@ public final class PerimeterLayer {
      *
      * @return 1 if anything was placed, 0 if the post already stood
      */
-    private static int drawPost(ServerLevel level, SimPos pos, int index) {
+    private static int drawPost(ServerLevel level, Settlement settlement,
+                                SimPos pos, int index) {
         BlockPos ground = surface(level, pos);
         if (ground == null) {
             return 0;
         }
-        clearGrowth(level, ground);
+        clearGrowth(level, settlement, ground);
         takeDownWhatIsHanging(level, ground, isLit(index));
         boolean placed = false;
         for (Course course : postAt(ground, index)) {
@@ -863,7 +864,8 @@ public final class PerimeterLayer {
      * the growth test cannot tell one of those from a tree, so clearing without
      * this guard would have each post quietly demolish its neighbors.
      */
-    private static void clearGrowth(ServerLevel level, BlockPos footing) {
+    private static void clearGrowth(ServerLevel level, Settlement settlement,
+                                    BlockPos footing) {
         for (int dy = 0; dy < WallClearing.CLEAR_UP; dy++) {
             for (int dx = -WallClearing.CLEAR_SIDEWAYS; dx <= WallClearing.CLEAR_SIDEWAYS; dx++) {
                 for (int dz = -WallClearing.CLEAR_SIDEWAYS; dz <= WallClearing.CLEAR_SIDEWAYS; dz++) {
@@ -871,8 +873,13 @@ public final class PerimeterLayer {
                     if (!level.isLoaded(at) || isOurs(level, at)) {
                         continue;
                     }
-                    if (WallClearing.isGrowth(level.getBlockState(at))) {
+                    BlockState growth = level.getBlockState(at);
+                    if (WallClearing.isGrowth(growth)) {
                         level.destroyBlock(at, false, null, 512);
+                        // What the clock takes off the line is the town's, exactly
+                        // as what a crew takes off it by hand is -- see Yield. No
+                        // hands here, so it goes straight to the nearest shelves.
+                        Yield.keep(settlement, null, growth, at);
                     }
                 }
             }

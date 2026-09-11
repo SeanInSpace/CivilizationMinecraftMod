@@ -137,9 +137,16 @@ public final class KingdomsCodecs {
             Codec.BOOL.optionalFieldOf("has_tool", false).forGetter(Person::hasTool),
             Codec.STRING.optionalFieldOf("carry_material", "").forGetter(
                     person -> person.carriedMaterial() == null ? "" : person.carriedMaterial()),
-            Codec.INT.optionalFieldOf("carry_load", 0).forGetter(Person::carriedLoad)
+            Codec.INT.optionalFieldOf("carry_load", 0).forGetter(Person::carriedLoad),
+            // What they have dug up and not yet walked anywhere. Saved because an
+            // armful is real stock that left the ground: a reload that emptied
+            // everybody's pockets would quietly destroy a crew's afternoon of
+            // clearing, and "goods only ever exist in one place" would stop being
+            // true across a restart.
+            Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("pockets", Map.of())
+                    .forGetter(person -> person.pockets().all())
     ).apply(i, (id, name, profession, position, hunger, carried, starving, haul, hasTool,
-                carryMaterial, carryLoad) -> {
+                carryMaterial, carryLoad, pockets) -> {
         Person person = new Person(id, name, profession, position);
         person.setHunger(hunger);
         carried.forEach(slot -> person.inventory().restore(slot.itemId(), slot.count()));
@@ -147,6 +154,7 @@ public final class KingdomsCodecs {
         haul.ifPresent(person::setHaul);
         person.setHasTool(hasTool);
         person.setCarry(carryMaterial.isEmpty() ? null : carryMaterial, carryLoad);
+        person.pockets().restore(pockets);
         return person;
     }));
 

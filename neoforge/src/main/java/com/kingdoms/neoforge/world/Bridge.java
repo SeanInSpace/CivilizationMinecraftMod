@@ -2,6 +2,7 @@ package com.kingdoms.neoforge.world;
 
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.PathNetwork;
+import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.RoadRouter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -77,7 +78,7 @@ public final class Bridge {
      *
      * @return blocks laid; zero for a run on dry land or a bridge already sound
      */
-    public static int span(ServerLevel level, PathNetwork.Segment segment) {
+    public static int span(ServerLevel level, Settlement town, PathNetwork.Segment segment) {
         List<SimPos> line = segment.positions();
         int half = Math.max(1, segment.width() / 3);
         int laid = 0;
@@ -88,7 +89,7 @@ public final class Bridge {
                 from = i;
             }
             if (!wet && from >= 0) {
-                laid += deck(level, line, from, i - 1, half);
+                laid += deck(level, town, line, from, i - 1, half);
                 from = -1;
             }
         }
@@ -105,7 +106,8 @@ public final class Bridge {
      * A deck three hundred blocks long laid because of that disagreement would be
      * the most visible bug in the mod.
      */
-    private static int deck(ServerLevel level, List<SimPos> line, int first, int last,
+    private static int deck(ServerLevel level, Settlement town, List<SimPos> line,
+                            int first, int last,
                             int half) {
         int length = last - first + 1;
         if (length > RoadRouter.LONGEST_BRIDGE) {
@@ -180,7 +182,7 @@ public final class Bridge {
             // dry land at each end and the last plank of it goes down on the bank,
             // so a bridge without this has the same litter on its boards that the
             // road leading onto it used to have.
-            PathLayer.clearOver(level, on);
+            PathLayer.clearOver(level, on, town, null);
         }
 
         // Railings where the deck ends over water, and nowhere else. A rail

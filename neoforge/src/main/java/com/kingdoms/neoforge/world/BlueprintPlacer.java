@@ -14,6 +14,7 @@ import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.TownStores;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.work.Spoil;
 import com.kingdoms.sim.world.SimWorld;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.settlement.BuildPlanner;
@@ -21,6 +22,7 @@ import com.kingdoms.sim.settlement.BuildingSizes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
@@ -224,8 +226,25 @@ public final class BlueprintPlacer {
     /** Places a whole structure and reports where it went and how big it is. */
     public static Footprint place(ServerLevel level, String blueprintId, BlockPos base,
                                  int facing) {
+        return place(level, blueprintId, base, facing, (resource, amount) -> { });
+    }
+
+    /**
+     * The same, telling the caller what clearing the plot was worth.
+     *
+     * <p>The unwatched half of one rule: every block a citizen breaks yields its
+     * material to the town. Nobody is holding anything here — the building is
+     * being drawn because there was no one to build it — so what a crew would
+     * have carried out of the hole is summed as the hole is emptied and handed
+     * back for the settlement to credit. Blocks that are already gone yield
+     * nothing, which is what stops a site a crew half-dug by hand before the
+     * player walked away from being paid for twice.
+     */
+    public static Footprint place(ServerLevel level, String blueprintId, BlockPos base,
+                                 int facing, java.util.function.ObjIntConsumer<String> spoil) {
         StructurePlan plan = planFor(level, blueprintId, base, facing);
         strip(level, plan);
+        Map<String, Integer> yielded = new LinkedHashMap<>();
         for (BlockPos dig : plan.digTargets()) {
             if (!level.getBlockState(dig).isAir()) {
                 // The plant on top goes first, silently, or it pops off as an
@@ -236,9 +255,14 @@ public final class BlueprintPlacer {
                     level.setBlock(above, Blocks.AIR.defaultBlockState(),
                             Block.UPDATE_CLIENTS);
                 }
+                Spoil.Kind kind = spoilOf(level.getBlockState(dig));
+                if (kind.isSomething()) {
+                    yielded.merge(kind.resource(), kind.perBlock(), Integer::sum);
+                }
                 level.destroyBlock(dig, false, null, 512);
             }
         }
+        yielded.forEach(spoil::accept);
         for (Step step : plan.steps()) {
             lay(level, new Placement(step.pos(), step.state(), step.nbt()));
         }
@@ -707,6 +731,47 @@ public final class BlueprintPlacer {
             return TownStores.STONE;
         }
         return null;
+    }
+
+    /**
+     * What breaking this block is worth to the town.
+     *
+     * <p>The other direction of {@link #materialFor}, and kept beside it so that
+     * building and breaking are read off one list. They are deliberately not the
+     * same function: laying asks what a course <em>costs</em> and is happy to
+     * charge a whole category for it, while breaking asks what actually came away
+     * in somebody's hands, which has to be narrow or a town would mine stone out
+     * of every furnace it pulled down. See {@code Spoil} for the table itself.
+     *
+     * <p><strong>Tags first, names second.</strong> Tags are how a modded log
+     * gets recognized as a log, and they are bound when a server loads its
+     * datapacks — so in a unit test, with no server, every tag test is false and
+     * the name table is the whole classifier. Both halves therefore have to be
+     * right, and the name half is the one that can be asserted.
+     */
+    public static Spoil.Kind spoilOf(BlockState state) {
+        if (state == null || state.isAir()) {
+            return Spoil.Kind.NOTHING;
+        }
+        if (state.is(BlockTags.LOGS)) {
+            return Spoil.Kind.TIMBER;
+        }
+        if (state.is(BlockTags.LEAVES)) {
+            // A crown is not a harvest. Vanilla gives a player sticks and the odd
+            // sapling for one, and a town has no column for either.
+            return Spoil.Kind.NOTHING;
+        }
+        if (state.is(BlockTags.IRON_ORES)) {
+            return Spoil.Kind.ORE;
+        }
+        if (state.is(BlockTags.DIRT) || state.is(BlockTags.SAND)) {
+            return Spoil.Kind.SOIL;
+        }
+        if (state.is(BlockTags.BASE_STONE_OVERWORLD)) {
+            return Spoil.Kind.ROCK;
+        }
+        return Spoil.ofBlockName(
+                BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath());
     }
 
     /**

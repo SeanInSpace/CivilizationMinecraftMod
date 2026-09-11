@@ -26,12 +26,19 @@ public final class HaulTask {
         /** A building's own bulk shelves — timber, stone, saplings, iron. */
         STORE,
         /**
-         * The carrier themselves: the errand ends in a mouth, not a store.
+         * The carrier themselves: one leg, not two, at whichever end it is on.
          *
-         * <p>Only ever a destination. Somebody weak with hunger walks to the
-         * nearest food and eats it there, so there is no second leg and nothing
-         * is ever set down — which is what keeps a meal from looking like a
-         * delivery to every rule that asks what a hauler is carrying.
+         * <p>As a <em>destination</em> the errand ends in a mouth. Somebody weak
+         * with hunger walks to the nearest food and eats it there, so there is no
+         * second leg and nothing is ever set down — which is what keeps a meal
+         * from looking like a delivery to every rule that asks what a hauler is
+         * carrying.
+         *
+         * <p>As a <em>source</em> the goods were already on their back when the
+         * errand began: a digger's pockets, filled a block at a time out of the
+         * ground they were standing on. There is nothing to walk to and nothing
+         * to pick up — the first leg is already behind them — so the errand
+         * starts loaded and is all delivery. See {@code Spoil.startDelivery}.
          */
         SELF
     }
@@ -135,6 +142,18 @@ public final class HaulTask {
      */
     public boolean isMeal() {
         return toStore == Store.SELF;
+    }
+
+    /**
+     * Whether this is somebody walking their own diggings to a store.
+     *
+     * <p>Asked where the load lands, because spoil lands under the same ceilings
+     * the trades produce under — a plot's timber fills a town's stores exactly as
+     * far as a lumberjack's would — while an ordinary haul is stock the town
+     * already owns merely changing shelves, and capping that would destroy it.
+     */
+    public boolean isDug() {
+        return fromStore == Store.SELF;
     }
 
     /** Where this person is walking right now. */

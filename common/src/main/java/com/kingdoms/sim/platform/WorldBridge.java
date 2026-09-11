@@ -97,6 +97,37 @@ public interface WorldBridge {
                                    int facing);
 
     /**
+     * The same, reporting what the ground it cleared was worth.
+     *
+     * <p>Drawing a building unwatched clears the same trees, ground cover and
+     * hillside a crew would have dug by hand, and that material belongs to the
+     * town either way — a plot is not worth less timber because nobody stood and
+     * watched it come off. So the clearing is counted as it happens and handed
+     * back through {@code spoil}, one call per resource.
+     *
+     * <p>Default: the four-argument placement and no accounting, for a platform
+     * with nothing to count. See {@link #countsSpoil}.
+     */
+    default Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed,
+                                           int facing,
+                                           java.util.function.ObjIntConsumer<String> spoil) {
+        return materializeBlueprint(blueprintId, origin, surveyed, facing);
+    }
+
+    /**
+     * Whether this platform can say what clearing a site actually yielded.
+     *
+     * <p>The simulation keeps an estimate for the ones that cannot — a course of
+     * earth over the footprint, which is what pays to level the next awkward plot
+     * — and must not credit it on top of a real count, or a town is paid twice
+     * for the same hole. Default false: a bridge that has never heard of a block
+     * keeps exactly the behavior it had.
+     */
+    default boolean countsSpoil() {
+        return false;
+    }
+
+    /**
      * Puts back the blocks a standing building is missing, and touches nothing else.
      *
      * <p><strong>Not {@link #materializeBlueprint}, and the difference is the

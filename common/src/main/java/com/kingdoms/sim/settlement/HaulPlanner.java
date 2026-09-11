@@ -232,7 +232,7 @@ public final class HaulPlanner {
                 }
                 haul.setCarried(taken);
             } else {
-                setDown(settlement, haul.resource(), haul.toStore(), haul.toPos(), haul.carried());
+                setDown(settlement, haul, haul.toStore(), haul.toPos());
                 person.setHaul(null);
             }
         }
@@ -241,7 +241,7 @@ public final class HaulPlanner {
     /** Put a carried load back where it came from and cancel the errand. */
     private static void abandon(Settlement settlement, Person person, HaulTask haul) {
         if (haul.isLoaded()) {
-            setDown(settlement, haul.resource(), haul.fromStore(), haul.fromPos(), haul.carried());
+            setDown(settlement, haul, haul.fromStore(), haul.fromPos());
         }
         person.setHaul(null);
     }
@@ -269,8 +269,19 @@ public final class HaulPlanner {
      * losing them because a building did is the one outcome worse than a wasted
      * walk.
      */
-    private static void setDown(Settlement settlement, String resource,
-                                HaulTask.Store store, SimPos pos, int amount) {
+    private static void setDown(Settlement settlement, HaulTask haul,
+                                HaulTask.Store store, SimPos pos) {
+        String resource = haul.resource();
+        int amount = haul.carried();
+        if (haul.isDug()) {
+            // A load that came out of the ground rather than off a shelf, being
+            // put down at either end of its errand. It lands under the ceilings
+            // the trades produce under -- see Spoil.credit -- and, like anything
+            // produced, on the nearest shelves to where it was set down, or on
+            // the open ground of a town that has raised none.
+            com.kingdoms.sim.work.Spoil.credit(settlement, pos, resource, amount);
+            return;
+        }
         if (TownStores.FOOD.equals(resource)) {
             FoodPlanner.deposit(settlement, store, pos, amount);
             return;

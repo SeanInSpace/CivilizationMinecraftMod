@@ -104,6 +104,20 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     @Override
     public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed,
                                           int facing) {
+        return materializeBlueprint(blueprintId, origin, surveyed, facing,
+                (resource, amount) -> { });
+    }
+
+    /** This bridge can count what a clearing yielded, block by block. */
+    @Override
+    public boolean countsSpoil() {
+        return true;
+    }
+
+    @Override
+    public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed,
+                                          int facing,
+                                          java.util.function.ObjIntConsumer<String> spoil) {
         if (!level.isLoaded(toBlockPos(origin))) {
             return Footprint.UNKNOWN;
         }
@@ -117,7 +131,7 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         int y = surveyed ? origin.y()
                 : BlueprintPlacer.baseFor(blueprintId, surfaceHeight(origin));
         BlockPos base = new BlockPos(origin.x(), y, origin.z());
-        Footprint placed = BlueprintPlacer.place(level, blueprintId, base, facing);
+        Footprint placed = BlueprintPlacer.place(level, blueprintId, base, facing, spoil);
         // Logs the base actually used, not the requested origin. A mismatch
         // between the two is precisely the double-placement bug.
         KingdomsMod.LOGGER.info("Materialized {} at {} (origin {}, surveyed {})",

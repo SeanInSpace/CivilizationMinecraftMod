@@ -121,7 +121,7 @@ then the day job by profession.
 
 ## 4. Who carries a load
 
-Two separate things are called "hauling" and they are not the same:
+Three separate things are called "hauling" and they are not the same:
 
 * **Trade errands** — a farmer's field-to-granary run, a trader's granary-to-stall
   run, a family's shopping. Handed out by `FoodPlanner.assignHauls` /
@@ -129,6 +129,29 @@ Two separate things are called "hauling" and they are not the same:
 * **Bulk supply** — timber and stone toward whatever is being built. Handed out by
   `SupplyPlanner.advance`, one a step, and the courier is chosen by
   `HaulPlanner.courierFor`.
+* **What somebody dug up** — see below. Nobody hands this one out: it starts on
+  the back of whoever broke the block.
+
+**Pockets, and the walk out of the hole.** Every block a citizen breaks yields
+its material to that citizen — site clearing, the trunks leaning on a plot, the
+wall line, a road driven through a wood, the earth out from under a floor, all
+one rule (`Yield.keep`, `Spoil`). It goes into `Person.pockets()`, which holds
+`Pockets.CAPACITY` = **16 units across everything in them** — an armful, the same
+size as a builder's fetched `BuildLoad.LOAD_SIZE`, and a different pocket from
+that load so a handful of foundation dirt can never be laid into a wall.
+
+They deliver when **the pockets are full, or when there is no hole left in front
+of them** (`PersonEntityManager.deliverSpoil`): one `HaulTask` per material,
+oldest picked up first, from `Store.SELF` — the load is already on their back, so
+the errand starts loaded and there is no first leg — to the nearest store, or to
+the ground where they stand if the town has raised none. `HaulPlanner` walks and
+sets down as for any other errand; what lands is capped by the same ceilings the
+trades produce under (`Spoil.ceilingFor`), and what a whole felled tree spills
+past an armful is set down where it was cut rather than lost.
+
+Lumberjacks and miners are the exception, and deliberately: they credit the town
+at the swing, where they stand, which is the existing accepted fidelity for those
+two trades.
 
 `courierFor` is the answer to "why is my carpenter carrying a stack of supplies?"
 and it now goes:
@@ -288,6 +311,7 @@ fit rather than duplicating it.
 | 6 | queue empty and nothing public to do | — | walks to the hall | `workplaceFor` |
 | — | asked to courier bulk goods | **never** | **never** | `HaulPlanner.courierFor` |
 | — | released from view mid-trip | carried load returned to the town's books | — | `BuildLoad.putBack` |
+| — | pockets full of what they dug, or the hole finished | the drawing counts the clearing itself | walks it to the nearest store and sets it down; not steered by the site while they do | `deliverSpoil`, `Spoil.startDelivery`, `Pockets.CAPACITY` = 16 |
 
 ### GUARD
 

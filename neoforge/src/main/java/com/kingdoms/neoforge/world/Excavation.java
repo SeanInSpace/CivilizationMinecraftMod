@@ -3,6 +3,8 @@ package com.kingdoms.neoforge.world;
 import com.kingdoms.neoforge.entity.Pace;
 import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.person.Person;
+import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.work.DigYard;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -332,17 +334,31 @@ public final class Excavation {
         return stump;
     }
 
-    /** Brings a whole trunk down at the stump. */
-    private void fell(ServerLevel level, BlockPos stump) {
+    /** Brings a whole trunk down at the stump, and the timber with it. */
+    private void fell(ServerLevel level, Settlement settlement, Person hands, BlockPos stump) {
         for (BlockPos part : Felling.treeAt(stump, isLogAt(level))) {
             if (part.equals(stump)) {
                 continue;   // the stump itself is retired by the caller
             }
-            if (!level.getBlockState(part).isAir()) {
+            BlockState state = level.getBlockState(part);
+            if (!state.isAir()) {
                 level.destroyBlock(part, false, null, 512);
+                yieldTo(settlement, hands, state, part);
             }
             yard.remove(toSim(part));   // harmless if it was never wanted
         }
+    }
+
+    /**
+     * Hands a broken block's material to whoever broke it.
+     *
+     * <p>Wood cleared off a site is timber, the hillside cut out from under a
+     * floor is earth, and the rock behind it is stone — there is no such thing
+     * as spoil. See {@link Yield}, where the rule lives, and {@code Spoil} for
+     * what each block is worth.
+     */
+    private void yieldTo(Settlement settlement, Person hands, BlockState broken, BlockPos at) {
+        Yield.keep(settlement, hands, broken, at);
     }
 
     /** The middle of a job, which is where a digger walks before choosing a face. */
@@ -426,7 +442,8 @@ public final class Excavation {
      *
      * @return true if they are engaged with this dig, walking to it included
      */
-    public boolean serve(ServerLevel level, PersonEntity digger, long tick) {
+    public boolean serve(ServerLevel level, Settlement settlement, Person hands,
+                         PersonEntity digger, long tick) {
         yard.reconsider(tick);
         UUID id = digger.getUUID();
         Digging job = active.get(id);
@@ -490,7 +507,7 @@ public final class Excavation {
             return true;
         }
 
-        return swing(level, digger, job, tick);
+        return swing(level, settlement, hands, digger, job, tick);
     }
 
     /**
@@ -511,7 +528,8 @@ public final class Excavation {
     }
 
     /** One tick of actual digging, once they are in position. */
-    private boolean swing(ServerLevel level, PersonEntity digger, Digging job, long tick) {
+    private boolean swing(ServerLevel level, Settlement settlement, Person hands,
+                          PersonEntity digger, Digging job, long tick) {
         BlockState state = level.getBlockState(job.block);
         digger.getNavigation().stop();
         digger.getLookControl().setLookAt(job.block.getX() + 0.5,
@@ -533,18 +551,22 @@ public final class Excavation {
             return true;
         }
         showProgress(level, digger, job, -1);
-        // No drops. There is nowhere for spoil to go yet, and a site knee-deep in
-        // dirt items is worse than no spoil at all. That includes the plant
-        // standing ON the block: destroyBlock keeps the dug block quiet but
-        // still updates its neighbors, so the grass above popped off as a seed
-        // item every time — the source of a mysterious drizzle of leaf
-        // litter, kelp and wheat seeds over every worksite in town.
+        // No items on the ground. A site knee-deep in dirt entities is worse than
+        // none, and the material is not lost by it: what a block is worth goes
+        // into the digger's pockets instead, and from there to a store. See
+        // yieldTo. That silence also covers the plant standing ON the block:
+        // destroyBlock keeps the dug block quiet but still updates its neighbors,
+        // so the grass above popped off as a seed item every time — the source of
+        // a mysterious drizzle of leaf litter, kelp and wheat seeds over every
+        // worksite in town.
         clearPlantAbove(level, job.block);
         if (job.tree) {
-            fell(level, job.block);
+            fell(level, settlement, hands, job.block);
             stumps.remove(job.block);
         }
+        BlockState broken = level.getBlockState(job.block);
         level.destroyBlock(job.block, false, digger, 512);
+        yieldTo(settlement, hands, broken, job.block);
         harvest(level, digger, job);
         return true;
     }
@@ -901,12 +923,17 @@ public final class Excavation {
      * <p>For {@code /civ step}, where no game ticks pass and so nothing can be
      * dug a tick at a time. Everything else goes through {@link #serve}.
      */
-    public void flush(ServerLevel level) {
+    public void flush(ServerLevel level, Settlement settlement) {
         for (SimPos block : yard.remainingBlocks()) {
             BlockPos pos = new BlockPos(block.x(), block.y(), block.z());
             if (!level.getBlockState(pos).isAir()) {
                 clearPlantAbove(level, pos);
+                BlockState broken = level.getBlockState(pos);
                 level.destroyBlock(pos, false, null, 512);
+                // Nobody's hands: this is the hole emptied by the clock, so what
+                // comes out of it goes straight to the town's shelves, exactly as
+                // an unwatched materialization's clearing does.
+                yieldTo(settlement, null, broken, pos);
             }
             yard.remove(block);
         }
