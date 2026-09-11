@@ -217,7 +217,7 @@ class SeededSettlementTest {
             assertEquals(0, town.stores().get(TownStores.WEAPONS),
                     where + "and so are weapons");
             assertEquals(0, town.stores().get(TownStores.ARMOR),
-                    where + "and so is armour");
+                    where + "and so is armor");
             if (countOf(town, BuildingRole.SMITH) == 0) {
                 assertEquals(0, town.stores().get(TownStores.IRON),
                         where + "iron is mined and smelted; no smithy, no iron");

@@ -417,7 +417,7 @@ class MarketTest {
      * The armory the stall would otherwise have sold.
      *
      * <p>A settlement's ledger takes any word at all, and the smith stocks
-     * {@code weapons} and {@code armour} under two of them. Neither has a base
+     * {@code weapons} and {@code armor} under two of them. Neither has a base
      * price, so the sell price fell out as "at least base plus one" — a coin —
      * and neither has a reserve, so the whole holding read as spare. The board
      * never listed those rows, but the board is not what a request is answered

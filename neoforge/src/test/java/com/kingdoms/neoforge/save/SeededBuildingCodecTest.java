@@ -63,18 +63,19 @@ class SeededBuildingCodecTest {
     }
 
     @Test
-    void asaveFromBeforeTownsWereSeededStillLoads() {
-        // Every world written until now. None of them holds a building that was
-        // written into existence rather than built, so the field simply being
-        // absent is the honest answer rather than a migration — and it must not
-        // be an exception either.
+    void abuildingWithNoSeededFlagWrittenIsRefused() {
+        // The flag used to default to false so that every world written before
+        // towns could be seeded would open. With that gone, an absent flag is a
+        // damaged record, and the cost of guessing at it is a camp that never
+        // gets its trees — the exact failure the flag exists to prevent, and one
+        // that shows up hours later in somebody's world rather than here.
         JsonObject written = encode(seeded()).getAsJsonObject();
-        JsonObject building = written.getAsJsonArray("buildings").get(0).getAsJsonObject();
+        JsonObject building = firstBuilding(written);
         assertTrue(building.has("seeded"), "the flag is not being written at all");
         building.remove("seeded");
 
-        Building back = decode(written).buildings().getFirst();
-        assertFalse(back.isSeeded(), "an old save came back owed a wood it never lacked");
+        assertTrue(KingdomsCodecs.SETTLEMENT.parse(JsonOps.INSTANCE, written).result().isEmpty(),
+                "a building with no debt recorded came back owing nothing");
     }
 
     @Test
@@ -98,15 +99,22 @@ class SeededBuildingCodecTest {
     }
 
     @Test
-    void asaveFromBeforeTownsOwedStreetsStillLoads() {
-        // Every world written until now. Their towns walked out every road they
-        // have, one at a time, so owing none is the honest answer for them.
+    void atownWithNoRoadDebtWrittenIsRefused() {
+        // The same argument as the wood, and the same failure: a town whose debt
+        // was guessed away is a town stranded in a field for good.
         JsonObject written = encode(seeded()).getAsJsonObject();
-        assertTrue(written.has("seeded_roads_owed"), "the flag is not being written at all");
-        written.remove("seeded_roads_owed");
+        JsonObject charter = written.getAsJsonObject("charter");
+        assertTrue(charter.has("seeded_roads_owed"), "the flag is not being written at all");
+        charter.remove("seeded_roads_owed");
 
-        assertFalse(decode(written).seededRoadsOwed(),
-                "an old save came back owed streets it never lacked");
+        assertTrue(KingdomsCodecs.SETTLEMENT.parse(JsonOps.INSTANCE, written).result().isEmpty(),
+                "a town with no road debt recorded came back owing none");
+    }
+
+    /** The first building, at {@code works.buildings[0]}. */
+    private static JsonObject firstBuilding(JsonObject town) {
+        return town.getAsJsonObject("works").getAsJsonArray("buildings")
+                .get(0).getAsJsonObject();
     }
 
     private static JsonElement encode(Settlement town) {

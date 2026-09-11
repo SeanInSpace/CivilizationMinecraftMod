@@ -67,8 +67,7 @@ public final class SiteLedger extends SavedData {
                 Codec.INT.fieldOf("region_z").forGetter(Entry::regionZ),
                 // Absent rather than a flag: "no center" and "refused" are the
                 // same statement, and storing both invites them to disagree.
-                // A save key spelled the way it was first written; changing it is a codec migration, not a spelling.
-                KingdomsCodecs.SIM_POS.optionalFieldOf("centre").forGetter(Entry::center)
+                KingdomsCodecs.SIM_POS.optionalFieldOf("center").forGetter(Entry::center)
         ).apply(i, Entry::new));
 
         public boolean accepted() {

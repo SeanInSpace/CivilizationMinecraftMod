@@ -64,26 +64,35 @@ class PerimeterRetiredCodecTest {
     }
 
     @Test
-    void aSaveFromBeforeATownCouldOutgrowItsWallStillLoads() {
-        // Every world saved before re-staking existed. Those towns have one
-        // wall and always had, so an absent field is not a migration — it is
-        // the honest answer, and it must not be an exception either. Written
-        // from a ring that does owe a demolition and then stripped, because a
-        // ring owing none writes no field at all: the whole apparatus is
-        // invisible in the save of a town that has never moved its wall.
+    void aTownThatHasNeverMovedItsWallStillWritesAnEmptyList() {
+        // The whole apparatus used to be invisible in the save of a town that
+        // has never re-staked: the field was optional and an absent one meant
+        // "one wall, and always had". It is written now, empty, because an
+        // absent list and an empty list are the same statement only as long as
+        // somebody remembers which default was chosen.
+        Settlement town = walled(new Perimeter(box(60), List.of(), 12, List.of()));
+
+        JsonObject ring = ringOf(encode(town).getAsJsonObject());
+        assertTrue(ring.has("retired"), "the retired lines are not being written at all");
+        assertTrue(ring.getAsJsonArray("retired").isEmpty());
+
+        Perimeter back = decode(encode(town)).perimeter();
+        assertTrue(back.retired().isEmpty());
+        assertTrue(back.retiredPositions().isEmpty());
+        assertEquals(12, back.laid());
+    }
+
+    @Test
+    void aRingWithNoRetiredLinesWrittenIsRefusedRatherThanAssumedSingle() {
         Settlement town = walled(new Perimeter(box(60), List.of(), 12,
                 List.of(new Perimeter.Retired(box(30), 240))));
 
         JsonObject written = encode(town).getAsJsonObject();
-        JsonObject ring = written.getAsJsonObject("perimeter");
-        assertTrue(ring.has("retired"), "the retired lines are not being written at all");
-        ring.remove("retired");
+        ringOf(written).remove("retired");
 
-        Perimeter back = decode(written).perimeter();
-        assertTrue(back.retired().isEmpty(),
-                "an old save came back owing a demolition it never had");
-        assertTrue(back.retiredPositions().isEmpty());
-        assertEquals(12, back.laid());
+        assertTrue(KingdomsCodecs.SETTLEMENT.parse(JsonOps.INSTANCE, written).result().isEmpty(),
+                "a ring with its demolition list missing came back owing nothing,"
+                        + " which is how two walls are left standing");
     }
 
     @Test
@@ -97,16 +106,21 @@ class PerimeterRetiredCodecTest {
         Settlement town = walled(new Perimeter(box(60), List.of(), 12, List.of(), 900L));
 
         JsonObject written = encode(town).getAsJsonObject();
-        JsonObject ring = written.getAsJsonObject("perimeter");
-        assertTrue(ring.has("staked_on"), "the wall's age is not being written at all");
+        assertTrue(ringOf(written).has("staked_on"), "the wall's age is not being written at all");
         assertEquals(900L, decode(written).perimeter().stakedOn(),
                 "a reloaded town forgot when it walled itself");
 
-        // And the worlds saved before walls had an age: absent is zero, which
-        // reads as a wall that has stood since this session began.
-        ring.remove("staked_on");
-        assertEquals(0L, decode(written).perimeter().stakedOn(),
-                "an old save would not load at all for want of a field it never had");
+        // And an age that is not there at all is a refusal, not a zero. Zero is
+        // a wall staked this session, which is the one reading that lets a town
+        // re-stake the moment it loads.
+        ringOf(written).remove("staked_on");
+        assertTrue(KingdomsCodecs.SETTLEMENT.parse(JsonOps.INSTANCE, written).result().isEmpty(),
+                "a wall of no recorded age came back young enough to move");
+    }
+
+    /** The standing ring, at {@code defense.perimeter}. */
+    private static JsonObject ringOf(JsonObject town) {
+        return town.getAsJsonObject("defense").getAsJsonObject("perimeter");
     }
 
     private static JsonElement encode(Settlement town) {

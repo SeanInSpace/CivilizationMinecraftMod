@@ -6,6 +6,49 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The save file spells American, and no record is full up
+
+### Changed
+
+- **The last four British save keys are gone.** The spelling sweep converted 2042
+  hits across the tree and then had to stop at four, because a save key was a
+  migration and nobody was willing to pay for one: a settlement's `centre`, a work
+  area's `centre`, a site ledger entry's `centre`, and the store the smith fills,
+  which was written `armour` however the code spelled it. They are `center`,
+  `center`, `center` and `armor`. The stores panel and `/civ info` read **Armor**
+  now, which is the thing that was actually wrong with it.
+
+- **Records that had run out of room are split into sub-objects that say what they
+  are.** A settlement, a building and a build task had each grown to the sixteen
+  fields a codec group allows, and two of them had already been worked around —
+  a `flavor` map and a `stores` map that flattened their contents into the parent
+  to buy back slots. Both are gone. A settlement now writes a `charter` (whose
+  people, what stage, which arrangement), `holdings` (what it owns and how long it
+  has been fed), `defense` (the threat, the ring) and `works` (the queue, the
+  buildings, the roads, the claims). A building writes a `plot`, a `condition` and
+  a `ledgers` — its field's ripeness, its stand, its seam. A build task writes a
+  `site` and a `work`. Nothing lost a meaning and nothing is at the ceiling: the
+  fullest group is eleven of sixteen.
+
+- **A field that is always written is now always required.** Two dozen fields were
+  optional with a default, and about half of those defaults existed only so that a
+  world written before the field existed would open — a farm with no ripeness read
+  as an empty field, a camp with no stand read as an uncounted wood, a task with no
+  dig count silently rewound its whole cursor and laid every course again. Those
+  are required now and a record missing one is refused rather than guessed at; the
+  rewind is deleted. The defaults that stayed are the ones a fresh town honestly
+  starts at, and they still keep the field out of the file when it is unchanged.
+
+- **A test writes one crowded kingdom and reads back every key in it**, so the next
+  British spelling to reach a save key fails a build instead of being frozen into
+  the format for another year.
+
+### Notes
+
+**A world saved before this version will not load.** There is no migration and
+none is planned: every key that moved, moved because the only thing holding it
+was the promise not to move it. Start a new world.
+
 ## The four human towns open, and orcs get a body of their own
 
 ### New

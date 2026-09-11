@@ -44,22 +44,24 @@ class SettlementLayoutCodecTest {
     }
 
     @Test
-    void aSaveWithNoArrangementRecordedIsNotRearranged() {
-        // Every world saved before this field existed. The town on the ground is
-        // a gridiron of plots and nothing in the file says so, so the only safe
-        // answer is the arrangement its people were building in at the time —
-        // the head of the list. Deriving one from the center instead would
-        // re-plan a standing town into streets it does not have.
+    void aSaveWithNoArrangementRecordedIsRefusedRatherThanRearranged() {
+        // The field used to be optional, and a town without one took the head of
+        // its people's list — the arrangement they had always built in, which
+        // was the only answer that did not re-plan every standing town in
+        // somebody's world. Nothing writes a town without one now, so the two
+        // remaining readings of an absent layout are "derive a fresh one", which
+        // rearranges a town that already has streets on the ground, and "refuse".
         Settlement town = new Settlement(Settlement.Id.random(), "Dromgar", CENTER, 256);
         town.setCultureId(Culture.ORC.id());
         town.setLayoutId(Culture.LAYOUT_STRONGHOLD_STREETS);
 
         JsonObject written = encode(town).getAsJsonObject();
-        assertTrue(written.has("layout"), "the layout is not being written at all");
-        written.remove("layout");
+        JsonObject charter = written.getAsJsonObject("charter");
+        assertTrue(charter.has("layout"), "the layout is not being written at all");
+        charter.remove("layout");
 
-        assertEquals(Culture.ORC.layouts().get(0), decode(written).arrangement().id(),
-                "an old save was rearranged on load");
+        assertTrue(KingdomsCodecs.SETTLEMENT.parse(JsonOps.INSTANCE, written).result().isEmpty(),
+                "a town with no arrangement recorded came back laid out as something");
     }
 
     @Test
@@ -71,7 +73,7 @@ class SettlementLayoutCodecTest {
         Settlement town = new Settlement(Settlement.Id.random(), "Ashfang", CENTER, 256);
         town.setCultureId(Culture.ORC.id());
 
-        String written = encode(town).getAsJsonObject().get("layout").getAsString();
+        String written = layoutOf(encode(town).getAsJsonObject());
         assertEquals(Culture.ORC.layoutFor(CENTER), written,
                 "the save recorded an arrangement the culture would not have chosen");
         assertEquals(written, decode(encode(town)).arrangement().id());
@@ -90,9 +92,14 @@ class SettlementLayoutCodecTest {
         town.setCultureId(Culture.GOBLIN.id());
 
         JsonObject written = encode(town).getAsJsonObject();
-        assertEquals(Culture.LAYOUT_WARREN, written.get("layout").getAsString(),
+        assertEquals(Culture.LAYOUT_WARREN, layoutOf(written),
                 "a people who build one way did not record which way");
         assertEquals(Culture.LAYOUT_WARREN, decode(written).arrangement().id());
+    }
+
+    /** The recorded arrangement, at {@code charter.layout}. */
+    private static String layoutOf(JsonObject town) {
+        return town.getAsJsonObject("charter").get("layout").getAsString();
     }
 
     private static JsonElement encode(Settlement town) {

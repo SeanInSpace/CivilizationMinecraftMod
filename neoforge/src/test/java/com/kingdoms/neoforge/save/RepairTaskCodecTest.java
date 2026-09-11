@@ -56,13 +56,12 @@ class RepairTaskCodecTest {
     }
 
     @Test
-    void asaveFromBeforeRepairsExistedStillLoads() {
-        // Every world written until now. None of them holds a job booked against
-        // a standing building, so both fields simply being absent is the honest
-        // answer rather than a migration — and it must not be an exception
-        // either.
+    void ajobBookedAgainstNothingIsAnOrdinaryBuild() {
+        // These two stay optional, and not for compatibility: most jobs in most
+        // towns are ordinary builds on empty plots, and "no building underneath"
+        // is what that honestly looks like. The absent plot is the statement.
         JsonObject written = encode(mending()).getAsJsonObject();
-        JsonObject task = written.getAsJsonArray("build_queue").get(0).getAsJsonObject();
+        JsonObject task = queuedTask(written);
         assertTrue(task.has("repair"), "the flag is not being written at all");
         assertTrue(task.has("upgrade_of"), "nor is the plot it is booked against");
         task.remove("repair");
@@ -70,8 +69,31 @@ class RepairTaskCodecTest {
 
         BuildTask back = decode(written).buildQueue().getFirst();
 
-        assertFalse(back.isRepair(), "an old save came back as a repair it never was");
+        assertFalse(back.isRepair(), "a plain build came back as a repair");
         assertFalse(back.isUpgrade());
+    }
+
+    @Test
+    void howFarTheDiggingGotIsWrittenRatherThanRewound() {
+        // The excavation count used to be optional, defaulting to a sentinel
+        // that meant "a save from before digging was split out of the step
+        // list", and reading it rewound the whole cursor to zero so the crew
+        // laid every course again. Nothing writes such a task now; a task with
+        // no dig count is a damaged record, and rewinding one silently is worse
+        // than refusing it.
+        JsonObject written = encode(mending()).getAsJsonObject();
+        JsonObject work = queuedTask(written).getAsJsonObject("work");
+        assertTrue(work.has("dig_done"), "the excavation count is not being written at all");
+        work.remove("dig_done");
+
+        assertTrue(KingdomsCodecs.SETTLEMENT.parse(JsonOps.INSTANCE, written).result().isEmpty(),
+                "a task with no excavation recorded came back rewound to nothing");
+    }
+
+    /** The one queued job, at {@code works.build_queue[0]}. */
+    private static JsonObject queuedTask(JsonObject town) {
+        return town.getAsJsonObject("works").getAsJsonArray("build_queue")
+                .get(0).getAsJsonObject();
     }
 
     private static JsonElement encode(Settlement town) {

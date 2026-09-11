@@ -192,7 +192,7 @@ the off hand, where it can be seen.
 
 What the **smithy** buys is the upgrade. The first iron sword on the weapons rack
 replaces a guard's wooden one — one debit from `WEAPONS`, once — and stays with
-him. Armor works as it always has: one iron chestplate off the `ARMOUR` rack when
+him. Armor works as it always has: one iron chestplate off the `ARMOR` rack when
 one is available.
 
 | In the main hand | Damage a swing |
