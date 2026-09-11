@@ -74,7 +74,7 @@ class SimWorldTest {
     }
 
     private static SimWorld worldWith(FakeBridge bridge, Settlement settlement) {
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Normandy", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Normandy", "kingdoms:human/norman");
         kingdom.addSettlement(settlement);
         SimWorld world = new SimWorld(bridge);
         world.addKingdom(kingdom);

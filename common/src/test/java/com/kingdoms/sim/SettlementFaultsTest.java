@@ -129,12 +129,12 @@ class SettlementFaultsTest {
         // to the vale folk grew 214 ring-road carriageways and came back as a
         // Norman town laid out in rings, keeping streets no ring town would ever
         // build.
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Normandy", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Normandy", "kingdoms:human/norman");
         Settlement town = new Settlement(Settlement.Id.random(), "Ringmere", CENTER, 256);
-        town.setCultureId("kingdoms:vale");
+        town.setCultureId("kingdoms:human/vale");
 
         kingdom.restoreSettlement(town);
-        assertEquals("kingdoms:vale", town.cultureId(),
+        assertEquals("kingdoms:human/vale", town.cultureId(),
                 "a load restamped the settlement with its kingdom's culture");
         assertTrue(Culture.VALE.layouts().contains(town.arrangement().id()),
                 "and so it came back laid out as somebody else");
@@ -145,7 +145,7 @@ class SettlementFaultsTest {
         // why these are two methods and not one with a flag.
         Settlement fresh = new Settlement(Settlement.Id.random(), "New", CENTER, 256);
         kingdom.addSettlement(fresh);
-        assertEquals("kingdoms:norman", fresh.cultureId(),
+        assertEquals("kingdoms:human/norman", fresh.cultureId(),
                 "a newly founded town takes its kingdom's people");
     }
 
@@ -157,7 +157,7 @@ class SettlementFaultsTest {
         // concave hull, so three of four stood 9, 10 and 53 blocks from any
         // wall. They cut no opening, the wall was raised solid across the roads,
         // and one gate opened onto nothing 29 blocks from the nearest road.
-        Settlement town = grow("kingdoms:burgher", new TerrainFake(11), 500);
+        Settlement town = grow("kingdoms:human/burgher", new TerrainFake(11), 500);
         Perimeter ring = town.perimeter();
         assertTrue(ring != null, "five hundred steps is plenty to stake a ring");
 
@@ -201,8 +201,8 @@ class SettlementFaultsTest {
         Settlement town = new Settlement(Settlement.Id.random(), "Survey", CENTER, 512);
         town.setCatalog(BuildCatalog.DEFAULT);
         town.setStage(SettlementStage.CAMP);
-        town.setCultureId("kingdoms:burgher");
-        town.setLayoutId(surveyedArrangement("kingdoms:burgher"));
+        town.setCultureId("kingdoms:human/burgher");
+        town.setLayoutId(surveyedArrangement("kingdoms:human/burgher"));
         for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
             town.addResident(new Person(
                     Person.Id.random(), name, Profession.PIONEER, CENTER));
@@ -314,7 +314,7 @@ class SettlementFaultsTest {
 
     @Test
     void aCompassDrawnTownStakesItsRingThroughMoreThanAHighStreetDoes() {
-        Settlement town = growAs("kingdoms:burgher", Culture.LAYOUT_RADIAL_CONCENTRIC,
+        Settlement town = growAs("kingdoms:human/burgher", Culture.LAYOUT_RADIAL_CONCENTRIC,
                 new TerrainFake(11), 500);
         Perimeter ring = town.perimeter();
         assertTrue(ring != null, "five hundred steps is plenty to stake a ring");
@@ -333,7 +333,7 @@ class SettlementFaultsTest {
         // because nothing records when a plot was chosen.
         Settlement town = new Settlement(Settlement.Id.random(), "Ring", CENTER, 256);
         town.setCatalog(BuildCatalog.DEFAULT);
-        town.setCultureId("kingdoms:burgher");
+        town.setCultureId("kingdoms:human/burgher");
         town.setPerimeter(new Perimeter(
                 List.of(new SimPos(-40, 72, -40), new SimPos(40, 72, -40),
                         new SimPos(40, 72, 40), new SimPos(-40, 72, 40)),
@@ -356,7 +356,7 @@ class SettlementFaultsTest {
         // Farms, pastures and lumber camps are sited by their own planners and
         // were never asked: eight buildings in a measured town stood on an
         // eight-wide street, every one of them a farm.
-        Settlement town = grow("kingdoms:burgher", new TerrainFake(11), 500);
+        Settlement town = grow("kingdoms:human/burgher", new TerrainFake(11), 500);
         for (Building b : holdingGround(town)) {
             int span = BuildPlanner.plotSpanOf(b.blueprintId(), town.catalog());
             for (PathNetwork.Segment run : town.paths().segments()) {
@@ -469,7 +469,7 @@ class SettlementFaultsTest {
         // take taken ground, the carriageway, or the river -- there is always
         // more ground further out.
         CruelGround ground = new CruelGround(11);
-        Settlement town = growOn("kingdoms:vale", ground, 500);
+        Settlement town = growOn("kingdoms:human/vale", ground, 500);
         List<Building> held = holdingGround(town);
         assertTrue(held.size() >= 12,
                 "only " + held.size() + " buildings: the ground was too cruel to test with");
@@ -548,7 +548,7 @@ class SettlementFaultsTest {
         // the ground was free, not that it was dry. It is the path that put the
         // last buildings of a town in a river.
         TerrainFake ground = new TerrainFake(11);
-        Settlement town = grow("kingdoms:burgher", ground, 500);
+        Settlement town = grow("kingdoms:human/burgher", ground, 500);
         List<Building> wet = new java.util.ArrayList<>();
         for (Building b : holdingGround(town)) {
             if (ground.wetAt(b.origin().x(), b.origin().z())) {

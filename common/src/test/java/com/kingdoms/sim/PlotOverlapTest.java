@@ -217,7 +217,7 @@ class PlotOverlapTest {
         // assert that no two of them share ground.
         SimWorld world = new SimWorld(new QuietBridge(), SimSettings.SANDBOX);
         var kingdom = new com.kingdoms.sim.kingdom.Kingdom(
-                com.kingdoms.sim.kingdom.Kingdom.Id.random(), "Test", "kingdoms:norman");
+                com.kingdoms.sim.kingdom.Kingdom.Id.random(), "Test", "kingdoms:human/norman");
         Settlement settlement = town(30);
         settlement.stores().add("wood", 100_000);
         settlement.stores().add("stone", 100_000);

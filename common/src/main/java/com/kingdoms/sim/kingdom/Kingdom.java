@@ -31,7 +31,7 @@ public final class Kingdom {
     private final Id id;
     private final String name;
 
-    /** Identifies a datapack-defined culture, e.g. {@code "kingdoms:norman"}. */
+    /** Identifies a datapack-defined culture, e.g. {@code "kingdoms:human/norman"}. */
     private final String cultureId;
 
     private final Map<Settlement.Id, Settlement> settlements = new LinkedHashMap<>();

@@ -171,6 +171,10 @@ This will stop on first launch until you accept Minecraft's EULA by setting `eul
 - `person/Profession` — placeholder enum, to become datapack-driven
 - `settlement/Settlement` — roster, claim radius, build queue, threat level
 - `settlement/BuildTask` — construction that progresses in unloaded chunks
+- `culture/Culture` — one people's town: arrangements, beasts, names, architecture
+- `culture/Race` — one people's body: health, attack, pace. A race has several
+  cultures — **Humans** (Norman, highland, burgher, vale), **Orcs** (one culture
+  for now), **Goblins** (one for now)
 - `kingdom/Kingdom` — settlements plus diplomacy
 - `kingdom/Standing` — diplomatic posture
 - `world/SimWorld` — root; owns the slow tick

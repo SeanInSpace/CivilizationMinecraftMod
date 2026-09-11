@@ -8,15 +8,31 @@ import java.util.Map;
 /**
  * What makes one people's town different from another's.
  *
- * <p>One culture ships today. The point of the type is that everything which
- * *should* vary by culture has somewhere to live before there are two of them —
- * so adding a second is filling in a table rather than threading a new concept
- * through the simulation.
+ * <p>The point of the type is that everything which *should* vary by culture has
+ * somewhere to live — so adding a people is filling in a table rather than
+ * threading a new concept through the simulation.
+ *
+ * <p><strong>A race has several cultures.</strong> The two are different
+ * questions and the id says both: {@code kingdoms:human/norman} is the Norman
+ * culture of the human race. Humans have four cultures — Norman, highland,
+ * burgher and vale — which is what makes the distinction worth drawing at all,
+ * because those four differ in every column of this table and not one of them
+ * differs in the body they are born into. Orcs and goblins have one culture
+ * each <em>for now</em>: that is a gap in the table, not a statement that a race
+ * outside the humans is monolithic, and filling it is another entry here.
+ *
+ * <p>So the id is {@code kingdoms:<race>/<culture>}, and both halves are read
+ * rather than stored beside it: {@link #race()} takes the first segment and
+ * {@link #style()} takes the last, which is how an id and what it means cannot
+ * drift apart. {@link #DEFAULT} is the one exception and carries no race
+ * segment, because it is the sentinel for <em>no culture at all</em> rather
+ * than a people; it reads as human, which is what an unnamed town has always
+ * been.
  *
  * <p>Every field here is a plain value or a list of ids, precisely so this can
  * become a datapack entry later without the planners changing.
  *
- * @param id            the culture's identifier
+ * @param id            the culture's identifier, {@code kingdoms:<race>/<culture>}
  * @param pennedAnimals which beasts the animal farm keeps, one pen each, in order
  * @param layouts       the arrangements this people builds in, the one it has
  *                      always built in first; see {@link Layouts}
@@ -143,15 +159,15 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     /**
      * The lowland people, who are what every town has quietly been all along.
      *
-     * <p>Settlements were already stamped {@code kingdoms:norman} and the
-     * blueprint loader was already looking for {@code kingdoms:norman/house}
-     * before anything defined a culture by that name — so every lookup fell
-     * through to {@link #DEFAULT} and nobody noticed, because the default was
-     * the only thing there was to fall through to. Naming it is what turns the
-     * fallback from a coincidence into a decision.
+     * <p>The first of the four human cultures. The blueprint loader was already
+     * looking for {@code norman/house} before anything defined a culture by that
+     * name — so every lookup fell through to {@link #DEFAULT} and nobody
+     * noticed, because the default was the only thing there was to fall through
+     * to. Naming it is what turns the fallback from a coincidence into a
+     * decision.
      */
     public static final Culture NORMAN = new Culture(
-            "kingdoms:norman",
+            "kingdoms:human/norman",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
             // A bastide is a Norman idea in the most literal sense: a town
             // pegged out whole by somebody with a charter, a market place left
@@ -166,15 +182,16 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     /**
      * The hill people, who keep different beasts.
      *
-     * <p>A second entry in the table, which is the whole claim the culture type
-     * was making: that a second people is filling this in rather than threading
-     * a new idea through the simulation. Goats and rabbits over pigs and cows —
+     * <p>The second human culture, and the whole claim the culture type was
+     * making: that a second people is filling this in rather than threading
+     * a new idea through the simulation — the same race, the same bodies, a
+     * different town. Goats and rabbits over pigs and cows —
      * the same four pens, because the animal farm's plot is reserved in the
      * catalog and a culture cannot quietly outgrow the ground set aside for
      * it. Widening that reservation is what a fifth pen would cost.
      */
     public static final Culture HIGHLAND = new Culture(
-            "kingdoms:highland",
+            "kingdoms:human/highland",
             List.of("minecraft:goat", "minecraft:sheep", "minecraft:rabbit",
                     "minecraft:chicken"),
             // Rings are a lowland idea. A people who live where the ground will
@@ -188,18 +205,10 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             List.of(LAYOUT_ORGANIC, LAYOUT_THORP));
 
     /**
-     * The goblins, who do not build towns so much as accumulate them.
-     *
-     * <p>The first entry that proves the type was worth having. Everything that
-     * makes a goblin settlement a goblin settlement is filled in here — the
-     * beasts, the names, and above all the arrangement. A warren grows by
-     * digging in wherever the digging is good and budding a new knot off the
-     * last one; it has no high street and never did.
-     */
-    /**
      * Townsfolk, who lay a street and build along it.
      *
-     * <p>The first people here whose plan is a plan: a spine with a market
+     * <p>The third human culture, and the first people here whose plan is a
+     * plan: a spine with a market
      * widening on it, a lane off, a back lane behind. Given a culture of their
      * own rather than handed to the lowlanders, because replacing what every
      * existing town is would rewrite every settlement already standing in
@@ -222,13 +231,14 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
      * post is the right thing to have in the middle of a green anyway.
      */
     public static final Culture BURGHER = new Culture(
-            "kingdoms:burgher",
+            "kingdoms:human/burgher",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
             List.of(LAYOUT_HIGH_STREET, LAYOUT_RADIAL_CONCENTRIC,
                     LAYOUT_CROSSROADS));
 
     /**
-     * The vale folk, who build round a green.
+     * The vale folk, who build round a green — the fourth and last of the human
+     * cultures.
      *
      * <p>A ring of frontage about an open middle, with lanes striking out
      * through it — a Rundling, and one of the oldest village forms there is.
@@ -245,7 +255,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
      * the people who were.
      */
     public static final Culture VALE = new Culture(
-            "kingdoms:vale",
+            "kingdoms:human/vale",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:goat",
                     "minecraft:chicken"),
             // Crescents are the ring road's mannered cousin: a lane that leaves
@@ -259,8 +269,21 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             List.of("Alis", "Bede", "Cwen", "Dunstan", "Edith", "Frith", "Godric",
                     "Hilda", "Leofa", "Mildred"));
 
+    /**
+     * The mire goblins, who do not build towns so much as accumulate them.
+     *
+     * <p>The first entry that proved the type was worth having. Everything that
+     * makes a goblin settlement a goblin settlement is filled in here — the
+     * beasts, the names, and above all the arrangement. A warren grows by
+     * digging in wherever the digging is good and budding a new knot off the
+     * last one; it has no high street and never did.
+     *
+     * <p>The one goblin culture, for now. Goblins are a race like the humans and
+     * will hold more than one people eventually; the mire folk are simply the
+     * only ones anybody has written down.
+     */
     public static final Culture GOBLIN = new Culture(
-            "kingdoms:goblin",
+            "kingdoms:goblin/mire",
             List.of("minecraft:chicken", "minecraft:pig", "minecraft:rabbit",
                     "minecraft:chicken"),
             List.of(LAYOUT_WARREN),
@@ -283,9 +306,14 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
      * arrangement in the table that could not belong to anybody else. A warren
      * has no streets on purpose and a village's bend by design; only a people
      * who count lay a carriageway straight.
+     *
+     * <p>The warhost is the one orc culture, and the user asked for exactly one
+     * for now. Orcs are a race and will have several cultures the way the humans
+     * do; this is the first of them and not the whole of them, which is why the
+     * id says {@code orc/warhost} rather than {@code orc}.
      */
     public static final Culture ORC = new Culture(
-            "kingdoms:orc",
+            "kingdoms:orc/warhost",
             List.of("minecraft:pig", "minecraft:cow", "minecraft:goat", "minecraft:wolf"),
             List.of(LAYOUT_ORC_RING, LAYOUT_STRONGHOLD, LAYOUT_STRONGHOLD_STREETS),
             List.of("Karrgurd", "Dromgar", "Ironmaw", "Bloodpost", "Skullwatch",
@@ -323,14 +351,71 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     }
 
     /**
+     * Every culture of one race, sorted by id.
+     *
+     * <p>Sorted for the same reason {@code SettlementSites} sorts: {@link #all()}
+     * is backed by a {@code Map.of} whose iteration order is randomized per JVM,
+     * and a list of peoples that comes back in a different order every launch is
+     * a list nothing may index into.
+     *
+     * <p>The sentinel is in it when you ask for humans, deliberately:
+     * {@link #DEFAULT} has no race segment, reads as human, and is what an
+     * unnamed town is. A caller who wants the four named human peoples wants
+     * {@link #humans()} minus the default, and the one place that matters — the
+     * worldgen draw — already excludes the sentinel by name for its own reasons.
+     */
+    public static List<Culture> ofRace(Race race) {
+        return all().stream()
+                .filter(culture -> culture.race() == race)
+                .sorted(java.util.Comparator.comparing(Culture::id))
+                .toList();
+    }
+
+    /**
+     * The human cultures: Norman, highland, burgher, vale — and the sentinel.
+     *
+     * <p>Named as a group because the user asked for the group to have a name.
+     * Four peoples who differ in every column of this table and in no column of
+     * {@link Race}, which is the distinction the two types are drawing between
+     * them.
+     */
+    public static List<Culture> humans() {
+        return ofRace(Race.HUMAN);
+    }
+
+    /**
+     * What kind of body this people is born into.
+     *
+     * <p>Read off the id's first path segment rather than stored beside it, for
+     * exactly the reason {@link #style()} is read off the last: an id and what
+     * it means cannot then disagree, and a datapack that writes
+     * {@code kingdoms:orc/something} gets orcs without having to say so twice.
+     * An id with no path segment at all — {@link #DEFAULT} — is human, which is
+     * what every unnamed town in the mod has always been.
+     */
+    public Race race() {
+        String path = pathOf(id);
+        int slash = path.indexOf('/');
+        return slash < 0 ? Race.HUMAN : Race.of(path.substring(0, slash));
+    }
+
+    /**
      * The folder this culture's blueprints live in.
      *
      * <p>Derived from the id rather than stored beside it, so the two can never
-     * disagree: {@code kingdoms:highland} draws from {@code highland/}. Nothing
-     * has to exist in that folder — a culture inherits every building it has
-     * not drawn.
+     * disagree: {@code kingdoms:human/highland} draws from {@code highland/}.
+     * The <em>last</em> segment, not the whole path — a style is one people's
+     * architecture, and their race is not a folder. Nothing has to exist in that
+     * folder — a culture inherits every building it has not drawn.
      */
     public String style() {
+        String path = pathOf(id);
+        int slash = path.lastIndexOf('/');
+        return slash < 0 ? path : path.substring(slash + 1);
+    }
+
+    /** Whatever follows the namespace, or the whole id when there is none. */
+    private static String pathOf(String id) {
         int colon = id.indexOf(':');
         return colon < 0 ? id : id.substring(colon + 1);
     }

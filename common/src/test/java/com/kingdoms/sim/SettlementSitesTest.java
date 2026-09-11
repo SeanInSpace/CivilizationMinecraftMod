@@ -1,6 +1,7 @@
 package com.kingdoms.sim;
 
 import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.culture.Race;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.worldgen.SettlementSites;
 
@@ -364,6 +365,56 @@ class SettlementSitesTest {
         for (SettlementSites.Site site : sweep(Map.of(Culture.LAYOUT_GREEN, 100))) {
             assertTrue(Culture.of(site.cultureId()).layouts().contains(site.layoutId()),
                     site.cultureId() + " does not build a " + site.layoutId());
+        }
+    }
+
+    /**
+     * A human arrangement never draws anybody but humans.
+     *
+     * <p>The draw picks the shape first and the people second, which is the
+     * opposite of how a settlement normally works — so nothing about it
+     * <em>says</em> the people it lands on are of the right kind. Today nothing
+     * has to: no arrangement is built by two races, which {@code CultureTest}
+     * asserts separately. This is the same claim checked from the other end, on
+     * the thousand regions the draw actually runs over, so that a shared
+     * arrangement is caught as a world full of orcs in a village rather than as
+     * a failing unit test about a table.
+     */
+    @Test
+    void aHumanArrangementOnlyEverDrawsHumanPeoples() {
+        for (String layout : List.of(
+                Culture.LAYOUT_GREEN, Culture.LAYOUT_CROSSROADS, Culture.LAYOUT_THORP,
+                Culture.LAYOUT_RING_STREETS, Culture.LAYOUT_RADIAL_CONCENTRIC,
+                Culture.LAYOUT_CRESCENTS, Culture.LAYOUT_HIGH_STREET,
+                Culture.LAYOUT_BASTIDE)) {
+            int seen = 0;
+            for (int rx = -16; rx < 16; rx++) {
+                for (int rz = -16; rz < 16; rz++) {
+                    Optional<SettlementSites.Site> site =
+                            SettlementSites.siteIn(SEED, rx, rz, Map.of(layout, 100));
+                    if (site.isEmpty()) {
+                        continue;
+                    }
+                    seen++;
+                    assertEquals(Race.HUMAN, Culture.of(site.get().cultureId()).race(),
+                            layout + " was drawn for "
+                                    + site.get().cultureId() + ", who are not human");
+                }
+            }
+            assertTrue(seen > 100,
+                    layout + " was only drawn " + seen + " times in 1024 regions");
+        }
+    }
+
+    /** And the orc and goblin shapes only ever draw their own. */
+    @Test
+    void anOrcArrangementOnlyEverDrawsOrcs() {
+        for (SettlementSites.Site site
+                : sweep(Map.of(Culture.LAYOUT_STRONGHOLD_STREETS, 100))) {
+            assertEquals(Race.ORC, Culture.of(site.cultureId()).race());
+        }
+        for (SettlementSites.Site site : sweep(Map.of(Culture.LAYOUT_WARREN, 100))) {
+            assertEquals(Race.GOBLIN, Culture.of(site.cultureId()).race());
         }
     }
 }

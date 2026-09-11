@@ -7,6 +7,7 @@ import com.kingdoms.neoforge.view.MinerWorker;
 import com.kingdoms.neoforge.view.PersonEntityManager;
 import com.kingdoms.neoforge.view.ShepherdWorker;
 import com.kingdoms.neoforge.world.Excavation;
+import com.kingdoms.sim.culture.Race;
 import com.kingdoms.sim.geom.Escape;
 import org.junit.jupiter.api.Test;
 
@@ -108,6 +109,77 @@ final class PaceTest {
     void aWalkingSettlerStillOutpacesACreeperOnOpenGround() {
         // The pace had to stay above the creeper's 0.25 blocks a tick or the
         // whole plan is a settler walking calmly to their death.
-        assertTrue(0.5 * Pace.WALK > 0.25);
+        assertTrue(PersonEntity.BASE_MOVEMENT_SPEED * Pace.WALK > 0.25);
+    }
+
+    /** What the game actually walks one of these at, in blocks per tick. */
+    private static double walkingSpeedOf(Race race) {
+        return PersonEntity.BASE_MOVEMENT_SPEED * race.paceFactor() * Pace.WALK;
+    }
+
+    @Test
+    void anOrcWalksSlowerThanAManAndAGoblinFaster() {
+        // The user's ask, as an ordering rather than as three numbers: orcs
+        // minimally slower, and a goblin at the other end so the table is a body
+        // and not a difficulty setting.
+        assertTrue(walkingSpeedOf(Race.ORC) < walkingSpeedOf(Race.HUMAN),
+                "an orc at " + walkingSpeedOf(Race.ORC) + " is not slower than a man at "
+                        + walkingSpeedOf(Race.HUMAN));
+        assertTrue(walkingSpeedOf(Race.GOBLIN) > walkingSpeedOf(Race.HUMAN),
+                "a goblin at " + walkingSpeedOf(Race.GOBLIN) + " is not quicker than a man");
+        assertEquals(0.35, walkingSpeedOf(Race.HUMAN), 1.0e-9,
+                "a man's walk must stay exactly what it has always been");
+    }
+
+    @Test
+    void theRaceLivesInTheAttributeAndNeverInThePace() {
+        // The whole reason the factor multiplies the base attribute: every
+        // navigation call in the mod still hands over Pace.WALK, so "nobody is
+        // ever given a speed above their walking pace" holds per race without a
+        // single pace having to know a race exists. A race that reached the
+        // modifier instead would need this rule restated three times.
+        for (Race race : Race.values()) {
+            double ownWalk = walkingSpeedOf(race);
+            for (Map.Entry<String, Double> speed
+                    : everySpeedACitizenIsGiven().entrySet()) {
+                double effective = PersonEntity.BASE_MOVEMENT_SPEED
+                        * race.paceFactor() * speed.getValue();
+                assertTrue(effective <= ownWalk + 1.0e-9,
+                        "a " + race.word() + " " + speed.getKey() + " moves at "
+                                + effective + ", above their own walk of " + ownWalk);
+            }
+        }
+    }
+
+    @Test
+    void everyRaceStillOutpacesACreeperAndIsNoticedInTime() {
+        // The slowest race is the one this can fail for. An orc walks at 0.315
+        // against a creeper's 0.25, and needs 17.55 blocks of warning against the
+        // eighteen the goal gives — which holds, but not by much, and is exactly
+        // the sort of margin that disappears silently when somebody retunes a
+        // pace factor.
+        for (Race race : Race.values()) {
+            double walk = walkingSpeedOf(race);
+            assertTrue(walk > 0.25,
+                    race + " walks at " + walk + ", slower than a creeper");
+            double needed = Escape.noticeDistance(FleeCreepersGoal.HURT, 0.25,
+                    walk, 20, 60, 0.5);
+            assertTrue(FleeCreepersGoal.NOTICE >= needed,
+                    race + " needs " + needed + " blocks of warning and is noticed at "
+                            + FleeCreepersGoal.NOTICE);
+        }
+    }
+
+    @Test
+    void anOrcTakesMorePunishmentThanAManAndAGoblinLess() {
+        // The health half of the same table. Applied to the body on embody by
+        // PersonEntity.applyRace, which cannot be built without a level -- so
+        // this checks the numbers it will apply, and the manual check is in the
+        // changelog entry: /civ found an orc town, hit a settler, count the hits.
+        assertTrue(Race.ORC.maxHealth() > Race.HUMAN.maxHealth());
+        assertTrue(Race.GOBLIN.maxHealth() < Race.HUMAN.maxHealth());
+        assertEquals(PersonEntity.BASE_MAX_HEALTH, Race.HUMAN.maxHealth(),
+                "a settler's registered health and a human's must be the same number, "
+                        + "or applying a race to a human would change him");
     }
 }

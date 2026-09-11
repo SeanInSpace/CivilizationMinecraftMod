@@ -3,6 +3,8 @@ package com.kingdoms.neoforge.world;
 import com.kingdoms.neoforge.KingdomsConfig;
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.save.SiteLedger;
+import com.kingdoms.sim.culture.Culture;
+import com.kingdoms.sim.culture.Race;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.settlement.Settlement;
@@ -99,20 +101,39 @@ public final class SiteDirectory {
      * underscores out; nothing cleverer, because the alternative is a
      * translation table for every culture and layout a datapack might add and
      * this is a chat line.
+     *
+     * <p>A culture id carries its race as a path segment —
+     * {@code kingdoms:human/norman} — and only the last segment is the people's
+     * own name, so the path is cut to that. The race is said separately by
+     * {@link #describe}, where it can be said in English.
      */
     static String readable(String id) {
         String bare = id == null ? "" : id.substring(id.indexOf(':') + 1);
-        return bare.replace('_', ' ');
+        return bare.substring(bare.lastIndexOf('/') + 1).replace('_', ' ');
     }
 
-    /** "a Norman crossroads" — the people and the shape, for a site not yet raised. */
+    /**
+     * "a Norman crossroads", "an orc Warhost stronghold" — the people and the
+     * shape, for a site not yet raised.
+     *
+     * <p><strong>Humans are not named as humans and everybody else is.</strong>
+     * "A human Norman crossroads" is three words where two will do, and it
+     * reads like a label on a specimen; "a Norman crossroads" is how somebody
+     * would actually say it. What a player needs from this line is whether the
+     * neighbors over the hill are people or not, and human is the unmarked case
+     * — so the races that are worth a warning get the word and the one that is
+     * not does not. A player who wants it spelled out either way has
+     * {@code /civ info}, which names the race of every town outright.
+     */
     static String describe(String cultureId, String layoutId) {
         String people = readable(cultureId);
         String shape = readable(layoutId);
         String capitalized = people.isEmpty()
                 ? people
                 : people.substring(0, 1).toUpperCase(Locale.ROOT) + people.substring(1);
-        String noun = (capitalized + " " + shape).trim();
+        Race race = Culture.of(cultureId).race();
+        String kind = race == Race.HUMAN ? "" : race.word() + " ";
+        String noun = (kind + capitalized + " " + shape).trim();
         return (startsWithVowel(noun) ? "an " : "a ") + noun;
     }
 

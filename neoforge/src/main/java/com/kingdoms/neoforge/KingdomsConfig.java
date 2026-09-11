@@ -121,35 +121,69 @@ public final class KingdomsConfig {
             .define("worldgen.wayfinder_on_join", true);
 
     /**
-     * What a fresh world starts with.
+     * What a fresh world starts with: the human arrangements, weighted.
      *
-     * <p>One arrangement and nothing else, on purpose and for now: having exactly
-     * one makes it obvious whether worldgen is working at all, and it puts one
-     * people's towns in front of a player long enough to be judged. Widening
-     * this is a table edit, not a code change.
+     * <p>One arrangement shipped here for a while, so that it was obvious
+     * whether worldgen worked at all. It does, and a world of nothing but
+     * crossroads is a world where every town is the same town — so the rest of
+     * what the human cultures build is turned on, ranked by this week's survey
+     * rather than by taste.
      *
-     * <p>Crossroads is the burghers' town: two roads meeting at a market square,
-     * ribs off the arms. It took the green's place here as the next best
-     * measured of the thirteen. Grown seven hundred steps on smooth ground and
-     * five hundred on the rough recorded seed, the green stood 1.09 and 1.07
-     * buildings to the thousand square blocks with 6 and 0 doors more than
-     * eight blocks from an opened road; crossroads stood 0.67 and 0.69 with 3
-     * and 3, and 92 and 86 percent of its planned road opened. Every other
-     * streets-first shape was sparser, or stranded more doors (bastide 24,
-     * stronghold_streets 26, high_street 11 on smooth ground), or sprawled
-     * (crescents to 353 blocks). The lattices are denser still but have no
-     * roads, which is the scattered-huts problem the comment on the table
-     * names.
+     * <table border="1">
+     *   <caption>Why each number</caption>
+     *   <tr><th>arrangement</th><th>weight</th><th>why</th></tr>
+     *   <tr><td>green</td><td>100</td>
+     *       <td>the densest measured of the thirteen — 1.09 and 1.07 buildings
+     *       to the thousand square blocks on smooth and on rough ground</td></tr>
+     *   <tr><td>crossroads</td><td>100</td>
+     *       <td>3 stranded doors on either ground and 92/86 percent of its
+     *       planned road actually opened; what shipped alone before this</td></tr>
+     *   <tr><td>orc_ring</td><td>100</td>
+     *       <td>the one non-human shape here, and the tightest of the lot: a
+     *       camp of a hundred and forty huts reaches 145 blocks against the
+     *       green's 243 by 85, with 99% of them fronting its own roads</td></tr>
+     *   <tr><td>thorp</td><td>70</td><td>lanes off a track, ragged at the edge
+     *       where a ruled outline would look bulldozed in a forest</td></tr>
+     *   <tr><td>ring_streets</td><td>70</td><td>the vale folk's ring roads</td></tr>
+     *   <tr><td>radial_concentric</td><td>60</td><td>the same drawn with a
+     *       compass, which is a rarer thing for a town to be</td></tr>
+     *   <tr><td>crescents</td><td>40</td><td>handsome and sprawling — to 353
+     *       blocks, the widest here</td></tr>
+     *   <tr><td>high_street</td><td>40</td><td>11 stranded doors on smooth
+     *       ground</td></tr>
+     *   <tr><td>bastide</td><td>30</td><td>24 stranded doors: grids strand
+     *       doors. Low, but on — a founder's town should exist</td></tr>
+     * </table>
+     *
+     * <p><strong>What stays at zero, and why that is not an oversight.</strong>
+     * The lattices — ring, warren, stronghold, organic — have no roads at all,
+     * which is the scattered-huts problem the comment on the table below names;
+     * they remain reachable by editing the config. So are the goblins' — a
+     * warren has no roads either, which is what a warren is.
+     *
+     * <p><strong>The orc war camp is on, and it is the one non-human entry.</strong>
+     * The note this paragraph replaces said the orc arrangements were off
+     * because turning on the stronghold would put orc towns in every world
+     * before there was an orc town worth walking into. There is one now: a camp
+     * drawn round a great hut with a king in it, huts facing the muster yard,
+     * and a wall pulled tight round the outer ring. It ships at the same weight
+     * as the two best human shapes, because a world where every settlement is
+     * human is a world with one race in it.
+     *
+     * <p>The orcs' two <em>rectangles</em> stay at zero. They are a garrison and
+     * a gridiron, and they read as what the orcs were before they had anywhere
+     * to live.
      */
-    private static final Map<String, Integer> STARTING_WEIGHTS =
-            Map.of(Culture.LAYOUT_CROSSROADS, 100,
-                    // And the orc war camp, at the same weight, so a fresh world
-                    // holds both a town somebody surveyed and a camp somebody
-                    // drew round a chief. Two entries rather than one now: the
-                    // note above is about the burghers' crossroads and stands,
-                    // but "one arrangement and nothing else" stopped being true
-                    // the moment a second people had a shape worth seeing.
-                    Culture.LAYOUT_ORC_RING, 100);
+    private static final Map<String, Integer> STARTING_WEIGHTS = Map.of(
+            Culture.LAYOUT_GREEN, 100,
+            Culture.LAYOUT_CROSSROADS, 100,
+            Culture.LAYOUT_ORC_RING, 100,
+            Culture.LAYOUT_THORP, 70,
+            Culture.LAYOUT_RING_STREETS, 70,
+            Culture.LAYOUT_RADIAL_CONCENTRIC, 60,
+            Culture.LAYOUT_CRESCENTS, 40,
+            Culture.LAYOUT_HIGH_STREET, 40,
+            Culture.LAYOUT_BASTIDE, 30);
 
     /**
      * How often each arrangement is drawn.

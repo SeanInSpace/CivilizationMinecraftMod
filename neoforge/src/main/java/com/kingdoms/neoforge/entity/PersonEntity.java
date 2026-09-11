@@ -3,6 +3,7 @@ package com.kingdoms.neoforge.entity;
 import com.kingdoms.neoforge.KingdomsAttachments;
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.net.PersonInventoryPayload;
+import com.kingdoms.sim.culture.Race;
 import com.kingdoms.sim.person.Appetite;
 import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Inventory;
@@ -18,6 +19,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -68,11 +70,52 @@ public final class PersonEntity extends PathfinderMob {
     /** Roughly where a settler's eyes sit above their feet, for reach arithmetic. */
     public static final double EYE_ABOVE_FEET = 1.62;
 
+    /**
+     * The movement-speed attribute every body is registered with.
+     *
+     * <p>What a navigation modifier is a fraction of: {@link Pace#WALK} of this
+     * is 0.35 blocks a tick, which is the number the game actually walks a
+     * settler at. A race multiplies <em>this</em> (see {@link #applyRace}), never
+     * the modifier, so "nobody is ever given a speed above the walking pace"
+     * stays true of every race without the paces having to know about races.
+     */
+    public static final double BASE_MOVEMENT_SPEED = 0.5;
+
+    /** The health a body is registered with, before its race is applied. */
+    public static final double BASE_MAX_HEALTH = 20.0;
+
     public static AttributeSupplier.Builder createAttributes() {
         return Mob.createMobAttributes()
-                .add(Attributes.MAX_HEALTH, 20.0)
-                .add(Attributes.MOVEMENT_SPEED, 0.5)
+                .add(Attributes.MAX_HEALTH, BASE_MAX_HEALTH)
+                .add(Attributes.MOVEMENT_SPEED, BASE_MOVEMENT_SPEED)
                 .add(Attributes.FOLLOW_RANGE, 48.0);
+    }
+
+    /**
+     * Stamps a race's body onto this one, and fills it up.
+     *
+     * <p>Attributes are registered per entity type and there is one settler
+     * type, so the race cannot live in {@link #createAttributes} — it is set on
+     * the body when the body is made, which is the only moment a person's
+     * culture is known to the thing holding their legs. Called once, on embody;
+     * a released body is discarded outright and the next one is built fresh, so
+     * there is no second application to keep idempotent.
+     *
+     * <p>Healing afterwards is not a kindness, it is arithmetic: raising a max
+     * health does not raise the current one, so an orc who was not healed would
+     * spawn at twenty out of thirty and look wounded from the moment he
+     * appeared.
+     */
+    public void applyRace(Race race) {
+        AttributeInstance health = getAttribute(Attributes.MAX_HEALTH);
+        if (health != null) {
+            health.setBaseValue(race.maxHealth());
+        }
+        AttributeInstance speed = getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed != null) {
+            speed.setBaseValue(BASE_MOVEMENT_SPEED * race.paceFactor());
+        }
+        setHealth(getMaxHealth());
     }
 
     /**

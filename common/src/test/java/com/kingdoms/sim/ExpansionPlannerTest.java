@@ -85,7 +85,7 @@ class ExpansionPlannerTest {
 
     @Test
     void noExpansionWithoutAStandingHall() {
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:human/norman");
         // The same full town, but the hall never rose: no hall, no daughters.
         Settlement parent = new Settlement(
                 Settlement.Id.random(), "Hall-less", new SimPos(0, 64, 0), 64);
@@ -116,7 +116,7 @@ class ExpansionPlannerTest {
 
     @Test
     void aDaughterIsBornACampOfPioneersWithADowry() {
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:human/norman");
         Settlement parent = fullSettlement(kingdom);
         int parentWood = parent.woodStock();
 
@@ -137,7 +137,7 @@ class ExpansionPlannerTest {
 
     @Test
     void fullSettlementFoundsADaughter() {
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:human/norman");
         Settlement parent = fullSettlement(kingdom);
 
         ExpansionPlanner.advance(kingdom, ctx());
@@ -151,7 +151,7 @@ class ExpansionPlannerTest {
 
     @Test
     void familiesEmigrateWholeAndIntact() {
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:human/norman");
         fullSettlement(kingdom);
 
         ExpansionPlanner.advance(kingdom, ctx());
@@ -169,7 +169,7 @@ class ExpansionPlannerTest {
 
     @Test
     void daughterIsPlantedFarFromTheParent() {
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:human/norman");
         Settlement parent = fullSettlement(kingdom);
 
         ExpansionPlanner.advance(kingdom, ctx());
@@ -184,7 +184,7 @@ class ExpansionPlannerTest {
 
     @Test
     void noExpansionWhileASiblingIsStillYoung() {
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:human/norman");
         fullSettlement(kingdom);
         Settlement hamlet = new Settlement(
                 Settlement.Id.random(), "Hamlet", new SimPos(500, 64, 0), 64);
@@ -199,7 +199,7 @@ class ExpansionPlannerTest {
 
     @Test
     void watchedFamiliesNeverTeleport() {
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:norman");
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), "Realm", "kingdoms:human/norman");
         Settlement parent = fullSettlement(kingdom);
         parent.residents().forEach(p -> p.setEmbodied(true));
 
@@ -212,8 +212,8 @@ class ExpansionPlannerTest {
 
     @Test
     void expansionIsDeterministic() {
-        Kingdom a = new Kingdom(new Kingdom.Id(new UUID(7L, 7L)), "Realm", "kingdoms:norman");
-        Kingdom b = new Kingdom(new Kingdom.Id(new UUID(7L, 7L)), "Realm", "kingdoms:norman");
+        Kingdom a = new Kingdom(new Kingdom.Id(new UUID(7L, 7L)), "Realm", "kingdoms:human/norman");
+        Kingdom b = new Kingdom(new Kingdom.Id(new UUID(7L, 7L)), "Realm", "kingdoms:human/norman");
         Settlement pa = fullSettlement(a);
         Settlement pb = fullSettlement(b);
 

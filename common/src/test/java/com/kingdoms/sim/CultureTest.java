@@ -2,14 +2,19 @@ package com.kingdoms.sim;
 
 import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.culture.Layouts;
+import com.kingdoms.sim.culture.Race;
 import com.kingdoms.sim.geom.SimPos;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,9 +36,9 @@ class CultureTest {
         // culture by that name, so every lookup fell through to the default and
         // nobody noticed — because the default was the only thing to fall
         // through to.
-        assertSame(Culture.NORMAN, Culture.of("kingdoms:norman"),
+        assertSame(Culture.NORMAN, Culture.of("kingdoms:human/norman"),
                 "asking for the normans should not quietly hand back the default");
-        assertEquals("kingdoms:norman", Culture.NORMAN.id());
+        assertEquals("kingdoms:human/norman", Culture.NORMAN.id());
     }
 
     @Test
@@ -191,6 +196,107 @@ class CultureTest {
             assertTrue(!culture.style().isEmpty(), culture.id() + " has no style folder");
             assertTrue(!culture.style().contains(":"),
                     culture.id() + " kept its namespace in the folder name");
+            // One segment, not the race's folder and then the people's. The
+            // placer composes "<style>/house"; a style of "human/norman" would
+            // ask for "human/norman/house", which nothing draws.
+            assertTrue(!culture.style().contains("/"),
+                    culture.id() + " kept its race in the folder name: " + culture.style());
+        }
+    }
+
+    @Test
+    void everybodyIsBornIntoSomeBody() {
+        // A culture with no race would be a people whose settlers had no health,
+        // no pace and no reach -- and Race.of falls back rather than throwing, so
+        // the failure would be silent normal humans rather than a crash.
+        for (Culture culture : Culture.all()) {
+            assertNotNull(culture.race(), culture.id() + " is born into nothing");
+        }
+        assertEquals(Race.HUMAN, Culture.NORMAN.race());
+        assertEquals(Race.HUMAN, Culture.HIGHLAND.race());
+        assertEquals(Race.HUMAN, Culture.BURGHER.race());
+        assertEquals(Race.HUMAN, Culture.VALE.race());
+        assertEquals(Race.ORC, Culture.ORC.race());
+        assertEquals(Race.GOBLIN, Culture.GOBLIN.race());
+        // The sentinel has no race segment at all and reads as human, which is
+        // what every unnamed town in the mod has always been.
+        assertEquals(Race.HUMAN, Culture.DEFAULT.race());
+    }
+
+    @Test
+    void theHumansAreTheFourPeoplesAndTheSentinel() {
+        // The grouping the user asked for by name. Four cultures, one body --
+        // which is the whole distinction between the two types.
+        assertEquals(
+                List.of(Culture.DEFAULT, Culture.BURGHER, Culture.HIGHLAND,
+                        Culture.NORMAN, Culture.VALE),
+                Culture.humans(),
+                "the human cultures are Norman, highland, burgher and vale, "
+                        + "plus the no-culture sentinel");
+        assertEquals(List.of(Culture.GOBLIN), Culture.ofRace(Race.GOBLIN));
+        assertEquals(List.of(Culture.ORC), Culture.ofRace(Race.ORC),
+                "orcs have one culture for now, and that is a gap in the table");
+    }
+
+    @Test
+    void theRaceTableSaysWhatTheUserAskedFor() {
+        // Orcs: higher HP, minimally higher attack, minimally slower. Written
+        // here as the three comparisons rather than as three numbers, so that
+        // retuning the table cannot quietly invert the promise.
+        assertTrue(Race.ORC.maxHealth() > Race.HUMAN.maxHealth(),
+                "orcs were asked for with higher health");
+        assertTrue(Race.ORC.attackBonus() > Race.HUMAN.attackBonus(),
+                "orcs were asked for with a higher base attack");
+        assertTrue(Race.ORC.paceFactor() < Race.HUMAN.paceFactor(),
+                "orcs were asked for slower on their feet");
+        // "Minimally" is a promise too, and it is the easy half to lose.
+        assertTrue(Race.ORC.attackBonus() <= 1, "minimally is one point, not three");
+        assertTrue(Race.ORC.paceFactor() >= 0.85, "minimally slower, not a limp");
+
+        // Goblins are the other end, or the table is a difficulty setting.
+        assertTrue(Race.GOBLIN.maxHealth() < Race.HUMAN.maxHealth());
+        assertTrue(Race.GOBLIN.paceFactor() > Race.HUMAN.paceFactor());
+
+        // The human is the measure, and must stay exactly what shipped.
+        assertEquals(20.0, Race.HUMAN.maxHealth());
+        assertEquals(0, Race.HUMAN.attackBonus());
+        assertEquals(1.0, Race.HUMAN.paceFactor());
+
+        assertEquals(30.0, Race.ORC.maxHealth());
+        assertEquals(1, Race.ORC.attackBonus());
+        assertEquals(0.9, Race.ORC.paceFactor());
+        assertEquals(14.0, Race.GOBLIN.maxHealth());
+        assertEquals(0, Race.GOBLIN.attackBonus());
+        assertEquals(1.1, Race.GOBLIN.paceFactor());
+    }
+
+    @Test
+    void aRaceNobodyHasHeardOfIsPeople() {
+        // Same reasoning as Culture.of: a datapack id that means nothing should
+        // produce ordinary people, not an exception halfway through a world load.
+        assertEquals(Race.HUMAN, Race.of("dwarf"));
+        assertEquals(Race.HUMAN, Race.of(null));
+        assertEquals(Race.ORC, Race.of("ORC"), "the id's case is not a promise");
+    }
+
+    @Test
+    void noArrangementIsBuiltByTwoRaces() {
+        // The worldgen draw picks the arrangement first and the people second, so
+        // an arrangement two races both build would hand an orc town to a human
+        // shape or the reverse. None is shared today, and this is the assertion
+        // that says so -- the day one is, the draw needs to be told about races.
+        Map<String, Race> builtBy = new HashMap<>();
+        for (Culture culture : Culture.all()) {
+            if (culture.id().equals(Culture.DEFAULT.id())) {
+                continue;   // the sentinel is never drawn; see SettlementSites
+            }
+            for (String layout : culture.layouts()) {
+                Race already = builtBy.putIfAbsent(layout, culture.race());
+                assertTrue(already == null || already == culture.race(),
+                        layout + " is built by both " + already + " and "
+                                + culture.race() + "; the layout-first draw would "
+                                + "hand a town to the wrong kind of people");
+            }
         }
     }
 }

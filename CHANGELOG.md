@@ -6,6 +6,68 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The four human towns open, and orcs get a body of their own
+
+### New
+
+- **Seven more kinds of town in the world, not one.** Every world used to draw
+  the same shape — two roads meeting at a market square — so every settlement you
+  walked into was the settlement you had already seen. The rest of what the human
+  peoples build is on: a long village green, a track with farmyards hung off it,
+  ring roads and spokes, a compass-drawn radial town, crescent lanes looped off a
+  spine, a high street, and a founder's grid inside a circuit road. They are
+  weighted by how well each measured — the densest and best-connected come up
+  most, the grid that strands doors comes up least — and every one of them is a
+  dial in the config if you want a world of nothing but greens.
+
+- **Races, and orcs are a different animal from a man.** A race is the body and a
+  culture is the town, and a race has several cultures. Humans have four — the
+  Normans, the hill people, the burghers and the vale folk — which is the whole
+  reason the distinction is worth drawing: those four build nothing alike and are
+  built alike underneath. Orcs are half again as tough (30 health against 20), hit
+  for one more, and are a tenth slower on their feet. Goblins are the other end:
+  quicker, and easy to kill.
+
+- **Guards hit for what their body is worth.** A race's bonus lands on top of the
+  base swing and whatever is in the guard's hand, so an orc guard with an iron
+  sword hits for 8 where a human hits for 7 — and takes a good deal more killing.
+
+### Changed
+
+- **The peoples are grouped as Humans, Orcs and Goblins everywhere they are
+  named.** The four human cultures are called the human cultures in the docs, in
+  the config, and in `/civ info`, which now says a town's race beside its culture.
+
+- **The join message names the race when it is not human.** "An orc Warhost
+  stronghold — 980 blocks NE" warns you about the neighbors; "a Norman
+  crossroads" stays as it was, because "a human Norman crossroads" is a mouthful
+  for the ordinary case.
+
+- **Nobody has a second gear, still — per race.** An orc's panic is the same tenth
+  slower than his walk that his walk is slower than a man's. The race multiplies
+  the body, never the pace, so the rule holds without a single one of them
+  knowing a race exists.
+
+### Notes
+
+**Old worlds will not load their towns correctly.** The peoples' identifiers
+changed shape — a culture now says which race it belongs to, so `kingdoms:norman`
+is `kingdoms:human/norman` and `kingdoms:orc` is `kingdoms:orc/warhost`. A
+settlement saved under an old id resolves to the no-culture default: it keeps its
+buildings, its people and its ground, but forgets which people built it, and will
+lay out and furnish itself as a plain lowland town from then on. Start a new world
+if that matters, or re-stamp the town with `/civ culture <new id>`.
+
+**Orcs have one culture, and that is on purpose.** The Warhost is the first of
+them, not the whole of them — the same way the humans got the Normans before they
+got the other three. The orc arrangements stay switched off in the config until
+there is an orc town worth walking into.
+
+**A raid still counts heads.** An orc guard is worth more in a real fight but
+counts for the same 2 in the raid arithmetic, because the number a town recruits
+by and the number it dies by have to stay the same number. Weighting one without
+the other is how a town comes to recruit by a figure it does not fight by.
+
 ## A world starts beside a town, and says where the others are
 
 ### New

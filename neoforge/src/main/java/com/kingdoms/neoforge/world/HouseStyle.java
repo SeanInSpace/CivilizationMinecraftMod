@@ -209,12 +209,12 @@ record HouseStyle(Block wall, Block frame, Block roofStairs, Block roofRidge,
     private static Map<String, HouseStyle> byCulture() {
         Map<String, HouseStyle> table = new LinkedHashMap<>();
         table.put("kingdoms:default", LOWLAND);
-        table.put("kingdoms:norman", LOWLAND);
-        table.put("kingdoms:highland", HIGHLAND);
-        table.put("kingdoms:vale", VALE);
-        table.put("kingdoms:burgher", BURGHER);
-        table.put("kingdoms:goblin", GOBLIN);
-        table.put("kingdoms:orc", ORC);
+        table.put("kingdoms:human/norman", LOWLAND);
+        table.put("kingdoms:human/highland", HIGHLAND);
+        table.put("kingdoms:human/vale", VALE);
+        table.put("kingdoms:human/burgher", BURGHER);
+        table.put("kingdoms:goblin/mire", GOBLIN);
+        table.put("kingdoms:orc/warhost", ORC);
         return Map.copyOf(table);
     }
 
