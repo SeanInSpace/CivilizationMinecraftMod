@@ -1,12 +1,17 @@
 package com.kingdoms.neoforge.item;
 
+import com.kingdoms.neoforge.KingdomsMod;
+import com.kingdoms.neoforge.net.TownMaps;
 import com.kingdoms.neoforge.world.SiteDirectory;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Settlement;
+import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -61,16 +66,25 @@ public final class WayfinderItem extends Item {
     }
 
     /**
-     * Points the needle at the next town out.
+     * Points the needle at the next town out — or, inside a town, opens its map.
      *
      * <p>Untargeted, it takes the nearest. Targeted, it advances — so a player
      * holding one and clicking walks down the same short list the join message
      * printed, rather than being stuck on a town they have already visited.
+     *
+     * <p>Sneaking inside a town's borders is the other half of the same tool.
+     * The needle's whole job is getting you there; once you have arrived it has
+     * nothing left to say, and the question a player has on arrival is what is
+     * here. Outside every claim a sneak-click does what a plain one does, because
+     * there is no town to draw and advancing the needle is still useful.
      */
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack held = player.getItemInHand(hand);
         if (level.isClientSide() || !(level instanceof ServerLevel server)) {
+            return InteractionResult.SUCCESS;
+        }
+        if (player.isShiftKeyDown() && openTownMap(server, player)) {
             return InteractionResult.SUCCESS;
         }
         List<SiteDirectory.Near> near = SiteDirectory.near(server,
@@ -90,6 +104,28 @@ public final class WayfinderItem extends Item {
                 chosen.at().x() - player.getBlockX(),
                 chosen.at().z() - player.getBlockZ()).trim()));
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * The map of the town the player is standing in, if they are standing in one.
+     *
+     * <p>Inside the claim, not merely near it: the claim is the border the
+     * charter draws and the one the map is scaled to, so "in this town" has an
+     * answer already and this does not invent a second one.
+     *
+     * @return whether a map was opened, so the caller can fall through if not
+     */
+    private static boolean openTownMap(ServerLevel level, Player player) {
+        if (!(player instanceof ServerPlayer server)) {
+            return false;
+        }
+        SimWorld world = KingdomsMod.simulationFor(level);
+        if (world == null) {
+            return false;
+        }
+        Settlement here = TownMaps.containing(world, new SimPos(
+                player.getBlockX(), player.getBlockY(), player.getBlockZ()));
+        return here != null && TownMaps.open(server, here);
     }
 
     /**

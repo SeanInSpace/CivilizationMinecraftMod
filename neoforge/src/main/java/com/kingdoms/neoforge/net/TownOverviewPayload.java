@@ -216,7 +216,14 @@ public record TownOverviewPayload(String town, int population, Distress distress
                     ByteBufCodecs.VAR_INT, Line::amount,
                     Line::new);
 
-    private static final StreamCodec<RegistryFriendlyByteBuf, Distress> DISTRESS_CODEC =
+    /**
+     * Public because the town map carries the same reading.
+     *
+     * <p>Two surfaces show a town's distress and there is one predicate behind
+     * it. A second codec for the same three fields would be a second thing to
+     * keep in step for no gain.
+     */
+    public static final StreamCodec<RegistryFriendlyByteBuf, Distress> DISTRESS_CODEC =
             StreamCodec.composite(
                     ByteBufCodecs.VAR_INT, Distress::alarm,
                     ByteBufCodecs.stringUtf8(MAX_NOTE), Distress::fact,

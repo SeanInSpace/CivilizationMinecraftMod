@@ -1,9 +1,8 @@
 package com.kingdoms.neoforge.item;
 
 import com.kingdoms.neoforge.KingdomsMod;
-import com.kingdoms.neoforge.net.TownMapPayload;
+import com.kingdoms.neoforge.net.TownMaps;
 import com.kingdoms.sim.geom.SimPos;
-import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.network.chat.Component;
@@ -15,7 +14,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * A plan of the nearest town.
@@ -60,23 +58,17 @@ public final class TownMapItem extends Item {
             return false;
         }
 
-        Settlement nearest = null;
-        long best = Long.MAX_VALUE;
         SimPos here = new SimPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
-        for (Kingdom kingdom : world.kingdoms()) {
-            for (Settlement settlement : kingdom.settlements()) {
-                long distance = settlement.center().horizontalDistanceSq(here);
-                if (distance < best) {
-                    best = distance;
-                    nearest = settlement;
-                }
-            }
-        }
+        Settlement nearest = TownMaps.nearest(world, here);
         if (nearest == null) {
             player.sendSystemMessage(Component.literal("The parchment is blank — no town nearby."));
             return false;
         }
-        PacketDistributor.sendToPlayer(server, TownMapPayload.of(nearest));
+        if (!TownMaps.open(server, nearest)) {
+            player.sendSystemMessage(Component.literal(
+                    "The parchment stays blank — this client cannot draw it."));
+            return false;
+        }
         return true;
     }
 }

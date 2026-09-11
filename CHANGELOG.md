@@ -6,6 +6,55 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town you can read, not just a town you can see
+
+### New
+
+- **The town map is a proper window on the town now.** It used to be a square of
+  green rectangles: honest, and unable to answer a single question. It is now a
+  plan you can drag around and zoom into, with the town's whole ledger beside it.
+  Drag to move, wheel to zoom, R to fit the claim back in the pane. North is up,
+  there is a scale bar in the corner, and your own position and heading are
+  marked.
+
+- **Buildings are colored by what they are for**, so a town reads at a glance:
+  homes in amber, food in green, timber and stone in brown, workshops and the
+  market in blue, the hall in violet, anything that helps hold a wall in red.
+  Every building is drawn at its real size and shape — a round hut is drawn
+  round — with a tick on the side its door is on. Fields are hatched. Work that
+  is only planned is drawn hollow, and a damaged building is ringed in amber.
+
+- **Everybody is on it.** Each settler is a dot in their trade's color, moving as
+  they move. Hover one and you get their name, trade, hunger, what errand they
+  are on, whose roof they sleep under and where they work. Hover a building and
+  you get what it is, what state it is in, whether a lane reaches its door, who
+  lives or works there and what it is holding. Click either and the panel beside
+  the map jumps to it.
+
+- **Five tabs, and between them everything `/civ info` prints.** *Town* is the
+  whole reading laid out: stage, housed and unhoused, the larder in all four
+  places food sits, the grain that is not bread yet, the trees left standing and
+  the rock left in the seam, the watch against the threat, the king, the stores.
+  *People* is a sortable roster. *Built* lists every building grouped by what it
+  is for. *Queue* shows what is going up, how far along, and — the useful part —
+  what each build is waiting on. *History* is the last fifty things that happened
+  to the town, newest first.
+
+- **It is alive.** The map refreshes once a second while it is open, without
+  losing where you had dragged it to or which building you had picked. A town
+  steps while you are looking at it, and now you can watch it.
+
+- **Three ways in.** Right-click the **Town Hall post**, which used to open the
+  plain ledger and now opens this. Use a **Town Map** for the nearest town from
+  anywhere. Or **sneak-use the Wayfinder** while standing inside a town's
+  borders — the needle's job is getting you there, and this is what it has to
+  say once you have arrived.
+
+- The old ledger screen is still there behind `/civ overview` for anybody who
+  only wants the resource list.
+
+---
+
 ## The orcs live somewhere, and somebody is in charge of it
 
 ### New

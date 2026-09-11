@@ -136,17 +136,72 @@ Recent history:
 
 Settlers carry **real food** and eat the actual item they hold, best first — so a loaf you give a starving settler is the loaf that saves them. A founding party sets out with bread in hand, which is what carries a new town through its first minutes before there is a larder to fetch from.
 
-## Seeing what stands where
+## The town map
 
-**Use a Town Map** and the nearest settlement opens as a plan: blank ground with
-every building picked out in green, the road network drawn in earth beneath them,
-north up, your own position marked. It is
-deliberately not a Minecraft map — a map draws terrain, and terrain is exactly
-what this strips away so the shape of the town is readable. The scale follows the
-town's claim, so a hamlet and a city fill the same square.
+Three ways to open it:
 
-Buildings only appear once their size is known, which happens when they are
-actually built.
+- **Right-click the Town Hall post.** The hall is where a town's books belong.
+- **Use a Town Map** anywhere, and the nearest settlement opens.
+- **Sneak-use the Wayfinder** while you are standing inside a town's borders. The
+  needle's job is getting you there; this is what it has to say once you arrive.
+
+It is deliberately not a Minecraft map — a map draws terrain, and terrain is
+exactly what this strips away so the shape of the town is readable.
+
+**The plan** fills the left of the window. Drag it to move, wheel to zoom, press
+**R** to fit the whole claim back in the pane. North is up, there is a scale bar
+in the bottom corner, and your own position and heading are marked in white.
+
+| What you see | What it is |
+|---|---|
+| **Faint white lines** | The streets the plan laid out, walked or not |
+| **Solid earth lines** | Roads the town has opened — where you can actually go |
+| **Dashed earth lines** | Stretches it has drawn but not opened yet |
+| **Gray ring** | The wall, closed or not |
+| **Thin white circle** | The claim — the same border the Founding Charter shows |
+| **Amber shapes** | Homes |
+| **Green shapes** | Food: farms, granary, hearth, mill. Farms are hatched |
+| **Brown shapes** | Timber and stone: lumber camp, mine, stores |
+| **Blue shapes** | Workshops, the market, the inn |
+| **Violet shape** | The town hall |
+| **Red shapes** | Anything that helps hold a wall |
+| **Hollow shapes** | Planned, not built. An amber ring means damaged |
+| **Small dark-green dots** | The forester's stand — the trees it keeps planted |
+| **Colored dots** | Settlers, one color per trade, moving as they move |
+
+Each building is drawn at its real size and shape, with a short tick on the side
+its door is on. A round hut is drawn round.
+
+**Hover a building** for what it is, its level, whether it is whole or damaged,
+whether a lane reaches its door, who lives or works there, and what it is
+holding. **Hover a settler** for their name, trade, hunger, what errand they are
+on, whose roof they sleep under and where they work. **Click either** and the
+panel beside the map jumps to it.
+
+**The panel** on the right has five tabs:
+
+- **Town** — the whole reading: stage, how many are housed, the larder in all
+  four places food sits, the grain that is not bread yet, the trees left standing
+  and the rock left in the seam, the watch against the threat, the king, the
+  treasury, the trades, the stores. A town in trouble says so at the top.
+- **People** — every settler, sorted by name, trade or hunger (click the line
+  above the list to change). Click one to center the map on them.
+- **Built** — every building grouped by what it is for, with its condition. Click
+  one to center the map on it.
+- **Queue** — what is going up, how far along, and what each build is waiting on.
+  A build stuck at nought per cent almost always has a reason written here.
+- **History** — the last fifty things that happened to the town, newest first.
+
+The map **refreshes every second** while it is open, and keeps where you dragged
+it to and what you had picked. A town steps while you are looking at it.
+
+`/civ map` opens it for the nearest settlement if walking to the hall is
+inconvenient, and `/civ overview` still opens the plain resource ledger the hall
+used to show. Both need cheats.
+
+The map needs Kingdoms installed on the client.
+
+## Seeing the plan on the ground
 
 Craft or grab a **Surveyor's Lamp** from the Kingdoms creative tab and hold it.
 The nearest town's plan is drawn over the world in steady white lines out to
@@ -206,14 +261,15 @@ keeps seed corn: a town cannot be bought out of its own repairs. If you want a
 settlement walled sooner, carrying logs to this door is the fastest way to do it —
 the wall waits on town stage, and town stage waits on everything built before it.
 
-## The town overview
+## The town's books
 
-**Right-click the Town Hall post** and the town's books open on screen: its name,
-how many live there, and every resource it owns — food, timber, stone, iron,
-tools, weapons, armor — each with its own icon and count.
+**Right-click the Town Hall post** and the town map opens — see [The town
+map](#the-town-map) above, whose *Town* tab is the whole ledger and a good deal
+more.
 
-`/civ overview` opens the same screen for the nearest settlement, if walking to
-the hall is inconvenient.
+`/civ overview` still opens the older, plainer screen: the town's name, how many
+live there, and every resource it owns — food, timber, stone, iron, tools,
+weapons, armor — each with its own icon and count. It needs cheats.
 
 ## Reading a building
 
@@ -295,8 +351,9 @@ names the race of every town outright.
 **The wayfinder.** A compass whose needle points at a settlement instead of at
 spawn. You are given one on your first join (turn that off with
 `worldgen.wayfinder_on_join`), already aimed at the nearest town; right-click to
-move it on to the next one out, and again to cycle back round. It is also
-craftable:
+move it on to the next one out, and again to cycle back round. Sneak-right-click
+once you are inside a town's borders and it opens that town's map instead — the
+needle has nothing left to tell you there. It is also craftable:
 
 ```
 —         iron     —

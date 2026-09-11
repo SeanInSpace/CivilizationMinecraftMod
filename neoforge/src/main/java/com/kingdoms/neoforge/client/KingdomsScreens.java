@@ -24,8 +24,28 @@ public final class KingdomsScreens {
         Minecraft.getInstance().setScreenAndShow(new TownOverviewScreen(town));
     }
 
+    /**
+     * Opens the town map, or refreshes the one already open.
+     *
+     * <p>The map asks the server for a fresh reading every second and folds the
+     * answer into the screen that asked, so the player's pan, zoom, tab and
+     * selection survive it. Replacing the screen once a second would make the
+     * map unusable — you could not drag it anywhere without being thrown back to
+     * the middle.
+     *
+     * <p>A reading that is not opening one is only ever folded into a map
+     * already on screen, for the same reason the market's board is: closing a
+     * screen has to mean it stays closed, and a reply arriving a tick after
+     * escape must not put the map back up.
+     */
     public static void openTownMap(TownMapPayload town) {
-        Minecraft.getInstance().setScreenAndShow(new TownMapScreen(town));
+        Minecraft client = Minecraft.getInstance();
+        // 26.2 moved the open screen onto the Gui; there is no Minecraft.screen.
+        if (client.gui.screen() instanceof TownMapScreen open) {
+            open.update(town);
+        } else if (town.opening()) {
+            client.setScreenAndShow(new TownMapScreen(town));
+        }
     }
 
     public static void openSupply(SupplyPayload supply) {

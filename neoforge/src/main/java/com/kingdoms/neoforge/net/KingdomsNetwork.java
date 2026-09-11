@@ -19,12 +19,14 @@ public final class KingdomsNetwork {
      * their own, "4" when the market got a board and, with it, the first thing
      * this mod's client ever says back, and "5" when the surveyor's lamp
      * stopped drawing itself out of particles and started sending its survey to
-     * be drawn, and "6" when the lamp's plots gained a height and became boxes.
+     * be drawn, and "6" when the lamp's plots gained a height and became boxes,
+     * and "7" when the town map stopped being a list of rectangles and became a
+     * reading of the whole town, refreshed every second on the client's own ask.
      * An optional channel that silently mismatches does not refuse; it decodes
      * the new bytes with the old codec and shows nonsense, which is worse than
      * not having the screen at all.
      */
-    private static final String VERSION = "6";
+    private static final String VERSION = "7";
 
     private KingdomsNetwork() {
     }
@@ -57,12 +59,17 @@ public final class KingdomsNetwork {
                 SurveyPayload.TYPE,
                 SurveyPayload.STREAM_CODEC,
                 SurveyPayload::handle);
-        // The only thing that travels the other way. Everything else this mod
-        // sends is a report; a market is the one screen a player can press.
+        // The two that travel the other way. Everything else this mod sends is a
+        // report: a market is the one screen a player can press, and a town map
+        // is the one that has to keep asking whether what it shows is still true.
         registrar.playToServer(
                 MarketDealPayload.TYPE,
                 MarketDealPayload.STREAM_CODEC,
                 MarketDealPayload::handle);
+        registrar.playToServer(
+                TownMapRequestPayload.TYPE,
+                TownMapRequestPayload.STREAM_CODEC,
+                TownMapRequestPayload::handle);
         KingdomsMod.LOGGER.debug("Kingdoms network channel registered");
     }
 }

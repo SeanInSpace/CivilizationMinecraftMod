@@ -35,7 +35,9 @@ neoforge/
 
 The block sends the payload with `PacketDistributor.sendToPlayer`; the payload's `handle` calls `KingdomsScreens`; `KingdomsScreens` builds the screen. **The payload handler must not name `Minecraft`** — that is what `KingdomsScreens` is for, and it is the only reason that class exists.
 
-A screen that needs to send something *back* — so far only the market's buttons — adds a second payload registered with `playToServer` and sent with `ClientPacketDistributor.sendToServer`. Everything in it is a claim by a client and none of it is evidence: re-derive the price, the stock and the player's reach on the server.
+A screen that needs to send something *back* — the market's buttons, and the town map's once-a-second "how is it now?" — adds a second payload registered with `playToServer` and sent with `ClientPacketDistributor.sendToServer`. Everything in it is a claim by a client and none of it is evidence: re-derive the price, the stock and the player's reach on the server.
+
+A screen that has to stay *current* asks for itself. The town map sends a request every twenty ticks from `Screen.tick()` and stops when it closes; the server remembers nothing between requests, so a client that crashes or wanders off costs nothing. The reply carries an `opening` flag, and a reply that is not opening one is only ever folded into a screen already up — otherwise a packet arriving a tick after escape puts the screen back.
 
 ---
 

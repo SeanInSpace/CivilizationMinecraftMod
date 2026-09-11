@@ -4,6 +4,7 @@ import com.kingdoms.neoforge.KingdomsConfig;
 import com.kingdoms.neoforge.KingdomsMod;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
+import com.kingdoms.neoforge.net.TownMaps;
 import com.kingdoms.neoforge.net.TownOverviewPayload;
 import com.kingdoms.neoforge.view.PersonEntityManager;
 import com.kingdoms.neoforge.view.TickRate;
@@ -107,6 +108,13 @@ public final class KingdomsCommand {
 
                 .then(Commands.literal("overview")
                         .executes(KingdomsCommand::overview))
+
+                // The map, without walking to the hall. The one /civ command
+                // that is not a debug hook: it opens the same screen a player
+                // reaches by clicking a post, for the times the post is a
+                // hundred blocks away and the question is urgent.
+                .then(Commands.literal("map")
+                        .executes(KingdomsCommand::map))
 
                 .then(Commands.literal("audit")
                         .executes(KingdomsCommand::audit)
@@ -417,7 +425,8 @@ public final class KingdomsCommand {
                   found <name>              found a settlement here, party and all
                   seed <stage> [pop]        raise one already built at that stage
                   info                      full state of every settlement
-                  overview                  open the town overview screen
+                  overview                  open the town's ledger screen
+                  map                       open the town map: plan, people, queue, history
                   populate <n> <job>        BUILDER/FARMER/GUARD/TRADER/LUMBERJACK/MINER/IDLER
                   build <blueprint> <work>  queue construction here
                   step [n]                  fast-forward the simulation
@@ -1831,6 +1840,28 @@ public final class KingdomsCommand {
             return 0;
         }
         PacketDistributor.sendToPlayer(player, TownOverviewPayload.of(nearest));
+        return 1;
+    }
+
+    /** Opens the town map for the nearest settlement, without walking to a hall. */
+    private static int map(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("Only a player can be shown a screen."));
+            return 0;
+        }
+        Settlement nearest = nearestSettlement(source);
+        if (nearest == null) {
+            source.sendFailure(Component.literal("No settlements exist yet."));
+            return 0;
+        }
+        if (!TownMaps.open(player, nearest)) {
+            // An optional channel, so this is a real answer rather than a fault:
+            // a vanilla client has no screen to put the map on.
+            source.sendFailure(Component.literal(
+                    "This client cannot draw the map — Kingdoms is not installed on it."));
+            return 0;
+        }
         return 1;
     }
 

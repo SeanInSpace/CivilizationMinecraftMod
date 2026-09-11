@@ -1,17 +1,21 @@
 package com.kingdoms.neoforge.block;
 
-import com.kingdoms.neoforge.net.TownOverviewPayload;
+import com.kingdoms.neoforge.net.TownMaps;
 import com.kingdoms.sim.settlement.Settlement;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * The seat of the settlement, and the way in to its books.
+ * The seat of the settlement, and the way in to everything it knows.
  *
- * <p>Every other post reports in chat. This one opens the overview, because the
- * hall is where a town's accounts belong and because a dozen resources is a
- * table, not a sentence.
+ * <p>Every other post reports in chat. This one opens the town map, because the
+ * hall is where a town's accounts belong and because a town is a plan and a
+ * dozen tables, neither of which is a sentence.
+ *
+ * <p>It used to open the plain ledger — a list of resources and a population
+ * count — and that screen still exists behind {@code /civ overview} for anybody
+ * who only wants the books. The map's own overview tab is a superset of it, so
+ * walking to the hall now gets you strictly more than it used to.
  */
 public class TownHallBlock extends BuildingPostBlock {
 
@@ -27,7 +31,7 @@ public class TownHallBlock extends BuildingPostBlock {
     @Override
     protected void extraReport(Player player, Settlement settlement) {
         if (player instanceof ServerPlayer server) {
-            PacketDistributor.sendToPlayer(server, TownOverviewPayload.of(settlement));
+            TownMaps.open(server, settlement);
         }
     }
 }
