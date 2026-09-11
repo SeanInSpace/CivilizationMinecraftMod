@@ -510,6 +510,26 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **The surveyor's lamp draws lines that hold still.** A survey payload
+      once a second, rendered on the client as solid white lines through the
+      terrain: opened roads solid, planned dashed, the wall gray, plots as
+      rectangles with a tick at the door. The lamp now needs the mod on the
+      client; the charter's claim ring is still particles.
+- [x] **A forester's stand on a superflat.** Two causes: planting asked for
+      the dirt tag, which in 26.2 excludes grass; and a town reached late had
+      outgrown the 64-block claim cap, so the belt held no candidates. Twelve
+      of fourteen arrangements needed more than 64.
+- [x] **Towns you can find from spawn.** The nine regions round spawn always
+      hold a site, the spawn town within 200 blocks, all raised at world start;
+      a greeting on login lists the nearest five with distance and bearing; a
+      wayfinder compass points at the nearest and cycles on use; region size
+      and site chance (35 percent) are config knobs.
+- [ ] **A road paved through the forester's belt fells its trees.** The paving
+      clearance does not consult the spared area, and the town keeps building
+      after the stand goes in. Separate gap from the planting.
+- [ ] **Region size is read live.** Changing it on an existing world re-keys
+      every unvisited region; ledgered towns stay. Lock it at world creation if
+      that footgun matters.
 - [x] **Nothing a citizen breaks is thrown away.** One yield table beside the
       building materials: logs are timber, rock is stone, soil is earth, iron
       ore is iron, leaves and litter nothing. A body carries what it breaks in
