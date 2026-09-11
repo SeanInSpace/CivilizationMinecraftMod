@@ -93,6 +93,29 @@ public final class PersonEntity extends PathfinderMob {
         updateSwingTime();
     }
 
+    /**
+     * A sleeping settler lies still.
+     *
+     * <p>Not decoration, and not something vanilla does for us. A villager sleeps
+     * through its Brain, whose sleep activity simply replaces everything that
+     * moves it; this mob is driven by the old Goal system, and {@code Mob}'s AI
+     * step ticks its goals, its navigation and its move control without ever
+     * asking whether it is in bed. Without this, the stroll goal fires a few
+     * seconds after somebody turns in and walks the body out of the house still
+     * lying down.
+     *
+     * <p>{@code isImmobile} is the one lever that stops all of it at once:
+     * {@code LivingEntity.aiStep} skips the entire server AI step when it is
+     * true, which is how a Player sleeps. The cost is that the flee goal stops
+     * watching too — so a creeper that walks in on a sleeping town is noticed by
+     * the manager's peril sweep instead, a second later, and everybody is turned
+     * out of bed by that.
+     */
+    @Override
+    protected boolean isImmobile() {
+        return super.isImmobile() || isSleeping();
+    }
+
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));

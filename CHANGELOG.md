@@ -6,6 +6,47 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The town goes to bed
+
+### New
+
+- **Real beds, and people asleep in them.** Every home in the mod was furnished
+  with a couple of blocks of white wool standing in for a bed, because a bed is
+  two blocks that have to agree with each other and nobody had worked out how to
+  lay one a block at a time. Cottages, houses, longhouses, crofts and bunkhouses
+  now have actual beds — both halves, the right way round, pillow to the wall —
+  and they survive being built by hand because a builder lays block states
+  exactly as they were drawn.
+
+- **One bed per head.** A home has exactly as many beds as it is allowed to
+  house: three in a cottage, four in a house, six each in a longhouse, a croft
+  and a bunkhouse. There is no longer a house where somebody has the right to
+  live and nowhere to lie down. Each resident has their *own* bed and goes back
+  to the same one every night.
+
+- **Beds are the color of the people who sleep in them.** Lowlanders under plain
+  white, townsfolk under red, vale folk under woad blue, hill people under undyed
+  brown, goblins green, orcs black. It is the only piece of furniture there is one
+  of per person, so it is the cheapest thing in a room to say whose room it is.
+
+- **Night means something now.** At dusk everybody but the watch walks home, goes
+  to their own bed and lies down until dawn. A sleeping settler is genuinely
+  asleep: nobody steers them, no work gets handed to them, and they do not count
+  as a spare pair of hands to anything. The watch keeps the night as before.
+
+- **Anything that matters still gets them up.** The bell, something hostile
+  wandering into view, a creeper, or being too weak with hunger to sleep it off —
+  any of those and the house empties. Merely walking a loaf home does not; a
+  settler who is a bit peckish every evening is left to sleep.
+
+- **Nothing breaks when there is no bed.** An idler with no home still turns in at
+  the town center. A house from an older save still furnished with wool, a bed a
+  player has broken, and a household more crowded than its house has beds for all
+  end the same way they always did: the settler stands at home through the night.
+  Nobody goes hunting the village for a spare mattress.
+
+---
+
 ## A town you founded gets its roads walked out
 
 ### Fixed

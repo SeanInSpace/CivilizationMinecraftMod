@@ -94,13 +94,24 @@ town's dinner loses to its timber.
 walking; the trade workers then override that steering block by block for the
 trades that have one. `dailyRoutine`'s own order of questions, per person:
 
-1. **Builder on an active site?** `continue` — `tickConstruction` is steering them.
-2. **Lumberjack, calm, daylight, not hauling, camp claimed?** `continue` — `workLumberjacks` steers.
-3. **Farmer, calm, daylight, not hauling?** `continue` — `workFarmers` steers.
-4. Otherwise: show the load if carrying, then pick a destination —
+1. **Already asleep?** `NightRest.mustWake` decides: either `stopSleeping` or
+   `continue` — a sleeping body takes no orders at all. This is ranked first, so
+   everything below it is about people who are on their feet.
+2. **Builder on an active site?** `continue` — `tickConstruction` is steering them.
+3. **Lumberjack, calm, daylight, not hauling, camp claimed?** `continue` — `workLumberjacks` steers.
+4. **Farmer, calm, daylight, not hauling?** `continue` — `workFarmers` steers.
+5. Otherwise: show the load if carrying, then pick a destination —
    **alarm** (`Alarm.callsIn`) → home;
-   **night** and not a guard → home;
+   **meal errand** → the food;
+   **night** and not a guard → their own bed if `Beds.bedFor` gives them one,
+   the door otherwise;
    otherwise `workplaceFor`.
+
+Arriving is what actually puts somebody to bed. The ordinary arrival radius is
+`ARRIVE_RADIUS` (8 blocks) — "somewhere about the place", which is right for a
+workplace and useless for a mattress — so a settler heading for a bed is walked
+to within `BED_REACH` (2) instead, and climbs in there if the block really is a
+bed and nobody is in it.
 
 `workplaceFor` itself is ranked: an outstanding **haul** outranks everything; then
 putting away an armful worth `Economy.WORTH_THE_WALK` (20) or a full six slots;
@@ -197,8 +208,10 @@ columns disagree, §6 says so.
 | 5 | `hunger == 99` for 10 steps | dies, permanently, into the town's history | `STARVATION_GRACE_STEPS` |
 | 6 | alarm raised and `Alarm.callsIn(trade)` | walks (WARY) or runs (ALARMED) home | `WARY_AT` = `Danger.ROUTINE`, `ALARMED_AT` = `Danger.OVERMATCH` |
 | 7 | dark outside, not a guard | goes home | `level.isDarkOutside()` |
-| 8 | carrying goods worth 20+, or six full slots | detours to the market to hand them in | `Economy.WORTH_THE_WALK` = 20, `Inventory.SLOTS` |
-| 9 | no tool, not an idler | issued one from the rack, one person per step | `SmithPlanner.issueTool` |
+| 8 | **Night** — dark outside **and** past dusk on the clock, not a guard, not called by the bell, nothing hostile in notice, not fleeing, no meal errand | walks to **their own bed** and lies in it; at dawn they get up. A sleeping body is steered by nobody, sent to no workplace and counted as no hand. No bed (idler, an old save's wool bedrolls, a house more crowded than it has beds for, a bed a player broke) and they sleep standing at home, as they always did | `NightRest.wantsBed`, `NightRest.DUSK` = 12000, `Beds.bedFor`, `BED_REACH` = 2 |
+| 9 | **already asleep** — dawn, the bell, something hostile in notice, a creeper, or `hunger >= 60` | gets up. A meal errand alone does **not** wake a sleeper; only real weakness does | `NightRest.mustWake`, `Person.HUNGER_WEAK` |
+| 10 | carrying goods worth 20+, or six full slots | detours to the market to hand them in | `Economy.WORTH_THE_WALK` = 20, `Inventory.SLOTS` |
+| 11 | no tool, not an idler | issued one from the rack, one person per step | `SmithPlanner.issueTool` |
 
 `Alarm.callsIn` is worth reading twice: at **WARY** only trades that
 `worksBeyondTheWalls` (lumberjack, miner) come in — everyone else keeps working,

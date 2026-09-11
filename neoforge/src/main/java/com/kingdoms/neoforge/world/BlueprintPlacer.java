@@ -8,6 +8,7 @@ import com.kingdoms.neoforge.KingdomsConfig;
 import com.kingdoms.neoforge.KingdomsMod;
 import com.kingdoms.neoforge.block.BuildingPostBlock;
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Beds;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.TownStores;
@@ -18,8 +19,10 @@ import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.BuildingSizes;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
@@ -28,6 +31,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FenceGateBlock;
@@ -35,6 +39,7 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.TagValueInput;
 
@@ -1001,7 +1006,7 @@ public final class BlueprintPlacer {
     }
 
     /** Quarter turns clockwise into Minecraft's own rotation. */
-    private static Rotation rotationOf(int facing) {
+    static Rotation rotationOf(int facing) {
         return switch (Math.floorMod(facing, 4)) {
             case 1 -> Rotation.CLOCKWISE_90;
             case 2 -> Rotation.CLOCKWISE_180;
@@ -1017,7 +1022,7 @@ public final class BlueprintPlacer {
      * state turns with them. Rotating positions alone would leave a house with its
      * stairs and its door facing the way they were drawn while the walls moved.
      */
-    private static void turn(List<Placement> blocks, BlockPos base, Rotation rotation) {
+    static void turn(List<Placement> blocks, BlockPos base, Rotation rotation) {
         if (rotation == Rotation.NONE) {
             return;
         }
@@ -1603,6 +1608,10 @@ public final class BlueprintPlacer {
         }
         if (path.equals("house")) {
             add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.HOUSE.get());
+            // Four along the cold wall, one per head the catalog says a house
+            // holds. Here rather than in a shape of its own because a house is
+            // drawn as a plain cabin and always has been.
+            beds(site, blocks, base, "house");
         }
         return dims;
     }
@@ -2005,25 +2014,94 @@ public final class BlueprintPlacer {
     private static int[] cottage(Site site, List<Placement> blocks, BlockPos base) {
         int[] dims = cabin(site, blocks, base, sized("cottage"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.COTTAGE.get());
-        add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
-        add(blocks, base.offset(1, 1, -1), Blocks.WOOL.white());
+        beds(site, blocks, base, "cottage");
         add(blocks, base.offset(-1, 1, 1), Blocks.BARREL);
         return dims;
     }
 
     /**
-     * Where somebody sleeps.
+     * Every bed this home holds, where {@link Beds} says they are.
      *
-     * <p>Two blocks of wool, laid along z so a rank of them reads as beds rather
-     * than as a carpet. Real beds are still out of reach and it is worth saying
-     * why, because it looks like an oversight: a bed is two block states that
-     * have to agree with each other, and construction lays one block at a time —
-     * so the head goes down, has no foot, and pops off before the builder gets
-     * to it. Wool is what survives being built one block at a time.
+     * <p>The list is the simulation's, not this file's. A settler is sent to
+     * their own bed by a pure function that never reads a block, so the one
+     * thing that must never drift is where the placer puts a bed and where the
+     * simulation believes it is — and the cheapest way to make two things agree
+     * is to have only one of them.
      */
-    private static void bed(List<Placement> blocks, BlockPos base, int dx, int dz) {
-        add(blocks, base.offset(dx, 1, dz), Blocks.WOOL.white());
-        add(blocks, base.offset(dx, 1, dz + 1), Blocks.WOOL.white());
+    private static void beds(Site site, List<Placement> blocks, BlockPos base, String path) {
+        for (Beds.Slot slot : Beds.layoutOf(path)) {
+            bed(site, blocks, base, slot);
+        }
+    }
+
+    /**
+     * Where somebody sleeps: a real bed, both halves, laid the right way round.
+     *
+     * <p>It used to be two blocks of wool, and the note explaining why said a bed
+     * was out of reach because its two halves are block states that have to agree
+     * with each other while construction lays one block at a time — the head goes
+     * down, has no foot, and pops off before the builder gets to it. That is true
+     * of a bed placed the way a <em>player</em> places one, and it is not true
+     * here. {@link #lay} writes states as authored with {@code UPDATE_CLIENTS}
+     * and nothing else, precisely so a door's lower half survives being laid on
+     * its own; a bed half survives for exactly the same reason. Vanilla pops a
+     * lone half when the block at its partner cell <em>changes</em>, and the only
+     * thing this plan ever puts in that cell is the other half.
+     *
+     * <p>Free, like glass and crops. Not by exemption but by the same rule
+     * everything else follows: {@link #materialFor} charges for what a pickaxe or
+     * an axe takes out, and a bed is in neither tag — so it costs a town nothing,
+     * which is what the wool it replaces cost.
+     *
+     * <p>The color is the culture's. It is the one piece of furniture there is
+     * one of per person, so it is the cheapest thing in a building to say a
+     * people with.
+     */
+    private static void bed(Site site, List<Placement> blocks, BlockPos base, Beds.Slot slot) {
+        BlockState foot = Blocks.BED.pick(bedColor(site.culture())).defaultBlockState()
+                .setValue(BedBlock.FACING, headingOf(slot))
+                .setValue(BedBlock.PART, BedPart.FOOT);
+        add(blocks, base.offset(slot.dx(), Beds.FLOOR_COURSE, slot.dz()), foot);
+        add(blocks, base.offset(slot.headX(), Beds.FLOOR_COURSE, slot.headZ()),
+                foot.setValue(BedBlock.PART, BedPart.HEAD));
+    }
+
+    /**
+     * A bed's {@code FACING}, which points from its foot to its head.
+     *
+     * <p>Held in the simulation as a unit offset rather than as a
+     * {@code Direction}, because {@code Direction} is a Minecraft class and the
+     * simulation must not know about those. This is the one line that turns the
+     * one into the other.
+     */
+    private static Direction headingOf(Beds.Slot slot) {
+        if (slot.headDz() != 0) {
+            return slot.headDz() < 0 ? Direction.NORTH : Direction.SOUTH;
+        }
+        return slot.headDx() < 0 ? Direction.WEST : Direction.EAST;
+    }
+
+    /**
+     * What color this people's beds are.
+     *
+     * <p>Kept here rather than on {@link Culture} because a dye is a Minecraft
+     * idea and the culture table is pure simulation. A people not named here
+     * sleeps under undyed white wool, which is what every bed in the mod was
+     * until there were beds.
+     */
+    private static DyeColor bedColor(Culture culture) {
+        return switch (culture == null ? "" : culture.id()) {
+            // Townsfolk, who can afford madder and want it seen.
+            case "kingdoms:burgher" -> DyeColor.RED;
+            // Hill people, whose wool is the color the sheep grew it.
+            case "kingdoms:highland" -> DyeColor.BROWN;
+            // Vale folk get woad, the one dye a farming village makes itself.
+            case "kingdoms:vale" -> DyeColor.LIGHT_BLUE;
+            case "kingdoms:goblin" -> DyeColor.GREEN;
+            case "kingdoms:orc" -> DyeColor.BLACK;
+            // The lowlanders, and anybody a datapack adds without an opinion.
+            default -> DyeColor.WHITE;
+        };
     }
 
     /**
@@ -2040,9 +2118,7 @@ public final class BlueprintPlacer {
                 Blocks.DARK_OAK_PLANKS, Blocks.DARK_OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.LONGHOUSE.get());
         // Six beds down the cold wall, a bay apiece.
-        for (int dx = -5; dx <= 5; dx += 2) {
-            bed(blocks, base, dx, -3);
-        }
+        beds(site, blocks, base, "longhouse");
         // A hearth at each end of the hall, because thirteen blocks is too long
         // to light and heat from the middle.
         for (int dx = -5; dx <= 5; dx += 10) {
@@ -2071,12 +2147,7 @@ public final class BlueprintPlacer {
         add(blocks, base.offset(0, 1, 3), KingdomsBlocks.CROFT.get());
         // Three beds up the wing, three along the range: six, and the household
         // is split between the two arms the way the building is.
-        for (int dx = -5; dx <= -1; dx += 2) {
-            bed(blocks, base, dx, -4);
-        }
-        for (int dx = 1; dx <= 5; dx += 2) {
-            bed(blocks, base, dx, 3);
-        }
+        beds(site, blocks, base, "croft");
         add(blocks, base.offset(-5, 1, 2), Blocks.CAMPFIRE);
         add(blocks, base.offset(-3, 1, 2), Blocks.BARREL);
         add(blocks, base.offset(-1, 1, 2), Blocks.CRAFTING_TABLE);
@@ -2212,12 +2283,9 @@ public final class BlueprintPlacer {
     private static int[] bunkhouse(Site site, List<Placement> blocks, BlockPos base) {
         int[] dims = cabin(site, blocks, base, sized("bunkhouse"), 3, Blocks.OAK_PLANKS, Blocks.OAK_LOG);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.BUNKHOUSE.get());
-        // Bedrolls in a row along the north wall; the mod cannot place real
-        // beds, whose two halves need paired states.
-        add(blocks, base.offset(-2, 1, -1), Blocks.WOOL.white());
-        add(blocks, base.offset(-1, 1, -1), Blocks.WOOL.white());
-        add(blocks, base.offset(1, 1, -1), Blocks.WOOL.white());
-        add(blocks, base.offset(2, 1, -1), Blocks.WOOL.white());
+        // Six bunks in a rank along the north wall, the post standing in the
+        // middle of them. One room, the whole party, no bays.
+        beds(site, blocks, base, "bunkhouse");
         add(blocks, base.offset(2, 1, 1), Blocks.BARREL);
         return dims;
     }

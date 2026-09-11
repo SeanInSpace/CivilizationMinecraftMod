@@ -10,6 +10,7 @@ import com.kingdoms.neoforge.entity.PersonEntity;
 import com.kingdoms.neoforge.bridge.NeoForgeWorldBridge;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -40,7 +41,9 @@ import com.kingdoms.neoforge.world.HandDig;
 import com.kingdoms.sim.economy.Economy;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.item.ItemEntity;
+import com.kingdoms.sim.person.NightRest;
 import com.kingdoms.sim.settlement.Alarm;
+import com.kingdoms.sim.settlement.Beds;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.FieldRoster;
@@ -626,7 +629,7 @@ public final class PersonEntityManager {
                     if (view == null || view.isRemoved()) {
                         continue;
                     }
-                    if (view.isInDanger()) {
+                    if (view.isInDanger() || view.isSleeping()) {
                         // Down tools now. Finishing the block in hand is how a
                         // lumberjack ended up standing under a creeper with one
                         // more swing to go.
@@ -1758,7 +1761,8 @@ public final class PersonEntityManager {
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view != null && !view.isRemoved() && !view.isInDanger()) {
+            if (view != null && !view.isRemoved() && !view.isInDanger()
+                    && !view.isSleeping()) {
                 changed |= ShepherdWorker.work(level, settlement, view);
             }
         }
@@ -1779,7 +1783,8 @@ public final class PersonEntityManager {
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view != null && !view.isRemoved() && !view.isInDanger()) {
+            if (view != null && !view.isRemoved() && !view.isInDanger()
+                    && !view.isSleeping()) {
                 changed |= MinerWorker.work(level, settlement, view);
             }
         }
@@ -1794,7 +1799,8 @@ public final class PersonEntityManager {
                 continue;   // a hauling farmer is on the road, not in the rows
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view != null && !view.isRemoved() && !view.isInDanger()) {
+            if (view != null && !view.isRemoved() && !view.isInDanger()
+                    && !view.isSleeping()) {
                 FarmWorker.work(level, settlement, world.stepsElapsed(), view, person);
             }
         }
@@ -1966,7 +1972,7 @@ public final class PersonEntityManager {
                 continue;
             }
             PersonEntity view = tracked.get(person.id().value());
-            if (view != null && !view.isRemoved()) {
+            if (view != null && !view.isRemoved() && !view.isSleeping()) {
                 builders.add(view);
             }
         }
@@ -2552,6 +2558,14 @@ public final class PersonEntityManager {
             // player walked away must not take it off them. The wooden sword and
             // the bow were never on the books and go with the body.
             standDown(settlement, person.id().value(), view);
+            // Out of bed before the body goes. A bed is marked occupied while
+            // somebody is in it and nothing clears that flag for an entity that
+            // is merely discarded — so a settler asleep when the player walked
+            // away would leave their own bed locked against them for good, and
+            // come back the next night to a mattress they could not get into.
+            if (view.isSleeping()) {
+                view.stopSleeping();
+            }
             person.setPosition(NeoForgeWorldBridge.toSimPos(view.blockPosition()));
             view.discard();
         }
@@ -2864,6 +2878,11 @@ public final class PersonEntityManager {
      */
     private void dailyRoutine(Settlement settlement) {
         boolean night = level.isDarkOutside();
+        // Dark out AND past dusk. The two are not the same thing: a thunderstorm
+        // at noon is dark enough to send people indoors, which is what it has
+        // always done, and is not a reason to get into bed. Bedtime is the
+        // clock's, and it is the same figure vanilla villagers keep.
+        boolean bedtime = night && NightRest.isNight(level.getDefaultClockTime());
         Alarm alarm = settlement.alarm();
 
         Map<UUID, SimPos> homes = new HashMap<>();
@@ -2886,6 +2905,31 @@ public final class PersonEntityManager {
 
             boolean guard = person.profession() == Profession.GUARD;
             SimPos home = homes.get(person.id().value());
+            boolean called = alarm.callsIn(person.profession());
+
+            // Turning in, and being turned out again. Ranked above every errand
+            // on the list because a sleeping body takes no orders at all: it is
+            // not steered, not sent to a workplace, and not counted as a hand by
+            // any of the work passes.
+            //
+            // Waking is not simply the opposite of going to bed -- see
+            // NightRest. Dawn, the bell, anything hostile within notice and a
+            // creeper all get somebody up; an errand does not, or a settler who
+            // walks a loaf home every evening would be turned out of bed on the
+            // pass after they got into it, every night.
+            SimPos bed = guard ? null : Beds.bedFor(settlement, person);
+            if (view.isSleeping()) {
+                if (NightRest.mustWake(bedtime, called, view.isThreatened(),
+                        view.isFleeing(), person.isTooWeakToWork())) {
+                    view.stopSleeping();
+                } else {
+                    continue;
+                }
+            }
+            boolean turningIn = NightRest.wantsBed(bedtime, guard, called,
+                    view.isThreatened(), view.isFleeing(),
+                    FoodPlanner.isGoingToEat(person))
+                    && bed != null;
 
             // Builders on an active site are steered block by block by
             // tickConstruction; overriding them here would tug them off the wall.
@@ -2956,7 +3000,11 @@ public final class PersonEntityManager {
                 target = person.haul().target();
                 speed = WALK_SPEED;
             } else if (night && !guard) {
-                target = home != null ? home : settlement.center();
+                // Their own bed if the town has one for them, the doorway if it
+                // has not: an idler with no home still turns in at the center,
+                // and somebody in a house more crowded than it has beds for
+                // still sleeps under its roof, standing.
+                target = turningIn ? bed : home != null ? home : settlement.center();
                 speed = WALK_SPEED;
             } else if (view.isThreatened()) {
                 // Something hostile is inside the notice radius. The workplace is
@@ -2978,14 +3026,49 @@ public final class PersonEntityManager {
 
             double dx = view.getX() - (target.x() + 0.5);
             double dz = view.getZ() - (target.z() + 0.5);
-            double arrive = alarm == Alarm.ALARMED && !guard ? 2.0 : ARRIVE_RADIUS;
+            // Close enough to touch, when the destination is a bed. The ordinary
+            // radius is eight blocks -- "somewhere about the place", which is
+            // right for a workplace and useless for a mattress: a body that
+            // stopped walking eight blocks short would stand in the street all
+            // night with its bed made.
+            double arrive = alarm == Alarm.ALARMED && !guard ? 2.0
+                    : turningIn ? BED_REACH : ARRIVE_RADIUS;
             if (dx * dx + dz * dz > arrive * arrive) {
                 // The target's own Y, never the surface heightmap: a building's
                 // "surface" is its ROOF, and routing people there is what put
                 // villagers on rooftops in the first place.
                 view.getNavigation().moveTo(target.x() + 0.5, target.y(), target.z() + 0.5, speed);
+            } else if (turningIn) {
+                tuckIn(view, bed);
             }
         }
+    }
+
+    /** How near a settler has to be standing to climb into a bed. */
+    private static final double BED_REACH = 2.0;
+
+    /**
+     * Into bed, if there is one there and nobody is in it.
+     *
+     * <p>Every way this can fail is a way it must fail quietly. A bed broken by
+     * a player, a home from a save written while beds were still two blocks of
+     * wool, a housemate already lying in it — in all three the settler simply
+     * stands at home through the night, which is what the whole town did until
+     * there were beds. Nothing hunts for another bed: a person sleeps in their
+     * own or not at all, because a night spent searching a village for a free
+     * mattress is a night spent walking.
+     */
+    private void tuckIn(PersonEntity view, SimPos bed) {
+        BlockPos pos = new BlockPos(bed.x(), bed.y(), bed.z());
+        if (!level.isLoaded(pos)) {
+            return;
+        }
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof BedBlock) || state.getValue(BedBlock.OCCUPIED)) {
+            return;
+        }
+        view.getNavigation().stop();
+        view.startSleeping(pos);
     }
 
     /** The farmer's rostered field, falling back to the nearest if the town has none. */
