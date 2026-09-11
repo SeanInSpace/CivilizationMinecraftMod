@@ -12,6 +12,23 @@ than papered over.
 
 ---
 
+## Backlog
+
+*Named by the user on 2026-09-11, in no order. Each is a batch of its own; none
+starts until the town in hand is right.*
+
+- Settlements trading with each other.
+- Settlements banding together as a kingdom.
+- A settlement founding a daughter settlement -- disabled until one settlement
+  works out entirely.
+- Human cultures deciding their own power hierarchy: lord, king, council.
+- Raids from rival settlements.
+- Larger walls for more developed societies.
+- More developed player interaction with the townspeople.
+- Visible aging of citizens.
+- Settlement politics: treaties, wars, kingdoms, succession.
+- Goblins: cultures, structures, and unique items.
+
 ## Where the mod stands
 
 Roughly 44,900 lines of source across three modules — `common` 21,500 (pure
