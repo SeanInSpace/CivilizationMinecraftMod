@@ -71,7 +71,11 @@ public final class FolderSource implements BlueprintSource {
             return Optional.empty();
         }
         try {
-            return Optional.of(BlueprintNbt.readFile(file.get(), BlockLookup.of(level)));
+            // By content, not by extension. Somebody who exports a Structurize
+            // building and saves it as .nbt has done nothing wrong, and reading
+            // it as vanilla hands them a zero-by-zero structure with no
+            // explanation at all.
+            return Optional.of(BlueprintNbt.readAnyFile(file.get(), BlockLookup.of(level)));
         } catch (IOException unreadable) {
             KeystoneMod.LOG.error("Could not read blueprint {} from {}", id, file.get(), unreadable);
             return Optional.empty();

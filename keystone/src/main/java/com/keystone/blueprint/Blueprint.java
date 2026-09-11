@@ -17,18 +17,79 @@ import java.util.List;
  * to the structure <em>block</em>, which is only one way of authoring a file;
  * the NBT format itself has never had one.
  */
-public record Blueprint(Vec3i size, List<BlueprintBlock> blocks, BlockPos anchor) {
+public record Blueprint(Vec3i size, List<BlueprintBlock> blocks, BlockPos anchor, Meta meta) {
 
     public Blueprint {
         blocks = List.copyOf(blocks);
         if (anchor == null) {
             anchor = defaultAnchor(size);
         }
+        if (meta == null) {
+            meta = Meta.NONE;
+        }
     }
 
     /** A blueprint that says nothing about where it should be lined up. */
     public Blueprint(Vec3i size, List<BlueprintBlock> blocks) {
-        this(size, blocks, defaultAnchor(size));
+        this(size, blocks, defaultAnchor(size), Meta.NONE);
+    }
+
+    /** A blueprint that names its anchor but nothing else. */
+    public Blueprint(Vec3i size, List<BlueprintBlock> blocks, BlockPos anchor) {
+        this(size, blocks, anchor, Meta.NONE);
+    }
+
+    /**
+     * What the author said about a structure that the blocks cannot say.
+     *
+     * <p>Everything here is optional and everything here has a defined answer
+     * when it is absent, because the great majority of files in the world were
+     * written by a structure block and carry none of it. A reader must never
+     * need this to place a building; it only ever makes the placing better.
+     *
+     * @param facing     which way the front of the structure points, as quarter
+     *                   turns clockwise from {@code +z}. A scan records the
+     *                   direction the author was looking when they took it,
+     *                   which is the side the door is on — so a consumer can
+     *                   turn the file to face a street instead of hoping its
+     *                   door was drawn southward. Zero when nobody said, which
+     *                   is the same as saying southward.
+     * @param cropBlocks how many crop blocks the structure holds, or
+     *                   {@link #UNCOUNTED}. Recorded by whoever scanned it,
+     *                   because "crop" is a judgement about block states that a
+     *                   blueprint format has no business making. A consumer that
+     *                   cares is always free to count the placements itself, and
+     *                   should where it can: this is what the file claims, not
+     *                   what the file contains.
+     */
+    public record Meta(int facing, int cropBlocks) {
+
+        /** Nothing said: southward, and nobody counted. */
+        public static final Meta NONE = new Meta(0, UNCOUNTED);
+
+        public Meta {
+            facing = Math.floorMod(facing, 4);
+            if (cropBlocks < 0) {
+                cropBlocks = UNCOUNTED;
+            }
+        }
+
+        public boolean hasCropCount() {
+            return cropBlocks != UNCOUNTED;
+        }
+
+        /** The same, turned the way {@link Transforms} turns the blocks. */
+        public Meta turned(int quarters) {
+            return quarters == 0 ? this : new Meta(facing + quarters, cropBlocks);
+        }
+    }
+
+    /** Nobody has counted this structure's crops. Not the same as none. */
+    public static final int UNCOUNTED = -1;
+
+    /** Which way the front points, in quarter turns clockwise from {@code +z}. */
+    public int facing() {
+        return meta.facing();
     }
 
     /**

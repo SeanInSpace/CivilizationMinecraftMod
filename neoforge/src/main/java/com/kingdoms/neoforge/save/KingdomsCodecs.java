@@ -466,6 +466,35 @@ public final class KingdomsCodecs {
             Codec.INT.fieldOf("seam").forGetter(Ledgers::seam)
     ).apply(i, Ledgers::new));
 
+    /**
+     * What a hand-authored file put in a building, as it was found in the plan.
+     *
+     * <p>Saved rather than recomputed, and that is a deliberate choice against
+     * the usual rule. Nearly everything about a building is worked out again on
+     * load because the answer is cheap and cannot drift; this one cannot be,
+     * because working it out means reading a file that may have been edited,
+     * replaced or deleted since — and a settler whose bed moved under them while
+     * the world was closed is a settler standing in the dark with no way to find
+     * out why. What the building was raised with is what it holds.
+     *
+     * <p>Absent for a building the code drew, which is nearly all of them: see
+     * {@link Building.Authored}, which is null rather than empty for exactly that
+     * reason.
+     */
+    private static final Codec<Building.Authored> AUTHORED = RecordCodecBuilder.create(i -> i.group(
+            // Offsets from the origin, not world positions, so a building whose
+            // height is corrected at placement takes its furniture with it.
+            SIM_POS.listOf().fieldOf("bed_feet").forGetter(Building.Authored::bedFeet),
+            SIM_POS.listOf().fieldOf("bed_heads").forGetter(Building.Authored::bedHeads),
+            // Absent for a file with no way in, which the check refuses but a
+            // player may still have placed by hand.
+            SIM_POS.optionalFieldOf("doorstep").forGetter(
+                    a -> java.util.Optional.ofNullable(a.doorstep())),
+            Codec.INT.optionalFieldOf("crops", Building.UNCOUNTED)
+                    .forGetter(Building.Authored::cropBlocks)
+    ).apply(i, (feet, heads, doorstep, crops) ->
+            new Building.Authored(feet, heads, doorstep.orElse(null), crops)));
+
     public static final Codec<Building> BUILDING = RecordCodecBuilder.create(i -> i.group(
             Codec.STRING.fieldOf("blueprint").forGetter(Building::blueprintId),
             PLOT.fieldOf("plot").forGetter(Plot::of),
@@ -486,9 +515,11 @@ public final class KingdomsCodecs {
             Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("stores", Map.of())
                     .forGetter(b -> b.hasStores() ? b.stores().all() : Map.<String, Integer>of()),
             CONDITION.fieldOf("condition").forGetter(Condition::of),
-            LEDGERS.fieldOf("ledgers").forGetter(Ledgers::of)
+            LEDGERS.fieldOf("ledgers").forGetter(Ledgers::of),
+            AUTHORED.optionalFieldOf("authored").forGetter(
+                    b -> java.util.Optional.ofNullable(b.authored()))
     ).apply(i, (blueprint, plot, step, materialized, surveyed, seeded, food, held,
-                condition, ledgers) -> {
+                condition, ledgers, authored) -> {
         Building building = new Building(blueprint, plot.origin(), step, materialized);
         building.setSeeded(seeded);
         building.setFoodStored(food);
@@ -501,6 +532,7 @@ public final class KingdomsCodecs {
         building.setStandThousandths(ledgers.stand());
         building.setGrowingThousandths(ledgers.growing());
         building.setStoneSeam(ledgers.seam());
+        authored.ifPresent(building::setAuthored);
         if (!held.isEmpty()) {
             building.stores().restore(held);
         }

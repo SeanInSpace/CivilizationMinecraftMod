@@ -142,6 +142,19 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         return true;
     }
 
+    /**
+     * Reads a hand-authored building's beds, door and crops out of its plan.
+     *
+     * <p>Null for a building the code drew, and null on ground nobody has
+     * loaded — a plan cannot be made without a site, and the settlement asks
+     * again on the step the building is finally drawn.
+     */
+    @Override
+    public com.kingdoms.sim.settlement.Building.Authored authoredFacts(
+            String blueprintId, SimPos origin, int facing) {
+        return BlueprintPlacer.authoredFacts(level, blueprintId, toBlockPos(origin), facing);
+    }
+
     @Override
     public Footprint materializeBlueprint(String blueprintId, SimPos origin, boolean surveyed,
                                           int facing,

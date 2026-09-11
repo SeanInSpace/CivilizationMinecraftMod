@@ -1,6 +1,7 @@
 package com.kingdoms.sim.platform;
 
 import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.Footprint;
 
 /**
@@ -112,6 +113,25 @@ public interface WorldBridge {
                                            int facing,
                                            java.util.function.ObjIntConsumer<String> spoil) {
         return materializeBlueprint(blueprintId, origin, surveyed, facing);
+    }
+
+    /**
+     * What a hand-authored file put in a building that the tables cannot say.
+     *
+     * <p>Null for a building the code drew, which is nearly all of them, and null
+     * for a platform that has never heard of a blueprint file. See
+     * {@link Building.Authored} for what it is and why the simulation has to be
+     * told rather than allowed to look: a drawn building's beds and door are in a
+     * table both halves read, and somebody else's building's are wherever they
+     * built them.
+     *
+     * <p>Asked once per building, at the moment its plan is real — when the
+     * builders finish it, or when an unwatched one is finally drawn. Answering
+     * null on ground nobody has loaded is correct and expected; the question is
+     * asked again on the step the building becomes visible.
+     */
+    default Building.Authored authoredFacts(String blueprintId, SimPos origin, int facing) {
+        return null;
     }
 
     /**

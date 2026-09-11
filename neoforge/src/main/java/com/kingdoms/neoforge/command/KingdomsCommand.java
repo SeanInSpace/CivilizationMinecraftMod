@@ -216,6 +216,11 @@ public final class KingdomsCommand {
                         .then(Commands.argument("level", IntegerArgumentType.integer(0, 99))
                                 .executes(ctx -> hunger(ctx, IntegerArgumentType.getInteger(ctx, "level")))))
 
+                // Authoring: building a house in creative and handing it to a
+                // town. Its own file because it is a tool rather than a window
+                // onto the simulation -- see BlueprintCommands.
+                .then(BlueprintCommands.tree())
+
                 .then(Commands.literal("sites")
                         .executes(ctx -> sites(ctx, DEFAULT_SITE_REACH))
                         .then(Commands.argument("reach", IntegerArgumentType.integer(64, 8192))
@@ -434,7 +439,12 @@ public final class KingdomsCommand {
                   threat <level>            set the alarm level
                   hunger <0-99>             set everyone's hunger
                   sites [reach]             which way the nearby towns are, and the sites behind them
-                  audit                     walk the town, report what is built wrong"""), false);
+                  audit                     walk the town, report what is built wrong
+                  blueprint region <a> <b>  mark a box to scan; the surveyor's lamp draws it
+                  blueprint scan <name>     save it as a building this world can raise
+                  blueprint check <name>    hold a file against the tables before you trust it
+                  blueprint place <name>    put one down here for a look at it
+                  blueprint list            every authored building this world can see"""), false);
         return 1;
     }
 

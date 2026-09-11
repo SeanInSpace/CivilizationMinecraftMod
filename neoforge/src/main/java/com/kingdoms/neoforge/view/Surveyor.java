@@ -4,6 +4,7 @@ import com.kingdoms.neoforge.KingdomsItems;
 import com.kingdoms.neoforge.net.SurveyPayload;
 import com.kingdoms.neoforge.save.KingdomsSavedData;
 import com.kingdoms.neoforge.world.BlueprintPlacer;
+import com.kingdoms.neoforge.world.ScanRegion;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.Kingdom;
 import com.kingdoms.sim.settlement.Building;
@@ -47,6 +48,7 @@ public final class Surveyor {
     /** Forgets who was holding what. For a world going away. */
     public static void forget() {
         HOLDING.clear();
+        ScanRegion.forget();
     }
 
     /**
@@ -115,12 +117,20 @@ public final class Surveyor {
                 nearest = settlement;
             }
         }
+        SurveyPayload survey;
         if (nearest == null) {
-            return SurveyPayload.NONE;
+            // Still a survey, measured from where the player stands. A scan
+            // region is laid out in an empty creative world as often as in a
+            // town, and a frame that only appeared near a settlement would be
+            // missing exactly where authoring actually happens.
+            survey = SurveyPayload.empty(new BlockPos(eye.x(), eye.y(), eye.z()));
+        } else {
+            measureUnknowns(level, nearest, eye);
+            survey = SurveyPayload.of(nearest, eye,
+                    (x, z) -> BlueprintPlacer.groundLevel(level, x, z));
         }
-        measureUnknowns(level, nearest, eye);
-        return SurveyPayload.of(nearest, eye,
-                (x, z) -> BlueprintPlacer.groundLevel(level, x, z));
+        SurveyPayload.Plot frame = ScanRegion.plotFor(player, survey.origin());
+        return frame == null ? survey : survey.with(frame);
     }
 
     /**

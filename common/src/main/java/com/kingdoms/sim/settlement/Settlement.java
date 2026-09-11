@@ -3150,6 +3150,14 @@ public final class Settlement {
                 ? current.footprint()
                 : expectedFootprint(current));
         raised.setFacing(current.facing());
+        // If a file rather than the code decided what this building is, the beds
+        // and the door in it are wherever its author put them, and the tables
+        // everything downstream reads know nothing about them. Found once, here,
+        // and written on the record -- see Building.Authored. A building raised
+        // out of sight answers nothing yet and is asked again the day it is
+        // finally drawn; see materializePending.
+        raised.setAuthored(ctx.bridge().authoredFacts(
+                raised.blueprintId(), raised.origin(), raised.facing()));
         buildings.add(raised);
         tallies.record(Tallies.BUILDINGS_RAISED);
     }
@@ -3581,6 +3589,12 @@ public final class Settlement {
                     building.setOriginY(placed.y());
                     building.setFootprint(placed);
                     building.setSurveyed(true);
+                    // The first moment an unwatched building's file has actually
+                    // been read against real ground, so it is also the first
+                    // moment its beds and its door can be found. See
+                    // Building.Authored.
+                    building.setAuthored(ctx.bridge().authoredFacts(
+                            building.blueprintId(), building.origin(), building.facing()));
                 }
                 building.setMaterialized(true);
                 settleSeededDebt(ctx, building);

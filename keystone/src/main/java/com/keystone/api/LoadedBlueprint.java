@@ -38,12 +38,14 @@ public final class LoadedBlueprint {
 
     private final Vec3i size;
     private final net.minecraft.core.BlockPos anchor;
+    private final Blueprint.Meta meta;
     private final List<PlannedBlock> all;
     private final List<PlannedBlock> sequence;
 
     public LoadedBlueprint(Blueprint blueprint) {
         this.size = blueprint.size();
         this.anchor = blueprint.anchor();
+        this.meta = blueprint.meta();
 
         List<PlannedBlock> everything = new ArrayList<>(blueprint.blocks().size());
         for (Blueprint.BlueprintBlock block : blueprint.blocks()) {
@@ -88,6 +90,19 @@ public final class LoadedBlueprint {
 
     public Vec3i size() {
         return size;
+    }
+
+    /** What the author said that the blocks cannot say. See {@link Blueprint.Meta}. */
+    public Blueprint.Meta meta() {
+        return meta;
+    }
+
+    /**
+     * Which way the front of this structure points, after any turn: quarter
+     * turns clockwise from {@code +z}.
+     */
+    public int facing() {
+        return meta.facing();
     }
 
     /** Blocks in build order, air excluded. The index is the build cursor. */

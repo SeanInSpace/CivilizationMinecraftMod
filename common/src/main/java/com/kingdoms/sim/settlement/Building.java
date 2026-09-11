@@ -2,6 +2,7 @@ package com.kingdoms.sim.settlement;
 
 import com.kingdoms.sim.geom.SimPos;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -21,6 +22,58 @@ public final class Building {
     /** Sentinel for {@link #soundCensus}: nobody has ever counted this building. */
     public static final int UNCOUNTED = -1;
 
+    /**
+     * What a hand-authored file put in this building, as found in the placed plan.
+     *
+     * <p>This exists because of one rule that the drawn buildings let everybody
+     * get away with breaking: the simulation never looks at the world. It knows
+     * where a settler's bed is because {@link Beds} is a table both halves read,
+     * and it knows where the door is because every drawing puts one in the middle
+     * of the south wall. Both are true of every building the code draws and
+     * neither is true of a building somebody built themselves — their beds are
+     * wherever they put them, and their door is wherever they cut it.
+     *
+     * <p>So for an authored building the answers are <em>found once</em>, when
+     * the plan is made, and written down here. Everything downstream goes on
+     * asking the simulation rather than the world, which is the rule; it simply
+     * gets an answer that came from a file instead of from a table. Positions
+     * are offsets from the building's origin, not world coordinates, so a
+     * building whose recorded height is corrected at placement takes its
+     * furniture with it.
+     *
+     * @param bedFeet    the foot half of each bed, in the order they are handed
+     *                   out, as offsets from the origin
+     * @param bedHeads   the head half of the same beds, in the same order. Kept
+     *                   rather than derived: a bed's facing is a block state in
+     *                   the file, and re-deriving it from the foot would be
+     *                   guessing at somebody else's building.
+     * @param doorstep   the block outside the door somebody stands on to walk
+     *                   in, as an offset from the origin
+     * @param cropBlocks crop blocks counted in the plan, or {@link #UNCOUNTED}
+     */
+    public record Authored(List<SimPos> bedFeet, List<SimPos> bedHeads,
+                           SimPos doorstep, int cropBlocks) {
+
+        public Authored {
+            bedFeet = List.copyOf(bedFeet);
+            bedHeads = List.copyOf(bedHeads);
+            if (bedFeet.size() != bedHeads.size()) {
+                throw new IllegalArgumentException(
+                        "a bed has a foot and a head: " + bedFeet.size()
+                                + " feet against " + bedHeads.size() + " heads");
+            }
+        }
+
+        public int bedCount() {
+            return bedFeet.size();
+        }
+
+        /** Whether this file said where its door is. */
+        public boolean hasDoorstep() {
+            return doorstep != null;
+        }
+    }
+
     private String blueprintId;
     private SimPos origin;
     private final long completedOnStep;
@@ -33,6 +86,9 @@ public final class Building {
 
     /** How much room it takes up; unknown until its plan has been built. */
     private Footprint footprint = Footprint.UNKNOWN;
+
+    /** What a file put in it, or null for a building the code drew. See {@link Authored}. */
+    private Authored authored;
 
     /** Quarter turns clockwise from the drawn orientation. */
     private int facing;
@@ -303,6 +359,15 @@ public final class Building {
      * existed — aimed three buildings in four at a blank wall.
      */
     public SimPos doorstep() {
+        // An authored building's door is wherever its author cut it, and that
+        // was found in the plan and written down. The arithmetic below is the
+        // right answer for a drawing, where the door is always the middle of the
+        // front wall, and a confident guess about anybody else's building.
+        if (authored != null && authored.hasDoorstep()) {
+            SimPos step = authored.doorstep();
+            return new SimPos(origin.x() + step.x(), origin.y() + step.y(),
+                    origin.z() + step.z());
+        }
         boolean acrossX = facing == 1 || facing == 3;
         int span = footprint.isKnown()
                 ? (acrossX ? footprint.width() : footprint.depth())
@@ -314,6 +379,27 @@ public final class Building {
             case 3 -> new SimPos(origin.x() + reach, origin.y(), origin.z());
             default -> new SimPos(origin.x(), origin.y(), origin.z() + reach);
         };
+    }
+
+    /**
+     * What an authored file put here, or null when the code drew this building.
+     *
+     * <p>Null rather than an empty record, so "drawn" and "authored, and it has
+     * no beds" stay different facts. A granary from a file has an {@code Authored}
+     * with no beds in it; a drawn granary has none at all, and the beds it does
+     * not have come from the table like everything else's.
+     */
+    public Authored authored() {
+        return authored;
+    }
+
+    /** Whether this building came out of a file somebody wrote. */
+    public boolean isAuthored() {
+        return authored != null;
+    }
+
+    public void setAuthored(Authored authored) {
+        this.authored = authored;
     }
 
     public Footprint footprint() {

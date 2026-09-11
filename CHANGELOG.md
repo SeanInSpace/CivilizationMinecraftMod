@@ -6,6 +6,63 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Build the house yourself and the town will raise it
+
+### New
+
+- **Buildings can be authored instead of drawn.** Build a house in creative, scan
+  it, and every town of that culture raises yours in place of the one the code
+  draws. A file replaces one building for one people — a norman cottage, say —
+  and everything the mod has never been given a file for goes on being drawn
+  exactly as before, so a single house is a single change rather than a fork of
+  the whole style.
+
+- **The whole loop is four commands.** Mark the box you are about to take, and
+  the surveyor's lamp draws it round you in the same lines it draws a building
+  plot in, with a tick on the side the front is on — so a scan region is
+  something you look at rather than something you work out from coordinates.
+  Then take it, check it, and put one down to walk round.
+
+- **A file is checked against everything the drawn building promised.** This is
+  the part that matters, because none of these faults is visible in the house: a
+  cottage two blocks too wide looks like a cottage, and is built straight through
+  whatever is on the next plot. So the check holds a file against the size the
+  plan reserved ground for, the number of heads the catalog says it sleeps, the
+  door workers walk to, the crops a field is supposed to feed a town with, and
+  how far past its own walls it reaches. It says what is wrong in full, in
+  plain words, with the reason. Anything too big to fit its plot is refused
+  outright and the drawn building is raised instead — a house that is visibly
+  not yours is a complaint you can act on, where a neighbour quietly built
+  through is not.
+
+- **Your beds and your door, not the table's.** An authored building's beds are
+  found in the file, both halves and which way each lies, and settlers are sent
+  to those — so you can put the beds where the room wants them. The doorstep is
+  found the same way, so paths and deliveries run to the door you cut rather than
+  to the middle of the wall. A field's yield is counted off the crops you
+  actually planted.
+
+- **A building remembers which way it was scanned.** Face the way the door faces
+  when you take it, and the town turns the building so the door ends up on the
+  street — whichever way the plot happens to be laid. A file that says nothing is
+  taken as facing south, so everything authored before this still lands the way
+  it always did.
+
+- **Four places a building can come from, in a stated order.** The world you are
+  playing beats the folder shared between worlds, which beats an imported
+  MineColonies pack, which beats anything shipped in the mod or a datapack. A
+  file you scanned in this world always wins, so replacing a building somebody
+  shipped takes no deleting and no renaming. Packs can ship buildings for a
+  whole culture at `data/<pack>/blueprints/<style>/<name>.nbt`.
+
+- **Imported buildings are recognized by what is in them.** A Structurize export
+  saved under the wrong extension is read correctly instead of arriving as an
+  empty structure with no explanation.
+
+- **`docs/AUTHORING.md`** walks the whole thing through, including what an
+  authored building reads from your file and what it still reads from the mod's
+  own tables, and how to get Blockbench work into a world where it can be
+  scanned.
 ## The towns have started asking for things
 
 ### New

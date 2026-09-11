@@ -7,6 +7,9 @@ run/
 runs/
 .neoforge/
 
+# Log output from tests that boot enough of the game to have a logger
+logs/
+
 # Java
 *.class
 *.ctxt
