@@ -6,6 +6,86 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A world starts beside a town, and says where the others are
+
+### New
+
+- **There is a town about two hundred blocks from where you spawn.** The nine
+  regions around the world spawn are settled whatever the dice say, and they are
+  raised as the level loads rather than waiting for somebody to walk past — so
+  the first time you look around, one is already standing and eight more are
+  within a few minutes' walk. Ground that will not hold a town still refuses;
+  the next region out takes its place, so spawn always has one.
+
+- **Chat tells you where they are when you log in.** Every settlement within
+  1024 blocks, nearest first, at most five, with a distance and a compass point:
+  `Haldstead — 186 blocks NE`. A site nobody has been near yet is named by its
+  people and its shape instead — `a Norman crossroads — 911 blocks W (not raised
+  yet)` — because promising you a town by name that does not exist yet is a lie
+  you walk nine hundred blocks to catch. `/civ sites` prints the same list,
+  with the operator detail underneath it.
+
+- **A wayfinder, and you start with one.** A compass whose needle points at a
+  settlement rather than at spawn. It arrives in your inventory on your first
+  join already aimed at the nearest town; right-click to move it on to the next
+  one out, and round again. Craftable from iron, redstone and an emerald. Turn
+  the free one off with `worldgen.wayfinder_on_join`.
+
+- **Two dials for how crowded the world is.** `worldgen.region` (512) is how
+  wide a square of world holds at most one town; `worldgen.site_chance` (35) is
+  how many of those squares hold one at all. Set the region to 256 and you get
+  roughly four times as many towns — Millénaire's density. Read the note below
+  before you do.
+
+### Notes
+
+**Why 512 stays the default.** The margin that keeps two towns apart is a
+fraction of the region, so the region is not a free dial — halving it halves the
+separation. At 512 no two towns can be closer than 320 blocks
+(`SettlementSites.MIN_SEPARATION`), which is the number the whole mod is tuned
+around: a grown town is 150 to 300 blocks across, so 320 between centres leaves
+twenty blocks of daylight between their outer edges. At 256 that floor becomes
+160, and two towns 160 apart are building on the same ground — their claims,
+their fields and their roads arguing over it, with neither town knowing the
+other exists until both are standing. Nothing downstream is equipped to settle
+that fight. The second cost is the clock: every raised town is a simulation
+step, a manager pass, and a crowd of embodied villagers whenever somebody is
+near enough to see it, so four times the towns is four times that bill wherever
+they cluster. Measured at the test seed, a 4096-block circle holds about 82
+sites at 512 and about 300 at 256.
+
+**So the density is not what changed — the opening is.** Millénaire's worlds
+felt inhabited from the first minute, and the reason was not that it had more
+villages than this: it was that several were within a few hundred blocks of
+spawn and it *told you where they were*. Both of those are now true here without
+touching the pitch of the grid. The nine spawn regions are an exception written
+into the arithmetic rather than a change to it, and they keep the separation
+floor: the spawn town is placed first, near the spawn point and without a margin
+of its own, and each of its eight neighbours is then held back to the far side
+of its own region until it clears 320 blocks. Everything past those nine is the
+scatter it always was.
+
+**`worldgen.site_chance` is a measurement, not a new behaviour.** 35 percent is
+what the hash has always drawn; it had simply never been written down anywhere a
+world could change it. Swept over 256,000 regions the realized share is 35.03
+percent.
+
+**Existing worlds.** A world made before this picks its spawn towns up on the
+next load — the site ledger is the authority and nothing about this is a
+migration, so a world that already has them does nothing. Changing either dial
+moves every site that has not been raised yet; towns already standing stay where
+they are, because the ledger remembers what was decided rather than what the
+arithmetic would say today.
+
+**The wayfinder's needle is vanilla's.** It writes the
+`minecraft:lodestone_tracker` data component and lets the vanilla compass
+machinery draw the needle — no custom renderer and no client code. The component
+is written *untracked*, which is load-bearing: `LodestoneTracker.tick` clears
+the target of a tracked compass the moment the block it names is not a lodestone
+POI, and a town square is not a lodestone, so a tracked wayfinder would blank
+itself on its first tick in an inventory.
+
+---
 ## A forester in a meadow is standing on good ground
 
 ### Fixed

@@ -333,8 +333,10 @@ public final class KingdomsCommand {
         CommandSourceStack source = ctx.getSource();
         ServerLevel level = source.getLevel();
         SimPos here = toSimPos(source.getPosition());
+        SettlementSites.Grid grid =
+                com.kingdoms.neoforge.world.WorldgenSettlements.gridFor(level);
         List<SettlementSites.Site> found =
-                SettlementSites.near(level.getSeed(), here, reach,
+                grid.near(level.getSeed(), here, reach,
                         KingdomsConfig.arrangementWeights());
         SiteLedger ledger = SiteLedger.get(level);
 
@@ -344,16 +346,28 @@ public final class KingdomsCommand {
         // wherever it is run — while the ledger it checks them against is this
         // dimension's, and in the Nether will be empty forever. Two answers
         // about different worlds on the same line.
-        StringBuilder sb = new StringBuilder("=== Sites within " + reach + " blocks of ")
+        // The player's question first, the chooser's answer second. "Where do I
+        // go" and "is the chooser working" are different questions, and the
+        // listing below only ever answered the second one.
+        StringBuilder sb = new StringBuilder(
+                com.kingdoms.neoforge.world.SiteDirectory.heading(0));
+        List<String> directory = com.kingdoms.neoforge.world.SiteDirectory.lines(level, here);
+        if (!directory.isEmpty()) {
+            sb.setLength(0);
+            sb.append(com.kingdoms.neoforge.world.SiteDirectory.heading(directory.size()));
+            directory.forEach(line -> sb.append("\n").append(line));
+        }
+
+        sb.append("\n=== Sites within ").append(reach).append(" blocks of ")
                 .append(level.dimension().identifier())
                 .append(" ===");
         if (found.isEmpty()) {
-            sb.append("\n  none — regions are ").append(SettlementSites.REGION)
+            sb.append("\n  none — regions are ").append(grid.region())
                     .append(" blocks across and only some hold a town");
         }
         for (SettlementSites.Site site : found.subList(0, Math.min(found.size(), MAX_SITES_LISTED))) {
-            int regionX = SettlementSites.regionXOf(site);
-            int regionZ = SettlementSites.regionZOf(site);
+            int regionX = grid.regionXOf(site);
+            int regionZ = grid.regionZOf(site);
             SimPos center = site.center();
             sb.append("\n  r(").append(regionX).append(", ").append(regionZ).append(")")
                     .append("  x=").append(center.x()).append(" z=").append(center.z())
@@ -409,7 +423,7 @@ public final class KingdomsCommand {
                   raid [strength]           attack the nearest settlement
                   threat <level>            set the alarm level
                   hunger <0-99>             set everyone's hunger
-                  sites [reach]             settlement sites the seed puts nearby
+                  sites [reach]             which way the nearby towns are, and the sites behind them
                   audit                     walk the town, report what is built wrong"""), false);
         return 1;
     }

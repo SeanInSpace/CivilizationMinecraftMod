@@ -13,12 +13,17 @@ import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.settlement.SettlementStage;
 import com.kingdoms.sim.world.SimWorld;
 import com.kingdoms.sim.worldgen.SettlementSites;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * Towns that are already there when you find them.
@@ -40,10 +45,154 @@ import java.util.Map;
  *
  * <p>This is the same doctrine the rest of the mod runs on. A town nobody has
  * been to does not exist yet; it merely will.
+ *
+ * <p><strong>With one exception, and it is the point of this class now.</strong>
+ * Laziness is right everywhere except at the beginning. A player who spawns into
+ * an empty world and walks for ten minutes without meeting anybody has been shown
+ * nothing of what the mod is; Millénaire's opening was several villages inside a
+ * few hundred blocks, findable at once. So the nine regions around the world
+ * spawn are guaranteed a site by {@link SettlementSites.Grid} and raised at world
+ * start rather than on approach — {@link #tickAnchor} works through them one per
+ * tick, so they are standing within half a second of the level loading and before
+ * anybody has had time to look. Everything past those nine is lazy exactly as
+ * before.
  */
 public final class WorldgenSettlements {
 
     private WorldgenSettlements() {
+    }
+
+    /**
+     * Dimensions whose spawn towns are settled, so the anchor stops asking.
+     *
+     * <p>The ledger is the authority and this is only a memo over it: everything
+     * {@link #tickAnchor} decides is recomputed from the seed and checked against
+     * the ledger, so losing this set costs nine hash evaluations and changes
+     * nothing. That is deliberate — it is what makes the anchor idempotent, and
+     * what lets a world created before any of this existed pick up its spawn
+     * towns on the next load without a migration.
+     */
+    private static final Set<ResourceKey<Level>> ANCHORED = new HashSet<>();
+
+    /** Forgets the memo when the world it describes goes away. */
+    public static void forget() {
+        ANCHORED.clear();
+    }
+
+    /**
+     * Whether this level's spawn towns are standing, or never will be.
+     *
+     * <p>Asked by the join greeting, which has a race to lose otherwise: the
+     * nine go up one a tick from the moment the level loads, and a player
+     * joining a single-player world is in before the first of them. Told "a
+     * Norman crossroads, 186 blocks northeast, not raised yet" about all nine,
+     * they would be reading a promise instead of a directory.
+     *
+     * <p>True immediately where there is nothing to wait for — worldgen off, or
+     * a dimension the anchor does not touch.
+     */
+    public static boolean spawnTownsSettled(ServerLevel level) {
+        return !KingdomsConfig.WORLDGEN_ENABLED.get()
+                || !level.dimension().equals(Level.OVERWORLD)
+                || ANCHORED.contains(level.dimension());
+    }
+
+    /**
+     * How far out the anchor will look if all nine spawn regions refuse.
+     *
+     * <p>Three regions. Nine refusals means spawn is in the middle of an ocean
+     * or a mountain range, which is rare and not impossible; rather than leave
+     * the promise broken this widens to the ordinary scattered sites and takes
+     * the nearest ground that will hold a town. It may be a long walk. It is
+     * still a town.
+     */
+    private static final int FALLBACK_REGIONS = 3;
+
+    /**
+     * The site grid this level uses, anchored on its own spawn point.
+     *
+     * <p>Read fresh rather than cached, because both dials are config and an
+     * operator may change them between sessions — and the anchor moves if
+     * somebody moves the world spawn, which is a thing {@code /setworldspawn}
+     * does. A grid is three fields; building one is not worth remembering.
+     */
+    public static SettlementSites.Grid gridFor(ServerLevel level) {
+        return KingdomsConfig.siteGrid(worldSpawn(level));
+    }
+
+    /** Where this world starts a player, as the simulation counts positions. */
+    public static SimPos worldSpawn(ServerLevel level) {
+        BlockPos at = level.getRespawnData().pos();
+        return new SimPos(at.getX(), at.getY(), at.getZ());
+    }
+
+    /**
+     * Raises the towns around the world spawn, one per tick until they stand.
+     *
+     * <p>On its own beat rather than the sweep's, and the beat is every tick:
+     * the whole value of these nine is that they are there before the player
+     * looks, and nine sweeps a second apart is nine seconds of an empty world.
+     * One town a tick for nine ticks is inside the terrain oracle's own per-tick
+     * budget — the hard promise that class makes — and finishes in under half a
+     * second.
+     *
+     * <p>Costs nothing once they are settled, and nothing on a world where
+     * worldgen is off.
+     */
+    public static void tickAnchor(ServerLevel level) {
+        if (!KingdomsConfig.WORLDGEN_ENABLED.get()
+                || !level.dimension().equals(Level.OVERWORLD)
+                || ANCHORED.contains(level.dimension())) {
+            return;
+        }
+        SimWorld world = KingdomsMod.simulationFor(level);
+        if (world == null) {
+            return;
+        }
+        SiteLedger ledger = SiteLedger.get(level);
+        SettlementSites.Grid grid = gridFor(level);
+        Map<String, Integer> weights = KingdomsConfig.arrangementWeights();
+        long seed = level.getSeed();
+
+        // The nine, nearest the spawn point first. Refused ground still refuses;
+        // taking them in this order is what makes "then try the next one out"
+        // fall out of the loop rather than needing to be written.
+        boolean anyStanding = false;
+        for (int[] region : grid.anchoredRegions(seed)) {
+            Optional<SiteLedger.Entry> decided = ledger.entry(region[0], region[1]);
+            if (decided.isEmpty()) {
+                grid.siteIn(seed, region[0], region[1], weights).ifPresent(site ->
+                        resolve(level, world, ledger, site, region[0], region[1]));
+                return;   // one a tick
+            }
+            anyStanding |= decided.get().accepted();
+        }
+        if (anyStanding) {
+            ANCHORED.add(level.dimension());
+            return;
+        }
+
+        // All nine looked at, all nine refused. Widen rather than break the
+        // promise: the ordinary scattered sites, nearest the spawn point first.
+        SimPos spawn = worldSpawn(level);
+        for (SettlementSites.Site site
+                : grid.near(seed, spawn, FALLBACK_REGIONS * grid.region(), weights)) {
+            int regionX = grid.regionXOf(site);
+            int regionZ = grid.regionZOf(site);
+            Optional<SiteLedger.Entry> decided = ledger.entry(regionX, regionZ);
+            if (decided.isEmpty()) {
+                resolve(level, world, ledger, site, regionX, regionZ);
+                return;
+            }
+            if (decided.get().accepted()) {
+                ANCHORED.add(level.dimension());
+                return;
+            }
+        }
+        ANCHORED.add(level.dimension());
+        KingdomsMod.LOGGER.warn(
+                "WORLDGEN no ground for a town within {} blocks of the world spawn {}",
+                FALLBACK_REGIONS * grid.region(), spawn);
     }
 
     /**
@@ -96,6 +245,7 @@ public final class WorldgenSettlements {
             return;   // before the simulation exists there is nowhere to put a town
         }
         SiteLedger ledger = SiteLedger.get(level);
+        SettlementSites.Grid grid = gridFor(level);
         Map<String, Integer> weights = KingdomsConfig.arrangementWeights();
         long seed = level.getSeed();
         int reach = KingdomsConfig.WORLDGEN_REACH.get();
@@ -106,9 +256,9 @@ public final class WorldgenSettlements {
             }
             SimPos at = new SimPos((int) player.getX(), (int) player.getY(),
                     (int) player.getZ());
-            for (SettlementSites.Site site : SettlementSites.near(seed, at, reach, weights)) {
-                int regionX = SettlementSites.regionXOf(site);
-                int regionZ = SettlementSites.regionZOf(site);
+            for (SettlementSites.Site site : grid.near(seed, at, reach, weights)) {
+                int regionX = grid.regionXOf(site);
+                int regionZ = grid.regionZOf(site);
                 if (ledger.isResolved(regionX, regionZ)) {
                     continue;
                 }
