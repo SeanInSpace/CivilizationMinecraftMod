@@ -510,6 +510,32 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **A guard does not shoot through a wall.** One block-collision ray per
+      guard per pass, a full second of unbroken sight before the first arrow,
+      a walk round to a clear stand on the creeper's ring when there is none,
+      and no shot with a townsperson in the arrow's path.
+- [x] **Felling one tree fells one tree.** Site clearing and the wall builder
+      flooded through leaves, which joined every crown in a wood into one blob.
+      A tree is now its logs, 26-connected through wood only (fancy oaks and
+      dark oaks branch on the diagonal), and crowns decay by vanilla's rule.
+- [x] **The town clears its ground.** Litter and ground cover off every paved
+      column and bridge deck, the verge kept; canopy stripped to the sky over
+      every plot; trunks within two blocks of a wall felled; the forester's
+      stand outside the village spared; nothing of it in the repair diff.
+- [x] **No building on a road, no road through a building.** Every one of 972
+      wall-through-way pairs across 104 grown towns was a footpath: lanes were
+      drawn as two raw right angles with no keepout, and plots ignored tracks.
+      Lanes now go round every standing wall and queued plot; a plot may only
+      cover a dead-end lane to a door nobody has. 972 to 0; 0.7% of doors are
+      left unjoined and counted in /civ info.
+- [ ] **Doorstep ring cleared of ground cover.** Literal to the brief, but the
+      code elsewhere prefers grass and flowers left where they are; with the
+      one-block apron it is a one-block skirt of bare ground. If it reads as a
+      scraped pad in-world, drop ground cover from the clearing outside the
+      walls proper.
+- [ ] **Early-street bar loosened to 55 percent** by the siting rule keeping
+      off footpaths (41/92 before, 45/88 after). The fault it was written for
+      was 405 stretches round 62 buildings; a second opinion is worth having.
 - [x] **A town the world put there arrives with its streets and its wood.**
       Roads are recorded as a debt at seeding and paid once on the first step
       with a world; the forester's stand waits for its belt to load rather than
