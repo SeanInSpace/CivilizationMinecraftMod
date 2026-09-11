@@ -221,7 +221,7 @@ public final class KingdomsCodecs {
     private record Flavor(String culture, String stage, int fedStreak,
                           boolean perimeterClosed, Optional<Perimeter> perimeter,
                           Optional<PathNetwork> paths, boolean drawnOnly,
-                          Optional<String> layout) {
+                          Optional<String> layout, boolean seededRoadsOwed) {
         static Flavor of(Settlement s) {
             return new Flavor(s.cultureId(), s.stage().pretty(), s.fedStreak(),
                     s.perimeterClosed(), Optional.ofNullable(s.perimeter()),
@@ -233,7 +233,8 @@ public final class KingdomsCodecs {
                     // where the derived answer stops being derived. Only saves
                     // from before the field existed come back without one, which
                     // is the whole of the compatibility rule below.
-                    Optional.of(s.layoutId()));
+                    Optional.of(s.layoutId()),
+                    s.seededRoadsOwed());
         }
     }
 
@@ -383,7 +384,16 @@ public final class KingdomsCodecs {
             // id it does not know with rings, so resolving on the way out would
             // quietly rewrite a datapack's arrangement -- or one from a newer
             // build of the mod -- into a village, permanently and in the file.
-            Codec.STRING.optionalFieldOf("layout").forGetter(Flavor::layout)
+            Codec.STRING.optionalFieldOf("layout").forGetter(Flavor::layout),
+            // A town world generation wrote down whose streets have not been
+            // walked out yet. It has to survive a save for the same reason the
+            // lumber camp's wood does: a town generated in one session and
+            // found in another is exactly the town that still owes them, and a
+            // flag that reset to false on load would strand its roads for good.
+            // Absent from every world saved before roads were owed, and false is
+            // right for those -- their towns walked out every road they have.
+            Codec.BOOL.optionalFieldOf("seeded_roads_owed", false)
+                    .forGetter(Flavor::seededRoadsOwed)
     ).apply(i, Flavor::new));
 
     public static final Codec<Household.Id> HOUSEHOLD_ID =
@@ -588,6 +598,7 @@ public final class KingdomsCodecs {
         // which is the behavior they were built under. Only fresh charters camp.
         settlement.setStage(SettlementStage.parse(flavor.stage(), SettlementStage.TOWN));
         settlement.setDrawnOnly(flavor.drawnOnly());
+        settlement.setSeededRoadsOwed(flavor.seededRoadsOwed());
         settlement.setFedStreak(flavor.fedStreak());
         settlement.setPerimeterClosed(flavor.perimeterClosed());
         flavor.perimeter().ifPresent(settlement::setPerimeter);

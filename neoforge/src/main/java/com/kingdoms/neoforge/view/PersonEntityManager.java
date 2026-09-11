@@ -1685,6 +1685,16 @@ public final class PersonEntityManager {
             int done = 0;
             int i = swept;
             for (; i < segments.size() && done < PAVE_AT_ONCE; i++) {
+                if (settlement.paths().isUnwalkable(i)) {
+                    // A stair, not a street: nobody will ever open it, so waiting
+                    // on it is waiting forever. The mark used to stop here, and
+                    // with it every stretch further down the list -- which left
+                    // the round-robin below to draw them at one a second, so a
+                    // town that arrived with forty roads drew them one at a time
+                    // in front of whoever was standing in it. That is the very
+                    // thing this backlog exists to prevent.
+                    continue;
+                }
                 if (!RoadUpkeep.mayDraw(settlement, i)) {
                     break;   // the network is opened in order; wait for this one
                 }

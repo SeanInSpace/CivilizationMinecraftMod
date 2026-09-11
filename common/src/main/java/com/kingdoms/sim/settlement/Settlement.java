@@ -2095,6 +2095,39 @@ public final class Settlement {
     }
 
     /**
+     * Whether this town was written into existence with its streets still to be
+     * walked out.
+     *
+     * <p>The road half of {@link Building#isSeeded()}, and it exists for exactly
+     * the same reason. {@code Founding.seeded} stands a whole village in one go
+     * and has no world to ask about the ground, so it cannot route a street or
+     * judge whether one is too steep to walk — and a town raised by world
+     * generation is <em>watched from its first step</em>, which means the clock
+     * will never open a stretch for it and its crew opens one a step. A village
+     * you find after it has stood for a generation therefore stood on bare
+     * ground with no roads at all, and then unrolled them in front of you one at
+     * a time for several minutes.
+     *
+     * <p>So the debt is recorded here and paid on the first step the town has a
+     * world in hand: see {@code PathPlanner.advance}, which routes the whole
+     * plan, joins every standing door and opens every stretch that is walkable,
+     * once. Everything the town builds after that is walked out by hands exactly
+     * as before — which is why this is a one-shot rather than a mode.
+     *
+     * <p>Saved, because a town generated in one session and visited in another
+     * must not lose it — those are precisely the towns that have it.
+     */
+    private boolean seededRoadsOwed;
+
+    public boolean seededRoadsOwed() {
+        return seededRoadsOwed;
+    }
+
+    public void setSeededRoadsOwed(boolean owed) {
+        this.seededRoadsOwed = owed;
+    }
+
+    /**
      * Whether the town has already been reported empty, so it is said once.
      *
      * <p>Not saved. A world reloaded on a dead town will say it again on the
@@ -2138,6 +2171,12 @@ public final class Settlement {
         InnPlanner.advance(this, ctx);
         advanceBuildQueue(ctx);
         materializePending(ctx);
+        // And, once, the roads a town the world wrote down has always had. Below
+        // the drawing rather than beside the ordinary pass above, because a
+        // seeded plot may still be moved off a river on the step its ground is
+        // first read, and a road planned to a door that then moves is a track to
+        // nowhere. See PathPlanner.walkOutSeededRoads.
+        PathPlanner.walkOutSeededRoads(this, ctx);
         FoodPlanner.advance(this, ctx);
         // Errands are set before they are walked, so the courier is asked
         // first and its load moves on the same step it was ordered.
@@ -3056,6 +3095,14 @@ public final class Settlement {
         SimPos from = building.origin();
         building.setOrigin(new SimPos(moved.x(), ctx.bridge().surfaceHeight(moved), moved.z()));
         building.setFacing(arrangement().facingFor(center, moved));
+        // The road forgets where it used to stand, exactly as it does for a
+        // building that is demolished. A way is planned to a door, and this
+        // door has moved: without this the town believes for ever that it has
+        // run a track to a plot the building left, and the plot it took gets
+        // none. The old runs stay in the network and that is right — a lane to
+        // a plot nobody built on is a lane, and the next thing sited there will
+        // take frontage on it.
+        paths.forget(from);
         if (!contains(building.origin())) {
             claimRadius = BuildPlanner.claimRadiusFor(center, building.origin());
         }
@@ -3311,6 +3358,11 @@ public final class Settlement {
     private void materializePending(SimContext ctx) {
         for (Building building : buildings) {
             if (building.isMaterialized()) {
+                // Drawn, but a seeded building may still owe the world around it
+                // something. See the note below: the debt outlives the drawing
+                // now, because the ground it is owed on is not always readable
+                // on the step the building itself first becomes visible.
+                settleSeededDebt(ctx, building);
                 continue;
             }
             if (ctx.bridge().isLoaded(building.origin())) {
@@ -3334,17 +3386,35 @@ public final class Settlement {
                     building.setSurveyed(true);
                 }
                 building.setMaterialized(true);
-                if (building.isSeeded()) {
-                    // The first and only moment the ground around a seeded
-                    // building is both known and still untouched. A seeded
-                    // lumber camp has its wood planted here; everything else
-                    // simply stops being a debt. Cleared before the work rather
-                    // than after, so a platform that plants nothing does not
-                    // come back and try again every step forever.
-                    building.setSeeded(false);
-                    ForesterStand.raise(this, building, ctx);
-                }
+                settleSeededDebt(ctx, building);
             }
+        }
+    }
+
+    /**
+     * Pays what the world around a seeded building owes it, when it can.
+     *
+     * <p>A seeded lumber camp has its wood planted here; everything else simply
+     * stops being a debt on the step it is drawn.
+     *
+     * <p>The mark used to be cleared <em>before</em> the work, so that a platform
+     * which planted nothing did not come back every step forever. The cost of
+     * that was the whole feature: a camp is drawn the moment its own chunk
+     * arrives, which is the edge of what anybody can see, and the wood it is owed
+     * lies further out again in chunks nobody has loaded — so a world-generated
+     * town returned nought trees and had its debt struck off in the same breath,
+     * every single time. {@link ForesterStand#raise} now says whether it could
+     * actually answer, and the mark stands until it could. There is no runaway
+     * behind that: it terminates on the first ask for anything that is not a
+     * lumber camp, and for a camp on the step somebody comes near enough to see
+     * its belt.
+     */
+    private void settleSeededDebt(SimContext ctx, Building building) {
+        if (!building.isSeeded()) {
+            return;
+        }
+        if (ForesterStand.raise(this, building, ctx)) {
+            building.setSeeded(false);
         }
     }
 

@@ -403,6 +403,106 @@ public final class PathPlanner {
     }
 
     /**
+     * Walks out, in one pass, the roads a town that was written into existence
+     * has always had.
+     *
+     * <p>Everything {@link #advance} does a stretch at a time, done at once and
+     * exactly once — the plan's streets routed, every standing door joined, and
+     * every stretch the ground will take marked opened. Nothing else changes:
+     * the same router, the same keepouts, the same refusal for ground too steep
+     * to walk.
+     *
+     * <p><strong>This is not a clock.</strong> The rule it might look like it
+     * breaks — where there is a player there is no clock — is about <em>work</em>,
+     * and none of this is work. A seeded town's roads were walked out before the
+     * world had a first step, in the same sense that its houses were built before
+     * it: {@code Founding.seeded} stands the buildings and this stands the
+     * streets between them, and both are then <em>drawn</em> when somebody first
+     * comes near enough to see them. {@code RoadUpkeep.mayDraw} already keeps
+     * that distinction, and it is why an away town's whole network appears at
+     * once on your arrival rather than unrolling in front of you.
+     *
+     * <p>What it does <em>not</em> touch is anything the town builds afterwards.
+     * The debt is cleared the moment it is paid, so the first cottage a
+     * discovered village raises gets its lane walked out by a builder in front of
+     * you, one stretch a step, exactly as a chartered town's does.
+     *
+     * <p>The joining is run to a fixed point rather than once through. A road
+     * longer than {@link #MAX_ROUTE} is refused and tried again as the network
+     * spreads toward it, which is the whole reason an outlying farm ever gets a
+     * track at all; doing one pass would leave exactly those buildings — the far
+     * ones, the ones a village is judged by — standing in a field.
+     *
+     * <p><strong>Called after the buildings have settled where they stand</strong>
+     * — see {@code Settlement.step}, which runs it below {@code materializePending}
+     * rather than beside the ordinary pass. A seeded plot carries the town
+     * center's height as an estimate and is still allowed to be moved off a
+     * river, and a road planned to a door that then moves is a track across a
+     * field to nowhere. Measured on the recorded ground, three of fourteen
+     * buildings moved on the step they were drawn.
+     */
+    public static void walkOutSeededRoads(Settlement settlement, SimContext ctx) {
+        if (!settlement.seededRoadsOwed()) {
+            return;
+        }
+        settlement.setSeededRoadsOwed(false);
+        PathNetwork network = settlement.paths();
+        // Whatever this step's ordinary pass managed before the buildings had
+        // settled is redone rather than kept. It amounts to one building at
+        // most, and one of them matters: advance marks the hub joined the first
+        // time it sees it and gives it nothing, because the network is empty --
+        // so a hub left marked here is a camp post with no way to its door for
+        // as long as the town stands. The segments are left where they are; a
+        // road planned twice is the same two runs, and the network drops a
+        // repeat.
+        for (Building building : settlement.buildings()) {
+            network.forget(building.origin());
+        }
+        layPlannedStreets(settlement, network, ctx);
+
+        Building hubBuilding = hubBuilding(settlement);
+        SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.center();
+        com.kingdoms.sim.geom.TerrainSense ground = groundUnder(ctx);
+
+        boolean joinedAny = true;
+        while (joinedAny) {
+            joinedAny = false;
+            for (Building building : settlement.buildings()) {
+                if (building == hubBuilding || !building.footprint().isKnown()
+                        || network.hasJoined(building.origin())) {
+                    continue;
+                }
+                if (join(network, building, hub, ground)) {
+                    network.markJoined(building.origin());
+                    joinedAny = true;
+                }
+            }
+        }
+        // The hub last, and for the reason advance gives: roads no longer
+        // radiate from it, so a hub joined while the network was still empty is
+        // a town whose most important door opens onto a field.
+        if (hubBuilding != null && !network.hasJoined(hubBuilding.origin())) {
+            if (!network.isEmpty()) {
+                join(network, hubBuilding, hub, ground);
+            }
+            network.markJoined(hubBuilding.origin());
+        }
+
+        for (int i = 0; i < network.segments().size(); i++) {
+            if (network.isOpened(i) || network.isUnwalkable(i)) {
+                continue;
+            }
+            if (unwalkable(network.segments().get(i), ctx)) {
+                network.markUnwalkable(i);
+                continue;
+            }
+            network.markOpened(i);
+        }
+        settlement.logEvent(ctx.step(), "The streets of " + settlement.name()
+                + " run " + network.segments().size() + " ways deep");
+    }
+
+    /**
      * Opens one stretch on the clock, for a town nobody is looking at.
      *
      * <p>Two refusals, for two different reasons. The crew is coming, so a clock

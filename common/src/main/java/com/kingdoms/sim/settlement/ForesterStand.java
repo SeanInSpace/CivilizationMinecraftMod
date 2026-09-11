@@ -154,10 +154,26 @@ public final class ForesterStand {
      * <p>Nothing happens for a founded camp: the four pioneers of a charter get
      * the country they walked into, and their lumberjacks plant saplings and wait
      * for them, which is the whole of the early game they are for.
+     *
+     * <p><strong>The ground has to be readable first, and that is the whole of
+     * the bug this guard exists for.</strong> A camp is drawn the instant its own
+     * chunk arrives — which is, by definition, the far edge of what the player
+     * can see — while the stand it is owed lies a further {@link #BELT} beyond
+     * the edge of the village, out in chunks nobody has loaded. The platform
+     * plants nothing on ground it cannot read and says so by returning nought,
+     * and the debt used to have been cancelled a line earlier: every town raised
+     * by world generation lost its wood at exactly the moment it was supposed to
+     * get one. So the camp keeps its mark until the whole woodland can be seen,
+     * and is asked again on the next step until it can. It terminates because
+     * standing at the camp is what loads the belt, and a camp with no candidate
+     * squares at all settles on the first ask.
+     *
+     * @return whether the debt is settled — false means the ground is still
+     *         unread and the camp is owed its wood yet
      */
-    public static void raise(Settlement town, Building camp, SimContext ctx) {
+    public static boolean raise(Settlement town, Building camp, SimContext ctx) {
         if (camp.role() != BuildingRole.LUMBER_CAMP) {
-            return;
+            return true;   // nothing is owed, so nothing is outstanding
         }
         WorkArea woodland = woodlandFor(camp.origin(), town.center(), town.claimRadius());
         WorkArea standing = town.lumberArea();
@@ -169,7 +185,16 @@ public final class ForesterStand {
         } else {
             woodland = standing;
         }
-        int planted = ctx.bridge().plantGrownTrees(candidates(town, woodland), TREES_WANTED);
+        if (!edgesAreRead(woodland, ctx)) {
+            return false;   // the belt is over the horizon; ask again another step
+        }
+        List<SimPos> spots = candidates(town, woodland);
+        for (SimPos spot : spots) {
+            if (!ctx.bridge().isLoaded(spot)) {
+                return false;   // some of the wood is still unread
+            }
+        }
+        int planted = ctx.bridge().plantGrownTrees(spots, TREES_WANTED);
         // The camp's ledger is sized from what actually went in, rather than
         // being made to go and count trees the platform has just this moment
         // planted and knows the number of. Everywhere else a stand is counted
@@ -184,5 +209,25 @@ public final class ForesterStand {
             town.logEvent(ctx.step(), "The wood around the lumber camp stands "
                     + planted + " trees deep");
         }
+        return true;
+    }
+
+    /**
+     * Whether the whole of the camp's woodland is ground somebody can see.
+     *
+     * <p>Four points and the middle, at the reach of the claim, asked before the
+     * candidate squares are worked out at all. That order is the point: a camp
+     * whose belt is still over the horizon is the ordinary case for a good many
+     * steps, and scanning several hundred squares every one of them to discover
+     * it again would be a real cost for no answer.
+     */
+    private static boolean edgesAreRead(WorkArea woodland, SimContext ctx) {
+        SimPos camp = woodland.center();
+        int reach = woodland.radius();
+        return ctx.bridge().isLoaded(camp)
+                && ctx.bridge().isLoaded(camp.offset(reach, 0, 0))
+                && ctx.bridge().isLoaded(camp.offset(-reach, 0, 0))
+                && ctx.bridge().isLoaded(camp.offset(0, 0, reach))
+                && ctx.bridge().isLoaded(camp.offset(0, 0, -reach));
     }
 }
