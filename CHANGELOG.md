@@ -55,6 +55,16 @@ messages carry the reasoning and the measurements.
 
 ---
 
+## `/civ info` no longer sends you to a command that does not exist
+
+### Fixed
+
+- **The empty-world message pointed at `/kingdoms found`**, which was never the
+  command; it is `/civ found <name>`. The same wrong name stood in three other
+  "no settlement nearby" refusals. All four now say `/civ found`.
+
+---
+
 ## Grain is not bread until somebody bakes it
 
 ### New

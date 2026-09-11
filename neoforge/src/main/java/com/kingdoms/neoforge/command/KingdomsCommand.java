@@ -599,7 +599,7 @@ public final class KingdomsCommand {
 
         if (world.kingdoms().isEmpty()) {
             source.sendSuccess(() -> Component.literal(
-                    "No kingdoms yet. Try: /kingdoms found Normandy"), false);
+                    "No settlement founded yet in this world. Found one where you stand: /civ found <name>"), false);
             return 0;
         }
 
@@ -820,7 +820,7 @@ public final class KingdomsCommand {
         CommandSourceStack source = ctx.getSource();
         Settlement settlement = nearestSettlement(source);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No settlement nearby. Use /kingdoms found <name> first."));
+            source.sendFailure(Component.literal("No settlement nearby. Use /civ found <name> first."));
             return 0;
         }
 
@@ -852,7 +852,7 @@ public final class KingdomsCommand {
         CommandSourceStack source = ctx.getSource();
         Settlement settlement = nearestSettlement(source);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No settlement nearby. Use /kingdoms found <name> first."));
+            source.sendFailure(Component.literal("No settlement nearby. Use /civ found <name> first."));
             return 0;
         }
 
@@ -1824,7 +1824,7 @@ public final class KingdomsCommand {
         SimWorld world = KingdomsMod.simulationFor(source.getLevel());
         Settlement settlement = nearestSettlement(source);
         if (world == null || settlement == null) {
-            source.sendFailure(Component.literal("No settlement nearby. Use /kingdoms found <name> first."));
+            source.sendFailure(Component.literal("No settlement nearby. Use /civ found <name> first."));
             return 0;
         }
 
