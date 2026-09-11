@@ -14,7 +14,7 @@ constant that gates it.
 
 ## 1. Two clocks
 
-A person is one record — `com.kingdoms.sim.person.Person` — and exactly one of
+A person is one record — `com.civilization.sim.person.Person` — and exactly one of
 those records exists whether or not anybody is looking at them. What changes is
 who moves them.
 

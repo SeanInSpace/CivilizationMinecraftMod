@@ -6,7 +6,7 @@ The orcs had a lattice and a gridiron, and both of them said the same thing:
 an orc settlement is a garrison. This is what they build when they are *living*
 somewhere — a camp drawn round a chief, with round houses on it.
 
-One orc culture ships, `kingdoms:orc/warhost`. That is a gap in the table rather
+One orc culture ships, `civilization:orc/warhost`. That is a gap in the table rather
 than a claim about orcs; a second is another entry in `Culture`.
 
 ---

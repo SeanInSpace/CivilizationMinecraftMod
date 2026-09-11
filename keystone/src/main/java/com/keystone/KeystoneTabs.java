@@ -9,7 +9,7 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * Keystone's own creative tab. Deliberately makes no reference to Kingdoms —
+ * Keystone's own creative tab. Deliberately makes no reference to Civilization —
  * this mod stands alone and is placed relative to the vanilla tabs only.
  */
 public final class KeystoneTabs {

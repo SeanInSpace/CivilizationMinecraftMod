@@ -19,7 +19,7 @@ one of those. Drop the file in, and the next cottage a town raises is yours.
 /civ blueprint place norman/cottage             # put one down and walk round it
 ```
 
-The file lands in `<world>/kingdoms/blueprints/norman/cottage.nbt`. Any norman
+The file lands in `<world>/civilization/blueprints/norman/cottage.nbt`. Any norman
 town in that world now builds your cottage.
 
 ---
@@ -31,10 +31,10 @@ never asked.
 
 | Order | Where | Path | Good for |
 |---|---|---|---|
-| 1 | This world's folder | `<world>/kingdoms/blueprints/<style>/<name>.nbt` | Your own work, in the world it belongs to. Travels with the save. |
-| 2 | The shared folder | `<gamedir>/keystone/blueprints/kingdoms/<style>/<name>.nbt` | Work in progress you want in every world. |
+| 1 | This world's folder | `<world>/civilization/blueprints/<style>/<name>.nbt` | Your own work, in the world it belongs to. Travels with the save. |
+| 2 | The shared folder | `<gamedir>/keystone/blueprints/civilization/<style>/<name>.nbt` | Work in progress you want in every world. |
 | 3 | Imported Structurize | the same shared folder, `<name>.blueprint` | MineColonies schematic packs. |
-| 4 | The mod jar and datapacks | `data/kingdoms/blueprints/<style>/<name>.nbt` | Shipping a culture's buildings in a pack. |
+| 4 | The mod jar and datapacks | `data/civilization/blueprints/<style>/<name>.nbt` | Shipping a culture's buildings in a pack. |
 
 A world file always beats a shipped one of the same name, so a pack's cottage is
 replaced by yours without deleting anything.
@@ -48,8 +48,8 @@ differ on.
 A town asks for its culture's version first and the plain version second. A
 norman town raising a cottage asks for:
 
-1. `kingdoms:norman/cottage`
-2. `kingdoms:cottage`
+1. `civilization:norman/cottage`
+2. `civilization:cottage`
 
 So `norman/cottage` changes norman cottages and nobody else's, and `cottage`
 changes everybody's. The style folder is the last segment of the culture id —

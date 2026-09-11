@@ -27,13 +27,13 @@ Not as menus. Four pieces, none of them registered:
 common/            nothing. The simulation must not know a screen exists.
 neoforge/
   net/ThingPayload.java     the record, its stream codec, and a handle() that
-                            calls KingdomsScreens — never Minecraft directly
-  net/KingdomsNetwork.java  registration, and bump VERSION when a shape changes
-  client/KingdomsScreens.java  the one class allowed to name Minecraft
-  client/ThingScreen.java   a Screen, drawn with KingdomsPanel's chrome
+                            calls CivilizationScreens — never Minecraft directly
+  net/CivilizationNetwork.java  registration, and bump VERSION when a shape changes
+  client/CivilizationScreens.java  the one class allowed to name Minecraft
+  client/ThingScreen.java   a Screen, drawn with CivilizationPanel's chrome
 ```
 
-The block sends the payload with `PacketDistributor.sendToPlayer`; the payload's `handle` calls `KingdomsScreens`; `KingdomsScreens` builds the screen. **The payload handler must not name `Minecraft`** — that is what `KingdomsScreens` is for, and it is the only reason that class exists.
+The block sends the payload with `PacketDistributor.sendToPlayer`; the payload's `handle` calls `CivilizationScreens`; `CivilizationScreens` builds the screen. **The payload handler must not name `Minecraft`** — that is what `CivilizationScreens` is for, and it is the only reason that class exists.
 
 A screen that needs to send something *back* — the market's buttons, and the town map's once-a-second "how is it now?" — adds a second payload registered with `playToServer` and sent with `ClientPacketDistributor.sendToServer`. Everything in it is a claim by a client and none of it is evidence: re-derive the price, the stock and the player's reach on the server.
 
@@ -52,9 +52,9 @@ common/            nothing. The simulation must not know a screen exists.
 neoforge/
   menu/TownMenu.java          the SERVER-side state, and the contract
   net/TownScreenPayload.java  what the server tells the client
-  KingdomsMenus.java          registration
+  CivilizationMenus.java          registration
   client/TownScreen.java      the CLIENT-side drawing
-  client/KingdomsClient.java  binds screen to menu, client entry point
+  client/CivilizationClient.java  binds screen to menu, client entry point
 ```
 
 ### 1. The menu — `AbstractContainerMenu`
@@ -94,9 +94,9 @@ public class TownMenu extends AbstractContainerMenu {
 ### 2. Registration
 
 ```java
-public final class KingdomsMenus {
+public final class CivilizationMenus {
     public static final DeferredRegister<MenuType<?>> MENUS =
-            DeferredRegister.create(BuiltInRegistries.MENU, KingdomsMod.MOD_ID);
+            DeferredRegister.create(BuiltInRegistries.MENU, CivilizationMod.MOD_ID);
 
     public static final Supplier<MenuType<TownMenu>> TOWN =
             MENUS.register("town", () -> IMenuTypeExtension.create(TownMenu::new));
@@ -126,7 +126,7 @@ The lambda at the end writes exactly what the client constructor reads, in the s
 public class TownScreen extends AbstractContainerScreen<TownMenu> {
 
     private static final Identifier TEXTURE =
-            Identifier.fromNamespaceAndPath(KingdomsMod.MOD_ID, "textures/gui/town.png");
+            Identifier.fromNamespaceAndPath(CivilizationMod.MOD_ID, "textures/gui/town.png");
 
     @Override
     protected void renderBg(GuiGraphics g, float partial, int mx, int my) {
@@ -147,12 +147,12 @@ public class TownScreen extends AbstractContainerScreen<TownMenu> {
 ### 5. Binding it
 
 ```java
-@EventBusSubscriber(modid = KingdomsMod.MOD_ID, value = Dist.CLIENT,
+@EventBusSubscriber(modid = CivilizationMod.MOD_ID, value = Dist.CLIENT,
                     bus = EventBusSubscriber.Bus.MOD)
-public final class KingdomsClient {
+public final class CivilizationClient {
     @SubscribeEvent
     static void onRegisterScreens(RegisterMenuScreensEvent event) {
-        event.register(KingdomsMenus.TOWN.get(), TownScreen::new);
+        event.register(CivilizationMenus.TOWN.get(), TownScreen::new);
     }
 }
 ```
@@ -180,7 +180,7 @@ public record TownStatePayload(int treasury, int population, List<String> events
         implements CustomPacketPayload {
 
     public static final Type<TownStatePayload> TYPE =
-            new Type<>(Identifier.fromNamespaceAndPath(KingdomsMod.MOD_ID, "town_state"));
+            new Type<>(Identifier.fromNamespaceAndPath(CivilizationMod.MOD_ID, "town_state"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, TownStatePayload> STREAM_CODEC =
             StreamCodec.composite(
@@ -203,8 +203,8 @@ Registered on `RegisterPayloadHandlersEvent`, sent with `PacketDistributor.sendT
 1. **`quickMoveStack` not overridden.** Shift-click, instant crash. Return `ItemStack.EMPTY` if there is nothing to move.
 2. **Client and server constructors disagreeing.** The buffer is written in one place and read in another and nothing checks they match. Write them next to each other and keep them that way.
 3. **A client class touched from shared code.** Works in single-player, kills a dedicated server on startup. The `neoforge:runServer` task in the playtest harness catches it in about ninety seconds.
-4. **Simulation state read on the client.** `KingdomsMod.simulationFor(level)` returns null client-side. Everything the screen draws must have arrived over the network.
-5. **Texture path wrong.** Silent — you get a blank or garbled panel, no error. `assets/kingdoms/textures/gui/town.png`, and the sheet must be 256×256 for the default `blit`.
+4. **Simulation state read on the client.** `CivilizationMod.simulationFor(level)` returns null client-side. Everything the screen draws must have arrived over the network.
+5. **Texture path wrong.** Silent — you get a blank or garbled panel, no error. `assets/civilization/textures/gui/town.png`, and the sheet must be 256×256 for the default `blit`.
 6. **Holding a `Settlement` in the menu and reading it on the client.** Null. This is trap 4 wearing a different hat and is the one that will actually get you, because the field is right there.
 
 ---
@@ -240,6 +240,6 @@ The logic was already there when the presentation caught up, which is the right 
 
 Worth knowing if you touch it:
 
-- The board is re-sent after **every** trade, and `KingdomsScreens.openMarket` folds it into the open screen instead of replacing it. A stall still showing the price that was true before the town stopped starving is worse than no stall; reopening the screen for each lot throws the player's place away eight units at a time.
+- The board is re-sent after **every** trade, and `CivilizationScreens.openMarket` folds it into the open screen instead of replacing it. A stall still showing the price that was true before the town stopped starving is worse than no stall; reopening the screen for each lot throws the player's place away eight units at a time.
 - One lot per press. The alternative is a count the server has to bound anyway, and a button that means exactly one thing is a button whose price the player has already read.
 - Emeralds exist only at the counter, one to the coin. Every emerald in the world came out of a treasury and every one that leaves goes into one, which is why `MarketCounter` counts the payment before touching the ledger and removes it after.

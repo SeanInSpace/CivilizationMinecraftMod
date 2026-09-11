@@ -7,7 +7,7 @@
 // If you ever add a Fabric module, it depends on this unchanged.
 //
 // Rule: if you find yourself wanting to import net.minecraft.* here, the type you
-// want belongs in the platform bridge instead. See com.kingdoms.sim.platform.
+// want belongs in the platform bridge instead. See com.civilization.sim.platform.
 
 apply plugin: 'java-library'
 

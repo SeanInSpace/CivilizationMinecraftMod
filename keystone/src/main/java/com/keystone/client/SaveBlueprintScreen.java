@@ -62,7 +62,7 @@ public final class SaveBlueprintScreen extends Screen {
         nameField = new EditBox(font, x, top() + 44, PANEL_WIDTH - 24, 20,
                 Component.literal("Name"));
         nameField.setMaxLength(96);
-        nameField.setHint(Component.literal("my_house   or   kingdoms:house"));
+        nameField.setHint(Component.literal("my_house   or   civilization:house"));
         addRenderableWidget(nameField);
         setInitialFocus(nameField);
 

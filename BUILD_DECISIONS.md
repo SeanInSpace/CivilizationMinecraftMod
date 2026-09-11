@@ -2,7 +2,7 @@
 
 **Status:** implemented and working. Simple on purpose — this is the first version, meant to be replaced by datapack-driven content, not to be clever.
 
-Code: [`BuildPlanner`](common/src/main/java/com/kingdoms/sim/settlement/BuildPlanner.java), [`BuildCatalog`](common/src/main/java/com/kingdoms/sim/settlement/BuildCatalog.java), [`BuildingType`](common/src/main/java/com/kingdoms/sim/settlement/BuildingType.java).
+Code: [`BuildPlanner`](common/src/main/java/com/civilization/sim/settlement/BuildPlanner.java), [`BuildCatalog`](common/src/main/java/com/civilization/sim/settlement/BuildCatalog.java), [`BuildingType`](common/src/main/java/com/civilization/sim/settlement/BuildingType.java).
 
 ---
 
@@ -154,7 +154,7 @@ Where no builder is embodied, the abstract clock is all there is, and the buildi
 
 **Where the shape comes from.** Before falling back to its built-in shapes, a build asks [Keystone](KEYSTONE.md) for a blueprint — a file you scanned in-game or shipped in a datapack. Blueprints carry full block states, so an authored building arrives with its stairs, doors and fences facing the way they were drawn, and it is laid course by course exactly like a generated one. *(Earlier versions stamped datapack templates into the world whole, which quietly excluded the best-looking buildings from the best-looking part of the mod.)*
 
-Ids resolve most-specific-first, so `kingdoms:norman/house` falls back to `kingdoms:house` and then to the built-in house. That is the whole of how cultures get their own architecture.
+Ids resolve most-specific-first, so `civilization:norman/house` falls back to `civilization:house` and then to the built-in house. That is the whole of how cultures get their own architecture.
 
 ---
 

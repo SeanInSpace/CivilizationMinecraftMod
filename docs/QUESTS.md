@@ -14,7 +14,7 @@ would be scenery.
 
 ## Where the pieces live
 
-Everything that decides anything is in `:common`, in `com.kingdoms.sim.quest`,
+Everything that decides anything is in `:common`, in `com.civilization.sim.quest`,
 and none of it has ever heard of Minecraft.
 
 | Class | What it is |
@@ -106,7 +106,7 @@ store" at the stall. Not on a delivery: paying for goods in goods is how a playe
 learns to carry the same load round in a circle. Never food, whatever the shelf
 says.
 
-**Coin is emeralds, and there is no `kingdoms:coin` item.** The mod has one
+**Coin is emeralds, and there is no `civilization:coin` item.** The mod has one
 money — the treasury — and the market already makes emeralds its physical form,
 on the rule that every emerald a town pays out came out of its own books and
 every one it takes in goes into them. A separate quest coin would be a second
@@ -164,7 +164,7 @@ player who has taken no quest loses nothing by donating and why carrying more
 than was asked is not wasted — the surplus is a donation, which is what all of it
 always was.
 
-**Kills** come from `LivingDeathEvent` in `KingdomsMod`, attributed to the hand
+**Kills** come from `LivingDeathEvent` in `CivilizationMod`, attributed to the hand
 that did it: `getEntity` on the damage source, which is the archer rather than
 the arrow. A hostile the town's own guards killed counts for nobody, or a player
 could take a slaying quest and watch the watch finish it. What counts as a

@@ -1,11 +1,11 @@
-# Kingdoms — Player Guide
+# Civilization — Player Guide
 
 Autonomous settlements for Minecraft 26.2 (NeoForge). Found a town and it looks after itself: settlers build, take up trades, raise families, and defend the walls — whether or not you stick around to watch.
 
 ## Installing
 
 1. Install [NeoForge](https://neoforged.net/) for Minecraft 26.2 (build 26.2.0.59 or later).
-2. Drop `kingdoms-x.y.z.jar` into your `mods/` folder. Server installs work the same way; clients joining a server also need the mod.
+2. Drop `civilization-x.y.z.jar` into your `mods/` folder. Server installs work the same way; clients joining a server also need the mod.
 
 ## Founding a town
 
@@ -121,7 +121,7 @@ will outgrow the danger.
 === Oakstead ===
 Population 11 (beds for 16), 3 families
 Defense 2, threat 0
-Buildings: 6 (building kingdoms:farm 40%)
+Buildings: 6 (building civilization:farm 40%)
 Recent history:
   Raid of 2 repelled by the garrison (defense 2), no losses
 ```
@@ -199,11 +199,11 @@ it to and what you had picked. A town steps while you are looking at it.
 inconvenient, and `/civ overview` still opens the plain resource ledger the hall
 used to show. Both need cheats.
 
-The map needs Kingdoms installed on the client.
+The map needs Civilization installed on the client.
 
 ## Seeing the plan on the ground
 
-Craft or grab a **Surveyor's Lamp** from the Kingdoms creative tab and hold it.
+Craft or grab a **Surveyor's Lamp** from the Civilization creative tab and hold it.
 The nearest town's plan is drawn over the world in steady white lines out to
 about 128 blocks, following the lie of the land a block above the ground:
 
@@ -225,8 +225,8 @@ It pairs with the Founding Charter, which shows the town's *claim* as a ring of
 green sparkles. One tells you where the town ends, the other where each building
 begins.
 
-The lamp needs Kingdoms installed on the client. A vanilla client connected to a
-Kingdoms server still gets the charter's ring, which is made of ordinary
+The lamp needs Civilization installed on the client. A vanilla client connected to a
+Civilization server still gets the charter's ring, which is made of ordinary
 particles, but not the survey.
 
 ## Supplying a build
@@ -349,7 +349,7 @@ Every click reports the resulting orders in chat, so you can point the camp at a
 
 ## Configuration
 
-Per-world settings in `<world>/serverconfig/kingdoms-server.toml`:
+Per-world settings in `<world>/serverconfig/civilization-server.toml`:
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -490,7 +490,7 @@ walking into. Set any of them above zero in the config and they come back.
 
 ### How much of a town's income is imaginary
 
-Kingdoms runs at two fidelities. Stand near a lumber camp and a lumberjack fells
+Civilization runs at two fidelities. Stand near a lumber camp and a lumberjack fells
 an actual tree; walk away and he becomes a number, and the clock credits the
 timber on his behalf — otherwise every town you are not looking at would stop
 dead. Those two tables decide how much of that credit a world actually grants,
@@ -562,7 +562,7 @@ kit, because with none of those it is a charter party.
 
 ## Custom building styles
 
-Kingdoms builds whatever you draw. Every building it places asks **Keystone** —
+Civilization builds whatever you draw. Every building it places asks **Keystone** —
 the blueprint mod shipped alongside it — for a structure first, and only falls
 back to its built-in shapes when you have not supplied one.
 
@@ -570,26 +570,26 @@ The fastest way in is the **Blueprint Wand** (Tools tab):
 
 1. Build something.
 2. Click one corner with the wand, sneak-click the opposite corner.
-3. Right-click the air, and name it `kingdoms:house`.
+3. Right-click the air, and name it `civilization:house`.
 
 From then on your town builds *your* house — course by course, with the stairs
-and doors facing the way you placed them. Name it `kingdoms:town_hall`,
-`kingdoms:granary`, `kingdoms:watchtower` and so on for the rest. The
-founding-era buildings take blueprints the same way: `kingdoms:camp_post`,
-`kingdoms:cache`, `kingdoms:bunkhouse`, `kingdoms:hearth`, `kingdoms:cottage`,
-`kingdoms:mill`, `kingdoms:carpentry`, `kingdoms:inn`.
+and doors facing the way you placed them. Name it `civilization:town_hall`,
+`civilization:granary`, `civilization:watchtower` and so on for the rest. The
+founding-era buildings take blueprints the same way: `civilization:camp_post`,
+`civilization:cache`, `civilization:bunkhouse`, `civilization:hearth`, `civilization:cottage`,
+`civilization:mill`, `civilization:carpentry`, `civilization:inn`.
 
 There is **no size limit**. Vanilla's structure block stops at 48 blocks per
 axis; the wand does not, so a keep or a curtain wall is as easy as a cottage.
 
-Datapacks still work too: drop an `.nbt` at `data/kingdoms/structure/<name>.nbt`.
+Datapacks still work too: drop an `.nbt` at `data/civilization/structure/<name>.nbt`.
 Files you scan yourself take precedence over those.
 
 Cultures get their own architecture for free: a blueprint named
-`kingdoms:norman/house` is used by Norman settlements, and anything a culture has
+`civilization:norman/house` is used by Norman settlements, and anything a culture has
 not drawn falls back to the common building. The folder is the culture's own name
 and not its race's, so a Norman town draws from `norman/` even though its id is
-`kingdoms:human/norman`.
+`civilization:human/norman`.
 
 See **[KEYSTONE.md](KEYSTONE.md)** for the full tool.
 

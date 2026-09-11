@@ -215,7 +215,7 @@ public final class Blueprints {
      * Tries each id in turn and returns the first that resolves.
      *
      * <p>This is how architectural styles work: ask for
-     * {@code kingdoms:norman/house} and then plain {@code kingdoms:house}, and a
+     * {@code civilization:norman/house} and then plain {@code civilization:house}, and a
      * culture that has not drawn its own version of a building quietly falls back
      * to the common one.
      */

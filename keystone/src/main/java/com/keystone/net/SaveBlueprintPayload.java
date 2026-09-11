@@ -104,7 +104,7 @@ public record SaveBlueprintPayload(String name) implements CustomPacketPayload {
      * Turns typed text into a safe identifier.
      *
      * <p>A bare name lands in Keystone's own namespace; writing
-     * {@code kingdoms:house} instead saves into that mod's, which is how a
+     * {@code civilization:house} instead saves into that mod's, which is how a
      * scanned building comes to replace one a settlement would otherwise build
      * for itself.
      *

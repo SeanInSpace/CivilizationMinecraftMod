@@ -64,7 +64,7 @@ one- and two-hit prose. Converting the tail is a text edit; converting `centre` 
 
 `keystone/` is effectively already American: 13 hits total — 11 prose, one test assertion message,
 and one test-method name (`aBlueprintThatSaysNothingIsCentredOnItsOwnFloor`,
-`keystone/src/test/java/com/keystone/AnchorTest.java:29`). The lang files carry **zero** British spellings — `neoforge/src/main/resources/assets/kingdoms/lang/en_us.json`
+`keystone/src/test/java/com/keystone/AnchorTest.java:29`). The lang files carry **zero** British spellings — `neoforge/src/main/resources/assets/civilization/lang/en_us.json`
 and `keystone/src/main/resources/assets/keystone/lang/en_us.json` are both clean, so no
 translation key or player-visible block/item name needs touching.
 
@@ -247,26 +247,26 @@ converted module-by-module — the rename has to be atomic across `common/`, `ne
 
 | Identifier | Declared at | Reaches | Why it crosses |
 | --- | --- | --- | --- |
-| `centre` (708 C hits, 95 files) | `Settlement.centre()` `common/src/main/java/com/kingdoms/sim/settlement/Settlement.java:239`; record components `TownPlan(SimPos centre, …)` `common/src/main/java/com/kingdoms/sim/culture/TownPlan.java:32`, `WorkArea(SimPos centre, int radius)` `common/src/main/java/com/kingdoms/sim/settlement/WorkArea.java:15`, `SettlementSites.Site(SimPos centre, …)` `common/src/main/java/com/kingdoms/sim/worldgen/SettlementSites.java:144`; `DigYard.centre()` `common/src/main/java/com/kingdoms/sim/work/DigYard.java:90` | common, neoforge, tools, surveys | Public accessors on `common` types that `neoforge` codecs, commands and view code call by name. Record components generate the accessor, so renaming the component renames the method. |
+| `centre` (708 C hits, 95 files) | `Settlement.centre()` `common/src/main/java/com/civilization/sim/settlement/Settlement.java:239`; record components `TownPlan(SimPos centre, …)` `common/src/main/java/com/civilization/sim/culture/TownPlan.java:32`, `WorkArea(SimPos centre, int radius)` `common/src/main/java/com/civilization/sim/settlement/WorkArea.java:15`, `SettlementSites.Site(SimPos centre, …)` `common/src/main/java/com/civilization/sim/worldgen/SettlementSites.java:144`; `DigYard.centre()` `common/src/main/java/com/civilization/sim/work/DigYard.java:90` | common, neoforge, tools, surveys | Public accessors on `common` types that `neoforge` codecs, commands and view code call by name. Record components generate the accessor, so renaming the component renames the method. |
 | `CENTRE` (189, 13 files) | `private static final SimPos CENTRE` in 13 test classes | common, neoforge | Not real API — 13 independent private test constants that happen to share a name. Safe, but 13 files. |
-| `BuildCatalogue` (77, 29 files) | `common/src/main/java/com/kingdoms/sim/settlement/BuildCatalogue.java` | common, neoforge, repo root | Public class in `common` used throughout `neoforge`; also named in `BUILD_DECISIONS.md`, `GOALS.md`, `FOUNDING.md`. **The file itself must be renamed.** |
-| `catalogue` (65, 20 files) | `Settlement.catalogue()` `common/src/main/java/com/kingdoms/sim/settlement/Settlement.java:1896`; parameters on `BuildPlanner.plotSpanOf/upgradePriority/chooseNext` | common, neoforge | Public accessor plus public static method parameters. |
-| `setCatalogue` (40, 31 files) | `Settlement.setCatalogue(List<BuildingType>)` `common/src/main/java/com/kingdoms/sim/settlement/Settlement.java:1900` | common, neoforge | Public mutator called from 31 files — the widest call site spread of any single name here. |
-| `laboursAs` (22, 9 files) | `Settlement.laboursAs(Person, Profession)` `common/src/main/java/com/kingdoms/sim/settlement/Settlement.java:1883` | common, neoforge, repo root | Public predicate; also documented by name in `FOUNDING.md:198`. |
-| `ARMOUR` (12, 9 files) | `TownStores.ARMOUR` `common/src/main/java/com/kingdoms/sim/settlement/TownStores.java:42` | common, neoforge | Public constant. **The constant name is free to rename; its string value is not — see the do-not-touch list.** |
+| `BuildCatalogue` (77, 29 files) | `common/src/main/java/com/civilization/sim/settlement/BuildCatalogue.java` | common, neoforge, repo root | Public class in `common` used throughout `neoforge`; also named in `BUILD_DECISIONS.md`, `GOALS.md`, `FOUNDING.md`. **The file itself must be renamed.** |
+| `catalogue` (65, 20 files) | `Settlement.catalogue()` `common/src/main/java/com/civilization/sim/settlement/Settlement.java:1896`; parameters on `BuildPlanner.plotSpanOf/upgradePriority/chooseNext` | common, neoforge | Public accessor plus public static method parameters. |
+| `setCatalogue` (40, 31 files) | `Settlement.setCatalogue(List<BuildingType>)` `common/src/main/java/com/civilization/sim/settlement/Settlement.java:1900` | common, neoforge | Public mutator called from 31 files — the widest call site spread of any single name here. |
+| `laboursAs` (22, 9 files) | `Settlement.laboursAs(Person, Profession)` `common/src/main/java/com/civilization/sim/settlement/Settlement.java:1883` | common, neoforge, repo root | Public predicate; also documented by name in `FOUNDING.md:198`. |
+| `ARMOUR` (12, 9 files) | `TownStores.ARMOUR` `common/src/main/java/com/civilization/sim/settlement/TownStores.java:42` | common, neoforge | Public constant. **The constant name is free to rename; its string value is not — see the do-not-touch list.** |
 | `defence` (8, 6 files) | `tools/survey.py:34`, `tools/townview.html:169` + `--defence` CSS custom property at `tools/townview.html:27,38` | tools, surveys | A building-group id written into `surveys/*.json` by the Python surveyor and read back by the HTML viewer. Renaming needs all three sides plus the four committed fixtures. |
 | `colour` (5, 2 files) | `tools/townview.html` legend field; `subtitleColour` / `reasonColour` in `neoforge/.../client/MarketScreen.java` | neoforge, tools | Two unrelated uses that share a spelling; can be converted independently. |
-| `againstTheKerb` (4, 2 files) | `Settlement.againstTheKerb(SimPos, int)` `common/src/main/java/com/kingdoms/sim/settlement/Settlement.java:2276` (private) | common, neoforge | The method is private, but it is named in a javadoc `{@code}` reference from `common/src/main/java/com/kingdoms/sim/culture/Layout.java:248`. Rename must update the doc reference. |
-| `withCentre` (3, 3 files) | `WorkArea.withCentre(SimPos newCentre)` `common/src/main/java/com/kingdoms/sim/settlement/WorkArea.java:25` | common, neoforge | Public wither on a record used by the neoforge codecs. |
+| `againstTheKerb` (4, 2 files) | `Settlement.againstTheKerb(SimPos, int)` `common/src/main/java/com/civilization/sim/settlement/Settlement.java:2276` (private) | common, neoforge | The method is private, but it is named in a javadoc `{@code}` reference from `common/src/main/java/com/civilization/sim/culture/Layout.java:248`. Rename must update the doc reference. |
+| `withCentre` (3, 3 files) | `WorkArea.withCentre(SimPos newCentre)` `common/src/main/java/com/civilization/sim/settlement/WorkArea.java:25` | common, neoforge | Public wither on a record used by the neoforge codecs. |
 
 ### Files that must be renamed
 
 Three tracked files carry a British spelling in their name. Renaming a Java file means renaming
 its public type, so these are tied to the identifier renames above:
 
-- `common/src/main/java/com/kingdoms/sim/settlement/BuildCatalogue.java` → `BuildCatalog.java`
-- `common/src/test/java/com/kingdoms/sim/KerbTest.java` → `CurbTest.java`
-- `common/src/test/java/com/kingdoms/sim/LevellingTest.java` → `LevelingTest.java`
+- `common/src/main/java/com/civilization/sim/settlement/BuildCatalogue.java` → `BuildCatalog.java`
+- `common/src/test/java/com/civilization/sim/KerbTest.java` → `CurbTest.java`
+- `common/src/test/java/com/civilization/sim/LevellingTest.java` → `LevelingTest.java`
 
 `DEFENSE.md` is already American in its filename but holds 6 British hits in its body.
 
@@ -279,9 +279,9 @@ referenced nowhere else, so they are the cheapest C hits to convert — but they
 and any `@DisplayName`, `--tests` filter or CI selector that names them has to move too.
 
 Note that the existing casing is not uniform — `aLevelledBuildingIsStillTheSameBuilding`
-(`common/src/test/java/com/kingdoms/sim/BuildingSizesTest.java:86`) and
+(`common/src/test/java/com/civilization/sim/BuildingSizesTest.java:86`) and
 `alevelledBuildingIsSizedAsWhatItGrewFrom`
-(`common/src/test/java/com/kingdoms/sim/PlotOverlapTest.java:167`) capitalise the word after the
+(`common/src/test/java/com/civilization/sim/PlotOverlapTest.java:167`) capitalise the word after the
 article differently. The identifier table reproduces each name exactly as it appears in the
 source; do not normalise the casing while converting the spelling, or the diff stops being
 reviewable.
@@ -296,10 +296,10 @@ worth reading carefully.
 
 | File | Line | Text | Word |
 | --- | ---: | --- | --- |
-| `neoforge/src/main/java/com/kingdoms/neoforge/KingdomsBlocks.java` | 62 | Inn description: "beds for **travellers** and a yard for the caravans…" | travelled |
-| `neoforge/src/main/java/com/kingdoms/neoforge/KingdomsBlocks.java` | 151 | Smithy description: "tools, weapons and **armour** are made here…" | armour |
-| `neoforge/src/main/java/com/kingdoms/neoforge/command/KingdomsCommand.java` | 603 | `/civ` chat output: `.append(", centre ")` | centre |
-| `common/src/main/java/com/kingdoms/sim/settlement/Founding.java` | 348 | Town event shown by `/civ info`: "Seeded short: the … **programme** wanted a …" | programme |
+| `neoforge/src/main/java/com/civilization/neoforge/CivilizationBlocks.java` | 62 | Inn description: "beds for **travellers** and a yard for the caravans…" | travelled |
+| `neoforge/src/main/java/com/civilization/neoforge/CivilizationBlocks.java` | 151 | Smithy description: "tools, weapons and **armour** are made here…" | armour |
+| `neoforge/src/main/java/com/civilization/neoforge/command/CivilizationCommand.java` | 603 | `/civ` chat output: `.append(", centre ")` | centre |
+| `common/src/main/java/com/civilization/sim/settlement/Founding.java` | 348 | Town event shown by `/civ info`: "Seeded short: the … **programme** wanted a …" | programme |
 
 ### Tool UI (2)
 
@@ -309,9 +309,9 @@ same ground". Seen by whoever runs the survey viewer, not by players.
 ### Developer-facing (35)
 
 Test assertion messages in `common/src/test/`, `neoforge/src/test/`, `keystone/src/test/`, plus
-two `LOGGER` lines: `neoforge/src/main/java/com/kingdoms/neoforge/KingdomsMod.java:97`
+two `LOGGER` lines: `neoforge/src/main/java/com/civilization/neoforge/CivilizationMod.java:97`
 ("Initialised {} dimension simulation(s)") and
-`neoforge/src/main/java/com/kingdoms/neoforge/world/BuildTest.java:213`
+`neoforge/src/main/java/com/civilization/neoforge/world/BuildTest.java:213`
 (`"BUILDTEST start layout={} centre={} …"`). All safe to rewrite; none is a key.
 
 ## Do not touch
@@ -326,10 +326,10 @@ key, and every existing save loses that field on load.
 
 | Where | Literal | Consequence of renaming |
 | --- | --- | --- |
-| `neoforge/src/main/java/com/kingdoms/neoforge/save/KingdomsCodecs.java:469` | `SIM_POS.fieldOf("centre")` on `Settlement` | Every saved town loses its centre. |
-| `neoforge/src/main/java/com/kingdoms/neoforge/save/KingdomsCodecs.java:351` | `SIM_POS.fieldOf("centre")` on `WorkArea` | Lumber and mine areas lose their centre. |
-| `neoforge/src/main/java/com/kingdoms/neoforge/save/SiteLedger.java:70` | `optionalFieldOf("centre")` | Recorded sites lose their centre. |
-| `common/src/main/java/com/kingdoms/sim/settlement/TownStores.java:42` | the **value** `"armour"` in `public static final String ARMOUR = "armour"` | Store maps are persisted with `Codec.unboundedMap(Codec.STRING, Codec.INT)` at `KingdomsCodecs.java:379` and `:452`, so `"armour"` is a live save key. Every town's armour stock silently drops to zero on load. |
+| `neoforge/src/main/java/com/civilization/neoforge/save/CivilizationCodecs.java:469` | `SIM_POS.fieldOf("centre")` on `Settlement` | Every saved town loses its centre. |
+| `neoforge/src/main/java/com/civilization/neoforge/save/CivilizationCodecs.java:351` | `SIM_POS.fieldOf("centre")` on `WorkArea` | Lumber and mine areas lose their centre. |
+| `neoforge/src/main/java/com/civilization/neoforge/save/SiteLedger.java:70` | `optionalFieldOf("centre")` | Recorded sites lose their centre. |
+| `common/src/main/java/com/civilization/sim/settlement/TownStores.java:42` | the **value** `"armour"` in `public static final String ARMOUR = "armour"` | Store maps are persisted with `Codec.unboundedMap(Codec.STRING, Codec.INT)` at `CivilizationCodecs.java:379` and `:452`, so `"armour"` is a live save key. Every town's armour stock silently drops to zero on load. |
 
 The Java-side names (`Settlement.centre()`, `WorkArea::centre`, `TownStores.ARMOUR`) can all be
 renamed freely — it is only the quoted strings that are frozen. If the project wants the strings
@@ -338,7 +338,7 @@ converted too, that is a codec migration, not a spelling pass, and it belongs in
 ### 2. Vanilla and NeoForge names
 
 `BlockBehaviour` — `net.minecraft.world.level.block.state.BlockBehaviour`, 4 hits in
-`neoforge/src/main/java/com/kingdoms/neoforge/KingdomsBlocks.java`. Mojang spells it with the
+`neoforge/src/main/java/com/civilization/neoforge/CivilizationBlocks.java`. Mojang spells it with the
 `u`; it is not ours to change. Anything matching `net.minecraft`, `net.neoforged`,
 `com.mojang` or a `minecraft:` resource location is off-limits by the same rule.
 
@@ -368,11 +368,11 @@ British spellings. They are excluded from every count above:
 
 | Pattern | Matched token | Why it is not a hit |
 | --- | --- | --- |
-| `tyre` | `EntityRenderersEvent` ×2, `EntityRendererProvider` ×2, `registerEntityRenderer` ×1 | "Enti**tyRe**ndere…" — vanilla NeoForge names, in `neoforge/.../client/KingdomsClient.java` and `PersonRenderer.java` |
+| `tyre` | `EntityRenderersEvent` ×2, `EntityRendererProvider` ×2, `registerEntityRenderer` ×1 | "Enti**tyRe**ndere…" — vanilla NeoForge names, in `neoforge/.../client/CivilizationClient.java` and `PersonRenderer.java` |
 | `cosy` | `ecosystem` | "e**cosy**stem" — `keystone/src/main/java/com/keystone/source/StructurizeSource.java:23` |
 
 Two further near-misses were checked and are correct as written: `"Kerb"` at
-`common/src/test/java/com/kingdoms/sim/KerbTest.java:45` is a **test town name**, a free string
+`common/src/test/java/com/civilization/sim/KerbTest.java:45` is a **test town name**, a free string
 rather than an id — it is counted in C by the single-token heuristic but is safe to change or
 leave. And `analysis`, `emphasis`, `hypothesis`, `synthesis`, `paralysis`, `cancellation`,
 `fulfilled`, `advertising`, `supervise`, `merchandise`, `otherwise`, `clockwise`, `promise`,
@@ -385,190 +385,190 @@ All 206 files with at least one hit, ordered by total.
 
 | File | A | B | C | Total |
 | --- | ---: | ---: | ---: | ---: |
-| `common/src/test/java/com/kingdoms/sim/LayoutTest.java` | 24 | 1 | 120 | 145 |
-| `common/src/main/java/com/kingdoms/sim/settlement/Settlement.java` | 57 | 0 | 84 | 141 |
-| `common/src/main/java/com/kingdoms/sim/settlement/Founding.java` | 38 | 1 | 23 | 62 |
-| `common/src/main/java/com/kingdoms/sim/culture/PlannedLayout.java` | 9 | 0 | 52 | 61 |
-| `common/src/main/java/com/kingdoms/sim/culture/Layouts.java` | 16 | 0 | 34 | 50 |
-| `common/src/main/java/com/kingdoms/sim/settlement/PerimeterPlanner.java` | 4 | 0 | 39 | 43 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/command/KingdomsCommand.java` | 10 | 1 | 32 | 43 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/view/PersonEntityManager.java` | 9 | 0 | 29 | 38 |
-| `common/src/main/java/com/kingdoms/sim/culture/RadialStreetLayout.java` | 11 | 0 | 26 | 37 |
-| `common/src/test/java/com/kingdoms/sim/SettlementFaultsTest.java` | 7 | 0 | 27 | 34 |
-| `common/src/main/java/com/kingdoms/sim/settlement/PathPlanner.java` | 20 | 0 | 13 | 33 |
-| `common/src/main/java/com/kingdoms/sim/settlement/BuildPlanner.java` | 10 | 0 | 22 | 32 |
-| `common/src/main/java/com/kingdoms/sim/culture/CrescentLayout.java` | 11 | 0 | 18 | 29 |
-| `common/src/main/java/com/kingdoms/sim/culture/CrossroadsLayout.java` | 8 | 0 | 21 | 29 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/BuildTest.java` | 13 | 1 | 15 | 29 |
-| `common/src/main/java/com/kingdoms/sim/culture/Layout.java` | 16 | 0 | 12 | 28 |
-| `common/src/test/java/com/kingdoms/sim/CrescentLayoutTest.java` | 1 | 0 | 27 | 28 |
-| `common/src/main/java/com/kingdoms/sim/culture/ThorpLayout.java` | 5 | 0 | 22 | 27 |
-| `common/src/test/java/com/kingdoms/sim/SettlementSitesTest.java` | 4 | 0 | 22 | 26 |
-| `common/src/test/java/com/kingdoms/sim/BuildPlannerTest.java` | 2 | 1 | 22 | 25 |
-| `common/src/test/java/com/kingdoms/sim/KerbTest.java` | 6 | 0 | 19 | 25 |
-| `common/src/main/java/com/kingdoms/sim/culture/GreenLayout.java` | 10 | 0 | 14 | 24 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/BlueprintPlacer.java` | 21 | 0 | 2 | 23 |
-| `common/src/main/java/com/kingdoms/sim/culture/BastideLayout.java` | 1 | 0 | 21 | 22 |
-| `common/src/main/java/com/kingdoms/sim/culture/StreetLayout.java` | 3 | 0 | 19 | 22 |
-| `common/src/main/java/com/kingdoms/sim/worldgen/SettlementSites.java` | 14 | 0 | 7 | 21 |
-| `common/src/test/java/com/kingdoms/sim/StageProgressionTest.java` | 5 | 2 | 14 | 21 |
+| `common/src/test/java/com/civilization/sim/LayoutTest.java` | 24 | 1 | 120 | 145 |
+| `common/src/main/java/com/civilization/sim/settlement/Settlement.java` | 57 | 0 | 84 | 141 |
+| `common/src/main/java/com/civilization/sim/settlement/Founding.java` | 38 | 1 | 23 | 62 |
+| `common/src/main/java/com/civilization/sim/culture/PlannedLayout.java` | 9 | 0 | 52 | 61 |
+| `common/src/main/java/com/civilization/sim/culture/Layouts.java` | 16 | 0 | 34 | 50 |
+| `common/src/main/java/com/civilization/sim/settlement/PerimeterPlanner.java` | 4 | 0 | 39 | 43 |
+| `neoforge/src/main/java/com/civilization/neoforge/command/CivilizationCommand.java` | 10 | 1 | 32 | 43 |
+| `neoforge/src/main/java/com/civilization/neoforge/view/PersonEntityManager.java` | 9 | 0 | 29 | 38 |
+| `common/src/main/java/com/civilization/sim/culture/RadialStreetLayout.java` | 11 | 0 | 26 | 37 |
+| `common/src/test/java/com/civilization/sim/SettlementFaultsTest.java` | 7 | 0 | 27 | 34 |
+| `common/src/main/java/com/civilization/sim/settlement/PathPlanner.java` | 20 | 0 | 13 | 33 |
+| `common/src/main/java/com/civilization/sim/settlement/BuildPlanner.java` | 10 | 0 | 22 | 32 |
+| `common/src/main/java/com/civilization/sim/culture/CrescentLayout.java` | 11 | 0 | 18 | 29 |
+| `common/src/main/java/com/civilization/sim/culture/CrossroadsLayout.java` | 8 | 0 | 21 | 29 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/BuildTest.java` | 13 | 1 | 15 | 29 |
+| `common/src/main/java/com/civilization/sim/culture/Layout.java` | 16 | 0 | 12 | 28 |
+| `common/src/test/java/com/civilization/sim/CrescentLayoutTest.java` | 1 | 0 | 27 | 28 |
+| `common/src/main/java/com/civilization/sim/culture/ThorpLayout.java` | 5 | 0 | 22 | 27 |
+| `common/src/test/java/com/civilization/sim/SettlementSitesTest.java` | 4 | 0 | 22 | 26 |
+| `common/src/test/java/com/civilization/sim/BuildPlannerTest.java` | 2 | 1 | 22 | 25 |
+| `common/src/test/java/com/civilization/sim/KerbTest.java` | 6 | 0 | 19 | 25 |
+| `common/src/main/java/com/civilization/sim/culture/GreenLayout.java` | 10 | 0 | 14 | 24 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/BlueprintPlacer.java` | 21 | 0 | 2 | 23 |
+| `common/src/main/java/com/civilization/sim/culture/BastideLayout.java` | 1 | 0 | 21 | 22 |
+| `common/src/main/java/com/civilization/sim/culture/StreetLayout.java` | 3 | 0 | 19 | 22 |
+| `common/src/main/java/com/civilization/sim/worldgen/SettlementSites.java` | 14 | 0 | 7 | 21 |
+| `common/src/test/java/com/civilization/sim/StageProgressionTest.java` | 5 | 2 | 14 | 21 |
 | `tools/townview.html` | 1 | 2 | 18 | 21 |
 | `CHANGELOG.md` | 19 | 0 | 0 | 19 |
-| `common/src/main/java/com/kingdoms/sim/settlement/PopulationPlanner.java` | 16 | 0 | 3 | 19 |
-| `common/src/test/java/com/kingdoms/sim/LayoutFitnessTest.java` | 8 | 1 | 10 | 19 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java` | 5 | 0 | 14 | 19 |
+| `common/src/main/java/com/civilization/sim/settlement/PopulationPlanner.java` | 16 | 0 | 3 | 19 |
+| `common/src/test/java/com/civilization/sim/LayoutFitnessTest.java` | 8 | 1 | 10 | 19 |
+| `neoforge/src/main/java/com/civilization/neoforge/bridge/NeoForgeWorldBridge.java` | 5 | 0 | 14 | 19 |
 | `BUILD_DECISIONS.md` | 15 | 0 | 3 | 18 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/Excavation.java` | 7 | 0 | 11 | 18 |
-| `common/src/test/java/com/kingdoms/sim/SeededSettlementTest.java` | 6 | 2 | 9 | 17 |
-| `common/src/test/java/com/kingdoms/sim/ThorpLayoutTest.java` | 1 | 1 | 15 | 17 |
-| `common/src/test/java/com/kingdoms/sim/UnknownCapacityTest.java` | 9 | 2 | 6 | 17 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/Excavation.java` | 7 | 0 | 11 | 18 |
+| `common/src/test/java/com/civilization/sim/SeededSettlementTest.java` | 6 | 2 | 9 | 17 |
+| `common/src/test/java/com/civilization/sim/ThorpLayoutTest.java` | 1 | 1 | 15 | 17 |
+| `common/src/test/java/com/civilization/sim/UnknownCapacityTest.java` | 9 | 2 | 6 | 17 |
 | `GOALS.md` | 15 | 0 | 1 | 16 |
-| `common/src/main/java/com/kingdoms/sim/culture/Culture.java` | 9 | 0 | 7 | 16 |
-| `common/src/main/java/com/kingdoms/sim/kingdom/ExpansionPlanner.java` | 0 | 0 | 16 | 16 |
-| `common/src/main/java/com/kingdoms/sim/settlement/StagePlanner.java` | 11 | 0 | 5 | 16 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/view/LumberjackWorker.java` | 0 | 0 | 16 | 16 |
-| `common/src/test/java/com/kingdoms/sim/LeastBadSiteTest.java` | 0 | 0 | 15 | 15 |
-| `common/src/test/java/com/kingdoms/sim/PlotOverlapTest.java` | 2 | 1 | 12 | 15 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/save/SiteLedger.java` | 9 | 0 | 6 | 15 |
-| `common/src/test/java/com/kingdoms/sim/RealTerrainRoadsTest.java` | 3 | 1 | 10 | 14 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/view/ShepherdWorker.java` | 0 | 0 | 14 | 14 |
-| `common/src/main/java/com/kingdoms/sim/culture/GridStreetLayout.java` | 1 | 0 | 12 | 13 |
-| `common/src/main/java/com/kingdoms/sim/settlement/FoodPlanner.java` | 7 | 0 | 5 | 12 |
-| `common/src/test/java/com/kingdoms/sim/FoundingEconomicsTest.java` | 7 | 1 | 4 | 12 |
-| `common/src/test/java/com/kingdoms/sim/WallRestakeTest.java` | 1 | 0 | 11 | 12 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/client/TownMapScreen.java` | 2 | 0 | 10 | 12 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/save/PerimeterRetiredCodecTest.java` | 0 | 0 | 12 | 12 |
+| `common/src/main/java/com/civilization/sim/culture/Culture.java` | 9 | 0 | 7 | 16 |
+| `common/src/main/java/com/civilization/sim/kingdom/ExpansionPlanner.java` | 0 | 0 | 16 | 16 |
+| `common/src/main/java/com/civilization/sim/settlement/StagePlanner.java` | 11 | 0 | 5 | 16 |
+| `neoforge/src/main/java/com/civilization/neoforge/view/LumberjackWorker.java` | 0 | 0 | 16 | 16 |
+| `common/src/test/java/com/civilization/sim/LeastBadSiteTest.java` | 0 | 0 | 15 | 15 |
+| `common/src/test/java/com/civilization/sim/PlotOverlapTest.java` | 2 | 1 | 12 | 15 |
+| `neoforge/src/main/java/com/civilization/neoforge/save/SiteLedger.java` | 9 | 0 | 6 | 15 |
+| `common/src/test/java/com/civilization/sim/RealTerrainRoadsTest.java` | 3 | 1 | 10 | 14 |
+| `neoforge/src/main/java/com/civilization/neoforge/view/ShepherdWorker.java` | 0 | 0 | 14 | 14 |
+| `common/src/main/java/com/civilization/sim/culture/GridStreetLayout.java` | 1 | 0 | 12 | 13 |
+| `common/src/main/java/com/civilization/sim/settlement/FoodPlanner.java` | 7 | 0 | 5 | 12 |
+| `common/src/test/java/com/civilization/sim/FoundingEconomicsTest.java` | 7 | 1 | 4 | 12 |
+| `common/src/test/java/com/civilization/sim/WallRestakeTest.java` | 1 | 0 | 11 | 12 |
+| `neoforge/src/main/java/com/civilization/neoforge/client/TownMapScreen.java` | 2 | 0 | 10 | 12 |
+| `neoforge/src/test/java/com/civilization/neoforge/save/PerimeterRetiredCodecTest.java` | 0 | 0 | 12 | 12 |
 | `FOUNDING.md` | 10 | 0 | 1 | 11 |
-| `common/src/test/java/com/kingdoms/sim/BuildingSizesTest.java` | 4 | 1 | 6 | 11 |
-| `common/src/test/java/com/kingdoms/sim/DemolitionTest.java` | 5 | 1 | 5 | 11 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/TerrainOracle.java` | 3 | 0 | 8 | 11 |
-| `common/src/test/java/com/kingdoms/sim/PavedStreetsTest.java` | 3 | 1 | 6 | 10 |
-| `common/src/test/java/com/kingdoms/sim/UpgradeTest.java` | 0 | 0 | 10 | 10 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/client/PersonInventoryScreen.java` | 3 | 0 | 7 | 10 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/WorldgenSettlements.java` | 2 | 0 | 8 | 10 |
+| `common/src/test/java/com/civilization/sim/BuildingSizesTest.java` | 4 | 1 | 6 | 11 |
+| `common/src/test/java/com/civilization/sim/DemolitionTest.java` | 5 | 1 | 5 | 11 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/TerrainOracle.java` | 3 | 0 | 8 | 11 |
+| `common/src/test/java/com/civilization/sim/PavedStreetsTest.java` | 3 | 1 | 6 | 10 |
+| `common/src/test/java/com/civilization/sim/UpgradeTest.java` | 0 | 0 | 10 | 10 |
+| `neoforge/src/main/java/com/civilization/neoforge/client/PersonInventoryScreen.java` | 3 | 0 | 7 | 10 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/WorldgenSettlements.java` | 2 | 0 | 8 | 10 |
 | `README.md` | 9 | 0 | 0 | 9 |
-| `common/src/main/java/com/kingdoms/sim/platform/WorldBridge.java` | 7 | 0 | 2 | 9 |
-| `common/src/test/java/com/kingdoms/sim/CultureTest.java` | 4 | 1 | 4 | 9 |
-| `common/src/test/java/com/kingdoms/sim/FacingTest.java` | 1 | 3 | 5 | 9 |
-| `common/src/test/java/com/kingdoms/sim/LevellingTest.java` | 3 | 3 | 3 | 9 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/save/KingdomsCodecs.java` | 3 | 0 | 6 | 9 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/world/BlueprintPlacerSizeTest.java` | 3 | 2 | 4 | 9 |
-| `common/src/main/java/com/kingdoms/sim/culture/Wander.java` | 8 | 0 | 0 | 8 |
-| `common/src/main/java/com/kingdoms/sim/settlement/TownStores.java` | 6 | 0 | 2 | 8 |
-| `common/src/main/java/com/kingdoms/sim/settlement/WorkArea.java` | 0 | 0 | 8 | 8 |
-| `common/src/test/java/com/kingdoms/sim/MarketTest.java` | 3 | 2 | 3 | 8 |
-| `common/src/test/java/com/kingdoms/sim/RecordedTerrain.java` | 3 | 0 | 5 | 8 |
-| `common/src/test/java/com/kingdoms/sim/TerrainFake.java` | 4 | 0 | 4 | 8 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/view/MinerWorker.java` | 0 | 0 | 8 | 8 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/LevelStoreWorld.java` | 0 | 0 | 8 | 8 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/save/SettlementLayoutCodecTest.java` | 2 | 0 | 6 | 8 |
+| `common/src/main/java/com/civilization/sim/platform/WorldBridge.java` | 7 | 0 | 2 | 9 |
+| `common/src/test/java/com/civilization/sim/CultureTest.java` | 4 | 1 | 4 | 9 |
+| `common/src/test/java/com/civilization/sim/FacingTest.java` | 1 | 3 | 5 | 9 |
+| `common/src/test/java/com/civilization/sim/LevellingTest.java` | 3 | 3 | 3 | 9 |
+| `neoforge/src/main/java/com/civilization/neoforge/save/CivilizationCodecs.java` | 3 | 0 | 6 | 9 |
+| `neoforge/src/test/java/com/civilization/neoforge/world/BlueprintPlacerSizeTest.java` | 3 | 2 | 4 | 9 |
+| `common/src/main/java/com/civilization/sim/culture/Wander.java` | 8 | 0 | 0 | 8 |
+| `common/src/main/java/com/civilization/sim/settlement/TownStores.java` | 6 | 0 | 2 | 8 |
+| `common/src/main/java/com/civilization/sim/settlement/WorkArea.java` | 0 | 0 | 8 | 8 |
+| `common/src/test/java/com/civilization/sim/MarketTest.java` | 3 | 2 | 3 | 8 |
+| `common/src/test/java/com/civilization/sim/RecordedTerrain.java` | 3 | 0 | 5 | 8 |
+| `common/src/test/java/com/civilization/sim/TerrainFake.java` | 4 | 0 | 4 | 8 |
+| `neoforge/src/main/java/com/civilization/neoforge/view/MinerWorker.java` | 0 | 0 | 8 | 8 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/LevelStoreWorld.java` | 0 | 0 | 8 | 8 |
+| `neoforge/src/test/java/com/civilization/neoforge/save/SettlementLayoutCodecTest.java` | 2 | 0 | 6 | 8 |
 | `tools/README.md` | 8 | 0 | 0 | 8 |
-| `common/src/main/java/com/kingdoms/sim/settlement/SmithPlanner.java` | 3 | 0 | 4 | 7 |
-| `common/src/test/java/com/kingdoms/sim/PathNetworkTest.java` | 1 | 2 | 4 | 7 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/KingdomsBlocks.java` | 1 | 2 | 4 | 7 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/client/KingdomsPanel.java` | 2 | 0 | 5 | 7 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/net/TownMapPayload.java` | 0 | 0 | 7 | 7 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/save/SiteLedgerTest.java` | 1 | 0 | 6 | 7 |
+| `common/src/main/java/com/civilization/sim/settlement/SmithPlanner.java` | 3 | 0 | 4 | 7 |
+| `common/src/test/java/com/civilization/sim/PathNetworkTest.java` | 1 | 2 | 4 | 7 |
+| `neoforge/src/main/java/com/civilization/neoforge/CivilizationBlocks.java` | 1 | 2 | 4 | 7 |
+| `neoforge/src/main/java/com/civilization/neoforge/client/CivilizationPanel.java` | 2 | 0 | 5 | 7 |
+| `neoforge/src/main/java/com/civilization/neoforge/net/TownMapPayload.java` | 0 | 0 | 7 | 7 |
+| `neoforge/src/test/java/com/civilization/neoforge/save/SiteLedgerTest.java` | 1 | 0 | 6 | 7 |
 | `DEFENSE.md` | 5 | 0 | 1 | 6 |
 | `POPULATION.md` | 5 | 0 | 1 | 6 |
-| `common/src/main/java/com/kingdoms/sim/culture/TownPlan.java` | 3 | 0 | 3 | 6 |
-| `common/src/test/java/com/kingdoms/sim/AlarmTest.java` | 1 | 0 | 5 | 6 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/client/MarketScreen.java` | 4 | 0 | 2 | 6 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/PerimeterLayer.java` | 6 | 0 | 0 | 6 |
+| `common/src/main/java/com/civilization/sim/culture/TownPlan.java` | 3 | 0 | 3 | 6 |
+| `common/src/test/java/com/civilization/sim/AlarmTest.java` | 1 | 0 | 5 | 6 |
+| `neoforge/src/main/java/com/civilization/neoforge/client/MarketScreen.java` | 4 | 0 | 2 | 6 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/PerimeterLayer.java` | 6 | 0 | 0 | 6 |
 | `KEYSTONE.md` | 5 | 0 | 0 | 5 |
-| `common/src/main/java/com/kingdoms/sim/settlement/BuildingSizes.java` | 5 | 0 | 0 | 5 |
-| `common/src/main/java/com/kingdoms/sim/settlement/RaidPlanner.java` | 1 | 0 | 4 | 5 |
-| `common/src/main/java/com/kingdoms/sim/settlement/RoadRouter.java` | 3 | 0 | 2 | 5 |
-| `common/src/test/java/com/kingdoms/sim/ExpansionPlannerTest.java` | 0 | 0 | 5 | 5 |
-| `common/src/test/java/com/kingdoms/sim/PopulationTest.java` | 2 | 0 | 3 | 5 |
-| `common/src/test/java/com/kingdoms/sim/StarvationTest.java` | 0 | 0 | 5 | 5 |
-| `common/src/test/java/com/kingdoms/sim/TownEconomyTest.java` | 0 | 0 | 5 | 5 |
-| `common/src/test/java/com/kingdoms/sim/VillageLifeTest.java` | 0 | 0 | 5 | 5 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/item/FoundingCharterItem.java` | 0 | 0 | 5 | 5 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/TownAuditor.java` | 5 | 0 | 0 | 5 |
-| `common/src/main/java/com/kingdoms/sim/economy/Market.java` | 4 | 0 | 0 | 4 |
-| `common/src/main/java/com/kingdoms/sim/settlement/BuildCatalogue.java` | 2 | 0 | 2 | 4 |
-| `common/src/main/java/com/kingdoms/sim/settlement/PathNetwork.java` | 4 | 0 | 0 | 4 |
-| `common/src/main/java/com/kingdoms/sim/settlement/RepairPlanner.java` | 3 | 0 | 1 | 4 |
-| `common/src/test/java/com/kingdoms/sim/RaidPlannerTest.java` | 0 | 0 | 4 | 4 |
-| `common/src/test/java/com/kingdoms/sim/SiteChoiceTest.java` | 0 | 0 | 4 | 4 |
-| `common/src/test/java/com/kingdoms/sim/UnwatchedFeedingTest.java` | 0 | 0 | 4 | 4 |
+| `common/src/main/java/com/civilization/sim/settlement/BuildingSizes.java` | 5 | 0 | 0 | 5 |
+| `common/src/main/java/com/civilization/sim/settlement/RaidPlanner.java` | 1 | 0 | 4 | 5 |
+| `common/src/main/java/com/civilization/sim/settlement/RoadRouter.java` | 3 | 0 | 2 | 5 |
+| `common/src/test/java/com/civilization/sim/ExpansionPlannerTest.java` | 0 | 0 | 5 | 5 |
+| `common/src/test/java/com/civilization/sim/PopulationTest.java` | 2 | 0 | 3 | 5 |
+| `common/src/test/java/com/civilization/sim/StarvationTest.java` | 0 | 0 | 5 | 5 |
+| `common/src/test/java/com/civilization/sim/TownEconomyTest.java` | 0 | 0 | 5 | 5 |
+| `common/src/test/java/com/civilization/sim/VillageLifeTest.java` | 0 | 0 | 5 | 5 |
+| `neoforge/src/main/java/com/civilization/neoforge/item/FoundingCharterItem.java` | 0 | 0 | 5 | 5 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/TownAuditor.java` | 5 | 0 | 0 | 5 |
+| `common/src/main/java/com/civilization/sim/economy/Market.java` | 4 | 0 | 0 | 4 |
+| `common/src/main/java/com/civilization/sim/settlement/BuildCatalogue.java` | 2 | 0 | 2 | 4 |
+| `common/src/main/java/com/civilization/sim/settlement/PathNetwork.java` | 4 | 0 | 0 | 4 |
+| `common/src/main/java/com/civilization/sim/settlement/RepairPlanner.java` | 3 | 0 | 1 | 4 |
+| `common/src/test/java/com/civilization/sim/RaidPlannerTest.java` | 0 | 0 | 4 | 4 |
+| `common/src/test/java/com/civilization/sim/SiteChoiceTest.java` | 0 | 0 | 4 | 4 |
+| `common/src/test/java/com/civilization/sim/UnwatchedFeedingTest.java` | 0 | 0 | 4 | 4 |
 | `keystone/src/test/java/com/keystone/AnchorTest.java` | 2 | 1 | 1 | 4 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/block/BuildingPostBlock.java` | 2 | 0 | 2 | 4 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/block/LumberCampBlock.java` | 1 | 0 | 3 | 4 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/world/FoundationTest.java` | 4 | 0 | 0 | 4 |
-| `common/src/main/java/com/kingdoms/sim/settlement/BuildingRole.java` | 3 | 0 | 0 | 3 |
-| `common/src/main/java/com/kingdoms/sim/work/DigYard.java` | 1 | 0 | 2 | 3 |
-| `common/src/test/java/com/kingdoms/sim/EconomyTest.java` | 0 | 0 | 3 | 3 |
-| `common/src/test/java/com/kingdoms/sim/EmptyHouseholdTest.java` | 1 | 0 | 2 | 3 |
-| `common/src/test/java/com/kingdoms/sim/StorehouseTradeTest.java` | 0 | 0 | 3 | 3 |
-| `common/src/test/java/com/kingdoms/sim/StressTest.java` | 0 | 0 | 3 | 3 |
-| `common/src/test/java/com/kingdoms/sim/SupplyPlannerTest.java` | 0 | 0 | 3 | 3 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/KingdomsMod.java` | 2 | 1 | 0 | 3 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/PathLayer.java` | 3 | 0 | 0 | 3 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/world/BuildTestTrimTest.java` | 3 | 0 | 0 | 3 |
+| `neoforge/src/main/java/com/civilization/neoforge/block/BuildingPostBlock.java` | 2 | 0 | 2 | 4 |
+| `neoforge/src/main/java/com/civilization/neoforge/block/LumberCampBlock.java` | 1 | 0 | 3 | 4 |
+| `neoforge/src/test/java/com/civilization/neoforge/world/FoundationTest.java` | 4 | 0 | 0 | 4 |
+| `common/src/main/java/com/civilization/sim/settlement/BuildingRole.java` | 3 | 0 | 0 | 3 |
+| `common/src/main/java/com/civilization/sim/work/DigYard.java` | 1 | 0 | 2 | 3 |
+| `common/src/test/java/com/civilization/sim/EconomyTest.java` | 0 | 0 | 3 | 3 |
+| `common/src/test/java/com/civilization/sim/EmptyHouseholdTest.java` | 1 | 0 | 2 | 3 |
+| `common/src/test/java/com/civilization/sim/StorehouseTradeTest.java` | 0 | 0 | 3 | 3 |
+| `common/src/test/java/com/civilization/sim/StressTest.java` | 0 | 0 | 3 | 3 |
+| `common/src/test/java/com/civilization/sim/SupplyPlannerTest.java` | 0 | 0 | 3 | 3 |
+| `neoforge/src/main/java/com/civilization/neoforge/CivilizationMod.java` | 2 | 1 | 0 | 3 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/PathLayer.java` | 3 | 0 | 0 | 3 |
+| `neoforge/src/test/java/com/civilization/neoforge/world/BuildTestTrimTest.java` | 3 | 0 | 0 | 3 |
 | `tools/survey.py` | 1 | 0 | 2 | 3 |
-| `common/src/main/java/com/kingdoms/sim/economy/Valuation.java` | 2 | 0 | 0 | 2 |
-| `common/src/main/java/com/kingdoms/sim/person/Appetite.java` | 2 | 0 | 0 | 2 |
-| `common/src/main/java/com/kingdoms/sim/settlement/Building.java` | 2 | 0 | 0 | 2 |
-| `common/src/main/java/com/kingdoms/sim/settlement/FieldRoster.java` | 0 | 0 | 2 | 2 |
-| `common/src/main/java/com/kingdoms/sim/settlement/JobPlanner.java` | 1 | 0 | 1 | 2 |
-| `common/src/main/java/com/kingdoms/sim/settlement/MinePlanner.java` | 1 | 0 | 1 | 2 |
-| `common/src/main/java/com/kingdoms/sim/settlement/SettlementStage.java` | 2 | 0 | 0 | 2 |
-| `common/src/main/java/com/kingdoms/sim/settlement/SupplyPlanner.java` | 0 | 0 | 2 | 2 |
-| `common/src/test/java/com/kingdoms/sim/FieldRosterTest.java` | 0 | 0 | 2 | 2 |
-| `common/src/test/java/com/kingdoms/sim/FullPocketsTest.java` | 0 | 0 | 2 | 2 |
-| `common/src/test/java/com/kingdoms/sim/HaulPlannerTest.java` | 1 | 0 | 1 | 2 |
-| `common/src/test/java/com/kingdoms/sim/HullSimplicityTest.java` | 2 | 0 | 0 | 2 |
-| `common/src/test/java/com/kingdoms/sim/SitingTest.java` | 0 | 0 | 2 | 2 |
-| `common/src/test/java/com/kingdoms/sim/StoreMirrorTest.java` | 0 | 1 | 1 | 2 |
-| `common/src/test/java/com/kingdoms/sim/VisibleConstructionTest.java` | 0 | 0 | 2 | 2 |
+| `common/src/main/java/com/civilization/sim/economy/Valuation.java` | 2 | 0 | 0 | 2 |
+| `common/src/main/java/com/civilization/sim/person/Appetite.java` | 2 | 0 | 0 | 2 |
+| `common/src/main/java/com/civilization/sim/settlement/Building.java` | 2 | 0 | 0 | 2 |
+| `common/src/main/java/com/civilization/sim/settlement/FieldRoster.java` | 0 | 0 | 2 | 2 |
+| `common/src/main/java/com/civilization/sim/settlement/JobPlanner.java` | 1 | 0 | 1 | 2 |
+| `common/src/main/java/com/civilization/sim/settlement/MinePlanner.java` | 1 | 0 | 1 | 2 |
+| `common/src/main/java/com/civilization/sim/settlement/SettlementStage.java` | 2 | 0 | 0 | 2 |
+| `common/src/main/java/com/civilization/sim/settlement/SupplyPlanner.java` | 0 | 0 | 2 | 2 |
+| `common/src/test/java/com/civilization/sim/FieldRosterTest.java` | 0 | 0 | 2 | 2 |
+| `common/src/test/java/com/civilization/sim/FullPocketsTest.java` | 0 | 0 | 2 | 2 |
+| `common/src/test/java/com/civilization/sim/HaulPlannerTest.java` | 1 | 0 | 1 | 2 |
+| `common/src/test/java/com/civilization/sim/HullSimplicityTest.java` | 2 | 0 | 0 | 2 |
+| `common/src/test/java/com/civilization/sim/SitingTest.java` | 0 | 0 | 2 | 2 |
+| `common/src/test/java/com/civilization/sim/StoreMirrorTest.java` | 0 | 1 | 1 | 2 |
+| `common/src/test/java/com/civilization/sim/VisibleConstructionTest.java` | 0 | 0 | 2 | 2 |
 | `keystone/src/main/java/com/keystone/blueprint/StructurizeNbt.java` | 2 | 0 | 0 | 2 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/block/MineBlock.java` | 0 | 0 | 2 | 2 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/bridge/Menace.java` | 2 | 0 | 0 | 2 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/client/TownOverviewScreen.java` | 1 | 0 | 1 | 2 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/Bridge.java` | 2 | 0 | 0 | 2 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/DrawBudget.java` | 2 | 0 | 0 | 2 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/net/MarketPayloadTest.java` | 0 | 0 | 2 | 2 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/world/StoreSyncTest.java` | 1 | 0 | 1 | 2 |
+| `neoforge/src/main/java/com/civilization/neoforge/block/MineBlock.java` | 0 | 0 | 2 | 2 |
+| `neoforge/src/main/java/com/civilization/neoforge/bridge/Menace.java` | 2 | 0 | 0 | 2 |
+| `neoforge/src/main/java/com/civilization/neoforge/client/TownOverviewScreen.java` | 1 | 0 | 1 | 2 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/Bridge.java` | 2 | 0 | 0 | 2 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/DrawBudget.java` | 2 | 0 | 0 | 2 |
+| `neoforge/src/test/java/com/civilization/neoforge/net/MarketPayloadTest.java` | 0 | 0 | 2 | 2 |
+| `neoforge/src/test/java/com/civilization/neoforge/world/StoreSyncTest.java` | 1 | 0 | 1 | 2 |
 | `surveys/noswimming-estimate_town.json` | 0 | 0 | 2 | 2 |
 | `surveys/oracle-estimate_town.json` | 0 | 0 | 2 | 2 |
 | `surveys/organic-comparison_town.json` | 0 | 0 | 2 | 2 |
 | `surveys/ring-comparison_town.json` | 0 | 0 | 2 | 2 |
 | `LICENSE` | 1 | 0 | 0 | 1 |
 | `PLAYING.md` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/geom/Hull.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/geom/Ways.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/kingdom/Kingdom.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/person/Foods.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/person/Person.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/BuildTask.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/BuildingType.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/Footprint.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/InnPlanner.java` | 0 | 0 | 1 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/LumberPlanner.java` | 0 | 0 | 1 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/Perimeter.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/Resources.java` | 0 | 0 | 1 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/StorehousePlanner.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/settlement/Tallies.java` | 1 | 0 | 0 | 1 |
-| `common/src/main/java/com/kingdoms/sim/work/PublicWorks.java` | 1 | 0 | 0 | 1 |
-| `common/src/test/java/com/kingdoms/sim/AccessRepairTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/AppetiteTest.java` | 1 | 0 | 0 | 1 |
-| `common/src/test/java/com/kingdoms/sim/BuildOrderTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/DangerTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/DigYardTest.java` | 0 | 1 | 0 | 1 |
-| `common/src/test/java/com/kingdoms/sim/FoodPlannerTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/FootprintTest.java` | 1 | 0 | 0 | 1 |
-| `common/src/test/java/com/kingdoms/sim/FoundingTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/HeightField.java` | 1 | 0 | 0 | 1 |
-| `common/src/test/java/com/kingdoms/sim/PublicWorksTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/RepairPlannerTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/ResourcesTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/SettlementStoresTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/SupplyTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/WallShapeTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/WatchedProductionTest.java` | 0 | 0 | 1 | 1 |
-| `common/src/test/java/com/kingdoms/sim/WorkforceTest.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/geom/Hull.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/geom/Ways.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/kingdom/Kingdom.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/person/Foods.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/person/Person.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/BuildTask.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/BuildingType.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/Footprint.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/InnPlanner.java` | 0 | 0 | 1 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/LumberPlanner.java` | 0 | 0 | 1 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/Perimeter.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/Resources.java` | 0 | 0 | 1 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/StorehousePlanner.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/settlement/Tallies.java` | 1 | 0 | 0 | 1 |
+| `common/src/main/java/com/civilization/sim/work/PublicWorks.java` | 1 | 0 | 0 | 1 |
+| `common/src/test/java/com/civilization/sim/AccessRepairTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/AppetiteTest.java` | 1 | 0 | 0 | 1 |
+| `common/src/test/java/com/civilization/sim/BuildOrderTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/DangerTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/DigYardTest.java` | 0 | 1 | 0 | 1 |
+| `common/src/test/java/com/civilization/sim/FoodPlannerTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/FootprintTest.java` | 1 | 0 | 0 | 1 |
+| `common/src/test/java/com/civilization/sim/FoundingTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/HeightField.java` | 1 | 0 | 0 | 1 |
+| `common/src/test/java/com/civilization/sim/PublicWorksTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/RepairPlannerTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/ResourcesTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/SettlementStoresTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/SupplyTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/WallShapeTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/WatchedProductionTest.java` | 0 | 0 | 1 | 1 |
+| `common/src/test/java/com/civilization/sim/WorkforceTest.java` | 1 | 0 | 0 | 1 |
 | `keystone/build.gradle` | 1 | 0 | 0 | 1 |
 | `keystone/src/main/java/com/keystone/api/Blueprints.java` | 1 | 0 | 0 | 1 |
 | `keystone/src/main/java/com/keystone/api/Placer.java` | 1 | 0 | 0 | 1 |
@@ -576,21 +576,21 @@ All 206 files with at least one hit, ordered by total.
 | `keystone/src/main/java/com/keystone/blueprint/Transforms.java` | 1 | 0 | 0 | 1 |
 | `keystone/src/main/java/com/keystone/source/FolderSource.java` | 1 | 0 | 0 | 1 |
 | `keystone/src/test/java/com/keystone/TransformsTest.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/KingdomsAttachments.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/KingdomsItems.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/block/StoreChestBlockEntity.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/client/SupplyScreen.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/item/ExcavationStakeItem.java` | 0 | 0 | 1 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/item/TownMapItem.java` | 0 | 0 | 1 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/net/TownOverviewPayload.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/view/FarmWorker.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/view/Foreman.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/Shelves.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/main/java/com/kingdoms/neoforge/world/StoreSync.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/block/StoreChestBlockEntityTest.java` | 0 | 0 | 1 | 1 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/bridge/MenaceTest.java` | 1 | 0 | 0 | 1 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/view/FarmWorkerTest.java` | 0 | 1 | 0 | 1 |
-| `neoforge/src/test/java/com/kingdoms/neoforge/world/ExcavationReachTest.java` | 0 | 0 | 1 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/CivilizationAttachments.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/CivilizationItems.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/block/StoreChestBlockEntity.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/client/SupplyScreen.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/item/ExcavationStakeItem.java` | 0 | 0 | 1 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/item/TownMapItem.java` | 0 | 0 | 1 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/net/TownOverviewPayload.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/view/FarmWorker.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/view/Foreman.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/Shelves.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/main/java/com/civilization/neoforge/world/StoreSync.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/test/java/com/civilization/neoforge/block/StoreChestBlockEntityTest.java` | 0 | 0 | 1 | 1 |
+| `neoforge/src/test/java/com/civilization/neoforge/bridge/MenaceTest.java` | 1 | 0 | 0 | 1 |
+| `neoforge/src/test/java/com/civilization/neoforge/view/FarmWorkerTest.java` | 0 | 1 | 0 | 1 |
+| `neoforge/src/test/java/com/civilization/neoforge/world/ExcavationReachTest.java` | 0 | 0 | 1 | 1 |
 
 ## Appendix — reproducing this audit
 
@@ -932,7 +932,7 @@ the British ones stand out.
    one caveat: **43 of those 730 sit on a line that also carries a `{@link}`, `{@code}`,
    `#method` or backtick reference to a real identifier**, and some of them are that reference —
    e.g. `{@code Settlement.againstTheKerb}` at
-   `common/src/main/java/com/kingdoms/sim/culture/Layout.java:248`, or `` `BuildCatalogue` `` in
+   `common/src/main/java/com/civilization/sim/culture/Layout.java:248`, or `` `BuildCatalogue` `` in
    `BUILD_DECISIONS.md`. Those must stay spelled the way the identifier is spelled, so leave them
    until step 3 or 4 renames the thing they point at.
 2. **Free-text strings (41).** Six need a human read (the player-facing four and the two tool UI
@@ -1029,8 +1029,8 @@ holding them. All four moved in the codec-restructuring commit:
 
 | Was | Is | Where |
 | --- | --- | --- |
-| `fieldOf("centre")` | `fieldOf("center")` | `KingdomsCodecs.SETTLEMENT` |
-| `fieldOf("centre")` | `fieldOf("center")` | `KingdomsCodecs.WORK_AREA` |
+| `fieldOf("centre")` | `fieldOf("center")` | `CivilizationCodecs.SETTLEMENT` |
+| `fieldOf("centre")` | `fieldOf("center")` | `CivilizationCodecs.WORK_AREA` |
 | `optionalFieldOf("centre")` | `optionalFieldOf("center")` | `SiteLedger.Entry.CODEC` |
 | `ARMOR = "armour"` | `ARMOR = "armor"` | `TownStores` |
 
@@ -1038,7 +1038,7 @@ The three comments that quoted the old spelling in order to describe the key
 (`Market.java`, `MarketTest.java`, and the audit rows above) moved with it, and the
 four "this is a save key, do not rename" comments are deleted. There is no
 migration: a world saved before that commit does not load, which is stated in the
-CHANGELOG entry and in the class javadoc of `KingdomsCodecs`.
+CHANGELOG entry and in the class javadoc of `CivilizationCodecs`.
 
 `SaveKeySpellingTest` now writes one deliberately crowded kingdom, walks the
 encoded JSON and asserts that no field name anywhere in it — map keys included, so

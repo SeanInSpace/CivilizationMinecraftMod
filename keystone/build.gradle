@@ -2,7 +2,7 @@
 //
 // Reads and writes vanilla structure NBT at any size, transforms it, and serves
 // it to other mods through a narrow BlueprintSource interface. It knows nothing
-// about Kingdoms; Kingdoms depends on it, never the reverse.
+// about Civilization; Civilization depends on it, never the reverse.
 //
 // This module hosts no run configurations. The :neoforge module owns the dev
 // launches and registers this mod's source set alongside its own, so one
@@ -20,7 +20,7 @@ neoForge {
     addModdingDependenciesTo sourceSets.test
 }
 
-// The root build stamps every subproject with mod_version (Kingdoms' version).
+// The root build stamps every subproject with mod_version (Civilization' version).
 // Keystone ships separately and versions independently.
 version = project.keystone_version
 

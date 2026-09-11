@@ -86,8 +86,8 @@ base {
 
 dependencies {
     implementation project(':common')
-    // Kingdoms consumes blueprints through Keystone's BlueprintSource seam.
-    // Keystone never depends on Kingdoms.
+    // Civilization consumes blueprints through Keystone's BlueprintSource seam.
+    // Keystone never depends on Civilization.
     implementation project(':keystone')
 
     testImplementation platform('org.junit:junit-bom:5.11.4')

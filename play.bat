@@ -1,6 +1,6 @@
 @echo off
 rem ---------------------------------------------------------------
-rem  Kingdoms + Keystone - launch the game.
+rem  Civilization + Keystone - launch the game.
 rem  Double-click this file. Keep the window open while you play;
 rem  it is the game's log, and it is where crashes explain themselves.
 rem ---------------------------------------------------------------
@@ -17,7 +17,7 @@ if not exist "gradlew.bat" (
 )
 
 echo.
-echo   Kingdoms + Keystone
+echo   Civilization + Keystone
 echo   -------------------
 echo   Starting Minecraft. The first run after a code change compiles
 echo   first, so give it a moment before the launcher window appears.

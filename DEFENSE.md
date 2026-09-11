@@ -2,7 +2,7 @@
 
 **Status:** implemented and working. Companion to [BUILD_DECISIONS.md](BUILD_DECISIONS.md) (what gets built) and [POPULATION.md](POPULATION.md) (who lives there). This one covers who attacks, who fights back, and what it costs.
 
-Code: [`RaidPlanner`](common/src/main/java/com/kingdoms/sim/settlement/RaidPlanner.java) (all rules), [`Garrison`](common/src/main/java/com/kingdoms/sim/settlement/Garrison.java) (threat versus watch), [`GuardStance`](common/src/main/java/com/kingdoms/sim/combat/GuardStance.java) (sword or bow, and how close to stand), [`FiringPoint`](common/src/main/java/com/kingdoms/sim/combat/FiringPoint.java) (where to stand when the shot is blocked), [`PersonEntityManager`](neoforge/src/main/java/com/kingdoms/neoforge/view/PersonEntityManager.java) (guard combat and the kit), [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java) (raid spawning).
+Code: [`RaidPlanner`](common/src/main/java/com/civilization/sim/settlement/RaidPlanner.java) (all rules), [`Garrison`](common/src/main/java/com/civilization/sim/settlement/Garrison.java) (threat versus watch), [`GuardStance`](common/src/main/java/com/civilization/sim/combat/GuardStance.java) (sword or bow, and how close to stand), [`FiringPoint`](common/src/main/java/com/civilization/sim/combat/FiringPoint.java) (where to stand when the shot is blocked), [`PersonEntityManager`](neoforge/src/main/java/com/civilization/neoforge/view/PersonEntityManager.java) (guard combat and the kit), [`NeoForgeWorldBridge`](neoforge/src/main/java/com/civilization/neoforge/bridge/NeoForgeWorldBridge.java) (raid spawning).
 
 ---
 

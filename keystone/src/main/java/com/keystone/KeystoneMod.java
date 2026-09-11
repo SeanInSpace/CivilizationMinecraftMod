@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  * <p>Keystone reads and writes vanilla structure NBT at any size — the 48-block
  * limit lives in the structure <em>block</em>, not in the format — transforms it,
  * and serves it to other mods through {@link Blueprints}. It has no dependency
- * on Kingdoms or on any other mod.
+ * on Civilization or on any other mod.
  */
 @Mod(KeystoneMod.MOD_ID)
 public final class KeystoneMod {

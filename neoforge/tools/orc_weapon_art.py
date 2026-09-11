@@ -30,7 +30,7 @@ import struct
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ASSETS = os.path.join(HERE, "..", "src", "main", "resources", "assets", "kingdoms")
+ASSETS = os.path.join(HERE, "..", "src", "main", "resources", "assets", "civilization")
 TEXTURES = os.path.join(ASSETS, "textures", "item")
 MODELS = os.path.join(ASSETS, "models", "item")
 ITEMS = os.path.join(ASSETS, "items")
@@ -174,7 +174,7 @@ GRIDS = {
 MODEL = """{
   "parent": "minecraft:item/handheld",
   "textures": {
-    "layer0": "kingdoms:item/%s"
+    "layer0": "civilization:item/%s"
   }
 }
 """
@@ -182,7 +182,7 @@ MODEL = """{
 ITEM_DEFINITION = """{
   "model": {
     "type": "minecraft:model",
-    "model": "kingdoms:item/%s"
+    "model": "civilization:item/%s"
   }
 }
 """

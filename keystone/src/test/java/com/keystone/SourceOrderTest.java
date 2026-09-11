@@ -62,7 +62,7 @@ class SourceOrderTest {
     }
 
     private static final Identifier COTTAGE =
-            Identifier.fromNamespaceAndPath("kingdoms", "norman/cottage");
+            Identifier.fromNamespaceAndPath("civilization", "norman/cottage");
 
     /** A structure distinguishable by its size and the way its front points. */
     private static Blueprint marked(int width, int facing) {
@@ -97,7 +97,7 @@ class SourceOrderTest {
     @Test
     void aNameNobodyHasResolvesToNothingRatherThanToTheNearestMatch() {
         assertTrue(Blueprints.load(null, BlockPos.ZERO,
-                        Identifier.fromNamespaceAndPath("kingdoms", "norman/palace")).isEmpty(),
+                        Identifier.fromNamespaceAndPath("civilization", "norman/palace")).isEmpty(),
                 "the caller falls back to its own drawing, which it cannot do if"
                         + " it is handed somebody else's cottage");
     }

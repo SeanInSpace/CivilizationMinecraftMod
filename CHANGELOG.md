@@ -6,6 +6,41 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The mod is called Civilization
+
+### Changed
+
+- **The mod is called Civilization.** It was scaffolded as "Kingdoms", which was
+  always the name of a thing *inside* the simulation rather than the name of the
+  mod, and the two had started to collide in every sentence anybody wrote about
+  either. The mod id, the resource namespace, the java package, the jar and the
+  creative tab are all `civilization` now.
+
+- **Everything the mod registers moved namespace.** `kingdoms:cottage` is
+  `civilization:cottage`, `kingdoms:human/norman` is `civilization:human/norman`,
+  and the same for every block, item, entity, attachment, culture and blueprint
+  id. Blueprints you scanned in a world move with it: they live under
+  `<world>/civilization/blueprints/<style>/<name>.nbt` now, and the shared folder
+  is `<gamedir>/keystone/blueprints/civilization/`.
+
+- **The server config file is `civilization-server.toml`.** Same settings, new
+  file, written fresh on first run.
+
+- **Kingdoms are still kingdoms.** The word means what it always meant in the
+  game — a kingdom is the thing a town belongs to, `/civ info` still lists them
+  under that heading, and nothing about the simulation changed here.
+
+### Notes
+
+- **Old worlds and old configs do not carry over.** A save made before this
+  rename has its towns filed under the old namespace and will come up empty;
+  start a new world. Any settings you changed in `kingdoms-server.toml` need
+  setting again in the new file, and blueprints in a `<world>/kingdoms/blueprints`
+  folder need moving to `<world>/civilization/blueprints`.
+
+- **The `/civ` command is unchanged.** Every subcommand, every argument, exactly
+  as it was.
+
 ## Build the house yourself and the town will raise it
 
 ### New

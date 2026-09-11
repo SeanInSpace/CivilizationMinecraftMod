@@ -528,7 +528,7 @@ the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
 - [x] **Humans, orcs, and goblins are races.** Culture ids carry the race
-      (kingdoms:human/norman, kingdoms:orc/warhost, kingdoms:goblin/mire);
+      (civilization:human/norman, civilization:orc/warhost, civilization:goblin/mire);
       orcs have 30 health, +1 to the swing, and walk a tenth slower, goblins
       the reverse. All eight streets-first human arrangements generate,
       weighted by the survey.

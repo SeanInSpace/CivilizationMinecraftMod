@@ -229,7 +229,7 @@ stakes on that charter, 386 posts at step 284, closed and walked by step 453.
 *(Absorbed from the former `EXPANSION.md`. Founding by charter and founding by
 daughter are now literally the same ladder, so they belong in one document.)*
 
-Code: [`ExpansionPlanner`](common/src/main/java/com/kingdoms/sim/kingdom/ExpansionPlanner.java).
+Code: [`ExpansionPlanner`](common/src/main/java/com/civilization/sim/kingdom/ExpansionPlanner.java).
 
 > **A full settlement does not stop growing — it sends people out to found the
 > next one.**

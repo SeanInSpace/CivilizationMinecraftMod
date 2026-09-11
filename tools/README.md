@@ -74,7 +74,7 @@ To make a fair pair, hold everything still but the one thing:
 
 ```
 civ found Comparison
-civ culture "kingdoms:goblin"     ← before a single plot is taken
+civ culture "civilization:goblin"     ← before a single plot is taken
 civ step 100  (x9)
 civ plan
 ```

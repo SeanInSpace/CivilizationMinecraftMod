@@ -2,7 +2,7 @@
 
 **Status:** implemented and working. Companion to [BUILD_DECISIONS.md](BUILD_DECISIONS.md) — that document covers what a settlement builds, this one covers who lives there.
 
-Code: [`PopulationPlanner`](common/src/main/java/com/kingdoms/sim/settlement/PopulationPlanner.java), [`Household`](common/src/main/java/com/kingdoms/sim/person/Household.java).
+Code: [`PopulationPlanner`](common/src/main/java/com/civilization/sim/settlement/PopulationPlanner.java), [`Household`](common/src/main/java/com/civilization/sim/person/Household.java).
 
 ---
 
@@ -158,7 +158,7 @@ size" above.
 
 ## How the village feeds itself
 
-*(See [`FoodPlanner`](common/src/main/java/com/kingdoms/sim/settlement/FoodPlanner.java).)*
+*(See [`FoodPlanner`](common/src/main/java/com/civilization/sim/settlement/FoodPlanner.java).)*
 
 Food travels a real chain, and every link is held state:
 

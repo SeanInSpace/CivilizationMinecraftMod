@@ -1,0 +1,694 @@
+package com.civilization.sim.culture;
+
+import com.civilization.sim.geom.SimPos;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * The arrangements a people can lay a town out in.
+ *
+ * <p>Three, and they are meant to look nothing like one another from the air.
+ * That is the point: the claim that a second culture is "a table entry rather
+ * than new code" is only worth making if the table can express a town that is
+ * genuinely planned differently, not the same rings with different timber.
+ *
+ * <ul>
+ *   <li>{@link #RING} — concentric rings around a center. Orderly, evenly
+ *       spaced, growing outward. A village that expects to still be there in a
+ *       hundred years.</li>
+ *   <li>{@link #WARREN} — tight knots of buildings with open ground between the
+ *       knots. Nothing lines up. Grows by budding a new clump off the last one
+ *       rather than by widening a circle.</li>
+ *   <li>{@link #STRONGHOLD} — a square grid filled in a spiral from the middle.
+ *       Regimented, dense, and unmistakably laid out by somebody who thinks in
+ *       rows.</li>
+ * </ul>
+ */
+public final class Layouts {
+
+    private Layouts() {
+    }
+
+    /**
+     * Concentric rings — what every town has always done.
+     *
+     * <p>Lifted out of {@code BuildPlanner} unchanged, down to the half-slot
+     * stagger on alternate rings. That stagger is not decoration: a constant
+     * eight plots per ring produced an eight-legged star, the same angles
+     * repeated at every radius, and packing by circumference is what fills the
+     * ground near the town before stepping outward.
+     */
+    public static final Layout RING = new Layout() {
+        static final int MIN_SLOTS_PER_RING = 8;
+
+        /**
+         * Where the innermost course runs, which is a claim about the hall.
+         *
+         * <p>Left where it was when the spacings came down. It is not a
+         * separation and never was: it is how much ground the middle of a village
+         * keeps for the thing the village is built round, and pulling it in would
+         * put the first course of cottages on the hall's own yard. That the
+         * innermost course cannot hold its own plots at this radius is a defect,
+         * recorded in {@code LayoutTest} and not fixed here, because fixing it
+         * moves the first ring of every town that already exists.
+         */
+        static final int FIRST_RING_RADIUS = 12;
+
+        /**
+         * How far out each course steps, and how far apart plots sit along one.
+         *
+         * <p>Both the same number and both the same rule: a ring is a curve, so
+         * what it needs is {@link Layout#onACurve} of a separation. The sixteen
+         * they were written as is exactly that, and this is the one lattice whose
+         * spacing was already right — it simply had no way of saying so, and would
+         * have gone on holding sixteen after the separation moved under it.
+         *
+         * <p>Without the block of slack for the roundings that a bending street's
+         * arc pitch carries, which is deliberate and is the innermost course's
+         * recorded defect seen from the other end: this arrangement has never kept
+         * the separation exactly, and adding the block now would move the first
+         * ring of every town that already exists to fix a fault that costs one
+         * refused plot per pair.
+         *
+         * <p>The stagger is why the radial step wants the curve factor too: a
+         * plot on the next course out sits half a slot round, so the pair that has
+         * to clear is on the diagonal rather than on the ray.
+         */
+        static final int RING_SPACING = Layout.onACurve(MIN_PLOT_SEPARATION);
+        static final int TARGET_PLOT_SPACING = RING_SPACING;
+
+        @Override
+        public String id() {
+            return "ring";
+        }
+
+        int slotsInRing(int ring) {
+            int radius = FIRST_RING_RADIUS + ring * RING_SPACING;
+            int byCircumference = (int) Math.floor(2 * Math.PI * radius / TARGET_PLOT_SPACING);
+            return Math.max(MIN_SLOTS_PER_RING, byCircumference);
+        }
+
+        @Override
+        public SimPos plotFor(SimPos center, int index) {
+            int ring = 0;
+            int slot = Math.max(0, index);
+            while (slot >= slotsInRing(ring)) {
+                slot -= slotsInRing(ring);
+                ring++;
+            }
+            int slots = slotsInRing(ring);
+            int radius = FIRST_RING_RADIUS + ring * RING_SPACING;
+            double slice = 2 * Math.PI / slots;
+            double angle = slot * slice + (ring % 2) * slice / 2;
+            return new SimPos(
+                    center.x() + (int) Math.round(radius * Math.cos(angle)),
+                    center.y(),
+                    center.z() + (int) Math.round(radius * Math.sin(angle)));
+        }
+    };
+
+    /**
+     * Knots of buildings with open ground between them.
+     *
+     * <p>Six plots to a clump, packed at the closest separation the siting code
+     * will tolerate, and the clumps themselves flung out along a widening spiral
+     * far enough apart that the gaps read as gaps. The effect from above is a
+     * scatter of tight little settlements that happen to share a name, which is
+     * about right for a people who dig in wherever the digging is good rather
+     * than laying out a high street.
+     *
+     * <p>The clump angle advances by a turn that is deliberately not a neat
+     * fraction of a circle, so clumps never line up into spokes — the same
+     * mistake the ring layout made once and had to be taught out of.
+     */
+    public static final Layout WARREN = new Layout() {
+        static final int PER_CLUMP = 6;
+
+        /**
+         * How far a hut sits from the middle of its own knot.
+         *
+         * <p>Was thirteen, on the reasoning that six around a circle of
+         * thirteen puts neighbors thirteen apart and so clears
+         * {@link Layout#MIN_PLOT_SEPARATION} with a block to spare. Both halves
+         * of that were true and it was still wrong: the separation is measured
+         * on the wider axis, not as a distance, and those neighbors sit six
+         * across and eleven deep. Eleven is inside the box, so one hut of every
+         * pair was refused.
+         *
+         * <p>What that cost, measured against the same seed and the same nine
+         * hundred steps: <strong>26 people to the ring layout's 96</strong>, on
+         * forty buildings to its hundred and thirteen, sprawling nearly twice as
+         * far because the plot cursor ran outward hunting for ground it kept
+         * being refused.
+         */
+        static final int CLUMP_RADIUS = 16;
+
+        /**
+         * How far the second knot sits from the first.
+         *
+         * <p>Has to clear two knot radii plus a plot separation, or huts on the
+         * facing edges of neighboring knots overlap — which is exactly what the
+         * first draft of this did, putting plots 2 and 6 ten blocks apart. The
+         * worst pair under the old numbers was between knots rather than inside
+         * one, so widening the knot alone never fixed it; these three constants
+         * are solved together.
+         *
+         * <p>Solved for two things, not one. The tightest set that merely clears
+         * the box pulls the knots in until huts in neighboring knots sit closer
+         * than huts in the same one — at which point there are no knots, just a
+         * scatter, and the layout has been repaired into meaninglessness. So the
+         * search also keeps the nearest hut in another knot further off than the
+         * nearest hut at home, which is the only thing that makes a knot legible
+         * from above.
+         *
+         * <p>And solved over the town that <em>exists</em>. The first attempt
+         * minimized the spread of three hundred plots, which bought a tight tail
+         * by pushing the first three knots further out — and no warren has ever
+         * reached the tail. A measured town of twenty-nine buildings uses knots
+         * nought to four and nothing beyond, so every knot it had was further
+         * from home than before and the town came out <em>smaller</em>: fifteen
+         * people where the broken geometry managed twenty-six. Correct by the
+         * invariant, worse by the outcome. These numbers are solved for the
+         * first thirty plots instead, and span 96 blocks against the original's
+         * 104.
+         *
+         * <p><strong>Left alone when the separation came down.</strong> These
+         * three are the one set here that was solved together and against two
+         * objectives at once — clearing the box, and keeping a knot legible from
+         * above — so they are not a spacing that follows a separation and cannot
+         * be moved one at a time. Loosening the rule they were solved under does
+         * not make them wrong; it only means there is now room to solve them
+         * again, more tightly, against the same two objectives. That is a search,
+         * not an edit, and it belongs with the open goal about the void between
+         * knots rather than here.
+         */
+        static final int FIRST_CLUMP_OUT = 52;
+
+        static final int CLUMP_SPREAD = 20;
+
+        /** Two fifths of a turn: never repeats a spoke, and looks unplanned. */
+        static final double CLUMP_TURN = 2.399963;
+
+        @Override
+        public String id() {
+            return "warren";
+        }
+
+        @Override
+        public int claimMargin() {
+            return 16;   // the clumps sprawl; the claim has to cover the outliers
+        }
+
+        @Override
+        public SimPos plotFor(SimPos center, int index) {
+            int at = Math.max(0, index);
+            int clump = at / PER_CLUMP;
+            int within = at % PER_CLUMP;
+
+            // The first clump sits on the town center itself, so a young warren
+            // is one dense knot rather than a ring of huts around nothing.
+            int clumpX = center.x();
+            int clumpZ = center.z();
+            if (clump > 0) {
+                double out = FIRST_CLUMP_OUT + (clump - 1) * CLUMP_SPREAD / 2.0;
+                double angle = clump * CLUMP_TURN;
+                clumpX += (int) Math.round(out * Math.cos(angle));
+                clumpZ += (int) Math.round(out * Math.sin(angle));
+            }
+
+            double slice = 2 * Math.PI / PER_CLUMP;
+            // Each clump turned a little against the last, so two neighboring
+            // knots never present the same face to each other.
+            double angle = within * slice + clump * slice / 3.0;
+            return new SimPos(
+                    clumpX + (int) Math.round(CLUMP_RADIUS * Math.cos(angle)),
+                    center.y(),
+                    clumpZ + (int) Math.round(CLUMP_RADIUS * Math.sin(angle)));
+        }
+    };
+
+    /**
+     * A square grid, filled outward from the middle.
+     *
+     * <p>Rows and columns on a fixed pitch, taken in a square spiral so the
+     * middle fills before the edges. Nothing is staggered and nothing is
+     * curved. A town laid out by somebody who counts.
+     *
+     * <p>The center cell itself is skipped — that is where the hall goes, and a
+     * layout that offered it as an ordinary plot would have the town build a
+     * hut on its own square.
+     */
+    public static final Layout STRONGHOLD = new Layout() {
+
+        /**
+         * How far apart the rows and columns are ruled.
+         *
+         * <p>A separation, and no curve factor: a square grid puts every
+         * neighbor, diagonal ones included, exactly a pitch away on the wider
+         * axis, which is the metric {@link Layout#farEnoughApart} reads. Nothing
+         * here is ever measured round a corner, so nothing here pays for one.
+         *
+         * <p>Eighteen before, which was undocumented and was half again what the
+         * rule wanted. It bought that no building in the catalog was ever
+         * refused a cell — and paid for it with a median nine blocks of grass
+         * between neighboring walls, the loosest of any arrangement here against
+         * a measured three now.
+         *
+         * <p><strong>What it costs is stated plainly, because it is not small.</strong>
+         * At a separation, a cell adjacent to an occupied one holds nothing wider
+         * than a house: an inn or a farm claims thirteen, a hall or a longhouse
+         * fifteen, a compound nineteen and the library twenty-five, and every one
+         * of those wants two cells or three. So a stronghold's civic buildings
+         * stand a cell clear of the houses rather than shoulder to shoulder with
+         * them, which is what they do in a real fortified town and is the same
+         * bargain every planned arrangement in this package now makes: the plan
+         * offers ground densely and {@code Settlement.isPlotFree} refuses it with
+         * the real span. The spiral fills from the middle and has ninety-six
+         * attempts, so nothing goes unbuilt for it — measured on the fixture, an
+         * orc town reached 134 blocks against 191 and lost none of its buildings.
+         */
+        static final int PITCH = MIN_PLOT_SEPARATION;
+
+        @Override
+        public String id() {
+            return "stronghold";
+        }
+
+        @Override
+        public SimPos plotFor(SimPos center, int index) {
+            // Walk the square spiral, counting only the cells that are offered.
+            int x = 0;
+            int z = 0;
+            int dx = 1;
+            int dz = 0;
+            int legLength = 1;
+            int stepsOnLeg = 0;
+            int legsDone = 0;
+            int offered = -1;
+            // Bounded by construction: every iteration takes one step, and the
+            // spiral reaches every cell eventually.
+            for (int guard = 0; guard < 1_000_000; guard++) {
+                if (!(x == 0 && z == 0)) {
+                    offered++;
+                    if (offered == Math.max(0, index)) {
+                        return new SimPos(center.x() + x * PITCH, center.y(),
+                                center.z() + z * PITCH);
+                    }
+                }
+                x += dx;
+                z += dz;
+                stepsOnLeg++;
+                if (stepsOnLeg == legLength) {
+                    stepsOnLeg = 0;
+                    int turnX = -dz;
+                    dz = dx;
+                    dx = turnX;
+                    legsDone++;
+                    if (legsDone % 2 == 0) {
+                        legLength++;
+                    }
+                }
+            }
+            throw new IllegalStateException("stronghold spiral never reached index " + index);
+        }
+    };
+
+    /**
+     * Dart-thrown plots with a guaranteed gap: blue noise.
+     *
+     * <p>Every other arrangement here is a <em>lattice</em> — rings, knots on a
+     * spiral, a square grid — and each one has had the same fault, which is that
+     * its spacing is a consequence of its arithmetic rather than a promise. The
+     * ring's innermost course cannot hold its own plots. The warren put six huts
+     * on a circle whose neighbors fell inside the overlap box, and a third of
+     * every goblin town was thrown away for years because of it. Both were
+     * "fixed" by choosing better constants, which is a repair that lasts exactly
+     * until somebody chooses a different constant.
+     *
+     * <p>This one cannot have that fault. A position is only returned once it has
+     * been <em>checked</em> against every position already given out, so
+     * {@link Layout#MIN_PLOT_SEPARATION} is the algorithm rather than a number
+     * somebody has to get right. The overlap check downstream can still refuse a
+     * plot for the ground it sits on; it can no longer refuse one for sitting on
+     * its neighbor.
+     *
+     * <p>The three rules are kept the way the others keep them. <b>Deterministic:</b>
+     * the dart throws come from a hash of the town's own center, so the same town
+     * is the same town on every reload and in every test. <b>Injective:</b> two
+     * plots a clear separation apart are not the same plot. <b>Roomy:</b> by
+     * construction, above.
+     *
+     * <p>It fills outward, because a town does: the radius each dart may land in
+     * grows with the square root of how many plots have been handed out, which
+     * keeps the density even instead of piling the middle or racing for the edge.
+     */
+    public static final Layout ORGANIC = new Layout() {
+
+        /** Nothing is offered inside this: the hall and its yard live here. */
+        static final int HEART = 15;
+
+        /** Darts thrown at one radius before the town is allowed to reach further. */
+        static final int THROWS = 48;
+
+        /** Towns whose sequences are kept. More than a handful is a server's worth. */
+        static final int TOWNS_REMEMBERED = 8;
+
+        @Override
+        public String id() {
+            return "organic";
+        }
+
+        @Override
+        public boolean isSameShapeEverywhere() {
+            return false;   // the darts are seeded from the town's own center
+        }
+
+        @Override
+        public SimPos plotFor(SimPos center, int index) {
+            List<SimPos> seq = sequenceFor(center, Math.max(0, index) + 1);
+            return seq.get(Math.max(0, index));
+        }
+
+        /**
+         * The town's plots in order, generated as far as asked and remembered.
+         *
+         * <p>Kept because the sequence is defined by everything before it: plot
+         * four hundred is only knowable by having placed the three hundred and
+         * ninety-nine before it. Recomputing that for every candidate a
+         * settlement weighs would be the same work a hundred times over.
+         */
+        private List<SimPos> sequenceFor(SimPos center, int wanted) {
+            String key = center.x() + ":" + center.z();
+            synchronized (REMEMBERED) {
+                List<SimPos> seq = REMEMBERED.get(key);
+                if (seq == null) {
+                    seq = new ArrayList<>();
+                    REMEMBERED.put(key, seq);
+                    if (REMEMBERED.size() > TOWNS_REMEMBERED) {
+                        Iterator<String> it = REMEMBERED.keySet().iterator();
+                        it.next();
+                        it.remove();
+                    }
+                }
+                extend(center, seq, wanted);
+                return seq;
+            }
+        }
+
+        /**
+         * Bridson's method: grow outward from what is already placed.
+         *
+         * <p>The first draft threw darts uniformly into a disc that widened with
+         * the count, and it sprawled — measured against rings on the same seed
+         * and the same population, 435 blocks of spread against 268, and a ring
+         * wall half again as long. The reason is the whole difference between
+         * rejection sampling and Poisson-disk: once the middle is full, a
+         * uniform dart lands there and fails, over and over, until the code
+         * widens the disc to find room. The town ends up hollow and huge.
+         *
+         * <p>So candidates are thrown into the ring between one and two
+         * separations of a plot already placed. Every throw is next to somebody,
+         * so the town packs instead of spreading, and a plot that runs out of
+         * room around it retires rather than pushing the whole town outward.
+         */
+        private void extend(SimPos center, List<SimPos> seq, int wanted) {
+            long seed = (long) center.x() * 0x9E3779B97F4A7C15L
+                    ^ (long) center.z() * 0xC2B2AE3D27D4EB4FL;
+            for (SimPos placed : seq) {
+                seed ^= (long) placed.x() * 31 + placed.z();   // resume where we left off
+            }
+            List<Integer> active = new ArrayList<>();
+            for (int i = 0; i < seq.size(); i++) {
+                active.add(i);
+            }
+            if (seq.isEmpty()) {
+                seq.add(new SimPos(center.x() + HEART, center.y(), center.z()));
+                active.add(0);
+            }
+            // Bounded, because the alternative is a hang. The first version
+            // re-added the last plot whenever the active list emptied, threw its
+            // darts, failed, removed it, and re-added the same plot again --
+            // forever, if that plot happened to be hemmed in. A layout that can
+            // spin is worse than one that spreads: this one takes the honest way
+            // out and starts a fresh knot beyond everything placed so far.
+            int stuck = 0;
+            while (seq.size() < wanted) {
+                if (active.isEmpty()) {
+                    if (++stuck > RESTARTS) {
+                        seq.add(beyond(center, seq));
+                        active.add(seq.size() - 1);
+                        stuck = 0;
+                        continue;
+                    }
+                    // Everybody is hemmed in. Try again from the newest plot,
+                    // whose darts are thrown fresh each time.
+                    active.add(seq.size() - 1);
+                }
+                seed = seed * 6364136223846793005L + 1442695040888963407L;
+                int pick = (int) Math.floorMod(seed >>> 17, active.size());
+                SimPos from = seq.get(active.get(pick));
+                SimPos found = null;
+                for (int attempt = 0; attempt < THROWS && found == null; attempt++) {
+                    seed = seed * 6364136223846793005L + 1442695040888963407L;
+                    double angle = ((seed >>> 11) / (double) (1L << 53)) * Math.PI * 2;
+                    seed = seed * 6364136223846793005L + 1442695040888963407L;
+                    double away = MIN_SEP + ((seed >>> 11) / (double) (1L << 53)) * MIN_SEP;
+                    SimPos dart = new SimPos(
+                            from.x() + (int) Math.round(away * Math.cos(angle)),
+                            center.y(),
+                            from.z() + (int) Math.round(away * Math.sin(angle)));
+                    if (Math.max(Math.abs(dart.x() - center.x()),
+                                 Math.abs(dart.z() - center.z())) < HEART) {
+                        continue;   // the hall's own ground
+                    }
+                    boolean clear = true;
+                    for (SimPos taken : seq) {
+                        if (!Layout.farEnoughApart(dart, taken)) {
+                            clear = false;
+                            break;
+                        }
+                    }
+                    if (clear) {
+                        found = dart;
+                    }
+                }
+                if (found == null) {
+                    active.remove(pick);   // no room left around this one
+                    continue;
+                }
+                seq.add(found);
+                active.add(seq.size() - 1);
+            }
+        }
+
+        /** A plot's own width, which is the radius the scatter packs to. */
+        static final int MIN_SEP = Layout.MIN_PLOT_SEPARATION;
+
+        /** How often a hemmed-in scatter retries before it starts somewhere new. */
+        static final int RESTARTS = 8;
+
+        /**
+         * Ground beyond everything placed, for a scatter that has run out of room.
+         *
+         * <p>Clear by construction: past the furthest plot by a whole separation,
+         * so it cannot foul anything however tightly the rest is packed. The town
+         * takes a step outward, which is what a real one does when the good
+         * ground by the green is gone.
+         */
+        private SimPos beyond(SimPos center, List<SimPos> seq) {
+            int furthest = HEART;
+            for (SimPos placed : seq) {
+                furthest = Math.max(furthest, Math.max(
+                        Math.abs(placed.x() - center.x()),
+                        Math.abs(placed.z() - center.z())));
+            }
+            int out = furthest + MIN_SEP;
+            // Turned by the count so successive restarts do not stack up in a line.
+            double angle = seq.size() * 2.399963;
+            return new SimPos(
+                    center.x() + (int) Math.round(out * Math.cos(angle)),
+                    center.y(),
+                    center.z() + (int) Math.round(out * Math.sin(angle)));
+        }
+
+        private final Map<String, List<SimPos>> REMEMBERED = new LinkedHashMap<>();
+    };
+
+    /** A town laid along a street, with the street known first. */
+    public static final Layout HIGH_STREET = new StreetLayout();
+
+    /** The ring lattice's streets-first counterpart: ring roads and spokes. */
+    public static final Layout RING_STREETS = new RadialStreetLayout();
+
+    /** The stronghold's: streets ruled both ways, blocks built in the gaps. */
+    public static final Layout STRONGHOLD_STREETS = new GridStreetLayout();
+
+    /**
+     * Ring roads and spokes, drawn true: a town built round a middle.
+     *
+     * <p>The same arrangement as {@link #RING_STREETS} with the wander taken out
+     * and a hall put on the green. RING_STREETS bends its rings by up to nine
+     * blocks on purpose, because a perfectly circular street is the most
+     * obviously computer-generated thing a town can have -- that is right for a
+     * settlement that is supposed to have grown, and wrong for one that is
+     * supposed to have been laid out. A capital, a shrine town, a fortress
+     * suburb: somebody drew these with a compass and it should look like it.
+     *
+     * <p>Kept as a separate arrangement rather than a flag on the old one, so a
+     * culture chooses which it wants and neither town changes shape under a save
+     * that already named the other.
+     */
+    public static final Layout RADIAL_CONCENTRIC =
+            new RadialStreetLayout("radial_concentric", Wander.STRAIGHT, true);
+
+    /**
+     * Two roads crossing, a market on the crossing, and short ribs off the arms.
+     *
+     * <p>The one arrangement here whose shape is a claim about how a town
+     * <em>grew</em> rather than about who surveyed it. Nobody laid out a
+     * crossroads: the routes were there, people built where they met, and the
+     * town spread along the roads because that is where the frontage was. It
+     * answers growth by opening another short rib off a spine, never by widening
+     * into the quarters between the arms — which is what keeps it a cross from
+     * the air and not a grid with a hole in it.
+     */
+    public static final Layout CROSSROADS = new CrossroadsLayout();
+
+    /**
+     * A planned grid round a market place, inside a circuit road.
+     *
+     * <p>The other answer to {@link #STRONGHOLD_STREETS}, and deliberately not a
+     * re-skin of it: a bastide's middle is a market square rather than a
+     * crossroads, its edge is a road rather than the point where the streets run
+     * out, and its blocks are two tighter. A founder's town, laid out at once by
+     * somebody with the authority to do it.
+     */
+    public static final Layout BASTIDE = new BastideLayout();
+
+    /**
+     * A track with farmyards hung off it: the loose one.
+     *
+     * <p>Cul-de-sac lanes leaving a through track, alternating sides, each
+     * ending in a yard with buildings on three sides of it. A comb from the air.
+     *
+     * <p>It is the streets-first counterpart to the instinct behind
+     * {@link #WARREN} rather than to the warren itself â€” knots of buildings with
+     * open ground between them, except that here the knots are reached by a road
+     * and have frontage on it. Deliberately ragged at the edge: a planned town
+     * with a ruled outline looks bulldozed when it lands in a forest.
+     */
+    public static final Layout THORP = new ThorpLayout();
+
+    /**
+     * A spine with lobes: crescent lanes looped off one straight road.
+     *
+     * <p>The only arrangement here whose streets come back to where they started.
+     * A lane leaves the spine, bows out and rejoins it further along, and the
+     * ground it loops round is left open â€” so the town reads from the air as a
+     * chain of greens threaded on one road, which nothing else in this list does.
+     */
+    public static final Layout CRESCENTS = new CrescentLayout();
+
+    /**
+     * A long green with a street down each side: the village as a leaf.
+     *
+     * <p>The one arrangement here that is not built round a point. Rings, grids
+     * and the ring streets are all as wide as they are long by construction; this
+     * one has an empty lens down the middle of it and stops getting wider once
+     * its back lanes are reached, so everything after about eighty plots goes
+     * into length. A village of a hundred and forty reaches 126 blocks along the
+     * green and 85 across it, and the whole plan 243 by 85 â€” reaches from the
+     * middle, so 487 by 171 on the ground.
+     *
+     * <p>Below that it is round, and it is worth knowing which way round the
+     * claim runs: this is not a small town that is longer than it is wide, it is
+     * a town that <em>becomes</em> longer than it is wide. See the table on
+     * {@link GreenLayout} for the shape at every size.
+     */
+    public static final Layout GREEN = new GreenLayout();
+
+    /**
+     * The orc war camp: a great hut on the middle, a yard, huts facing in.
+     *
+     * <p>The first round arrangement in the table that is not a village. Both of
+     * the orcs' other shapes are rectangles, which said that an orc settlement is
+     * a garrison and nothing else; this is what they build when they are living
+     * somewhere. See {@link OrcRingLayout} for what makes it a camp rather than a
+     * Rundling -- the short answer is that no lane crosses the yard.
+     */
+    public static final Layout ORC_RING = new OrcRingLayout();
+
+    private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
+
+    /**
+     * Which streets-first arrangement replaces which lattice, and the way back.
+     *
+     * <p>Both directions, and both kept, because this is a change to how every
+     * settlement in a world is shaped and nobody should have to take it on faith.
+     * A culture names whichever it wants; a world that preferred the old towns
+     * keeps them by naming the lattice, and no save has to be migrated for either
+     * choice — the id in the save resolves to whatever it always did.
+     *
+     * <p>WARREN and ORGANIC are deliberately absent. A warren is knots of huts
+     * with open ground between them and an organic town is a scatter round a
+     * well; neither has streets, and that is what they <em>are</em> rather than
+     * something not got round to yet. Giving them a high street would not improve
+     * them, it would delete them.
+     */
+    private static final Map<String, String> STREETS_FIRST = new LinkedHashMap<>();
+    private static final Map<String, String> LATTICE = new LinkedHashMap<>();
+
+    static {
+        for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
+                HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC,
+                CROSSROADS, BASTIDE, THORP, CRESCENTS, GREEN, ORC_RING}) {
+            KNOWN.put(layout.id(), layout);
+        }
+        STREETS_FIRST.put(RING.id(), RING_STREETS.id());
+        STREETS_FIRST.put(STRONGHOLD.id(), STRONGHOLD_STREETS.id());
+        STREETS_FIRST.forEach((lattice, streets) -> LATTICE.put(streets, lattice));
+    }
+
+    /**
+     * The streets-first version of this arrangement, or the same one back.
+     *
+     * <p>Answers with the input when there is no counterpart, so a caller can
+     * swap a whole table of cultures over without special-casing the ones that
+     * have no streets.
+     */
+    public static Layout streetsFirst(Layout layout) {
+        return of(STREETS_FIRST.getOrDefault(layout.id(), layout.id()));
+    }
+
+    /** The lattice this arrangement replaced, or the same one back. */
+    public static Layout lattice(Layout layout) {
+        return of(LATTICE.getOrDefault(layout.id(), layout.id()));
+    }
+
+    /** Whether this arrangement draws its roads before its buildings. */
+    public static boolean isStreetsFirst(Layout layout) {
+        return layout instanceof PlannedLayout;
+    }
+
+    /**
+     * The named arrangement, or rings when nobody has said.
+     *
+     * <p>Null-tolerant on purpose: a settlement restored from a save written
+     * before layouts existed carries no name at all, and the one lookup
+     * guaranteed to happen on an old world is the one that would otherwise
+     * throw.
+     */
+    public static Layout of(String id) {
+        Layout found = id == null ? null : KNOWN.get(id);
+        return found != null ? found : RING;
+    }
+
+    /** Every arrangement that has been defined. */
+    public static java.util.Collection<Layout> all() {
+        return KNOWN.values();
+    }
+}

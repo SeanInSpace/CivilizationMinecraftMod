@@ -1,6 +1,6 @@
 @echo off
 rem ---------------------------------------------------------------
-rem  Kingdoms + Keystone - run a dedicated server.
+rem  Civilization + Keystone - run a dedicated server.
 rem
 rem  Useful for watching a town run without a client attached, and for
 rem  testing that both mods load. Type "stop" in this window to shut
@@ -20,7 +20,7 @@ if not exist "gradlew.bat" (
 )
 
 echo.
-echo   Kingdoms + Keystone - dedicated server
+echo   Civilization + Keystone - dedicated server
 echo   -------------------------------------
 echo   Connect a client to  localhost
 echo   Type  stop  here to shut down cleanly.

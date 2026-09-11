@@ -21,8 +21,8 @@ import java.util.stream.Stream;
  * Blueprints kept inside the save, at
  * {@code <world>/<namespace>/blueprints/<path>.nbt}.
  *
- * <p>For {@code kingdoms:norman/cottage} that is
- * {@code <world>/kingdoms/blueprints/norman/cottage.nbt}, which is the layout a
+ * <p>For {@code civilization:norman/cottage} that is
+ * {@code <world>/civilization/blueprints/norman/cottage.nbt}, which is the layout a
  * player is told about: one folder per mod, one folder per style inside it.
  *
  * <p><strong>The highest priority there is</strong>, above the shared folder and

@@ -3,14 +3,14 @@
 **A standalone blueprint mod: author structures of any size, place them with
 orientation, and let other mods build them course by course.**
 
-Keystone ships as its own jar and knows nothing about Kingdoms. Kingdoms depends
+Keystone ships as its own jar and knows nothing about Civilization. Civilization depends
 on it, never the reverse — the same relationship Structurize has to MineColonies.
 
 ---
 
 ## Why it exists
 
-Kingdoms could not reach kingdom-scale civilizations on hand-coded geometry. Four
+Civilization could not reach kingdom-scale civilizations on hand-coded geometry. Four
 things blocked it, and Keystone removes all four:
 
 | Blocker | Before | Now |
@@ -93,7 +93,7 @@ Sources are consulted in priority order, first hit wins:
 | **Folder** | 100 | `<gamedir>/keystone/blueprints/<namespace>/<path>.nbt` |
 | **Structurize** | 90 | `<gamedir>/keystone/blueprints/<namespace>/<path>.blueprint` |
 | **Datapack** | 50 | `data/<namespace>/structure/<path>.nbt` |
-| *(Kingdoms' procedural shapes)* | — | fallback inside Kingdoms, when no file matches |
+| *(Civilization' procedural shapes)* | — | fallback inside Civilization, when no file matches |
 
 The folder is **global, not per-world**, so a building laid out in a creative
 world is usable in the survival world you actually play.
@@ -111,7 +111,7 @@ resolved path is normalized and re-checked against the blueprint root before use
 ### Styles
 
 `Blueprints.loadFirst` takes a list of candidates, which is how architectural
-styles work: Kingdoms asks for `kingdoms:norman/house`, then `kingdoms:house`,
+styles work: Civilization asks for `civilization:norman/house`, then `civilization:house`,
 then falls back to its built-in house. A culture only has to draw the buildings
 it wants to differ on.
 
@@ -129,7 +129,7 @@ Craft nothing — it is in the Tools creative tab as **Blueprint Wand**.
 | Sneak-click a block | Second corner |
 | Right-click the air | Name and save what lies between |
 
-Name it `my_house` to save under Keystone's namespace, or `kingdoms:house` to
+Name it `my_house` to save under Keystone's namespace, or `civilization:house` to
 save into another mod's — which is how a building you drew replaces one a
 settlement would otherwise build for itself.
 
@@ -141,7 +141,7 @@ settlement would otherwise build for itself.
 | Sneak-right-click | Turn it a quarter turn |
 
 An outline of sparks follows your crosshair, drawn server-side with the same
-technique the Kingdoms charter uses for settlement borders.
+technique the Civilization charter uses for settlement borders.
 
 > **Not a translucent ghost.** 26.2 moved world rendering to an
 > extract-and-submit pipeline (`SubmitCustomGeometryEvent`,

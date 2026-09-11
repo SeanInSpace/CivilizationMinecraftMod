@@ -1,4 +1,4 @@
-# Kingdoms
+# Civilization
 
 A Millénaire-class civilization simulation for Minecraft 26.2 on NeoForge — autonomous NPC settlements with individually simulated inhabitants, self-directed building, and settlements that defend themselves.
 
@@ -33,9 +33,9 @@ keystone/   A second, standalone mod: blueprints of any size (KEYSTONE.md)
 
 **The split is the whole architecture.** `common/` models kingdoms, settlements and people as data that ticks on a slow scheduler, and can be fully unit-tested in milliseconds without launching a game. `neoforge/` renders that simulation into the world: registration, events, persistence, networking, and the entity "view" layer.
 
-`neoforge/` depends on `common/` and on `keystone/`. `common/` depends on nothing, and `keystone/` depends on neither — it ships as its own jar and knows nothing about Kingdoms, the way Structurize does not know about MineColonies.
+`neoforge/` depends on `common/` and on `keystone/`. `common/` depends on nothing, and `keystone/` depends on neither — it ships as its own jar and knows nothing about Civilization, the way Structurize does not know about MineColonies.
 
-The one seam between them is [`WorldBridge`](common/src/main/java/com/kingdoms/sim/platform/WorldBridge.java), implemented by [`NeoForgeWorldBridge`](neoforge/src/main/java/com/kingdoms/neoforge/bridge/NeoForgeWorldBridge.java).
+The one seam between them is [`WorldBridge`](common/src/main/java/com/civilization/sim/platform/WorldBridge.java), implemented by [`NeoForgeWorldBridge`](neoforge/src/main/java/com/civilization/neoforge/bridge/NeoForgeWorldBridge.java).
 
 > **Rule:** if you want to `import net.minecraft.*` inside `common/`, don't. Add a method to `WorldBridge` instead. Every time you honor this rule you keep the simulation testable and the Fabric port cheap. Every time you break it, both get harder.
 
@@ -145,7 +145,7 @@ All require permission level 2 (gamemaster) and can be disabled with `debug.comm
 
 ### Config
 
-Server config lives at `<world>/serverconfig/kingdoms-server.toml` (defaults are written on first run): simulation interval, steps per birth, observed radius, villager cap per settlement, and the debug-command switch.
+Server config lives at `<world>/serverconfig/civilization-server.toml` (defaults are written on first run): simulation interval, steps per birth, observed radius, villager cap per settlement, and the debug-command switch.
 
 ### What to actually verify
 
@@ -183,11 +183,11 @@ This will stop on first launch until you accept Minecraft's EULA by setting `eul
 
 **`neoforge/`** — minimal but working wiring:
 
-- `KingdomsMod` — entrypoint; one `SimWorld` per dimension, driven from the server tick
+- `CivilizationMod` — entrypoint; one `SimWorld` per dimension, driven from the server tick
 - `bridge/NeoForgeWorldBridge` — translates `SimPos` ↔ `BlockPos`, answers "is anyone watching?"
-- `save/KingdomsSavedData` — durable kingdom storage, written with the level
-- `save/KingdomsCodecs` — codecs for every simulation type
-- `command/KingdomsCommand` — `/civ` debug commands; the only window into the sim right now
+- `save/CivilizationSavedData` — durable kingdom storage, written with the level
+- `save/CivilizationCodecs` — codecs for every simulation type
+- `command/CivilizationCommand` — `/civ` debug commands; the only window into the sim right now
 
 ### A 26.2 API note that will bite you
 
@@ -320,11 +320,11 @@ of the same thing, kept short.
 
 ## Renaming the project
 
-The mod is scaffolded as `kingdoms` / `com.kingdoms`. To rename:
+The mod is scaffolded as `civilization` / `com.civilization`. To rename:
 
 1. Edit `mod_id`, `mod_name` and `mod_group_id` in [`gradle.properties`](gradle.properties)
-2. Rename the `com/kingdoms` package directories in both modules
-3. Update `MOD_ID` in `KingdomsMod`
+2. Rename the `com/civilization` package directories in both modules
+3. Update `MOD_ID` in `CivilizationMod`
 4. Update `rootProject.name` in [`settings.gradle`](settings.gradle)
 
 Everything else reads from `gradle.properties`, including `neoforge.mods.toml`.
