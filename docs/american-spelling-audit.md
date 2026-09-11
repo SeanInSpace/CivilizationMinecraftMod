@@ -11,8 +11,10 @@ Audited at commit `b688247` on branch `worktree-agent-a816151d692cfe68c`.
 > — prose and free-text strings — were converted first; category C, the identifiers
 > and keys, followed in the next commit, all but four save keys that a codec
 > migration stood in the way of. Save compatibility was later waived and those four
-> moved too, so nothing British is left in this tree but vocabulary, Mojang's own
-> names, and this document.
+> moved too, so no name this project chose is British any more. What is left is
+> vocabulary, Mojang's own names, this document — and whatever prose has drifted
+> back in since, which is free text and can be rewritten blind the way category A
+> always could.
 >
 > Everything below this line is the audit as it was written, describing the tree
 > before any of it moved: read the tables as the worklist that was worked, not as the

@@ -294,7 +294,8 @@ class OvergrowthPlanTest {
         List<BlockPos> cleared = new ArrayList<>();
         for (SimPos column : carriageway) {
             cleared.addAll(Overgrowth.overPaving(meadow,
-                    new BlockPos(column.x(), FLOOR, column.z())));
+                    new BlockPos(column.x(), FLOOR, column.z()),
+                    Overgrowth.NOTHING_SPARED));
         }
         Set<BlockPos> gone = clearedOf(cleared);
 
@@ -312,12 +313,59 @@ class OvergrowthPlanTest {
         FakeSky wood = new FakeSky().ground(4).trunk(0, 0, 7).canopy(FLOOR + 8, 4);
 
         Set<BlockPos> gone = clearedOf(
-                Overgrowth.overPaving(wood, new BlockPos(0, FLOOR, 0)));
+                Overgrowth.overPaving(wood, new BlockPos(0, FLOOR, 0),
+                        Overgrowth.NOTHING_SPARED));
 
         for (int dy = 1; dy <= 7; dy++) {
             assertTrue(gone.contains(new BlockPos(0, FLOOR + dy, 0)));
         }
         assertTrue(gone.contains(new BlockPos(0, FLOOR + 8, 0)), "and the branch above it");
+    }
+
+    @Test
+    void butNotAForestersTrunkStandingInTheCarriageway() {
+        // The complaint: a lane routed through the belt came out having felled
+        // the stand. The trunk is the camp's whatever is laid over it; the
+        // litter on the stones and the branches over them are still the road's,
+        // because a road under a bough is a road through a wood and reads as
+        // one. A trunk that is actually in the way means the road should never
+        // have been routed there -- see PathPlanner, which now holds it off.
+        // The litter goes on every column but the trunk's own, where the trunk
+        // is standing in the cell the litter would have been in.
+        FakeSky belt = new FakeSky().ground(4).litter(4)
+                .trunk(0, 0, 6).canopy(FLOOR + 8, 4);
+        Overgrowth.Spared woodland = (x, z) -> z == 0;   // a belt across the way
+
+        Set<BlockPos> atTheTrunk = clearedOf(
+                Overgrowth.overPaving(belt, new BlockPos(0, FLOOR, 0), woodland));
+        Set<BlockPos> beside = clearedOf(
+                Overgrowth.overPaving(belt, new BlockPos(1, FLOOR, 0), woodland));
+
+        for (int dy = 1; dy <= 6; dy++) {
+            assertFalse(atTheTrunk.contains(new BlockPos(0, FLOOR + dy, 0)),
+                    "the camp's trunk was cut at course " + dy);
+        }
+        assertTrue(atTheTrunk.contains(new BlockPos(0, FLOOR + 8, 0)),
+                "but the bough over the carriageway is the road's");
+        assertTrue(beside.contains(new BlockPos(1, FLOOR + 1, 0)),
+                "and so is the litter on the stones, belt or no belt");
+    }
+
+    @Test
+    void andTheColumnNextToItIsStillTheRoads() {
+        // The belt is a ring and a road crosses it, so the same cross-section
+        // has columns on both sides of the line. Sparing is asked per column.
+        FakeSky belt = new FakeSky().ground(4).trunk(0, 0, 5).trunk(2, 0, 5);
+        Overgrowth.Spared woodland = (x, z) -> x == 0;
+
+        Set<BlockPos> spared = clearedOf(
+                Overgrowth.overPaving(belt, new BlockPos(0, FLOOR, 0), woodland));
+        Set<BlockPos> taken = clearedOf(
+                Overgrowth.overPaving(belt, new BlockPos(2, FLOOR, 0), woodland));
+
+        assertFalse(spared.contains(new BlockPos(0, FLOOR + 1, 0)));
+        assertTrue(taken.contains(new BlockPos(2, FLOOR + 1, 0)),
+                "a tree outside the claim is not the forester's");
     }
 
     @Test
@@ -331,7 +379,8 @@ class OvergrowthPlanTest {
                 .put(0, FLOOR + 6, 0, Overgrowth.Cover.LEAF);
 
         Set<BlockPos> gone = clearedOf(
-                Overgrowth.overPaving(underpass, new BlockPos(0, FLOOR, 0)));
+                Overgrowth.overPaving(underpass, new BlockPos(0, FLOOR, 0),
+                        Overgrowth.NOTHING_SPARED));
 
         assertTrue(gone.contains(new BlockPos(0, FLOOR + 1, 0)), "the litter underfoot goes");
         assertFalse(gone.contains(new BlockPos(0, FLOOR + 4, 0)), "the floor above stays");
