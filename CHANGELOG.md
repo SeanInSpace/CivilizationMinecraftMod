@@ -6,6 +6,47 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town the world put there is a town when you find it
+
+### Fixed
+
+- **A village you discover already has its streets.** A settlement raised by
+  world generation was written into existence complete — fourteen buildings, a
+  hundred and twenty people, full granaries — and not one yard of road. It could
+  not have had any: a generated town is watched from its first moment, because it
+  is raised on account of you walking up to it, and a town somebody is standing in
+  has no clock. So it planned one track a step and walked out one a step, in front
+  of you, for several minutes. A town that has stood for a generation now arrives
+  with its roads already walked: every door on the network, every street of its
+  arrangement routed round the hills it actually sits in, and every stretch the
+  ground will take already trodden. A ring village measured forty-two ways at
+  three hundred steps, none of them waiting.
+
+- **And what it builds after you find it is still built by hand.** The roads a
+  discovered town arrives with are a record of what it did before you got there,
+  the same as its houses. The first cottage it raises with you watching gets its
+  lane walked out by a builder, one stretch at a time, exactly as a chartered
+  town's does — nothing opens itself in front of anybody.
+
+- **A forester you find has a wood to work.** A generated town's lumber camp
+  stood in an empty field. The stand it was owed was planted at the moment the
+  camp was first drawn, which is the moment its own chunk arrives — the far edge
+  of what you can see — while the trees belong in a belt further out again, in
+  ground nobody has loaded yet. Nothing could be planted there, and the debt was
+  struck off in the same breath, so every single generated town lost its wood at
+  exactly the moment it was supposed to get one. The camp now keeps the debt until
+  the whole of its woodland can be seen, and plants the full dozen when it can.
+
+- **A building moved off bad ground takes its road with it.** A town written down
+  before anybody looked at the ground may still shift a plot off a river on the
+  step it is first seen. The way that had been run to it stayed pointing at the
+  plot it left, and the plot it took never got one. It is planned again now.
+
+- **A street too steep to walk no longer holds up the ones behind it.** Drawing
+  the roads of a town you have just arrived at stopped dead at the first stretch
+  the ground had refused, and everything past it was laid at one a second — so a
+  village with forty ways drew them one at a time while you stood in it. The
+  refused stretch is stepped over.
 ## The town goes to bed
 
 ### New

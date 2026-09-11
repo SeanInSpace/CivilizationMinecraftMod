@@ -77,6 +77,38 @@ class SeededBuildingCodecTest {
         assertFalse(back.isSeeded(), "an old save came back owed a wood it never lacked");
     }
 
+    @Test
+    void areloadedSeededTownStillOwesItsStreets() {
+        // The same argument as the wood, for the same towns. A village generated
+        // on the far side of a flight and found three sessions later is exactly
+        // the one that has not walked its roads out yet, and a debt that reset on
+        // load would strand it in a field for good.
+        assertTrue(decode(encode(seeded())).seededRoadsOwed(),
+                "a town saved before anybody found it comes back with no streets"
+                        + " and nothing saying so");
+    }
+
+    @Test
+    void andATownThatHasWalkedThemDoesNotDoItTwice() {
+        Settlement town = seeded();
+        town.setSeededRoadsOwed(false);
+
+        assertFalse(decode(encode(town)).seededRoadsOwed(),
+                "the streets were walked out and came back unwalked");
+    }
+
+    @Test
+    void asaveFromBeforeTownsOwedStreetsStillLoads() {
+        // Every world written until now. Their towns walked out every road they
+        // have, one at a time, so owing none is the honest answer for them.
+        JsonObject written = encode(seeded()).getAsJsonObject();
+        assertTrue(written.has("seeded_roads_owed"), "the flag is not being written at all");
+        written.remove("seeded_roads_owed");
+
+        assertFalse(decode(written).seededRoadsOwed(),
+                "an old save came back owed streets it never lacked");
+    }
+
     private static JsonElement encode(Settlement town) {
         return KingdomsCodecs.SETTLEMENT.encodeStart(JsonOps.INSTANCE, town)
                 .result().orElseThrow();

@@ -306,6 +306,12 @@ public final class Founding {
         raiseThePrograms(town, stage);
         town.setStage(stage);
         town.setClaimRadius(claimAround(town));
+        // A town that has stood for a generation has its streets. They cannot be
+        // laid here -- routing one needs ground, and there is no world in this
+        // method -- so what is recorded is the debt, and the first step the town
+        // takes with a world in hand pays it in full. See
+        // Settlement.seededRoadsOwed.
+        town.setSeededRoadsOwed(true);
         settlePeople(town, residents);
         stockTheStores(town);
         nameTheTrades(town, stage);
