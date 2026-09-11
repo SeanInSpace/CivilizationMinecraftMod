@@ -18,6 +18,7 @@ import com.kingdoms.neoforge.world.Excavation;
 import com.kingdoms.neoforge.world.PathLayer;
 import com.kingdoms.neoforge.world.PerimeterLayer;
 import com.kingdoms.neoforge.world.StoreSync;
+import com.kingdoms.sim.combat.FiringPoint;
 import com.kingdoms.sim.combat.GuardStance;
 import com.kingdoms.sim.settlement.BuildTask;
 import com.kingdoms.sim.settlement.TownStores;
@@ -74,13 +75,16 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.List;
 import java.util.Locale;
@@ -2216,6 +2220,15 @@ public final class PersonEntityManager {
      *
      * <p><strong>Nothing here moves faster than a walk</strong>, retreat
      * included. See {@link Pace}.
+     *
+     * <p><strong>An arrow is only loosed down a line that exists.</strong> The
+     * stance is arithmetic on a distance and knows nothing about the barn in
+     * between, so a guard holding the band against a creeper on the far side of a
+     * wall used to stand there feeding arrows into masonry. Every shot now wants
+     * a clear line first — see {@link #sighted} and
+     * {@link #arrowPathIsClearOfTownsfolk} — and a guard who has not got one
+     * walks until he has, rather than standing and shooting anyway. See
+     * {@link #repositionForShot}.
      */
     private void guardCombat(Settlement settlement) {
         for (Person person : settlement.residents()) {
@@ -2243,6 +2256,22 @@ public final class PersonEntityManager {
                     stance.weapon() == GuardStance.Weapon.BOW);
             guard.getLookControl().setLookAt(target, 30.0F, 30.0F);
 
+            // The bow wants a line, and whether there is one changes what the
+            // feet do as much as it changes whether an arrow leaves the string.
+            boolean mayLoose = false;
+            if (stance.weapon() == GuardStance.Weapon.BOW) {
+                mayLoose = sighted(person.id().value(), guard, target)
+                        && arrowPathIsClearOfTownsfolk(guard, target);
+                if (!mayLoose && stance.move() != GuardStance.Move.CLOSE_IN) {
+                    // Holding a band he cannot shoot down is standing about. He
+                    // goes and finds somewhere he can shoot from instead, and
+                    // CLOSE_IN is left alone because walking at it is already
+                    // the thing that might open the line.
+                    repositionForShot(guard, target);
+                    continue;
+                }
+            }
+
             switch (stance.move()) {
                 case CLOSE_IN -> guard.getNavigation().moveTo(target, GUARD_CHARGE_SPEED);
                 case BACK_OFF -> retreatFrom(guard, target);
@@ -2252,7 +2281,7 @@ public final class PersonEntityManager {
             }
 
             if (stance.weapon() == GuardStance.Weapon.BOW) {
-                if (stance.shoot()) {
+                if (stance.shoot() && mayLoose) {
                     loose(person.id().value(), guard, target);
                 }
             } else if (range <= GUARD_STRIKE_RANGE) {
@@ -2276,11 +2305,36 @@ public final class PersonEntityManager {
      * <p>{@code nextShot} is the game time the next arrow may leave the string.
      * {@code quarry} is what the last one was loosed at, kept so that a kill
      * landing a beat after the shot can still be credited to the town.
+     *
+     * <p>{@code watched} and {@code sightedSince} are the sight line: what he
+     * currently has his eye on, and the game time an unbroken view of it began.
+     * {@link #NO_LINE} means there is no view to time.
      */
     private static final class Shots {
         long nextShot;
         Mob quarry;
+        Mob watched;
+        long sightedSince = NO_LINE;
     }
+
+    /** {@code sightedSince} when there is nothing in view. */
+    private static final long NO_LINE = Long.MIN_VALUE;
+
+    /**
+     * How long a guard must have held an unbroken view before he looses.
+     *
+     * <p>Vanilla's {@code RangedBowAttackGoal} keeps a {@code seeTime} that
+     * counts up while the target is visible, resets the instant visibility
+     * flips, and gates on {@code seeTime >= 20}. Twenty ticks is that number,
+     * unchanged, and it exists for the same reason: a creeper crossing a doorway
+     * is visible for a frame, and a guard who fires on that frame has loosed at
+     * where it no longer is. A full second of watching means he is shooting at
+     * something he is actually looking at.
+     *
+     * <p>At {@link #TICK_INTERVAL} this costs him exactly one pass — he sees the
+     * creeper, and the next second he shoots it.
+     */
+    public static final int SIGHTED_TICKS_BEFORE_SHOT = 20;
 
     private final Map<UUID, Shots> shots = new HashMap<>();
 
@@ -2376,6 +2430,154 @@ public final class PersonEntityManager {
         if (away != null) {
             guard.getNavigation().moveTo(away.x, away.y, away.z, GUARD_CHARGE_SPEED);
         }
+    }
+
+    /**
+     * Whether this guard has held a clear view of his target long enough to
+     * shoot at it, and the bookkeeping that decides so.
+     *
+     * <p>The view itself is vanilla's {@code LivingEntity.hasLineOfSight}, asked
+     * through {@code Mob.getSensing()} so that two questions in one tick cost one
+     * answer. What it actually does is a single {@code Level.clip} from the
+     * guard's eye to the target's eye with {@code ClipContext.Block.COLLIDER} and
+     * {@code ClipContext.Fluid.NONE}, true only if that ray hits nothing: so a
+     * wall, a closed door and a hill stop it, water and tall grass do not, and no
+     * entity is ever consulted. One ray per guard per pass, once a second, is
+     * cheaper than the entity sweep that found the target in the first place.
+     *
+     * <p>Then vanilla's {@code seeTime} rule, in the form its semantics actually
+     * have: the moment the line breaks the clock resets, and a shot wants
+     * {@link #SIGHTED_TICKS_BEFORE_SHOT} ticks on it. Kept as the game time the
+     * view began rather than as a counter, because this runs once a pass and a
+     * counter incremented once a pass would be measuring passes and calling them
+     * ticks. Switching targets resets it too — a second of watching a zombie is
+     * not a second of watching the creeper behind it.
+     */
+    private boolean sighted(UUID guardId, PersonEntity guard, Mob target) {
+        Shots shooting = shots.computeIfAbsent(guardId, id -> new Shots());
+        if (shooting.watched != target) {
+            shooting.watched = target;
+            shooting.sightedSince = NO_LINE;
+        }
+        if (!guard.getSensing().hasLineOfSight(target)) {
+            shooting.sightedSince = NO_LINE;
+            return false;
+        }
+        long now = level.getGameTime();
+        if (shooting.sightedSince == NO_LINE) {
+            shooting.sightedSince = now;
+        }
+        return now - shooting.sightedSince >= SIGHTED_TICKS_BEFORE_SHOT;
+    }
+
+    /**
+     * How wide the arrow is treated as being when asking who is standing in
+     * front of it.
+     *
+     * <p>Vanilla's own projectile margin, which tops out at 0.3 of a block once
+     * an arrow is a few ticks old — so this asks the same question the arrow
+     * itself will ask on the way past, rather than a narrower one that would
+     * clear a shot the arrow then takes in the back of a farmer's head.
+     */
+    private static final float ARROW_MARGIN = 0.3F;
+
+    /**
+     * Whether the shot can be taken without a townsperson in the way.
+     *
+     * <p>A guard's line to a creeper being clear of <em>blocks</em> says nothing
+     * about who is walking down it, and the one thing worse than a guard not
+     * shooting a creeper is a guard shooting the farmer between him and it. So
+     * the same segment the arrow will fly, from his eye to the third of the
+     * target's height vanilla aims at, is asked for the nearest
+     * {@link PersonEntity} it clips — through {@code ProjectileUtil.getEntityHitResult},
+     * which is the very routine the arrow will run itself once it is in the air.
+     *
+     * <p>One entity lookup over a box drawn round that segment, and one box clip
+     * per townsperson it finds, and only ever when a guard is otherwise ready to
+     * loose: the search box is the arrow's own path, so in an empty field it
+     * finds nobody and stops there.
+     */
+    private boolean arrowPathIsClearOfTownsfolk(PersonEntity guard, Mob target) {
+        Vec3 from = new Vec3(guard.getX(), guard.getEyeY(), guard.getZ());
+        Vec3 to = new Vec3(target.getX(), target.getY(0.3333333333333333), target.getZ());
+        AABB along = new AABB(from, to).inflate(ARROW_MARGIN + 1.0);
+        return ProjectileUtil.getEntityHitResult(level, guard, from, to, along,
+                inTheWay -> inTheWay instanceof PersonEntity && inTheWay.isAlive(),
+                ARROW_MARGIN) == null;
+    }
+
+    /**
+     * A guard who cannot shoot from where he is goes and stands where he can.
+     *
+     * <p>{@link FiringPoint} picks the block — a ring of stands round the creeper
+     * at the middle of the band, nearest first — and everything world-shaped is
+     * in the predicate handed to it: whether an arrow from that stand would reach
+     * the creeper without going through a wall. That query is one block clip
+     * each, at most {@link FiringPoint#CANDIDATES} of them, and it stops at the
+     * first stand that works.
+     *
+     * <p>If the ring offers nothing, or offers nothing he can path to, he walks
+     * at the creeper instead — but only as far as {@link GuardStance#BAND_NEAR},
+     * the near edge of his own band. Closing further is how a bowman ends up
+     * inside a blast, and a guard edging to the rim of it has at least changed
+     * his angle, which is the thing that was wrong. He never walks into the hurt
+     * radius to go looking for a shot.
+     */
+    private void repositionForShot(PersonEntity guard, Mob target) {
+        SimPos here = NeoForgeWorldBridge.toSimPos(guard.blockPosition());
+        SimPos creeper = NeoForgeWorldBridge.toSimPos(target.blockPosition());
+        Optional<SimPos> stand = FiringPoint.nearest(here, creeper,
+                candidate -> shotReaches(candidate, guard, target));
+        if (stand.isPresent()) {
+            SimPos to = stand.get();
+            if (guard.getNavigation().moveTo(to.x() + 0.5, to.y(), to.z() + 0.5,
+                    GUARD_CHARGE_SPEED)) {
+                return;
+            }
+        }
+        edgeOfTheBand(guard, target);
+    }
+
+    /**
+     * Whether a guard standing on this block could put an arrow into the target.
+     *
+     * <p>The same clip {@code hasLineOfSight} does, from a place he is not
+     * standing yet: eye height above the candidate block, to the target's eye,
+     * blocks only. The eye height is taken off the candidate's own Y — which is
+     * the creeper's, since the ring is drawn round the creeper — so this is a
+     * question about flat-ish ground, and deliberately so. A stand that turns out
+     * to be up a cliff once he gets there simply fails the next pass's check and
+     * he moves again; guessing at terrain here would cost a height scan per
+     * candidate to answer a question the next second answers for free.
+     */
+    private boolean shotReaches(SimPos candidate, PersonEntity guard, Mob target) {
+        Vec3 from = new Vec3(candidate.x() + 0.5,
+                candidate.y() + guard.getEyeHeight(), candidate.z() + 0.5);
+        Vec3 to = new Vec3(target.getX(), target.getEyeY(), target.getZ());
+        return level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, guard)).getType() == HitResult.Type.MISS;
+    }
+
+    /**
+     * Walks a guard to the near edge of his band and no closer.
+     *
+     * <p>The last resort when there is nowhere on the ring to shoot from. Eight
+     * blocks out is one clear of the seven a creeper's blast hurts at, so this
+     * moves him without ever moving him into it.
+     */
+    private void edgeOfTheBand(PersonEntity guard, Mob target) {
+        double dx = guard.getX() - target.getX();
+        double dz = guard.getZ() - target.getZ();
+        double flat = Math.sqrt(dx * dx + dz * dz);
+        if (flat <= GuardStance.BAND_NEAR || flat < 1.0E-4) {
+            // Already at the rim, or standing on top of it — either way there is
+            // nowhere nearer he is allowed to go.
+            guard.getNavigation().stop();
+            return;
+        }
+        double scale = GuardStance.BAND_NEAR / flat;
+        guard.getNavigation().moveTo(target.getX() + dx * scale, guard.getY(),
+                target.getZ() + dz * scale, GUARD_CHARGE_SPEED);
     }
 
     /**

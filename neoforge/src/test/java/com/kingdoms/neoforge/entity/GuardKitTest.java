@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge.entity;
 
+import com.kingdoms.sim.combat.FiringPoint;
 import com.kingdoms.sim.combat.GuardStance;
 import com.kingdoms.neoforge.view.PersonEntityManager;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,52 @@ final class GuardKitTest {
         // bow is not one.
         assertTrue(Pace.allows(PersonEntityManager.GUARD_CHARGE_SPEED));
         assertEquals(Pace.WALK, PersonEntityManager.GUARD_CHARGE_SPEED);
+    }
+
+    @Test
+    void heWatchesForASecondBeforeHeShoots() {
+        // Vanilla's RangedBowAttackGoal gates its shot on seeTime >= 20 ticks of
+        // unbroken sight. A guard gets the same wait, and it must never be
+        // nothing: zero would put him back to firing at a creeper that crossed a
+        // doorway one frame ago.
+        assertEquals(20, PersonEntityManager.SIGHTED_TICKS_BEFORE_SHOT);
+        assertTrue(PersonEntityManager.SIGHTED_TICKS_BEFORE_SHOT >= 0,
+                "a negative wait is not a wait");
+        assertTrue(PersonEntityManager.SIGHTED_TICKS_BEFORE_SHOT > 0,
+                "a guard who fires on the first frame he glimpses anything");
+    }
+
+    @Test
+    void theWaitCostsHimOnePassAndNotAFight() {
+        // The wait is spent in whole passes, so anything above one pass' worth
+        // would have him watching for two seconds before the first arrow.
+        assertTrue(PersonEntityManager.SIGHTED_TICKS_BEFORE_SHOT
+                        <= PersonEntityManager.TICK_INTERVAL,
+                "a guard would spend more than one pass watching before he shoots");
+    }
+
+    @Test
+    void theRingHeWalksToIsSomewhereHeIsAllowedToStand() {
+        // A firing point outside the band is one GuardStance would walk him
+        // straight off again, and one inside the blast is a dead guard.
+        assertTrue(FiringPoint.RING_RADIUS > GuardStance.BAND_NEAR,
+                "he would be sent to a stand he has to back off from");
+        assertTrue(FiringPoint.RING_RADIUS < GuardStance.BAND_FAR,
+                "he would be sent to a stand that is out of his own range");
+        assertTrue(FiringPoint.RING_RADIUS > GuardStance.HURT_RADIUS,
+                "he would be sent to stand in a creeper's blast");
+        assertTrue(FiringPoint.RING_RADIUS < PersonEntityManager.GUARD_ENGAGE_RANGE,
+                "he would walk to a place he can no longer see the creeper from");
+    }
+
+    @Test
+    void theSearchForSomewhereToShootFromIsBounded() {
+        // Every candidate costs a block clip, once a second, per guard fighting a
+        // creeper. The count is a budget and the test is here to keep it one.
+        assertTrue(FiringPoint.CANDIDATES > 0, "no candidates is no search");
+        assertTrue(FiringPoint.CANDIDATES <= 16,
+                "a guard would run " + FiringPoint.CANDIDATES
+                        + " ray casts a second looking for somewhere to stand");
     }
 
     @Test

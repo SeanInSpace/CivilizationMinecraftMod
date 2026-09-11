@@ -6,6 +6,35 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A guard does not shoot through a wall
+
+### Fixed
+
+- **Guards no longer loose arrows at creepers they cannot see.** A guard picked
+  his range off the distance to the creeper and nothing else, so a creeper on the
+  far side of a barn, a hill or a closed door put him in exactly the right place
+  to stand still and fire into the masonry between them — a whole fight's worth
+  of arrows, none of which ever arrived. Every shot now needs a clear line from
+  his eye to the creeper's, and a guard who has not got one does not take it.
+
+- **He goes and finds an angle instead of standing there.** Rather than holding a
+  range he cannot shoot down, a guard with the shot blocked walks round to a spot
+  he can shoot from — the nearest one he can reach, at his usual walking pace, on
+  a ring around the creeper at the middle of the band he already fights in. If
+  there is genuinely nowhere, he closes to the near edge of the band and no
+  further: he will never walk into the blast looking for a shot.
+
+- **And he does not fire through a farmer.** A townsperson standing on the arrow's
+  path now stops the shot. The guard waits or moves for the angle, which is what
+  he should have been doing all along instead of putting a shaft through his own
+  neighbor's back.
+
+- **He watches for a second before the first arrow.** A creeper that flickers
+  into view crossing a doorway used to be enough to trigger a shot at where it no
+  longer was. He now needs an unbroken view of it before he draws — the same wait
+  a vanilla skeleton takes — so the first arrow of a fight goes where the creeper
+  is.
+
 ## You can tell a smithy from a mill without clicking on it
 
 ### Changed
