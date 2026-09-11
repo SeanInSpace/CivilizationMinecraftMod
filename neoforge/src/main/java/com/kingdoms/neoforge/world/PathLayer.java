@@ -413,9 +413,17 @@ public final class PathLayer {
      * a way driven through a wood is a way through a wood's worth of timber. See
      * {@link Yield}. The clock's mending sweep passes no hands, so what it takes
      * off a road goes straight to the town's nearest shelves.
+     *
+     * <p>All of it but the forester's. A road laid through a lumber camp's belt
+     * takes the litter off its own stones and the branches over them and leaves
+     * the trunks where they stand — see {@link Overgrowth#woodlandOf}. The town
+     * is asked rather than the ground, because a belt lies outside the claim and
+     * a lane out there matches no town when you ask the world which claim it is
+     * standing in.
      */
     static void clearOver(ServerLevel level, BlockPos surface, Settlement town, Person hands) {
-        for (BlockPos above : Overgrowth.overPaving(Overgrowth.over(level), surface)) {
+        for (BlockPos above : Overgrowth.overPaving(Overgrowth.over(level), surface,
+                Overgrowth.woodlandOf(town))) {
             BlockState growth = level.getBlockState(above);
             level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
             Yield.keep(town, hands, growth, above);
