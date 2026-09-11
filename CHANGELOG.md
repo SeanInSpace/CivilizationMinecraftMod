@@ -6,6 +6,50 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## You can tell a smithy from a mill without clicking on it
+
+### Changed
+
+- **Every trade building is now its own shape.** They were all the same box with
+  two block types swapped, so the only way to know what you were looking at was
+  to walk up and click the post. The smithy has an open forge bay — a whole wall
+  gone, standing on two posts — with a brick chimney climbing past the ridge, an
+  anvil, a slack tub and a stone floor. The mill is a two-story tower with four
+  canvas sweeps turning on the wall away from its door, a millstone on the ground
+  floor and a ladder to the loft. The carpentry has a lean-to down one side
+  stacked with logs, a stonecutter at the saw bench, and sawn boards piled in the
+  yard. The workshop has a cart-wide double door with a trade board swinging over
+  it, and a loom, a smithing table and a cartographer's desk inside. The lumber
+  camp is no longer a hut at all — it is a hip roof on eight posts, open on every
+  side, with a woodpile, a chopping block and a fire under it.
+
+- **And so is every store and every yard.** The mine head has a timber headframe
+  standing right up through its low roof, over the shaft the miners cut, with a
+  stub of rail running out of the door. The granary sits on a stone stand with
+  staddle piers under the eaves and its far gable slatted open, so you can see
+  the hay stacked inside from the street. The storehouse is a long low shed with
+  a canopy over a three-wide door and barrels and chests against every foot of
+  wall. The warehouse is the same building at twice the height, with a second
+  floor and the stair up to it running up the outside. The farm keeps a scarecrow
+  on its far corner and a tool shelter against the fence. The animal compound has
+  a byre at the head of the first pen, with feed and a water trough under a roof.
+
+- **All of it in the local idiom.** Every one of these is built in its people's
+  own palette and roofed the way that people roofs — so a highland mill and a
+  burgher mill are the same trade and obviously not the same town. Fences round
+  the fields and the pens are the local wood too, instead of oak everywhere.
+
+- **The field and the pens are exactly as they were.** Not one crop block moved
+  and no compound gained or lost a pen, so nothing about what a farm or a herd is
+  worth has changed.
+
+- **Trade buildings cost more to raise, by about half.** All that shape is blocks
+  somebody carries: a lowland storehouse went from about 210 blocks of work to
+  about 305, a mill from 175 to 350, and the warehouse — which gained a whole
+  second floor — from 350 to about 690. The lumber camp went the other way and
+  got cheaper, from about 170 to 165, which is right for the shelter a town
+  throws up before it owns anything.
+
 ## Houses have roofs, and every people builds its own
 
 ### New

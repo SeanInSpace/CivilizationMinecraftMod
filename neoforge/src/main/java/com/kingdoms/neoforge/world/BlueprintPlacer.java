@@ -1914,40 +1914,134 @@ public final class BlueprintPlacer {
     // --- structures, expressed as plans ---
 
     /**
-     * A mine head: a squat stone hut over the shaft, with the post inside.
+     * A mine head: a squat stone hut with a timber headframe standing over it.
      *
-     * <p>No shaft is dug at build time — the miners cut where the mine post tells
-     * them to, which is the point of the post.
+     * <p>No shaft is dug at build time — the miners cut down from where they are
+     * standing, which is the point of the post. What this adds is the thing that
+     * says so from outside: four legs straddling the origin column, up through
+     * the roof and capped with a frame, and a stub of rail running out of the
+     * door. The roof is held down to two courses on purpose, whatever the local
+     * pitch: a pit head is a lid over a hole, and the headframe has to be the
+     * tallest thing on the plot or it is not a headframe.
+     *
+     * <p><strong>The floor stays cobble and this is not a taste.</strong>
+     * {@code MinerWorker} cuts anything in the stone-brick or base-stone tags
+     * from the mine's own origin course downward, so a floor laid in the
+     * highlander's {@code STONE} or the burgher's {@code STONE_BRICKS} would be a
+     * mine whose first act is to quarry its own floor out from under itself.
+     * Cobble is in neither tag. Everything above the floor line is out of that
+     * search and may be whatever the people build in.
      */
     private static int[] mine(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("mine"), 3, Blocks.COBBLESTONE, Blocks.STONE_BRICKS);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("mine");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int wallHeight = 3;
+        cabin(site, blocks, base, size, wallHeight, style.plinth(), style.frame());
+        TradeParts.floorOf(blocks, base, size, Blocks.COBBLESTONE);
+        TradeParts.dressLow(blocks, base, size, wallHeight, style, 2);
+        // Legs of timber, cap of board. The cap is the top of its own column and
+        // a log at the top of a village column is a tree as far as
+        // LumberjackWorker is concerned — so a headframe capped in logs is a
+        // headframe the town's own axemen take down again.
+        TradeParts.headframe(blocks, base, 2, 7,
+                TradeParts.logFor(style), style.roofRidge());
+        // The way the stone leaves: out of the shaft mouth and through the door.
+        for (int dz = 0; dz <= size.depth() / 2 + BuildingSizes.APRON; dz++) {
+            add(blocks, base.offset(0, 1, dz), Blocks.RAIL);
+        }
         add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.MINE.get());
         add(blocks, base.offset(1, 1, -1), Blocks.FURNACE);
         add(blocks, base.offset(1, 2, -1), Blocks.COBBLESTONE_SLAB);
-        return dims;
+        add(blocks, base.offset(2, 1, 1), Blocks.LANTERN);
+        return measured(blocks, base, size, from);
     }
 
-    /** A long store shed: the town's ledger made of barrels. */
+    /**
+     * The warehouse: the storehouse again, twice as tall, with its stair outside.
+     *
+     * <p>The same building and deliberately so — a wide door under a canopy, and
+     * barrels against every wall — but with a second floor over it and the way up
+     * running up the outside. An external stair is what tells you a store has an
+     * upper floor without your having to go in and find one, and it is how a real
+     * warehouse is built, because a flight of steps inside is floor that could
+     * have held goods.
+     */
     private static int[] warehouse(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("warehouse"), 4, Blocks.DARK_OAK_PLANKS, Blocks.DARK_OAK_LOG);
-        add(blocks, base.offset(0, 1, -2), KingdomsBlocks.WAREHOUSE.get());
-        for (int dx = -2; dx <= 2; dx += 2) {
-            add(blocks, base.offset(dx, 1, 2), Blocks.BARREL);
-            add(blocks, base.offset(dx, 2, 2), Blocks.BARREL);
-            add(blocks, base.offset(dx, 1, -1), Blocks.BARREL);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("warehouse");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int wallHeight = 7;
+        int deckY = 4;
+        int rx = size.width() / 2;
+        int rz = size.depth() / 2;
+        cabin(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        TradeParts.widenDoor(blocks, base, size, -1, 1);
+        TradeParts.canopy(blocks, base, size, 3, 2, style.post(), style.roofRidge());
+        Parts.dress(blocks, base, size, wallHeight, style);
+        Parts.windowRow(blocks, base, size, deckY + 2, style.wall(),
+                HouseStyle.Variation.forOrigin(base).windowSpacing());
+
+        // The upper floor, and the way onto it. The deck is whole: the stair is
+        // outside, so nothing has to be left open in it.
+        TradeParts.deck(blocks, base, size, deckY, rx, rz, style.wall());
+        int landing = TradeParts.outsideStair(blocks, base, size, -1, deckY,
+                style.roofStairs(), style.plinth());
+        for (int y = deckY + 1; y <= deckY + 2; y++) {
+            add(blocks, base.offset(-rx, y, landing), Blocks.AIR);
         }
-        return dims;
+
+        for (int dx = -rx + 1; dx <= rx - 1; dx += 2) {
+            add(blocks, base.offset(dx, 1, -rz + 1), Blocks.BARREL);
+            add(blocks, base.offset(dx, 2, -rz + 1), Blocks.BARREL);
+            add(blocks, base.offset(dx, deckY + 1, -rz + 1), Blocks.BARREL);
+            add(blocks, base.offset(dx, deckY + 2, -rz + 1), Blocks.BARREL);
+            add(blocks, base.offset(dx, deckY + 1, rz - 1), Blocks.BARREL);
+        }
+        add(blocks, base.offset(rx - 1, 1, rz - 1), Blocks.CHEST);
+        add(blocks, base.offset(0, deckY + 1, 0), Blocks.LANTERN);
+        add(blocks, base.offset(0, 1, -2), KingdomsBlocks.WAREHOUSE.get());
+        return measured(blocks, base, size, from);
     }
 
-    /** A smithy: forge, anvil, bench. */
+    /**
+     * A smithy: an open forge bay under a brick chimney, and a floor of stone.
+     *
+     * <p>Three things say smithy from the far side of the green, and none of them
+     * is the anvil. The <strong>bay</strong> — one whole wall gone, standing on
+     * two posts under a lintel — because a forge has to breathe and its fire has
+     * to be seen. The <strong>chimney</strong>, in fired brick whatever the
+     * people build the rest in, climbing clear of the ridge. And the fact that
+     * the whole thing is <strong>masonry</strong>: this is the one trade whose
+     * walls are the people's stone rather than their timber, because a hearth in
+     * a plank shed is a fire, and because a town that has to find two hundred
+     * blocks of stone for its smithy is a town for which the smithy is a
+     * decision.
+     */
     private static int[] smith(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("smith"), 3, Blocks.STONE_BRICKS, Blocks.DEEPSLATE_BRICKS);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("smith");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int wallHeight = 3;
+        int rx = size.width() / 2;
+        cabin(site, blocks, base, size, wallHeight, style.plinth(), style.frame());
+        // Before the dressing, so the plinth, the timbering and the window row
+        // all find air where the bay is and leave it open.
+        TradeParts.openBay(blocks, base, size, -1, wallHeight,
+                style.frame(), style.roofRidge());
+        Parts.dress(blocks, base, size, wallHeight, style);
+        // After it, because a chimney has to know how high the ridge came out.
+        Parts.chimney(blocks, base, rx, -1, 1, Parts.topOf(blocks, base, from) + 2,
+                Blocks.BRICKS);
+
         add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.SMITH.get());
-        add(blocks, base.offset(0, 1, -1), Blocks.FURNACE);
-        add(blocks, base.offset(1, 1, -1), Blocks.ANVIL);
-        add(blocks, base.offset(1, 1, 1), Blocks.SMITHING_TABLE);
-        add(blocks, base.offset(-1, 1, 1), Blocks.GRINDSTONE);
-        return dims;
+        add(blocks, base.offset(rx - 1, 1, -1),
+                TradeParts.facing(Blocks.BLAST_FURNACE, Direction.WEST));
+        add(blocks, base.offset(2, 1, 1), Blocks.ANVIL);
+        // The slack tub. A smith quenches more often than he grinds.
+        add(blocks, base.offset(3, 1, 1), Blocks.WATER_CAULDRON);
+        add(blocks, base.offset(-2, 1, 1), Blocks.GRINDSTONE);
+        return measured(blocks, base, size, from);
     }
 
     /**
@@ -1969,6 +2063,8 @@ public final class BlueprintPlacer {
         // a sixth pen would be a fence through the neighbor's wall rather than
         // a bigger farm.
         BuildingSizes.Size size = sized("animal_farm");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        Block fence = style.post();
         int penDepth = 3;
         int room = (size.depth() - 1) / (penDepth + 1);
         int pens = Math.min(room, Math.max(1, site.culture().penCount()));
@@ -1985,36 +2081,131 @@ public final class BlueprintPlacer {
                 // A divider every penDepth+1 rows walls one pen off from the next.
                 boolean divider = Math.floorMod(dz + rz, penDepth + 1) == 0;
                 if (edge || divider) {
-                    add(blocks, base.offset(dx, 1, dz), Blocks.OAK_FENCE);
+                    add(blocks, base.offset(dx, 1, dz), fence);
                 }
             }
         }
         // One gate per pen, all down the same side, so every pen can be walked into.
         for (int pen = 0; pen < pens; pen++) {
             int dz = -rz + 1 + pen * (penDepth + 1);
-            add(blocks, base.offset(-rx, 1, dz), Blocks.OAK_FENCE_GATE);
+            add(blocks, base.offset(-rx, 1, dz), TradeParts.gateFor(fence));
         }
         add(blocks, base.offset(0, 1, -rz + 1), KingdomsBlocks.ANIMAL_FARM.get());
-        return new int[]{width, depth, 3};
+        // A byre at the head of the first pen: feed, a trough, and a roof over
+        // both. Set against the far side from the gates and clear of the middle
+        // of the strip, which is where ShepherdWorker puts a beast down.
+        TradeParts.byre(blocks, base, rx - 1, -rz + 1,
+                TradeParts.logFor(style), TradeParts.boardFor(style), Blocks.HAY_BLOCK);
+        return new int[]{width, depth, 4};
     }
 
+    /**
+     * A granary: a stone stand, staddle piers under the eaves, and a slatted end.
+     *
+     * <p>A barn you can see into. The end away from the door is opened out — the
+     * top course of wall and the whole gable triangle replaced by slats — so the
+     * hay stacked against it is visible from the street, which is the difference
+     * between a granary and a shed that happens to hold grain. It is also what a
+     * real one does: grain that cannot breathe is grain that rots.
+     *
+     * <p>The stand is stone, the floor included, and four piers stand out under
+     * the eave corners. A granary that sits on the earth is a granary the rats
+     * have.
+     *
+     * <p><strong>It is not raised a whole course, and that is a compromise.</strong>
+     * The proper thing is a deck lifted a block clear of the ground on staddle
+     * stones with daylight underneath. The granary post stands at the floor
+     * course at a fixed offset, and lifting the deck would either bury it or
+     * shut it under the building where nobody could read it. So the stand is a
+     * stone one at grade with its piers showing, and the post stays where
+     * everything that looks for it expects to find it.
+     */
     private static int[] granary(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("granary"), 3, Blocks.SPRUCE_PLANKS, Blocks.STRIPPED_SPRUCE_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("granary");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int wallHeight = 3;
+        int rx = size.width() / 2;
+        int rz = size.depth() / 2;
+        cabin(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        TradeParts.floorOf(blocks, base, size, style.plinth());
+        Parts.dress(blocks, base, size, wallHeight, style);
+        TradeParts.loftVent(blocks, base, size, 1, wallHeight,
+                style.roofFor(size) == HouseStyle.Roof.GABLE, style.post());
+        // Staddle piers, out in the doorstep ring under the corners of the eave.
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sz = -1; sz <= 1; sz += 2) {
+                for (int y = 1; y <= 2; y++) {
+                    add(blocks, base.offset(sx * rx, y,
+                            sz * (rz + BuildingSizes.APRON)), style.plinth());
+                }
+            }
+        }
+        // The stack, three courses against the slatted end so it shows through.
+        for (int dz = -2; dz <= 0; dz++) {
+            for (int y = 1; y <= wallHeight; y++) {
+                add(blocks, base.offset(rx - 1, y, dz),
+                        TradeParts.lying(Blocks.HAY_BLOCK, true));
+            }
+        }
+        TradeParts.ladder(blocks, base, rx - 2, -1, 1, wallHeight, Direction.WEST);
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.GRANARY.get());
-        add(blocks, base.offset(-1, 1, -1), Blocks.HAY_BLOCK);
-        add(blocks, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
-        add(blocks, base.offset(-1, 2, -1), Blocks.HAY_BLOCK);
-        add(blocks, base.offset(1, 1, 0), Blocks.BARREL);
-        return dims;
+        add(blocks, base.offset(-rx + 1, 1, 1), Blocks.BARREL);
+        add(blocks, base.offset(-rx + 1, 1, -1), Blocks.COMPOSTER);
+        return measured(blocks, base, size, from);
     }
 
-    /** A woodcutters hut: the control post stands on the floor, axe-side out. */
+    /**
+     * A lumber camp: a hip roof on eight posts, open on all four sides.
+     *
+     * <p>Deliberately not a cabin. Every other trade in the mod works indoors and
+     * this one works in the wood — what stands on the plot is where the timber is
+     * stacked and where the axes are sharpened, not where anybody sits. So it has
+     * no walls at all: a floor of trodden earth and boards, eight uprights, a
+     * pyramid of a roof, and under it a log pile, a chopping block and a fire.
+     *
+     * <p>An open shelter is also the cheapest building in the mod, which is
+     * right: the lumber camp is one of the three producers a town raises before
+     * it has anything to raise them with — see {@code BuildPlanner.PRODUCER_OF}.
+     */
     private static int[] lumberCamp(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("lumber_camp"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("lumber_camp");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int rx = size.width() / 2;
+        int rz = size.depth() / 2;
+        int postHeight = 3;
+        Block log = TradeParts.logFor(style);
+        foundation(site, blocks, base, size.width(), size.depth());
+
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                boolean yard = Math.abs(dx) == rx || Math.abs(dz) == rz;
+                add(blocks, base.offset(dx, 0, dz),
+                        yard ? Blocks.COARSE_DIRT : style.wall());
+            }
+        }
+        // Corners and the middle of each side. Four posts under a seven-wide
+        // roof reads as a lid on stilts; eight reads as a frame.
+        for (int dx = -rx; dx <= rx; dx += rx) {
+            for (int dz = -rz; dz <= rz; dz += rz) {
+                if (dx == 0 && dz == 0) {
+                    continue;   // the middle is where the work happens
+                }
+                for (int y = 1; y <= postHeight; y++) {
+                    add(blocks, base.offset(dx, y, dz), TradeParts.upright(log));
+                }
+            }
+        }
+        Parts.hipRoof(blocks, base, size, postHeight + 1,
+                style.roofStairs(), style.roofRidge(), 0);
+
+        TradeParts.logPile(blocks, base, 2, -2, 3, 2, log);
+        add(blocks, base.offset(-2, 1, 2), TradeParts.upright(log));   // the block
+        add(blocks, base.offset(-2, 2, 2), Blocks.LANTERN);
+        add(blocks, base.offset(1, 1, 2), Blocks.CAMPFIRE);
         add(blocks, base.offset(-1, 1, -1), KingdomsBlocks.LUMBER_CAMP.get());
-        add(blocks, base.offset(1, 1, -1), Blocks.OAK_LOG);
-        add(blocks, base.offset(1, 2, -1), Blocks.OAK_LOG);
-        return dims;
+        return measured(blocks, base, size, from);
     }
 
     /**
@@ -2270,26 +2461,97 @@ public final class BlueprintPlacer {
         return dims;
     }
 
-    /** The mill: a grindstone under a spruce roof, hay in every corner. */
+    /**
+     * The mill: a two-story tower with four sweeps on the wall away from its door.
+     *
+     * <p>A windmill is a silhouette before it is a building, and the silhouette
+     * is height and a wheel. The height is honest — two floors, a deck and a
+     * ladder, walls twice a cottage's — and the wheel is mounted flat in the
+     * plane of the rear wall rather than on a cap.
+     *
+     * <p><strong>Why flat against the wall.</strong> A real mill's sweeps are
+     * longer than its tower is wide, and a building's ground here is its
+     * footprint and one block of doorstep — see {@link BuildingSizes#APRON}. A
+     * cap-mounted wheel of any size worth seeing would stand in the next plot.
+     * Mounted in the rear wall's own plane it has the whole height of the tower
+     * to turn in and reaches no further out than the eave already does, which is
+     * the difference between a windmill and a trespass.
+     */
     private static int[] mill(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("mill"), 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("mill");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int wallHeight = 6;
+        cabin(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        Parts.dress(blocks, base, size, wallHeight, style);
+        // A second rank of windows, because a tower lit only at head height
+        // reads as a very tall shed.
+        Parts.windowRow(blocks, base, size, wallHeight - 1, style.wall(),
+                HouseStyle.Variation.forOrigin(base).windowSpacing());
+
+        TradeParts.deck(blocks, base, size, 4, -2, -2, style.wall());
+        // Up through the hole in the deck and one rung past it, or a climber
+        // arrives level with the floor rather than on top of it.
+        TradeParts.ladder(blocks, base, -2, -2, 1, 5, Direction.SOUTH);
+        TradeParts.sailWheel(blocks, base, size, wallHeight - 1,
+                TradeParts.logFor(style), style.post(), Blocks.WOOL.white());
+
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.MILL.get());
         add(blocks, base.offset(-1, 1, -1), Blocks.GRINDSTONE);
-        add(blocks, base.offset(1, 1, -1), Blocks.HAY_BLOCK);
-        add(blocks, base.offset(1, 2, -1), Blocks.HAY_BLOCK);
-        add(blocks, base.offset(-1, 1, 1), Blocks.BARREL);
-        return dims;
+        // The millstone proper: a bed of smooth stone with the runner on it.
+        add(blocks, base.offset(2, 1, 0), Blocks.SMOOTH_STONE);
+        add(blocks, base.offset(2, 2, 0), Blocks.SMOOTH_STONE_SLAB);
+        add(blocks, base.offset(2, 1, -2), TradeParts.lying(Blocks.HAY_BLOCK, true));
+        add(blocks, base.offset(2, 2, -2), TradeParts.lying(Blocks.HAY_BLOCK, true));
+        add(blocks, base.offset(-2, 1, 1), Blocks.BARREL);
+        return measured(blocks, base, size, from);
     }
 
-    /** The carpentry: benches, a saw pit's worth of planks, stacked stock. */
+    /**
+     * The carpentry: a lean-to stacked with logs, a saw bench, planks in the yard.
+     *
+     * <p>A woodworker's yard is more of the building than the building is. The
+     * lean-to is one block deep because the doorstep ring is one block deep, and
+     * that happens to be exactly what a lean-to is anyway — a roof pitched off
+     * somebody else's wall with the stock kept dry underneath.
+     *
+     * <p>The timber lies <strong>on its side</strong> under that roof, which is
+     * two decisions rather than one. On its side because an upright log is a tree
+     * and a log across the grain is stock. Under the roof because a lumberjack
+     * fells whatever log stands highest in a village column — see
+     * {@code LumberjackWorker} — so a woodpile in the open air is a woodpile the
+     * town's own axemen carry off again.
+     */
     private static int[] carpentry(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("carpentry"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("carpentry");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int wallHeight = 3;
+        Block log = TradeParts.logFor(style);
+        cabin(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        Parts.dress(blocks, base, size, wallHeight, style);
+        // After the dressing: a style's shutters hang in this same ring, and a
+        // lean-to would rather have its posts than its neighbor's shutters.
+        TradeParts.leanTo(blocks, base, size, 1, 2, wallHeight,
+                style.post(), style.roofStairs());
+        TradeParts.logPile(blocks, base, size.width() / 2 + BuildingSizes.APRON,
+                -1, 3, 2, log);
+        // Sawn stock in the yard. Boards rather than the people's own walling,
+        // because one people walls in stripped oak wood -- which is in the logs
+        // tag, and a log lying in a yard is a log a lumberjack fells.
+        Block board = TradeParts.boardFor(style);
+        int yard = -(size.width() / 2 + BuildingSizes.APRON);
+        add(blocks, base.offset(yard, 1, -1), board);
+        add(blocks, base.offset(yard, 1, 0), board);
+        add(blocks, base.offset(yard, 2, 0), board);
+        add(blocks, base.offset(yard, 1, 1), board);
+
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.CARPENTRY.get());
-        add(blocks, base.offset(-1, 1, -1), Blocks.CRAFTING_TABLE);
-        add(blocks, base.offset(1, 1, -1), Blocks.STRIPPED_OAK_LOG);
-        add(blocks, base.offset(1, 2, -1), Blocks.STRIPPED_OAK_LOG);
-        add(blocks, base.offset(-1, 1, 1), Blocks.OAK_PLANKS);
-        return dims;
+        add(blocks, base.offset(-1, 1, -1),
+                TradeParts.facing(Blocks.STONECUTTER, Direction.SOUTH));
+        add(blocks, base.offset(1, 1, -1), Blocks.FLETCHING_TABLE);
+        add(blocks, base.offset(-2, 1, 1), Blocks.CRAFTING_TABLE);
+        return measured(blocks, base, size, from);
     }
 
     /** The inn: the village's biggest roof, lanterns lit for the road. */
@@ -2369,22 +2631,78 @@ public final class BlueprintPlacer {
         return new int[]{5, 5, 2};
     }
 
+    /**
+     * A storehouse: a low shed with a cart-wide door under a canopy, lined with
+     * barrels.
+     *
+     * <p>Two things say store. The <strong>door</strong>, three blocks wide with
+     * a board on posts over it, because everything about this building is
+     * carrying things through that opening. And the <strong>lining</strong> —
+     * every foot of wall that is not the door has a barrel or a chest against it,
+     * which is a room you can read the purpose of from the threshold.
+     */
     private static int[] storehouse(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("storehouse"), 3, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("storehouse");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int wallHeight = 3;
+        int rx = size.width() / 2;
+        int rz = size.depth() / 2;
+        cabin(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        TradeParts.widenDoor(blocks, base, size, -1, 1);
+        // Before the roof, so a pitched eave becomes the canopy's own cover —
+        // the same bargain Parts.porch makes, one block wider.
+        TradeParts.canopy(blocks, base, size, wallHeight, 2,
+                style.post(), style.roofRidge());
+        Parts.dress(blocks, base, size, wallHeight, style);
+
+        for (int dx = -rx; dx <= rx; dx++) {
+            if (dx == 0) {
+                continue;   // the aisle in from the door
+            }
+            add(blocks, base.offset(dx, 1, -rz + 1),
+                    Math.floorMod(dx, 2) == 0 ? Blocks.CHEST : Blocks.BARREL);
+        }
+        for (int side = -1; side <= 1; side += 2) {
+            add(blocks, base.offset(side * (rx - 1), 1, 0), Blocks.BARREL);
+            add(blocks, base.offset(side * (rx - 1), 1, rz - 1), Blocks.BARREL);
+            add(blocks, base.offset(side * (rx - 1), 2, -rz + 1), Blocks.BARREL);
+        }
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.STOREHOUSE.get());
-        add(blocks, base.offset(-1, 1, -1), Blocks.BARREL);
-        add(blocks, base.offset(1, 1, -1), Blocks.BARREL);
-        add(blocks, base.offset(-1, 2, -1), Blocks.BARREL);
-        return dims;
+        return measured(blocks, base, size, from);
     }
 
+    /**
+     * The workshop: a cart-wide door with a trade board hung over it.
+     *
+     * <p>The building whose whole business is that things go in and come out
+     * again, so the door is the thing that says so — two blocks wide instead of
+     * one, with a board swinging under the eave above it. Inside is the one bench
+     * of every craft that is not a forge and not a saw: a loom, a smithing table,
+     * a cartographer's desk.
+     *
+     * <p>It also had a genuine bug. The old drawing put a crafting table at the
+     * post's own cell and then a furnace on top of both, so the workshop's post —
+     * the block that names it to the player and to the simulation — was never
+     * actually standing.
+     */
     private static int[] workshop(Site site, List<Placement> blocks, BlockPos base) {
-        int[] dims = cabin(site, blocks, base, sized("workshop"), 3, Blocks.OAK_PLANKS, Blocks.STRIPPED_OAK_LOG);
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("workshop");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int wallHeight = 3;
+        int rx = size.width() / 2;
+        cabin(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        TradeParts.widenDoor(blocks, base, size, 0, 1);
+        Parts.dress(blocks, base, size, wallHeight, style);
+        add(blocks, base.offset(0, 2, size.depth() / 2 + BuildingSizes.APRON),
+                TradeParts.signFor(style.post()));
+
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.WORKSHOP.get());
-        add(blocks, base.offset(-1, 1, -1), Blocks.CRAFTING_TABLE);
-        add(blocks, base.offset(1, 1, -1), Blocks.SMITHING_TABLE);
-        add(blocks, base.offset(0, 1, -1), Blocks.FURNACE);
-        return dims;
+        add(blocks, base.offset(-rx + 1, 1, -1), Blocks.LOOM);
+        add(blocks, base.offset(rx - 1, 1, -1), Blocks.SMITHING_TABLE);
+        add(blocks, base.offset(-rx + 1, 1, 1), Blocks.CARTOGRAPHY_TABLE);
+        return measured(blocks, base, size, from);
     }
 
     private static int[] market(Site site, List<Placement> blocks, BlockPos base) {
@@ -2418,8 +2736,20 @@ public final class BlueprintPlacer {
         return new int[]{size.width(), size.depth(), 4};
     }
 
+    /**
+     * A crop field, fenced in the culture's own wood, with a scarecrow on the corner.
+     *
+     * <p><strong>The field itself is untouchable.</strong> Seventy-one wheat
+     * blocks is what {@code Field.CROP_BLOCKS} says an unwatched town's whole
+     * harvest is proportional to, and {@code BlueprintPlacerFieldTest} counts
+     * them off this drawing. So everything added here stands on the rim or in the
+     * doorstep ring: the scarecrow on the far corner, the tool shelter against
+     * the fence opposite the gate. Not one soil cell changes hands.
+     */
     private static int[] farm(Site site, List<Placement> blocks, BlockPos base) {
         int r = 5;
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        Block fence = style.post();
         // A field's soil is its floor, and that is drawn one below the base.
         foundation(site, blocks, base, 2 * r + 1, 2 * r + 1, -1);
         for (int dx = -r; dx <= r; dx++) {
@@ -2427,7 +2757,7 @@ public final class BlueprintPlacer {
                 boolean edge = Math.abs(dx) == r || Math.abs(dz) == r;
                 if (edge) {
                     add(blocks, base.offset(dx, -1, dz), Blocks.GRASS_BLOCK);
-                    add(blocks, base.offset(dx, 0, dz), Blocks.OAK_FENCE);
+                    add(blocks, base.offset(dx, 0, dz), fence);
                 } else if (dz == 0) {
                     add(blocks, base.offset(dx, -1, dz), Blocks.WATER);
                 } else {
@@ -2440,8 +2770,8 @@ public final class BlueprintPlacer {
         // closed one is solid to pathfinding, so a fence with a gate in it is a
         // pen, and the farmer who walked in at planting was still in there at
         // harvest wondering how to get out.
-        add(blocks, base.offset(0, 0, r),
-                Blocks.OAK_FENCE_GATE.defaultBlockState().setValue(FenceGateBlock.OPEN, true));
+        add(blocks, base.offset(0, 0, r), TradeParts.gateFor(fence).defaultBlockState()
+                .setValue(FenceGateBlock.OPEN, true));
         // Lanterns on the fence, enough that every crop sits in light 8 at night.
         // A crop that cannot see the sky — and a field cut into a hillside always
         // has a shaded strip under the overhang — pops off its soil the first
@@ -2454,6 +2784,21 @@ public final class BlueprintPlacer {
             add(blocks, base.offset(post[0], 1, post[1]), Blocks.LANTERN);
         }
         add(blocks, base.offset(r - 1, 0, r - 1), KingdomsBlocks.FARM.get());
+
+        // The far corner, out in the doorstep ring where no crop grows.
+        int out = r + BuildingSizes.APRON;
+        TradeParts.scarecrow(blocks, base, -out, -out, 0, fence);
+        // A tool shelter against the fence opposite the gate: two posts, a lean
+        // of roof, and a barrel under it. One block deep, because the ring is.
+        for (int dz = -1; dz <= 1; dz++) {
+            add(blocks, base.offset(out, 2, dz),
+                    TradeParts.stair(style.roofStairs(), Direction.WEST));
+        }
+        for (int side = -1; side <= 1; side += 2) {
+            add(blocks, base.offset(out, 0, side), fence);
+            add(blocks, base.offset(out, 1, side), fence);
+        }
+        add(blocks, base.offset(out, 0, 0), Blocks.BARREL);
         return new int[]{2 * r + 1, 2 * r + 1, 3};
     }
 
