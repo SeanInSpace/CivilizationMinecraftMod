@@ -636,7 +636,13 @@ public final class KingdomsCommand {
                 sb.append("\n      roads: ")
                         .append(s.paths().segments().size()).append(" runs, ")
                         .append(s.paths().totalLength()).append(" blocks, ")
-                        .append(s.paths().joined().size()).append(" buildings joined");
+                        .append(s.paths().joined().size()).append(" of ")
+                        // Out of how many, because a door can now be left
+                        // unjoined on purpose: a lane that cannot reach a road
+                        // without being laid through somebody's house is not
+                        // laid, and the town says so instead of quietly gravelling
+                        // a kitchen. The pair of numbers is how that shows.
+                        .append(s.buildings().size()).append(" buildings joined");
                 sb.append("\n      jobs: ");
                 for (Profession p : Profession.values()) {
                     int n = JobPlanner.count(s, p);

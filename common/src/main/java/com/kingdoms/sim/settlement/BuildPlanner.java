@@ -188,6 +188,40 @@ public final class BuildPlanner {
         return DEFAULT_PLOT_SPAN;
     }
 
+    /**
+     * How far a building's <em>walls</em> reach either side of its origin, as it
+     * stands.
+     *
+     * <p>Not its plot. A plot is a square claim with an apron round it, kept
+     * generously and deliberately square so that turning a building cannot
+     * invalidate the ground reserved for it. Walls are the blocks that are
+     * actually there, and they are the thing a road must never be laid across:
+     * a lane over the doorstep is a doorstep, a lane over the kitchen is the
+     * fault a player reported.
+     *
+     * <p>Read off {@link BuildingSizes} and turned with the building, because a
+     * quarter turn swaps width for depth. Anything the size table has never
+     * heard of falls back to its plot less its aprons, which is what the plot
+     * was built out of in the first place.
+     *
+     * @return {@code {halfX, halfZ}} — the building covers {@code origin ± half}
+     */
+    public static int[] wallsHalfOf(String blueprintId, int facing,
+                                    List<BuildingType> catalog) {
+        BuildingSizes.Size size = BuildingSizes.of(baseIdOf(blueprintId));
+        int width;
+        int depth;
+        if (size != null) {
+            width = size.width();
+            depth = size.depth();
+        } else {
+            width = Math.max(1, plotSpanOf(blueprintId, catalog) - 2 * BuildingSizes.APRON);
+            depth = width;
+        }
+        boolean turned = Math.floorMod(facing, 4) % 2 != 0;
+        return new int[] {(turned ? depth : width) / 2, (turned ? width : depth) / 2};
+    }
+
     /** Whether this is a plot that must be kept clear of other plots at all. */
     public static boolean holdsGround(String blueprintId) {
         return !baseIdOf(blueprintId).equals(ACCESS_STAIRS);

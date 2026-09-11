@@ -6,6 +6,45 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The footpath goes round the house
+
+### Fixed
+
+- **Houses are no longer built on top of roads, and roads are no longer laid
+  through houses.** Across thirteen arrangements grown on two terrains, founded
+  and world-generated, watched and away — 104 towns and about 2,900 buildings —
+  there were **972 cases of a road's gravel running inside a building's walls.
+  There are now none.** Every single one of the 972 was a footpath, and that is
+  exactly why nothing had ever caught it: a town kept its buildings off its
+  carriageways and treated the little three-wide lanes between doors as though
+  they did not exist.
+
+- **A lane from a door now goes round whatever is in the way.** It used to run
+  two straight lines from the doorstep to the nearest road and consult nothing in
+  between, so any house standing on that line got a path driven through it — 245
+  of the 972. A lane now keeps clear of every building that is standing and every
+  one that has been ordered, takes its turn further out or meets the road a few
+  blocks further along when that is what it takes to get round, and is simply not
+  laid at all if the only way through is somebody's kitchen.
+
+- **And it no longer scrapes down the side of its own house.** The commonest case
+  of all — 415 of the 972 — was a building gravelled by its own path, which left
+  the door, turned too soon, and came straight back along its own side wall. A
+  path now leaves by the door and turns clear of the building it came out of.
+
+- **A building will not be raised on a footpath somebody walks.** The remaining
+  194 were houses sited squarely on a lane that was already there. A plot may
+  still be laid over the dead end of a lane that led to a door which is no longer
+  there — that is ground the town made and can take back — but a path that runs
+  through from one place to another is now a road like any other, and the town
+  builds somewhere else.
+
+- **A town that cannot reach a door says so.** About seven doors in a thousand
+  end up with no lane at all, because every line to every road near them would
+  have to cross a wall. Those are left unjoined and counted on the `/civ info`
+  roads line, which now reads "joined of standing" rather than a bare number — a
+  door the town admits it has not reached, instead of a path through a bedroom.
+
 ## Felling one tree fells one tree
 
 ### Fixed
