@@ -52,6 +52,7 @@ import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingRole;
 import com.kingdoms.sim.settlement.FieldRoster;
 import com.kingdoms.sim.settlement.FoodPlanner;
+import com.kingdoms.sim.settlement.KingPlanner;
 import com.kingdoms.sim.settlement.Footprint;
 import com.kingdoms.sim.settlement.PathNetwork;
 import com.kingdoms.sim.settlement.RoadUpkeep;
@@ -334,6 +335,35 @@ public final class PersonEntityManager {
         return Culture.of(settlement.cultureId()).race();
     }
 
+    /**
+     * The king wears the crown and nobody else does.
+     *
+     * <p>Run once a pass, and the same shape as the watch's kit for the same
+     * reason: it asks every embodied settler whether they are what they are
+     * wearing, so a title that changes between passes — a guard crowned when the
+     * great hut is finished, a king killed in a raid — is answered on the next
+     * one without anything having to announce it. Idempotent by construction,
+     * so running it every second costs a map lookup a head.
+     *
+     * <p>Kept apart from the arming pass rather than folded into it. They look
+     * alike and they are not the same rule: a weapon is issued out of the town's
+     * stores and handed back to them, and a crown is neither issued nor returned
+     * — it is what a body looks like while the simulation says it is the king.
+     */
+    private void tendCrown(Settlement settlement) {
+        Race race = raceOf(settlement);
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied()) {
+                continue;
+            }
+            PersonEntity body = tracked.get(person.id().value());
+            if (body == null || body.isRemoved()) {
+                continue;
+            }
+            body.wearCrown(person.profession() == Profession.KING, race);
+        }
+    }
+
     private final ServerLevel level;
     private final SimWorld world;
 
@@ -439,6 +469,7 @@ public final class PersonEntityManager {
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
                 tendKit(settlement);
+                tendCrown(settlement);
                 guardCombat(settlement);
                 civilianDefense(settlement);
             }
@@ -3376,7 +3407,7 @@ public final class PersonEntityManager {
                 continue;
             }
             SimPos home = homeOf(settlement, person);
-            SimPos shelter = home != null ? home : settlement.center();
+            SimPos shelter = home != null ? home : KingPlanner.rallyPoint(settlement);
             view.setShelter(shelter == null ? null
                     : new BlockPos(shelter.x(), shelter.y(), shelter.z()));
             view.setThreatened(threatNear(view));
@@ -3552,7 +3583,13 @@ public final class PersonEntityManager {
                 // Wary is a walk indoors; alarmed is a run. A town that sprints
                 // for its doors over one skeleton reads as hysterical, and a
                 // town that strolls through a raid reads as asleep.
-                target = home != null ? home : settlement.center();
+                //
+                // Somebody with no roof of their own runs to the rally point,
+                // which for a warband is the great hut and for everybody else
+                // is the middle of town -- the same place this always sent
+                // them, now said by KingPlanner so that a camp musters at its
+                // chief's door rather than at a point on the map.
+                target = home != null ? home : KingPlanner.rallyPoint(settlement);
                 speed = alarm == Alarm.ALARMED ? SHELTER_SPEED : WALK_SPEED;
             } else if (FoodPlanner.isGoingToEat(person)) {
                 // Dinner outranks the end of the day. Somebody weak with hunger
@@ -3572,7 +3609,7 @@ public final class PersonEntityManager {
                 // where it is; the door is where it is not. This is the same
                 // destination the bell would send them to, at the same pace as
                 // every other errand -- judgment, not adrenaline.
-                target = home != null ? home : settlement.center();
+                target = home != null ? home : KingPlanner.rallyPoint(settlement);
                 speed = WALK_SPEED;
             } else {
                 target = workplaceFor(settlement, person, home);
@@ -3684,6 +3721,11 @@ public final class PersonEntityManager {
                     ? nearestBuilding(settlement, "farm", person.position())
                     : settlement.buildQueue().getFirst().origin();
             case IDLER -> home != null ? home : settlement.center();
+            // A king's workplace is his own doorstep. He does no work, so what
+            // this answers for him is simply where he stands to be seen —
+            // the great hut, on the middle of the muster yard, which is also
+            // where the town rallies when the bell goes.
+            case KING -> KingPlanner.rallyPoint(settlement);
         };
     }
 

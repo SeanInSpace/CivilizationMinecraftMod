@@ -79,7 +79,27 @@ public final class Garrison {
      * either.
      */
     public static int guardStrength(Settlement settlement) {
-        return JobPlanner.count(settlement, Profession.GUARD);
+        return JobPlanner.count(settlement, Profession.GUARD) + kingsWorth(settlement);
+    }
+
+    /**
+     * What a living king adds to the line, and nothing when there is none.
+     *
+     * <p>Morale, and the one thing on this page that is not a head count. A
+     * warband with somebody to follow fights harder than the same warband
+     * without one, so the king is worth {@link KingPlanner#KING_GUARD_BONUS}
+     * guards while he stands and nothing at all the step he falls.
+     *
+     * <p>Counted here <em>and</em> in {@link RaidPlanner#defensePower}, which is
+     * deliberately not how the watchtower is treated. A tower is left out of
+     * this page on purpose — it can be knocked down before the raid it was built
+     * for, so a town should not recruit as though it had one. A king cannot be
+     * knocked down in advance: either he is alive when the raid arrives, in
+     * which case both numbers are right, or he is not, in which case both are
+     * zero.
+     */
+    private static int kingsWorth(Settlement settlement) {
+        return KingPlanner.hasKing(settlement) ? KingPlanner.KING_GUARD_BONUS : 0;
     }
 
     /**

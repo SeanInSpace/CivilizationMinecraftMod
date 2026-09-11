@@ -1,7 +1,6 @@
 package com.kingdoms.sim;
 
 import com.kingdoms.sim.culture.Culture;
-import com.kingdoms.sim.culture.Layout;
 import com.kingdoms.sim.culture.Layouts;
 import com.kingdoms.sim.culture.OrcRingLayout;
 import com.kingdoms.sim.culture.TownPlan;
@@ -21,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * without turning any of those red:
  *
  * <ul>
- *   <li>the great hut stands on the middle;</li>
+ *   <li>the plan keeps the middle for the chief;</li>
  *   <li>the yard round it is empty, so the middle is a muster ground and not a
  *       roundabout with a building in it;</li>
  *   <li>no lane crosses the yard, which is the one geometric difference between
@@ -52,11 +51,20 @@ class OrcRingLayoutTest {
     // --- the middle -----------------------------------------------------------
 
     @Test
-    void theGreatHutStandsOnTheMiddle() {
+    void thePlanKeepsTheMiddleForTheChief() {
         // The plan offers the center and offers are taken nearest-first, so this
         // is really a test that the offer survives the sort and the fits check --
         // both of which have silently refused the equivalent offer on the
         // radial-concentric town during its development.
+        //
+        // About the PLAN, and deliberately not about the finished camp. Which
+        // building actually lands on plot zero is the siting code's business and
+        // it is the same answer every arrangement gets: a town builds shelter,
+        // then food, then safety, so the camp post takes the middle on the first
+        // step and the great hut is raised later, wherever the plot cursor has
+        // reached. Culture.BURGHER's javadoc records the same thing about the
+        // radial town's green. Reserving a plot for a particular building is a
+        // change to siting rather than to a layout, and it is not made here.
         TownPlan plan = fresh().planFor(CENTER, 64);
         assertEquals(CENTER.x(), plan.plots().get(0).at().x(),
                 "the first plot of a war camp is the chief's own ground");

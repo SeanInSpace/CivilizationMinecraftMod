@@ -6,6 +6,50 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The orcs live somewhere, and somebody is in charge of it
+
+### New
+
+- **Orc settlements are round now.** A war camp is a great hut on the middle, a
+  yard of open ground round it, a ring road with huts fronting *inward* onto the
+  yard, and four gates striking outward from the ring. It grows by opening another
+  ring, and the wall is pulled tight round the outermost one. No lane crosses the
+  yard — that is the whole difference between this and the vale folk's ring
+  village, and it is why the middle of an orc town reads as a muster ground rather
+  than as a roundabout. It is also the tightest arrangement in the game: a camp of
+  a hundred and forty reaches 145 blocks, where the human shapes run to two
+  hundred and more.
+
+- **Orcs have huts to live in.** A hut is a proper roundhouse — seven blocks
+  across with the corners cut away to an octagon, a cone of timber over it and a
+  fire in the middle of the floor, sleeping three. It replaces the cottage and the
+  dwelling wherever orcs build, so a war camp is now a ring of round roofs instead
+  of a ring of the same square cabins everybody else lives in. Human towns never
+  raise one and orc camps never raise a cottage.
+
+- **A great hut, and a king in it.** The chief's roof is the same building at
+  thirteen across, six beds, bone over the door, and it is the one building in the
+  game a settlement only ever has one of. Once it stands the warband follows
+  somebody: the longest-serving guard, or the longest-standing settler if nobody
+  is under arms. He wears a gold circlet, he is half again as hard to kill as the
+  orcs he leads, he does no work at all, and while he lives the whole warband
+  fights as though it had two more guards in the line. Kill him and the camp
+  mourns — no king, and no bonus, until it names the next one.
+
+- **The camp musters at its chief's door.** Anybody with no roof of their own runs
+  to the great hut when the bell goes, rather than to a point on the map.
+
+- **An orc realm is named after its line, not its town.** The warband of
+  Karrgurd is *the Blacktusk Warband*. Human kingdoms are still named after their
+  first town, as they always were.
+
+- **Orc camps appear in new worlds.** They ship at the same weight as the two best
+  human arrangements, so a fresh world holds both towns somebody surveyed and
+  camps somebody drew round a chief. `/civ info` names the king, or says why there
+  is not one yet.
+
+---
+
 ## The save file spells American, and no record is full up
 
 ### Changed

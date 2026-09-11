@@ -73,6 +73,29 @@ public final class Settlement {
     /** Everything this settlement has finished building, in completion order. */
     private final List<Building> buildings = new ArrayList<>();
 
+    /**
+     * Who is wearing the crown, and until when nobody may.
+     *
+     * <p>Both deliberately <strong>not saved</strong>, and the reasoning is the
+     * same as for the stall timer above. The crown itself is not state — it is
+     * {@link com.kingdoms.sim.person.Profession#KING} on a settler, and that
+     * settler is saved like any other, so a reloaded warband comes back with its
+     * king still on the throne. What these two hold is the bookkeeping the
+     * succession needs <em>between</em> steps: the id is only there so that
+     * {@link KingPlanner} can tell "the king has died" from "this camp has never
+     * had one", and the step is only there so the mourning can run out.
+     *
+     * <p>What a reload costs, exactly: a warband whose king died within the last
+     * hundred steps crowns the next one immediately instead of finishing its
+     * mourning. That is a few minutes of grief lost on a server restart, against
+     * a save format change on every settlement in every world. It is the wrong
+     * trade to make the other way, and it is why this is a comment and not a
+     * codec entry.
+     */
+    private Person.Id reigningKing;
+
+    private long mourningUntil;
+
     /** Families. The unit that occupies a house and the unit that grows. */
     private final List<Household> households = new ArrayList<>();
 
@@ -2026,6 +2049,26 @@ public final class Settlement {
                 .count();
     }
 
+    /** Who this town believed was king when it was last looked at. */
+    public Person.Id reigningKing() {
+        return reigningKing;
+    }
+
+    /** @see KingPlanner */
+    public void setReigningKing(Person.Id reigningKing) {
+        this.reigningKing = reigningKing;
+    }
+
+    /** The step this town's mourning runs out and it may crown another. */
+    public long mourningUntil() {
+        return mourningUntil;
+    }
+
+    /** @see KingPlanner */
+    public void setMourningUntil(long mourningUntil) {
+        this.mourningUntil = mourningUntil;
+    }
+
     public void addHousehold(Household household) {
         households.add(Objects.requireNonNull(household, "household"));
     }
@@ -2292,6 +2335,11 @@ public final class Settlement {
         equipWorkers();
         JobPlanner.retrainOne(this);
         PopulationPlanner.advance(this, ctx);
+        // After the population pass, so a king who died this step is mourned on
+        // the step he died rather than the next one -- and after the staffing
+        // table, which has no opinion about kings and must not be handed one
+        // halfway through its own pass.
+        KingPlanner.advance(this, ctx);
         trackFedStreak();
         decayThreat();
         // After decay so a sustained hostile presence holds threat at its level

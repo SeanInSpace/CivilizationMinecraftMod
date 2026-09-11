@@ -292,7 +292,12 @@ public final class WorldgenSettlements {
         String name = Culture.of(site.cultureId()).townNames().isEmpty()
                 ? "Wayside"
                 : pickName(site);
-        Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, site.cultureId());
+        // A shire is named after its town and a warband after its chief's line.
+        // The settlement keeps the town name either way; only the realm differs.
+        Kingdom kingdom = new Kingdom(Kingdom.Id.random(),
+                Kingdom.nameFor(Culture.of(site.cultureId()), name,
+                        chosen.x(), chosen.z()),
+                site.cultureId());
         // The arrangement the world was told it wanted, not the one this people
         // would have picked for this spot. A culture may build several ways; the
         // weights are how a world says which of them it wants to see. Named

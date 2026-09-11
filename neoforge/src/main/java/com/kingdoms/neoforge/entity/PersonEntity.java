@@ -9,6 +9,7 @@ import com.kingdoms.sim.person.Foods;
 import com.kingdoms.sim.person.Inventory;
 import com.kingdoms.sim.person.Person;
 import com.kingdoms.sim.person.Profession;
+import com.kingdoms.sim.settlement.KingPlanner;
 import com.kingdoms.sim.settlement.Settlement;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.network.chat.Component;
@@ -17,6 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -29,6 +31,7 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -116,6 +119,50 @@ public final class PersonEntity extends PathfinderMob {
             speed.setBaseValue(BASE_MOVEMENT_SPEED * race.paceFactor());
         }
         setHealth(getMaxHealth());
+    }
+
+    /**
+     * Puts the crown on this body, or takes it off.
+     *
+     * <p>Two things, and they go together because they are the same fact: a gold
+     * helmet so you can pick the king out of a camp of thirty from the wall, and
+     * {@link KingPlanner#KING_HEALTH_FACTOR} on top of his race's health so he is
+     * harder to put down than the warband he leads.
+     *
+     * <p><strong>Not folded into {@link #applyRace}.</strong> That runs once, at
+     * embodiment, because a person's race cannot change; a person's <em>title</em>
+     * can, and does — a guard is crowned when the great hut is finished and a
+     * king is uncrowned when he is killed or when {@code /civ culture} takes the
+     * orcs off a town. So this runs every pass and is idempotent by
+     * construction: it asks what is already set before it sets anything, which
+     * is the same rule the watch's kit keeps.
+     *
+     * <p>Healed on the way up and never on the way down, for the reason
+     * {@link #applyRace} gives: raising a max health does not raise the current
+     * one, so a king who was not healed would take the throne looking wounded.
+     * Lowering it clamps on its own, which is correct — a man who stops being
+     * king does not become healthier for it.
+     */
+    public void wearCrown(boolean king, Race race) {
+        double wanted = king ? race.maxHealth() * KingPlanner.KING_HEALTH_FACTOR
+                : race.maxHealth();
+        AttributeInstance health = getAttribute(Attributes.MAX_HEALTH);
+        if (health != null && health.getBaseValue() != wanted) {
+            health.setBaseValue(wanted);
+            if (king) {
+                setHealth(getMaxHealth());
+            }
+        }
+        boolean worn = getItemBySlot(EquipmentSlot.HEAD).is(Items.GOLDEN_HELMET);
+        if (king == worn) {
+            return;
+        }
+        setItemSlot(EquipmentSlot.HEAD,
+                king ? new ItemStack(Items.GOLDEN_HELMET) : ItemStack.EMPTY);
+        // It is a title and not loot. A crown that dropped would be a crown a
+        // player could put on, and the next thing they would want is for it to
+        // mean something.
+        setDropChance(EquipmentSlot.HEAD, 0.0F);
     }
 
     /**

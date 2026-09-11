@@ -31,7 +31,28 @@ public enum Profession {
 
     /** Works the carpentry: pre-cut components speed every build crew. */
     CARPENTER,
-    SHEPHERD;
+    SHEPHERD,
+
+    /**
+     * The one settler who does no work at all.
+     *
+     * <p>Every other entry on this list is a job, counted by a staffing table
+     * that asks how many the town is short of. This one is not: there is exactly
+     * one of him in a warband and none anywhere else, he is chosen by a rule
+     * about the settlement rather than by a shortfall, and he is deliberately
+     * absent from {@code JobPlanner.DEFAULT_NEEDS} — which is what makes
+     * "a king never works" true by construction rather than by a special case in
+     * every planner that hands out labor.
+     *
+     * <p>See {@code KingPlanner} for who gets it, when, and what the town gets
+     * back for it.
+     */
+    KING;
+
+    /** Whether this settler is exempt from labor entirely. */
+    public boolean isIdleByRight() {
+        return this == KING;
+    }
 
     /**
      * Whether this trade works out past the town's walls.

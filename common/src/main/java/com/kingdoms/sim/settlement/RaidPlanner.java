@@ -138,7 +138,13 @@ public final class RaidPlanner {
         int structures = settlement.buildings().stream()
                 .mapToInt(b -> defenseBonusOf(settlement, b.blueprintId()))
                 .sum();
-        return guards * GUARD_POWER + structures;
+        // And the king, who is worth a guard to a warband that can see him. The
+        // same bonus Garrison recruits by, so what the town thinks it can field
+        // and what it actually fields with are one number -- see Garrison for
+        // why a king belongs in both and a watchtower in only one.
+        int crown = KingPlanner.hasKing(settlement)
+                ? KingPlanner.KING_GUARD_BONUS * GUARD_POWER : 0;
+        return guards * GUARD_POWER + structures + crown;
     }
 
     public static int defenseBonusOf(Settlement settlement, String blueprintId) {

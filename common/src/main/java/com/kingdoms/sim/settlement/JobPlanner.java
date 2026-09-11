@@ -272,6 +272,15 @@ public final class JobPlanner {
             if (trade == Profession.FARMER || trade == Profession.IDLER) {
                 continue;
             }
+            // The king is the one person a starving town may not put in the
+            // fields, and this is the only lane that could have taken him: it
+            // reaches past DEFAULT_NEEDS -- which has no king row and never will
+            // -- for whatever trade has the most heads in it, and in a small
+            // camp the trade with the most heads can be the one with one head
+            // and a crown on it.
+            if (trade.isIdleByRight()) {
+                continue;
+            }
             int heads = count(settlement, trade);
             if (trade == Profession.BUILDER && heads <= 1) {
                 continue;

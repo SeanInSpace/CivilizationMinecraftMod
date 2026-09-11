@@ -90,7 +90,12 @@ public final class HaulPlanner {
                 continue;
             }
             if (settlement.laborsAs(person, Profession.BUILDER)
-                    || person.profession() == Profession.GUARD) {
+                    || person.profession() == Profession.GUARD
+                    // And the king, who has no work in front of him by
+                    // definition and would otherwise be the first slack pair of
+                    // hands this loop finds. A chief carrying sacks to the
+                    // storehouse is not a chief.
+                    || person.profession().isIdleByRight()) {
                 continue;
             }
             if (person.profession() == Profession.IDLER) {
@@ -147,6 +152,10 @@ public final class HaulPlanner {
             // caught up with; while generalists still labor they are builders
             // and farmers, and courierFor has already passed them over.
             case IDLER, PIONEER -> false;
+            // A king has no work in front of him by definition, and that is
+            // exactly what this question is asking. He is never claimed as a
+            // courier either -- carrying a sack is work.
+            case KING -> false;
             case BUILDER, GUARD -> true;
             // Deliberately coarse: any field, every farmer, even past the
             // FARMERS_PER_FARM the clock will actually pay for. Watched, the

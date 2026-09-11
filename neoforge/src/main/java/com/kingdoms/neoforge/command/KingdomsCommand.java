@@ -24,6 +24,7 @@ import com.kingdoms.sim.settlement.Seam;
 import com.kingdoms.sim.settlement.Stand;
 import com.kingdoms.sim.settlement.FoodPlanner;
 import com.kingdoms.sim.settlement.Garrison;
+import com.kingdoms.sim.settlement.KingPlanner;
 import com.kingdoms.sim.settlement.JobPlanner;
 import com.kingdoms.sim.settlement.LumberPlanner;
 import com.kingdoms.sim.settlement.PopulationPlanner;
@@ -666,6 +667,24 @@ public final class KingdomsCommand {
                 }
                 long embodied = s.residents().stream().filter(Person::isEmbodied).count();
                 sb.append("(").append(embodied).append(" visible as villagers)");
+                // Who the warband follows, and nothing at all for a people who
+                // follow nobody. A camp with a great hut standing and no name on
+                // this line is a camp whose succession has stalled, which is the
+                // one thing about kings that is worth being able to see.
+                if (KingPlanner.crownsAKing(s)) {
+                    Person crowned = KingPlanner.king(s);
+                    sb.append("\n      king: ");
+                    if (crowned != null) {
+                        sb.append(crowned.name()).append(" (+")
+                                .append(KingPlanner.KING_GUARD_BONUS)
+                                .append(" to the watch), great hut at ")
+                                .append(KingPlanner.rallyPoint(s));
+                    } else if (KingPlanner.seat(s) == null) {
+                        sb.append("none — no great hut stands yet");
+                    } else {
+                        sb.append("none — the warband is still mourning");
+                    }
+                }
                 sb.append("\n      defense ").append(RaidPlanner.defensePower(s))
                         .append(" (guards x").append(RaidPlanner.GUARD_POWER).append(" + structures)");
                 // Only when the watch is short. The line above says what the
