@@ -1,5 +1,6 @@
 package com.kingdoms.neoforge;
 
+import com.mojang.serialization.Codec;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.util.Util;
 import net.neoforged.neoforge.attachment.AttachmentType;
@@ -31,6 +32,26 @@ public final class KingdomsAttachments {
             () -> AttachmentType.builder(() -> Util.NIL_UUID)
                     .serialize(UUIDUtil.CODEC.fieldOf("value"))
                     .build());
+
+    /**
+     * Whether this player has already been handed a wayfinder.
+     *
+     * <p>"First join" is not a thing the login event knows — it fires every time
+     * anybody connects — so it has to be remembered on the player. Serialized,
+     * because the whole point is that the second login is different from the
+     * first; and copied across death, because dropping your wayfinder in lava is
+     * a loss the player should feel rather than a way to farm another.
+     *
+     * <p>Nothing reads this but the join hook, and a player who deliberately
+     * throws theirs away can craft another: the flag says they were <em>given</em>
+     * one, not that they have one.
+     */
+    public static final Supplier<AttachmentType<Boolean>> WAYFINDER_GIVEN =
+            ATTACHMENTS.register("wayfinder_given",
+                    () -> AttachmentType.builder(() -> Boolean.FALSE)
+                            .serialize(Codec.BOOL.fieldOf("value"))
+                            .copyOnDeath()
+                            .build());
 
     private KingdomsAttachments() {
     }

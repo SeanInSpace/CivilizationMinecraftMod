@@ -7,9 +7,12 @@ import com.kingdoms.sim.settlement.PopulationPlanner;
 import com.kingdoms.sim.world.SimSettings;
 import com.kingdoms.sim.world.SimWorld;
 import com.kingdoms.sim.world.YieldPolicy;
+import com.kingdoms.sim.geom.SimPos;
+import com.kingdoms.sim.worldgen.SettlementSites;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.LinkedHashMap;
+import java.util.Optional;
 import java.util.Map;
 
 /**
@@ -72,6 +75,50 @@ public final class KingdomsConfig {
                     "Wider means towns appear sooner and further off; narrower means",
                     "fewer chunks are read at once.")
             .defineInRange("worldgen.reach", 256, 64, 2048);
+
+    /**
+     * How wide a square of world holds at most one town.
+     *
+     * <p>The density dial, and the only one that matters. 512 is the shipped
+     * world and stays it; 256 is Millénaire's, roughly four times as many towns
+     * for the same ground, and it is not free. See PLAYING.md — in short: the
+     * margin that keeps neighbors apart is a fraction of this number, so at 256
+     * two towns may stand 160 blocks apart and a grown town is up to 300 across.
+     * They will build into each other. Every raised town also costs the server a
+     * simulation step, a manager pass, and villagers whenever somebody is
+     * watching it.
+     */
+    public static final ModConfigSpec.IntValue WORLDGEN_REGION = BUILDER
+            .comment("Blocks across a region, which holds at most one town.",
+                    "512 (default) puts towns about 870 blocks apart on average.",
+                    "256 is Millenaire-like density and roughly four times as many",
+                    "towns -- at 256 the minimum separation falls to 160 blocks and",
+                    "towns up to 300 blocks across will grow into each other.",
+                    "Changing this on an existing world moves every site that has",
+                    "not been raised yet; towns already standing stay where they are.")
+            .defineInRange("worldgen.region", SettlementSites.REGION, 256, 2048);
+
+    /**
+     * How often a region holds a town at all.
+     *
+     * <p>The measured behavior of the hash this has always used, now written
+     * down. See {@link SettlementSites#DEFAULT_SITE_PERCENT}.
+     */
+    public static final ModConfigSpec.IntValue WORLDGEN_SITE_CHANCE = BUILDER
+            .comment("Percent of regions that hold a town. 35 is what the mod has",
+                    "always done; this exposes the number rather than changing it.",
+                    "The nine regions around the world spawn are settled whatever",
+                    "this says, so a new world always begins beside a town.")
+            .defineInRange("worldgen.site_chance",
+                    SettlementSites.DEFAULT_SITE_PERCENT, 0, 100);
+
+    /** Whether a player is handed a wayfinder the first time they join. */
+    public static final ModConfigSpec.BooleanValue WORLDGEN_WAYFINDER_ON_JOIN = BUILDER
+            .comment("Whether each player is given a wayfinder on their first join.",
+                    "The wayfinder is a compass whose needle points at the nearest",
+                    "town instead of at spawn; right-click re-targets it to the next",
+                    "one out. Turn this off and it is still craftable.")
+            .define("worldgen.wayfinder_on_join", true);
 
     /**
      * What a fresh world starts with.
@@ -244,6 +291,26 @@ public final class KingdomsConfig {
      * preference" rather than "nothing may be built" -- the same fail-open the
      * debug commands use, and for the same reason.
      */
+    /**
+     * The site grid this world uses, anchored on its spawn point.
+     *
+     * <p>Built here and handed down rather than read from below, because
+     * {@code :common} is not allowed to know that a settings file exists. An
+     * unloaded spec — which happens in tests and during early startup — falls
+     * back to the shipped grid rather than throwing, which is what every other
+     * reader in this class does.
+     *
+     * @param worldSpawn the world spawn, or null for a grid with no anchor and
+     *                   so no guaranteed towns
+     */
+    public static SettlementSites.Grid siteGrid(SimPos worldSpawn) {
+        int region = SPEC.isLoaded()
+                ? WORLDGEN_REGION.get() : SettlementSites.REGION;
+        int chance = SPEC.isLoaded()
+                ? WORLDGEN_SITE_CHANCE.get() : SettlementSites.DEFAULT_SITE_PERCENT;
+        return new SettlementSites.Grid(region, chance, Optional.ofNullable(worldSpawn));
+    }
+
     public static Map<String, Integer> arrangementWeights() {
         if (!SPEC.isLoaded()) {
             return Map.of();

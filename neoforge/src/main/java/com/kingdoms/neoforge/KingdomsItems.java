@@ -3,6 +3,7 @@ package com.kingdoms.neoforge;
 import com.kingdoms.neoforge.item.ExcavationStakeItem;
 import com.kingdoms.neoforge.item.FoundingCharterItem;
 import com.kingdoms.neoforge.item.TownMapItem;
+import com.kingdoms.neoforge.item.WayfinderItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -41,6 +42,17 @@ public final class KingdomsItems {
     public static final DeferredItem<Item> TOWN_MAP = ITEMS.registerItem(
             "town_map",
             TownMapItem::new,
+            () -> new Item.Properties().stacksTo(1));
+
+    /**
+     * A compass whose needle finds towns rather than spawn.
+     *
+     * <p>Single stack, because it carries a target and a stack of two would have
+     * to carry one between them. Vanilla's compass has the same reason.
+     */
+    public static final DeferredItem<Item> WAYFINDER = ITEMS.registerItem(
+            "wayfinder",
+            WayfinderItem::new,
             () -> new Item.Properties().stacksTo(1));
 
     /** So the camp post can be placed by hand, and moved. */

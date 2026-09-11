@@ -15,6 +15,7 @@ import com.kingdoms.neoforge.world.TownAuditor;
 import com.kingdoms.sim.world.SimSettings;
 import com.kingdoms.sim.world.SimWorld;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.api.distmarker.Dist;
@@ -76,6 +77,7 @@ public final class KingdomsMod {
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onServerTick);
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onEntityJoin);
+        NeoForge.EVENT_BUS.addListener(KingdomsMod::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onLivingDeath);
         NeoForge.EVENT_BUS.addListener(KingdomsMod::onFarmlandTrample);
 
@@ -118,6 +120,12 @@ public final class KingdomsMod {
         // And where each paving crew had got along its run, which is a place in
         // a network that is going away with the world it belonged to.
         com.kingdoms.neoforge.view.Foreman.forget();
+        // And whether this world's spawn towns are settled, which is a fact
+        // about a ledger that is going away with the level that held it.
+        com.kingdoms.neoforge.world.WorldgenSettlements.forget();
+        // And anybody still waiting to be told where the towns are, since the
+        // towns and the world they stand in are both going away.
+        GREETINGS.clear();
     }
 
     /** Our own tick count — the level clock is not trusted for cadence (it can freeze). */
@@ -131,6 +139,15 @@ public final class KingdomsMod {
             com.kingdoms.neoforge.world.BuildTest.tick(level);
         }
         tickCounter++;
+        // The towns around the world spawn, raised at world start rather than
+        // on approach -- one a tick, so they are standing before the player has
+        // finished loading in. Costs nothing the moment they are settled.
+        for (ServerLevel level : event.getServer().getAllLevels()) {
+            com.kingdoms.neoforge.world.WorldgenSettlements.tickAnchor(level);
+        }
+        // And then tell whoever just joined where they are. After the anchor,
+        // never before: the whole reason the greeting waits is those nine.
+        deliverGreetings(event.getServer());
         // Towns that were always going to be there, raised when somebody first
         // comes close enough to see them. On its own beat, because it reads
         // ground rather than stepping people.
@@ -392,6 +409,115 @@ public final class KingdomsMod {
      * pay no attention — and so covers whatever a mod has added without knowing
      * anything about it.
      */
+    /**
+     * Tells a joining player where the towns are, and hands them a needle.
+     *
+     * <p>The message is the whole feature, not decoration on it. Sites have been
+     * computable since worldgen went in and there has never been a way for a
+     * player to know that — the first evidence a region held a town was walking
+     * into one. Millénaire put a list on the join screen and that one message is
+     * most of why its worlds read as inhabited from the first minute.
+     *
+     * <p>Sent on every login rather than only the first, because "where am I and
+     * what is near me" is exactly the question somebody coming back after a week
+     * has. The wayfinder is given once; see
+     * {@link KingdomsAttachments#WAYFINDER_GIVEN}.
+     */
+    private static void onPlayerLoggedIn(net.neoforged.neoforge.event.entity.player
+            .PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            GREETINGS.add(new Greeting(player.getUUID(), tickCounter));
+        }
+    }
+
+    /**
+     * A player who has joined and not yet been told where the towns are.
+     *
+     * @param player who to tell
+     * @param since  the tick they joined on, which is the deadline's start
+     */
+    private record Greeting(UUID player, long since) {
+    }
+
+    private static final List<Greeting> GREETINGS = new ArrayList<>();
+
+    /**
+     * How long a greeting waits for the spawn towns before giving up on them.
+     *
+     * <p>Three seconds. The nine go up one a tick, so this is generous by a
+     * factor of six and exists only so that a level which cannot settle them —
+     * every site refused, a dimension the anchor skips — still gets its message
+     * rather than silence.
+     */
+    private static final int GREETING_GRACE_TICKS = 60;
+
+    /**
+     * Says where the towns are, once they are there to point at.
+     *
+     * <p>Held rather than sent on the login event, and the wait is the point. The
+     * spawn towns are raised one a tick from the moment the level loads, and a
+     * player joining a single-player world is in before the first of them — so a
+     * greeting sent on login would describe all nine as places a town is going
+     * to be, which is true and useless. Waiting the handful of ticks it takes
+     * them to stand turns the same message into a list of names.
+     *
+     * <p>Sent on every login rather than only the first, because "where am I and
+     * what is near me" is exactly the question somebody coming back after a week
+     * has. The wayfinder is given once; see
+     * {@link KingdomsAttachments#WAYFINDER_GIVEN}.
+     */
+    private static void deliverGreetings(net.minecraft.server.MinecraftServer server) {
+        if (GREETINGS.isEmpty()) {
+            return;
+        }
+        GREETINGS.removeIf(greeting -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(greeting.player());
+            if (player == null) {
+                return true;   // logged out again before we got to them
+            }
+            if (!(player.level() instanceof ServerLevel level)) {
+                return true;
+            }
+            if (!com.kingdoms.neoforge.world.WorldgenSettlements.spawnTownsSettled(level)
+                    && tickCounter - greeting.since() < GREETING_GRACE_TICKS) {
+                return false;   // the towns are still going up; wait for them
+            }
+            greet(player, level);
+            return true;
+        });
+    }
+
+    private static void greet(ServerPlayer player, ServerLevel level) {
+        com.kingdoms.sim.geom.SimPos here = new com.kingdoms.sim.geom.SimPos(
+                player.getBlockX(), player.getBlockY(), player.getBlockZ());
+        java.util.List<com.kingdoms.neoforge.world.SiteDirectory.Near> near =
+                com.kingdoms.neoforge.world.SiteDirectory.near(level, here);
+        StringBuilder said = new StringBuilder(
+                com.kingdoms.neoforge.world.SiteDirectory.heading(near.size()));
+        for (com.kingdoms.neoforge.world.SiteDirectory.Near town : near) {
+            said.append("\n").append(com.kingdoms.neoforge.world.SiteDirectory.line(
+                    town.what(), town.standing(),
+                    town.at().x() - here.x(), town.at().z() - here.z()));
+        }
+        player.sendSystemMessage(net.minecraft.network.chat.Component.literal(said.toString()));
+
+        if (!KingdomsConfig.WORLDGEN_WAYFINDER_ON_JOIN.get()
+                || Boolean.TRUE.equals(player.getData(KingdomsAttachments.WAYFINDER_GIVEN))) {
+            return;
+        }
+        player.setData(KingdomsAttachments.WAYFINDER_GIVEN, Boolean.TRUE);
+        net.minecraft.world.item.ItemStack wayfinder =
+                new net.minecraft.world.item.ItemStack(KingdomsItems.WAYFINDER.get());
+        // Already aimed. A compass that has to be clicked before it does
+        // anything is a compass that looks broken.
+        if (!near.isEmpty()) {
+            com.kingdoms.neoforge.item.WayfinderItem.aimAt(wayfinder, level, near.get(0).at());
+        }
+        if (!player.getInventory().add(wayfinder)) {
+            player.drop(wayfinder, false);
+        }
+    }
+
     private static void onEntityJoin(EntityJoinLevelEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;

@@ -237,7 +237,89 @@ Per-world settings in `<world>/serverconfig/kingdoms-server.toml`:
 | `defense.raid_interval_steps` | 50 | Time between raids |
 | `economy.unwatched_yield_percent.<resource>` | 0 | Share of the yield credited when nobody is near |
 | `economy.watched_floor_percent.<resource>` | 0 | Share credited when you *are* near but nobody is working |
+| `worldgen.enabled` | true | Whether the world has towns in it you did not found |
+| `worldgen.reach` | 256 | How close you must come before one is raised |
+| `worldgen.region` | 512 | Blocks across a region, which holds at most one town — **the density dial** |
+| `worldgen.site_chance` | 35 | Percent of regions that hold a town at all |
+| `worldgen.wayfinder_on_join` | true | Whether you are handed a wayfinder on your first join |
 | `debug.commands_enabled` | true | The `/civ` operator commands |
+
+### Finding the towns you did not found
+
+A new world does not wait for you to go looking. The nine regions around the
+world spawn are settled whatever the dice say, and they are raised as the level
+loads rather than when somebody walks past — so the first time you look around,
+there is a town about **two hundred blocks away**, and eight more within a few
+minutes' walk.
+
+Two things point you at them.
+
+**The join message.** Every time you log in, chat lists the settlements within
+1024 blocks — nearest first, at most five — with a distance and a compass point:
+
+```
+Settlements within 1024 blocks:
+  Haldstead — 186 blocks NE
+  Corbray — 604 blocks S
+  a Norman crossroads — 911 blocks W (not raised yet)
+```
+
+A town with a name has been raised and has people in it. One described by its
+people and its shape is a place the seed says a town *will* be, which nobody has
+been close enough to build yet — walk at it and it will be standing by the time
+you arrive. `/civ sites` prints the same list on demand, with the operator
+detail underneath it.
+
+**The wayfinder.** A compass whose needle points at a settlement instead of at
+spawn. You are given one on your first join (turn that off with
+`worldgen.wayfinder_on_join`), already aimed at the nearest town; right-click to
+move it on to the next one out, and again to cycle back round. It is also
+craftable:
+
+```
+—         iron     —
+iron      redstone iron
+—         emerald  —
+```
+
+### How dense you want your world
+
+`worldgen.region` is how wide a square of world holds at most one town, and it
+is the only dial that really changes what a world feels like. **512 is the
+default and there is a reason it stays there.**
+
+| `worldgen.region` | Towns within 4096 blocks | Closest two towns can be |
+|---|---|---|
+| 256 | ~300 | 160 blocks |
+| 512 (default) | ~82 | 320 blocks |
+| 1024 | ~20 | 640 blocks |
+
+Set it to 256 and you get something close to Millénaire's density — roughly four
+times as many towns for the same ground. Two things pay for it:
+
+- **Towns grow into each other.** The margin that keeps neighbours apart is a
+  fraction of the region, so halving the region halves the minimum separation:
+  320 blocks becomes 160. A grown town here is 150 to 300 blocks across. Two
+  centres 160 apart means two towns building on the same ground, with each
+  other's claims, fields and roads arguing over it — and neither town knows the
+  other exists until both are standing.
+- **Every town costs tick budget.** A raised town is a simulation step, a
+  manager pass, and — whenever you are near enough to see it — a crowd of
+  embodied villagers. Four times the towns is four times that bill wherever they
+  are clustered.
+
+Above 512 the margin only grows, so 1024 and 2048 cost nothing but walking.
+
+`worldgen.site_chance` is the other half of the density: the percent of regions
+that hold a town at all, 35 by default. That number is not new — it is what the
+mod has always done, now written down where a world can change it. Lowering it
+thins the scatter without bringing any two towns closer together. **The nine
+regions around spawn ignore it**, so even at 0 a world still starts beside a
+town and the rest of the map is empty.
+
+Changing either dial on an existing world moves every site that has not been
+raised yet. Towns already standing stay exactly where they are — the ledger
+remembers what was decided, not what the arithmetic would say today.
 
 ### How much of a town's income is imaginary
 

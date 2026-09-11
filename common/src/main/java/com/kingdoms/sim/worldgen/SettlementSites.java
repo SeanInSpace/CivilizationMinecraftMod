@@ -59,12 +59,26 @@ public final class SettlementSites {
     public static final int REGION = 512;
 
     /**
-     * How far inside its own region a site is kept, in blocks.
+     * How far inside its own region a site is kept, as sixteenths of the region.
+     *
+     * <p>A fraction rather than a length, because the region is a dial now and
+     * a fixed margin does not survive being turned. At 512 five sixteenths is
+     * the 160 this was written as; at 256 it is 80, which is the honest answer —
+     * halve the spacing and you halve the daylight between two towns, and
+     * {@link #MIN_SEPARATION} stops covering a grown town's sprawl. That cost is
+     * documented in PLAYING.md rather than hidden by clamping the margin, because
+     * a margin that refuses to shrink would simply invert the jitter window and
+     * put every site on its region's midline.
+     */
+    private static final int EDGE_MARGIN_SIXTEENTHS = 5;
+
+    /**
+     * How far inside its own region a site is kept, in blocks, at {@link #REGION}.
      *
      * <p>Not decoration: this constant <em>is</em> the spacing guarantee. See
      * {@link #MIN_SEPARATION}.
      */
-    public static final int EDGE_MARGIN = 160;
+    public static final int EDGE_MARGIN = REGION * EDGE_MARGIN_SIXTEENTHS / 16;
 
     /**
      * The closest two sites can ever be, in blocks. Exactly {@code 2 *
@@ -111,7 +125,34 @@ public final class SettlementSites {
      * between neighbors varies from the {@link #MIN_SEPARATION} floor to
      * several thousand blocks.
      */
-    public static final double SPAWN_CHANCE = 0.35;
+    public static final int DEFAULT_SITE_PERCENT = 35;
+
+    /**
+     * The same number as a fraction, which is how the draw reads it.
+     *
+     * <p>Measured rather than asserted. Swept over 256,000 regions — forty
+     * seeds by an eighty-square block — the realized share of settled regions
+     * is 35.03 percent, so the number a world now sets in
+     * {@code worldgen.site_chance} really is the fraction it gets. See
+     * {@code SettlementSitesSpawnTest}.
+     */
+    public static final double SPAWN_CHANCE = DEFAULT_SITE_PERCENT / 100.0;
+
+    /**
+     * How far from the world spawn the spawn town is set down, per axis, in blocks.
+     *
+     * <p>140 on each axis is 198 blocks corner to corner, which is the promise:
+     * a player who spawns and turns around is looking at a town, not at a
+     * horizon. The lower bound two thirds of the way down keeps it from landing
+     * on the spawn point itself — a town whose market square is where you
+     * appear is not a discovery, it is a spawn building.
+     *
+     * <p>Capped at just under half a region, because the whole scheme rests on
+     * at least one of {@code spawn ± leash} lying inside the spawn region on
+     * each axis, which needs {@code 2 * leash < region}. At the 256 floor that
+     * makes the leash 127 and the walk 180 blocks.
+     */
+    private static final int HOME_LEASH = 140;
 
     /**
      * The y a site carries until somebody resolves it.
@@ -131,6 +172,8 @@ public final class SettlementSites {
     private static final long SALT_JITTER = 0x5EED_0002L;
     private static final long SALT_CULTURE = 0x5EED_0003L;
     private static final long SALT_ARRANGEMENT = 0x5EED_0004L;
+    private static final long SALT_HOME_X = 0x5EED_0005L;
+    private static final long SALT_HOME_Z = 0x5EED_0006L;
 
     /**
      * A place a town belongs, and whose it is.
@@ -142,6 +185,281 @@ public final class SettlementSites {
      *                  weights the world was configured with
      */
     public record Site(SimPos center, String cultureId, String layoutId) {
+    }
+
+    /**
+     * The dials a world turns, and the one place it is anchored.
+     *
+     * <p>Everything above is arithmetic on constants; this is the same
+     * arithmetic on a world's own numbers. It is a value rather than a read of
+     * a settings table because this half of the mod is not allowed to know where
+     * settings live — the caller in {@code :neoforge} builds one of these from
+     * its config and hands it down, and the tests build one directly.
+     *
+     * <p>The spawn anchor is the interesting field. Without it the grid is what
+     * it always was: a hash decides each region independently and a new world
+     * may have nothing within a kilometer. With it, the region holding the world
+     * spawn and its eight neighbors always hold a site, and the middle one is
+     * set down {@link #HOME_LEASH} blocks from the spawn point — so a world
+     * begins with a town you can see and eight more a short walk out, which is
+     * what Millénaire's opening actually felt like.
+     *
+     * @param region      how wide a square of world holds at most one site
+     * @param sitePercent how often a region holds one at all, outside the nine
+     * @param spawn       the world spawn, or empty for a grid with no anchor
+     *                    (which is exactly the old behavior)
+     */
+    public record Grid(int region, int sitePercent, Optional<SimPos> spawn) {
+
+        /** The shipped world: 512-block regions, 35 percent, no anchor. */
+        public static final Grid DEFAULT =
+                new Grid(REGION, DEFAULT_SITE_PERCENT, Optional.empty());
+
+        /**
+         * Sixteen is the floor, and it is geometry rather than taste: below it
+         * {@link #edgeMargin} bottoms out at one block and the window
+         * {@link #heldBack} needs — a region wider than three margins — closes.
+         * The config's own floor is 256.
+         */
+        public Grid {
+            if (region < 16) {
+                throw new IllegalArgumentException("region must be at least 16: " + region);
+            }
+        }
+
+        /** The same grid, anchored on this world spawn. */
+        public Grid anchoredAt(SimPos worldSpawn) {
+            return new Grid(region, sitePercent, Optional.ofNullable(worldSpawn));
+        }
+
+        /** How far inside its own region a site is kept, in blocks. */
+        public int edgeMargin() {
+            return Math.max(1, region * EDGE_MARGIN_SIXTEENTHS / 16);
+        }
+
+        /**
+         * The closest two sites can ever be, in blocks.
+         *
+         * <p>Holds across the nine anchored regions too, which is not free: the
+         * middle one is placed first, near spawn and without a margin of its
+         * own, and each of the eight is then held back to the far side of its
+         * region until it clears this. See {@link #jitterAxis}.
+         */
+        public int minSeparation() {
+            return 2 * edgeMargin();
+        }
+
+        /** How much of each region the jitter may use, in blocks, per axis. */
+        public int jitterSpan() {
+            return region - 2 * edgeMargin();
+        }
+
+        /** How far from spawn the spawn town is set down, per axis. */
+        public int homeLeash() {
+            return Math.min(HOME_LEASH, region / 2 - 1);
+        }
+
+        /** Which region a block column belongs to. */
+        public int regionOf(int blockCoordinate) {
+            return Math.floorDiv(blockCoordinate, region);
+        }
+
+        public int regionXOf(Site site) {
+            return regionOf(site.center().x());
+        }
+
+        public int regionZOf(Site site) {
+            return regionOf(site.center().z());
+        }
+
+        /** The region the world spawn falls in, if this grid is anchored. */
+        public Optional<int[]> homeRegion() {
+            return spawn.map(at -> new int[]{regionOf(at.x()), regionOf(at.z())});
+        }
+
+        /**
+         * The nine regions guaranteed a site, nearest the spawn point first.
+         *
+         * <p>Empty for an unanchored grid. The order is the one the world start
+         * wants: whatever refuses its ground, the next candidate out is already
+         * the next best place for the town a player is about to look for.
+         */
+        public List<int[]> anchoredRegions(long worldSeed) {
+            Optional<int[]> home = homeRegion();
+            if (home.isEmpty()) {
+                return List.of();
+            }
+            SimPos at = spawn.orElseThrow();
+            int[] middle = home.get();
+            List<int[]> all = new ArrayList<>();
+            for (int dz = -1; dz <= 1; dz++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    all.add(new int[]{middle[0] + dx, middle[1] + dz});
+                }
+            }
+            all.sort(Comparator.comparingLong(coords ->
+                    siteIn(worldSeed, coords[0], coords[1], Map.of())
+                            .map(site -> site.center().horizontalDistanceSq(at))
+                            .orElse(Long.MAX_VALUE)));
+            return all;
+        }
+
+        /** Whether this region is one of the nine a spawn anchor guarantees. */
+        public boolean isAnchored(int regionX, int regionZ) {
+            Optional<int[]> home = homeRegion();
+            return home.isPresent()
+                    && Math.abs(regionX - home.get()[0]) <= 1
+                    && Math.abs(regionZ - home.get()[1]) <= 1;
+        }
+
+        /** Whether this is the region the world spawn itself falls in. */
+        public boolean isHome(int regionX, int regionZ) {
+            Optional<int[]> home = homeRegion();
+            return home.isPresent()
+                    && regionX == home.get()[0] && regionZ == home.get()[1];
+        }
+
+        /** @see SettlementSites#siteIn(long, int, int, Map) */
+        public Optional<Site> siteIn(long worldSeed, int regionX, int regionZ,
+                                     Map<String, Integer> weights) {
+            boolean anchored = isAnchored(regionX, regionZ);
+            if (!anchored && unitInterval(hash(worldSeed, regionX, regionZ, SALT_SPAWN))
+                    >= sitePercent / 100.0) {
+                return Optional.empty();
+            }
+            int x;
+            int z;
+            if (isHome(regionX, regionZ)) {
+                SimPos at = spawn.orElseThrow();
+                x = homeAxis(worldSeed, regionX, regionZ, at.x(), regionX, SALT_HOME_X);
+                z = homeAxis(worldSeed, regionX, regionZ, at.z(), regionZ, SALT_HOME_Z);
+            } else {
+                long jitter = hash(worldSeed, regionX, regionZ, SALT_JITTER);
+                // Two draws from one hash: the low half places the site on x and
+                // the high half on z. Reusing the same bits for both would put
+                // every site on a diagonal of its region.
+                x = jitterAxis(jitter & 0xFFFF_FFFFL, regionX);
+                z = jitterAxis(jitter >>> 32, regionZ);
+                if (anchored) {
+                    int[] home = homeRegion().orElseThrow();
+                    x = heldBack(worldSeed, home, x, regionX - home[0], 0);
+                    z = heldBack(worldSeed, home, z, regionZ - home[1], 1);
+                }
+            }
+            SimPos center = new SimPos(x, UNRESOLVED_Y, z);
+            String layout = arrangementFor(worldSeed, regionX, regionZ, weights);
+            return Optional.of(new Site(center,
+                    peopleWhoBuild(layout, worldSeed, regionX, regionZ), layout));
+        }
+
+        /** @see SettlementSites#near(long, SimPos, int, Map) */
+        public List<Site> near(long worldSeed, SimPos at, int reach,
+                               Map<String, Integer> weights) {
+            List<Site> found = new ArrayList<>();
+            if (reach < 0) {
+                return found;
+            }
+            int lowX = Math.floorDiv(at.x() - reach, region);
+            int highX = Math.floorDiv(at.x() + reach, region);
+            int lowZ = Math.floorDiv(at.z() - reach, region);
+            int highZ = Math.floorDiv(at.z() + reach, region);
+            long limit = (long) reach * reach;
+            for (int rz = lowZ; rz <= highZ; rz++) {
+                for (int rx = lowX; rx <= highX; rx++) {
+                    siteIn(worldSeed, rx, rz, weights)
+                            .filter(site -> site.center().horizontalDistanceSq(at) <= limit)
+                            .ifPresent(found::add);
+                }
+            }
+            found.sort(Comparator.comparingLong(
+                    site -> site.center().horizontalDistanceSq(at)));
+            return found;
+        }
+
+        /**
+         * Where the spawn town goes on one axis.
+         *
+         * <p>{@link #HOME_LEASH} blocks from the spawn point, on whichever side
+         * still lies inside the region. At least one side always does, because
+         * the leash is capped below half a region: if {@code p + d} runs past
+         * the far edge then {@code p} is already more than {@code d} from the
+         * near one. Where both fit, the hash chooses, so the town is not always
+         * northeast of every world's spawn.
+         *
+         * <p>No margin is applied here, and that is the point. The margin is a
+         * spacing rule between neighbors, and this site's neighbors are the
+         * eight regions around it — all of which are held back from it by
+         * {@link #heldBack} instead. Spending the margin here would push the
+         * town back toward its region's middle and lose the one thing this
+         * method exists to guarantee.
+         */
+        private int homeAxis(long worldSeed, int regionX, int regionZ,
+                             int anchor, int regionIndex, long salt) {
+            long low = (long) regionIndex * region;
+            long high = low + region - 1;
+            int leash = homeLeash();
+            int nearest = Math.max(1, leash * 2 / 3);
+            long draw = hash(worldSeed, regionX, regionZ, salt);
+            int walk = nearest + (int) Long.remainderUnsigned(
+                    draw >>> 1, leash - nearest + 1L);
+            long plus = anchor + (long) walk;
+            long minus = anchor - (long) walk;
+            boolean canAdd = plus <= high;
+            boolean canSubtract = minus >= low;
+            if (canAdd && canSubtract) {
+                return (int) ((draw & 1L) == 0 ? plus : minus);
+            }
+            if (canAdd) {
+                return (int) plus;
+            }
+            if (canSubtract) {
+                return (int) minus;
+            }
+            return (int) Math.max(low, Math.min(high, plus));   // region under 2*leash
+        }
+
+        /** The ordinary jitter: somewhere in the region's middle, margins aside. */
+        private int jitterAxis(long draw, int regionIndex) {
+            int margin = edgeMargin();
+            int offset = margin + (int) Long.remainderUnsigned(draw, jitterSpan() + 1L);
+            // Long arithmetic to place the region, then narrowed: a region index
+            // far enough out to overflow is already millions of blocks past the
+            // world border, so there is nothing there to found.
+            return (int) ((long) regionIndex * region + offset);
+        }
+
+        /**
+         * One of the eight, pushed clear of the spawn town.
+         *
+         * <p>The spawn town ignores its region's margins, so the guarantee that
+         * two sites are never closer than {@link #minSeparation} has to be paid
+         * for from this side. A neighbor west of the spawn region is capped at
+         * {@code homeX - minSeparation}; one east of it is floored at
+         * {@code homeX + minSeparation}; one in the same column is left alone,
+         * because its separation is coming from the other axis.
+         *
+         * <p>The window never closes. A neighbor's own far edge sits a whole
+         * region plus a margin away from the spawn region's near edge, and the
+         * spawn town is at most a region from that edge, so the room left is at
+         * least {@code region - 3 * edgeMargin()} — a sixteenth of a region,
+         * positive for every region size this grid allows.
+         */
+        private int heldBack(long worldSeed, int[] home, int placed, int delta, int axis) {
+            if (delta == 0) {
+                return placed;
+            }
+            Optional<SimPos> anchor = spawn;
+            if (anchor.isEmpty()) {
+                return placed;
+            }
+            int homeSite = axis == 0
+                    ? homeAxis(worldSeed, home[0], home[1], anchor.get().x(), home[0], SALT_HOME_X)
+                    : homeAxis(worldSeed, home[0], home[1], anchor.get().z(), home[1], SALT_HOME_Z);
+            int gap = minSeparation();
+            return delta < 0
+                    ? Math.min(placed, homeSite - gap)
+                    : Math.max(placed, homeSite + gap);
+        }
     }
 
     private SettlementSites() {
@@ -174,27 +492,7 @@ public final class SettlementSites {
      */
     public static Optional<Site> siteIn(long worldSeed, int regionX, int regionZ,
                                         Map<String, Integer> weights) {
-        if (unitInterval(hash(worldSeed, regionX, regionZ, SALT_SPAWN)) >= SPAWN_CHANCE) {
-            return Optional.empty();
-        }
-        long jitter = hash(worldSeed, regionX, regionZ, SALT_JITTER);
-        // Two draws from one hash: the low half places the site on x and the
-        // high half on z. Reusing the same bits for both would put every site on
-        // a diagonal of its region.
-        int offsetX = EDGE_MARGIN + (int) Long.remainderUnsigned(
-                jitter & 0xFFFF_FFFFL, JITTER_SPAN + 1L);
-        int offsetZ = EDGE_MARGIN + (int) Long.remainderUnsigned(
-                jitter >>> 32, JITTER_SPAN + 1L);
-        // Long arithmetic to place the region, then narrowed: a region index far
-        // enough out to overflow is already millions of blocks past the world
-        // border, so there is nothing there to found.
-        SimPos center = new SimPos(
-                (int) ((long) regionX * REGION + offsetX),
-                UNRESOLVED_Y,
-                (int) ((long) regionZ * REGION + offsetZ));
-        String layout = arrangementFor(worldSeed, regionX, regionZ, weights);
-        return Optional.of(new Site(center,
-                peopleWhoBuild(layout, worldSeed, regionX, regionZ), layout));
+        return Grid.DEFAULT.siteIn(worldSeed, regionX, regionZ, weights);
     }
 
     /**
@@ -286,29 +584,12 @@ public final class SettlementSites {
     /** The same, weighted. */
     public static List<Site> near(long worldSeed, SimPos at, int reach,
                                   Map<String, Integer> weights) {
-        List<Site> found = new ArrayList<>();
-        if (reach < 0) {
-            return found;
-        }
-        int lowX = Math.floorDiv(at.x() - reach, REGION);
-        int highX = Math.floorDiv(at.x() + reach, REGION);
-        int lowZ = Math.floorDiv(at.z() - reach, REGION);
-        int highZ = Math.floorDiv(at.z() + reach, REGION);
-        long limit = (long) reach * reach;
-        for (int rz = lowZ; rz <= highZ; rz++) {
-            for (int rx = lowX; rx <= highX; rx++) {
-                siteIn(worldSeed, rx, rz, weights)
-                        .filter(site -> site.center().horizontalDistanceSq(at) <= limit)
-                        .ifPresent(found::add);
-            }
-        }
-        found.sort(Comparator.comparingLong(site -> site.center().horizontalDistanceSq(at)));
-        return found;
+        return Grid.DEFAULT.near(worldSeed, at, reach, weights);
     }
 
     /** Which region a block column belongs to. */
     public static int regionOf(int blockCoordinate) {
-        return Math.floorDiv(blockCoordinate, REGION);
+        return Grid.DEFAULT.regionOf(blockCoordinate);
     }
 
     /**
