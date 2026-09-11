@@ -510,6 +510,36 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **Humans, orcs, and goblins are races.** Culture ids carry the race
+      (kingdoms:human/norman, kingdoms:orc/warhost, kingdoms:goblin/mire);
+      orcs have 30 health, +1 to the swing, and walk a tenth slower, goblins
+      the reverse. All eight streets-first human arrangements generate,
+      weighted by the survey.
+- [x] **Orcs are armed.** Greatsword, falchion, cleaver, axe, and morningstar,
+      crude and forged; guards dealt one by their id, two-handers without a
+      bow; every orc civilian carries a cleaver or a hand axe and swings back
+      once at what bit them. Placeholder art drawn by script.
+- [x] **The warhost lives in a ring of huts round a great hut, under a king.**
+      A round layout with the hall on the middle and huts fronting inward;
+      round huts with a true cone roof; a king crowned when the great hut
+      stands, worth two guards, mourned a hundred steps.
+- [x] **The save format is American and uncapped.** centre and armour keys
+      renamed; the settlement, building, and task codecs split into named
+      sub-records with headroom; landings for old saves removed. Worlds saved
+      before this will not load.
+- [x] **A road through the forester's belt spares its trunks**, and the lamp
+      draws each plot as a box.
+- [ ] **A hall never lands on the middle.** The plan reserves plot 0 for the
+      great hut, and for every other arrangement's hall, but the camp post
+      takes plot 0 on step one and the hall is raised a hundred blocks out.
+      Fixing it means letting a building reserve a plot: a siting change.
+- [ ] **A war camp still raises a town hall beside its great hut.**
+- [ ] **Two-handed orc guards have no answer to a creeper**; they hold the
+      band and never loose. Half the watch is one-handed by construction.
+- [ ] **Ten orc weapon items, not five.** Crude and forged are separate items
+      so the smithy's upgrade is visible; collapse to five if unwanted.
+- [ ] **A queued plot draws at a stand-in height of six** in the lamp; there
+      is no declared height per blueprint.
 - [x] **The surveyor's lamp draws lines that hold still.** A survey payload
       once a second, rendered on the client as solid white lines through the
       terrain: opened roads solid, planned dashed, the wall gray, plots as
