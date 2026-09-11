@@ -155,10 +155,15 @@ class QuestPlannerTest {
         town.setFedStreak(0);
         town.setThreatLevel(Alarm.ALARMED_AT);
 
-        // Enough steps that a fair roll would have reached slaying many times.
+        // Forty towns with fixed ids, not twelve random ones. The roll is a
+        // hash of the settlement id, so random ids made this a coin-flip test
+        // that failed about one run in eight; fixed ids make the count a fact
+        // about the weights, and forty trials at 40 against 12 leave the
+        // majority in no doubt.
         int breadFirst = 0;
-        for (int run = 0; run < 12; run++) {
-            Settlement each = calm();
+        int trials = 40;
+        for (int run = 0; run < trials; run++) {
+            Settlement each = twin(new UUID(0x5EED_F00DL, run), "Hungry " + run);
             each.setStock(TownStores.FOOD, 0);
             each.setFedStreak(0);
             each.setThreatLevel(Alarm.ALARMED_AT);
@@ -167,8 +172,8 @@ class QuestPlannerTest {
                 breadFirst++;
             }
         }
-        assertTrue(breadFirst >= 8,
-                "bread should win most rolls against a threat; won " + breadFirst + " of 12");
+        assertTrue(breadFirst > trials / 2,
+                "bread should win most rolls against a threat; won " + breadFirst + " of " + trials);
     }
 
     @Test

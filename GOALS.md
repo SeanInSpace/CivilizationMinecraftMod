@@ -527,6 +527,27 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **The mod is called Civilization.** Mod id, namespace, package, class
+      prefix, config, and world folder renamed; /civ and keystone kept; the
+      domain word kingdom stays where it means one. New worlds only.
+- [x] **A town map you can read.** One screen from the hall post, the map
+      item, or the wayfinder: the plan, roads, wall, buildings by role,
+      citizens as dots, tooltips, and five tabs; refreshed every second on the
+      client's own ask.
+- [x] **A quest board that asks for what the town lacks.** Deliver, slay,
+      clear, and visit notices generated from the town's real troubles,
+      deterministic per step; paid in emeralds from the treasury and in
+      standing with that town; five on the board, ten remembered.
+- [x] **Authored structures are first class.** World folder beats shared
+      folder beats jar; scan, check, place, and list commands; a validator
+      against the size table and bed count; beds, door, and crop count read
+      from the file; an oversize file refused by name and the drawn shape
+      used instead. No example ships: nobody here could look at one.
+- [ ] **Standing does not move market prices.** The spread is too narrow for a
+      discount without turning the treasury into a fountain; widen the spread
+      first.
+- [ ] **The four old survey files carry the old culture ids.** Rewrite them or
+      drop them before comparing against a fresh survey.
 - [x] **Humans, orcs, and goblins are races.** Culture ids carry the race
       (civilization:human/norman, civilization:orc/warhost, civilization:goblin/mire);
       orcs have 30 health, +1 to the swing, and walk a tenth slower, goblins
