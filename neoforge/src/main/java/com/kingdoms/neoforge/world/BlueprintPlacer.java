@@ -278,19 +278,25 @@ public final class BlueprintPlacer {
      * built, and only new buildings are packed at the new spacing.
      */
     private static Footprint plotOf(int y, StructurePlan plan) {
+        return plotOf(y, plan.width(), plan.depth(), plan.height(), plan.notch());
+    }
+
+    /** The same, from the parts, for the plan pass that has no plan yet. */
+    private static Footprint plotOf(int y, int width, int depth, int height,
+                                    BuildingSizes.Notch notch) {
         return new Footprint(y,
-                plan.width() + 2 * APRON_MARGIN,
-                plan.depth() + 2 * APRON_MARGIN,
-                plan.height(),
+                width + 2 * APRON_MARGIN,
+                depth + 2 * APRON_MARGIN,
+                height,
                 // The bite grows with the box. A footprint is the walls plus the
                 // doorstep ring, and a doorstep is laid round the inside of the
                 // crook as much as round the outside -- so the corner that is
                 // NOT the building shrinks by the margin the rest of it gains.
-                plan.notch().isCut()
+                notch.isCut()
                         ? new BuildingSizes.Notch(
-                                Math.max(1, plan.notch().width() - APRON_MARGIN),
-                                Math.max(1, plan.notch().depth() - APRON_MARGIN),
-                                plan.notch().towardX(), plan.notch().towardZ())
+                                Math.max(1, notch.width() - APRON_MARGIN),
+                                Math.max(1, notch.depth() - APRON_MARGIN),
+                                notch.towardX(), notch.towardZ())
                         : BuildingSizes.Notch.NONE);
     }
 
@@ -1818,7 +1824,7 @@ public final class BlueprintPlacer {
         // ground comes away, and it is Excavation that works it out. Ordering the
         // list here is exactly what forced a whole crew through one block at a
         // time and had them digging out from under each other.
-        List<BlockPos> digTargets = new ArrayList<>();
+        Set<BlockPos> digTargets = new LinkedHashSet<>();
         boolean blocked = false;
         for (BlockPos pos : toDig) {
             BlockState standing = level.getBlockState(pos);
@@ -1831,6 +1837,28 @@ public final class BlueprintPlacer {
             }
             digTargets.add(pos);
         }
+
+        // And the sky over the plot, which is the other half of clearing a site
+        // and used to be no part of it at all. Everything above only ever cut
+        // three blocks of headroom round the doorstep, so a building raised in a
+        // forest was finished with the canopy of the next tree across its roof
+        // and trunks standing against its walls: the crew had cleared precisely
+        // the cells they were going to write in, and a branch six blocks up was
+        // in nobody's way by that measure.
+        //
+        // Added after the test above rather than through it, deliberately. Ground
+        // cover is replaceable by definition, so needsDigging says — quite
+        // correctly, for a cell a course is about to be laid in — that it does not
+        // need digging; over a roof there is no course coming, and litter left on
+        // the eaves is exactly the complaint.
+        //
+        // Growth only. Stone and ore standing over a plot are the hillside and
+        // belong to the excavation box, which is the building's own size and stops
+        // at its roof; this is a canopy rule, and cutting a shaft to the build
+        // limit through a mountain is not what anybody meant by it.
+        digTargets.addAll(Overgrowth.overPlot(Overgrowth.over(level), base,
+                plotOf(base.getY(), width, depth, height, notch),
+                Overgrowth.woodlandAround(level, base)));
 
         solid.sort(Comparator
                 .comparingInt((Placement q) -> q.pos().getY())
@@ -1857,7 +1885,8 @@ public final class BlueprintPlacer {
                         PLACE_COST, materialFor(placement.state())));
             }
         }
-        return new StructurePlan(width, depth, height, steps, digTargets, blocked, notch);
+        return new StructurePlan(width, depth, height, steps,
+                List.copyOf(digTargets), blocked, notch);
     }
 
     /**

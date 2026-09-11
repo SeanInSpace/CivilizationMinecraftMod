@@ -265,9 +265,10 @@ public final class Excavation {
                 reduced.add(target);
                 continue;
             }
-            BlockPos stump = stumpUnder(level, pos);
-            Set<BlockPos> tree = gatherTree(level, stump);
+            BlockPos found = stumpUnder(level, pos);
+            Set<BlockPos> tree = gatherTree(level, found);
             handled.addAll(tree);
+            BlockPos stump = rootOf(level, tree, found);
 
             int ticks = 0;
             for (BlockPos part : tree) {
@@ -284,6 +285,39 @@ public final class Excavation {
 
     private static boolean isTree(BlockState state) {
         return state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES);
+    }
+
+    /**
+     * The lowest log of a tree once the whole of it is known.
+     *
+     * <p>{@link #stumpUnder} walks straight down and can only find a trunk that
+     * happens to be directly beneath where it started. A leaf on the outside of a
+     * crown has air under it, so the walk stops where it began and the "stump" is
+     * a leaf block ten blocks up — somewhere nobody can stand, which the yard then
+     * sets aside as unreachable, over and over, until it gives up on the cell.
+     * Nothing noticed while only the cells a person's head hits were ever handed
+     * over; a plot cleared to the sky hands over the whole crown, so most of what
+     * arrives is outer leaves.
+     *
+     * <p>The gathered tree already contains the trunk, so the answer is simply the
+     * lowest log in it. Ties are broken on x and then z so that two runs over the
+     * same wood pick the same stump — a job list that shuffled between saves would
+     * make a half-dug site unrecognizable when it reloaded.
+     */
+    private static BlockPos rootOf(ServerLevel level, Set<BlockPos> tree, BlockPos fallback) {
+        BlockPos root = null;
+        for (BlockPos part : tree) {
+            if (!level.getBlockState(part).is(BlockTags.LOGS)) {
+                continue;
+            }
+            if (root == null || part.getY() < root.getY()
+                    || (part.getY() == root.getY() && part.getX() < root.getX())
+                    || (part.getY() == root.getY() && part.getX() == root.getX()
+                            && part.getZ() < root.getZ())) {
+                root = part;
+            }
+        }
+        return root == null ? fallback : root;   // a leaf on its own is its own job
     }
 
     /** The bottom of the trunk this block belongs to, which is where an axe goes. */

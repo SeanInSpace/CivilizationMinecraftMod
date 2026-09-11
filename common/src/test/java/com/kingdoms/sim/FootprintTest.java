@@ -2,6 +2,7 @@ package com.kingdoms.sim;
 
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.settlement.Building;
+import com.kingdoms.sim.settlement.BuildingSizes;
 import com.kingdoms.sim.settlement.Footprint;
 import org.junit.jupiter.api.Test;
 
@@ -74,6 +75,72 @@ class FootprintTest {
         Footprint even = new Footprint(64, 4, 4, 3);
         assertTrue(even.covers(0, 0, 2, 0));
         assertFalse(even.covers(0, 0, 3, 0));
+    }
+
+    /**
+     * The band a tree may not stand in, which is the one piece of ground outside
+     * a plot the town is allowed to touch.
+     *
+     * <p>A building in a forest came out with trunks against its walls: the site
+     * was cleared to the exact cells the crew was about to write in, so a tree
+     * one block outside the doorstep ring was somebody else's tree, however hard
+     * it was leaning on the house. Two blocks is the whole of the concession.
+     */
+    @Test
+    void aTrunkTwoBlocksOffTheWallIsInTheBandAndOneThreeBlocksOffIsNot() {
+        // A 7x7 plot centered on the origin reaches three blocks each way.
+        Footprint plot = new Footprint(64, 7, 7, 5);
+
+        assertFalse(plot.inClearanceBand(0, 0, 3, 0, 2), "inside the plot is not a band");
+        assertTrue(plot.inClearanceBand(0, 0, 4, 0, 2), "one past the wall");
+        assertTrue(plot.inClearanceBand(0, 0, 5, 0, 2), "two past the wall");
+        assertFalse(plot.inClearanceBand(0, 0, 6, 0, 2), "three past the wall is a neighbor's");
+    }
+
+    @Test
+    void theBandFollowsTheCornersRatherThanTheAxes() {
+        Footprint plot = new Footprint(64, 7, 7, 5);
+
+        // Square, not round: the diagonal reaches exactly as far as the sides do,
+        // because a round band round a square plot reads as neither.
+        assertTrue(plot.inClearanceBand(0, 0, 5, 5, 2));
+        assertFalse(plot.inClearanceBand(0, 0, 6, 5, 2));
+    }
+
+    @Test
+    void theYardInTheCrookOfAnLIsBandRatherThanPlot() {
+        // A 7x7 box with a 2x2 bite out of its +x/+z corner. Those four columns
+        // are not the building, so nothing is dug there — but they are up against
+        // two walls, and a tree growing in the crook leans on the house exactly as
+        // one outside the gable end does.
+        Footprint ell = new Footprint(64, 7, 7, 5,
+                new BuildingSizes.Notch(2, 2, 1, 1));
+
+        assertFalse(ell.covers(0, 0, 3, 3), "the yard is not the building");
+        assertTrue(ell.inClearanceBand(0, 0, 3, 3, 2), "but a trunk in it is in reach");
+        assertTrue(ell.inClearanceBand(0, 0, 2, 2, 2), "and so is one deeper in the crook");
+    }
+
+    @Test
+    void theMiddleOfAWideYardIsOutOfReachLikeAnyOtherGround() {
+        // The band measures from the walls and nowhere else, so it does not
+        // magically cover a courtyard just because the courtyard has a house
+        // round it. The far corner of a three-deep bite is three from every wall
+        // and is left alone, which is the same answer any ground three blocks
+        // from a building gets.
+        Footprint courtyard = new Footprint(64, 7, 7, 5,
+                new BuildingSizes.Notch(3, 3, 1, 1));
+
+        assertFalse(courtyard.inClearanceBand(0, 0, 3, 3, 2));
+        assertTrue(courtyard.inClearanceBand(0, 0, 2, 2, 2));
+    }
+
+    @Test
+    void noBandAtAllWhenNothingIsSpared() {
+        Footprint plot = new Footprint(64, 7, 7, 5);
+
+        assertFalse(plot.inClearanceBand(0, 0, 4, 0, 0),
+                "a clearance of zero is a town that touches nothing past its own ground");
     }
 
     @Test

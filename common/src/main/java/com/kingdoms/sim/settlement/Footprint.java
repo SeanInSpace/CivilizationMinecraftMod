@@ -66,6 +66,39 @@ public record Footprint(int y, int width, int depth, int height,
         return !inNotch(dx, dz);
     }
 
+    /**
+     * Whether a column stands close enough to this plot that a tree in it leans
+     * on the building: outside the plot, and within {@code clearance} of it.
+     *
+     * <p>The one band the town is allowed to touch beyond its own ground, and it
+     * is deliberately narrow. A trunk two blocks off a wall is a tree growing
+     * through the eaves; a trunk three blocks off is a tree in somebody's yard,
+     * and felling that would make every building in a wood clear a ring around
+     * itself — which is the scraped-pad look the plot margin was shrunk to avoid.
+     *
+     * <p>Measured as a square ring rather than a circle, because the plot is a
+     * box and a round band round a square reads as neither. Asked cell by cell
+     * against {@link #covers} rather than by arithmetic on the half-spans, so the
+     * yard in the crook of an L is handled for free: those columns are outside
+     * the plot and up against two walls, so a tree standing in the yard is in the
+     * band exactly as a tree standing outside the gable end is.
+     *
+     * @param clearance how far past the plot the band reaches; zero for no band
+     */
+    public boolean inClearanceBand(int originX, int originZ, int x, int z, int clearance) {
+        if (clearance <= 0 || covers(originX, originZ, x, z)) {
+            return false;
+        }
+        for (int dx = -clearance; dx <= clearance; dx++) {
+            for (int dz = -clearance; dz <= clearance; dz++) {
+                if (covers(originX, originZ, x + dx, z + dz)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /** Whether this cell of the bounding box is the corner that was cut away. */
     public boolean inNotch(int dx, int dz) {
         if (!notch.isCut()) {

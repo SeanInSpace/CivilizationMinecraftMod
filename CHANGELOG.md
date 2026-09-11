@@ -6,6 +6,52 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Roads look trodden and houses stand in daylight
+
+### Fixed
+
+- **Leaf litter no longer lies on top of a new road.** A way laid through a
+  birch or cherry wood came out with the forest floor still scattered across
+  the gravel, which made the whole road read as something painted on after the
+  world was made rather than as a path somebody had walked. Everything growing
+  on the stones now comes off them when the stones go down — litter, grass,
+  ferns, flowers, snow, wildflowers, petals and all — on bridges as well as on
+  the ground.
+
+- **The verge is left alone, so a road still runs through a meadow.** Only the
+  paved strip is cleared. The block either side of the carriageway keeps
+  whatever grows on it, which is what stops a country lane reading as a trench
+  of bare dirt.
+
+- **A tree standing in the road comes down whole**, and so do the branches over
+  it, so a way through a wood is a way through a wood rather than a tunnel with
+  a trunk in the middle. A road that runs under a bridge or a raised floor is
+  left to run under it.
+
+- **Buildings no longer finish with a canopy across the roof.** A house raised
+  in a forest used to have the crown of the next tree lying over its tiles and
+  its own chimney buried in leaves, because the crew only ever cleared the cells
+  they were about to lay a block in. The whole plot and its doorstep ring are
+  now cleared to the sky of growth — logs, leaves and ground cover — so you can
+  see the building you just paid for. Stone, ore and the hillside itself are
+  untouched: this clears a wood, not a mountain.
+
+- **Trunks leaning on the walls are felled.** Any tree rooted within two blocks
+  of a building's plot comes down when the site is cleared, which is the one
+  place the town touches ground it does not own. Its crown is left to wither the
+  way any felled tree's does. Trees three blocks out and further are somebody
+  else's, and the trees in a lumber camp's own woodland are never touched — a
+  forester's stand is not in anybody's way.
+
+- **None of that timber counts as a harvest.** Wood cleared off a site is spoil,
+  exactly like the earth dug out from under a floor. A town still has to raise a
+  lumber camp and cut its own trees to have any.
+
+- **Repairs leave the clearing alone.** Mending a damaged building never puts
+  back leaves that were cleared off its roof, and litter drifting onto a finished
+  road is not treated as damage — it does not block anything, and a town that
+  repaved a street over a flower would be rewriting half of itself every sweep.
+
 ## You can tell a smithy from a mill without clicking on it
 
 ### Changed

@@ -6,7 +6,6 @@ import com.kingdoms.sim.settlement.PathNetwork;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -31,9 +30,6 @@ import net.minecraft.world.level.block.state.BlockState;
  * building has since been raised over is left alone rather than fought over.
  */
 public final class PathLayer {
-
-    /** Blocks of clearance kept above the track. */
-    private static final int HEADROOM = 2;
 
     /**
      * Half-width of one run, so a way is {@code 2 * half + 1} across.
@@ -374,8 +370,22 @@ public final class PathLayer {
     }
 
     /**
-     * Paves one column: the surface block becomes a path, and the air above it
-     * is opened up.
+     * Paves one column: the surface block becomes a path, and the column above
+     * it is cleared of everything that grew there.
+     *
+     * <p>The clearing used to reach two blocks up and to know four kinds of
+     * plant by name, which is how a road through a birch forest came out with
+     * leaf litter lying on top of the gravel: litter is none of those four, so
+     * it stayed exactly where world generation had put it and the way read as
+     * something stamped on afterwards rather than as a road somebody trod. A
+     * road is laid as if it had always been there, so whatever is standing on
+     * the stones comes off them — and the branches over it too, and the trunk
+     * of a tree that turns out to be standing in the carriageway.
+     *
+     * <p>Only over the stones. {@link #crossSectionAt} is the carriageway and
+     * the cells either side of it are verge: their litter stays, which is what
+     * makes the finished way read as a road through a meadow instead of a strip
+     * of bare dirt through one.
      *
      * @return 1 if anything was laid
      */
@@ -389,17 +399,15 @@ public final class PathLayer {
             return 0;   // a floor, a roof, or water: not ours to pave
         }
         level.setBlock(surface, Blocks.DIRT_PATH.defaultBlockState(), Block.UPDATE_CLIENTS);
-
-        for (int dy = 1; dy <= HEADROOM; dy++) {
-            BlockPos above = surface.above(dy);
-            BlockState overhead = level.getBlockState(above);
-            // Only foliage is cleared. Anything built stays exactly where it is.
-            if (overhead.is(BlockTags.LEAVES) || overhead.is(BlockTags.FLOWERS)
-                    || overhead.is(Blocks.SHORT_GRASS) || overhead.is(Blocks.TALL_GRASS)) {
-                level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-            }
-        }
+        clearOver(level, surface);
         return 1;
+    }
+
+    /** Takes the growth off one paved block, from the stones to the sky. */
+    static void clearOver(ServerLevel level, BlockPos surface) {
+        for (BlockPos above : Overgrowth.overPaving(Overgrowth.over(level), surface)) {
+            level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
     }
 
     /** The walkable block of a column, or null where the world cannot answer. */

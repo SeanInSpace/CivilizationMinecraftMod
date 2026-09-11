@@ -167,6 +167,8 @@ public final class Bridge {
         int laid = 0;
         for (BlockPos on : deck.values()) {
             laid += lay(level, on, Blocks.OAK_PLANKS.defaultBlockState());
+            // The water the deck rises out of, first: a plank laid at bank level
+            // over a stream has a block or two of river standing on it.
             for (int dy = 1; dy <= HEADROOM; dy++) {
                 BlockPos above = on.above(dy);
                 if (level.isLoaded(above) && !level.getFluidState(above).isEmpty()) {
@@ -174,6 +176,11 @@ public final class Bridge {
                     laid++;
                 }
             }
+            // Then whatever was growing where the deck now runs. A crossing meets
+            // dry land at each end and the last plank of it goes down on the bank,
+            // so a bridge without this has the same litter on its boards that the
+            // road leading onto it used to have.
+            PathLayer.clearOver(level, on);
         }
 
         // Railings where the deck ends over water, and nowhere else. A rail
