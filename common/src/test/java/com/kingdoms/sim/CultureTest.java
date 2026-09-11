@@ -160,7 +160,16 @@ class CultureTest {
         assertEquals(Culture.LAYOUT_HIGH_STREET, Culture.BURGHER.layouts().get(0));
         assertEquals(Culture.LAYOUT_RING_STREETS, Culture.VALE.layouts().get(0));
         assertEquals(Culture.LAYOUT_WARREN, Culture.GOBLIN.layouts().get(0));
-        assertEquals(Culture.LAYOUT_STRONGHOLD, Culture.ORC.layouts().get(0));
+
+        // The orcs are the exception, and a deliberate one. Their war camp took
+        // the head of the list from the stronghold, which rearranges every orc
+        // town already standing -- they had two arrangements and both were
+        // rectangles, so an orc settlement read as a garrison and nothing else.
+        // Save compatibility bought nothing here: what it was protecting was the
+        // very thing being replaced. The two rectangles are still in the list.
+        assertEquals(Culture.LAYOUT_ORC_RING, Culture.ORC.layouts().get(0));
+        assertTrue(Culture.ORC.layouts().contains(Culture.LAYOUT_STRONGHOLD));
+        assertTrue(Culture.ORC.layouts().contains(Culture.LAYOUT_STRONGHOLD_STREETS));
     }
 
     @Test

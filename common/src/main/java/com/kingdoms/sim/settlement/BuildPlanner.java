@@ -700,6 +700,12 @@ public final class BuildPlanner {
 
         return catalog.stream()
                 .filter(type -> population >= type.minPopulation())
+                // Whose house it is. The catalog holds every home any people
+                // builds, because it is one table; this is where a war camp
+                // stops wanting cottages and a Norman village stops wanting
+                // huts. See Homes for why the filter is a table rather than a
+                // column on every row.
+                .filter(type -> Homes.buildableBy(settlement.cultureId(), type.id()))
                 .filter(type -> shortfall(settlement, type, population) > 0)
                 .max(Comparator
                         .comparingInt((BuildingType type) -> defendsTheTown(settlement, type))

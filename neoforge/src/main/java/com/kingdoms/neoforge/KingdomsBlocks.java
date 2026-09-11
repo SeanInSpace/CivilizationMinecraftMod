@@ -91,6 +91,16 @@ public final class KingdomsBlocks {
             "longhouse",
             properties -> new BuildingPostBlock("Longhouse", "three households under one long roof — how a town houses six people on the ground a house takes.", properties),
             KingdomsBlocks::postProperties);
+    /** Hut: the round house a warband lives in, three to a roof. */
+    public static final DeferredBlock<BuildingPostBlock> HUT = BLOCKS.registerBlock(
+            "hut",
+            properties -> new BuildingPostBlock("Hut", "a round house with a fire in the middle of the floor; three of the warband sleep here.", properties),
+            KingdomsBlocks::postProperties);
+    /** Great Hut: the chief's own roof, on the middle of the muster yard. */
+    public static final DeferredBlock<BuildingPostBlock> GREAT_HUT = BLOCKS.registerBlock(
+            "great_hut",
+            properties -> new BuildingPostBlock("Great Hut", "the chief's roof, on the middle of the yard — the king lives here, and while he does the warband fights harder.", properties),
+            KingdomsBlocks::postProperties);
     /** Croft: a house wrapped round its own yard, six under the roof. */
     public static final DeferredBlock<BuildingPostBlock> CROFT = BLOCKS.registerBlock(
             "croft",
@@ -174,7 +184,7 @@ public final class KingdomsBlocks {
 
     /** Every post the mod registers, in build order. */
     public static List<DeferredBlock<? extends BuildingPostBlock>> posts() {
-        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, CAMP_POST, CACHE, BUNKHOUSE, HEARTH, COTTAGE, MILL, CARPENTRY, INN);
+        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, CAMP_POST, CACHE, BUNKHOUSE, HEARTH, COTTAGE, MILL, CARPENTRY, INN, HUT, GREAT_HUT);
     }
 
     private KingdomsBlocks() {

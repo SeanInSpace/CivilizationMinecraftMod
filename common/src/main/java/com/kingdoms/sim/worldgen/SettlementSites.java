@@ -526,18 +526,46 @@ public final class SettlementSites {
         return wanted.get(wanted.size() - 1);   // unreachable; total is the sum
     }
 
-    /** Any arrangement some people already builds in, for a world with no table. */
+    /**
+     * Any arrangement some people already builds in, for a world with no table.
+     *
+     * <p><strong>A people first, then one of their shapes.</strong> The obvious
+     * version of this drew evenly from every arrangement anybody builds, and it
+     * was quietly a table of how many shapes each people has rather than of
+     * which peoples exist: the mire goblins build in exactly one arrangement and
+     * the warhost in three, so a flat draw over fourteen shapes gave the goblins
+     * a fourteenth of the world and the orcs three. Adding a shape to one people
+     * took sites away from every other people, which is a strange thing for
+     * "no preference at all" to mean.
+     *
+     * <p>So the fallback means what it says: no preference between <em>peoples</em>.
+     * Each is equally likely, and a people with three arrangements spreads its
+     * own share across them rather than taking somebody else's. The weighted
+     * path — which is what a world actually runs, since the config always hands
+     * a table over — is untouched and still draws the shape first, because there
+     * the shape is the thing that was asked for.
+     *
+     * <p>Sorted, and by id, because a map's iteration order is not something to
+     * stake a world's shape on: {@code Culture.all()} is backed by a
+     * {@code Map.of}, whose order is randomized per JVM.
+     */
     private static String anyArrangement(long worldSeed, int regionX, int regionZ) {
-        List<String> known = new ArrayList<>();
-        for (Culture culture : Culture.all()) {
-            if (!culture.id().equals(Culture.DEFAULT.id())) {
-                known.addAll(culture.layouts());
-            }
+        List<Culture> peoples = Culture.all().stream()
+                .filter(culture -> !culture.id().equals(Culture.DEFAULT.id()))
+                .sorted(java.util.Comparator.comparing(Culture::id))
+                .toList();
+        if (peoples.isEmpty()) {
+            return Culture.LAYOUT_RING;
         }
-        known = known.stream().distinct().sorted().toList();
-        int at = (int) Long.remainderUnsigned(
-                hash(worldSeed, regionX, regionZ, SALT_ARRANGEMENT), known.size());
-        return known.get(at);
+        long draw = hash(worldSeed, regionX, regionZ, SALT_ARRANGEMENT);
+        Culture people = peoples.get(
+                (int) Long.remainderUnsigned(draw, peoples.size()));
+        List<String> theirs = people.layouts().stream().sorted().toList();
+        // Mixed again rather than reused: the same hash modulo two different
+        // counts runs in lockstep, so a people's shape would be decided by how
+        // many peoples there happen to be.
+        long again = hash(worldSeed, regionX, regionZ, SALT_ARRANGEMENT ^ 0x5BF0_3635L);
+        return theirs.get((int) Long.remainderUnsigned(again, theirs.size()));
     }
 
     /**

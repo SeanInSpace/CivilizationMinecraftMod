@@ -165,6 +165,35 @@ public final class Beds {
                 northward(2, -1),
                 northward(3, -1)));
 
+        // The orc hut. Seven across with the corners cut, so the room inside is
+        // a five-wide cross rather than a square: dz = -2 and dz = 2 are only
+        // three cells wide, and dx = 2 is only three deep. Two under the back
+        // wall either side of the hut post at (0,-2), and the third down the east
+        // side where the widest part of the round room is — three is what the
+        // catalog says a hut holds, and a round room has no fourth straight
+        // stretch of wall to lay one against.
+        table.put("hut", List.of(
+                northward(-1, -1),
+                northward(1, -1),
+                eastward(1, 1)));
+
+        // The great hut: thirteen across, six beds, and the king in the first of
+        // them. Four in a rank along the back with a bay apiece, exactly as a
+        // house and a longhouse rank theirs, and two more down the door wall
+        // either side of the fire — the two halves of a warband's chief's hall,
+        // his own household at the back and his hearth-guard by the door.
+        //
+        // Kept to |dx| <= 3 on the back rank and |dz| <= 4 throughout, which is
+        // well inside the octagon: the corners this shape cuts are at
+        // |dx| + |dz| > 9.
+        table.put("great_hut", List.of(
+                northward(-3, -3),
+                northward(-1, -3),
+                northward(1, -3),
+                northward(3, -3),
+                southward(-3, 3),
+                southward(3, 3)));
+
         return Map.copyOf(table);
     }
 

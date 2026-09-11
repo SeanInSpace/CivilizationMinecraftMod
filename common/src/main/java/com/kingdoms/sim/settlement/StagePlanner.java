@@ -82,14 +82,14 @@ public final class StagePlanner {
     public static Optional<BuildingType> nextProgramWant(Settlement settlement) {
         List<Want> program = PROGRAMS.getOrDefault(settlement.stage(), List.of());
         for (Want want : program) {
-            Optional<BuildingType> type = typeOf(settlement, want.blueprintId());
+            String wanted = homeFor(settlement, want.blueprintId());
+            Optional<BuildingType> type = typeOf(settlement, wanted);
             if (type.isEmpty()) {
                 continue;   // content not in this catalog yet; the machine moves on
             }
-            int standing = settlement.countBuildings(want.blueprintId());
+            int standing = settlement.countBuildings(wanted);
             boolean queued = settlement.buildQueue().stream()
-                    .anyMatch(t -> BuildPlanner.baseIdOf(t.blueprintId())
-                            .equals(want.blueprintId()));
+                    .anyMatch(t -> BuildPlanner.baseIdOf(t.blueprintId()).equals(wanted));
             if (standing < want.count() && !queued) {
                 return type;
             }
@@ -97,13 +97,32 @@ public final class StagePlanner {
         return Optional.empty();
     }
 
+    /**
+     * What this settlement's people raise where the program names that.
+     *
+     * <p>The program is written once, in human, and read by everybody. An orc
+     * war camp's VILLAGE program raises two huts where a village raises two
+     * cottages, and not one line of {@link #PROGRAMS} says so — see
+     * {@link Homes}, which is the one table that knows.
+     *
+     * <p>Applied here rather than in the program because a program is a claim
+     * about <em>what a settlement needs</em> — shelter, then a mill, then a
+     * market — and that claim is the same for everybody. What differs is the
+     * building, and the building is the last thing decided rather than the
+     * first.
+     */
+    private static String homeFor(Settlement settlement, String blueprintId) {
+        return Homes.instead(settlement.cultureId(), blueprintId);
+    }
+
     /** Whether every known entry of the stage's program stands. */
     public static boolean programComplete(Settlement settlement) {
         for (Want want : PROGRAMS.getOrDefault(settlement.stage(), List.of())) {
-            if (typeOf(settlement, want.blueprintId()).isEmpty()) {
+            String wanted = homeFor(settlement, want.blueprintId());
+            if (typeOf(settlement, wanted).isEmpty()) {
                 continue;
             }
-            if (settlement.countBuildings(want.blueprintId()) < want.count()) {
+            if (settlement.countBuildings(wanted) < want.count()) {
                 return false;
             }
         }

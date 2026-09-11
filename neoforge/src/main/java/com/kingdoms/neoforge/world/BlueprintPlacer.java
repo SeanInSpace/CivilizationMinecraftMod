@@ -1644,6 +1644,8 @@ public final class BlueprintPlacer {
             case "bunkhouse" -> KingdomsBlocks.BUNKHOUSE.get();
             case "hearth" -> KingdomsBlocks.HEARTH.get();
             case "cottage" -> KingdomsBlocks.COTTAGE.get();
+            case "hut" -> KingdomsBlocks.HUT.get();
+            case "great_hut" -> KingdomsBlocks.GREAT_HUT.get();
             case "longhouse" -> KingdomsBlocks.LONGHOUSE.get();
             case "croft" -> KingdomsBlocks.CROFT.get();
             case "library" -> KingdomsBlocks.LIBRARY.get();
@@ -1698,6 +1700,8 @@ public final class BlueprintPlacer {
             case "bunkhouse" -> bunkhouse(site, blocks, base);
             case "hearth" -> hearth(site, blocks, base);
             case "cottage" -> cottage(site, blocks, base);
+            case "hut" -> hut(site, blocks, base);
+            case "great_hut" -> greatHut(site, blocks, base);
             case "longhouse" -> longhouse(site, blocks, base);
             case "croft" -> croft(site, blocks, base);
             case "library" -> library(site, blocks, base);
@@ -2400,6 +2404,168 @@ public final class BlueprintPlacer {
         add(blocks, base.offset(0, 1, -1), KingdomsBlocks.COTTAGE.get());
         beds(site, blocks, base, "cottage");
         add(blocks, base.offset(-1, 1, 1), Blocks.BARREL);
+        return measured(blocks, base, size, from);
+    }
+
+    // --- the round ones ------------------------------------------------------
+
+    /*
+     * On the orc palette below.
+     *
+     * These four blocks are PLACEHOLDERS and are named as such in ORCS.md. A
+     * hut's cone, its trim and its banding are written here rather than on
+     * HouseStyle because HouseStyle is a column per people and a hut is a
+     * building only one people raises -- putting a "cone material" on every
+     * style would be five blank entries and one real one. When a second people
+     * builds something round, or when any of this becomes a datapack entry, that
+     * is the moment it moves.
+     *
+     * Spruce over the orc style's own cobblestone stairs, deliberately: a cone
+     * of cobble on a seven-wide hut reads as a cairn. Timber and hide is what a
+     * warband's roof is made of, and brown wool is the nearest thing the block
+     * list has to hide.
+     */
+
+    /** What a hut's cone is laid in. Placeholder — see ORCS.md. */
+    private static final Block HUT_ROOF_STAIRS = Blocks.SPRUCE_STAIRS;
+
+    /** The full block at the cone's peak, and wherever two slopes meet. */
+    private static final Block HUT_ROOF_RIDGE = Blocks.SPRUCE_PLANKS;
+
+    /** Bone, which is what the warhost trims a roof with. Placeholder. */
+    private static final Block HUT_TRIM = Blocks.BONE_BLOCK;
+
+    /** Hide, as near as the block list gets to it. Placeholder. */
+    private static final Block HUT_BANDING = Blocks.WOOL.pick(DyeColor.BROWN);
+
+    /** How high a hut's wall stands before the cone starts. */
+    private static final int HUT_WALL = 3;
+
+    /** And the chief's, which is two courses taller because it is a hall. */
+    private static final int GREAT_HUT_WALL = 5;
+
+    /**
+     * A roundhouse: octagonal walls with a cone of stairs over them.
+     *
+     * <p>{@link #hall} does the walls, because {@link #hall} was already the
+     * general shape walker — it lays a wall wherever a covered cell has an
+     * uncovered one beside it, which on an octagon gives eight faces and eight
+     * corner posts without knowing what an octagon is. That is why the shape
+     * language got a chamfer rather than the placer getting a second wall loop:
+     * a building that is not a rectangle was already expressible, and only the
+     * <em>kind</em> of not-a-rectangle was new.
+     *
+     * <p>The cone is {@link Parts#hipRoof}, uncapped. A hip takes its rise from
+     * how far each cell is from the open air in any direction, so over a square
+     * it is a pyramid and over an octagon it is a cone — the chamfered corners
+     * are open air, so the courses step in on the diagonals as well as on the
+     * faces and the roof comes to a point rather than to a ridge. Nothing in the
+     * roof code had to learn about round buildings; it was measuring the shape
+     * all along.
+     *
+     * <p><strong>It does read as a cone and not as a pyramid</strong>, which was
+     * the open question: a seven-wide octagon rises four courses in rings of
+     * 3-5-7-7-7-5-3, 5-7-7-7-5, 3-5-5-5-3 and a single block, and every course
+     * steps in on eight sides. On a bare square the same code gives four courses
+     * of nested squares, which is the pyramid this was trying not to be. Drawn
+     * ring by ring rather than by the inset measure it would be the same blocks.
+     *
+     * @return the declared size, for {@link #measured}
+     */
+    private static BuildingSizes.Size roundhouse(Site site, List<Placement> blocks,
+                                                 BlockPos base, String path,
+                                                 int wallHeight) {
+        BuildingSizes.Size size = sized(path);
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        hall(site, blocks, base, size, wallHeight, style.wall(), style.frame());
+        Parts.plinth(blocks, base, size, 1, style.plinth(), style.wall(), style.frame());
+        // A band of hide round the wall head, under the eaves. Written after the
+        // plinth and before the roof, over the wall course the eave will
+        // overhang -- so from outside it is the dark line a cone sits on.
+        band(blocks, base, size, wallHeight, HUT_BANDING, style.wall());
+        Parts.hipRoof(blocks, base, size, wallHeight + 1,
+                HUT_ROOF_STAIRS, HUT_ROOF_RIDGE, 0);
+        return size;
+    }
+
+    /**
+     * One course of the wall, replaced, wherever the wall is actually standing.
+     *
+     * <p>The same rule every replacing part in {@link Parts} keeps: it writes
+     * only over the block the wall already laid, so it can never close a window
+     * or brick up a doorway.
+     */
+    private static void band(List<Placement> blocks, BlockPos base,
+                             BuildingSizes.Size size, int y, Block with, Block wall) {
+        int rx = size.width() / 2;
+        int rz = size.depth() / 2;
+        Map<BlockPos, Block> drawn = new HashMap<>();
+        for (Placement placement : blocks) {
+            drawn.put(placement.pos(), placement.state().getBlock());
+        }
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                BlockPos pos = base.offset(dx, y, dz);
+                if (drawn.get(pos) == wall) {
+                    add(blocks, pos, with);
+                }
+            }
+        }
+    }
+
+    /**
+     * A hut: the round house a warband lives in, three to a roof.
+     *
+     * <p>What a cottage is to a village. Seven across with the corners cut, a
+     * cone over it, and a fire in the middle of the floor — which is the whole
+     * difference between this and a cabin with a pointed hat: a roundhouse has
+     * no chimney because the smoke goes out through the thatch.
+     */
+    private static int[] hut(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = roundhouse(site, blocks, base, "hut", HUT_WALL);
+        add(blocks, base.offset(0, 1, -2), KingdomsBlocks.HUT.get());
+        beds(site, blocks, base, "hut");
+        // A bone finial over the door, which is the one thing on a hut you can
+        // see from the yard.
+        add(blocks, base.offset(0, HUT_WALL + 1, 3), HUT_TRIM);
+        add(blocks, base.offset(-2, 1, 1), Blocks.BARREL);
+        return measured(blocks, base, size, from);
+    }
+
+    /**
+     * The great hut: the chief's own roof, and where a warband's king lives.
+     *
+     * <p>The same building at thirteen across, which is the point of it. A
+     * warband does not put its king in a different kind of house; it puts him in
+     * a bigger one, on the middle of the muster yard, with the whole camp drawn
+     * round it — see {@code OrcRingLayout}, which reserves the center for
+     * exactly this.
+     *
+     * <p>Six beds and the first of them is the king's, by
+     * {@code KingPlanner}'s rule rather than by anything drawn here: a bed is a
+     * bed, and which one is his is decided by who lives under the roof.
+     */
+    private static int[] greatHut(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size =
+                roundhouse(site, blocks, base, "great_hut", GREAT_HUT_WALL);
+        add(blocks, base.offset(0, 1, -5), KingdomsBlocks.GREAT_HUT.get());
+        beds(site, blocks, base, "great_hut");
+        // The long fire down the middle of the hall, which is what everybody
+        // sits round. Clear of the lantern hall() hangs at the origin.
+        for (int dz = -1; dz <= 1; dz += 2) {
+            add(blocks, base.offset(0, 1, dz), Blocks.CAMPFIRE);
+        }
+        // Bone over the door and at the four quarters of the wall head: a
+        // trophy rack, which is how you tell the chief's hut from the air.
+        add(blocks, base.offset(0, GREAT_HUT_WALL + 1, 6), HUT_TRIM);
+        for (int side = -1; side <= 1; side += 2) {
+            add(blocks, base.offset(side * 6, GREAT_HUT_WALL + 1, 0), HUT_TRIM);
+        }
+        add(blocks, base.offset(0, GREAT_HUT_WALL + 1, -6), HUT_TRIM);
+        add(blocks, base.offset(-4, 1, 4), Blocks.BARREL);
+        add(blocks, base.offset(4, 1, 4), Blocks.BARREL);
         return measured(blocks, base, size, from);
     }
 

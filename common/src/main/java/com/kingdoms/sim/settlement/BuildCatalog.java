@@ -69,6 +69,29 @@ public final class BuildCatalog {
             // than as its standard dwelling.
             new BuildingType("kingdoms:longhouse",      55,     14,     0,           16,       78,        6,       0, plot("kingdoms:longhouse")),
             new BuildingType("kingdoms:croft",          60,     18,     0,           20,       77,        6,       0, plot("kingdoms:croft")),
+            // The orc homes. A hut stands exactly where a cottage or a house
+            // would in anybody else's town -- same priority, same one per three
+            // residents -- because it IS their house, not an extra kind of
+            // building. Which people get which is Homes, not a gate here: a row
+            // this catalog holds is a row every town can see, and the filter
+            // that keeps huts out of a human village and cottages out of a war
+            // camp is one table rather than a column on every row.
+            //
+            // Twenty-four work against a cottage's twenty-eight: a hut is a ring
+            // of wall and a cone on top, and the corners it does not build are
+            // work it does not do.
+            new BuildingType("kingdoms:hut",            24,      1,     1,            3,       80,        3,       0, plot("kingdoms:hut")),
+            // The king's seat, and the one building in the mod that is capped at
+            // one by its own row rather than by a rule somewhere else: base 1
+            // and nothing per resident, so a warband has exactly one great hut
+            // however big it grows. Gated at fourteen for the same reason the
+            // longhouse is -- a camp that raised its chief's hall before it had
+            // huts would be one enormous roof and nothing else -- and ranked
+            // just under the hut, so shelter for the warband comes before a
+            // throne for the chief.
+            //
+            // Six beds, and the first of them is the king's. See KingPlanner.
+            new BuildingType("kingdoms:great_hut",      70,     14,     1,            0,       79,        6,       0, plot("kingdoms:great_hut")),
             new BuildingType("kingdoms:granary",        40,      4,     1,           20,       75,        0,       0, plot("kingdoms:granary")),
             // The farm row is a ceiling on wanting, not the floor. The floor is
             // BuildPlanner.farmsWanted -- one field per MOUTHS_PER_FARM mouths,

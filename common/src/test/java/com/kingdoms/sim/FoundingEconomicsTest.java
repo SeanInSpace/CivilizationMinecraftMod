@@ -1,5 +1,6 @@
 package com.kingdoms.sim;
 
+import com.kingdoms.sim.culture.Culture;
 import com.kingdoms.sim.geom.SimPos;
 import com.kingdoms.sim.kingdom.ExpansionPlanner;
 import com.kingdoms.sim.person.Foods;
@@ -9,6 +10,7 @@ import com.kingdoms.sim.settlement.BuildPlanner;
 import com.kingdoms.sim.settlement.Building;
 import com.kingdoms.sim.settlement.BuildingType;
 import com.kingdoms.sim.settlement.FoodPlanner;
+import com.kingdoms.sim.settlement.Homes;
 import com.kingdoms.sim.settlement.LumberPlanner;
 import com.kingdoms.sim.settlement.MinePlanner;
 import com.kingdoms.sim.settlement.RaidPlanner;
@@ -248,13 +250,23 @@ class FoundingEconomicsTest {
      * for every family, and a granary, and every one of those outranks the farm
      * and so is built before it. Growth is added on top — the population has to
      * arrive before a farm is wanted at all.
+     *
+     * <p>Counted for <em>one people</em> rather than over the whole catalog, and
+     * that distinction stopped being academic when the orcs got homes of their
+     * own. The catalog is one table holding every home anybody builds, so a sum
+     * over all of it charges this founding party for a hut it will never raise
+     * as well as for the cottage it will. {@link Homes} is what a settlement
+     * actually filters the catalog by, so it is what this filters by too. The
+     * party here is the lowlanders, which is what an unstamped town has always
+     * been.
      */
     private static int roadToTheFirstHarvest(int farmingPopulation) {
         BuildingType farm = type(FARM);
         int building = 0;
         for (BuildingType wanted : BuildCatalog.DEFAULT) {
             if (wanted.priority() < farm.priority()
-                    || farmingPopulation < wanted.minPopulation()) {
+                    || farmingPopulation < wanted.minPopulation()
+                    || !Homes.buildableBy(Culture.DEFAULT.id(), wanted.id())) {
                 continue;
             }
             building += wanted.desiredCount(farmingPopulation) * wanted.workCost();

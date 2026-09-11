@@ -77,10 +77,30 @@ public final class BuildingSizes {
      * so an even span would put the origin off center and a quarter turn would
      * move the building half a block.
      */
-    public record Size(int width, int depth, Notch notch) {
+    public record Size(int width, int depth, Notch notch, int chamfer) {
 
         public Size(int width, int depth) {
-            this(width, depth, Notch.NONE);
+            this(width, depth, Notch.NONE, 0);
+        }
+
+        public Size(int width, int depth, Notch notch) {
+            this(width, depth, notch, 0);
+        }
+
+        /**
+         * A round building: a rectangle with all four corners cut back.
+         *
+         * <p>The other way of saying a shape that is not a rectangle, and the
+         * only one that gives something round. A {@link Notch} takes a bite out
+         * of one corner and makes an L; this takes a slice off all four and
+         * makes an octagon, which at seven blocks across is as close to a circle
+         * as a world made of cubes gets.
+         *
+         * @param chamfer how far in from each corner the cut reaches, as a
+         *                distance along the two axes together
+         */
+        public static Size round(int width, int depth, int chamfer) {
+            return new Size(width, depth, Notch.NONE, chamfer);
         }
 
         public Size {
@@ -99,6 +119,20 @@ public final class BuildingSizes {
                     && (notch.width() >= width || notch.depth() >= depth)) {
                 throw new IllegalArgumentException(
                         "a notch that reaches the far wall is not a notch, it is two buildings");
+            }
+            if (chamfer < 0) {
+                throw new IllegalArgumentException("a corner is cut back or it is not");
+            }
+            // Cut past the middle and the four corners meet: the shape closes up
+            // into nothing, or into a diamond the door is outside of.
+            if (chamfer > 0 && chamfer >= Math.min(width, depth) / 2) {
+                throw new IllegalArgumentException(
+                        "a chamfer that reaches the middle is not a round building, "
+                                + "it is a hole: " + chamfer + " off " + width + "x" + depth);
+            }
+            if (chamfer > 0 && notch.isCut()) {
+                throw new IllegalArgumentException(
+                        "a building is round or it is bent round a yard, not both");
             }
         }
 
@@ -121,6 +155,14 @@ public final class BuildingSizes {
             int rx = width / 2;
             int rz = depth / 2;
             if (Math.abs(dx) > rx || Math.abs(dz) > rz) {
+                return false;
+            }
+            // A chamfer is one test on the sum of the two distances, which is
+            // what makes the cut a straight diagonal and the shape an octagon.
+            // It is deliberately measured from the box's own corner rather than
+            // from the middle, so the same chamfer reads the same on a square
+            // and on an oblong.
+            if (chamfer > 0 && Math.abs(dx) + Math.abs(dz) > rx + rz - chamfer) {
                 return false;
             }
             if (!notch.isCut()) {
@@ -167,6 +209,20 @@ public final class BuildingSizes {
         // than a scraped pad -- which is the whole visible difference between a
         // notch that is declared and a notch that is merely drawn.
         table.put("croft", new Size(13, 11, new Notch(6, 4, 1, -1)));
+
+        // The orc homes, and the only round buildings in the mod. Seven across
+        // with two blocks off each corner gives a ring of 3-5-7-7-7-5-3, which
+        // is what a circle looks like when the world is made of cubes: a hut,
+        // not a shed. Five by five indoors, less the corners, which is room for
+        // three and a fire.
+        //
+        // The great hut is the same shape at thirteen, so the chief's roof reads
+        // as the same idea rather than as a different people's building. Three
+        // off each corner keeps it as round as the small one -- a chamfer is a
+        // count of blocks, so holding it at two on a building twice the size
+        // would have made a square with the corners nipped.
+        table.put("hut", Size.round(7, 7, 2));
+        table.put("great_hut", Size.round(13, 13, 3));
 
         // Trades. Seven is a workshop with room to swing in; nine is a trade
         // with stock to keep.
