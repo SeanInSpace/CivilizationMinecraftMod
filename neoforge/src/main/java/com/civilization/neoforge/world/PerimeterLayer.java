@@ -884,6 +884,37 @@ public final class PerimeterLayer {
                 }
             }
         }
+        uprootPlants(level, settlement, footing);
+    }
+
+    /**
+     * Takes the flowers out of the post's own column before the post goes in.
+     *
+     * <p>The other half of the same fault the wood clearing above was written
+     * for, and it hid behind the same silence. A lilac is neither a log nor a
+     * leaf, so {@link #clearGrowth} walked past it; and unlike short grass,
+     * tall grass or a fern it is not replaceable either, so {@link #put} refused
+     * it and said nothing while the laid count moved on. Three positions on
+     * Millbrook's ring came back from {@code /civ wall} as GENUINELY MISSING
+     * with a lilac standing in each of them.
+     *
+     * <p>Both halves, whichever one the footing landed on — see
+     * {@link WallClearing#uproot}. And the post's own column only: the wall is
+     * entitled to the ground it stands on and not to the verge either side of
+     * it.
+     */
+    private static void uprootPlants(ServerLevel level, Settlement settlement,
+                                     BlockPos footing) {
+        WallClearing.Standing column = pos -> level.isLoaded(pos)
+                ? level.getBlockState(pos) : Blocks.AIR.defaultBlockState();
+        for (BlockPos at : WallClearing.uproot(column, footing, WallClearing.POST_COLUMN)) {
+            BlockState plant = level.getBlockState(at);
+            if (plant.isAir()) {
+                continue;   // the upper half went down with the lower one
+            }
+            level.destroyBlock(at, false, null, 512);
+            Yield.keep(settlement, null, plant, at);
+        }
     }
 
     private static boolean put(ServerLevel level, BlockPos pos, BlockState want) {
@@ -902,9 +933,20 @@ public final class PerimeterLayer {
         return level.getBlockState(pos).is(want.getBlock());
     }
 
-    /** Only air and soft growth give way; a wall never eats a building. */
+    /**
+     * Only air and soft growth give way; a wall never eats a building.
+     *
+     * <p>{@code canBeReplaced()} is most of it and was all of it, and the gap
+     * between "most" and "all" was a hole in a wall: the four tall flowers carry
+     * no such flag, so a post whose footing landed in a lilac was refused and
+     * never placed. {@link WallClearing#isPlant} is the rest of the list — the
+     * same ground cover every other part of the town already treads on — and it
+     * is asked here as well as at {@link #uprootPlants} so that a post laid by
+     * hand, or a gate hung on a sweep that has not reached the clearing yet, is
+     * not stopped by a flower either.
+     */
     private static boolean replaceable(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        return state.isAir() || state.canBeReplaced();
+        return state.isAir() || state.canBeReplaced() || WallClearing.isPlant(state);
     }
 }

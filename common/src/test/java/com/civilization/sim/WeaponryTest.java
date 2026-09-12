@@ -1,5 +1,6 @@
 package com.civilization.sim;
 
+import com.civilization.sim.combat.Watch;
 import com.civilization.sim.combat.Weaponry;
 import com.civilization.sim.culture.Culture;
 import com.civilization.sim.culture.Race;
@@ -204,13 +205,11 @@ final class WeaponryTest {
         // guard is a town with no reason to post one.
         assertTrue(Weaponry.CIVILIAN_BASE_DAMAGE < 4.0F);
         assertTrue(Weaponry.CIVILIAN_REACH > 0.0);
-        assertTrue(Weaponry.CIVILIAN_REACH < GuardStanceReach.NOTICE,
+        // The watch's own reach, read from the rule rather than copied. It used
+        // to be a private 20.0 written down here because ":common cannot import
+        // the view layer" -- and it was wrong within a day of the reach moving,
+        // which is what a copied number always is. It lives in Watch now.
+        assertTrue(Weaponry.CIVILIAN_REACH < Watch.ENGAGE_RANGE,
                 "a civilian would answer things he cannot even see");
-    }
-
-    /** The one figure from the view layer this file needs, kept where it is visible. */
-    private static final class GuardStanceReach {
-        /** {@code PersonEntityManager.GUARD_ENGAGE_RANGE}, which :common cannot import. */
-        static final double NOTICE = 20.0;
     }
 }

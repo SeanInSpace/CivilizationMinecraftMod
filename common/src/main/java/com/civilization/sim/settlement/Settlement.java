@@ -191,6 +191,62 @@ public final class Settlement {
     private int threatLevel;
 
     /**
+     * A settlement that has not yet lived a single step.
+     *
+     * <p>Negative rather than zero, because zero is a real step and the world's
+     * own towns are stamped with it: the nine around the spawn point are raised
+     * before the first tick, so "founded on step 0" and "never stepped" have to
+     * be different answers or every one of them would be permanently newborn.
+     */
+    public static final long NOT_YET_LIVED = -1;
+
+    /**
+     * The first step this settlement ever took, and therefore its birthday.
+     *
+     * <p>Stamped at the top of {@link #step}, which is the one place every
+     * settlement passes through however it came to exist — a charter, a console
+     * command, a daughter colony budding off a parent, or world generation
+     * standing a whole village before anybody looked. Setting it at each of those
+     * call sites instead would mean four places to forget, and the one that got
+     * forgotten would be the one that mattered.
+     *
+     * <p>Read by {@link RaidPlanner} and nothing else so far: a town's age is
+     * what decides whether raiders have noticed it yet. Persisted, because a
+     * saved town that came back believing it was born on the step the save
+     * loaded would be handed a fresh grace period every time somebody reopened
+     * the world — which is a way to never be raided at all.
+     */
+    private long firstStep = NOT_YET_LIVED;
+
+    /**
+     * The step this settlement first lived, or {@link #NOT_YET_LIVED}.
+     *
+     * <p>"Founded" is the wrong word for a seeded town and "created" is the
+     * wrong word for a chartered one; what both actually share is the first step
+     * they took, so that is what is recorded and what this is called.
+     */
+    public long firstStep() {
+        return firstStep;
+    }
+
+    /** Restores the birthday from a save. */
+    public void setFirstStep(long step) {
+        this.firstStep = step;
+    }
+
+    /**
+     * How many steps this town has been alive at the given step, or zero for one
+     * that has not lived yet.
+     *
+     * <p>Zero on the very step it is born, so "younger than N steps" reads as
+     * {@code age < N} and a grace of two hundred is two hundred steps rather
+     * than a hundred and ninety-nine.
+     */
+    public long ageInSteps(long now) {
+        return firstStep == NOT_YET_LIVED ? 0 : Math.max(0, now - firstStep);
+    }
+
+    /**
      * Steps the town goes on believing what it last saw.
      *
      * <p>Threat is read fresh from what people can see, and a hostile ducking
@@ -2383,6 +2439,12 @@ public final class Settlement {
     public void step(SimContext ctx) {
         if (drawnOnly) {
             return;   // a drawing does not grow
+        }
+        // Before anything else, and before the empty-town return: a town that
+        // was raided down to nobody still has a birthday, and somebody may yet
+        // migrate into it.
+        if (firstStep == NOT_YET_LIVED) {
+            firstStep = ctx.step();
         }
         if (!hasLivingResidents()) {
             stepEmpty(ctx);

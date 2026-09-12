@@ -69,6 +69,140 @@ before anybody is in the world to feel it. Carvers rather than a full chunk, so
 ravines are in it and nothing ticks. This is an estimate from chunk counts rather
 than a measurement: it has not been timed in a running world.
 
+## The board is readable and the commands take the ids they print
+
+### Fixed
+
+- **The quest board's rows stay in their columns.** The sentence under each ask
+  — the reason the town wants the thing — used to run straight under the reward
+  and out past the edge of the panel, so "48 Coin, +2 standing" and "The larder
+  will not see us through the winter" were printed on top of each other. The row
+  is laid out in columns now: the title and its reason on the left, the count and
+  the reward in a column of their own, and the Accept button against the right
+  margin. A sentence too long for its column ends in an ellipsis instead of
+  walking over the next thing.
+
+- **The line under the board is no longer cut off by the tab.** It read "Paid out
+  of the town's own purse. Deliveries at the sto" with the Done button sitting on
+  the rest of it. It stops short of the button and wraps.
+
+- **The animal farm has a texture again.** It was drawing as the purple-and-black
+  missing-texture cube, because its model asked for a picture of an oak fence and
+  there is no such picture — a fence is drawn out of planks. Pens look like pens.
+
+- **`/civ culture civilization:orc/warhost` works without quotes.** Every culture
+  id has a colon and a slash in it, and the command stopped reading at the colon
+  and complained about whitespace — so the one thing the command exists to be
+  given was the one thing it would not accept. The same fault is fixed in
+  `/civ blueprint scan`, `check` and `place`, which take names like
+  `civilization:norman/house` straight from what `/civ blueprint list` prints.
+## The watch looks further, and a flower no longer stops a wall
+
+### Fixed
+
+- **A palisade post goes in where a lilac was standing.** A wall through a meadow
+  came out with holes in it, and `/civ wall` named the culprit: three positions of
+  Millbrook's ring had a lilac where a post belonged and no post at all. Short
+  grass, tall grass and ferns had always been trodden down; the four tall flowers
+  — lilac, sunflower, peony, rose bush — quietly refused to give way, so the post
+  was never placed while the town went on believing it had built that stretch. A
+  post now displaces any plant standing in its own column, both halves of a
+  two-tall one, and the town keeps whatever it pulls up. The verge either side of
+  the line is left flowering, which is what makes a wall through a meadow read as
+  a wall through a meadow.
+
+- **Guards answer things further off than the people they are guarding can see.**
+  A creeper put down thirteen blocks from a farmer, with a guard twenty blocks the
+  other side of him, was ignored for as long as anybody watched: the farmer
+  downed tools and went home — settlers notice a creeper at eighteen blocks — and
+  the watch never looked up, because a guard only looked twenty blocks for
+  something to fight and was measuring that as a square rather than as a
+  distance. A creeper twenty blocks north and twenty east, thirty-four away, was
+  charged; one twenty-one blocks due east was not. The watch's reach is
+  twenty-six blocks in every direction now, which is further than any civilian
+  notices anything, so the guard is already walking before the farmer starts
+  running.
+
+- **No bell has to be rung first.** Stated because it was the obvious suspicion
+  and it was wrong: a hostile inside the claim is fought whether the town's alarm
+  is up or not, and there is now a test that fails if anybody ever makes the watch
+  wait to be told.
+## The towns the world puts there are not eaten before you find them
+
+### Fixed
+
+- **A new town is left alone for its first two hundred steps.** No raid at all —
+  four whole raid intervals, about seventeen minutes of play. Before this, the
+  nine villages world generation stands around the world spawn were being raided
+  from step eight: "Raid of 4 overran the defenses (2) — 2 lost: Ada Baker, Bren
+  Baker" at Millbrook, and one or two lost at Stonebridge and Thornring inside
+  their first twenty steps. Every worldgen town started by losing a sixth of its
+  people, and the first thing the player learned about a town was its funeral
+  record. The grace is counted from the town's **own** first step, so a colony
+  founded at step nine thousand gets the same start.
+
+- **For its first five hundred steps a raid is a probe, not a massacre.** Raid
+  strength is held down to what the town could plausibly turn back — its guards,
+  plus whatever its buildings are worth, plus one — so an early raid is something
+  the watch repels and the town's history records, rather than something that
+  takes names. A town with no guards at all still only gets a scare.
+
+- **A raid nobody saw no longer kills people by one.** When a raid is settled out
+  of sight it is settled by arithmetic, and a raid that got over the line by a
+  single point used to cost somebody their life — no fight, no body, and nothing
+  anywhere that could have changed it. It now has to beat the defense by two. The
+  history says the raiders broke through and were driven off.
+
+- **The town map no longer says "6 of 0 guards".** A town that has seen nothing
+  needs no guards, which was nearly every town nearly all the time, so the watch
+  line's denominator was usually zero. It now reads "6 guards, none needed" when
+  there is nothing to meet, "6 guards, 5 needed" when the town is holding the line
+  it wanted, and "2 of 5 guards needed" in warning colors when it is short. The
+  garrison line in `/civ info` says it in the same words, out of the same
+  function.
+
+- **`/civ list` says when the world has not finished putting towns in it.** A
+  session went by believing the command had lost three settlements: it printed
+  three while the log said six had been raised. The listing has never had a radius
+  and never had a page size — it walks every kingdom in the dimension — so the
+  count was true of the moment it was asked, and the moment was the problem. The
+  spawn towns go up one per tick and everything past them one per second as
+  somebody walks near, so the report now ends with "(the world is still raising
+  its spawn towns — 6 regions left to settle; ask again in a moment)" until they
+  are all standing.
+
+### Notes
+
+- **The measurements.** A seeded village, unwatched, twelve trials, deaths to
+  raids:
+
+  | by step | before | after |
+  |---|---|---|
+  | 200 | 3.75 average (45 across the twelve) | **0** |
+  | 400 | 8.42 average (101) | **0** |
+  | 1000 | 20.67 average (248), worst trial 29 | **4.92 average (59), worst 12** |
+
+  It is not that fewer raids happen: sixteen arrive by step 1000 against twenty
+  before, and fourteen of the sixteen are repelled against six of the twenty. The
+  town is now winning the fights it should have been winning.
+
+- **The grace is not "until the wall is up", because the wall is much later than
+  anyone thought.** Measured on the same village: it stakes its ring on step 532
+  and does not pay for the last post until step 1256 — nothing is staked before
+  TOWN, and nothing is staked before that stage's own program stands. A grace
+  running past the wall would be twenty-five raid intervals of total immunity,
+  which is not a grace period but the feature switched off.
+
+- **A seeded village holds one guard until step 778.** The staffing table does not
+  call for a second before then, so when the early cap lifts at step 500 the town
+  is still thin, and that is where the remaining 4.92 deaths come from. It is a
+  staffing question rather than a raid question and is deliberately left alone
+  here. `DEFENSE.md` records it.
+
+- **Saves carry a town's birthday now** (`first_step`). A world from before this
+  reads as "never stepped" and is stamped on its next step, so it gets one grace
+  period, once.
+
 ## The town goes to bed
 
 ### Fixed

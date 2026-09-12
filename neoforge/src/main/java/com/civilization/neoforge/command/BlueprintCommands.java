@@ -17,6 +17,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -91,33 +92,55 @@ public final class BlueprintCommands {
                                                 BlockPosArgument.getLoadedBlockPos(ctx, "to"))))))
 
                 .then(Commands.literal("scan")
-                        .then(Commands.argument("name", StringArgumentType.string())
-                                .executes(ctx -> scanPending(ctx,
-                                        StringArgumentType.getString(ctx, "name")))
+                        .then(Commands.argument("name", IdentifierArgument.id())
+                                .executes(ctx -> scanPending(ctx, nameOf(ctx)))
                                 .then(Commands.argument("from", BlockPosArgument.blockPos())
                                         .then(Commands.argument("to", BlockPosArgument.blockPos())
-                                                .executes(ctx -> scan(ctx,
-                                                        StringArgumentType.getString(ctx, "name"),
+                                                .executes(ctx -> scan(ctx, nameOf(ctx),
                                                         BlockPosArgument.getLoadedBlockPos(ctx, "from"),
                                                         BlockPosArgument.getLoadedBlockPos(ctx, "to"),
                                                         null))
                                                 .then(Commands.argument("anchor",
                                                                 BlockPosArgument.blockPos())
-                                                        .executes(ctx -> scan(ctx,
-                                                                StringArgumentType.getString(ctx, "name"),
+                                                        .executes(ctx -> scan(ctx, nameOf(ctx),
                                                                 BlockPosArgument.getLoadedBlockPos(ctx, "from"),
                                                                 BlockPosArgument.getLoadedBlockPos(ctx, "to"),
                                                                 BlockPosArgument.getLoadedBlockPos(ctx, "anchor"))))))))
 
                 .then(Commands.literal("check")
-                        .then(Commands.argument("name", StringArgumentType.string())
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
                                 .executes(ctx -> check(ctx,
                                         StringArgumentType.getString(ctx, "name")))))
 
                 .then(Commands.literal("place")
-                        .then(Commands.argument("name", StringArgumentType.string())
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
                                 .executes(ctx -> place(ctx,
                                         StringArgumentType.getString(ctx, "name")))));
+    }
+
+    /**
+     * The name typed after {@code scan}, in the form {@link #idOf} expects.
+     *
+     * <p>A blueprint name is a namespaced path — {@code civilization:norman/house}
+     * is what {@code /civ blueprint list} prints — and a Brigadier unquoted
+     * string stops dead at the colon, so these three verbs could only be given
+     * such a name in quotes. {@code check} and {@code place} take the rest of the
+     * line and are done with it, but {@code scan} has two corner positions after
+     * the name, so it cannot be greedy. It reads an identifier instead, which is
+     * the vanilla argument type for exactly this shape and allows the colon and
+     * the slash.
+     *
+     * <p>The one seam: an identifier with no namespace is {@code minecraft:} by
+     * the game's rules, and a bare {@code great_hut} has always meant this mod's
+     * namespace here. So a {@code minecraft} namespace is handed on without one
+     * and {@link #idOf} applies the usual default. Nothing is lost — the mod does
+     * not write blueprints into the game's own namespace and never will.
+     */
+    private static String nameOf(CommandContext<CommandSourceStack> ctx) {
+        Identifier typed = IdentifierArgument.getId(ctx, "name");
+        return Identifier.DEFAULT_NAMESPACE.equals(typed.getNamespace())
+                ? typed.getPath()
+                : typed.toString();
     }
 
     // --- the region -----------------------------------------------------------

@@ -144,4 +144,49 @@ public final class Garrison {
     public static int guardsWanted(Settlement settlement) {
         return Math.max(0, neededGuards(settlement) - guardStrength(settlement));
     }
+
+    /**
+     * The watch, in words, for anything that shows a player the town's defense.
+     *
+     * <p>Lives here rather than in the screen that draws it because the screen
+     * is not the only thing that says it — {@code /civ info} says it too, and
+     * the two used to say it differently — and because a sentence assembled out
+     * of two integers is a pure function with three cases in it, which is
+     * exactly the kind of thing that should be testable without a client.
+     *
+     * <p>What it replaces read {@code "6 of 0 guards"} on a peaceful town,
+     * which is not a sentence. Three states, three sentences:
+     *
+     * <ul>
+     *   <li><strong>Nothing is needed</strong> — {@code "6 guards, none needed"}.
+     *       The commonest state by far: {@link #neededGuards} is derived from
+     *       threat, and a town that has not seen anything has no threat, so the
+     *       old wording's denominator was zero nearly all the time.</li>
+     *   <li><strong>Enough</strong> — {@code "6 guards, 5 needed"}. The town is
+     *       afraid of something and is holding the line it reckoned it wanted.</li>
+     *   <li><strong>Short</strong> — {@code "2 of 5 guards needed"}. The one
+     *       state worth a warning color, and the one the "N of M" shape was
+     *       always meant for.</li>
+     * </ul>
+     *
+     * <p>Caller decides the color; {@link #outnumbered} and the plain
+     * {@code guards < needed} comparison both answer the same question.
+     */
+    public static String watchSummary(int guards, int neededGuards) {
+        if (guards < neededGuards) {
+            return guards + " of " + neededGuards + " guards needed";
+        }
+        String held = switch (guards) {
+            case 0 -> "no guards";
+            case 1 -> "1 guard";
+            default -> guards + " guards";
+        };
+        return neededGuards <= 0 ? held + ", none needed"
+                : held + ", " + neededGuards + " needed";
+    }
+
+    /** {@link #watchSummary} for a settlement as it presently stands. */
+    public static String watchSummary(Settlement settlement) {
+        return watchSummary(guardStrength(settlement), neededGuards(settlement));
+    }
 }
