@@ -539,6 +539,27 @@ kept only until a run has been watched over it.*
       has its texture; /civ culture and /civ build take namespaced ids; the map
       says "6 guards, none needed"; /civ list says how many spawn towns are
       still being raised.
+- [x] **The second playtest, same seed, after the fixes.** 2026-09-12,
+      seed 8675309, Normal difficulty. Held: Millbrook reads as a ring town on
+      its hill instead of cabins over the hills; no raid in 218 steps; eight
+      people embodied; watched plots are dug and built by hand, a house in the
+      forest keeps its canopy; a door onto air got its steps by itself. Not
+      held, in order of harm: one Normal-difficulty night killed 17 of
+      Millbrook's people (creeper, seven zombies, two skeletons, four spiders,
+      a guard among them) at unlit outlying fields and houses 130-165 blocks
+      from the center, and births refilled the town to 17 as if nothing had
+      happened; the town hall, mine and mill materialized whole while the
+      player stood 109 blocks off, outside the 96-block radius judged at the
+      site; two spawn towns are both called Bellbrook (the name is a hash of
+      the site, never checked against names taken); the seeded hearth, lumber
+      camp and mine are buried to three blocks on every side and a cottage
+      door opens onto air; four of fourteen seeded buildings still moved on
+      arrival, the carpentry and market swapping sites twice; the forester's
+      stand went from 57 trees to 4 in 218 steps because clearing plots in a
+      forest is felling; one report says guard x6, guards x2 and 3 of 4 in
+      three lines; "=== Kingdoms" heads /civ info; Bren Smith died twice and
+      three families are the Turners; family growth reads 45/24; 196 steps
+      passed in 17 minutes while the pace line said 60 a minute.
 - [ ] **A two-handed orc guard stands off a creeper forever.** Half the
       warhost's kit has no bow, and the bow stance is handed out anyway, so a
       greatsword bearer walks to fourteen blocks and waits. Give two-handers a
