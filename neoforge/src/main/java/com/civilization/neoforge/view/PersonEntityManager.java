@@ -22,6 +22,7 @@ import com.civilization.sim.combat.FiringPoint;
 import com.civilization.sim.culture.Culture;
 import com.civilization.sim.culture.Race;
 import com.civilization.sim.combat.GuardStance;
+import com.civilization.sim.combat.Watch;
 import com.civilization.sim.combat.Weaponry;
 import com.civilization.sim.settlement.BuildTask;
 import com.civilization.sim.settlement.TownStores;
@@ -307,8 +308,15 @@ public final class PersonEntityManager {
     /** People who cannot get into their own house, by person id. */
     private final Map<UUID, Integer> homeAccessFailures = new HashMap<>();
 
-    /** Guards engage hostiles within this range, strike within melee reach. */
-    public static final double GUARD_ENGAGE_RANGE = 20.0;
+    /**
+     * Guards engage hostiles within this range, strike within melee reach.
+     *
+     * <p>The number and the argument for it are {@link Watch#ENGAGE_RANGE},
+     * which is in {@code :common} where it can be checked against the distance a
+     * civilian notices a creeper at without a world being started. This is the
+     * name the view layer and its tests have always used for it.
+     */
+    public static final double GUARD_ENGAGE_RANGE = Watch.ENGAGE_RANGE;
     public static final double GUARD_STRIKE_RANGE = 2.5;
     /**
      * A guard closing on something, and backing off a creeper afterwards.
@@ -2493,7 +2501,7 @@ public final class PersonEntityManager {
             }
             creditKill(settlement, person.id().value());
             Kit kit = kitFor(settlement, person.id().value());
-            Mob target = nearestHostile(guard);
+            Mob target = nearestHostile(guard, settlement.alarm());
             if (target == null) {
                 // Nothing to fight: the bow goes away and the sword comes back
                 // up, so a guard standing on the wall is a guard holding a sword.
@@ -2601,24 +2609,19 @@ public final class PersonEntityManager {
             if (body == null || body.isRemoved()) {
                 continue;
             }
-            if (orcWeaponIn(body.getMainHandItem()) == null) {
-                continue;       // unarmed, or hands full of somebody's wall
-            }
-            if (!(body.getLastHurtByMob() instanceof Mob aggressor) || !aggressor.isAlive()) {
-                continue;
-            }
-            if (Menace.blowsUp(aggressor)) {
-                continue;       // the flight goal has this one, and always did
-            }
-            double range = body.distanceTo(aggressor);
-            // Two bounds and the tighter one binds, which is deliberate. He can
-            // only land a blow inside the watch's own melee reach and must never
-            // out-reach it; past CIVILIAN_REACH the thing has walked off and is
-            // no longer his quarrel at all. Because he never takes a step toward
-            // it, the second bound is a statement of intent that the first one
-            // already enforces -- and it is the one that would have to change
-            // first if anybody ever let a civilian follow.
-            if (range > GUARD_STRIKE_RANGE || range > Weaponry.CIVILIAN_REACH) {
+            // Everything the rule reads, read off the world; the rule itself is
+            // Watch.strikesBack, in :common, where the three refusals can be
+            // checked without a world being started. Armed, hit by this very
+            // thing, it does not explode, and it is inside both the watch's
+            // melee reach and his own -- the tighter of those two bounds binds.
+            boolean armed = orcWeaponIn(body.getMainHandItem()) != null;
+            Mob aggressor = body.getLastHurtByMob() instanceof Mob mob && mob.isAlive()
+                    ? mob : null;
+            if (!Watch.strikesBack(armed, aggressor != null,
+                    aggressor != null && Menace.blowsUp(aggressor),
+                    aggressor == null
+                            ? Double.POSITIVE_INFINITY : body.distanceTo(aggressor),
+                    GUARD_STRIKE_RANGE)) {
                 continue;
             }
             body.getLookControl().setLookAt(aggressor, 30.0F, 30.0F);
@@ -2939,10 +2942,17 @@ public final class PersonEntityManager {
      * about. Citizens are refused by that table like any other creature filed
      * under a peaceful category — no guard is offered his own neighbor.
      */
-    private Mob nearestHostile(PersonEntity guard) {
+    private Mob nearestHostile(PersonEntity guard, Alarm townAlarm) {
+        // The box is the broad phase and nothing else: what is actually engaged
+        // is Watch.answers, which measures a straight-line distance. A box was
+        // doing both jobs and did the second one wrong -- a creeper twenty north
+        // and twenty east, thirty-four blocks away, was fought, and one
+        // twenty-one blocks due east was ignored. A guard's eye is round.
         AABB box = guard.getBoundingBox().inflate(GUARD_ENGAGE_RANGE);
         List<Mob> threats = level.getEntitiesOfClass(Mob.class, box,
-                creature -> creature.isAlive() && Menace.threatens(creature));
+                creature -> creature.isAlive()
+                        && Watch.answers(Menace.threatens(creature),
+                                guard.distanceTo(creature), townAlarm));
         // Whichever of them he could actually come to blows with, first. The
         // widened collection reaches things that never land -- a ghast, a phantom
         // circling overhead -- and those are nearer, in a straight line, than the
