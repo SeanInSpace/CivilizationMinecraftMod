@@ -503,8 +503,22 @@ final class CivicParts {
     /** A table: a post with a cloth over it, which is every table in Minecraft. */
     static void table(List<Placement> blocks, BlockPos base, int dx, int dz,
                       Block post, DyeColor color) {
-        add(blocks, base.offset(dx, 1, dz), post);
-        add(blocks, base.offset(dx, 2, dz), Blocks.CARPET.pick(color));
+        table(blocks, base, dx, 1, dz, post, color);
+    }
+
+    /**
+     * The same, on a floor that is not the ground one.
+     *
+     * <p>A building with three storeys wants furniture on all three of them, and
+     * a part that only knows how to stand on course one is a part that can only
+     * furnish the bottom of it.
+     *
+     * @param floorY the course the table's own foot stands on
+     */
+    static void table(List<Placement> blocks, BlockPos base, int dx, int floorY, int dz,
+                      Block post, DyeColor color) {
+        add(blocks, base.offset(dx, floorY, dz), post);
+        add(blocks, base.offset(dx, floorY + 1, dz), Blocks.CARPET.pick(color));
     }
 
     /**
@@ -605,6 +619,22 @@ final class CivicParts {
      */
     static void shelves(List<Placement> blocks, BlockPos base, BuildingSizes.Size size,
                         Collection<BlockPos> skip) {
+        shelves(blocks, base, size, 2, skip);
+    }
+
+    /**
+     * The same, as high as a room wants them.
+     *
+     * <p>Two courses is what a reading room with a gallery over it has room for.
+     * Three is a stack that reaches over your head, and it is the difference
+     * between a room with books in it and a room made of books — which is worth
+     * a parameter, because it is most of what tells a grand library from an
+     * ordinary one from inside.
+     *
+     * @param toY the last course shelved, counting the floor as nought
+     */
+    static void shelves(List<Placement> blocks, BlockPos base, BuildingSizes.Size size,
+                        int toY, Collection<BlockPos> skip) {
         int rx = size.width() / 2 - 1;
         int rz = size.depth() / 2 - 1;
         for (int dx = -rx; dx <= rx; dx++) {
@@ -612,7 +642,7 @@ final class CivicParts {
                 if (Math.abs(dx) != rx && Math.abs(dz) != rz) {
                     continue;
                 }
-                for (int y = 1; y <= 2; y++) {
+                for (int y = 1; y <= toY; y++) {
                     BlockPos pos = base.offset(dx, y, dz);
                     if (!skip.contains(pos)) {
                         add(blocks, pos, Blocks.BOOKSHELF);
@@ -681,6 +711,221 @@ final class CivicParts {
         }
         add(blocks, base.offset(dx - 2, 1, dz), Blocks.LECTERN);
         add(blocks, base.offset(dx + 2, 1, dz), Blocks.LECTERN);
+    }
+
+    // --- a grand library, which is the one building with three floors ----------
+
+    /*
+     * On the five parts below.
+     *
+     * A library is one room with a walkway round it, and CivicParts#gallery is
+     * exactly that: a ring two blocks wide inside the walls with a hole in the
+     * middle. It does not scale. On a footprint thirty-one by twenty-five the
+     * same ring leaves a hole twenty-five by nineteen — which is to say the whole
+     * building is the hole, and the "gallery" is a shelf round the inside of a
+     * barn.
+     *
+     * So the grand library is planned the other way round. The middle is a hall
+     * of a stated size, open from the floor to the ceiling; everything either
+     * side of it is floored solid on all three levels, and what reads as a
+     * gallery is the edge of those floors where they look into the hall. That is
+     * a floor with a void in it rather than a ring with a hole in it, and the
+     * difference is whether the upper storeys are rooms or ledges.
+     */
+
+    /**
+     * A floor over the wings of a building, open over the hall in the middle.
+     *
+     * <p>Railed where it looks into the hall, which is found by asking which
+     * decked cells have the void beside them rather than by drawing the same
+     * rectangle twice. That is the rule {@link #gallery} already uses and it
+     * matters more here: the void is not a centered box in the general case and a
+     * second piece of arithmetic saying where its edge is would be the copy that
+     * drifts.
+     *
+     * @param hallRx  how far the open middle reaches either side of center
+     * @param hallRz  and how far fore and aft
+     * @param skip    cells the floor must leave open anyway — the stairwells,
+     *                without which a climber cracks their head on the floor they
+     *                are climbing to
+     */
+    static void wingFloors(List<Placement> blocks, BlockPos base, BuildingSizes.Size size,
+                           int y, int hallRx, int hallRz, Block deck, Block rail,
+                           Collection<BlockPos> skip) {
+        int rx = size.width() / 2 - 1;
+        int rz = size.depth() / 2 - 1;
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                BlockPos pos = base.offset(dx, y, dz);
+                if (overTheHall(hallRx, hallRz, dx, dz) || skip.contains(pos)) {
+                    continue;
+                }
+                add(blocks, pos, deck);
+            }
+        }
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                BlockPos pos = base.offset(dx, y, dz);
+                if (overTheHall(hallRx, hallRz, dx, dz) || skip.contains(pos)
+                        || !overlooksTheHall(hallRx, hallRz, dx, dz)) {
+                    continue;
+                }
+                add(blocks, base.offset(dx, y + 1, dz), rail);
+            }
+        }
+    }
+
+    private static boolean overTheHall(int hallRx, int hallRz, int dx, int dz) {
+        return Math.abs(dx) <= hallRx && Math.abs(dz) <= hallRz;
+    }
+
+    private static boolean overlooksTheHall(int hallRx, int hallRz, int dx, int dz) {
+        for (Direction way : Direction.Plane.HORIZONTAL) {
+            if (overTheHall(hallRx, hallRz, dx + way.getStepX(), dz + way.getStepZ())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A flight of stairs climbing one course per block along a row.
+     *
+     * <p>The last tread is written at the course of the floor it arrives at, so
+     * it replaces the deck there and leaves the hole somebody climbs through —
+     * the same trick {@link #upperFloor} and {@link #gallery} both turn, in the
+     * one place all three of them can share it.
+     *
+     * @param toward which way the climb runs, as -1 or 1 along x
+     */
+    static void flight(List<Placement> blocks, BlockPos base, int fromDx, int dz,
+                       int fromY, int courses, int toward, Block stairs) {
+        Direction way = toward > 0 ? Direction.EAST : Direction.WEST;
+        for (int step = 0; step < courses; step++) {
+            add(blocks, base.offset(fromDx + toward * step, fromY + step, dz),
+                    stair(stairs, way));
+        }
+    }
+
+    /**
+     * A portico: a rank of pillars out on the doorstep under the building's own
+     * eave, on a paved landing, with the entrance stepped between them.
+     *
+     * <p>Stood in the apron ring rather than inside the walls, which is what
+     * makes it a portico rather than an aisle — and which is also the whole of
+     * the constraint on it. A doorstep is one block wide (see
+     * {@link BuildingSizes#APRON}), so the pillars stand in the only row there
+     * is, and the eave the building already throws over that row at the wall
+     * head is the roof over them. Nothing here reaches further out than the eave
+     * does.
+     *
+     * <p><strong>The landing is flush, and that is deliberate.</strong> A raised
+     * entrance would move the building's floor course up by one, and the block a
+     * player clicks sits at a fixed offset on that course — the standing note in
+     * {@code GOALS.md} about the granary and the hall's floor is the same
+     * question and has the same answer. So the grand approach is made of what a
+     * flush entrance can carry: the whole frontage paved, stepped shoulders
+     * either side of a three-wide opening, and the pillars standing on the
+     * paving. On a slope the foundation pass builds the doorstep up to meet it,
+     * which is where the flight of steps actually appears.
+     *
+     * @param columns  where the pillars stand along x, clear of the entrance
+     * @param toY      the last course of pillar; the architrave goes one above
+     */
+    static void portico(List<Placement> blocks, BlockPos base, BuildingSizes.Size size,
+                        int[] columns, int toY, HouseStyle style) {
+        int rx = size.width() / 2;
+        int out = size.depth() / 2 + 1;
+        for (int dx = -rx + 1; dx <= rx - 1; dx++) {
+            add(blocks, base.offset(dx, 0, out), style.plinth());
+            add(blocks, base.offset(dx, toY + 1, out), style.roofRidge());
+        }
+        for (int dx : columns) {
+            for (int y = 1; y <= toY; y++) {
+                add(blocks, base.offset(dx, y, out), style.frame());
+            }
+        }
+        // The shoulders of the entrance stair, hard against the three-wide way
+        // in. Two blocks of stone laid as steps is not much; it is the difference
+        // between a doorway and a way up to one.
+        for (int side = -1; side <= 1; side += 2) {
+            for (int along = 2; along <= 3; along++) {
+                add(blocks, base.offset(side * along, 1, out),
+                        stair(style.roofStairs(), side > 0 ? Direction.WEST : Direction.EAST));
+            }
+        }
+    }
+
+    /**
+     * A lantern on the roof: a glazed drum, a stepped cap, and a finial.
+     *
+     * <p>{@link #cupola} is this at three blocks across with gold on top, and
+     * the gold is the point of the difference. That block has marked the middle
+     * of a town since before any of these buildings had roofs, and a second
+     * building wearing it would be a second thing a player picks a town's center
+     * out by from a hillside — so this one is told what to wear.
+     *
+     * <p>Standing on a closed roof rather than open over the hall below it, for
+     * the reason every roofed building here is closed: a glazed oculus is a hole
+     * to everything that asks whether a building keeps the weather out, and the
+     * check that asks is right to say so.
+     *
+     * @param top    the highest course over the middle, from {@link #topOver}
+     * @param half   how far the drum reaches either side of center
+     * @param courses how many courses of glazing stand before the cap
+     * @param finial what goes on the very top, and not gold. Whatever it is must
+     *               be a block that does not change on its own: a drawing is
+     *               compared against what is standing whenever a repair is
+     *               weighed, so a weathering block up here is one the crew
+     *               replaces for as long as the building stands.
+     * @return the course the finial stands on
+     */
+    static int lantern(List<Placement> blocks, BlockPos base, int top, int half,
+                       int courses, HouseStyle style, Block finial) {
+        for (int y = top + 1; y <= top + courses; y++) {
+            for (int dx = -half; dx <= half; dx++) {
+                for (int dz = -half; dz <= half; dz++) {
+                    boolean acrossX = Math.abs(dx) == half;
+                    boolean acrossZ = Math.abs(dz) == half;
+                    if (!acrossX && !acrossZ) {
+                        continue;   // the inside of the drum, which is the light
+                    }
+                    add(blocks, base.offset(dx, y, dz),
+                            acrossX && acrossZ ? style.frame() : Blocks.GLASS);
+                }
+            }
+        }
+        int y = top + courses;
+        for (int reach = half; reach >= 1; reach--) {
+            y++;
+            for (int dx = -reach; dx <= reach; dx++) {
+                for (int dz = -reach; dz <= reach; dz++) {
+                    add(blocks, base.offset(dx, y, dz), style.roofRidge());
+                }
+            }
+        }
+        add(blocks, base.offset(0, y + 1, 0), finial);
+        return y + 1;
+    }
+
+    /**
+     * A lantern on a chain hung from a ceiling, rather than one stuck to it.
+     *
+     * <p>{@link #hang} is a lantern against the block above it, which is all a
+     * room seven courses tall has space for. A hall eleven courses tall lit that
+     * way is a hall lit from the ceiling, which is to say not lit at all where
+     * anybody is standing — so the light comes down on a chain to where it does
+     * some good.
+     *
+     * @param fromY the ceiling course the chain hangs from
+     * @param toY   the course the lantern itself hangs at
+     */
+    static void chandelier(List<Placement> blocks, BlockPos base, int dx, int dz,
+                           int fromY, int toY) {
+        for (int y = fromY; y > toY; y--) {
+            add(blocks, base.offset(dx, y, dz), Blocks.IRON_CHAIN);
+        }
+        hang(blocks, base.offset(dx, toY, dz));
     }
 
     // --- a watchtower, which is the one building that is all height ------------

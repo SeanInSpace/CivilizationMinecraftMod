@@ -706,6 +706,9 @@ public final class BuildPlanner {
                 // huts. See Homes for why the filter is a table rather than a
                 // column on every row.
                 .filter(type -> Homes.buildableBy(settlement.cultureId(), type.id()))
+                // What the town has already built, where minPopulation is only
+                // how many people it has. See prerequisiteStands.
+                .filter(type -> prerequisiteStands(settlement, type))
                 .filter(type -> shortfall(settlement, type, population) > 0)
                 .max(Comparator
                         .comparingInt((BuildingType type) -> defendsTheTown(settlement, type))
@@ -713,6 +716,32 @@ public final class BuildPlanner {
                         .thenComparingInt((BuildingType type) -> makesSomethingScarce(settlement, type))
                         .thenComparingInt((BuildingType type) -> shareShort(settlement, type, population))
                         .thenComparing(BuildingType::id, Comparator.reverseOrder()));
+    }
+
+    /**
+     * Whether whatever this building is built on top of is actually standing.
+     *
+     * <p>The second kind of "not yet" a catalog row can say, and the first one
+     * that is about the town's history rather than its size. A grand library is
+     * the whole of what wants it: it is the building a town raises <em>after</em>
+     * its library, and no population number says that — see
+     * {@link BuildingType#hasPrerequisite}.
+     *
+     * <p>Counted on buildings standing rather than on the queue, so the
+     * prerequisite is a thing the town has, not a thing it has ordered. That is
+     * also what makes it reversible: a town whose library is demolished stops
+     * wanting the grand one, which is the answer anybody would expect and the
+     * reason this is not simply a flag set once.
+     *
+     * <p>Deliberately not asked of the stage programs in {@link StagePlanner}.
+     * A program is an explicit list somebody wrote for a stage, and if a program
+     * ever names a building with a prerequisite it means to name it.
+     */
+    public static boolean prerequisiteStands(Settlement settlement, BuildingType type) {
+        if (!type.hasPrerequisite()) {
+            return true;
+        }
+        return settlement.countBuildings(type.requires()) > 0;
     }
 
     /**

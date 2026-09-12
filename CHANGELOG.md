@@ -6,6 +6,37 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A grand library, and the first building a town has to earn twice
+
+### New
+
+- **The Grand Library.** Thirty-one blocks by twenty-five, three floors, and the
+  largest thing anything in this mod has ever built — better than twice the
+  library's blocks and better than twice its work. A colonnade of eight pillars
+  stands out on the paved frontage under the building's own eave; behind it the
+  middle of the building is one hall open the whole eleven courses to the ceiling,
+  with the two upper floors railed where they look down into it and lanterns hung
+  into it on chains. Either side of the hall are wings of reading rooms, three
+  floors of them, shelved three courses high with tables and lecterns on every
+  level, and arched windows in three ranks up the outside so you can count the
+  storeys from the street. On the roof, a glazed lantern with a quartz finial —
+  the tallest point in any town, and the second thing after the town hall's gold
+  that you can pick a settlement out by from a hillside.
+
+- **It is built in the culture's own masonry.** Burgher brick on stone brick,
+  highland stone under spruce stairs, goblin mud, and the orcs keep their flat
+  roof and their parapet — a warhost's grand library is a war library, and it
+  would look like a mistake with a hip on it. Two flights of stairs a side, so
+  nobody crosses the building to change floors.
+
+- **A town has to earn it twice.** Eighty residents, one per town, and — new —
+  **a library already standing**. That last gate is a different kind of
+  requirement from anything else in the catalog: every other "not yet" in the mod
+  is a headcount, and no headcount can say "the library a town builds after its
+  library". A town that loses its library stops wanting the grand one until it
+  rebuilds. It is also the last thing a town wants, ranked below everything else
+  it could be doing instead, so it appears only in settlements that have genuinely
+  run out of needs.
 ## Towns deal in Coins
 
 ### Changed

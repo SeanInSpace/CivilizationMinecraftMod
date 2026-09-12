@@ -63,6 +63,7 @@ public final class BuildTest {
             "civilization:storehouse", "civilization:smith", "civilization:carpentry",
             "civilization:inn", "civilization:mill", "civilization:workshop",
             "civilization:watchtower", "civilization:library",
+            "civilization:grand_library",
     };
 
     /** What fills the rest of the grid once the civic buildings are placed. */

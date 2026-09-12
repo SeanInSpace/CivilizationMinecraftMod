@@ -22,6 +22,10 @@ import java.util.Objects;
  *                      raised to later. Square and rotation-proof on purpose: a
  *                      building turned a quarter turn swaps its width and depth,
  *                      and a plot that only fitted one way round is not a plot.
+ * @param requires      a blueprint id that must already stand in the settlement
+ *                      before this is wanted at all, or {@link #NOTHING} for the
+ *                      ordinary case. See the field's own note for why a
+ *                      population gate could not say this.
  */
 public record BuildingType(
         String id,
@@ -32,11 +36,28 @@ public record BuildingType(
         int priority,
         int capacity,
         int defenseBonus,
-        int plotSpan
+        int plotSpan,
+        String requires
 ) {
+
+    /**
+     * No prerequisite, which is every row but one.
+     *
+     * <p>The empty string rather than null so that {@code requires()} is always
+     * safe to read and a datapack entry that omits the field lands on the same
+     * value a hardcoded row does.
+     */
+    public static final String NOTHING = "";
 
     public BuildingType {
         Objects.requireNonNull(id, "id");
+        if (requires == null) {
+            requires = NOTHING;
+        }
+        if (requires.equals(id)) {
+            throw new IllegalArgumentException(
+                    id + " requires itself, so the first one can never be built");
+        }
         if (workCost <= 0) {
             throw new IllegalArgumentException("workCost must be positive");
         }
@@ -59,17 +80,45 @@ public record BuildingType(
         return plotSpan / 2;
     }
 
+    /**
+     * Whether something else has to stand before this is wanted.
+     *
+     * <p><strong>Why this is not a population gate.</strong> Every other "not
+     * yet" in the catalog is {@link #minPopulation}, and for almost everything
+     * that is the honest measure: a hamlet does not want a smithy because a
+     * hamlet has nobody to keep one. But "a grand library is what a town builds
+     * after its library" is a statement about the town's <em>history</em>, not
+     * its size, and a population number that happened to coincide would be a
+     * coincidence — a town that lost its library to a raid would go on wanting
+     * the grand one, and a town that somehow skipped the small one would raise
+     * the great one first and never build the ordinary one at all.
+     */
+    public boolean hasPrerequisite() {
+        return !requires.isEmpty();
+    }
+
     /** Convenience for buildings that contribute nothing to defense. */
     public BuildingType(String id, int workCost, int minPopulation, int baseCount,
                         int perResidents, int priority, int capacity) {
         this(id, workCost, minPopulation, baseCount, perResidents, priority, capacity, 0,
-                BuildPlanner.DEFAULT_PLOT_SPAN);
+                BuildPlanner.DEFAULT_PLOT_SPAN, NOTHING);
     }
 
     public BuildingType(String id, int workCost, int minPopulation, int baseCount,
                         int perResidents, int priority, int capacity, int defenseBonus) {
         this(id, workCost, minPopulation, baseCount, perResidents, priority, capacity,
-                defenseBonus, BuildPlanner.DEFAULT_PLOT_SPAN);
+                defenseBonus, BuildPlanner.DEFAULT_PLOT_SPAN, NOTHING);
+    }
+
+    /**
+     * A row that names its own plot and wants nothing standing first, which is
+     * every row in {@link BuildCatalog} but one.
+     */
+    public BuildingType(String id, int workCost, int minPopulation, int baseCount,
+                        int perResidents, int priority, int capacity, int defenseBonus,
+                        int plotSpan) {
+        this(id, workCost, minPopulation, baseCount, perResidents, priority, capacity,
+                defenseBonus, plotSpan, NOTHING);
     }
 
     /** Whether families can live here. */

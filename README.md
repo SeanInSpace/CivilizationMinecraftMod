@@ -97,7 +97,7 @@ Launch a dev server:
 
 **The no-cheats loop (as of Phase 5):** craft a **Founding Charter** (paper + emeralds + book — emeralds are a gem here, not money), use it on open ground, and a named town is founded with four settlers. Sneak-use a charter for a written report on the nearest settlement. Towns pay and charge in **Coins**, which only ever come out of a town's own treasury. See [PLAYING.md](PLAYING.md).
 
-Walk within ~96 blocks of a settlement and its residents appear as villagers in the *outfit of their trade* — a mason-clothed builder named "Ada Baker — Builder" — who wander near their family homes, trade on right-click, and walk back when they stray. Walk away and they dissolve back into data; the simulation never stops either way. Buildings are timber cabins, fenced farms and cobble watchtowers (or your own `.nbt` templates — see PLAYING.md), on foundations that handle slopes.
+Walk within ~96 blocks of a settlement and its residents appear as villagers in the *outfit of their trade* — a mason-clothed builder named "Ada Baker — Builder" — who wander near their family homes, trade on right-click, and walk back when they stray. Walk away and they dissolve back into data; the simulation never stops either way. Buildings are timber cabins, fenced farms and cobble watchtowers, up to a three-floor grand library with a colonnade across its front (or your own `.nbt` templates — see PLAYING.md), on foundations that handle slopes.
 
 Two things follow from the view-layer design that are worth knowing while testing:
 

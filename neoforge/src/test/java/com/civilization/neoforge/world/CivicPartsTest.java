@@ -3,12 +3,15 @@ package com.civilization.neoforge.world;
 import com.civilization.sim.culture.Culture;
 import com.civilization.sim.settlement.BuildingSizes;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.BannerBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,6 +71,7 @@ class CivicPartsTest {
         plates.put("town_hall", 7);    // six courses of wall
         plates.put("inn", 7);          // six, two storeys of them
         plates.put("library", 8);      // seven, with a gallery inside
+        plates.put("grand_library", 12);   // eleven: three storeys and two floors
         plates.put("hearth", 4);       // no walls at all: a canopy on four posts
         return plates;
     }
@@ -84,6 +88,10 @@ class CivicPartsTest {
         where.put("market", new Way(0, -1, -2, -1));
         where.put("inn", new Way(0, -1, -1, 5));
         where.put("library", new Way(0, 7, 0, 9));
+        // The nave, from the doorstep to the middle of the hall. Three blocks
+        // wide in the building because the post stands in the middle of it; the
+        // walk asserted here is the center line of those three.
+        where.put("grand_library", new Way(0, 11, 0, 13));
         where.put("watchtower", new Way(0, 0, 0, 2));
         where.put("hearth", new Way(0, -2, -2, -1));
         where.put("camp_post", new Way(0, 0, 0, 1));
@@ -395,6 +403,177 @@ class CivicPartsTest {
         }
     }
 
+    // --- the grand library, which is the one building with three floors -------
+
+    @Test
+    void aGrandLibraryIsThreeFloorsAndAPersonCanReachAllOfThem() {
+        // The claim that a three-storey building actually earns the word. Two
+        // upper floors are cheap to draw and worthless if the only way onto them
+        // is to break in from the roof, and the two ways that quietly happens are
+        // both here: a flight whose treads do not line up, and a flight the floor
+        // above is not open over -- a climber walking into the underside of the
+        // floor they are climbing to.
+        //
+        // Walked rather than asserted cell by cell, from the doorstep, because
+        // what matters is that the route exists and not which route it is.
+        BuildingSizes.Size size = sizeOf("grand_library");
+        for (Culture culture : Culture.all()) {
+            Set<BlockPos> filled = new HashSet<>();
+            drawn(culture, "grand_library").forEach(block -> filled.add(block.pos()));
+            Set<BlockPos> reached = walkFrom(
+                    BASE.offset(0, 1, size.depth() / 2 + 1), filled);
+
+            for (int floor : new int[] {1, 5, 9}) {
+                assertTrue(standingRoomOn(reached, size, floor) > 40,
+                        culture.id() + "'s grand library has only "
+                                + standingRoomOn(reached, size, floor) + " cells anybody"
+                                + " can reach standing on the floor at " + (floor - 1)
+                                + ". A floor nobody can walk onto is a ceiling");
+            }
+        }
+    }
+
+    @Test
+    void theGrandLibrarysHallIsOpenFromItsFloorToItsCeiling() {
+        // What tells this building from two libraries stacked on each other. The
+        // upper floors are floors over the WINGS; the middle is one room eleven
+        // courses tall, and a deck that crept across it would turn the whole
+        // point of the building into a stairwell.
+        for (Culture culture : Culture.all()) {
+            Set<BlockPos> filled = new HashSet<>();
+            drawn(culture, "grand_library").forEach(block -> filled.add(block.pos()));
+            for (int y = 1; y <= 11; y++) {
+                for (int dx = -5; dx <= 5; dx++) {
+                    for (int dz = -8; dz <= 8; dz++) {
+                        BlockPos cell = BASE.offset(dx, y, dz);
+                        if (filled.contains(cell)) {
+                            assertTrue(openEnoughForAHall(filled, cell),
+                                    culture.id() + "'s grand library stands a solid block"
+                                            + " at " + cell.subtract(BASE).toShortString()
+                                            + ", which is inside the open hall");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether a block in the hall is furniture rather than floor.
+     *
+     * <p>A reading desk, a lectern and a lantern on a chain are all in the hall
+     * on purpose. What must not be there is a deck, and a deck is a block with
+     * more of the same beside it — so this asks whether the cell is part of a
+     * run, which is the difference between a table and a floor.
+     */
+    private static boolean openEnoughForAHall(Set<BlockPos> filled, BlockPos cell) {
+        int alongside = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if ((dx != 0 || dz != 0) && filled.contains(cell.offset(dx, 0, dz))) {
+                    alongside++;
+                }
+            }
+        }
+        return alongside < 5;
+    }
+
+    @Test
+    void aGrandLibraryHoldsMoreBooksThanALibraryAndStandsThemHigher() {
+        for (Culture culture : Culture.all()) {
+            long grand = count(drawn(culture, "grand_library"), Blocks.BOOKSHELF);
+            long ordinary = count(drawn(culture, "library"), Blocks.BOOKSHELF);
+            assertTrue(grand > ordinary,
+                    culture.id() + " puts " + grand + " shelves in its grand library"
+                            + " against " + ordinary + " in its library, so the grand one"
+                            + " is only a bigger room");
+            // Three courses rather than two, which is the difference between a
+            // room with books in it and a room made of books.
+            assertTrue(drawn(culture, "grand_library").stream().anyMatch(
+                            block -> block.state().is(Blocks.BOOKSHELF)
+                                    && block.pos().getY() - BASE.getY() == 3),
+                    culture.id() + "'s grand library shelves no higher than its"
+                            + " library does");
+            assertTrue(count(drawn(culture, "grand_library"), Blocks.LECTERN) >= 6,
+                    culture.id() + "'s grand library has a reading room on fewer than"
+                            + " all three of its floors");
+        }
+    }
+
+    @Test
+    void theGrandLibraryStandsItsColonnadeOnItsOwnDoorstep() {
+        // A portico is pillars OUTSIDE the wall, which is the only thing that
+        // tells one from an aisle -- and a doorstep is one block wide, so the
+        // apron row is the only row there is. The plot rule above already refuses
+        // anything further out; this is the other half of it, that they are out
+        // there at all.
+        BuildingSizes.Size size = sizeOf("grand_library");
+        int out = size.depth() / 2 + 1;
+        for (Culture culture : Culture.all()) {
+            long pillars = drawn(culture, "grand_library").stream()
+                    .filter(block -> block.pos().getZ() - BASE.getZ() == out)
+                    .filter(block -> block.pos().getY() - BASE.getY() == 5)
+                    .count();
+            assertEquals(8, pillars,
+                    culture.id() + " stands " + pillars + " pillars on its doorstep"
+                            + " rather than eight, so the front is not a portico");
+            // And the paving under them, because a rank of pillars on grass reads
+            // as scaffolding.
+            long paving = drawn(culture, "grand_library").stream()
+                    .filter(block -> block.pos().getZ() - BASE.getZ() == out)
+                    .filter(block -> block.pos().getY() - BASE.getY() == 0)
+                    .count();
+            assertTrue(paving >= 29,
+                    culture.id() + " paved only " + paving + " of its frontage");
+        }
+    }
+
+    @Test
+    void theGrandLibrarysLanternIsTheHighestThingOnItAndIsNotTheHallsGold() {
+        // The hall's gold is how a player picks a town's middle out from a
+        // hillside, and a second building wearing it would be a second answer to
+        // that question. So this one is capped in quartz -- which is also a block
+        // that does not weather, because a finial that changed color on its own
+        // would be a finial the repair crew replaced forever.
+        for (Culture culture : Culture.all()) {
+            List<BlueprintPlacer.Placement> grand = drawn(culture, "grand_library");
+            assertFalse(grand.stream().anyMatch(block -> block.state().is(Blocks.GOLD_BLOCK)),
+                    culture.id() + "'s grand library wears the hall's gold");
+            int quartz = grand.stream()
+                    .filter(block -> block.state().is(Blocks.CHISELED_QUARTZ_BLOCK))
+                    .mapToInt(block -> block.pos().getY())
+                    .max()
+                    .orElse(Integer.MIN_VALUE);
+            assertEquals(topOf(grand) + BASE.getY(), quartz,
+                    culture.id() + " stands something over the finial of its grand"
+                            + " library, so the marker is not the thing you see");
+        }
+    }
+
+    @Test
+    void theGrandLibraryIsTheOneBuildingAllowedToStandOverTheHall() {
+        // Stated out loud rather than left as a gap in the list above, because it
+        // is a real exception to a real rule and the rule is worth keeping.
+        //
+        // theHallsRoofIsTallerThanEveryOtherCivicRoof holds the hall over the inn,
+        // the library, the market and the hearth, and the watchtower is exempt
+        // because it is a tower. This is the second exemption and the last: a
+        // building thirty-one blocks across with three floors in it cannot be
+        // eleven courses tall and also shorter than a hall six courses tall, and
+        // shrinking it to fit would be shrinking the only thing it is for.
+        //
+        // What the hall keeps is the thing that actually matters — the gold. The
+        // two are told apart by what is on top of them rather than by which is
+        // taller, which is the better distinction anyway.
+        for (Culture culture : Culture.all()) {
+            assertTrue(topOf(drawn(culture, "grand_library")) > topOf(drawn(culture, "town_hall")),
+                    culture.id() + "'s grand library no longer stands over its hall."
+                            + " That is not a failure -- but this test is the record"
+                            + " that it used to, so decide which it is rather than"
+                            + " deleting the line");
+        }
+    }
+
     @Test
     void theOpenAirCampBuildingsCarryTheirPeoplesColors() {
         for (Culture culture : Culture.all()) {
@@ -423,6 +602,58 @@ class CivicPartsTest {
                     block.pos().getZ() - BASE.getZ()));
         }
         return columns;
+    }
+
+    private static long count(List<BlueprintPlacer.Placement> blocks, Block of) {
+        return blocks.stream().filter(block -> block.state().is(of)).count();
+    }
+
+    /**
+     * Every cell somebody could stand in, walking from one they are standing in.
+     *
+     * <p>A cell is standing room when something holds it up and there are two
+     * clear courses in it, which is what a person is. From there the walk goes to
+     * the four cells beside it at a course up, level, or down — a block's step,
+     * which is the whole of what a stair is and what makes a flight of them a way
+     * to a floor rather than a decoration on a wall.
+     */
+    private static Set<BlockPos> walkFrom(BlockPos start, Set<BlockPos> filled) {
+        Set<BlockPos> reached = new HashSet<>();
+        Deque<BlockPos> queue = new ArrayDeque<>();
+        reached.add(start);
+        queue.add(start);
+        while (!queue.isEmpty()) {
+            BlockPos at = queue.poll();
+            for (Direction way : Direction.Plane.HORIZONTAL) {
+                for (int rise = -1; rise <= 1; rise++) {
+                    BlockPos to = at.relative(way).above(rise);
+                    if (reached.contains(to) || !standingRoom(filled, to)) {
+                        continue;
+                    }
+                    reached.add(to);
+                    queue.add(to);
+                }
+            }
+        }
+        return reached;
+    }
+
+    private static boolean standingRoom(Set<BlockPos> filled, BlockPos at) {
+        return filled.contains(at.below())
+                && !filled.contains(at) && !filled.contains(at.above());
+    }
+
+    /** How much of one floor of a building the walk actually got onto. */
+    private static int standingRoomOn(Set<BlockPos> reached, BuildingSizes.Size size, int y) {
+        int on = 0;
+        for (BlockPos at : reached) {
+            if (at.getY() - BASE.getY() == y
+                    && Math.abs(at.getX() - BASE.getX()) <= size.width() / 2
+                    && Math.abs(at.getZ() - BASE.getZ()) <= size.depth() / 2) {
+                on++;
+            }
+        }
+        return on;
     }
 
     private static int topOf(List<BlueprintPlacer.Placement> blocks) {
