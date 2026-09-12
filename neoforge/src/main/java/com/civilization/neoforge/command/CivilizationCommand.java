@@ -44,6 +44,8 @@ import com.civilization.sim.world.SimWorld;
 import com.civilization.sim.world.YieldPolicy;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.minecraft.commands.arguments.IdentifierArgument;
+import net.minecraft.resources.Identifier;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -129,10 +131,14 @@ public final class CivilizationCommand {
                                                 StringArgumentType.getString(ctx, "profession"))))))
 
                 .then(Commands.literal("build")
-                        .then(Commands.argument("blueprint", StringArgumentType.word())
+                        // An identifier, not a word: a word stops at the colon in
+                        // civilization:norman/house. A bare name parses into the
+                        // minecraft namespace, which this mod has never used for a
+                        // blueprint, so that namespace is read as "no namespace".
+                        .then(Commands.argument("blueprint", IdentifierArgument.id())
                                 .then(Commands.argument("work", IntegerArgumentType.integer(1, 100000))
                                         .executes(ctx -> build(ctx,
-                                                StringArgumentType.getString(ctx, "blueprint"),
+                                                blueprintName(IdentifierArgument.getId(ctx, "blueprint")),
                                                 IntegerArgumentType.getInteger(ctx, "work"))))))
 
                 .then(Commands.literal("threat")
@@ -927,6 +933,11 @@ public final class CivilizationCommand {
         source.sendSuccess(() -> Component.literal(
                 "Added " + count + " x " + profession + " to " + settlement.name() + " (pop now " + pop + ")"), true);
         return count;
+    }
+
+    /** The name as typed: a namespaced id whole, a bare one without the default namespace. */
+    static String blueprintName(Identifier typed) {
+        return "minecraft".equals(typed.getNamespace()) ? typed.getPath() : typed.toString();
     }
 
     private static int build(CommandContext<CommandSourceStack> ctx, String blueprint, int work) {
