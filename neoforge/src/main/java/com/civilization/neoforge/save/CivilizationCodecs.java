@@ -677,10 +677,10 @@ public final class CivilizationCodecs {
      * being pressed, whether its ring is closed, and the ring itself.
      */
     private record Defense(int threatLevel, boolean perimeterClosed,
-                           Optional<Perimeter> perimeter) {
+                           Optional<Perimeter> perimeter, long firstStep) {
         static Defense of(Settlement s) {
             return new Defense(s.threatLevel(), s.perimeterClosed(),
-                    Optional.ofNullable(s.perimeter()));
+                    Optional.ofNullable(s.perimeter()), s.firstStep());
         }
     }
 
@@ -689,7 +689,14 @@ public final class CivilizationCodecs {
             Codec.BOOL.optionalFieldOf("perimeter_closed", false).forGetter(Defense::perimeterClosed),
             // Absent means a town that has never staked a line, which is a real
             // state and not a missing field.
-            PERIMETER.optionalFieldOf("perimeter").forGetter(Defense::perimeter)
+            PERIMETER.optionalFieldOf("perimeter").forGetter(Defense::perimeter),
+            // The town's birthday, which is what says whether raiders have
+            // noticed it yet. Kept here rather than with the charter because the
+            // only thing that reads it is the raid clock. Absent reads as
+            // "never stepped", so a town saved before this field existed is
+            // stamped on its next step and gets one grace period, once.
+            Codec.LONG.optionalFieldOf("first_step", Settlement.NOT_YET_LIVED)
+                    .forGetter(Defense::firstStep)
     ).apply(i, Defense::new));
 
     /**
@@ -777,6 +784,7 @@ public final class CivilizationCodecs {
         settlement.setSeededRoadsOwed(charter.seededRoadsOwed());
         settlement.setFedStreak(holdings.fedStreak());
         settlement.setPerimeterClosed(defense.perimeterClosed());
+        settlement.setFirstStep(defense.firstStep());
         defense.perimeter().ifPresent(settlement::setPerimeter);
         works.paths().ifPresent(settlement::setPaths);
         works.lumberArea().ifPresent(settlement::setLumberArea);

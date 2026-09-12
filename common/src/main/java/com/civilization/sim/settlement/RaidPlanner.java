@@ -23,6 +23,14 @@ import java.util.List;
  *       tells you what happened while you were away.</li>
  * </ul>
  *
+ * <p><strong>A new town is not raided.</strong> Three rules, in the order they
+ * apply, and all three exist because world generation stands nine villages
+ * around the spawn point before the player has finished loading in:
+ * {@link #RAID_GRACE_STEPS} of nothing at all, then {@link #EARLY_CAP_STEPS} of
+ * raids held down to {@link #earlyStrengthCap} — something the town's own watch
+ * turns back — and, for a raid resolved out of sight forever after,
+ * {@link #UNWATCHED_CASUALTY_MARGIN}: a margin of one costs no lives.
+ *
  * <p><strong>No randomness.</strong> Schedules and strengths hash the settlement's
  * id with the step number, so the same world replays identically — the property
  * the whole test suite leans on. Plain-English write-up: {@code DEFENSE.md}.
@@ -31,6 +39,65 @@ public final class RaidPlanner {
 
     /** Settlements below this population are beneath raiders' notice. */
     public static final int MIN_POPULATION_FOR_RAIDS = 6;
+
+    /**
+     * How long a new settlement is left entirely alone.
+     *
+     * <p>Two hundred steps — four whole raid intervals at the shipped cadence,
+     * or about seventeen minutes of play — during which no raid fires at all,
+     * counted from the settlement's own first step rather than the world's. A
+     * chartered camp and a town world generation stood before anybody looked
+     * both get the same four intervals from the moment they start living.
+     *
+     * <p><strong>Why it exists.</strong> The nine towns around the world spawn
+     * are raised as villages of twelve with one guard and a defense of two.
+     * Measured unwatched over twelve trials, such a village lost an average of
+     * 3.75 people to raids by step 200, 8.42 by step 400 and 20.67 by step 1000
+     * — it is losing its founding population roughly every five hundred steps
+     * and only standing at all because it can outbreed the arithmetic. "Raid of
+     * 4 overran the defenses (2) — 2 lost: Ada Baker, Bren Baker" at step 8 is
+     * not a difficulty setting; it is a town being eaten in its cradle, before
+     * the player has met it.
+     *
+     * <p><strong>Why not "until the wall is up".</strong> That was the obvious
+     * anchor and it does not survive measurement. A seeded village stakes its
+     * ring on step 532 and does not pay for the last post until step 1256,
+     * because nothing is staked before TOWN and nothing is staked before the
+     * stage's own program stands. A grace running to 1257 is twenty-five raid
+     * intervals — an hour and a half of play in which a raid cannot happen —
+     * which is not a grace period, it is turning the feature off. So the grace
+     * covers the first four intervals outright and {@link #EARLY_CAP_STEPS}
+     * carries the town from there with raids it can actually turn back.
+     */
+    public static final int RAID_GRACE_STEPS = 200;
+
+    /**
+     * How long a raid is held down to something the town can plausibly repel.
+     *
+     * <p>Five hundred steps, the founding ladder's own length — the measured run
+     * from four settlers in a field to a chartered town with a hall. Inside it a
+     * raid is a probe rather than a massacre: see {@link #earlyStrengthCap}.
+     */
+    public static final int EARLY_CAP_STEPS = 500;
+
+    /**
+     * By how much a raid must beat an unwatched town's defense before anybody
+     * dies.
+     *
+     * <p>Two. A raid that gets over the line by one is a bad night, not a
+     * bereavement, and the difference matters because of <em>who</em> is dying:
+     * a town nobody has ever visited resolves its raids as arithmetic, so a
+     * person lost to a margin of one is a person lost to a hash of the
+     * settlement's id and the step number, with no fight, no body and nobody
+     * watching. Somebody's name goes into the history and there is nothing
+     * anywhere that could have changed it.
+     *
+     * <p>A margin of two is a line the defense was genuinely short of holding,
+     * and losing people to that reads as a defeat rather than a die roll. Above
+     * the margin the arithmetic is exactly what it always was — the deficit is
+     * the toll — so the towns that were already dying badly still die badly.
+     */
+    public static final int UNWATCHED_CASUALTY_MARGIN = 2;
 
     /** Defense contributed per guard. Structures add their own defenseBonus. */
     public static final int GUARD_POWER = 2;
@@ -62,10 +129,70 @@ public final class RaidPlanner {
         if (settlement.population() < MIN_POPULATION_FOR_RAIDS) {
             return;
         }
+        if (withinGrace(settlement, ctx.step())) {
+            return;
+        }
         if (!raidDue(settlement, ctx)) {
             return;
         }
-        execute(settlement, ctx, raidStrength(settlement, ctx.step()));
+        execute(settlement, ctx,
+                Math.min(raidStrength(settlement, ctx.step()),
+                        earlyStrengthCap(settlement, ctx.step())));
+    }
+
+    /**
+     * Whether this town is still too new to have been noticed.
+     *
+     * <p>Asked of the settlement's own age rather than the world's step count,
+     * so a daughter colony budded off at step nine thousand gets the same start
+     * the world's own towns got at step zero.
+     *
+     * <p>A settlement that has somehow never taken a step is not in its grace —
+     * it has no birthday to count from, and the only caller stamps one at the
+     * top of every step anyway, so the question can only be reached by a test
+     * driving {@link #advance} directly. Answering "no" there keeps those tests
+     * measuring what they were written to measure.
+     */
+    public static boolean withinGrace(Settlement settlement, long step) {
+        return settlement.firstStep() != Settlement.NOT_YET_LIVED
+                && settlement.ageInSteps(step) < RAID_GRACE_STEPS;
+    }
+
+    /**
+     * The most a raid may be while the town is still young.
+     *
+     * <p>{@code guards + structures + 1}, where guards is the head count
+     * {@link Garrison#guardStrength} keeps and structures is every standing
+     * building's defense bonus. Unbounded once the town is past
+     * {@link #EARLY_CAP_STEPS}.
+     *
+     * <p>The arithmetic is the point. A town's defense is
+     * {@code guards * GUARD_POWER + structures}, and GUARD_POWER is two, so a
+     * capped raid against a town with even one guard is repelled outright:
+     * {@code 2g + s >= g + s + 1} for every {@code g >= 1}. A town with no
+     * guards at all is over its defense by exactly one, which is under
+     * {@link #UNWATCHED_CASUALTY_MARGIN} — so it takes the scare and keeps its
+     * people. That is what "a probe rather than a massacre" means here: for the
+     * first five hundred steps a raid is a thing that happens to a town, gets
+     * written into its history, raises its threat and makes it recruit, and does
+     * not kill anybody who was standing where they were told to stand.
+     *
+     * <p>The <em>strength</em> is capped rather than the casualties, so a watched
+     * town sees a smaller warband walk out of the trees rather than a full one
+     * that mysteriously loses. Both fidelities have to tell the same story.
+     */
+    public static int earlyStrengthCap(Settlement settlement, long step) {
+        if (settlement.ageInSteps(step) >= EARLY_CAP_STEPS) {
+            return MAX_RAID_STRENGTH;
+        }
+        return Garrison.guardStrength(settlement) + structureDefense(settlement) + 1;
+    }
+
+    /** Every standing building's defense bonus, added up. */
+    public static int structureDefense(Settlement settlement) {
+        return settlement.buildings().stream()
+                .mapToInt(b -> defenseBonusOf(settlement, b.blueprintId()))
+                .sum();
     }
 
     /**
@@ -135,9 +262,7 @@ public final class RaidPlanner {
     /** Guards times {@link #GUARD_POWER}, plus every standing structure's defense bonus. */
     public static int defensePower(Settlement settlement) {
         int guards = JobPlanner.count(settlement, Profession.GUARD);
-        int structures = settlement.buildings().stream()
-                .mapToInt(b -> defenseBonusOf(settlement, b.blueprintId()))
-                .sum();
+        int structures = structureDefense(settlement);
         // And the king, who is worth a guard to a warband that can see him. The
         // same bonus Garrison recruits by, so what the town thinks it can field
         // and what it actually fields with are one number -- see Garrison for
@@ -176,6 +301,17 @@ public final class RaidPlanner {
         if (defense >= strength) {
             settlement.logEvent(ctx.step(),
                     "Raid of " + strength + " repelled by the garrison (defense " + defense + "), no losses");
+            settlement.tallies().record(Tallies.RAIDS_REPELLED);
+            return;
+        }
+        if (strength - defense < UNWATCHED_CASUALTY_MARGIN) {
+            // Over the line, but only just, and nobody was there to see it: see
+            // UNWATCHED_CASUALTY_MARGIN for why a margin of one costs no lives.
+            // Counted as repelled, because from the town's side it was — the
+            // raiders got in, took what they could carry and left.
+            settlement.logEvent(ctx.step(),
+                    "Raid of " + strength + " broke through the defenses (" + defense
+                            + ") and was driven off — nobody lost");
             settlement.tallies().record(Tallies.RAIDS_REPELLED);
             return;
         }

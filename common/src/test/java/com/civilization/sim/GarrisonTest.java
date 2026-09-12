@@ -111,4 +111,44 @@ class GarrisonTest {
         assertFalse(Garrison.outnumbered(s), "the watch is enough again");
         assertEquals(0, Garrison.guardsWanted(s));
     }
+
+    // --- what a player is told about the watch ---
+
+    /**
+     * The town map's watch line, which used to read {@code "6 of 0 guards"}.
+     *
+     * <p>Zero is the commonest value {@link Garrison#neededGuards} takes — it is
+     * derived from threat, and a town that has seen nothing fears nothing — so
+     * the old wording's denominator was zero on nearly every peaceful town in
+     * every world. Three states, and each of them is a sentence.
+     */
+    @Test
+    void theWatchLineSaysSomethingInEveryState() {
+        assertEquals("6 guards, none needed", Garrison.watchSummary(6, 0),
+                "nothing is coming, and six people are watching for it anyway");
+        assertEquals("6 guards, 5 needed", Garrison.watchSummary(6, 5),
+                "afraid of something, and holding the line it reckoned it wanted");
+        assertEquals("2 of 5 guards needed", Garrison.watchSummary(2, 5),
+                "short, which is the one state the N-of-M shape was ever for");
+    }
+
+    @Test
+    void andCountsOneGuardAsOne() {
+        assertEquals("1 guard, none needed", Garrison.watchSummary(1, 0));
+        assertEquals("no guards, none needed", Garrison.watchSummary(0, 0));
+        assertEquals("0 of 1 guards needed", Garrison.watchSummary(0, 1));
+    }
+
+    @Test
+    void theWatchLineReadsTheTownItself() {
+        Settlement s = settlement();
+        add(s, Profession.GUARD, 2);
+        add(s, Profession.FARMER, 6);
+
+        assertEquals("2 guards, none needed", Garrison.watchSummary(s),
+                "a calm town, which is what the map shows nearly all the time");
+
+        s.setThreatLevel(Danger.HOPELESS);   // 10 -> needs 5
+        assertEquals("2 of 5 guards needed", Garrison.watchSummary(s));
+    }
 }
