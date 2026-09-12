@@ -3162,6 +3162,33 @@ public final class Settlement {
         tallies.record(Tallies.BUILDINGS_RAISED);
     }
 
+    /**
+     * Carries whoever lived on a plot to wherever their house has gone.
+     *
+     * <p>The bodies as well as the address, exactly as {@code
+     * PopulationPlanner.evict} does it: a family recorded as living across town
+     * while every member is still standing where the old plot was is a family
+     * the view layer would put back there on the next pass.
+     *
+     * <p>Matched on the plot rather than the position, because a household
+     * housed before its house was drawn holds the estimated height and the
+     * building holds whatever the ground turned out to be.
+     */
+    private void rehome(SimPos from, SimPos to) {
+        for (Household household : households) {
+            if (!samePlot(from, household.home())) {
+                continue;
+            }
+            household.setHome(to);
+            for (Person.Id member : household.members()) {
+                Person person = resident(member);
+                if (person != null) {
+                    person.setPosition(to);
+                }
+            }
+        }
+    }
+
     /** Whether two origins name the same plot, whatever height each was read at. */
     private static boolean samePlot(SimPos a, SimPos b) {
         return a != null && b != null && a.x() == b.x() && a.z() == b.z();
@@ -3292,6 +3319,17 @@ public final class Settlement {
         SimPos from = building.origin();
         building.setOrigin(new SimPos(moved.x(), ctx.bridge().surfaceHeight(moved), moved.z()));
         building.setFacing(arrangement().facingFor(center, moved));
+        // And the family moves with the house. Everything that asks where
+        // somebody lives asks the household, and everything that answers looks
+        // the address up through buildingAt -- which finds a building by its
+        // plot, so a household left at the plot the house has just left finds
+        // nothing standing there at all. That family is then housed on paper and
+        // homeless in every way that matters: no bed is assigned to any of them,
+        // which is a settler who walks to an empty field at dusk and stands in
+        // it until morning. Nothing else ever put it right, either; the vacancy
+        // search reads the address as a house it has no record of and leaves the
+        // household alone rather than orphan it.
+        rehome(from, building.origin());
         // The road forgets where it used to stand, exactly as it does for a
         // building that is demolished. A way is planned to a door, and this
         // door has moved: without this the town believes for ever that it has
