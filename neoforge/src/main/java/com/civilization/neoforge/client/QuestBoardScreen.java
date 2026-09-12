@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -24,6 +25,18 @@ import static com.civilization.neoforge.client.CivilizationPanel.HEADER;
 import static com.civilization.neoforge.client.CivilizationPanel.LABEL;
 import static com.civilization.neoforge.client.CivilizationPanel.PADDING;
 import static com.civilization.neoforge.client.CivilizationPanel.SUBTLE;
+import static com.civilization.neoforge.client.QuestBoardLayout.BUTTON_HEIGHT;
+import static com.civilization.neoforge.client.QuestBoardLayout.BUTTON_LEFT;
+import static com.civilization.neoforge.client.QuestBoardLayout.BUTTON_WIDTH;
+import static com.civilization.neoforge.client.QuestBoardLayout.FOOTER;
+import static com.civilization.neoforge.client.QuestBoardLayout.FOOTER_LINES;
+import static com.civilization.neoforge.client.QuestBoardLayout.FOOTER_TEXT_WIDTH;
+import static com.civilization.neoforge.client.QuestBoardLayout.PANEL_WIDTH;
+import static com.civilization.neoforge.client.QuestBoardLayout.REWARD_RIGHT;
+import static com.civilization.neoforge.client.QuestBoardLayout.REWARD_WIDTH;
+import static com.civilization.neoforge.client.QuestBoardLayout.ROW;
+import static com.civilization.neoforge.client.QuestBoardLayout.TEXT_LEFT;
+import static com.civilization.neoforge.client.QuestBoardLayout.TEXT_WIDTH;
 
 /**
  * The noticeboard, with the reason for every ask written under it.
@@ -41,21 +54,6 @@ import static com.civilization.neoforge.client.CivilizationPanel.SUBTLE;
  */
 public final class QuestBoardScreen extends Screen {
 
-    /**
-     * Wide enough for a title, a sentence under it, a reward and a button. The
-     * market's 320 fits everything but the sentence at full length, and the
-     * sentence is the point.
-     */
-    private static final int PANEL_WIDTH = 360;
-
-    /** Two lines of text and air: a title over its reason. */
-    private static final int ROW = 32;
-
-    private static final int FOOTER = 30;
-
-    private static final int BUTTON_WIDTH = 62;
-    private static final int BUTTON_HEIGHT = 16;
-
     /** Work that is finished and waiting to be paid for. */
     private static final int READY = 0xFF88CC88;
 
@@ -67,6 +65,15 @@ public final class QuestBoardScreen extends Screen {
 
     /** An ask lapses inside this many steps and the clock turns red. */
     private static final int SOON = 120;
+
+    /**
+     * What a cut sentence ends with.
+     *
+     * <p>Three periods rather than the single ellipsis character, because the
+     * default font is not the only font this can be drawn in and three periods
+     * exist in all of them.
+     */
+    private static final String ELLIPSIS = "...";
 
     private QuestBoardPayload board;
 
@@ -126,8 +133,7 @@ public final class QuestBoardScreen extends Screen {
                             showingDone = !showingDone;
                             rebuildWidgets();
                         })
-                .bounds(x + PANEL_WIDTH - PADDING - BUTTON_WIDTH,
-                        y + h - FOOTER + 6, BUTTON_WIDTH, BUTTON_HEIGHT)
+                .bounds(x + BUTTON_LEFT, y + h - FOOTER + 6, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
 
         if (showingDone) {
@@ -144,8 +150,7 @@ public final class QuestBoardScreen extends Screen {
             int rowY = y + HEADER + i * ROW;
             addRenderableWidget(Button.builder(Component.literal(verb),
                             pressed -> send(row, verb))
-                    .bounds(x + PANEL_WIDTH - PADDING - BUTTON_WIDTH,
-                            rowY + (ROW - BUTTON_HEIGHT) / 2,
+                    .bounds(x + BUTTON_LEFT, rowY + (ROW - BUTTON_HEIGHT) / 2,
                             BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build());
         }
@@ -200,12 +205,33 @@ public final class QuestBoardScreen extends Screen {
         }
 
         CivilizationPanel.rule(graphics, x, y + h - FOOTER + 2, PANEL_WIDTH);
-        graphics.text(font, Component.literal(showingDone
-                        ? "What the town remembers being done for it."
-                        : "Paid out of the town's own purse. Deliveries at the storehouse."),
-                x + PADDING, y + h - FOOTER + 10, SUBTLE, false);
+        drawFooter(graphics, x, y + h - FOOTER, Component.literal(showingDone
+                ? "What the town remembers being done for it."
+                : "Paid out of the town's own purse. Deliveries at the storehouse."));
 
         super.extractRenderState(graphics, mouseX, mouseY, a);
+    }
+
+    /**
+     * The sentence under the rule, kept clear of the tab button.
+     *
+     * <p>Wrapped to the width the button leaves rather than cut, because unlike
+     * a row's reason this line has somewhere to go: the footer is thirty pixels
+     * tall and one line of text is nine, so a second line fits with room over.
+     * Two is the limit and the second is cut if it comes to it, which is what
+     * keeps the footer from growing into the bottom edge of the panel.
+     */
+    private void drawFooter(GuiGraphicsExtractor graphics, int x, int footerTop,
+                            Component sentence) {
+        List<FormattedCharSequence> lines = font.split(sentence, FOOTER_TEXT_WIDTH);
+        int shown = Math.min(lines.size(), FOOTER_LINES);
+        // One line sits where it always did; a second pushes the pair apart
+        // around that same middle, so the block stays centered in the footer.
+        int firstY = 10 - (shown - 1) * 5;
+        for (int i = 0; i < shown; i++) {
+            graphics.text(font, lines.get(i), x + PADDING, footerTop + firstY + i * 10,
+                    SUBTLE, false);
+        }
     }
 
     private void drawAsks(GuiGraphicsExtractor graphics, int x, int y) {
@@ -226,23 +252,72 @@ public final class QuestBoardScreen extends Screen {
             }
 
             graphics.item(new ItemStack(iconFor(row)), x + PADDING, rowY + 4);
-            graphics.text(font, Component.literal(row.title()),
-                    x + PADDING + 22, rowY + 1, AMOUNT, false);
-            graphics.text(font, Component.literal(row.detail()),
-                    x + PADDING + 22, rowY + 12, SUBTLE, false);
 
+            // The left column. Both lines are cut to the same width, so the
+            // reason can no longer run under the reward beside it -- which is
+            // the whole fault this layout exists to stop.
+            graphics.text(font, clipped(row.title()), x + TEXT_LEFT, rowY + 1,
+                    AMOUNT, false);
+            graphics.text(font, clipped(row.detail()), x + TEXT_LEFT, rowY + 12,
+                    SUBTLE, false);
+
+            // The right column, right-aligned inside its own fixed width.
             String tally = tallyOf(row);
-            int wide = font.width(tally);
-            graphics.text(font, Component.literal(tally),
-                    x + PANEL_WIDTH - PADDING - BUTTON_WIDTH - 8 - wide, rowY + 1,
+            graphics.text(font, tally, x + REWARD_RIGHT - font.width(tally), rowY + 1,
                     stateColor(row), false);
-
-            Component pay = payWords(row);
-            int payWide = font.width(pay);
-            graphics.text(font, pay,
-                    x + PANEL_WIDTH - PADDING - BUTTON_WIDTH - 8 - payWide, rowY + 12,
-                    LABEL, false);
+            drawReward(graphics, payWords(row), x + REWARD_RIGHT, rowY + 12);
         }
+    }
+
+    /**
+     * The reward, right-aligned inside its column.
+     *
+     * <p>The column is wide enough for the rewards the board ordinarily pays. A
+     * job that pays in coin <em>and</em> goods <em>and</em> standing can outrun
+     * it, and when it does the line ends in an ellipsis rather than simply
+     * stopping — a reward that has been cut short has to look cut short, or the
+     * screen is quietly offering less than the town is paying.
+     */
+    private void drawReward(GuiGraphicsExtractor graphics, Component reward,
+                            int right, int y) {
+        List<FormattedCharSequence> whole = font.split(reward, REWARD_WIDTH);
+        if (whole.size() <= 1) {
+            FormattedCharSequence only = whole.isEmpty()
+                    ? FormattedCharSequence.EMPTY : whole.getFirst();
+            graphics.text(font, only, right - font.width(only), y, LABEL, false);
+            return;
+        }
+        int dots = font.width(ELLIPSIS);
+        List<FormattedCharSequence> head = font.split(reward, Math.max(1, REWARD_WIDTH - dots));
+        if (head.isEmpty()) {
+            graphics.text(font, ELLIPSIS, right - dots, y, LABEL, false);
+            return;
+        }
+        FormattedCharSequence first = head.getFirst();
+        graphics.text(font, first, right - font.width(first) - dots, y, LABEL, false);
+        graphics.text(font, ELLIPSIS, right - dots, y, LABEL, false);
+    }
+
+    /**
+     * A sentence cut to the width of the left column, with an ellipsis if it
+     * did not fit.
+     *
+     * <p>Cut rather than wrapped because a row is two lines tall and both of
+     * them are spoken for: the title has one and the reason has the other. The
+     * full sentence is not lost — it is the same sentence the town says in chat
+     * when the ask is taken — and half of it under a title still says which of
+     * the town's troubles this job is about, which is what the line is for.
+     */
+    private String clipped(String text) {
+        return clipped(text, TEXT_WIDTH);
+    }
+
+    private String clipped(String text, int width) {
+        if (font.width(text) <= width) {
+            return text;
+        }
+        int room = Math.max(0, width - font.width(ELLIPSIS));
+        return font.plainSubstrByWidth(text, room).stripTrailing() + ELLIPSIS;
     }
 
     private void drawDone(GuiGraphicsExtractor graphics, int x, int y) {
@@ -258,7 +333,9 @@ public final class QuestBoardScreen extends Screen {
             if (i % 2 == 1) {
                 CivilizationPanel.stripe(graphics, x, rowY, PANEL_WIDTH);
             }
-            graphics.text(font, Component.literal(done.get(i)),
+            // Nothing sits to the right of a remembered line, so it gets the
+            // whole width between the margins -- and stops there.
+            graphics.text(font, clipped(done.get(i), PANEL_WIDTH - 2 * PADDING),
                     x + PADDING, rowY + 4, LABEL, false);
         }
     }
