@@ -1042,6 +1042,8 @@ public final class PersonEntityManager {
             ordered.forget(level, personId);
         }
         idleWatch.remove(personId);
+        bedAttempts.remove(personId);
+        bedsGivenUpOn.remove(personId);
         pathlessPasses.remove(personId);
         strandedPasses.remove(personId);
         repathTries.remove(personId);
@@ -3057,6 +3059,16 @@ public final class PersonEntityManager {
                     line.append(", NO ROUTE to the next block");
                 }
             }
+            // Standing still at night with a bed of their own is one specific
+            // thing, and it is the thing this whole report was read for the
+            // night a village was found awake: they are at the bed's door and
+            // cannot get to it. Name the bed, so it can be gone and looked at.
+            BlockPos unreachable = bedsGivenUpOn.get(person.id().value());
+            if (unreachable != null) {
+                line.append(", CANNOT REACH BED at (").append(unreachable.getX())
+                        .append(", ").append(unreachable.getY())
+                        .append(", ").append(unreachable.getZ()).append(")");
+            }
             lines.add(line.toString());
         }
         return lines;
@@ -3494,6 +3506,7 @@ public final class PersonEntityManager {
                         view.isFleeing(), person.isTooWeakToWork())) {
                     view.stopSleeping();
                 } else {
+                    forgetBedAttempt(person.id().value());
                     continue;
                 }
             }
@@ -3501,6 +3514,17 @@ public final class PersonEntityManager {
                     view.isThreatened(), view.isFleeing(),
                     FoodPlanner.isGoingToEat(person))
                     && bed != null;
+            // Somebody who has spent the best part of a minute failing to get to
+            // their own mattress stops trying and spends the night standing at
+            // home, which is what a settler with no bed at all does and is the
+            // only other thing there is to do. The point of giving up is not the
+            // sleep -- it is that the town can then say so: a body that walks at
+            // a bed forever looks exactly like a body nobody is steering, and
+            // the two were indistinguishable in the report.
+            boolean outOfReach = turningIn && bedOutOfReach(person.id().value(), bed);
+            if (!turningIn) {
+                forgetBedAttempt(person.id().value());
+            }
 
             // Builders on an active site are steered block by block by
             // tickConstruction; overriding them here would tug them off the wall.
@@ -3601,8 +3625,10 @@ public final class PersonEntityManager {
                 // Their own bed if the town has one for them, the doorway if it
                 // has not: an idler with no home still turns in at the center,
                 // and somebody in a house more crowded than it has beds for
-                // still sleeps under its roof, standing.
-                target = turningIn ? bed : home != null ? home : settlement.center();
+                // still sleeps under its roof, standing. So does somebody whose
+                // bed is there and cannot be got to.
+                target = turningIn && !outOfReach ? bed
+                        : home != null ? home : settlement.center();
                 speed = WALK_SPEED;
             } else if (view.isThreatened()) {
                 // Something hostile is inside the notice radius. The workplace is
@@ -3630,20 +3656,70 @@ public final class PersonEntityManager {
             // stopped walking eight blocks short would stand in the street all
             // night with its bed made.
             double arrive = alarm == Alarm.ALARMED && !guard ? 2.0
-                    : turningIn ? BED_REACH : ARRIVE_RADIUS;
+                    : turningIn && !outOfReach ? BED_REACH : ARRIVE_RADIUS;
             if (dx * dx + dz * dz > arrive * arrive) {
                 // The target's own Y, never the surface heightmap: a building's
                 // "surface" is its ROOF, and routing people there is what put
                 // villagers on rooftops in the first place.
                 view.getNavigation().moveTo(target.x() + 0.5, target.y(), target.z() + 0.5, speed);
-            } else if (turningIn) {
-                tuckIn(view, bed);
+            } else if (turningIn && !outOfReach && tuckIn(view, bed)) {
+                forgetBedAttempt(person.id().value());
             }
         }
     }
 
     /** How near a settler has to be standing to climb into a bed. */
     private static final double BED_REACH = 2.0;
+
+    /**
+     * How long somebody may spend walking at their own bed before giving up on it.
+     *
+     * <p>Twenty seconds, which is several times the walk across the largest
+     * house in the catalog and well short of a night. What it is really measuring
+     * is a route that does not exist: a cottage cut into a hillside whose floor
+     * the path network cannot reach from the door, a mattress a player has
+     * furniture in front of. Nothing about a bed is worth standing in a doorway
+     * until dawn for.
+     */
+    private static final long BED_PATIENCE_TICKS = 400L;
+
+    /** The bed somebody is walking at, and the tick they started walking at it. */
+    private record BedAttempt(BlockPos foot, long since) { }
+
+    /** Who is trying to get into which bed, by person id. */
+    private final Map<UUID, BedAttempt> bedAttempts = new HashMap<>();
+
+    /** Whose bed has been given up on tonight, and which bed it was. */
+    private final Map<UUID, BlockPos> bedsGivenUpOn = new HashMap<>();
+
+    /**
+     * Whether this settler has been trying to reach this bed for too long.
+     *
+     * <p>The clock starts the first pass they want it and is thrown away the
+     * moment they are in it, are not turning in, or are sent to a different bed —
+     * so the answer is about tonight's walk to tonight's mattress and never a
+     * grudge carried over from a previous one.
+     */
+    private boolean bedOutOfReach(UUID personId, SimPos bed) {
+        BlockPos foot = new BlockPos(bed.x(), bed.y(), bed.z());
+        BedAttempt attempt = bedAttempts.get(personId);
+        if (attempt == null || !attempt.foot().equals(foot)) {
+            bedAttempts.put(personId, new BedAttempt(foot, level.getGameTime()));
+            bedsGivenUpOn.remove(personId);
+            return false;
+        }
+        if (level.getGameTime() - attempt.since() < BED_PATIENCE_TICKS) {
+            return false;
+        }
+        bedsGivenUpOn.put(personId, foot);
+        return true;
+    }
+
+    /** Drops both notes: they are in bed, or the night is over. */
+    private void forgetBedAttempt(UUID personId) {
+        bedAttempts.remove(personId);
+        bedsGivenUpOn.remove(personId);
+    }
 
     /**
      * Into bed, if there is one there and nobody is in it.
@@ -3655,18 +3731,53 @@ public final class PersonEntityManager {
      * there were beds. Nothing hunts for another bed: a person sleeps in their
      * own or not at all, because a night spent searching a village for a free
      * mattress is a night spent walking.
+     *
+     * @return whether they are actually lying down
      */
-    private void tuckIn(PersonEntity view, SimPos bed) {
+    private boolean tuckIn(PersonEntity view, SimPos bed) {
         BlockPos pos = new BlockPos(bed.x(), bed.y(), bed.z());
         if (!level.isLoaded(pos)) {
-            return;
+            return false;
         }
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof BedBlock) || state.getValue(BedBlock.OCCUPIED)) {
-            return;
+            return false;
         }
         view.getNavigation().stop();
         view.startSleeping(pos);
+        return true;
+    }
+
+    /**
+     * How the town slept, or null by day and whenever nobody is in bed.
+     *
+     * <p>One line, and the second half of it is the whole reason for the first.
+     * "Nobody is asleep" is not a report — a village stands about in the dark for
+     * a dozen reasons, from a raid to a bell to nobody having a roof — but
+     * "four asleep, three could not reach a bed" names a fault and says how many
+     * people it has. The beds themselves are named in the idle lines below.
+     */
+    public String nightReport(Settlement settlement) {
+        int asleep = 0;
+        int stranded = 0;
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied()) {
+                continue;
+            }
+            PersonEntity view = tracked.get(person.id().value());
+            if (view == null || view.isRemoved()) {
+                continue;
+            }
+            if (view.isSleeping()) {
+                asleep++;
+            } else if (bedsGivenUpOn.containsKey(person.id().value())) {
+                stranded++;
+            }
+        }
+        if (asleep == 0 && stranded == 0) {
+            return null;
+        }
+        return asleep + " asleep, " + stranded + " could not reach a bed";
     }
 
     /** The farmer's rostered field, falling back to the nearest if the town has none. */

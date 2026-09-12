@@ -769,6 +769,13 @@ public final class CivilizationCommand {
                 // nobody, and which of the several ways that happens cannot be
                 // told apart from inside the simulation -- so say who, where,
                 // doing what, and how hungry, and let the world settle it.
+                // How the night went. Silent by day and whenever nobody is
+                // lying down, so the line only ever appears when there is
+                // something to say about beds.
+                String night = digger == null ? null : digger.nightReport(s);
+                if (night != null) {
+                    sb.append("\n      night: ").append(night);
+                }
                 List<String> idle = digger == null ? List.of() : digger.idleReport(s);
                 if (!idle.isEmpty()) {
                     sb.append("\n      idle (").append(idle.size()).append(" over ")

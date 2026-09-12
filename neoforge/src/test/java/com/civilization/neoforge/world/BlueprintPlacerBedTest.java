@@ -61,6 +61,30 @@ class BlueprintPlacerBedTest {
         };
     }
 
+    /**
+     * A hillside: ground that falls away one course every two blocks eastward.
+     *
+     * <p>The site a whole village was found awake on. A cottage is laid from a
+     * single base whatever the ground does — the foundation packs the fall out
+     * from underneath — so the floor is one plane and every bed in it stands on
+     * that plane. What must not happen is the shape reading the hill and putting
+     * furniture at the height of the ground beneath it, which would leave three
+     * beds at three heights and the simulation certain about one.
+     */
+    private static BlueprintPlacer.Site hillsideAt(int floor) {
+        return new BlueprintPlacer.Site() {
+            @Override public boolean loaded(BlockPos pos) { return true; }
+
+            @Override public boolean unsupported(BlockPos pos) {
+                return pos.getY() >= groundLevel(pos.getX(), pos.getZ());
+            }
+
+            @Override public Culture culture() { return Culture.NORMAN; }
+
+            @Override public int groundLevel(int x, int z) { return floor + 1 - x / 2; }
+        };
+    }
+
     /** Every home in the catalog: the kinds with room for heads in them. */
     private static List<BuildingType> homes() {
         List<BuildingType> homes = new ArrayList<>();
@@ -186,6 +210,49 @@ class BlueprintPlacerBedTest {
         assertEquals(Direction.NORTH, laid, "a longhouse's beds head into the cold wall");
         assertEquals(Rotation.CLOCKWISE_90.rotate(laid), turned,
                 "a quarter turn of the building is a quarter turn of every bed in it");
+    }
+
+    // --- the hillside --------------------------------------------------------
+
+    @Test
+    void aCottageCutIntoAHillsideKeepsItsBedsOnItsOwnFloor() {
+        // The reported town, at its reported height: burgher cottages with red
+        // beds, floor at y=79, on ground that falls away under them. The
+        // simulation predicts a bed from the building's recorded origin and
+        // nothing else -- it never reads the world -- so if the drawing followed
+        // the hill instead of the floor, every settler in the village would walk
+        // into the house at dusk and stand next to a bed that is not where they
+        // were told it is. Which is what they were found doing.
+        int floor = 79;
+        BlockPos base = new BlockPos(0, floor, 0);
+        SimPos origin = new SimPos(0, floor, 0);
+
+        for (int facing = 0; facing < 4; facing++) {
+            List<BlueprintPlacer.Placement> blocks = new ArrayList<>();
+            BlueprintPlacer.draw(hillsideAt(floor), blocks, "cottage", base);
+            BlueprintPlacer.turn(blocks, base, BlueprintPlacer.rotationOf(facing));
+            Map<BlockPos, BlockState> built = new LinkedHashMap<>();
+            for (BlueprintPlacer.Placement placement : blocks) {
+                built.put(placement.pos(), placement.state());
+            }
+
+            for (int index = 0; index < Beds.countIn("civilization:cottage"); index++) {
+                BlockPos foot = at(Beds.footOf("civilization:cottage", origin, facing, index));
+                String where = "a hillside cottage facing " + facing + ", bed " + index;
+
+                assertEquals(floor + Beds.FLOOR_COURSE, foot.getY(),
+                        where + ": the predicted foot is not on the building's"
+                                + " own floor course");
+                BlockState footState = built.get(foot);
+                assertNotNull(footState, where + ": nothing at all at "
+                        + foot.toShortString());
+                assertTrue(footState.getBlock() instanceof BedBlock,
+                        where + ": the cell the simulation walks somebody to holds "
+                                + footState.getBlock() + " rather than a bed");
+                assertEquals(BedPart.FOOT, footState.getValue(BedBlock.PART),
+                        where + ": the cell a sleeper stands at is not the foot");
+            }
+        }
     }
 
     // --- the one thing a culture has a say in --------------------------------

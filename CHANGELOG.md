@@ -6,6 +6,30 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The town goes to bed
+
+### Fixed
+
+- **Settlers sleep again.** A village you walk up to for the first time is
+  standing on ground nobody has ever looked at, and anything sited badly — a
+  cottage half-buried in a hillside, a bunkhouse in a bog — is quietly picked up
+  and moved somewhere better as you arrive. The family living in it was left
+  behind at the old plot. They were housed on paper and homeless in every way
+  that mattered: no bed was ever assigned to any of them, so at dusk they walked
+  out to an empty field, or stood in their own front doorway, and waited there
+  until morning. It was permanent, too — nothing ever put the address right
+  again — which is why a whole village could be found awake every night of its
+  life with nine made beds in it. Families now move with their houses.
+
+- **Somebody who cannot get to their bed stops trying.** Twenty seconds of
+  walking at a mattress they can't reach — a doorway they can't path through, a
+  bed a player has boxed in — and they give up and spend the night at home
+  instead of standing in the street with their bed made.
+
+- **`/civ info` says how the town slept.** A "night" line counts who is asleep
+  and how many could not reach a bed, and anybody in the second group is named in
+  the idle report along with where their bed is, so you can go and look at it.
+
 ## A grand library, and the first building a town has to earn twice
 
 ### New
