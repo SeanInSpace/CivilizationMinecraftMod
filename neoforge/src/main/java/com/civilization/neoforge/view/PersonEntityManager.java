@@ -3084,7 +3084,7 @@ public final class PersonEntityManager {
      */
     private boolean embody(Settlement settlement, Person person) {
         PersonEntity view = new PersonEntity(CivilizationEntities.PERSON.get(), level);
-        view.applyRace(Culture.of(settlement.cultureId()).race());
+        view.applyRace(Culture.of(settlement.cultureId()).race(), person.id().value());
         SimPos pos = person.position();
         int y = standableY(pos);
         view.setPos(pos.x() + 0.5, y, pos.z() + 0.5);

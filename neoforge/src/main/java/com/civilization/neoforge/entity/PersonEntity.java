@@ -13,6 +13,9 @@ import com.civilization.sim.settlement.KingPlanner;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.world.SimWorld;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -95,6 +98,47 @@ public final class PersonEntity extends PathfinderMob {
     }
 
     /**
+     * The race this body wears, on the wire.
+     *
+     * <p>The server knows a settler's race from their town's culture; the client
+     * has no settlements, no cultures and no {@code Person}, and the renderer
+     * still has to pick a skin. Tracked entity data is the one channel that
+     * arrives with the spawn packet rather than after it, so a body is never
+     * drawn as the wrong race for a frame on the way in.
+     *
+     * <p>An ordinal rather than a name because it is one byte either way and a
+     * byte is what the serializer takes. Out-of-range values read as
+     * {@link Race#HUMAN} — see {@link #race()} — for the same reason
+     * {@link Race#of} falls back rather than throwing.
+     */
+    private static final EntityDataAccessor<Byte> DATA_RACE =
+            SynchedEntityData.defineId(PersonEntity.class, EntityDataSerializers.BYTE);
+
+    /**
+     * Which of that race's skins this particular settler wears.
+     *
+     * <p>Synced rather than worked out on the client, and that is the whole
+     * subtlety here. The obvious thing is to hash the entity's UUID, which the
+     * client already has — but a body is a disposable view: the manager discards
+     * it whenever the player walks away and builds a fresh one with a fresh UUID
+     * on the way back, so a warband's paint would be reshuffled every time you
+     * turned your back. The <em>person's</em> id is stable for a life, and only
+     * the server can see it, so the choice is made there and sent.
+     */
+    private static final EntityDataAccessor<Byte> DATA_SKIN =
+            SynchedEntityData.defineId(PersonEntity.class, EntityDataSerializers.BYTE);
+
+    /** The save key the race travels under, and what a spawn egg writes. */
+    public static final String RACE_TAG = "civ_race";
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_RACE, (byte) Race.HUMAN.ordinal());
+        builder.define(DATA_SKIN, (byte) 0);
+    }
+
+    /**
      * Stamps a race's body onto this one, and fills it up.
      *
      * <p>Attributes are registered per entity type and there is one settler
@@ -108,8 +152,14 @@ public final class PersonEntity extends PathfinderMob {
      * health does not raise the current one, so an orc who was not healed would
      * spawn at twenty out of thirty and look wounded from the moment he
      * appeared.
+     *
+     * <p>The person's id comes along because the same call has to settle what
+     * this settler <em>looks</em> like as well as what he can take: the skin and
+     * the health are one fact about one body, decided once, at the only moment
+     * both the race and the person are in the same room. See {@link #DATA_SKIN}
+     * for why the choice cannot be left to the client.
      */
-    public void applyRace(Race race) {
+    public void applyRace(Race race, UUID personId) {
         AttributeInstance health = getAttribute(Attributes.MAX_HEALTH);
         if (health != null) {
             health.setBaseValue(race.maxHealth());
@@ -119,6 +169,71 @@ public final class PersonEntity extends PathfinderMob {
             speed.setBaseValue(BASE_MOVEMENT_SPEED * race.paceFactor());
         }
         setHealth(getMaxHealth());
+        entityData.set(DATA_RACE, (byte) race.ordinal());
+        entityData.set(DATA_SKIN, (byte) skinFor(personId));
+    }
+
+    /**
+     * How many skins a race may have. Two: plain, and war-painted.
+     *
+     * <p>Not a per-race count on purpose. A race with one skin simply ignores
+     * the second index — the renderer's table decides how many of these it can
+     * actually honor, and a race that grows a third variant is a row there and
+     * nothing here.
+     */
+    public static final int SKINS_PER_RACE = 2;
+
+    /**
+     * Which skin a person wears, spread evenly and the same every time.
+     *
+     * <p>{@code floorMod} rather than {@code %} because a UUID's hash is as
+     * often negative as not, and a negative index would put half a warband in
+     * no skin at all.
+     */
+    public static int skinFor(UUID personId) {
+        return personId == null ? 0
+                : Math.floorMod(personId.hashCode(), SKINS_PER_RACE);
+    }
+
+    /** The race this body wears, as the client sees it. Never null. */
+    public Race race() {
+        int ordinal = entityData.get(DATA_RACE) & 0xFF;
+        Race[] races = Race.values();
+        return ordinal < races.length ? races[ordinal] : Race.HUMAN;
+    }
+
+    /** Which of that race's skins this body wears; see {@link #SKINS_PER_RACE}. */
+    public int skin() {
+        return entityData.get(DATA_SKIN) & 0xFF;
+    }
+
+    /**
+     * The race, on disk as well as on the wire.
+     *
+     * <p>A body that reaches the save file is a stale duplicate the join hook is
+     * about to cull, so this is not really about persistence — it is the channel
+     * a spawn egg speaks through. {@code DataComponents.ENTITY_DATA} is merged
+     * into an entity's own saved tag and read back through here (see
+     * {@code TypedEntityData.loadInto}), so writing {@link #RACE_TAG} onto the
+     * egg is what makes an orc egg produce an orc.
+     *
+     * <p>Stored as the race's word rather than its ordinal because this one is
+     * read by a human with an NBT viewer, and {@code /give ... entity_data} is a
+     * thing players type.
+     */
+    @Override
+    protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput output) {
+        super.addAdditionalSaveData(output);
+        output.putString(RACE_TAG, race().word());
+        output.putByte("civ_skin", (byte) skin());
+    }
+
+    @Override
+    protected void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput input) {
+        super.readAdditionalSaveData(input);
+        entityData.set(DATA_RACE,
+                (byte) Race.of(input.getStringOr(RACE_TAG, Race.HUMAN.word())).ordinal());
+        entityData.set(DATA_SKIN, input.getByteOr("civ_skin", (byte) 0));
     }
 
     /**

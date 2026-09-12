@@ -6,6 +6,35 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Orcs you can tell apart, and eggs that recruit
+
+### New
+
+- **Orcs look like orcs.** Grey-green hide, a heavy brow with the eyes sunk under
+  it, tusks coming up past the mouth, a laced leather jerkin, bare arms with a
+  strap high on each one, and boots. Two faces to a warband — one warhost paints
+  its cheeks red and one does not — and which one a given orc wears never changes
+  for as long as he lives, so a camp of thirty reads as thirty orcs rather than
+  one orc thirty times. Goblins wear the same build in a sicklier yellow-green.
+  Humans still wear the default skin; a set of their own is a later job.
+
+- **A settler's skin follows their town's people.** Nothing to configure and
+  nothing to place: put an orc culture on a town and its people are orcs the next
+  time they are drawn, and the king still gets his gold helmet on top of it.
+
+- **Two settler eggs, in the Civilization tab.** A Human Settler Egg and an Orc
+  Settler Egg. Use one on the ground inside a town of that people and somebody
+  new joins it — an idler, named the way that people names its children, standing
+  where you clicked, with a body a moment later and that race's health and pace.
+  They take whatever work the town is short of on the next pass and go in a bed
+  when one is free.
+
+- **An egg is not a charter.** Used where no town of that race claims the ground,
+  it founds nothing, spawns nothing and says so: "No orc settlement here to join."
+  Founding a town is still the charter's job. The reason is not fussiness — a
+  settler in this mod is a person in the simulation who happens to have a body,
+  and a body with nobody behind it is swept up on the spot.
+
 ## The mod is called Civilization
 
 ### Changed

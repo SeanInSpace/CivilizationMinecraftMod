@@ -3,9 +3,11 @@ package com.civilization.neoforge;
 import com.civilization.neoforge.item.ExcavationStakeItem;
 import com.civilization.neoforge.item.FoundingCharterItem;
 import com.civilization.neoforge.item.OrcWeapons;
+import com.civilization.neoforge.item.PersonSpawnEggItem;
 import com.civilization.neoforge.item.TownMapItem;
 import com.civilization.neoforge.item.WayfinderItem;
 import com.civilization.sim.combat.Weaponry;
+import com.civilization.sim.culture.Race;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -141,6 +143,36 @@ public final class CivilizationItems {
         }
         return java.util.Collections.unmodifiableMap(armory);
     }
+
+    /**
+     * The two settler eggs: a human and an orc.
+     *
+     * <p>Neither one spawns anything by itself — see {@link PersonSpawnEggItem},
+     * which recruits into a town of that race instead, because a settler body
+     * with no person behind it is culled the instant it joins the world. Both
+     * name the one settler entity type; the race is what differs, and it travels
+     * in the egg's own entity-data component.
+     *
+     * <p>A goblin egg is missing on purpose: the goblins have exactly one culture
+     * and no town in an ordinary world is of it, so the egg's only possible
+     * answer today would be "no goblin settlement here to join".
+     *
+     * <p>One known wrinkle in sharing a type: vanilla's {@code SpawnEggItem.byId}
+     * looks an egg up <em>by</em> entity type and takes any match, so creative
+     * middle-click on a settler may hand you either egg regardless of what he is.
+     * Left alone rather than worked around — the alternative is an entity type per
+     * race, which would put the race back in the attribute table the whole design
+     * takes it out of.
+     */
+    public static final DeferredItem<Item> HUMAN_SPAWN_EGG = ITEMS.registerItem(
+            "human_spawn_egg",
+            properties -> new PersonSpawnEggItem(Race.HUMAN, properties),
+            () -> PersonSpawnEggItem.properties(Race.HUMAN));
+
+    public static final DeferredItem<Item> ORC_SPAWN_EGG = ITEMS.registerItem(
+            "orc_spawn_egg",
+            properties -> new PersonSpawnEggItem(Race.ORC, properties),
+            () -> PersonSpawnEggItem.properties(Race.ORC));
 
     /** The registered item of that name, or null if the armory has no such thing. */
     public static Item orcWeapon(String name) {
