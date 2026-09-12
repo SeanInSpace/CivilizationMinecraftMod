@@ -1081,8 +1081,8 @@ public final class TownMapScreen extends Screen {
         heading(lines, "The watch");
         fact(lines, "Threat", Integer.toString(overview.watch().threat()));
         lines.add(Component.literal("  Defense " + overview.watch().defense()
-                        + " · " + overview.watch().guards() + " of "
-                        + overview.watch().neededGuards() + " guards")
+                        + " · " + com.civilization.sim.settlement.Garrison.watchSummary(
+                                overview.watch().guards(), overview.watch().neededGuards()))
                 .withColor(overview.watch().guards() < overview.watch().neededGuards()
                         ? ALARM_HUNGRY : SUBTLE));
         fact(lines, "King", overview.watch().king().isBlank()

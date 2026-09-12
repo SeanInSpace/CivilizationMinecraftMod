@@ -6,6 +6,82 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The towns the world puts there are not eaten before you find them
+
+### Fixed
+
+- **A new town is left alone for its first two hundred steps.** No raid at all —
+  four whole raid intervals, about seventeen minutes of play. Before this, the
+  nine villages world generation stands around the world spawn were being raided
+  from step eight: "Raid of 4 overran the defenses (2) — 2 lost: Ada Baker, Bren
+  Baker" at Millbrook, and one or two lost at Stonebridge and Thornring inside
+  their first twenty steps. Every worldgen town started by losing a sixth of its
+  people, and the first thing the player learned about a town was its funeral
+  record. The grace is counted from the town's **own** first step, so a colony
+  founded at step nine thousand gets the same start.
+
+- **For its first five hundred steps a raid is a probe, not a massacre.** Raid
+  strength is held down to what the town could plausibly turn back — its guards,
+  plus whatever its buildings are worth, plus one — so an early raid is something
+  the watch repels and the town's history records, rather than something that
+  takes names. A town with no guards at all still only gets a scare.
+
+- **A raid nobody saw no longer kills people by one.** When a raid is settled out
+  of sight it is settled by arithmetic, and a raid that got over the line by a
+  single point used to cost somebody their life — no fight, no body, and nothing
+  anywhere that could have changed it. It now has to beat the defense by two. The
+  history says the raiders broke through and were driven off.
+
+- **The town map no longer says "6 of 0 guards".** A town that has seen nothing
+  needs no guards, which was nearly every town nearly all the time, so the watch
+  line's denominator was usually zero. It now reads "6 guards, none needed" when
+  there is nothing to meet, "6 guards, 5 needed" when the town is holding the line
+  it wanted, and "2 of 5 guards needed" in warning colors when it is short. The
+  garrison line in `/civ info` says it in the same words, out of the same
+  function.
+
+- **`/civ list` says when the world has not finished putting towns in it.** A
+  session went by believing the command had lost three settlements: it printed
+  three while the log said six had been raised. The listing has never had a radius
+  and never had a page size — it walks every kingdom in the dimension — so the
+  count was true of the moment it was asked, and the moment was the problem. The
+  spawn towns go up one per tick and everything past them one per second as
+  somebody walks near, so the report now ends with "(the world is still raising
+  its spawn towns — 6 regions left to settle; ask again in a moment)" until they
+  are all standing.
+
+### Notes
+
+- **The measurements.** A seeded village, unwatched, twelve trials, deaths to
+  raids:
+
+  | by step | before | after |
+  |---|---|---|
+  | 200 | 3.75 average (45 across the twelve) | **0** |
+  | 400 | 8.42 average (101) | **0** |
+  | 1000 | 20.67 average (248), worst trial 29 | **4.92 average (59), worst 12** |
+
+  It is not that fewer raids happen: sixteen arrive by step 1000 against twenty
+  before, and fourteen of the sixteen are repelled against six of the twenty. The
+  town is now winning the fights it should have been winning.
+
+- **The grace is not "until the wall is up", because the wall is much later than
+  anyone thought.** Measured on the same village: it stakes its ring on step 532
+  and does not pay for the last post until step 1256 — nothing is staked before
+  TOWN, and nothing is staked before that stage's own program stands. A grace
+  running past the wall would be twenty-five raid intervals of total immunity,
+  which is not a grace period but the feature switched off.
+
+- **A seeded village holds one guard until step 778.** The staffing table does not
+  call for a second before then, so when the early cap lifts at step 500 the town
+  is still thin, and that is where the remaining 4.92 deaths come from. It is a
+  staffing question rather than a raid question and is deliberately left alone
+  here. `DEFENSE.md` records it.
+
+- **Saves carry a town's birthday now** (`first_step`). A world from before this
+  reads as "never stepped" and is stamped on its next step, so it gets one grace
+  period, once.
+
 ## A grand library, and the first building a town has to earn twice
 
 ### New

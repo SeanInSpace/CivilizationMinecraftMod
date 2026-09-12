@@ -5,11 +5,14 @@ import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
 import com.civilization.sim.platform.Sighting;
 import com.civilization.sim.platform.WorldBridge;
+import com.civilization.sim.settlement.BuildCatalog;
 import com.civilization.sim.settlement.Building;
 import com.civilization.sim.settlement.BuildingType;
+import com.civilization.sim.settlement.Founding;
 import com.civilization.sim.settlement.RaidPlanner;
 import com.civilization.sim.settlement.Footprint;
 import com.civilization.sim.settlement.Settlement;
+import com.civilization.sim.settlement.SettlementStage;
 import com.civilization.sim.world.SimContext;
 import com.civilization.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
@@ -245,6 +248,194 @@ class RaidPlannerTest {
 
         assertFalse(s.remembersSighting(), "the memory has run out");
         assertEquals(2, s.threatLevel(), "and the alarm has started to fall");
+    }
+
+    // --- a town too new to have been noticed ---
+
+    /**
+     * The whole of F1 in one claim: the town the world stood before you looked
+     * at it keeps its people.
+     *
+     * <p>Nine villages of twelve are raised around the world spawn before the
+     * first tick, and unwatched they were losing an average of 3.75 people to
+     * raids by step 200 and 8.42 by step 400 — a founding population every five
+     * hundred steps, to arithmetic, before anybody had met them.
+     * {@code "Raid of 4 overran the defenses (2) — 2 lost: Ada Baker, Bren
+     * Baker"} at step eight is the line this test exists to make impossible.
+     */
+    @Test
+    void aNewTownIsNotRaidedAtAll() {
+        Settlement s = settlement(1, 11, 0);
+        WarBridge bridge = new WarBridge();
+        // One real step to stamp the birthday, exactly as a world does, then the
+        // raid pass alone — so what is measured is the raid clock rather than
+        // whether a test town with one tower in its catalog can feed itself.
+        s.step(new SimContext(bridge, 0, SimSettings.DEFAULTS));
+        for (long step = 1; step < RaidPlanner.RAID_GRACE_STEPS; step++) {
+            RaidPlanner.advance(s, ctx(bridge, step));
+        }
+
+        assertEquals(0, s.firstStep(), "born on the step it first lived");
+        assertTrue(s.events().stream().noneMatch(e -> e.message().contains("Raid")),
+                "no raid of any strength within the grace");
+        assertTrue(bridge.spawnedRaids.isEmpty(), "and none made real either");
+    }
+
+    @Test
+    void theGraceIsCountedFromTheTownsOwnFirstStep() {
+        // Founded late, as a daughter colony or a charter is: the grace runs
+        // from when this town started living, not from when the world did.
+        Settlement s = settlement(1, 11, 0);
+        WarBridge bridge = new WarBridge();
+        long born = 9000;
+        s.step(new SimContext(bridge, born, SimSettings.DEFAULTS));
+        for (long step = born + 1; step < born + RaidPlanner.RAID_GRACE_STEPS; step++) {
+            RaidPlanner.advance(s, ctx(bridge, step));
+        }
+
+        assertEquals(born, s.firstStep(), "the birthday is the first step it took");
+        assertTrue(s.events().stream().noneMatch(e -> e.message().contains("Raid")),
+                "a town founded at step nine thousand gets the same start");
+    }
+
+    @Test
+    void andTheGraceEnds() {
+        Settlement s = settlement(1, 11, 0);
+        WarBridge bridge = new WarBridge();
+        s.setFirstStep(0);
+
+        // Two intervals past the grace, so the town's own hashed offset has
+        // certainly come round whatever it is.
+        for (long step = 0;
+                step < RaidPlanner.RAID_GRACE_STEPS
+                        + 2L * SimSettings.DEFAULT_RAID_INTERVAL_STEPS;
+                step++) {
+            RaidPlanner.advance(s, ctx(bridge, step));
+        }
+
+        assertTrue(s.events().stream().anyMatch(e -> e.message().contains("Raid")),
+                "a grace is a delay, not an exemption");
+    }
+
+    // --- the early cap ---
+
+    @Test
+    void anEarlyRaidIsHeldToWhatTheWatchCanTurnBack() {
+        Settlement s = settlement(2, 10, 1);   // 2 guards, one tower worth 3
+        s.setFirstStep(0);
+
+        assertEquals(2 + 3 + 1, RaidPlanner.earlyStrengthCap(s, 10),
+                "guards plus structures plus one");
+        assertTrue(RaidPlanner.earlyStrengthCap(s, 10) <= RaidPlanner.defensePower(s),
+                "and a capped raid against a town with a guard in it is repelled");
+    }
+
+    @Test
+    void aTownWithNoGuardsAtAllIsOnlyScared() {
+        Settlement s = settlement(0, 12, 0);   // defense 0
+        s.setFirstStep(0);
+        WarBridge bridge = new WarBridge();
+        int cap = RaidPlanner.earlyStrengthCap(s, 10);
+
+        assertEquals(1, cap, "nothing standing, nothing to add: one");
+        RaidPlanner.execute(s, ctx(bridge, 10), cap);
+
+        assertEquals(12, s.population(),
+                "over the line by one, which is under the casualty margin");
+        assertTrue(s.events().getFirst().message().contains("driven off"));
+    }
+
+    @Test
+    void theCapLiftsWhenTheTownIsNoLongerNew() {
+        Settlement s = settlement(1, 11, 0);
+        s.setFirstStep(0);
+
+        assertEquals(RaidPlanner.MAX_RAID_STRENGTH,
+                RaidPlanner.earlyStrengthCap(s, RaidPlanner.EARLY_CAP_STEPS),
+                "past the cap the raid is whatever the town has grown to deserve");
+    }
+
+    /**
+     * The playtest's own case, on real ground, with nobody watching.
+     *
+     * <p>A village world generation stood before anybody looked at it, run four
+     * hundred steps. Measured before any of this, over twelve trials, it lost an
+     * average of 3.75 people to raids by step 200 and 8.42 by step 400 — worst
+     * trial twelve, out of a founding population of twelve. The grace covers the
+     * first two hundred outright; the early cap covers the two hundred after it,
+     * because this town holds one guard and a defense of two until step 778 and
+     * a capped raid against one guard is repelled by definition.
+     */
+    @Test
+    void aSeededVillageLosesNobodyToRaidsInItsFirstFourHundredSteps() {
+        Settlement town = Founding.seeded(new SimPos(0, 72, 0), "Millbrook",
+                SettlementStage.VILLAGE, BuildCatalog.DEFAULT,
+                "civilization:human/norman");
+        TerrainFake ground = new TerrainFake(11);
+        int lostByTwoHundred = 0;
+
+        for (long step = 0; step < 400; step++) {
+            town.step(new SimContext(ground, step, SimSettings.DEFAULTS));
+            if (step == RaidPlanner.RAID_GRACE_STEPS - 1) {
+                lostByTwoHundred = raidDeaths(town);
+            }
+        }
+
+        assertEquals(0, lostByTwoHundred, "nobody lost to a raid in the first 200");
+        assertEquals(0, raidDeaths(town),
+                "nor in the 200 after it, which the early cap covers");
+    }
+
+    /** How many people the settlement's own history says raids have killed. */
+    private static int raidDeaths(Settlement s) {
+        int lost = 0;
+        for (var event : s.events()) {
+            int at = event.message().indexOf(" lost: ");
+            if (event.message().contains("overran") && at >= 0) {
+                lost += event.message().substring(at + 7).split(", ").length;
+            }
+        }
+        return lost;
+    }
+
+    // --- the unwatched casualty margin ---
+
+    @Test
+    void aMarginOfOneCostsNobodyTheirLife() {
+        Settlement s = settlement(1, 7, 0);   // defense 2
+        WarBridge bridge = new WarBridge();
+
+        RaidPlanner.execute(s, ctx(bridge, 10), 3);
+
+        assertEquals(8, s.population(),
+                "nobody dies to a die roll in a town nobody has ever visited");
+        assertEquals(3, s.threatLevel(), "but the town knows what came for it");
+        assertTrue(s.events().getFirst().message().contains("driven off"));
+    }
+
+    @Test
+    void aMarginOfTwoStillKills() {
+        Settlement s = settlement(1, 7, 0);   // defense 2
+        WarBridge bridge = new WarBridge();
+
+        RaidPlanner.execute(s, ctx(bridge, 10), 4);
+
+        assertEquals(6, s.population(), "the deficit is still the toll");
+        assertTrue(s.events().getFirst().message().contains("overran"));
+    }
+
+    @Test
+    void theMarginIsOnlyForRaidsNobodyWatches() {
+        // Watched, the raid becomes entities and the margin has no opinion:
+        // whether anybody dies is decided by the fight, not by the subtraction.
+        Settlement s = settlement(1, 7, 0);
+        WarBridge bridge = new WarBridge();
+        bridge.playerNearby = true;
+
+        RaidPlanner.execute(s, ctx(bridge, 10), 3);
+
+        assertEquals(List.of(3), bridge.spawnedRaids,
+                "the raid is real however narrow the margin would have been");
     }
 
     // --- the evidence trail ---

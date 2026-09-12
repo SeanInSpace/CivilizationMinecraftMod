@@ -710,9 +710,11 @@ public final class CivilizationCommand {
                 // town can field; this one says what it is about to do about
                 // it, and on a calm afternoon there is nothing to say.
                 if (Garrison.outnumbered(s)) {
-                    sb.append("\n      garrison: ").append(Garrison.guardStrength(s))
-                            .append(" guards vs threat ").append(s.threatLevel())
-                            .append(" (needs ").append(Garrison.neededGuards(s)).append(")");
+                    // The same sentence the town map's watch line uses, out of
+                    // the same function: two screens disagreeing about the
+                    // watch is how a player learns to trust neither.
+                    sb.append("\n      garrison: ").append(Garrison.watchSummary(s))
+                            .append(" vs threat ").append(s.threatLevel());
                 }
                 sb.append("\n      food: granary ").append(s.foodStock())
                         .append("/").append(FoodPlanner.granaryCapacity(s))
@@ -1011,6 +1013,16 @@ public final class CivilizationCommand {
      *
      * <p>Sorted by distance because the question behind the question is nearly
      * always "which one am I standing near, and where is the next".
+     *
+     * <p><strong>It has never had a radius and it still has not.</strong> A
+     * playtest reported this printing three settlements when six had been
+     * raised, which reads as a filter and is not one: the loop below walks every
+     * kingdom in the dimension and every settlement in every kingdom, and logs a
+     * {@code LIST} line for each. What it cannot do is list a town the world has
+     * not raised yet, and the world raises them lazily — nine around the spawn
+     * point at one per tick, everything else at one per second as somebody comes
+     * near. So the listing was a true count of a total that was still climbing.
+     * It now says so, which is the actual fix; see {@link SettlementListing}.
      */
     private static int list(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
@@ -1021,24 +1033,19 @@ public final class CivilizationCommand {
             return 0;
         }
         Vec3 from = source.getPosition();
-        record Row(double away, String line) { }
-        java.util.List<Row> rows = new java.util.ArrayList<>();
-        int total = 0;
+        java.util.List<SettlementListing.Row> rows = new java.util.ArrayList<>();
         for (Kingdom kingdom : world.kingdoms()) {
             for (Settlement settlement : kingdom.settlements()) {
-                total++;
                 SimPos at = settlement.center();
                 double away = Math.sqrt(Math.pow(at.x() - from.x, 2)
                         + Math.pow(at.z() - from.z, 2));
                 String wall = settlement.perimeter() == null ? "none"
                         : settlement.perimeter().laid() + "/"
                                 + settlement.perimeter().length();
-                rows.add(new Row(away, String.format(
-                        "  %-22s %-10s pop %-4d  at %6d %4d %6d  %5.0fm away"
-                                + "  wall %-9s coin %-6d food %d",
-                        settlement.name(), settlement.stage().pretty(),
-                        settlement.population(), at.x(), at.y(), at.z(), away,
-                        wall, settlement.treasury(), settlement.foodStock())));
+                rows.add(new SettlementListing.Row(settlement.name(),
+                        settlement.stage().pretty(), settlement.population(),
+                        at.x(), at.y(), at.z(), away, wall,
+                        settlement.treasury(), settlement.foodStock()));
                 CivilizationMod.LOGGER.info(
                         "LIST {} kingdom={} stage={} pop={} at={} {} {} wall={} coin={} food={}",
                         settlement.name(), kingdom.name(), settlement.stage().name(),
@@ -1046,22 +1053,39 @@ public final class CivilizationCommand {
                         settlement.treasury(), settlement.foodStock());
             }
         }
-        rows.sort(java.util.Comparator.comparingDouble(Row::away));
-        StringBuilder out = new StringBuilder(
-                "=== " + total + " settlement" + (total == 1 ? "" : "s") + " ===");
-        for (Row row : rows) {
-            out.append(NEWLINE).append(row.line());
-        }
-        if (rows.isEmpty()) {
-            out.append(NEWLINE).append("  Nothing has been founded in this world.");
-        }
-        String report = out.toString();
+        String report = SettlementListing.report(rows, spawnRegionsPending(level));
         source.sendSuccess(() -> Component.literal(report), false);
-        return total;
+        return rows.size();
+    }
+
+    /**
+     * How many of the world's spawn regions have not been settled or refused yet.
+     *
+     * <p>Counted here rather than asked of the worldgen class, because the
+     * ledger and the grid are both already public and this is the only caller
+     * that wants the number rather than the yes-or-no
+     * {@code WorldgenSettlements.spawnTownsSettled} answers.
+     *
+     * <p>Zero for any dimension the anchor does not touch, which is every
+     * dimension but the overworld, and zero when worldgen is off.
+     */
+    private static int spawnRegionsPending(ServerLevel level) {
+        if (com.civilization.neoforge.world.WorldgenSettlements.spawnTownsSettled(level)) {
+            return 0;
+        }
+        var ledger = com.civilization.neoforge.save.SiteLedger.get(level);
+        var grid = com.civilization.neoforge.world.WorldgenSettlements.gridFor(level);
+        int pending = 0;
+        for (int[] region : grid.anchoredRegions(level.getSeed())) {
+            if (ledger.entry(region[0], region[1]).isEmpty()) {
+                pending++;
+            }
+        }
+        return pending;
     }
 
     /** A line break in a chat report. Named so no editor can eat the escape. */
-    private static final String NEWLINE = String.valueOf((char) 10);
+    private static final String NEWLINE = SettlementListing.NEWLINE;
 
     /**
      * Raises the whole ring at once, paid for by nobody.

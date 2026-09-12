@@ -23,6 +23,28 @@ That last clause is the point of the whole design. You can leave a town overnigh
 
 There is no randomness anywhere — schedules and strengths hash the settlement id with the step number. The same world replays identically, which is what keeps the whole simulation testable.
 
+## A new town is not raided
+
+A settlement's first five hundred steps are protected, in two stages, counted from **its own first step** rather than from the world's — so a daughter colony budded off at step nine thousand gets the same start the world's own towns got at step zero. The settlement records that birthday itself (`Settlement.firstStep`, stamped at the top of every step and saved), because there is no other single place every town passes through: a charter, `/civ found`, an expansion, and world generation all create one differently.
+
+| Age of the town | What a raid is |
+|---|---|
+| 0–199 steps (`RAID_GRACE_STEPS`) | **Nothing.** No raid fires at all — four whole raid intervals, about seventeen minutes of play. |
+| 200–499 steps (`EARLY_CAP_STEPS`) | **A probe.** Strength is capped at `guards + structure bonuses + 1`, which a town with even one guard repels outright, because defense is `guards × 2 + structures` and `2g + s ≥ g + s + 1` for every `g ≥ 1`. A town with *no* guards is over its defense by exactly one, which is under the casualty margin below — so it takes the scare and keeps its people. |
+| 500 steps and after | The ordinary clock, at the ordinary strength. |
+
+**Why this exists.** World generation stands nine villages around the world spawn before the player has finished loading in, each twelve people with one guard and a defense of two — and then raided them. Measured unwatched over twelve trials, such a village lost an average of **3.75 people by step 200, 8.42 by step 400 and 20.67 by step 1000**. It is losing a founding population roughly every five hundred steps and only standing at all because it can outbreed the arithmetic. Every worldgen town was starting by being eaten in its cradle, and the player's first sight of one was its history saying so.
+
+**Why the grace is not "until the wall is up."** That was the obvious anchor and it does not survive measurement. Nothing is staked before TOWN and nothing is staked before the stage's own program stands, so a seeded village **stakes its ring on step 532 and does not pay for the last post until step 1256**. A grace running to 1257 is twenty-five raid intervals — an hour and a half in which a raid cannot happen — which is not a grace period, it is the feature switched off. So the grace covers the first four intervals outright and the cap carries the town from there with raids it can actually turn back.
+
+**A known thinness.** The same measurement shows a seeded village holding **one guard, defense two, until step 778** — the staffing table does not call for a second until then. So the cap lifts at step 500 on a town that is still thin, and from there it does bleed: an average of 4.92 deaths by step 1000, against 20.67 before. That is a staffing question rather than a raid question, and it is left where it is on purpose.
+
+## When nobody was ever watching, a narrow loss costs nobody
+
+`UNWATCHED_CASUALTY_MARGIN = 2`. A raid resolved as arithmetic must beat the town's defense **by two or more** before anybody dies; a margin of one is logged as broken through and driven off, counted as repelled, and costs no lives.
+
+The reason is who is dying. An unwatched raid is settled by subtraction, so a person lost to a margin of one is a person lost to a hash of the settlement's id and the step number — no fight, no body, nobody watching, and a name in the history that nothing anywhere could have changed. A margin of two is a line the defense was genuinely short of holding. Above the margin the arithmetic is exactly what it always was: the deficit is the toll.
+
 ## Defense power
 
 ```
@@ -166,7 +188,8 @@ three times in four hundred and fifty years, and London never did.
 The raid resolves as arithmetic, immediately:
 
 - **defense ≥ strength** → repelled, no losses. Logged.
-- **defense < strength** → the deficit is paid in lives. **Guards fall first** — they are the line — then civilians in roster order. The fallen are removed from the roster *and their families* (an emptied house frees up for the next family). Logged with names.
+- **strength − defense = 1** → broken through and driven off, no losses, counted as a repel. See the casualty margin above.
+- **strength − defense ≥ 2** → the deficit is paid in lives. **Guards fall first** — they are the line — then civilians in roster order. The fallen are removed from the roster *and their families* (an emptied house frees up for the next family). Logged with names.
 
 Threat rises to the raid's strength either way, then decays 1 per step — a returning player can read "something happened recently" straight off the threat number.
 
@@ -388,7 +411,8 @@ Config: `defense.raids_enabled` (master switch — disable for peaceful building
 
 | Want | Change |
 |---|---|
-| Gentler early game | Raise `MIN_POPULATION_FOR_RAIDS`, or lower strength scaling from `population ÷ 8` |
+| Gentler early game | `RAID_GRACE_STEPS` (nothing at all) and `EARLY_CAP_STEPS` (probes only) — or raise `MIN_POPULATION_FOR_RAIDS`, or lower strength scaling from `population ÷ 8` |
+| Fewer deaths to raids nobody saw | `UNWATCHED_CASUALTY_MARGIN` |
 | Tougher guards | `GUARD_POWER` (statistical) and `GUARD_DAMAGE` / ranges in `PersonEntityManager` (observed) |
 | Stronger towers | `defenseBonus` column in `BuildCatalog` |
 | A jumpier or calmer militia | `GUARD_POWER` again — it is the divisor in `Garrison.neededGuards`, so halving a guard's worth doubles the watch a fright calls for |
