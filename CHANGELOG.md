@@ -6,6 +6,38 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## What the first playtest in three weeks saw
+
+### Notes
+
+Two worlds on 2026-09-12: seed 8675309 on normal terrain with the worldgen spawn
+towns, and the same seed as a superflat with a worldgen orc warhost. Nothing was
+fixed in this entry; the fixes follow it.
+
+Seen working, in the world rather than in a test: the login greeting with
+distance and bearing, the wayfinder in hand on first join, six spawn towns
+raised at world start and three refused for water, streets down on arrival,
+litter on the verges and off the carriageway, brick burgher cottages with
+gables and chimneys and shutters and a plinth, three red beds in a cottage, the
+open market square with striped awnings and a well, the granary on staddle
+stones, the hall's belfry and gold finial, the orc ring with cone-roofed huts
+and a palisade, orc skins with tusks, a named king, an orc miner asleep in a
+black bed at dusk, the surveyor's lamp as steady white lines and plot boxes
+through the hillside, the wall at 566 of 916 posts an hour in, the town map
+from the hall post and from the map item with live dots, and the quest board
+with five notices drawn from real troubles.
+
+Seen broken, and handed to the next entries: raids of three and four hitting
+seeded villages of twelve from step eight, before any player has seen them; a
+town raised on unread ground scattering its buildings sixty to a hundred and
+fifty blocks when the chunks load, leaving a ring road round an empty wood; no
+human going to bed across two nights while an orc did; the quest board's reason
+line running under the reward and the button; the map calling six guards "6 of
+0"; `/civ culture` unable to parse an id with a colon and a slash; three wall
+posts refused by a lilac; a creeper thirteen blocks from a farmer left alone for
+twelve seconds; a missing texture on the animal farm's post; `/civ list`
+showing three towns of six.
+
 ## A grand library, and the first building a town has to earn twice
 
 ### New
