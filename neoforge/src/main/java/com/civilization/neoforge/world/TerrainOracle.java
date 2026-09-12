@@ -374,6 +374,61 @@ public final class TerrainOracle {
         }
     }
 
+    /**
+     * Generates a town's claim to real ground, a bounded slice at a time.
+     *
+     * <p>Between {@link #read}'s two chunks a tick — which is a query budget,
+     * sized so that a planner weighing a hillside can never stall a tick — and
+     * {@link #warm}'s thousand, which is an operator waiting for a survey and
+     * willing to. This is the third thing: a town about to be raised, which must
+     * have its ground before it chooses a single plot and must not buy it with a
+     * one-second tick.
+     *
+     * <p>So the caller says how many chunks it will pay for now and is told how
+     * many are still owed. It calls again next tick, and again, until the answer
+     * is zero — {@link #chunkIsKnown} makes that resume for free, since a chunk
+     * already read is skipped without a thought. Nearest the middle of the claim
+     * first, so an interrupted read has the town's own square rather than its
+     * fringe.
+     *
+     * <p>A chunk the generator refuses is remembered as refused and never
+     * attempted again. Without that a single bad chunk is a town that is never
+     * raised, because the count of what is owed never reaches zero.
+     *
+     * @param chunkBudget chunks this call may generate
+     * @return chunks of the claim still unread; zero when the ground is in hand
+     */
+    public int readGround(int centerX, int centerZ, int radius, int chunkBudget) {
+        int[] spent = {0};
+        int[] owed = {0};
+        ClaimGround.forEachChunk(centerX, centerZ, radius, (chunkX, chunkZ) -> {
+            long id = (((long) chunkX) << 32) ^ (chunkZ & 0xFFFFFFFFL);
+            if (refusedChunks.contains(id) || chunkIsKnown(chunkX, chunkZ)) {
+                return true;
+            }
+            if (spent[0] >= chunkBudget) {
+                owed[0]++;
+                return true;   // count the rest; do not generate it
+            }
+            spent[0]++;
+            if (!readGroundChunk(chunkX, chunkZ)) {
+                refusedChunks.add(id);
+            }
+            return true;
+        });
+        return owed[0];
+    }
+
+    /**
+     * Chunks the generator would not answer for, so they are asked once.
+     *
+     * <p>Only two things get in here: a caller off the main thread, which
+     * {@link #readGroundChunk} refuses rather than deadlocking on, and a
+     * generator that threw. Both are permanent enough for one session, and
+     * retrying either forever is how a town comes never to be raised at all.
+     */
+    private final java.util.Set<Long> refusedChunks = new java.util.HashSet<>();
+
     /** Whether every grain cell of this chunk already has real ground behind it. */
     private boolean chunkIsKnown(int chunkX, int chunkZ) {
         int baseX = chunkX << 4;
@@ -414,6 +469,7 @@ public final class TerrainOracle {
     /** Forgets everything, for when a world is closing or has been reshaped wholesale. */
     public void forget() {
         known.clear();
+        refusedChunks.clear();
     }
 
     // --- the small print ---

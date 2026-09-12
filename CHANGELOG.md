@@ -6,6 +6,69 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The town is where it looks like it is
+
+### Fixed
+
+- **A town you find is the town you saw from the ridge.** Every village the world
+  raises used to be laid out on ground nobody had ever looked at. The plots were
+  put down by geometry alone, the ring road was paved around them, and from a
+  hilltop it was perfect. Then you walked in, the chunks loaded, and the town
+  discovered the truth one building at a time: the farm moved sixty blocks, then
+  thirty more; the bunkhouse went a hundred and eighty blocks out and a hundred
+  up; the storehouse, the inn, the carpentry, the hearth and the town hall
+  followed it. What you arrived at was cabins scattered over a hillside and a
+  shore, with a beautiful empty ring road circling the wood where the village had
+  been. The ground is now read before a single plot is chosen, so nothing has
+  anything left to discover and the town stays where you first saw it.
+
+- **Towns stand at the height of their own ground.** A seeded village took the
+  height of the column at its center and handed it to all fourteen of its
+  buildings — and on unread ground that height was whatever number happened to be
+  in hand, which on the playtest's hillside was y=0. Every building now takes the
+  height of the ground it actually stands on.
+
+- **A building that does have to move, moves next door.** When a plot does turn
+  out wrong — a lake the generator puts in after the fact, a tree nobody could
+  see — the building shifts to another plot of its own town's plan, at most
+  forty-eight blocks and within three stories of the town's own level, and
+  otherwise stays where it is and makes the best of the ground. The one exception
+  is standing water: a building in a river still looks as far as it has to. The
+  town's history now says how far each move went, so a shuffle down the lane
+  reads differently from a move across a valley.
+
+- **The streets are laid after the buildings have settled.** A town that has not
+  yet had its ground read keeps its road debt instead of paying it blind, which
+  is what left a finished ring road around nothing.
+
+- **`/civ seed` seeds a town that stays put too.** The same fix, on the command
+  every playtest uses to make one by hand.
+
+### Notes
+
+Measured on the recorded ground of seed 8675309, thirty villages laid at centers
+spread across the field, each stepped until every building had had its plot
+judged:
+
+| | buildings moved | furthest move | greatest height change |
+|---|---|---|---|
+| before | 238 of 420 | 168 blocks | 120 courses |
+| plan-bounded relocation only | 160 of 420 | 85 blocks | 120 courses |
+| ground read before siting | **0** | — | — |
+
+Eight of fourteen buildings moved per town on average, which is what the
+playtest reported seeing. At the report's own center, (106,180), the recording is
+a gentle shelf and only one building moved, which is why the claim is put to
+thirty centers rather than one.
+
+The cost is generating each town's claim as far as the carvers before it is
+sited: 62 to 69 chunks for a claim of sixty-four blocks, 558 to 621 for the nine
+spawn towns. Read eight chunks a tick, so a town's ground is in hand after nine
+ticks and all nine towns after about eighty — under four seconds of world start,
+before anybody is in the world to feel it. Carvers rather than a full chunk, so
+ravines are in it and nothing ticks. This is an estimate from chunk counts rather
+than a measurement: it has not been timed in a running world.
+
 ## The town goes to bed
 
 ### Fixed

@@ -493,6 +493,13 @@ public final class PathPlanner {
         if (!settlement.seededRoadsOwed()) {
             return;
         }
+        if (!settlement.seededPlotsHaveSettled(ctx)) {
+            // The debt is not paid and is not struck off either. Routing a whole
+            // town's streets to doors that have not had their ground read is how
+            // a village came to keep a perfect ring road around the wood its
+            // buildings used to stand in. See Settlement.seededPlotsHaveSettled.
+            return;
+        }
         settlement.setSeededRoadsOwed(false);
         PathNetwork network = settlement.paths();
         // Whatever this step's ordinary pass managed before the buildings had

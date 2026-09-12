@@ -2300,6 +2300,62 @@ public final class Settlement {
     }
 
     /**
+     * Whether this town's plots were chosen against ground somebody had read.
+     *
+     * <p>Set by {@code Founding.seeded} when it is handed a world, which the
+     * platform does only after generating the claim's chunks far enough to have
+     * real terrain in them. It means two things and both matter: the buildings
+     * are where they are because the ground was consulted, so nothing is
+     * waiting to be discovered; and the streets may therefore be walked out on
+     * the first step rather than planned to doors that are about to move.
+     *
+     * <p>Deliberately not saved. A town generated in one session and loaded in
+     * another falls back to the honest test — every seeded building's chunk
+     * loaded, so every one of them has had its ground judged — which reaches the
+     * same answer a step or two later and cannot be wrong about a world that has
+     * changed underneath it since.
+     */
+    private boolean seededGroundRead;
+
+    public boolean seededGroundRead() {
+        return seededGroundRead;
+    }
+
+    public void setSeededGroundRead(boolean read) {
+        this.seededGroundRead = read;
+    }
+
+    /**
+     * Whether a road planned to a seeded door will find the door still there.
+     *
+     * <p>The gate on {@code PathPlanner.walkOutSeededRoads}. Paying for a whole
+     * town's streets on the first step is right when the plots are settled and
+     * is the fault itself when they are not: the ring road of the playtest's
+     * village was routed around buildings that then moved a hundred blocks, and
+     * it stayed where it was drawn, circling an empty wood.
+     *
+     * <p>Two ways to be settled. The ground was read before the plots were
+     * chosen, so nothing will move; or every seeded building's chunk is now
+     * loaded, so {@code materializePending} — which runs above this in the step
+     * — has already given each of them its one chance to move.
+     */
+    public boolean seededPlotsHaveSettled(SimContext ctx) {
+        if (seededGroundRead) {
+            return true;
+        }
+        for (Building standing : buildings) {
+            if (!standing.isSeeded()
+                    || !BuildPlanner.holdsGround(standing.blueprintId())) {
+                continue;
+            }
+            if (!standing.isMaterialized() && !ctx.bridge().isLoaded(standing.origin())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Whether the town has already been reported empty, so it is said once.
      *
      * <p>Not saved. A world reloaded on a dead town will say it again on the
@@ -3290,6 +3346,23 @@ public final class Settlement {
             return false;
         }
         int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalog);
+        if (building.isSeeded()) {
+            if (moveOnThePlan(ctx, building, span)) {
+                return true;
+            }
+            if (!ctx.bridge().standsInWater(building.origin(),
+                    BuildPlanner.PLOT_PROBE_RADIUS)) {
+                // Nothing on the plan is better, so it is drawn where the world
+                // wrote it. Poor ground inside a town is still a town, and that
+                // is the whole of the rule SEEDED_MOVE_REACH states.
+                return false;
+            }
+            // Except for the one thing that is never poor ground. A building in
+            // a river reads as broken however sound it is and however neatly it
+            // sits in the plan, so this and only this falls through to the wide
+            // search below — the same exception every other siting path in this
+            // class makes for open water.
+        }
         SimPos moved = chooseSite(ctx, span, building.role());
         // The third clause is new and only ever refuses more: a site that scores
         // no better than the one it would replace is not somewhere better, it is
@@ -3316,8 +3389,27 @@ public final class Settlement {
                                 BuildPlanner.PLOT_PROBE_RADIUS)) {
             return false;   // nowhere better; draw it here and make the best of it
         }
+        return moveTo(ctx, building, moved);
+    }
+
+    /**
+     * Moves a building, forgets its old doorstep, and writes down how far it went.
+     *
+     * <p>The distance is on the line because it is the thing that made the
+     * playtest report legible. "The ground turned out unfit; the farm moves" is
+     * the same sentence whether the farm shuffled eight blocks along its own
+     * street or crossed a valley, and only one of those is a town rearranging
+     * itself — the other is a town coming apart.
+     *
+     * <p>{@code groundHeight} rather than {@code surfaceHeight}: the plot it is
+     * moving to is very often in a chunk nobody has loaded, and
+     * {@code surfaceHeight} answers such a column with the y it was handed,
+     * which is the town center's. A building given the center's height on a
+     * hillside is a building that has to be moved again.
+     */
+    private boolean moveTo(SimContext ctx, Building building, SimPos moved) {
         SimPos from = building.origin();
-        building.setOrigin(new SimPos(moved.x(), ctx.bridge().surfaceHeight(moved), moved.z()));
+        building.setOrigin(new SimPos(moved.x(), ctx.bridge().groundHeight(moved), moved.z()));
         building.setFacing(arrangement().facingFor(center, moved));
         // And the family moves with the house. Everything that asks where
         // somebody lives asks the household, and everything that answers looks
@@ -3341,10 +3433,99 @@ public final class Settlement {
         if (!contains(building.origin())) {
             claimRadius = BuildPlanner.claimRadiusFor(center, building.origin());
         }
+        long away = Math.round(Math.sqrt(from.horizontalDistanceSq(building.origin())));
         logEvent(ctx.step(), "The ground at " + from + " turned out unfit; the "
                 + building.blueprintId().substring(building.blueprintId().indexOf(':') + 1)
-                + " moves to " + building.origin());
+                + " moves " + away + " blocks to " + building.origin());
         return true;
+    }
+
+    /**
+     * How far a seeded building's new ground may stand above or below the town's.
+     *
+     * <p>Twelve courses — three stories, about what a town built into a
+     * hillside spans from its lowest door to its highest. The rule it enforces
+     * is stated plainly because it is the difference between a town and a
+     * scattering: <strong>a building the world wrote into a town may only be
+     * moved to another plot of that town's own plan, and only to one whose
+     * ground stands within twelve courses of the town center's.</strong>
+     * Anything past that is not a relocation; it is a second settlement with
+     * the first one's name on it.
+     *
+     * <p>The playtest that prompted this moved a bunkhouse from (146,0,292) to
+     * (-10,102,153) — a hundred and eighty blocks out and a hundred and two up
+     * — and then moved five more the same way, because the fallback that
+     * catches a building with nowhere to go is an outward walk of ring slots
+     * with no memory of what a town is.
+     */
+    private static final int SEEDED_HEIGHT_BAND = 12;
+
+    /**
+     * How far a seeded building may be moved at all.
+     *
+     * <p>Forty-eight blocks — three plot pitches, which is across the lane and
+     * two doors along it. The height band alone was not enough: the plan carries
+     * two hundred and fifty-six plots and a village stands on nineteen of them,
+     * so "somewhere on the plan" still reached a hundred blocks out into ground
+     * the town will not build on for another two hundred steps. Measured on the
+     * recorded hillside, plan-only moves still ran to a hundred and two blocks.
+     *
+     * <p>A building with nothing better inside this stays where it was put and is
+     * drawn there, which is the same sentence the two older relocation paths
+     * end on. Poor ground inside a town is a town; good ground a hundred blocks
+     * away is somewhere else.
+     */
+    private static final int SEEDED_MOVE_REACH = 48;
+
+    /**
+     * The nearest plot of the town's own plan that is better than where a
+     * seeded building stands.
+     *
+     * <p>Nearest rather than best, deliberately. Every plot here is on the
+     * plan, so every one of them is somewhere the town was always going to
+     * build; among those the one that moves the building least is the one that
+     * leaves the town looking like itself. A plot has to be strictly better —
+     * the same "better, or stay" rule the two relocation paths already share —
+     * so a building on poor ground with nothing but poor ground around it is
+     * drawn where it stands and makes the best of it.
+     *
+     * @return true if it moved
+     */
+    private boolean moveOnThePlan(SimContext ctx, Building building, int span) {
+        TownPlan plan = arrangement().planFor(center, Founding.PLOTS_ENOUGH_FOR_ANY_PROGRAM);
+        int townGround = ctx.bridge().groundHeight(center);
+        int standing = ctx.bridge().siteFault(building.origin(), BuildPlanner.PLOT_PROBE_RADIUS);
+        SimPos best = null;
+        long bestAway = Long.MAX_VALUE;
+        for (TownPlan.Plot plot : plan.plots()) {
+            SimPos at = new SimPos(plot.at().x(),
+                    ctx.bridge().groundHeight(plot.at()), plot.at().z());
+            if (at.x() == building.origin().x() && at.z() == building.origin().z()) {
+                continue;
+            }
+            if (Math.abs(at.y() - townGround) > SEEDED_HEIGHT_BAND) {
+                continue;   // a different hillside, not a different plot
+            }
+            if (!isPlotFree(at, span, building.origin())) {
+                continue;
+            }
+            long away = at.horizontalDistanceSq(building.origin());
+            if (away > (long) SEEDED_MOVE_REACH * SEEDED_MOVE_REACH || !contains(at)) {
+                continue;   // out of the neighborhood, or out of the town
+            }
+            if (away >= bestAway) {
+                continue;   // further than something already accepted
+            }
+            if (ctx.bridge().siteFault(at, BuildPlanner.PLOT_PROBE_RADIUS) >= standing) {
+                continue;   // not better; only different
+            }
+            best = at;
+            bestAway = away;
+        }
+        if (best == null) {
+            return false;   // nowhere on the plan is better; draw it where it stands
+        }
+        return moveTo(ctx, building, best);
     }
 
     /**

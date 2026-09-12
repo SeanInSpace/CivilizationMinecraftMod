@@ -112,8 +112,14 @@ public final class Founding {
                 }
             }
         }
+        // groundHeight, not surfaceHeight, and the difference is a town's whole
+        // elevation. surfaceHeight hands back the position's own y for a column
+        // nobody has loaded — which is every column here, since this runs before
+        // anybody has walked anywhere near — so a center chosen this way carried
+        // whatever y it was asked with, and a seeded town's every building
+        // claimed it. The playtest's town stood at y=0 on a hillside.
         return best.equals(wanted) ? wanted
-                : new SimPos(best.x(), ground.surfaceHeight(best), best.z());
+                : new SimPos(best.x(), ground.groundHeight(best), best.z());
     }
 
     /** What a stretch of ground costs a town, lower being better. */
@@ -212,7 +218,7 @@ public final class Founding {
      * hundred and fifty-six plots however few are asked for and hands back a
      * prefix.
      */
-    private static final int PLOTS_ENOUGH_FOR_ANY_PROGRAM = 64;
+    public static final int PLOTS_ENOUGH_FOR_ANY_PROGRAM = 64;
 
     /**
      * A settlement that is already what a founding party spends four hundred
@@ -274,6 +280,13 @@ public final class Founding {
      * center's height as an estimate and are marked unsurveyed, so the placement
      * pass may still move one off a river before a single block is laid.
      *
+     * <p><strong>Unless a world is handed in.</strong> See the overload that
+     * takes a {@code WorldBridge}: given one, every plot is put to the same
+     * terrain test {@code Settlement.relocatePending} applies later, so a town
+     * whose ground has been read is a town with nothing left to discover. This
+     * one — no bridge, no ground — is what {@code /civ seed} and the tests use,
+     * and it sites blind by definition.
+     *
      * @param stage     what the town has already become
      * @param catalog what it knows how to build
      * @param cultureId whose town it is — and therefore, through the
@@ -312,6 +325,47 @@ public final class Founding {
     public static Settlement seeded(SimPos site, String name, SettlementStage stage,
                                     List<BuildingType> catalog, String cultureId,
                                     int residents, String layoutId) {
+        return seeded(site, name, stage, catalog, cultureId, residents, layoutId, null);
+    }
+
+    /**
+     * The same, on ground somebody has actually read.
+     *
+     * <p><strong>This is the whole of the worldgen fix.</strong> A town raised
+     * at world start lays its plots by geometry — rings around a center — and
+     * the terrain test it puts them to answers "suitable" to every chunk
+     * nobody has loaded. So the plan is perfect from above and fictional from
+     * the ground: a farm in a wood, a bunkhouse over a ravine, a granary on a
+     * shore. Nothing is wrong until the player arrives, the chunks load, and
+     * {@code Settlement.relocatePending} discovers the truth one building at a
+     * time — sixty to a hundred and fifty blocks each, up to fifty in height,
+     * some of them twice, while the ring road stays round the empty wood where
+     * the town used to be.
+     *
+     * <p>The cure is not a better relocation. It is to not be wrong: the
+     * platform reads the ground under the claim before this is called — see
+     * {@code WorldgenSettlements} — and then every plot here is put to
+     * {@code ground}'s own judgment, which is the same judgment the arrival
+     * will apply. A plot the ground refuses is passed over exactly as a plot
+     * somebody is already standing on is passed over.
+     *
+     * <p>Each building also takes its plot's <em>own</em> ground height rather
+     * than the center's. A plan is a flat drawing and its plots all carry the
+     * center's y; on read ground there is a real height to be had per column,
+     * and a town whose every building claims the height of its market square is
+     * a town that moves the first time anybody looks at it.
+     *
+     * <p>The ground may still refuse everything — a town hemmed in by hillside
+     * has to stand somewhere — in which case the least bad plot the plan offers
+     * is taken, nearest the center among equals. That is a plot the town looked
+     * at and ranked, which is a different thing from the next slot along.
+     *
+     * @param ground the world to put each plot to, or null to site blind
+     */
+    public static Settlement seeded(SimPos site, String name, SettlementStage stage,
+                                    List<BuildingType> catalog, String cultureId,
+                                    int residents, String layoutId,
+                                    com.civilization.sim.platform.WorldBridge ground) {
         Objects.requireNonNull(site, "site");
         Objects.requireNonNull(stage, "stage");
         Settlement town = new Settlement(Settlement.Id.random(), name, site, INITIAL_CLAIM);
@@ -323,7 +377,8 @@ public final class Founding {
         }
         town.setCatalog(Objects.requireNonNull(catalog, "catalog"));
 
-        raiseThePrograms(town, stage);
+        raiseThePrograms(town, stage, ground);
+        town.setSeededGroundRead(ground != null);
         town.setStage(stage);
         town.setClaimRadius(claimAround(town));
         // A town that has stood for a generation has its streets. They cannot be
@@ -347,7 +402,8 @@ public final class Founding {
      * stay that way: one place decides what a stage builds, and a second copy of
      * that list would be wrong the first time somebody edited the first.
      */
-    private static void raiseThePrograms(Settlement town, SettlementStage upTo) {
+    private static void raiseThePrograms(Settlement town, SettlementStage upTo,
+                                         com.civilization.sim.platform.WorldBridge ground) {
         TownPlan plan = town.arrangement()
                 .planFor(town.center(), PLOTS_ENOUGH_FOR_ANY_PROGRAM);
         int taken = 0;
@@ -361,7 +417,7 @@ public final class Founding {
                 if (want.isEmpty()) {
                     break;
                 }
-                taken = roomFor(town, want.get(), plan, taken);
+                taken = roomFor(town, want.get(), plan, taken, ground);
                 if (taken >= plan.size()) {
                     // The plan ran out before the program did. Nothing today
                     // reaches this — the ring layout spends nineteen of sixty-four
@@ -375,7 +431,8 @@ public final class Founding {
                             + want.get().id() + " and the plan had no room left");
                     break;
                 }
-                town.addBuilding(standing(town, want.get(), plan.plot(taken++)));
+                town.addBuilding(standing(town, want.get(),
+                        onTheGround(plan.plot(taken++), ground)));
                 town.tallies().record(Tallies.BUILDINGS_RAISED);
             }
             if (reached == upTo) {
@@ -401,14 +458,63 @@ public final class Founding {
      * <p>Burning rather than reconsidering, exactly as {@code chooseSite} does: a
      * plot passed over is spent, so nothing comes back to it and the cursor only
      * ever moves outward.
+     *
+     * <p><strong>And the ground, when there is any to ask.</strong> Given a
+     * world, a plot has to be fit as well as free — the same test and the same
+     * probe radius the arrival applies, so what passes here passes there. With
+     * no world the question is not asked at all and this behaves exactly as it
+     * did, which is what {@code /civ seed} and the tests want.
+     *
+     * <p>If nothing in the rest of the plan is fit, the least bad of what was
+     * examined is taken rather than the plan being declared short: a town that
+     * has ranked its own poor ground is in a different position from one that
+     * has run off the end of its plan. Ties to the earlier plot, which on every
+     * arrangement here is the one nearer the middle of the town.
      */
-    private static int roomFor(Settlement town, BuildingType type, TownPlan plan, int from) {
+    private static int roomFor(Settlement town, BuildingType type, TownPlan plan, int from,
+                               com.civilization.sim.platform.WorldBridge ground) {
         int span = BuildPlanner.plotSpanOf(type.id(), town.catalog());
-        int at = from;
-        while (at < plan.size() && !town.isPlotFree(plan.plot(at).at(), span, null)) {
-            at++;
+        int leastBadAt = -1;
+        int leastBadFault = Integer.MAX_VALUE;
+        for (int at = from; at < plan.size(); at++) {
+            SimPos where = plan.plot(at).at();
+            if (!town.isPlotFree(where, span, null)) {
+                continue;
+            }
+            if (ground == null) {
+                return at;
+            }
+            int fault = ground.siteFault(onGround(where, ground),
+                    BuildPlanner.PLOT_PROBE_RADIUS);
+            if (fault == com.civilization.sim.platform.WorldBridge.SITE_FAULT_NONE) {
+                return at;
+            }
+            // Open water is never a preference — see LeastBad, which refuses it
+            // for the same reason. A building in a river reads as broken however
+            // short of room the town is.
+            if (fault != com.civilization.sim.platform.WorldBridge.SITE_FAULT_OPEN_WATER
+                    && fault < leastBadFault) {
+                leastBadFault = fault;
+                leastBadAt = at;
+            }
         }
-        return at;
+        return leastBadAt >= 0 ? leastBadAt : plan.size();
+    }
+
+    /** A plot standing at its own ground rather than at the middle of the town. */
+    private static TownPlan.Plot onTheGround(TownPlan.Plot plot,
+                                             com.civilization.sim.platform.WorldBridge ground) {
+        if (ground == null) {
+            return plot;
+        }
+        return new TownPlan.Plot(onGround(plot.at(), ground), plot.span(), plot.facing(),
+                plot.street());
+    }
+
+    /** The same column, at the height the ground actually stands. */
+    private static SimPos onGround(SimPos at,
+                                   com.civilization.sim.platform.WorldBridge ground) {
+        return new SimPos(at.x(), ground.groundHeight(at), at.z());
     }
 
     /** One building of the program, as the unwatched clock would have left it. */

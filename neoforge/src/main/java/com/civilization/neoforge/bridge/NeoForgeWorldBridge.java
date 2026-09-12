@@ -661,11 +661,47 @@ public final class NeoForgeWorldBridge implements WorldBridge {
                 return SITE_FAULT_OPEN_WATER;
             }
         }
+        // Zero exactly where the veto passes, which is the contract siteFault is
+        // held to and the reason this is assembled rather than returned early:
+        // the veto now refuses read ground for standing water the generator
+        // knows about, so the score has to charge for it or a plot the search
+        // refuses reads back as perfect ground.
+        int fault = oracle.isSurveyed(plot.x(), plot.z())
+                && oracle.anyWet(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)
+                ? FLOODED_GROUND : SITE_FAULT_NONE;
         int fall = oracle.bulkFall(plot.x(), plot.z(), radius, TerrainOracle.GRAIN);
-        if (fall <= MAX_SLOPE_UNSEEN) {
-            return SITE_FAULT_NONE;
+        if (fall > allowanceFor(plot, radius)) {
+            fault += fall - MAX_SLOPE;
         }
-        return fall - MAX_SLOPE;
+        return fault;
+    }
+
+    /**
+     * What this ground is allowed to fall, which depends on how well it is known.
+     *
+     * <p><strong>The other half of the worldgen fix, and the half that is not
+     * obvious.</strong> Generating a town's claim to real terrain before it
+     * chooses its plots is worth nothing on its own, because the test the plots
+     * are put to would still have answered by the loose allowance an estimate
+     * gets — eight courses — while the test the player's arrival applies is the
+     * strict one, four. Two different questions, so the answers disagree, so the
+     * buildings move, and reading the chunks only makes the disagreement
+     * better-informed.
+     *
+     * <p>So the allowance follows the reading rather than the code path. Ground
+     * the oracle has only guessed at keeps the loose allowance, for the reason
+     * written on {@link #MAX_SLOPE_UNSEEN}: the estimate is coarse and refusing
+     * on it is expensive to get wrong. Ground it has actually read — a loaded
+     * chunk, or one generated as far as the carvers — is judged exactly as the
+     * arrival will judge it, because it is the same ground.
+     *
+     * <p>Asked of the plot's own column rather than of every sample. One column
+     * settles it: the oracle reads a whole chunk at a time, so a plot's samples
+     * are known together or not at all, and asking sixty-four times to learn the
+     * same fact is what this class's history is full of.
+     */
+    private int allowanceFor(SimPos plot, int radius) {
+        return oracle.isSurveyed(plot.x(), plot.z()) ? MAX_SLOPE : MAX_SLOPE_UNSEEN;
     }
 
     @Override
@@ -1094,11 +1130,27 @@ public final class NeoForgeWorldBridge implements WorldBridge {
                 return false;   // a river or the sea; never, whatever else is true
             }
         }
+        // Water the generator itself knows about, once the ground has been read
+        // rather than guessed at. The oracle's water test is the exact one -- the
+        // gap between two worldgen heightmaps, which is fluid standing in the
+        // column -- and on read ground it catches the aquifer and the carved
+        // tarn that sea level alone walks straight over. Deliberately NOT asked
+        // of an estimate: on noise the two tests together were measured worse
+        // than either alone, for the reason the note above gives.
+        if (oracle.isSurveyed(plot.x(), plot.z())
+                && oracle.anyWet(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)) {
+            return false;
+        }
         // A hole is not a cliff here either. The worst-step reading refuses a
         // shelf for one pit the builders would floor over, so the estimate reads
         // the bulk of the plot and leaves the rest to the foundation.
+        //
+        // And the allowance follows how well the ground is known rather than
+        // which branch of this class we happen to be in -- see allowanceFor,
+        // which is the difference between a seeded town that stays where it was
+        // put and one that rearranges itself the moment you walk up to it.
         return oracle.bulkFall(plot.x(), plot.z(), radius, TerrainOracle.GRAIN)
-                <= MAX_SLOPE_UNSEEN;
+                <= allowanceFor(plot, radius);
     }
 
     /** What the ground is, wherever it is asked about. */

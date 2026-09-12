@@ -37,6 +37,7 @@ import com.civilization.sim.world.SimContext;
 import com.civilization.neoforge.world.LevelStoreWorld;
 import com.civilization.neoforge.world.Shelves;
 import com.civilization.neoforge.world.BuildTest;
+import com.civilization.neoforge.world.ClaimGround;
 import com.civilization.sim.culture.Culture;
 import com.civilization.sim.culture.Layouts;
 import com.civilization.sim.culture.Layout;
@@ -549,11 +550,23 @@ public final class CivilizationCommand {
                     wanted, chosen);
         }
 
+        // The ground, before a plot is chosen. An operator typed this and will
+        // wait a moment for it; what they will not accept is the town they just
+        // seeded rearranging itself as they walk around it, which is exactly
+        // what happens when the plots are laid against chunks nobody has read.
+        // Whole claim at once rather than the world generator's per-tick slice,
+        // for the reason TerrainOracle.warm gives: this is somebody asking for
+        // work and willing to wait, not a planner stalling a tick.
+        if (world.bridge() instanceof com.civilization.neoforge.bridge.NeoForgeWorldBridge bridge) {
+            bridge.oracle().readGround(chosen.x(), chosen.z(), Founding.INITIAL_CLAIM,
+                    ClaimGround.chunkCount(chosen.x(), chosen.z(), Founding.INITIAL_CLAIM));
+        }
+
         String name = seededName(world);
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(), name, SEEDED_CULTURE);
         Settlement settlement = Founding.seeded(chosen, name, stage,
                 BuildCatalog.DEFAULT,
-                kingdom.cultureId(), residents);
+                kingdom.cultureId(), residents, null, world.bridge());
         kingdom.addSettlement(settlement);
 
         // Both, deliberately: the saved data is what persists, the sim world is
