@@ -527,6 +527,35 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **The first playtest in three weeks, and its fixes.** Two worlds on
+      2026-09-12. Fixed from it: a seeded town's ground is read before its
+      plots are chosen and its roads wait for the plots (238 of 420 buildings
+      moved across thirty rough-seed villages, now 0); families move with a
+      relocated house, so humans go to bed (6 of 12 had a bed, now 12 of 12);
+      no raid in a town's first 200 steps and an early raid never outmatches
+      the watch (45 dead by step 200 across twelve villages, now 0); guards
+      answer anything within 26 blocks as a radius, not a 20-block box; a post
+      displaces a lilac; the quest board's columns fit; the animal farm's post
+      has its texture; /civ culture and /civ build take namespaced ids; the map
+      says "6 guards, none needed"; /civ list says how many spawn towns are
+      still being raised.
+- [ ] **A two-handed orc guard stands off a creeper forever.** Half the
+      warhost's kit has no bow, and the bow stance is handed out anyway, so a
+      greatsword bearer walks to fourteen blocks and waits. Give two-handers a
+      hand-off, a thrown axe, or let them close on an unfused creeper.
+- [ ] **A seeded village keeps one guard until step 778.** The staffing table
+      does not ask for a second sooner; the early raid cap lifts at 500 on a
+      still-thin town, which is where the residual losses come from.
+- [ ] **The town center is still picked from noise.** The claim is read round
+      the chosen center and the center re-tested; a region whose heart is a
+      ravine is refused rather than moved. Reading the 112-block siting radius
+      would triple the chunk cost.
+- [ ] **The quest board has no vertical bound**: more than five notices
+      overflow a 720p window at GUI scale 3.
+- [ ] **Unvisited in the playtest**: a crew clearing a wooded plot with
+      pockets, a dead town's roads staying broken, a quest delivery at the
+      storehouse, a scanned cottage raised by a town, the creeper stand-off
+      reproduction above.
 - [x] **Towns deal in coins.** One item, civilization:coin, at every site
       that handed out or took emeralds; rates unchanged. The name players read
       is one lang line; the registry id stays coin. The charter and wayfinder
