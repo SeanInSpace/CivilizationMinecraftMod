@@ -527,6 +527,17 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **Towns deal in coins.** One item, civilization:coin, at every site
+      that handed out or took emeralds; rates unchanged. The name players read
+      is one lang line; the registry id stays coin. The charter and wayfinder
+      recipes keep vanilla emeralds so a first town can be founded.
+- [x] **A grand library.** 31 by 25, three floors round an open hall, a
+      glazed lantern with a quartz finial, a colonnade on paved frontage, 294
+      bookshelves; wanted once a library stands, one per town; sited in every
+      arrangement at a hundred residents. 5830 blocks.
+- [ ] **A library does nothing in the simulation.** Both libraries are pure
+      capstones with BuildingRole.OTHER. Give learning a consequence, or say
+      it is ornament.
 - [x] **Orcs have faces of their own, and eggs recruit.** A script-drawn
       64-by-64 orc skin in two variants and a goblin one, picked by the
       person's id so a face survives re-embodiment; humans keep Steve for now.
