@@ -44,7 +44,7 @@ public record QuestBoardPayload(String town, BlockPos post, int standing, int tr
      * What a reward comes to, flattened.
      *
      * <p>Sent as three numbers and a word rather than as a sentence, because the
-     * screen draws coin as emeralds and goods as their own item — and because a
+     * screen draws coin and goods each as their own item — and because a
      * sentence assembled on the server is a sentence in the server's language.
      */
     public record Pay(int coin, String goods, int goodsAmount, int standing) {

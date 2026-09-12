@@ -6,6 +6,45 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Towns deal in Coins
+
+### Changed
+
+- **Money is a Coin now, not an emerald.** Towns pay you in Coins and charge you
+  in Coins — at the market stall, at the storehouse door, and at the quest board.
+  Nothing about what anything costs has changed: the same prices, the same rates,
+  the same treasury arithmetic. Only what lands in your hand is different.
+
+- **A Coin is the town's own money, and nothing else makes one.** There is no
+  recipe. Every Coin in the world was paid out of some settlement's treasury and
+  every Coin you spend goes back into one, which was always the rule and is now
+  the rule about a thing that exists only for this. It stacks to 64, so a hundred
+  and twenty for a long delivery arrives as two stacks rather than two rows.
+
+- **Emeralds buy nothing from a town any more.** Holding a fistful at a
+  storehouse post gets you the ledger and a note about what it does take. The
+  stall will not price in them and the board will not pay in them.
+
+- **The stall and the storehouse say so.** The market's footer reads "Paid in
+  Coin", the storehouse offers timber at eight logs to the Coin, and every trade
+  message names the money by the name it is actually called.
+
+### Notes
+
+- **Emeralds in an old world are just emeralds.** Nothing is taken away and
+  nothing is converted — they are simply a gem again. A market stall will buy
+  them off you like any other valuable find, at the same 40 it has always valued
+  one at, which is how you turn an old purse into a new one.
+
+- **A Founding Charter is still crafted from emeralds**, and so is a Wayfinder.
+  That is deliberate: the only source of Coin is a town paying you, and the
+  charter is how you found your first town, so a charter that cost Coin would be
+  a game nobody could start.
+
+- **The name is not final.** The art is a placeholder gold disc and the word
+  "Coin" lives in one line of the language file. `docs/CURRENCY.md` says exactly
+  what to change to call it something else.
+
 ## Orcs you can tell apart, and eggs that recruit
 
 ### New

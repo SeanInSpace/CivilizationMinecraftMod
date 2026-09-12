@@ -4,6 +4,7 @@ import com.civilization.neoforge.CivilizationMod;
 import com.civilization.neoforge.bridge.NeoForgeWorldBridge;
 import com.civilization.neoforge.net.QuestActionPayload;
 import com.civilization.neoforge.net.QuestBoardPayload;
+import com.civilization.neoforge.trade.Currency;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.quest.QuestPlanner;
 import com.civilization.sim.settlement.Resources;
@@ -16,7 +17,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -149,13 +149,13 @@ public class QuestBoardBlock extends BuildingPostBlock {
     /**
      * Hands over what the town owes, in things a player can hold.
      *
-     * <p><strong>Coin is emeralds, and deliberately so.</strong> The mod has one
-     * money — the treasury — and the market already makes emeralds its physical
-     * form, on the rule that every emerald a town pays out came out of its own
-     * books. A separate quest coin would be a second currency that no counter in
-     * the world accepts, which is worse than no reward at all. So the board pays
-     * out of the same purse the stall does, and a coin earned here buys grain
-     * there.
+     * <p><strong>One money, and deliberately so.</strong> The mod has a single
+     * currency — the treasury — and {@link Currency} is the shape it takes in a
+     * hand, on the rule that every coin a town pays out came out of its own
+     * books. A separate quest token would be a second currency that no counter
+     * in the world accepts, which is worse than no reward at all. So the board
+     * pays out of the same purse the stall does, and a coin earned here buys
+     * grain there.
      */
     private static void payOut(ServerPlayer player, Settlement settlement,
                                QuestPlanner.Payout paid) {
@@ -163,7 +163,7 @@ public class QuestBoardBlock extends BuildingPostBlock {
             said(player, "There is nothing here to collect.");
             return;
         }
-        giveMany(player, new ItemStack(Items.EMERALD), paid.coin());
+        giveMany(player, Currency.stack(), paid.coin());
         if (paid.goodsAmount() > 0) {
             String itemId = Resources.itemFor(paid.goods());
             if (itemId != null) {
@@ -207,7 +207,7 @@ public class QuestBoardBlock extends BuildingPostBlock {
      * Hands over a count of something, a stack at a time.
      *
      * <p>A reward can run past sixty-four — a sworn friend's delivery pays a
-     * hundred and twenty emeralds — and an {@code ItemStack} built with a count
+     * hundred and twenty coin — and an {@code ItemStack} built with a count
      * over its own limit is not a big stack, it is a broken one. So the count is
      * the number and the stack is the unit.
      *

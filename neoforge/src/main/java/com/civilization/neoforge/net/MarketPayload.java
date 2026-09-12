@@ -58,7 +58,7 @@ public record MarketPayload(String town, BlockPos post, int treasury, boolean op
     public record Offer(String resource, boolean townBuys, int unitPrice, int lots,
                         String reason) {
 
-        /** Coin — and so emeralds — for the single lot a button press trades. */
+        /** Coin for the single lot a button press trades. */
         public int lotPrice() {
             return unitPrice * Market.LOT;
         }

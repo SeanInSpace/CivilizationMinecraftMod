@@ -106,13 +106,13 @@ store" at the stall. Not on a delivery: paying for goods in goods is how a playe
 learns to carry the same load round in a circle. Never food, whatever the shelf
 says.
 
-**Coin is emeralds, and there is no `civilization:coin` item.** The mod has one
-money — the treasury — and the market already makes emeralds its physical form,
-on the rule that every emerald a town pays out came out of its own books and
-every one it takes in goes into them. A separate quest coin would be a second
-currency no counter in the world accepts, which is worse than no reward at all.
-So the board pays out of the same purse the stall does, and a coin earned here
-buys grain there.
+**Coin is `civilization:coin`, the same money the stall deals in.** The mod has
+one currency — the treasury — and that item is the shape it takes in a hand, on
+the rule that every coin a town pays out came out of its own books and every one
+it takes in goes into them. A separate quest token would be a second currency no
+counter in the world accepts, which is worse than no reward at all. So the board
+pays out of the same purse the stall does, and a coin earned here buys grain
+there. See [CURRENCY.md](CURRENCY.md).
 
 Offered coin is capped at the treasury as it stands, so a board never advertises
 money the town has not got. It can still go broke between the offer and the claim,

@@ -12,6 +12,7 @@ import com.civilization.neoforge.net.TownMapPayload.Run;
 import com.civilization.neoforge.net.TownMapPayload.Vertex;
 import com.civilization.neoforge.net.TownMapRequestPayload;
 import com.civilization.neoforge.net.TownOverviewPayload.Distress;
+import com.civilization.neoforge.trade.Currency;
 import com.civilization.sim.culture.Culture;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.settlement.Beds;
@@ -1075,7 +1076,7 @@ public final class TownMapScreen extends Screen {
                 ? Component.literal("  " + overview.ledgers().seam() + " blocks left in the seam")
                         .withColor(overview.ledgers().seamExhausted() ? ALARM_FAILING : SUBTLE)
                 : Component.literal("  No seam surveyed yet").withColor(SUBTLE));
-        fact(lines, "Treasury", overview.ledgers().treasury() + " coin");
+        fact(lines, "Treasury", Currency.amount(overview.ledgers().treasury()));
 
         heading(lines, "The watch");
         fact(lines, "Threat", Integer.toString(overview.watch().threat()));
@@ -1131,6 +1132,11 @@ public final class TownMapScreen extends Screen {
 
     private void fact(List<Component> lines, String label, String value) {
         lines.add(Component.literal("  " + label + " " + value).withColor(LABEL));
+    }
+
+    /** The same, for a value that has a translated word in it. */
+    private void fact(List<Component> lines, String label, Component value) {
+        lines.add(Component.literal("  " + label + " ").append(value).withColor(LABEL));
     }
 
     /** A plain run of lines, scrolled as one. Everything the Town tab says. */

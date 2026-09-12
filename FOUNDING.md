@@ -208,7 +208,7 @@ All six steps are built. What each one landed:
    (posts, torches, fence gates in-world) + vertex patrols. Ring-aware siting
    keeps civic buildings behind the wall; producers stay outriders.
 4. **Storehouse + player trade** — DONE. Donations in (logs, stone, bread, to
-   capacity), timber out (emeralds, above a reserve), full ledger on the post.
+   capacity), timber out (coins, above a reserve), full ledger on the post.
 5. **Cottages + birth gating; the mill; carpentry; the inn** — DONE. Couples
    move out of the bunks as cottages rise; the mill grinds +50% from the same
    harvest; carpentry adds a pair of hands to every crew; the inn's caravan

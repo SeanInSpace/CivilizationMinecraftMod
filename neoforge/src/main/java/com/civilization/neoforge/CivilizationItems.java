@@ -6,6 +6,7 @@ import com.civilization.neoforge.item.OrcWeapons;
 import com.civilization.neoforge.item.PersonSpawnEggItem;
 import com.civilization.neoforge.item.TownMapItem;
 import com.civilization.neoforge.item.WayfinderItem;
+import com.civilization.neoforge.trade.Currency;
 import com.civilization.sim.combat.Weaponry;
 import com.civilization.sim.culture.Race;
 import net.minecraft.world.item.Item;
@@ -24,6 +25,26 @@ public final class CivilizationItems {
             "founding_charter",
             FoundingCharterItem::new,
             () -> new Item.Properties().stacksTo(1));
+
+    /**
+     * The money, made holdable.
+     *
+     * <p>Registered under {@link Currency#ID} rather than a literal, because the
+     * name is not settled and {@code Currency} is the one place in Java it is
+     * allowed to be written down. Everything else — messages, the stall's
+     * footer, what the storehouse takes — goes through that class.
+     *
+     * <p>A plain item with no behavior and no recipe. It is not craftable on
+     * purpose: the only thing that issues money is a town paying out of its
+     * treasury, and the only thing that takes it is a town being paid, so a
+     * crafting grid that could make one would print money that no ledger ever
+     * debited. Stacks to 64 like any other small thing, which is also what
+     * makes a reward of a hundred and twenty arrive as two stacks.
+     */
+    public static final DeferredItem<Item> COIN = ITEMS.registerItem(
+            Currency.ID,
+            Item::new,
+            () -> new Item.Properties().stacksTo(64));
 
     /**
      * Hold it and every building's bounds light up.

@@ -242,4 +242,4 @@ Worth knowing if you touch it:
 
 - The board is re-sent after **every** trade, and `CivilizationScreens.openMarket` folds it into the open screen instead of replacing it. A stall still showing the price that was true before the town stopped starving is worse than no stall; reopening the screen for each lot throws the player's place away eight units at a time.
 - One lot per press. The alternative is a count the server has to bound anyway, and a button that means exactly one thing is a button whose price the player has already read.
-- Emeralds exist only at the counter, one to the coin. Every emerald in the world came out of a treasury and every one that leaves goes into one, which is why `MarketCounter` counts the payment before touching the ledger and removes it after.
+- Coins exist only at the counter, one to the treasury's own unit. Every coin in the world came out of a treasury and every one that leaves goes into one, which is why `MarketCounter` counts the payment before touching the ledger and removes it after.

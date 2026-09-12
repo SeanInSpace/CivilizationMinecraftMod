@@ -22,12 +22,12 @@ import java.util.function.Predicate;
  * that, from what the town is short of, and can be tested without a game. All
  * that is left for this side is moving real things, which cannot be.
  *
- * <p><strong>Emeralds exist only here.</strong> Inside the town money is an
- * integer on the settlement and nobody owns any of it. At this counter the two
- * meet: emeralds are created out of the treasury when the town pays, and
- * consumed into it when the town is paid, one for one. The invariant is that
- * every emerald entering the world came out of a treasury and every one leaving
- * it went into one, which is why nothing below moves an item without the ledger
+ * <p><strong>Money takes a holdable shape only here.</strong> Inside the town it
+ * is an integer on the settlement and nobody owns any of it. At this counter the
+ * two meet: {@link Currency} is created out of the treasury when the town pays,
+ * and consumed into it when the town is paid, one for one. The invariant is that
+ * every coin entering the world came out of a treasury and every one leaving it
+ * went into one, which is why nothing below moves an item without the ledger
  * having moved first.
  *
  * <p>That ordering is the whole of the care taken here. The payment is
@@ -58,63 +58,74 @@ public final class MarketCounter {
                 : townSells(player, settlement, at, resource);
     }
 
-    /** The town pays: goods in off the player, emeralds out of the treasury. */
+    /** The town pays: goods in off the player, coin out of the treasury. */
     private static boolean townBuys(ServerPlayer player, Settlement settlement,
                                     SimPos at, String resource) {
         int units = Market.LOT;
         Item wanted = itemFor(resource);
         if (wanted == null) {
-            refuse(player, "They do not deal in that.");
+            refuse(player, Component.literal("They do not deal in that."));
             return false;
         }
         Predicate<ItemStack> goods = stack -> stack.is(wanted);
         if (count(player, goods) < units) {
-            refuse(player, "You have not got " + units + " " + resource + " to sell.");
+            refuse(player, Component.literal(
+                    "You have not got " + units + " " + resource + " to sell."));
             return false;
         }
         int paid = Market.townBuys(settlement, at, resource, units);
         if (paid <= 0) {
-            refuse(player, settlement.name() + " will not take that today.");
+            refuse(player, Component.literal(
+                    settlement.name() + " will not take that today."));
             return false;
         }
         // Counted first, so this cannot come up short and leave the town paying
         // for goods it never received.
         remove(player, goods, units);
-        give(player, Items.EMERALD, paid);
-        told(player, settlement.name() + " takes " + units + " " + resource
-                + " for " + paid + " emerald" + (paid == 1 ? "" : "s") + ".");
+        give(player, Currency.item(), paid);
+        told(player, Component.literal(settlement.name() + " takes " + units + " "
+                        + resource + " for ")
+                .append(Currency.amount(paid))
+                .append("."));
         return true;
     }
 
-    /** The town is paid: emeralds in, goods out of its surplus. */
+    /** The town is paid: coin in, goods out of its surplus. */
     private static boolean townSells(ServerPlayer player, Settlement settlement,
                                      SimPos at, String resource) {
         Market.Deal deal = Market.sellOffer(settlement, resource);
         if (deal == null) {
-            refuse(player, settlement.name() + " has none of that to spare.");
+            refuse(player, Component.literal(
+                    settlement.name() + " has none of that to spare."));
             return false;
         }
         Item item = itemFor(resource);
         if (item == null) {
-            refuse(player, "There is nothing they could hand you for that.");
+            refuse(player, Component.literal(
+                    "There is nothing they could hand you for that."));
             return false;
         }
         int price = deal.lotPrice();
-        if (count(player, stack -> stack.is(Items.EMERALD)) < price) {
-            refuse(player, "That costs " + price + " emeralds.");
+        if (count(player, Currency::is) < price) {
+            refuse(player, Component.literal("That costs ")
+                    .append(Currency.amount(price))
+                    .append("."));
             return false;
         }
         int taken = Market.townSells(settlement, at, resource, Market.LOT);
         if (taken <= 0) {
-            refuse(player, settlement.name() + " changed its mind — the reserve is not for sale.");
+            refuse(player, Component.literal(settlement.name()
+                    + " changed its mind — the reserve is not for sale."));
             return false;
         }
         // The ledger settled on `taken`, not on the price read off the offer a
         // moment ago, so the two cannot part company if the deal moved underfoot.
-        remove(player, stack -> stack.is(Items.EMERALD), taken);
+        remove(player, Currency::is, taken);
         give(player, item, Market.LOT);
-        told(player, Market.LOT + " " + resource + " from " + settlement.name()
-                + " for " + taken + " emeralds.");
+        told(player, Component.literal(Market.LOT + " " + resource + " from "
+                        + settlement.name() + " for ")
+                .append(Currency.amount(taken))
+                .append("."));
         return true;
     }
 
@@ -187,7 +198,7 @@ public final class MarketCounter {
      * Hands goods over, a stack at a time.
      *
      * <p>Batched to the item's own stack size rather than handed over as one
-     * oversized stack: a hundred and twenty-eight emeralds is two stacks, and
+     * oversized stack: a hundred and twenty-eight coin is two stacks, and
      * {@code Inventory.add} reports success when it has placed only part of
      * what it was given. Anything that will not fit lands at the player's feet,
      * which is the one outcome where nothing is destroyed.
@@ -204,13 +215,13 @@ public final class MarketCounter {
         }
     }
 
-    private static void refuse(ServerPlayer player, String why) {
-        player.sendSystemMessage(Component.literal("  " + why)
+    private static void refuse(ServerPlayer player, Component why) {
+        player.sendSystemMessage(Component.literal("  ").append(why)
                 .withStyle(ChatFormatting.GRAY));
     }
 
-    private static void told(ServerPlayer player, String what) {
-        player.sendSystemMessage(Component.literal("  " + what)
+    private static void told(ServerPlayer player, Component what) {
+        player.sendSystemMessage(Component.literal("  ").append(what)
                 .withStyle(ChatFormatting.GREEN));
     }
 }

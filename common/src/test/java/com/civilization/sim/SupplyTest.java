@@ -304,7 +304,7 @@ class SupplyTest {
     @Test
     void nothingIsOrderedForAResourceNobodyMakes() {
         Settlement s = town();
-        assertFalse(BuildPlanner.requestProducer(s, "emeralds", 5));
+        assertFalse(BuildPlanner.requestProducer(s, "moonstone", 5));
         assertTrue(s.buildQueue().isEmpty());
     }
 }

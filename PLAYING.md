@@ -245,6 +245,21 @@ the warehouse and carried to the site, and the stock leaves the ledger the momen
 it is shouldered. A town with no warehouse falls back to a storehouse, then to the
 hall.
 
+## Money
+
+Towns deal in **Coins**. You cannot craft one and you will not dig one up: every
+coin in the world was paid out of some town's treasury, and every coin you spend
+goes back into one. There are three ways to be paid — sell a find at a market
+stall, sell timber back through a storehouse, or collect on a quest board — and
+the same coin spends at any of them, in any town.
+
+A town's treasury is real and finite. A poor settlement pays less, offers less on
+its board, and says so rather than promising money it has not got.
+
+*(Emeralds are no longer money. If you have some from an older world they are
+simply a valuable gem now — carry them to a market stall and a town will buy
+them off you like any other find.)*
+
 ## Trading with the storehouse
 
 The **Storehouse post** is the town's counter, and it arrives when the settlement
@@ -254,7 +269,7 @@ fortifies — a long while before the wall that will drink everything in it.
 |---|---|
 | **Right-click empty-handed** | The whole ledger: timber, stone, food, saplings |
 | **Right-click holding logs, cobble or bread** | The town takes the donation, up to what its racks hold |
-| **Right-click holding emeralds** | It sells you timber, eight logs to the coin |
+| **Right-click holding coins** | It sells you timber, eight logs to the coin |
 
 It keeps a reserve of timber back whatever you offer, on the same rule the market
 keeps seed corn: a town cannot be bought out of its own repairs. If you want a
@@ -308,8 +323,8 @@ and pays for them.
 
 ### What it pays
 
-**Coin, in emeralds, out of the town's own treasury** — the same purse the market
-stall trades from, so a coin earned at the board buys grain at the stall. A poor
+**Coins, out of the town's own treasury** — the same purse the market stall
+trades from, so a coin earned at the board buys grain at the stall. A poor
 town offers less, and says so on the row rather than promising money it has not
 got. Slaying and clearing also throw in sixteen of whatever the town has more of
 than it can store.

@@ -38,20 +38,20 @@ The market block already reports; right-clicking it opens the trade screen inste
 
 ---
 
-## Coin and emeralds
+## Coin, abstract and holdable
 
 Internally, coin stays what it is: an integer on `Settlement`. Nothing about the ledger changes.
 
-**Emeralds are the physical form of that coin, and exist only at the boundary.** When the town pays you it converts treasury → emeralds; when you pay the town, emeralds → treasury. Villagers never hold emeralds; their purses stay abstract.
+**`civilization:coin` is the holdable form of that coin, and exists only at the boundary.** When the town pays you it converts treasury → coins; when you pay the town, coins → treasury. Villagers never hold coins; their purses stay abstract. See [docs/CURRENCY.md](docs/CURRENCY.md), which also spells out what to change when the money gets its final name.
 
 This is worth stating plainly because it is the one place the two representations meet, and getting it wrong means either duplicating money or destroying it:
 
-| | Treasury | Emeralds in the world |
+| | Treasury | Coins in the world |
 |---|---|---|
 | Town buys from you | **falls** | **created** into your inventory |
 | Town sells to you | **rises** | **consumed** from your inventory |
 
-The invariant: **every emerald that enters the world came out of a treasury, and every emerald that leaves it went into one.** A test can assert exactly that.
+The invariant: **every coin that enters the world came out of a treasury, and every coin that leaves it went into one.** A test can assert exactly that.
 
 Vanilla's `MerchantMenu` got the familiar villager-trading screen for free and was the right first move. It was outgrown for one reason: it can show that grain costs six and has nowhere to put *they are starving*. The stall is now the mod's own screen, and every row carries its reason — see [GUI_GUIDE.md](GUI_GUIDE.md).
 
@@ -153,9 +153,9 @@ Almost all of it lands in `common` and is testable without a game:
 - Price responds to shortage: a starving town pays double for grain; a full one refuses it.
 - The town never pays more than it holds.
 - The reserve holds: selling can never take a town below its build queue's needs or its starvation buffer.
-- Emerald conservation: every emerald created is matched by treasury spent, and vice versa.
+- Coin conservation: every coin created is matched by treasury spent, and vice versa.
 
-The screen itself and the emerald handover need a running game, which is what the playtest harness is for.
+The screen itself and the handover of the coins need a running game, which is what the playtest harness is for.
 
 ---
 

@@ -2,6 +2,7 @@ package com.civilization.neoforge.client;
 
 import com.civilization.neoforge.net.QuestActionPayload;
 import com.civilization.neoforge.net.QuestBoardPayload;
+import com.civilization.neoforge.trade.Currency;
 import com.civilization.sim.quest.QuestKind;
 import com.civilization.sim.quest.QuestState;
 import com.civilization.sim.quest.Reputation;
@@ -10,6 +11,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -235,9 +237,9 @@ public final class QuestBoardScreen extends Screen {
                     x + PANEL_WIDTH - PADDING - BUTTON_WIDTH - 8 - wide, rowY + 1,
                     stateColor(row), false);
 
-            String pay = payWords(row);
+            Component pay = payWords(row);
             int payWide = font.width(pay);
-            graphics.text(font, Component.literal(pay),
+            graphics.text(font, pay,
                     x + PANEL_WIDTH - PADDING - BUTTON_WIDTH - 8 - payWide, rowY + 12,
                     LABEL, false);
         }
@@ -290,26 +292,35 @@ public final class QuestBoardScreen extends Screen {
         return row.stepsLeft() <= SOON ? URGENT : LABEL;
     }
 
-    /** The reward in as few words as it can be said in. */
-    private static String payWords(QuestBoardPayload.Row row) {
+    /**
+     * The reward in as few words as it can be said in.
+     *
+     * <p>A component rather than a string because the money's own name is
+     * translated — see {@link Currency}, and {@code docs/CURRENCY.md} for why
+     * nothing may write that word down twice.
+     */
+    private static MutableComponent payWords(QuestBoardPayload.Row row) {
         QuestBoardPayload.Pay pay = row.pay();
-        StringBuilder words = new StringBuilder();
+        MutableComponent words = Component.empty();
+        boolean anything = false;
         if (pay.coin() > 0) {
-            words.append(pay.coin()).append(" coin");
+            words.append(Currency.amount(pay.coin()));
+            anything = true;
         }
         if (pay.goodsAmount() > 0) {
-            if (words.length() > 0) {
+            if (anything) {
                 words.append(", ");
             }
-            words.append(pay.goodsAmount()).append(' ').append(pay.goods());
+            words.append(pay.goodsAmount() + " " + pay.goods());
+            anything = true;
         }
         if (pay.standing() > 0) {
-            if (words.length() > 0) {
+            if (anything) {
                 words.append(", ");
             }
-            words.append('+').append(pay.standing()).append(" standing");
+            words.append("+" + pay.standing() + " standing");
         }
-        return words.length() == 0 ? "Nothing but thanks" : words.toString();
+        return anything ? words : Component.literal("Nothing but thanks");
     }
 
     /**

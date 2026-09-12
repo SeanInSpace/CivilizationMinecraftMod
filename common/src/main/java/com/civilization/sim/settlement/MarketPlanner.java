@@ -19,8 +19,8 @@ public final class MarketPlanner {
     /** And close before dusk, so everyone is home before the light goes. */
     public static final long CLOSES_AT = 11000L;
 
-    /** Food handed over per emerald paid. */
-    public static final int FOOD_PER_EMERALD = 8;
+    /** Food handed over per coin paid. */
+    public static final int FOOD_PER_COIN = 8;
 
     /** The town keeps this much back whatever the price — nobody sells the seed corn. */
     public static final int RESERVE_FOOD = 40;
@@ -54,13 +54,13 @@ public final class MarketPlanner {
     }
 
     /**
-     * Sells food for emeralds.
+     * Sells food for coin.
      *
      * @return how much food actually changed hands, which is zero if the town
      *         has none to spare
      */
-    public static int sellFood(Settlement settlement, int emeralds) {
-        int wanted = Math.max(0, emeralds) * FOOD_PER_EMERALD;
+    public static int sellFood(Settlement settlement, int coin) {
+        int wanted = Math.max(0, coin) * FOOD_PER_COIN;
         int available = Math.min(wanted, foodForSale(settlement));
         if (available <= 0) {
             return 0;

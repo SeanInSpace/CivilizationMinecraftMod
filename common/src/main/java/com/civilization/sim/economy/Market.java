@@ -33,7 +33,7 @@ import java.util.List;
  * screen of its own instead of a merchant's.
  *
  * <p>Nothing here touches the world. It answers what the deals are; handing
- * over emeralds is the platform's job.
+ * over coin is the platform's job.
  */
 public final class Market {
 

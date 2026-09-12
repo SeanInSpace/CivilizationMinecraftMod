@@ -27,6 +27,7 @@
   "block.civilization.watchtower": "Watchtower",
   "block.civilization.workshop": "Workshop",
   "entity.civilization.person": "Settler",
+  "item.civilization.coin": "Coin",
   "item.civilization.excavation_stake": "Excavation Stake",
   "item.civilization.founding_charter": "Founding Charter",
   "item.civilization.human_spawn_egg": "Human Settler Egg",

@@ -1,5 +1,6 @@
 package com.civilization.neoforge.block;
 
+import com.civilization.neoforge.trade.Currency;
 import com.civilization.sim.quest.QuestPlanner;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.settlement.StorehousePlanner;
@@ -27,9 +28,9 @@ import com.civilization.sim.geom.SimPos;
  * <p>It stands from FORTIFIED — exactly when the palisade is drinking timber —
  * and deals in the stuff the town is built from, where the market deals in its
  * bread. Walk up empty-handed and it reads the ledger. Bring logs, stone or
- * bread and the town takes them with thanks. Bring emeralds and it sells
- * timber, keeping {@link StorehousePlanner#RESERVE_WOOD} back so a town can
- * never be bought out of its own repairs.
+ * bread and the town takes them with thanks. Bring coin and it sells timber,
+ * keeping {@link StorehousePlanner#RESERVE_WOOD} back so a town can never be
+ * bought out of its own repairs.
  */
 public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
 
@@ -92,7 +93,7 @@ public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
     protected void extraReport(Player player, Settlement settlement) {
         ItemStack held = player.getMainHandItem();
 
-        if (held.is(Items.EMERALD)) {
+        if (Currency.is(held)) {
             sellTimber(player, settlement, held);
             return;
         }
@@ -102,9 +103,10 @@ public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
             return;
         }
         player.sendSystemMessage(Component.literal(
-                "  Donations taken at the door: logs, cobblestone, bread. "
-                        + "Emeralds buy timber, "
-                        + StorehousePlanner.WOOD_PER_EMERALD + " to the coin.")
+                        "  Donations taken at the door: logs, cobblestone, bread. ")
+                .append(Currency.name())
+                .append(" buys timber, " + StorehousePlanner.WOOD_PER_COIN
+                        + " logs to one.")
                 .withStyle(ChatFormatting.GRAY));
     }
 
@@ -117,7 +119,7 @@ public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
             return;
         }
         int affordable = Math.min(held.getCount(),
-                Math.max(1, forSale / StorehousePlanner.WOOD_PER_EMERALD));
+                Math.max(1, forSale / StorehousePlanner.WOOD_PER_COIN));
         int sold = StorehousePlanner.sellTimber(settlement, affordable);
         if (sold <= 0) {
             player.sendSystemMessage(Component.literal("  Nothing to spare today.")
@@ -125,13 +127,14 @@ public class StorehouseBlock extends BuildingPostBlock implements EntityBlock {
             return;
         }
         // The same figure the planner banked. Working it out twice is how the
-        // town came to be paid a different number of emeralds from the one that
+        // town came to be paid a different number of coin from the one that
         // left the player's hand.
-        int paid = StorehousePlanner.emeraldsFor(sold);
+        int paid = StorehousePlanner.coinFor(sold);
         held.shrink(paid);
         give(player, new ItemStack(Items.OAK_LOG, sold));
-        player.sendSystemMessage(Component.literal(
-                "  " + sold + " logs for " + paid + " emerald" + (paid == 1 ? "" : "s") + ".")
+        player.sendSystemMessage(Component.literal("  " + sold + " logs for ")
+                .append(Currency.amount(paid))
+                .append(".")
                 .withStyle(ChatFormatting.GREEN));
     }
 

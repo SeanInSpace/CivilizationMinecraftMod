@@ -27,9 +27,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * — and a reserve is always kept back, so a settlement can never be bought into
  * starvation. The seed corn is not for sale at any price.
  *
- * <p>It used to sell bread for emeralds at a fixed rate and never touch the
- * treasury, so trading with a town left its books unchanged. Every emerald now
- * comes out of, or goes into, the town's own money.
+ * <p>It used to sell bread at a fixed rate and never touch the treasury, so
+ * trading with a town left its books unchanged. Every coin now comes out of, or
+ * goes into, the town's own money.
  *
  * <p><strong>Why the screen is the mod's own and not a merchant's.</strong>
  * Implementing {@code Merchant} bought the villager trading screen for one

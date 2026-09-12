@@ -21,14 +21,14 @@ class StorehouseTradeTest {
     }
 
     @Test
-    void timberSellsByTheEmeraldDownToTheReserveAndNoFurther() {
+    void timberSellsByTheCoinDownToTheReserveAndNoFurther() {
         Settlement s = town();
         s.setStock(TownStores.WOOD, StorehousePlanner.RESERVE_WOOD + 20);
 
         assertEquals(20, StorehousePlanner.timberForSale(s),
                 "everything above the reserve is on the table");
         assertEquals(16, StorehousePlanner.sellTimber(s, 2),
-                "two emeralds buy two full bundles");
+                "two coin buy two full bundles");
         assertEquals(4, StorehousePlanner.sellTimber(s, 5),
                 "a rich buyer still only gets what is above the reserve");
         assertEquals(StorehousePlanner.RESERVE_WOOD, s.woodStock(),
@@ -40,21 +40,21 @@ class StorehouseTradeTest {
     /**
      * The leak this closes.
      *
-     * <p>Emeralds are the physical form of a town's coin and exist only at the
+     * <p>A coin is the holdable form of a town's money and exists only at the
      * counter: every one in the world came out of a treasury and every one that
-     * leaves goes into one. The storehouse used to take a player's emeralds and
-     * hand out logs without the books moving by so much as a coin, so trading
-     * with a town made money vanish out of the world — and enough of it would
-     * empty the supply of a save.
+     * leaves goes into one. The storehouse used to take a player's coin and
+     * hand out logs without the books moving at all, so trading with a town made
+     * money vanish out of the world — and enough of it would empty the supply of
+     * a save.
      */
     @Test
-    void theEmeraldsPaidForTimberGoIntoTheTreasury() {
+    void theCoinPaidForTimberGoesIntoTheTreasury() {
         Settlement s = town();
         s.setStock(TownStores.WOOD, StorehousePlanner.RESERVE_WOOD + 20);
         int before = s.treasury();
 
         assertEquals(16, StorehousePlanner.sellTimber(s, 2));
-        assertEquals(before + 2, s.treasury(), "two emeralds, two coin");
+        assertEquals(before + 2, s.treasury(), "two coin paid, two coin banked");
 
         assertEquals(4, StorehousePlanner.sellTimber(s, 5),
                 "a rich buyer still only gets what is above the reserve");
@@ -70,7 +70,7 @@ class StorehouseTradeTest {
 
         assertEquals(0, StorehousePlanner.sellTimber(s, 4));
         assertEquals(before, s.treasury(), "no logs, no coin");
-        assertEquals(0, StorehousePlanner.emeraldsFor(0));
+        assertEquals(0, StorehousePlanner.coinFor(0));
     }
 
     @Test

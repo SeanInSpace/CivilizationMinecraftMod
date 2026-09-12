@@ -152,7 +152,7 @@ class TownEconomyTest {
 
         int sold = MarketPlanner.sellFood(s, 2);
 
-        assertEquals(2 * MarketPlanner.FOOD_PER_EMERALD, sold);
+        assertEquals(2 * MarketPlanner.FOOD_PER_COIN, sold);
         assertEquals(MarketPlanner.RESERVE_FOOD + 100 - sold, s.stores().get(TownStores.FOOD));
         assertEquals(sold, s.tallies().get(Tallies.GOODS_TRADED));
     }

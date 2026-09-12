@@ -2,6 +2,7 @@ package com.civilization.neoforge.client;
 
 import com.civilization.neoforge.net.MarketDealPayload;
 import com.civilization.neoforge.net.MarketPayload;
+import com.civilization.neoforge.trade.Currency;
 import com.civilization.sim.economy.Market;
 import com.civilization.sim.settlement.Resources;
 import com.civilization.sim.settlement.TownStores;
@@ -11,7 +12,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ import static com.civilization.neoforge.client.CivilizationPanel.SUBTLE;
  * nowhere to put <em>they are starving</em> — and a price that moves with a
  * town's trouble is only a game if the trouble is legible. Every row here is
  * one line: what you get, why they are asking what they are asking, and a
- * button that names the price in emeralds.
+ * button that names the price in coin.
  *
  * <p>The board is a snapshot from the server and this screen never guesses at
  * one. Pressing a button sends a request and the server sends a fresh board
@@ -135,7 +135,7 @@ public final class MarketScreen extends Screen {
      *
      * <p>This is not a pause screen, so a hopper can fill a pocket behind it —
      * but the case that matters is the plainest one: a player who opens the
-     * stall with no emeralds would otherwise see every Buy button grayed out for
+     * stall with no coin would otherwise see every Buy button grayed out for
      * as long as they stood there, because the only thing that rebuilt them was
      * a successful trade and no trade was possible.
      */
@@ -177,7 +177,7 @@ public final class MarketScreen extends Screen {
         }
         var inventory = minecraft.player.getInventory();
         if (!offer.townBuys()) {
-            return inventory.countItem(Items.EMERALD) >= offer.lotPrice();
+            return inventory.countItem(Currency.item()) >= offer.lotPrice();
         }
         return inventory.countItem(iconFor(offer)) >= Market.LOT;
     }
@@ -204,7 +204,8 @@ public final class MarketScreen extends Screen {
 
         CivilizationPanel.frame(graphics, x, y, PANEL_WIDTH, h);
         CivilizationPanel.header(graphics, font, x, y, PANEL_WIDTH, title,
-                Component.literal("Treasury " + market.treasury() + " coin"), SUBTLE);
+                Component.literal("Treasury ").append(Currency.amount(market.treasury())),
+                SUBTLE);
 
         List<MarketPayload.Offer> offers = offers();
         if (offers.isEmpty()) {
@@ -237,7 +238,8 @@ public final class MarketScreen extends Screen {
     private void footer(GuiGraphicsExtractor graphics, int x, int y, int h) {
         CivilizationPanel.rule(graphics, x, y + h - FOOTER + 4, PANEL_WIDTH);
         graphics.centeredText(font, Component.literal(
-                        "Prices move with what the town is short of. Paid in emeralds."),
+                        "Prices move with what the town is short of. Paid in ")
+                        .append(Currency.name()).append("."),
                 x + PANEL_WIDTH / 2, y + h - 14, SUBTLE);
     }
 

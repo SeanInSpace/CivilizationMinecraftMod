@@ -8,7 +8,7 @@ import com.civilization.sim.geom.SimPos;
  * <p>This is the founding arc's helping hand. The storehouse arrives at
  * FORTIFIED, exactly when the palisade is drinking the town's timber, and a
  * player who wants their young town walled sooner can carry logs to the door
- * or buy the shortfall away with emeralds. The market sells the town's bread;
+ * or buy the shortfall away with coin. The market sells the town's bread;
  * the storehouse deals in the stuff the town is built from.
  *
  * <p>Same seed-corn rule as the market, applied to timber: a reserve is never
@@ -17,7 +17,7 @@ import com.civilization.sim.geom.SimPos;
 public final class StorehousePlanner {
 
     /**
-     * Logs handed over per emerald.
+     * Logs handed over per coin.
      *
      * <p><strong>This does not agree with the market, and the gap is a pump.</strong>
      * {@code Market.basePrice(WOOD)} is two coin for one log, so a town holding
@@ -35,7 +35,7 @@ public final class StorehousePlanner {
      * means deciding what happens to this one, which is not a decision the
      * market's own work should make on the storehouse's behalf.
      */
-    public static final int WOOD_PER_EMERALD = 8;
+    public static final int WOOD_PER_COIN = 8;
 
     /** Timber the town keeps back no matter what is offered for it. */
     public static final int RESERVE_WOOD = 32;
@@ -53,34 +53,34 @@ public final class StorehousePlanner {
      *
      * <p>One formula with two readers — this planner banks it and the block
      * shrinks the player's stack by it — because they were separate and could
-     * therefore drift into a town being paid a different number of emeralds
+     * therefore drift into a town being paid a different number of coin
      * from the one the player handed over. A part bundle is still charged for:
-     * asking for five emeralds' worth and being given the four logs above the
+     * asking for five coin's worth and being given the four logs above the
      * reserve costs a coin, not nothing.
      */
-    public static int emeraldsFor(int logs) {
-        return logs <= 0 ? 0 : Math.max(1, logs / WOOD_PER_EMERALD);
+    public static int coinFor(int logs) {
+        return logs <= 0 ? 0 : Math.max(1, logs / WOOD_PER_COIN);
     }
 
     /**
-     * Sells timber for emeralds, reserve honored.
+     * Sells timber for coin, reserve honored.
      *
-     * <p>The emeralds go into the treasury. They used to go nowhere: the
-     * storehouse consumed a player's emeralds and handed out logs without the
-     * town's books changing by a coin, which quietly broke the one invariant
-     * the two representations of money have — every emerald in the world came
-     * out of a treasury, and every emerald that leaves it goes into one. A
-     * counter that destroys money is a counter that can be used to drain the
-     * whole supply out of a world.
+     * <p>The coin goes into the treasury. It used to go nowhere: the storehouse
+     * consumed a player's coin and handed out logs without the town's books
+     * changing at all, which quietly broke the one invariant the two
+     * representations of money have — every coin in the world came out of a
+     * treasury, and every coin that leaves it goes into one. A counter that
+     * destroys money is a counter that can be used to drain the whole supply
+     * out of a world.
      *
      * @return logs actually handed over
      */
-    public static int sellTimber(Settlement settlement, int emeralds) {
-        int wanted = Math.max(0, emeralds) * WOOD_PER_EMERALD;
+    public static int sellTimber(Settlement settlement, int coin) {
+        int wanted = Math.max(0, coin) * WOOD_PER_COIN;
         int sold = Math.min(wanted, timberForSale(settlement));
         if (sold > 0) {
             settlement.stores().take(TownStores.WOOD, sold);
-            settlement.bank(emeraldsFor(sold));
+            settlement.bank(coinFor(sold));
         }
         return sold;
     }
