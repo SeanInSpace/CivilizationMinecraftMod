@@ -527,6 +527,15 @@ work has landed, which changes what a street looks like from the middle of it.
 the endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **Orcs have faces of their own, and eggs recruit.** A script-drawn
+      64-by-64 orc skin in two variants and a goblin one, picked by the
+      person's id so a face survives re-embodiment; humans keep Steve for now.
+      Human and orc settler eggs add a resident to the nearest town of that
+      race whose claim you stand in, or refuse; nothing is ever spawned loose.
+- [ ] **Creative middle-click on a settler may hand you either egg**, since
+      both name the one person type. One type per race would fix it and put
+      the race back into the attribute table. Left alone.
+- [ ] **A human skin set.** Humans still wear Steve.
 - [x] **The mod is called Civilization.** Mod id, namespace, package, class
       prefix, config, and world folder renamed; /civ and keystone kept; the
       domain word kingdom stays where it means one. New worlds only.
