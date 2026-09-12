@@ -6,6 +6,37 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The watch looks further, and a flower no longer stops a wall
+
+### Fixed
+
+- **A palisade post goes in where a lilac was standing.** A wall through a meadow
+  came out with holes in it, and `/civ wall` named the culprit: three positions of
+  Millbrook's ring had a lilac where a post belonged and no post at all. Short
+  grass, tall grass and ferns had always been trodden down; the four tall flowers
+  — lilac, sunflower, peony, rose bush — quietly refused to give way, so the post
+  was never placed while the town went on believing it had built that stretch. A
+  post now displaces any plant standing in its own column, both halves of a
+  two-tall one, and the town keeps whatever it pulls up. The verge either side of
+  the line is left flowering, which is what makes a wall through a meadow read as
+  a wall through a meadow.
+
+- **Guards answer things further off than the people they are guarding can see.**
+  A creeper put down thirteen blocks from a farmer, with a guard twenty blocks the
+  other side of him, was ignored for as long as anybody watched: the farmer
+  downed tools and went home — settlers notice a creeper at eighteen blocks — and
+  the watch never looked up, because a guard only looked twenty blocks for
+  something to fight and was measuring that as a square rather than as a
+  distance. A creeper twenty blocks north and twenty east, thirty-four away, was
+  charged; one twenty-one blocks due east was not. The watch's reach is
+  twenty-six blocks in every direction now, which is further than any civilian
+  notices anything, so the guard is already walking before the farmer starts
+  running.
+
+- **No bell has to be rung first.** Stated because it was the obvious suspicion
+  and it was wrong: a hostile inside the claim is fought whether the town's alarm
+  is up or not, and there is now a test that fails if anybody ever makes the watch
+  wait to be told.
 ## The towns the world puts there are not eaten before you find them
 
 ### Fixed
