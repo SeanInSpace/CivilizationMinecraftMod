@@ -662,13 +662,20 @@ kept only until a run has been watched over it.*
       and bell on the hall, open market square with stalls and a well, two-story
       inn with a stable, galleried library, crenellated tower, roofed hearth.
 - [ ] **Buildings cost more now.** Homes about three quarters more, trades
-      about half more, the warehouse and hall double, the library 2377 blocks.
-      The founding grant still covers a camp, but build lengths were calibrated
-      against the boxes. Rebalance costs or the grant with a town in view; the
-      library's gallery and wall height are the first fat to trim.
+      about half more, the warehouse and hall double, the library 2377 blocks and
+      the grand library 5830. The founding grant still covers a camp, but build
+      lengths were calibrated against the boxes. Rebalance costs or the grant with
+      a town in view; the library's gallery and wall height are the first fat to
+      trim, and the grand library's two floor plates are 960 blocks between them.
+      Its catalog work of 900 is set to the same blocks-per-work the library runs
+      at, so the two at least agree with each other.
 - [ ] **The granary is not raised and the hall's floor is not stepped up.**
       Both would bury the building post at its fixed floor-course cell. Moving
-      the post cells is the enabling change if either look is wanted.
+      the post cells is the enabling change if either look is wanted. The grand
+      library's entrance wanted the same thing and got the same answer: its
+      approach is a paved frontage with stepped shoulders and a colonnade on it,
+      all at floor level, which is what a flush entrance can carry. Three
+      buildings asking now.
 - [x] **A founded town's roads are walked out.** The crew was offered public
       works only on the one step in ten the build queue was empty; now the roads
       alone are offered whenever the town can spare a hand beyond the last one

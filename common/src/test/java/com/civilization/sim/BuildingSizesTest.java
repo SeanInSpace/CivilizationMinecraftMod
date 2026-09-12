@@ -98,6 +98,27 @@ class BuildingSizesTest {
                 BuildingSizes.plotSpanOf("civilization:something_nobody_declared"));
     }
 
+    @Test
+    void theGrandLibraryIsTheBiggestThingAnybodyBuilds() {
+        // Pinned because it is the hardest case every other piece of siting
+        // machinery has: a plot of thirty-three is three of the plan's own
+        // frontages, so whatever holds this holds everything. A building that
+        // quietly overtook it would be a case nothing had ever been measured
+        // against.
+        BuildingSizes.Size grand = BuildingSizes.of("civilization:grand_library");
+        for (BuildingType type : BuildCatalog.DEFAULT) {
+            BuildingSizes.Size size = BuildingSizes.of(type.id());
+            assertTrue(size.width() <= grand.width() && size.depth() <= grand.depth(),
+                    type.id() + " is " + size.width() + " by " + size.depth()
+                            + ", which is bigger than the grand library's "
+                            + grand.width() + " by " + grand.depth() + ". The wide-plot"
+                            + " cases are measured against the grand library, so"
+                            + " something wider needs its own measurement");
+        }
+        assertEquals(33, BuildingSizes.plotSpanOf("civilization:grand_library"),
+                "thirty-one across plus a doorstep either side");
+    }
+
     // --- shapes that are not rectangles --------------------------------------
 
     @Test

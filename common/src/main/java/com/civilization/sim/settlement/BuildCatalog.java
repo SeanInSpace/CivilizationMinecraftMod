@@ -122,6 +122,29 @@ public final class BuildCatalog {
             // raise this would spend every block it owns on it and starve, which
             // is not a hypothetical: the work here is more than the whole of a
             // founding camp.
-            new BuildingType("civilization:library",       400,     40,     1,            0,       45,        0,       0, plot("civilization:library"))
+            new BuildingType("civilization:library",       400,     40,     1,            0,       45,        0,       0, plot("civilization:library")),
+            // The capstone, and the only row in the catalog that has to be asked
+            // for twice. Thirty-one by twenty-five, three storeys, a portico and
+            // a lantern on the roof: more than twice the library's work and more
+            // than twice its blocks.
+            //
+            // Gated three ways, because a building this expensive wanted every
+            // one of them:
+            //
+            //   - eighty residents, which is twice the library's gate and about
+            //     as large as a town in this mod gets;
+            //   - one per town, from base 1 and nothing per resident, the same
+            //     way the library and the great hut are capped;
+            //   - and a library already standing, which is the new kind of gate
+            //     and the reason BuildingType grew a `requires`. "After the
+            //     library" is a fact about what a town has built, and no
+            //     population number says it — see BuildPlanner.prerequisiteStands.
+            //
+            // Priority forty, just under the library's forty-five, so a town that
+            // somehow has the people for both raises the small one first. Nothing
+            // else in the catalog sits this low: it is the last thing a town
+            // wants, which is the point of it.
+            new BuildingType("civilization:grand_library", 900,     80,     1,            0,       40,        0,       0, plot("civilization:grand_library"),
+                    "civilization:library")
     );
 }

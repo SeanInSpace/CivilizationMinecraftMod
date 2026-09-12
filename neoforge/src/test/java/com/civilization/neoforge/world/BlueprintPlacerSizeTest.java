@@ -166,6 +166,44 @@ class BlueprintPlacerSizeTest {
         }
     }
 
+    @Test
+    void everyBuildingReportsTheHeightItActuallyDraws() {
+        // The third number, which nothing was checking. Width and depth decide
+        // whether a building fits its plot; the height decides how far up the
+        // site is cleared, and a building that under-reported would be a building
+        // with a hillside through its roof. Measured off the placements rather
+        // than restated, which is what `measured` promises and is worth holding it
+        // to now that something twenty-one courses tall exists.
+        for (BuildingType type : BuildCatalog.DEFAULT) {
+            String path = pathOf(type);
+            List<BlueprintPlacer.Placement> blocks = new ArrayList<>();
+            int[] dims = BlueprintPlacer.draw(flatFor(Culture.DEFAULT), blocks, path, BASE);
+            int top = blocks.stream()
+                    .mapToInt(block -> block.pos().getY() - BASE.getY())
+                    .max()
+                    .orElse(0);
+            assertEquals(top + 1, dims[2],
+                    path + " draws up to course " + top + " and reports a height of "
+                            + dims[2] + ". The site is cleared to the reported number");
+        }
+    }
+
+    @Test
+    void theGrandLibraryIsTheTallestThingATownBuilds() {
+        // Twenty-one courses: eleven of wall, a capped hip over thirty-one blocks,
+        // and the lantern on top of that. It stands over the hall and over the
+        // watchtower, which is a deliberate exception to a rule the hall used to
+        // hold alone -- see CivicPartsTest, where the exception is argued.
+        assertEquals(21, drawn("grand_library")[2],
+                "a change to the wall height, the roof cap or the lantern moves"
+                        + " this, and moving it changes how far up every grand"
+                        + " library's site is cleared");
+        for (BuildingType type : BuildCatalog.DEFAULT) {
+            assertTrue(drawn(pathOf(type))[2] <= 21,
+                    pathOf(type) + " is drawn taller than the grand library");
+        }
+    }
+
     // --- the compound, which is the one size a culture has a say in ----------
 
     @Test

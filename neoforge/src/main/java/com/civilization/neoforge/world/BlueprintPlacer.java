@@ -1759,6 +1759,7 @@ public final class BlueprintPlacer {
             case "longhouse" -> CivilizationBlocks.LONGHOUSE.get();
             case "croft" -> CivilizationBlocks.CROFT.get();
             case "library" -> CivilizationBlocks.LIBRARY.get();
+            case "grand_library" -> CivilizationBlocks.GRAND_LIBRARY.get();
             case "mill" -> CivilizationBlocks.MILL.get();
             case "carpentry" -> CivilizationBlocks.CARPENTRY.get();
             case "inn" -> CivilizationBlocks.INN.get();
@@ -1815,6 +1816,7 @@ public final class BlueprintPlacer {
             case "longhouse" -> longhouse(site, blocks, base);
             case "croft" -> croft(site, blocks, base);
             case "library" -> library(site, blocks, base);
+            case "grand_library" -> grandLibrary(site, blocks, base);
             case "mill" -> mill(site, blocks, base);
             case "carpentry" -> carpentry(site, blocks, base);
             case "inn" -> inn(site, blocks, base);
@@ -2871,6 +2873,217 @@ public final class BlueprintPlacer {
     private static final int LIBRARY_GALLERY = 4;
 
     private static final int LIBRARY_ROOF_CAP = 3;
+
+    /**
+     * The grand library: three floors of stacks round a hall, under a lantern.
+     *
+     * <p>The largest building in the mod and the last thing a town ever wants.
+     * Thirty-one by twenty-five is three of the plan's own frontages wide, which
+     * makes it the hardest case the siting loop has — and the catalog will not
+     * even offer it until an ordinary library is already standing, because "the
+     * library a town builds after its library" is a fact about what it has built
+     * rather than about how many people it has. See
+     * {@code BuildPlanner.prerequisiteStands}.
+     *
+     * <p><strong>How it is laid out, which is not how the library is.</strong>
+     * The library is one room with a two-block ring round it, and that ring does
+     * not scale: on this footprint it would leave a hole twenty-five by nineteen
+     * and the upper storey would be a shelf round a barn. So this is planned from
+     * the middle out — a hall eleven by seventeen open from the floor to the
+     * ceiling, wings floored solid on all three levels either side of it, and
+     * what reads as a gallery is the railed edge of those floors where they look
+     * into the hall. In cross-section, looking along the building:
+     *
+     * <pre>
+     *          ______________/^\______________     lantern, and the copper finial
+     *         /              |_|              \    capped hip over the whole plan
+     *   =====|=========|===========|===========|=  third floor, railed
+     *   |# # |         |           |         # #|
+     *   =====|=========|===========|===========|=  second floor, railed
+     *   |# # |         |    hall   |         # #|
+     *   |# # |  wing   |   (open)  |  wing   # #|  stacks three high, ground floor
+     *   |# # |         |           |         # #|
+     *   ~~~~~~~~~~~~~||===door====||~~~~~~~~~~~~  paved landing, pillars either side
+     * </pre>
+     *
+     * <p>The entrance is flush and the landing is level with the floor inside,
+     * which is not a compromise on this building in particular: a raised floor
+     * course would bury the block a player clicks — the standing note in
+     * {@code GOALS.md} about the granary and the hall says the same thing about
+     * the same cell — and a town that digs its sites out so you can walk
+     * straight in should not then make you step up. What a grand approach is
+     * made of instead is in {@link CivicParts#portico}.
+     */
+    private static int[] grandLibrary(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("grand_library");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        DyeColor colors = bedColor(site.culture());
+        // This people's masonry, under the roof shape a span this wide can carry,
+        // and with the porch taken off: a porch stands its posts either side of
+        // the door and this building's doorway is three wide, so the porch would
+        // be two posts in the entrance. The colonnade is the porch, thirty-one
+        // blocks of it.
+        HouseStyle masonry = CivicParts.porchless(CivicParts.walledIn(
+                style, style.plinth(), HouseStyle.Roof.HIP, GRAND_LIBRARY_ROOF_CAP));
+        int rx = size.width() / 2;
+        int rz = size.depth() / 2;
+
+        cabin(site, blocks, base, size, GRAND_LIBRARY_WALL, masonry.wall(), masonry.frame());
+        Parts.dress(blocks, base, size, GRAND_LIBRARY_WALL, masonry);
+        // One rank of arches per storey, each filling the courses between the
+        // floor it lights and the one above. Three rows is what says three floors
+        // from the street, and it is the only thing that does.
+        for (int sill : GRAND_LIBRARY_SILLS) {
+            CivicParts.archedWindows(blocks, base, size, sill, masonry.roofStairs());
+        }
+
+        // A three-wide nave from the doorstep to the middle of the hall. Three
+        // rather than one because the post stands in the middle of it: at one
+        // block wide the only way past the block you came to click would be
+        // through it.
+        Set<BlockPos> clear = CivicParts.wayIn(base, size, 1, 0);
+        clear.addAll(CivicParts.box(base, -1, 1, 0, rz + 1, 1, 2));
+
+        // The floor above has to be open over a flight, or a climber walks into
+        // the underside of the floor they are climbing to. Named here with the
+        // flights themselves so the two cannot drift apart.
+        Set<BlockPos> stairwells = new HashSet<>();
+        for (int side = -1; side <= 1; side += 2) {
+            for (int out = GRAND_LIBRARY_STAIR_FOOT - 2; out <= GRAND_LIBRARY_STAIR_FOOT; out++) {
+                stairwells.add(base.offset(side * out, GRAND_LIBRARY_FIRST_FLOOR,
+                        -GRAND_LIBRARY_LOWER_FLIGHT));
+                stairwells.add(base.offset(side * out, GRAND_LIBRARY_SECOND_FLOOR,
+                        -GRAND_LIBRARY_UPPER_FLIGHT));
+            }
+        }
+
+        CivicParts.shelves(blocks, base, size, 3, clear);
+        for (int floor : new int[] {GRAND_LIBRARY_FIRST_FLOOR, GRAND_LIBRARY_SECOND_FLOOR}) {
+            CivicParts.wingFloors(blocks, base, size, floor,
+                    GRAND_LIBRARY_HALL_RX, GRAND_LIBRARY_HALL_RZ,
+                    masonry.roofRidge(), style.post(), stairwells);
+        }
+        // Two flights a side, one per floor, so nobody has to cross the building
+        // to go up and so a blocked one is never the only one.
+        for (int side = -1; side <= 1; side += 2) {
+            CivicParts.flight(blocks, base, side * GRAND_LIBRARY_STAIR_FOOT,
+                    -GRAND_LIBRARY_LOWER_FLIGHT, 1, GRAND_LIBRARY_FIRST_FLOOR,
+                    -side, masonry.roofStairs());
+            CivicParts.flight(blocks, base, side * GRAND_LIBRARY_STAIR_FOOT,
+                    -GRAND_LIBRARY_UPPER_FLIGHT, GRAND_LIBRARY_FIRST_FLOOR + 1,
+                    GRAND_LIBRARY_SECOND_FLOOR - GRAND_LIBRARY_FIRST_FLOOR,
+                    -side, masonry.roofStairs());
+        }
+
+        // A reading room in each wing on each floor: two tables and a lectern,
+        // which is the whole difference between a floor of stacks and a room
+        // somebody reads in.
+        for (int side = -1; side <= 1; side += 2) {
+            for (int floor : new int[] {1, GRAND_LIBRARY_FIRST_FLOOR + 1,
+                    GRAND_LIBRARY_SECOND_FLOOR + 1}) {
+                for (int dz = -3; dz <= 3; dz += 6) {
+                    CivicParts.table(blocks, base, side * 10, floor, dz, style.post(), colors);
+                }
+                add(blocks, base.offset(side * 13, floor, 0), Blocks.LECTERN);
+            }
+        }
+        CivicParts.readingTable(blocks, base, 0, -4, CivicParts.slabOf(masonry.wall()));
+        add(blocks, base.offset(0, 1, -rz + 2), Blocks.CHISELED_BOOKSHELF);
+
+        // Light on every floor, and hung down into the hall rather than stuck to
+        // its ceiling eleven courses up. The ring under each floor is the part of
+        // a building this size that sits dark enough to spawn in.
+        for (int under : new int[] {GRAND_LIBRARY_FIRST_FLOOR - 1, GRAND_LIBRARY_SECOND_FLOOR - 1,
+                GRAND_LIBRARY_WALL}) {
+            CivicParts.wallLanterns(blocks, base, size, 2, under, 5);
+        }
+        for (int dz = -6; dz <= 6; dz += 6) {
+            CivicParts.chandelier(blocks, base, 0, dz, GRAND_LIBRARY_WALL, GRAND_LIBRARY_WALL - 2);
+        }
+
+        CivicParts.portico(blocks, base, size, GRAND_LIBRARY_COLUMNS,
+                GRAND_LIBRARY_WALL - 2, style);
+        CivicParts.doorBanners(blocks, base, size, 5, 4, colors);
+        // Over the middle rather than over the plan: the eave of the portico and
+        // a chimney both stand outside it, and a lantern stacked on the tallest
+        // thing anywhere would be stacked on one of them.
+        // Quartz on top rather than copper, and for a reason that is not taste:
+        // a copper block weathers. A drawing is compared against what is standing
+        // every time a repair is considered — see owedOf — so a finial that
+        // changed color on its own would be a finial the crew climbed up and
+        // replaced, forever. Quartz is the other pale, expensive, obviously-not-
+        // gold block, and it stays what it was laid as.
+        CivicParts.lantern(blocks, base,
+                CivicParts.topOver(blocks, base, from, GRAND_LIBRARY_DRUM),
+                GRAND_LIBRARY_DRUM, 2, masonry, Blocks.CHISELED_QUARTZ_BLOCK);
+
+        CivicParts.keepClear(blocks, clear);
+        add(blocks, base.offset(0, 1, rz - 1), CivilizationBlocks.GRAND_LIBRARY.get());
+        return measured(blocks, base, size, from);
+    }
+
+    /**
+     * Eleven courses of wall: three storeys of three, and a floor between each.
+     *
+     * <p>Nine courses of room and two of floor. Three is the least a room can be
+     * and still have a window in it that is not also its ceiling, which is what
+     * decides this rather than a preference — a storey of two would be a crawl
+     * space with shelves in it.
+     */
+    private static final int GRAND_LIBRARY_WALL = 11;
+
+    /** How far the capped hip may rise over a footprint this wide. */
+    private static final int GRAND_LIBRARY_ROOF_CAP = 3;
+
+    /** The courses the two upper floors are laid at. */
+    private static final int GRAND_LIBRARY_FIRST_FLOOR = 4;
+
+    private static final int GRAND_LIBRARY_SECOND_FLOOR = 8;
+
+    /**
+     * The open hall in the middle: eleven across, seventeen fore and aft.
+     *
+     * <p>Wide enough that the two upper floors read as balconies over a room
+     * rather than as a corridor with a slot in it, and narrow enough that what is
+     * left either side is a room somebody can put a desk in. Eleven by seventeen
+     * of the twenty-nine by twenty-three indoors, so a little over a quarter of
+     * the floor plate is the hall and the rest is wing.
+     */
+    private static final int GRAND_LIBRARY_HALL_RX = 5;
+
+    private static final int GRAND_LIBRARY_HALL_RZ = 8;
+
+    /**
+     * Where each rank of arched windows starts.
+     *
+     * <p>An arch is two courses of pane and a stair for its head, so these are
+     * the three storeys: two and three with the head at four, six and seven with
+     * the head at eight, nine and ten with the head at eleven. The first two
+     * heads land on the floor courses, which is where a window head belongs.
+     */
+    private static final int[] GRAND_LIBRARY_SILLS = {2, 6, 9};
+
+    /**
+     * Where the pillars of the portico stand along the front.
+     *
+     * <p>Eight of them, clear of the three-wide entrance and of the stepped
+     * shoulders either side of it, with the widest gap over the door. The
+     * outermost pair stands a block in from the corner of the plot, because the
+     * doorstep ring is all the ground this building has.
+     */
+    private static final int[] GRAND_LIBRARY_COLUMNS = {-13, -10, -7, -4, 4, 7, 10, 13};
+
+    /** Where a flight's bottom tread stands, measured out from the middle. */
+    private static final int GRAND_LIBRARY_STAIR_FOOT = 12;
+
+    /** The two rows the flights climb along, north of the middle. */
+    private static final int GRAND_LIBRARY_LOWER_FLIGHT = 8;
+
+    private static final int GRAND_LIBRARY_UPPER_FLIGHT = 6;
+
+    /** How far the roof lantern reaches either side of the middle. */
+    private static final int GRAND_LIBRARY_DRUM = 3;
 
     /** The mill: a grindstone under a spruce roof, hay in every corner. */
     /**

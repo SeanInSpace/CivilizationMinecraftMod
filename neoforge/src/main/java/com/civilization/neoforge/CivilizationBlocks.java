@@ -111,6 +111,11 @@ public final class CivilizationBlocks {
             "library",
             properties -> new BuildingPostBlock("Library", "the town's record and its learning — the building a settlement raises only once it can afford to.", properties),
             CivilizationBlocks::postProperties);
+    /** Grand Library: the library a town builds after its library. */
+    public static final DeferredBlock<BuildingPostBlock> GRAND_LIBRARY = BLOCKS.registerBlock(
+            "grand_library",
+            properties -> new BuildingPostBlock("Grand Library", "three floors of stacks round an open hall, under a lantern on the roof — the last and largest thing a town builds, and only after it has a library.", properties),
+            CivilizationBlocks::postProperties);
     /** Granary: harvest is carried here from the fields and kept. */
     public static final DeferredBlock<BuildingPostBlock> GRANARY = BLOCKS.registerBlock(
             "granary",

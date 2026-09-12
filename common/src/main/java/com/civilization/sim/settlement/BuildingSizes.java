@@ -241,6 +241,13 @@ public final class BuildingSizes {
         table.put("warehouse", new Size(11, 9));
         table.put("town_hall", new Size(13, 11));
         table.put("library", new Size(23, 17));
+        // The largest thing a settlement ever builds, and the one that has to be
+        // asked for twice: a grand library is only wanted once an ordinary
+        // library stands. Thirty-one by twenty-five claims thirty-three blocks
+        // of ground, which is three of the plan's own frontages — so it is the
+        // hardest case there is for the siting loop, and that is deliberate.
+        // Anything that fits this fits everything.
+        table.put("grand_library", new Size(31, 25));
 
         // Odd shapes, which are their own footprint and not a cabin.
         table.put("watchtower", new Size(5, 5));

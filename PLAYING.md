@@ -82,6 +82,7 @@ You do not manage anything. The town runs itself, on these rules:
   out of the same harvest. A carpentry cutting components ahead of need puts an
   extra pair of hands on every building site. An inn brings a trade caravan on a
   steady rhythm, swapping surplus bread for iron the town cannot mine.
+- **It builds a library, and then a grand one.** A library is the first thing a town raises purely because it can afford to — forty residents, one per town, nothing else needs it. The **Grand Library** is the last: thirty-one blocks by twenty-five, three floors of stacks and reading rooms round a hall open to the ceiling, a colonnade across the front and a lantern on the roof that is the tallest point in the settlement. It wants eighty residents *and* a library already standing, so it only ever appears in a town that has run out of things it needs.
 - **It repairs its own mistakes.** Houses are placed by geometry, so on a slope a door can end up above anything a settler can climb. If somebody keeps failing to get home at dusk, the town notices and orders a flight of steps up to that door — jumping the build queue, because a family locked out matters more than the next workshop.
 - **It keeps village hours.** By day, farmers head to the fields, builders to the construction site, traders to the storehouse and guards to the watchtower; at dusk everyone but the watch walks home. When danger is near, civilians run indoors and only guards hold the ground.
 - **Families grow into family housing.** People pair into households and have
@@ -577,7 +578,8 @@ and doors facing the way you placed them. Name it `civilization:town_hall`,
 `civilization:granary`, `civilization:watchtower` and so on for the rest. The
 founding-era buildings take blueprints the same way: `civilization:camp_post`,
 `civilization:cache`, `civilization:bunkhouse`, `civilization:hearth`, `civilization:cottage`,
-`civilization:mill`, `civilization:carpentry`, `civilization:inn`.
+`civilization:mill`, `civilization:carpentry`, `civilization:inn`. So do the two
+a town builds last: `civilization:library` and `civilization:grand_library`.
 
 There is **no size limit**. Vanilla's structure block stops at 48 blocks per
 axis; the wand does not, so a keep or a curtain wall is as easy as a cottage.

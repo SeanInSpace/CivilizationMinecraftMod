@@ -1,6 +1,8 @@
 package com.civilization.sim;
 
+import com.civilization.sim.culture.Culture;
 import com.civilization.sim.culture.Layout;
+import com.civilization.sim.culture.Layouts;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
@@ -209,6 +211,81 @@ class PlotOverlapTest {
         assertFalse(BuildPlanner.holdsGround(BuildPlanner.ACCESS_STAIRS));
         assertTrue(settlement.isPlotFree(new SimPos(40, 64, 3), 13, null),
                 "a flight of steps must not reserve a plot of its own");
+    }
+
+    @Test
+    void everyArrangementHasGroundSomewhereForTheWidestBuildingThereIs() {
+        // The question a thirty-three block plot asks of a plan pitched at eleven.
+        //
+        // The catalog's note on the library says a building wider than the plan's
+        // own frontage "takes two frontages and the siting loop simply walks past
+        // the offer it will not fit on" -- correct, and it was never asserted for
+        // anything wider than twenty-five. A grand library claims thirty-three,
+        // which is three frontages, and the failure mode if a plan cannot house it
+        // is silent: the town wants it, walks all ninety-six offers, finds nothing,
+        // and takes whatever the last one was. Nothing throws and nothing logs.
+        //
+        // Grown towns do site it on every arrangement. Measured on TerrainFake(11),
+        // a settler arriving every eighth step to a hundred residents, sixteen
+        // hundred steps, all thirteen arrangements plus the orc ring: fourteen for
+        // fourteen, one grand library each. And it costs nothing in siting — the
+        // distance out from the middle, grand library against the ordinary library
+        // as the control:
+        //
+        //   warren 628/597   organic 226/204   thorp 269/275   orc_ring 237/209
+        //   stronghold 132/148   stronghold_streets 218/192   ring 204/204
+        //   high_street 155/312   radial_concentric 283/283   crossroads 324/324
+        //   bastide 238/235   green 238/228   ring_streets 290/287
+        //   crescents 458/440
+        //
+        // Within thirty blocks either way on twelve of fourteen, and on the
+        // thirteenth (high street) the wider building landed nearer the middle
+        // than the narrower one. Eight blocks more plot buys no exile at all.
+        //
+        // That run takes ten minutes, which is why it is not this test. This is
+        // the cheap regression detector for it: the same walk, on bare geometry,
+        // with no terrain and no clock.
+        SimPos center = new SimPos(0, 64, 0);
+        int grand = BuildingSizes.plotSpanOf("civilization:grand_library");
+        assertEquals(33, grand, "the number this test is about");
+
+        for (String id : Culture.all().stream()
+                .flatMap(culture -> culture.layouts().stream()).distinct().toList()) {
+            Layout plan = Layouts.of(id);
+            List<SimPos> claimed = new ArrayList<>();
+            // A town's worth of ordinary buildings first, claimed off the front of
+            // the plan exactly as a settlement claims them -- because the offers
+            // near the middle are the ones that will already be gone by the time
+            // anybody wants this.
+            for (int index = 0; index < 60; index++) {
+                SimPos at = plan.plotFor(center, index);
+                boolean free = claimed.stream().noneMatch(
+                        held -> BuildPlanner.plotsOverlap(at, Layout.DEFAULT_SPAN,
+                                held, Layout.DEFAULT_SPAN));
+                if (free) {
+                    claimed.add(at);
+                }
+            }
+            assertTrue(claimed.size() >= 20,
+                    id + " offers too little to say anything: " + claimed.size()
+                            + " plots taken out of sixty");
+
+            int offer = -1;
+            for (int index = 0; index < BuildPlanner.PLOT_ATTEMPTS; index++) {
+                SimPos at = plan.plotFor(center, 60 + index);
+                boolean free = claimed.stream().noneMatch(
+                        held -> BuildPlanner.plotsOverlap(at, grand,
+                                held, Layout.DEFAULT_SPAN));
+                if (free) {
+                    offer = index;
+                    break;
+                }
+            }
+            assertTrue(offer >= 0,
+                    id + " has no offer in " + BuildPlanner.PLOT_ATTEMPTS + " that a "
+                            + grand + "-block plot fits on, so a grand library would be"
+                            + " put wherever the search gave up");
+        }
     }
 
     @Test
