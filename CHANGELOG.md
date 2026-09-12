@@ -6,6 +6,34 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The board is readable and the commands take the ids they print
+
+### Fixed
+
+- **The quest board's rows stay in their columns.** The sentence under each ask
+  — the reason the town wants the thing — used to run straight under the reward
+  and out past the edge of the panel, so "48 Coin, +2 standing" and "The larder
+  will not see us through the winter" were printed on top of each other. The row
+  is laid out in columns now: the title and its reason on the left, the count and
+  the reward in a column of their own, and the Accept button against the right
+  margin. A sentence too long for its column ends in an ellipsis instead of
+  walking over the next thing.
+
+- **The line under the board is no longer cut off by the tab.** It read "Paid out
+  of the town's own purse. Deliveries at the sto" with the Done button sitting on
+  the rest of it. It stops short of the button and wraps.
+
+- **The animal farm has a texture again.** It was drawing as the purple-and-black
+  missing-texture cube, because its model asked for a picture of an oak fence and
+  there is no such picture — a fence is drawn out of planks. Pens look like pens.
+
+- **`/civ culture civilization:orc/warhost` works without quotes.** Every culture
+  id has a colon and a slash in it, and the command stopped reading at the colon
+  and complained about whitespace — so the one thing the command exists to be
+  given was the one thing it would not accept. The same fault is fixed in
+  `/civ blueprint scan`, `check` and `place`, which take names like
+  `civilization:norman/house` straight from what `/civ blueprint list` prints.
+
 ## A grand library, and the first building a town has to earn twice
 
 ### New

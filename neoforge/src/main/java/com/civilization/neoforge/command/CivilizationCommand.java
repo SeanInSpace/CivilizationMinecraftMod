@@ -201,8 +201,16 @@ public final class CivilizationCommand {
                 .then(Commands.literal("stores")
                         .executes(CivilizationCommand::stores))
 
+                // greedyString rather than string(), and the difference is the
+                // whole of whether this command works. A Brigadier unquoted
+                // string stops at the first character outside [0-9A-Za-z_.+-],
+                // and every culture id has both a colon and a slash in it, so
+                // "/civ culture civilization:orc/warhost" came back as "Expected
+                // whitespace to end one argument" pointing at the colon. It is
+                // the last argument, and a culture id has no spaces in it, so
+                // the rest of the line is the id.
                 .then(Commands.literal("culture")
-                        .then(Commands.argument("id", StringArgumentType.string())
+                        .then(Commands.argument("id", StringArgumentType.greedyString())
                                 .suggests((ctx, builder) -> {
                                     for (Culture known : Culture.all()) {
                                         builder.suggest(known.id());
