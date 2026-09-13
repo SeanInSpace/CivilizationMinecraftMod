@@ -7,6 +7,7 @@ import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.settlement.BuildPlanner;
 import com.civilization.sim.settlement.BuildTask;
 import com.civilization.sim.settlement.Building;
+import com.civilization.sim.settlement.BuildingSizes;
 import com.civilization.sim.settlement.Footprint;
 import com.civilization.sim.settlement.PathNetwork;
 import com.civilization.sim.settlement.Perimeter;
@@ -210,17 +211,24 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
     public static final int MAX_HEIGHT = 256;
 
     /**
-     * How tall a queued building is drawn before anybody has measured one: six.
+     * How tall a queued building is drawn before anybody has measured one.
      *
-     * <p>Width and depth have a declared size to fall back on and height has
-     * none — a blueprint's height is what {@code BlueprintPlacer} measures off
-     * the placements once the thing is drawn, because a roof that rises with the
-     * depth and a chimney that has to clear the ridge are not in the catalog. Six
-     * is what an ordinary cottage comes out at: three courses of wall and its
-     * roof. The box is redrawn at the true height on the step the building is
-     * raised, so this is only ever what an order looks like while it is waiting.
+     * <p>It used to be a flat six for everything, because width and depth had a
+     * declared size to fall back on and height had none: a plot's box was six
+     * courses whether the order was a watchtower, a grand library or a field, and
+     * the one question the lamp is carried up a hill to answer — what is going to
+     * stand here — was answered wrong for all but a cottage.
+     *
+     * <p>{@link BuildingSizes} declares a height per kind now, so the fall-back is
+     * the kind's own ceiling and the flat number survives only for a blueprint
+     * this build has never heard of. The box is still redrawn at the height
+     * actually measured on the step the building is raised, so a culture with a
+     * shallower roof than the ceiling is right within a course or two while it
+     * waits and exactly right once it stands.
      */
-    public static final int PLANNED_HEIGHT = 6;
+    private static int plannedHeight(String blueprintId) {
+        return BuildingSizes.heightOf(blueprintId);
+    }
 
     private static final int MAX_ID = 96;
 
@@ -359,8 +367,10 @@ public record SurveyPayload(BlockPos origin, List<Run> runs, List<Plot> plots)
             int width = footprint.isKnown() ? footprint.width() : span;
             int depth = footprint.isKnown() ? footprint.depth() : span;
             // A footprint is known by its ground, so a task that has one may
-            // still carry no height: an order is measured when it is drawn.
-            int height = footprint.height() > 0 ? footprint.height() : PLANNED_HEIGHT;
+            // still carry no height: an order is measured when it is drawn, and
+            // until then the box stands at the kind's declared height.
+            int height = footprint.height() > 0
+                    ? footprint.height() : plannedHeight(task.blueprintId());
             found.add(new Near(plot(origin, task.origin(), width, depth, height,
                     task.facing(), task.blueprintId(), false),
                     distance(eye, task.origin())));

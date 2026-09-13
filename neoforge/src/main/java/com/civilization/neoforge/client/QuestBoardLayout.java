@@ -112,4 +112,127 @@ public final class QuestBoardLayout {
 
     /** How many lines of footer fit between the rule and the bottom edge. */
     public static final int FOOTER_LINES = 2;
+
+    // --- and how far down the board may go -----------------------------------
+
+    /**
+     * The header the panel shares with every other screen in the mod.
+     *
+     * <p>Aliased here, the way {@link #PADDING} is, so that the vertical
+     * arithmetic below reads as one sum in one place rather than reaching across
+     * two classes halfway through.
+     */
+    public static final int HEADER = CivilizationPanel.HEADER;
+
+    /**
+     * The smallest screen the board must fit inside, in GUI pixels.
+     *
+     * <p>720 pixels of window at GUI scale 3, which is the case the fault was
+     * reported on: a 1280×720 window is the smallest anybody plays at and 3 is
+     * the largest scale that window offers. Everything wider or less magnified
+     * gives more room, never less, so a board that fits here fits everywhere.
+     *
+     * <p>The horizontal bound is {@link #PANEL_WIDTH} against 426 — the same
+     * window, the same scale — and it has been asserted since the columns
+     * landed. This is that argument's other half, and it was missing: rows were
+     * stacked from the top of the panel with nothing counting them, so the panel
+     * simply grew taller than the screen it was centered in. At six notices the
+     * first row and the footer were both off the edge.
+     */
+    public static final int MIN_SCREEN_HEIGHT = 240;
+
+    /**
+     * A slim scrollbar, in the right-hand margin.
+     *
+     * <p>In the margin on purpose: the row's columns add up to exactly
+     * {@link #PANEL_WIDTH} and a scrollbar that took a column of its own would
+     * have to take those pixels off the reason or off the reward, which are the
+     * two things on the row worth reading. {@link #PADDING} is fourteen, so four
+     * pixels of bar with five of air either side fits in ground that was blank
+     * anyway, and the bar is only drawn when there is something to scroll.
+     */
+    public static final int SCROLLBAR_WIDTH = 4;
+
+    /** The bar's left edge, inside the right margin. */
+    public static final int SCROLLBAR_LEFT = PANEL_WIDTH - 5 - SCROLLBAR_WIDTH;
+
+    /**
+     * The shortest the thumb may be drawn.
+     *
+     * <p>A hundred notices in a viewport of five would otherwise give a thumb of
+     * one pixel, which is a mark rather than a handle.
+     */
+    public static final int MIN_THUMB = 8;
+
+    /**
+     * How many rows of this height the screen has room for between the header and
+     * the footer.
+     *
+     * <p>At least one, always: a screen too short for even a single row gets a
+     * clipped row rather than a panel with no list in it, because a board that
+     * shows nothing is indistinguishable from a town that is asking for nothing.
+     */
+    public static int rowsThatFit(int screenHeight, int rowHeight) {
+        int room = screenHeight - HEADER - FOOTER;
+        return Math.max(1, room / rowHeight);
+    }
+
+    /** How many rows are actually drawn: what fits, or all of them if fewer. */
+    public static int visibleRows(int screenHeight, int rowHeight, int rowCount) {
+        return Math.min(Math.max(1, rowCount), rowsThatFit(screenHeight, rowHeight));
+    }
+
+    /** The height of the list itself — the part that scrolls. */
+    public static int viewportHeight(int screenHeight, int rowHeight, int rowCount) {
+        return visibleRows(screenHeight, rowHeight, rowCount) * rowHeight;
+    }
+
+    /**
+     * The whole panel: header, as much list as fits, footer.
+     *
+     * <p>This is the number that used to grow without bound, and the only reason
+     * it is a function of the screen rather than of the board.
+     */
+    public static int panelHeight(int screenHeight, int rowHeight, int rowCount) {
+        return HEADER + viewportHeight(screenHeight, rowHeight, rowCount) + FOOTER;
+    }
+
+    /** The furthest down the list can be scrolled, counted in rows. */
+    public static int maxScroll(int screenHeight, int rowHeight, int rowCount) {
+        return Math.max(0, rowCount - visibleRows(screenHeight, rowHeight, rowCount));
+    }
+
+    /** A scroll position held inside its own range. */
+    public static int clampScroll(int scroll, int screenHeight, int rowHeight,
+                                  int rowCount) {
+        return Math.max(0, Math.min(scroll, maxScroll(screenHeight, rowHeight, rowCount)));
+    }
+
+    /** How tall the thumb is: the visible share of the list, floored at {@link #MIN_THUMB}. */
+    public static int thumbHeight(int screenHeight, int rowHeight, int rowCount) {
+        int viewport = viewportHeight(screenHeight, rowHeight, rowCount);
+        int visible = visibleRows(screenHeight, rowHeight, rowCount);
+        int count = Math.max(1, rowCount);
+        return Math.max(MIN_THUMB, Math.min(viewport, viewport * visible / count));
+    }
+
+    /**
+     * How far down the track the thumb's top sits, in pixels from the top of the
+     * viewport.
+     *
+     * <p>Zero when there is nothing to scroll, and exactly
+     * {@code viewport - thumb} at the bottom of the list — so the thumb touching
+     * the bottom of the track means the last notice is on screen, which is the
+     * one thing a scrollbar has to tell the truth about.
+     */
+    public static int thumbOffset(int scroll, int screenHeight, int rowHeight,
+                                  int rowCount) {
+        int range = maxScroll(screenHeight, rowHeight, rowCount);
+        if (range <= 0) {
+            return 0;
+        }
+        int travel = viewportHeight(screenHeight, rowHeight, rowCount)
+                - thumbHeight(screenHeight, rowHeight, rowCount);
+        return clampScroll(scroll, screenHeight, rowHeight, rowCount) * travel / range;
+    }
 }

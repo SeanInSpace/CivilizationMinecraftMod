@@ -6,6 +6,80 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The fields keep working in a famine, and the board fits on the screen
+
+### Fixed
+
+- **A watched town's fields no longer empty during a famine.** The simulation's
+  rule has always been that the weakness rule is suspended while a town is
+  starving — weak hands go on farming, because the field is the thing that ends
+  the famine — and that somebody with no meal within reach keeps working, because
+  a starving idler is worse off than a starving worker. The watched loop did not
+  know either of those: it asked the plain personal question "is this person too
+  weak to work" in ten places, so the moment a town you were standing in went
+  hungry its farmers, lumberjacks, miners, shepherds, builders, wall crew and
+  haulers all downed tools while an identical town nobody was watching carried on.
+  All ten now ask the town's question, and each pass asks it once so a harvest
+  that lifts the famine part-way through cannot leave the fields and the haulers
+  disagreeing about who counts as a worker. Waking up is deliberately still
+  personal: hunger that bad gets you out of bed whether or not the granary is
+  empty.
+
+- **The quest board has a bottom edge.** Notices were stacked downward from the
+  header for as long as the board was, so the panel's height was the town's
+  business rather than the screen's: past five asks it ran off a 720p window at
+  GUI scale 3, and at twelve the header was off the top and the footer — with the
+  only button that changes face on it — off the bottom. The list is a bounded
+  viewport now: as many notices as the screen holds, the wheel scrolls one at a
+  time, and a slim bar in the right margin says where in the list you are. The
+  board's "done" face scrolls the same way at its own row height.
+
+- **A digger no longer levels the lumber camp's own post.** The camp's marker was
+  the one building post in the mod that was not a `BuildingPostBlock`, so nothing
+  recognized it as a post: it was not laid first at the site — where a post is the
+  flag on the plot, the thing you walk up to and read while the job is still a
+  hole — and its cell was not withheld from the excavation, so the crew clearing
+  the ground took the sign down. The camp's controls are unchanged; the block is
+  in the hierarchy now, and the test that pins the post table refuses anything
+  else that is not.
+
+- **Middle-clicking a settler in creative gives you that settler's egg.** There is
+  one settler entity type for every race, and vanilla looks a spawn egg up by
+  entity type — so both eggs matched and you got whichever one the map held,
+  regardless of whether you clicked a human or an orc. The body knows its own
+  race, so it answers for itself. Still one entity type: a type per race would
+  put the race back in the attribute table the whole design takes it out of.
+
+- **A planned plot is drawn the height the building will actually be.** The
+  surveyor's lamp drew every queued order as a box six courses tall, because six
+  is what a cottage happens to come out at and no height was declared anywhere.
+  A watchtower's order read as a shed, a grand library's read as a shed, and a
+  field's read as three times what it is — which is the one question you carry the
+  lamp up a hill to ask. Every kind declares a height now, measured off what the
+  placer actually draws and pinned against all twenty-seven of them in every
+  culture there is. The box is still redrawn at the exact measured height the
+  moment the building goes up.
+
+- **An authored blueprint is measured against the ground reserved for it, and
+  stands in the middle of it.** Two faults, one of them silent. A file's height was
+  never compared with anything, and now that a height is declared it is: a file
+  taller than its kind's ceiling is refused by name, because the site is only
+  cleared to the declared height and the rest of that building would be inside the
+  hillside. And a file naming a cell other than its own middle as its anchor was
+  laid with that cell on the plot — while the town recorded the building centered,
+  so every overlap check about it was wrong by the offset, in the direction of
+  believing the ground it was actually standing in was free. A building stands
+  centered on its plot; the anchor is reported rather than obeyed, so an author is
+  told the cell they named did nothing instead of finding out from a cottage built
+  through their wall.
+
+### Notes
+
+- Nothing ships an authored blueprint, so the anchor fault was a datapack's way of
+  making two structures overlap rather than something a player could hit. It is
+  fixed anyway, because the check that would have caught it in play was the same
+  check being extended for the height.
+
 ## Nobody starves in front of the bread
 
 ### Changed

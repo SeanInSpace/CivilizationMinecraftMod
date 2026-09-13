@@ -1568,16 +1568,21 @@ public final class BlueprintPlacer {
      * Turns an authored blueprint into a plan on this site.
      *
      * <p>Blueprints are held from their minimum corner while build plots are
-     * points, so the structure is laid so that the cell it names as its anchor
-     * lands on the plot. Most authored files say which cell that is — Structurize
-     * records it as {@code primary_offset}, usually the hut block — and a file
-     * that says nothing is centered on its own footprint, which is what this
-     * always did. Honoring the stated one is what stops an imported building
-     * sitting beside its plot instead of on it.
+     * points, so the structure is laid so that the middle of its own box lands on
+     * the plot — {@link AuthoredReading#plotCell}, which is where the argument
+     * for the middle rather than the file's stated anchor is set out. In short: a
+     * plot is a point, {@link Footprint} is measured about that point, and
+     * {@link #finish} below squares the excavation, the apron and the recorded
+     * footprint off around it. Laying a corner cell on the point instead
+     * displaces the building while the town records it centered, and every overlap
+     * check about it is then wrong by the offset, in the direction of believing
+     * the neighboring ground is free.
      *
      * <p>The blueprint itself has no foundation — nobody draws one — so the same
      * cobble underpinning the procedural shapes get is laid beneath it, which is
-     * what stops an authored building floating over a slope.
+     * what stops an authored building floating over a slope. That pad is centered
+     * on the plot too, which is a second reason the structure has to be: a
+     * displaced building stood half off its own footings.
      */
     private static StructurePlan fromBlueprint(ServerLevel level, Site site,
                                                LoadedBlueprint blueprint,
@@ -1587,16 +1592,15 @@ public final class BlueprintPlacer {
         if (!refuseOversize(path, reading.survey())) {
             return null;
         }
-        // The origin that puts the blueprint's own anchor cell on the plot.
+        // The origin that puts the middle of the file's box on the plot.
         //
-        // Its height is deliberately ignored. A stated anchor names a cell in
-        // three dimensions — a real file gives (10, 2, 22) in a 32x16x31
-        // structure, so its hut block sits two courses up — but a plot is a
-        // floor, and shifting the structure down by two to line that block up
-        // would bury its bottom two courses in the ground. The building stands
-        // on its plot; the anchor decides where on it.
-        BlockPos stated = blueprint.anchor();
-        BlockPos anchor = base.offset(-stated.getX(), 0, -stated.getZ());
+        // The height is not shifted at all, for the reason a stated anchor's
+        // height never was: a plot is a floor. A real file's anchor is a cell in
+        // three dimensions — (10, 2, 22) in a 32x16x31 structure, its hut block
+        // two courses up — and lining that course up with the plot would bury the
+        // bottom two courses of the building in the ground.
+        BlockPos middle = AuthoredReading.plotCell(size);
+        BlockPos anchor = base.offset(-middle.getX(), 0, -middle.getZ());
 
         List<Placement> blocks = new ArrayList<>(blueprint.blockCount() + 32);
         foundation(site, blocks, base, size.getX(), size.getZ());

@@ -229,6 +229,66 @@ class AuthoredBuildingTest {
         assertEquals(7, turned.depth());
     }
 
+    /**
+     * A file whose stated anchor is a corner is read — and placed — centered.
+     *
+     * <p>The fault is not in the file; it is in what honoring that cell would do.
+     * A plot is a point, a {@link Footprint} is a width and a depth measured about
+     * that point, and every overlap check in the mod compares two of those. Laying
+     * a seven-wide structure with its corner on the point displaces it three
+     * blocks while the town records it centered, so the plan reads the ground it
+     * is actually standing in as free and puts something else there.
+     *
+     * <p>Measured here as the thing that actually goes wrong: the reading is about
+     * the middle, so a cottage-sized file has nothing outside its declared
+     * footprint. Read about the stated corner every cell of it is three blocks out
+     * and the file is refused for sprawl — which was the old behavior, and a
+     * confusing way to be told your anchor is in the wrong place.
+     */
+    @Test
+    void aFileAnchoredAtItsCornerIsStillMeasuredAboutItsMiddle() {
+        BlueprintCheck.Survey cornered = AuthoredReading.read("civilization:cottage",
+                new LoadedBlueprint(boxAnchoredAt(7, 5, 7, new BlockPos(0, 0, 0))), 0)
+                .survey();
+
+        assertEquals(7, cornered.width(), "the box is the same box whatever cell it names");
+        assertEquals(7, cornered.depth());
+        assertEquals(0, cornered.strayCells(),
+                "measured about the middle, a seven-by-seven file is inside the"
+                        + " declared cottage; measured about the corner every cell of"
+                        + " it reads as three blocks outside");
+        assertEquals(0, cornered.lowOverhangCells());
+        assertEquals(3, cornered.anchorOffMiddle(),
+                "and how far off the stated cell was is reported, in blocks");
+
+        // A solid cobble box has no beds and no doorway, so it is refused for
+        // those -- as it should be. What it must not be refused for is standing
+        // outside its own footprint or outgrowing its plot, which is what reading
+        // it about the stated corner would have said.
+        List<BlueprintCheck.Finding> findings = BlueprintCheck.of(cornered);
+        assertFalse(findings.stream().anyMatch(
+                        f -> f.message().contains("outside the footprint")),
+                "read about the middle, nothing in this file is outside it: " + findings);
+        assertFalse(findings.stream().anyMatch(
+                        f -> f.message().startsWith("SIZE MISMATCH")),
+                "and seven by seven is the declared cottage: " + findings);
+        assertTrue(findings.stream().anyMatch(
+                        f -> f.message().contains("off the middle of its own box")),
+                "and the author is told their anchor did nothing: " + findings);
+        assertTrue(findings.stream().anyMatch(
+                        f -> f.message().contains("off the middle of its own box")
+                                && !f.severity().isFault()),
+                "as a warning, not a refusal -- the file is placed centered and"
+                        + " nothing about it is displaced: " + findings);
+    }
+
+    @Test
+    void aFileAnchoredAtItsMiddleIsWarnedAboutNothing() {
+        assertEquals(0, reading(0, 0).survey().anchorOffMiddle(),
+                "the example cottage anchors at the middle of its floor, which is"
+                        + " what every file that says nothing in particular comes out as");
+    }
+
     // --- which file a town asks for -------------------------------------------
 
     @Test
@@ -305,6 +365,13 @@ class AuthoredBuildingTest {
 
     /** A solid box of the given size, anchored at the middle of its floor. */
     private static Blueprint box(int width, int height, int depth) {
+        return boxAnchoredAt(width, height, depth,
+                new BlockPos(width / 2, 0, depth / 2));
+    }
+
+    /** The same box, naming whatever cell it likes as its anchor. */
+    private static Blueprint boxAnchoredAt(int width, int height, int depth,
+                                           BlockPos anchor) {
         List<Blueprint.BlueprintBlock> blocks = new ArrayList<>();
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
@@ -314,8 +381,8 @@ class AuthoredBuildingTest {
                 }
             }
         }
-        return new Blueprint(new Vec3i(width, height, depth), blocks,
-                new BlockPos(width / 2, 0, depth / 2), Blueprint.Meta.NONE);
+        return new Blueprint(new Vec3i(width, height, depth), blocks, anchor,
+                Blueprint.Meta.NONE);
     }
 
     private static int byPosition(SimPos a, SimPos b) {

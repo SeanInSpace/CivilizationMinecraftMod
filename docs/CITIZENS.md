@@ -480,16 +480,32 @@ Everything below is a real difference, not an implementation detail.
    materialization), which is what stops a town starving on a farm it has not
    seen yet.
 
-## 7. Known differences that are faults, not design
+## 7. One hunger question, asked the same way at both fidelities
 
-Both live in `PersonEntityManager`, which this document's author does not own.
-They are written up in full in the report that accompanies this file.
+**Both fidelities ask `FoodPlanner.heldBackByHunger(settlement, person,
+starving)`, and neither asks `person.isTooWeakToWork()` about work.** That is
+the rule, and the watched loop now keeps it.
 
-* `workFarmers`, `workLumberjacks` and `dailyRoutine` gate on
-  `person.isTooWeakToWork()` rather than
-  `FoodPlanner.heldBackByHunger(person, settlement.isStarving())`. The clock
-  suspends the weakness rule while a town is starving — precisely so weak hands
-  go on farming — and the watched loop does not. So in the exact circumstance the
-  suspension exists for, a watched town's farmers stand still while an unwatched
-  one's keep working. The town does not die (the 12-step harvest floor covers it)
-  but the player sees the fields abandoned during a famine.
+`isTooWeakToWork()` is a fact about a body: hunger at or past
+`Person.HUNGER_WEAK`. It is not the question "may this person be sent to work",
+because the clock suspends the weakness rule while the town is starving —
+precisely so that weak hands go on farming, since the field is the thing that
+ends the famine — and it also keeps somebody working when there is no meal
+within reach, because a starving idler is worse off than a starving worker.
+Asking the personal fact instead of the town's question therefore empties a
+watched town's fields in exactly the circumstance the suspension exists for.
+
+It used to. Ten gates in `PersonEntityManager` asked the personal fact:
+`deliverSpoil`, `workShepherds`, `workMiners`, `workFarmers`,
+`workLumberjacks`, `embodiedBuilders`, `workWall`, and the builder, lumberjack
+and farmer stand-asides in `dailyRoutine`. All ten now ask
+`heldBackByHunger`, and each pass asks `settlement.isStarving()` **once** and
+carries the answer through its loop — the same discipline `FoodPlanner.advance`
+keeps, so a harvest that lifts the famine part-way through cannot leave the
+fields and the haulers disagreeing about who is a worker.
+
+**One deliberate exception: waking.** `NightRest.mustWake` is still handed
+`person.isTooWeakToWork()`, and should be. Getting out of bed is not a question
+about the town's granary; hunger that bad wakes you whether or not the town is
+starving, and routing it through the suspension would mean a famine is precisely
+when nobody stirs. Weakness wakes you regardless of the town.

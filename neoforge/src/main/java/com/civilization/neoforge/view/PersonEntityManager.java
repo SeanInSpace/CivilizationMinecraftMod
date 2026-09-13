@@ -794,6 +794,7 @@ public final class PersonEntityManager {
         // is asked only once somebody is actually holding something. Almost
         // always nobody is.
         Boolean digging = null;
+        boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             if (person.haul() != null || person.pockets().isEmpty()
                     || !person.isEmbodied()) {
@@ -801,7 +802,7 @@ public final class PersonEntityManager {
             }
             if (!person.pockets().isFull()
                     && settlement.laborsAs(person, Profession.BUILDER)
-                    && !person.isTooWeakToWork()) {
+                    && !FoodPlanner.heldBackByHunger(settlement, person, starving)) {
                 if (digging == null) {
                     digging = hasOpenDig(settlement);
                 }
@@ -1909,10 +1910,11 @@ public final class PersonEntityManager {
             return false;
         }
         boolean changed = false;
+        boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             if (person.profession() != Profession.SHEPHERD
                     || !person.isEmbodied()
-                    || person.isTooWeakToWork()
+                    || FoodPlanner.heldBackByHunger(settlement, person, starving)
                     || person.haul() != null) {
                 continue;
             }
@@ -1931,10 +1933,11 @@ public final class PersonEntityManager {
             return false;
         }
         boolean changed = false;
+        boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             if (person.profession() != Profession.MINER
                     || !person.isEmbodied()
-                    || person.isTooWeakToWork()
+                    || FoodPlanner.heldBackByHunger(settlement, person, starving)
                     || person.haul() != null) {
                 continue;
             }
@@ -1949,9 +1952,11 @@ public final class PersonEntityManager {
 
     /** Every embodied farmer works their field: harvest, tend, plant. */
     private void workFarmers(Settlement settlement) {
+        boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             if (!settlement.laborsAs(person, Profession.FARMER) || !person.isEmbodied()
-                    || person.isTooWeakToWork() || person.haul() != null) {
+                    || FoodPlanner.heldBackByHunger(settlement, person, starving)
+                    || person.haul() != null) {
                 continue;   // a hauling farmer is on the road, not in the rows
             }
             PersonEntity view = tracked.get(person.id().value());
@@ -1968,10 +1973,11 @@ public final class PersonEntityManager {
             return false;
         }
         boolean changed = false;
+        boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             if (person.profession() != Profession.LUMBERJACK
                     || !person.isEmbodied()
-                    || person.isTooWeakToWork()
+                    || FoodPlanner.heldBackByHunger(settlement, person, starving)
                     || person.haul() != null) {
                 continue;
             }
@@ -2115,10 +2121,11 @@ public final class PersonEntityManager {
     private List<PersonEntity> embodiedBuilders(Settlement settlement) {
         List<PersonEntity> builders = new ArrayList<>();
         UUID spared = sparedForWorks.get(settlement.id().value());
+        boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             if (!settlement.laborsAs(person, Profession.BUILDER)
                     || !person.isEmbodied()
-                    || person.isTooWeakToWork()) {
+                    || FoodPlanner.heldBackByHunger(settlement, person, starving)) {
                 continue;
             }
             if (person.haul() != null) {
@@ -3198,9 +3205,11 @@ public final class PersonEntityManager {
             return false;   // shelter and stores before roads and walls
         }
         UUID spared = sparedForWorks.get(town);
+        boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             if (!settlement.laborsAs(person, Profession.BUILDER)
-                    || !person.isEmbodied() || person.isTooWeakToWork()
+                    || !person.isEmbodied()
+                    || FoodPlanner.heldBackByHunger(settlement, person, starving)
                     || person.haul() != null) {
                 continue;
             }
@@ -3489,6 +3498,11 @@ public final class PersonEntityManager {
         // clock's, and it is the same figure vanilla villagers keep.
         boolean bedtime = night && NightRest.isNight(level.getDefaultClockTime());
         Alarm alarm = settlement.alarm();
+        // The town's answer, asked once for the whole pass, exactly as
+        // FoodPlanner.advance asks it once for the whole step: a harvest that
+        // lifts the famine mid-pass must not leave the fields and the routine
+        // disagreeing about who is still a worker.
+        boolean starving = settlement.isStarving();
 
         Map<UUID, SimPos> homes = new HashMap<>();
         for (Household household : settlement.households()) {
@@ -3522,6 +3536,15 @@ public final class PersonEntityManager {
             // creeper all get somebody up; an errand does not, or a settler who
             // walks a loaf home every evening would be turned out of bed on the
             // pass after they got into it, every night.
+            //
+            // Waking stays a personal question: mustWake is handed
+            // person.isTooWeakToWork() and not heldBackByHunger, deliberately.
+            // Every other gate on this pass asks whether the town still counts
+            // somebody as a worker, and the famine suspension exists so that a
+            // starving town's weak hands go on farming. Being woken by an empty
+            // stomach is not about the town at all — hunger that bad gets you out
+            // of bed whether or not the granary is empty, and suspending it would
+            // mean a famine is exactly when nobody stirs.
             SimPos bed = guard ? null : Beds.bedFor(settlement, person);
             if (view.isSleeping()) {
                 if (NightRest.mustWake(bedtime, called, view.isThreatened(),
@@ -3567,20 +3590,20 @@ public final class PersonEntityManager {
                     && (steeredByBuild.contains(person.id().value())
                             || isOnAPublicWork(settlement, person)
                             || isClearing(settlement))
-                    && !person.isTooWeakToWork()) {
+                    && !FoodPlanner.heldBackByHunger(settlement, person, starving)) {
                 continue;
             }
             if (person.profession() == Profession.LUMBERJACK
                     && !alarm.callsIn(Profession.LUMBERJACK) && !night
                     && person.haul() == null
                     && settlement.lumberArea() != null
-                    && !person.isTooWeakToWork()) {
+                    && !FoodPlanner.heldBackByHunger(settlement, person, starving)) {
                 continue;   // steered tree by tree in workLumberjacks
             }
             if (settlement.laborsAs(person, Profession.FARMER)
                     && !alarm.callsIn(person.profession()) && !night
                     && person.haul() == null
-                    && !person.isTooWeakToWork()) {
+                    && !FoodPlanner.heldBackByHunger(settlement, person, starving)) {
                 continue;   // steered row by row in workFarmers
             }
             // An orc who is not of the watch is carrying his own weapon, and it

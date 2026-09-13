@@ -24,15 +24,20 @@ public final class CivilizationBlocks {
     public static final DeferredRegister.Blocks BLOCKS =
             DeferredRegister.createBlocks(CivilizationMod.MOD_ID);
 
-    /** The lumber camp's control post; see {@link LumberCampBlock}. */
+    /**
+     * The lumber camp's control post; see {@link LumberCampBlock}.
+     *
+     * <p>Registered on {@link #postProperties} like every other post, rather than
+     * on a bespoke set of its own. The set it had was the same wood and the same
+     * strength plus {@code ignitedByLava}, which made the one block in a town that
+     * holds its woodland orders the one block a lava flow could delete.
+     */
     public static final DeferredBlock<LumberCampBlock> LUMBER_CAMP = BLOCKS.registerBlock(
             "lumber_camp",
-            LumberCampBlock::new,
-            () -> BlockBehaviour.Properties.of()
-                    .mapColor(MapColor.WOOD)
-                    .strength(2.5F)
-                    .sound(SoundType.WOOD)
-                    .ignitedByLava());
+            properties -> new LumberCampBlock("Lumber Camp",
+                    "timber is cut here, and the camp's woodland is set at this post.",
+                    properties),
+            CivilizationBlocks::postProperties);
 
 
     /** Town Hall: the seat of the settlement, and the first thing it builds. */
@@ -189,7 +194,7 @@ public final class CivilizationBlocks {
 
     /** Every post the mod registers, in build order. */
     public static List<DeferredBlock<? extends BuildingPostBlock>> posts() {
-        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, CAMP_POST, CACHE, BUNKHOUSE, HEARTH, COTTAGE, MILL, CARPENTRY, INN, HUT, GREAT_HUT);
+        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, LUMBER_CAMP, CAMP_POST, CACHE, BUNKHOUSE, HEARTH, COTTAGE, MILL, CARPENTRY, INN, HUT, GREAT_HUT, LONGHOUSE, CROFT, LIBRARY, GRAND_LIBRARY);
     }
 
     private CivilizationBlocks() {

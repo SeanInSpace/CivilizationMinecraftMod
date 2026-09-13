@@ -1,5 +1,6 @@
 package com.civilization.neoforge.world;
 
+import com.civilization.neoforge.block.BuildingPostBlock;
 import com.civilization.sim.culture.Culture;
 import com.civilization.sim.settlement.BuildCatalog;
 import com.civilization.sim.settlement.BuildingSizes;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -138,6 +140,13 @@ class BlueprintPlacerSizeTest {
             String path = pathOf(type);
             Block post = BlueprintPlacer.postFor(path);
             assertNotNull(post, path + " is in the catalog and has no post block");
+            assertInstanceOf(BuildingPostBlock.class, post,
+                    path + "'s post is a " + post.getClass().getSimpleName()
+                            + " and not a BuildingPostBlock. isPost recognizes a post"
+                            + " by that type and by nothing else, so this one is"
+                            + " neither laid first at the site nor withheld from the"
+                            + " excavation, and the digger levelling the ground takes"
+                            + " it down. The lumber camp was exactly this");
 
             List<BlueprintPlacer.Placement> blocks = new ArrayList<>();
             BlueprintPlacer.draw(flatFor(Culture.DEFAULT), blocks, path, BASE);
@@ -186,6 +195,82 @@ class BlueprintPlacerSizeTest {
                     path + " draws up to course " + top + " and reports a height of "
                             + dims[2] + ". The site is cleared to the reported number");
         }
+    }
+
+    /**
+     * Every building is drawn no taller than the height its kind declares, in
+     * every culture there is.
+     *
+     * <p>The other two thirds of this comparison have been pinned since the table
+     * landed; the height column did not exist, and the visible cost was in the
+     * surveyor's lamp, which drew every queued plot as a box six courses tall
+     * because six is what a cottage happens to come out at. A watchtower's order
+     * read as a shed.
+     *
+     * <p><strong>A ceiling and not an equality, and the loop says why.</strong> A
+     * roof's pitch belongs to the culture: the same cottage is ten courses in the
+     * highlands and six in a goblin mire, off one declared footprint. So the
+     * declared figure is the tallest any people draws the kind — which is what a
+     * plot has to reserve air for and what the lamp has to draw before the
+     * building exists — and every culture is held at or under it. Exactly the
+     * shape of {@code theCompoundIsNeverBiggerThanTheGroundStakedForIt}, one axis
+     * over.
+     */
+    @Test
+    void nothingIsDrawnTallerThanTheHeightItsKindDeclares() {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
+            String path = pathOf(type);
+            BuildingSizes.Size declared = BuildingSizes.of(type.id());
+            for (Culture culture : Culture.all()) {
+                int drawn = drawnOn(flatFor(culture), path)[2];
+                assertTrue(drawn <= declared.height(),
+                        culture.id() + " draws " + path + " " + drawn + " courses tall"
+                                + " against a declared height of " + declared.height()
+                                + ". The declared height is what a queued plot's box is"
+                                + " drawn at and how far up the site is cleared, so a"
+                                + " building taller than it has a hillside through its"
+                                + " roof and a survey that understates it");
+            }
+        }
+    }
+
+    /**
+     * And the declared height is the tallest actually drawn, not a round number
+     * over it.
+     *
+     * <p>The ceiling above would be satisfied by declaring everything a hundred
+     * courses tall, which would draw the whole town as a forest of columns in the
+     * lamp. So the ceiling has to be tight: some culture must reach it.
+     */
+    @Test
+    void everyDeclaredHeightIsOneSomeCultureActuallyReaches() {
+        for (BuildingType type : BuildCatalog.DEFAULT) {
+            String path = pathOf(type);
+            BuildingSizes.Size declared = BuildingSizes.of(type.id());
+            int tallest = 0;
+            for (Culture culture : Culture.all()) {
+                tallest = Math.max(tallest, drawnOn(flatFor(culture), path)[2]);
+            }
+            assertEquals(tallest, declared.height(),
+                    path + " declares a height of " + declared.height()
+                            + " and the tallest any culture draws it is " + tallest
+                            + ". The declared figure is the ceiling, and a ceiling"
+                            + " nobody touches is slack the lamp draws as air");
+        }
+    }
+
+    @Test
+    void aKindNobodyDeclaredStillGetsAHeight() {
+        // The sibling of nothingUnknownIsGivenGround over in BuildingSizesTest: a
+        // datapack's blueprint, or a save holding an id this build has never heard
+        // of, has to be drawn as something rather than as nothing.
+        assertEquals(BuildingSizes.DEFAULT_HEIGHT,
+                BuildingSizes.heightOf("civilization:something_nobody_declared"));
+        assertEquals(BuildingSizes.of("civilization:watchtower").height(),
+                BuildingSizes.heightOf("civilization:watchtower"));
+        // And a styled or leveled id is the same kind, the same way its width is.
+        assertEquals(BuildingSizes.heightOf("civilization:house"),
+                BuildingSizes.heightOf("civilization:norman/house_l3"));
     }
 
     @Test

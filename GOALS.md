@@ -161,11 +161,15 @@ it. Design questions and rebalances live under the next heading, not here.*
       head-stall property, whose only escape today is `planSurvivalBuild` during
       a famine. Settling it is a decision about the queue, not about repairs.
 
-- [ ] **The watched loop asks the wrong hunger question in nine places.**
-      `PersonEntityManager` gates on `isTooWeakToWork()` where the clock asks
-      `heldBackByHunger(person, starving)`, so a watched town's fields empty in a
-      famine while an unwatched town's keep working. One predicate substituted;
-      written up in docs/CITIZENS.md section 7.
+- [x] **The watched loop asks the wrong hunger question in nine places.** Fixed
+      2026-09-12: ten gates in `PersonEntityManager` — `deliverSpoil`,
+      `workShepherds`, `workMiners`, `workFarmers`, `workLumberjacks`,
+      `embodiedBuilders`, `workWall` and the builder, lumberjack and farmer
+      stand-asides in `dailyRoutine` — now ask
+      `FoodPlanner.heldBackByHunger(settlement, person, starving)`, each pass
+      asking `isStarving()` once. `NightRest.mustWake` deliberately keeps the
+      personal question: weakness wakes you regardless of the town.
+      docs/CITIZENS.md section 7 is now the rule rather than the fault.
 
 - [ ] **Two holes left in the demolition sweep.** A building can be pulled down
       now and the town notices, but the noticing has a window and a bug.
@@ -185,13 +189,11 @@ it. Design questions and rebalances live under the next heading, not here.*
         it means the "the simulation records it and the world never drew it"
         report has been silently inert in every kingdom that expanded.
 
-- [ ] **The lumber camp's post is not a post.** `LumberCampBlock` does not
-      extend `BuildingPostBlock`, so `isPost` does not recognize the camp's own
-      marker: it is neither laid first at the site nor withheld from the
-      excavation that follows, and a digger will happily level it. A fault in
-      the block hierarchy rather than in the geometry, found while building the
-      drawn-size check and left alone so that the check could be pointed at
-      `postFor` instead.
+- [x] **The lumber camp's post is not a post.** Fixed 2026-09-12:
+      `LumberCampBlock` extends `BuildingPostBlock` the way `MineBlock` does, on
+      the shared `postProperties` rather than its own set, and
+      `BlueprintPlacerSizeTest.everyBuildingStandsItsOwnPostRatherThanSomebodyElsesShape`
+      now refuses any `postFor` answer that is not a `BuildingPostBlock`.
 
 - [ ] **Two things the siting work measured and could not explain.** Both are
       recorded rather than resolved, because a hunch dressed as a fix is worse
@@ -240,22 +242,26 @@ it. Design questions and rebalances live under the next heading, not here.*
       the ground, which would sterilize a band right through the middle of a
       town for as long as the demolition takes.
 
-- [ ] **An authored blueprint is never measured against the ground reserved for
-      it.** `BlueprintPlacer.fromBlueprint` takes the file's own size and its
-      own anchor cell, and neither is compared with `BuildingSizes` the way
-      `procedural` is — no `SIZE MISMATCH`, no bound. Worse, an anchor that is
-      not the middle of the structure puts the building off center on its plot
-      while `Footprint` records it as centered, so every overlap check in the mod
-      is wrong by the anchor offset. Nothing ships a blueprint today, so this is
-      a datapack's way of making two structures overlap rather than a fault a
-      player can hit now.
+- [x] **An authored blueprint is never measured against the ground reserved for
+      it.** Fixed 2026-09-12. The size half had landed with the authored-structures
+      work — `BlueprintCheck.checkSpans` already refused a `SIZE MISMATCH` on width
+      and depth and `refuseOversize` already acted on it — and it now checks the
+      height too, against the height per kind `BuildingSizes` declares. The anchor
+      half is answered by centering: `AuthoredReading.plotCell` is the middle of
+      the file's own box, both the placer and the reading measure about it, and a
+      file naming some other cell gets a warning saying the anchor was ignored.
+      `Footprint` therefore records what is actually standing there.
 
-- [ ] **The quest board has no vertical bound**: more than five notices
-      overflow a 720p window at GUI scale 3.
+- [x] **The quest board has no vertical bound.** Fixed 2026-09-12:
+      `QuestBoardLayout` bounds the list to what the screen holds — five notices
+      at 720p and GUI scale 3, eight lines on the done face — and the screen
+      scrolls inside that viewport with the wheel and a slim bar in the right
+      margin. `QuestBoardLayoutTest` pins the arithmetic at 1, 5 and 12.
 
-- [ ] **Creative middle-click on a settler may hand you either egg**, since
-      both name the one person type. One type per race would fix it and put
-      the race back into the attribute table. Left alone.
+- [x] **Creative middle-click on a settler may hand you either egg.** Fixed
+      2026-09-12 without a second entity type: `PersonEntity.getPickResult`
+      answers from `DATA_RACE`, which the body already carries, and hands back
+      `CivilizationItems.eggFor` of that race.
 
 - [ ] **The four old survey files carry the old culture ids.** Rewrite them or
       drop them before comparing against a fresh survey.
@@ -267,8 +273,13 @@ it. Design questions and rebalances live under the next heading, not here.*
 
 - [ ] **A war camp still raises a town hall beside its great hut.**
 
-- [ ] **A queued plot draws at a stand-in height of six** in the lamp; there
-      is no declared height per blueprint.
+- [x] **A queued plot draws at a stand-in height of six.** Fixed 2026-09-12:
+      `BuildingSizes.Size` carries a height, declared per kind as the tallest any
+      culture draws it — a ceiling, the way `animal_farm`'s depth is — and the
+      survey payload sends it for an order nobody has measured yet. Pinned in
+      `BlueprintPlacerSizeTest` against every kind in every culture, both ways:
+      nothing is drawn taller than its declaration and every declaration is one
+      some culture reaches.
 
 - [ ] **A cut-out mine is a dead end.** requestProducer refuses a second mine
       while any stands, exhausted or not; the seam of 2000 is gone by step 1500.

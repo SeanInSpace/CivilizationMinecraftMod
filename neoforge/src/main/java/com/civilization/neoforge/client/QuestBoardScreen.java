@@ -51,6 +51,14 @@ import static com.civilization.neoforge.client.QuestBoardLayout.TEXT_WIDTH;
  * <p>The board is a snapshot from the server and this screen never guesses at
  * one. Pressing a button sends an id and the server sends a fresh board back,
  * which {@link #update} folds in without closing anything.
+ *
+ * <p><strong>The list is bounded and scrolls.</strong> Rows used to be stacked
+ * downward from the header for as long as the board was, so the panel's height
+ * was the town's business rather than the screen's: twelve notices on a 720p
+ * window at GUI scale 3 put the header off the top and the footer — with the only
+ * button that changes face in it — off the bottom. Every number in that sum now
+ * comes from {@link QuestBoardLayout}, which is where it can be asserted on
+ * without a client.
  */
 public final class QuestBoardScreen extends Screen {
 
@@ -80,14 +88,32 @@ public final class QuestBoardScreen extends Screen {
     /** Which face of the board is up: the asks, or what the town remembers. */
     private boolean showingDone;
 
+    /**
+     * The first row on screen, counted in rows rather than pixels.
+     *
+     * <p>Rows because every row on one face of the board is the same height, so a
+     * row index is exact where a pixel offset would have to be rounded back to
+     * one anyway — and because a button belongs to a row: a list scrolled half a
+     * row would put half a button through the header.
+     */
+    private int scroll;
+
     public QuestBoardScreen(QuestBoardPayload board) {
         super(Component.literal(board.town() + " board"));
         this.board = board;
     }
 
-    /** Takes a fresh board after a button, without closing the panel. */
+    /**
+     * Takes a fresh board after a button, without closing the panel.
+     *
+     * <p>The scroll position is kept rather than reset — a player who has just
+     * accepted the twelfth notice is looking at the twelfth notice — but it is
+     * clamped, because claiming a job takes a row off the list and the old
+     * position can be past the end of the new one.
+     */
     public void update(QuestBoardPayload fresh) {
         this.board = fresh;
+        this.scroll = clampedScroll();
         if (minecraft != null) {
             rebuildWidgets();
         }
@@ -97,18 +123,26 @@ public final class QuestBoardScreen extends Screen {
         return board.rows();
     }
 
-    private int shownRows() {
-        return showingDone
-                ? Math.max(1, board.done().size())
-                : Math.max(1, rows().size());
+    /** How many rows the face that is up actually has. */
+    private int rowCount() {
+        return showingDone ? board.done().size() : rows().size();
     }
 
     private int rowHeight() {
         return showingDone ? CivilizationPanel.ROW : ROW;
     }
 
+    /** How many of them are on screen at once. */
+    private int visibleRows() {
+        return QuestBoardLayout.visibleRows(height, rowHeight(), rowCount());
+    }
+
     private int panelHeight() {
-        return HEADER + shownRows() * rowHeight() + FOOTER;
+        return QuestBoardLayout.panelHeight(height, rowHeight(), rowCount());
+    }
+
+    private int clampedScroll() {
+        return QuestBoardLayout.clampScroll(scroll, height, rowHeight(), rowCount());
     }
 
     private int left() {
@@ -119,11 +153,37 @@ public final class QuestBoardScreen extends Screen {
         return (height - panelHeight()) / 2;
     }
 
+    /**
+     * A notch of the wheel moves the list one notice.
+     *
+     * <p>One rather than three: a viewport is five notices tall on the screen this
+     * is bounded for, and a three-row jump in a five-row window is a page, not a
+     * scroll. The buttons are rebuilt because a button belongs to the row it is
+     * drawn beside — scrolling without rebuilding leaves "Accept" pressing the
+     * notice that used to be there.
+     */
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX,
+                                 double scrollY) {
+        if (QuestBoardLayout.maxScroll(height, rowHeight(), rowCount()) <= 0) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        int wanted = scroll - (int) Math.signum(scrollY);
+        int held = QuestBoardLayout.clampScroll(wanted, height, rowHeight(), rowCount());
+        if (held == scroll) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        scroll = held;
+        rebuildWidgets();
+        return true;
+    }
+
     @Override
     protected void init() {
         int x = left();
         int y = top();
         int h = panelHeight();
+        scroll = clampedScroll();
 
         // The tab first, so it is in the same place whichever face is up.
         addRenderableWidget(Button.builder(
@@ -131,6 +191,11 @@ public final class QuestBoardScreen extends Screen {
                                 ? "Asks" : "Done (" + board.done().size() + ")"),
                         pressed -> {
                             showingDone = !showingDone;
+                            // Each face counts its own rows at its own height, so a
+                            // position on one is not a position on the other. Back
+                            // to the top, which is also where a player expects a
+                            // list they have just opened to be.
+                            scroll = 0;
                             rebuildWidgets();
                         })
                 .bounds(x + BUTTON_LEFT, y + h - FOOTER + 6, BUTTON_WIDTH, BUTTON_HEIGHT)
@@ -140,14 +205,19 @@ public final class QuestBoardScreen extends Screen {
             return;   // the town's memory has nothing to press
         }
 
+        // Only the rows on screen get buttons. A button built for a row that is
+        // scrolled out of the viewport would be a clickable nothing sitting over
+        // the header or under the footer.
         List<QuestBoardPayload.Row> rows = rows();
-        for (int i = 0; i < rows.size(); i++) {
+        int first = scroll;
+        int last = Math.min(rows.size(), first + visibleRows());
+        for (int i = first; i < last; i++) {
             QuestBoardPayload.Row row = rows.get(i);
             String verb = verbFor(row);
             if (verb == null) {
                 continue;   // somebody else's job; there is nothing for you to do
             }
-            int rowY = y + HEADER + i * ROW;
+            int rowY = y + HEADER + (i - first) * ROW;
             addRenderableWidget(Button.builder(Component.literal(verb),
                             pressed -> send(row, verb))
                     .bounds(x + BUTTON_LEFT, rowY + (ROW - BUTTON_HEIGHT) / 2,
@@ -203,6 +273,7 @@ public final class QuestBoardScreen extends Screen {
         } else {
             drawAsks(graphics, x, y);
         }
+        drawScrollbar(graphics, x, y);
 
         CivilizationPanel.rule(graphics, x, y + h - FOOTER + 2, PANEL_WIDTH);
         drawFooter(graphics, x, y + h - FOOTER, Component.literal(showingDone
@@ -234,6 +305,32 @@ public final class QuestBoardScreen extends Screen {
         }
     }
 
+    /**
+     * The bar down the right margin, and only when the list runs past its own
+     * viewport.
+     *
+     * <p>Drawn rather than a widget: it is a readout, not a control — the wheel
+     * scrolls, and there is nothing here to drag. What it is for is that a
+     * bounded list otherwise lies by omission, showing five notices out of twelve
+     * with no sign that the other seven exist.
+     */
+    private void drawScrollbar(GuiGraphicsExtractor graphics, int x, int y) {
+        int rowHeight = rowHeight();
+        int count = rowCount();
+        if (QuestBoardLayout.maxScroll(height, rowHeight, count) <= 0) {
+            return;
+        }
+        int trackTop = y + HEADER;
+        int trackHeight = QuestBoardLayout.viewportHeight(height, rowHeight, count);
+        int thumb = QuestBoardLayout.thumbHeight(height, rowHeight, count);
+        int thumbTop = trackTop + QuestBoardLayout.thumbOffset(scroll, height, rowHeight, count);
+        int barLeft = x + QuestBoardLayout.SCROLLBAR_LEFT;
+        graphics.fill(barLeft, trackTop, barLeft + QuestBoardLayout.SCROLLBAR_WIDTH,
+                trackTop + trackHeight, CivilizationPanel.RULE);
+        graphics.fill(barLeft, thumbTop, barLeft + QuestBoardLayout.SCROLLBAR_WIDTH,
+                thumbTop + thumb, SUBTLE);
+    }
+
     private void drawAsks(GuiGraphicsExtractor graphics, int x, int y) {
         List<QuestBoardPayload.Row> rows = rows();
         if (rows.isEmpty()) {
@@ -242,9 +339,11 @@ public final class QuestBoardScreen extends Screen {
                     x + PANEL_WIDTH / 2, y + HEADER + 8, SUBTLE);
             return;
         }
-        for (int i = 0; i < rows.size(); i++) {
+        int first = clampedScroll();
+        int last = Math.min(rows.size(), first + visibleRows());
+        for (int i = first; i < last; i++) {
             QuestBoardPayload.Row row = rows.get(i);
-            int rowY = y + HEADER + i * ROW;
+            int rowY = y + HEADER + (i - first) * ROW;
             if (i % 2 == 1) {
                 graphics.fill(x + PADDING - 4, rowY - 2,
                         x + PANEL_WIDTH - PADDING + 4, rowY + ROW - 4,
@@ -328,14 +427,21 @@ public final class QuestBoardScreen extends Screen {
                     x + PANEL_WIDTH / 2, y + HEADER + 4, SUBTLE);
             return;
         }
-        for (int i = 0; i < done.size(); i++) {
-            int rowY = y + HEADER + i * CivilizationPanel.ROW;
+        int first = clampedScroll();
+        int last = Math.min(done.size(), first + visibleRows());
+        for (int i = first; i < last; i++) {
+            int rowY = y + HEADER + (i - first) * CivilizationPanel.ROW;
             if (i % 2 == 1) {
                 CivilizationPanel.stripe(graphics, x, rowY, PANEL_WIDTH);
             }
             // Nothing sits to the right of a remembered line, so it gets the
-            // whole width between the margins -- and stops there.
-            graphics.text(font, clipped(done.get(i), PANEL_WIDTH - 2 * PADDING),
+            // whole width between the margins -- and stops there. Except the
+            // scrollbar, when there is one: the line stops short of it rather
+            // than running under it.
+            int room = PANEL_WIDTH - 2 * PADDING
+                    - (QuestBoardLayout.maxScroll(height, CivilizationPanel.ROW,
+                            done.size()) > 0 ? PADDING : 0);
+            graphics.text(font, clipped(done.get(i), room),
                     x + PADDING, rowY + 4, LABEL, false);
         }
     }

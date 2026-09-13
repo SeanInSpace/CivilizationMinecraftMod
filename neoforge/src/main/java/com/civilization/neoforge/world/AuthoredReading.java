@@ -32,6 +32,12 @@ import java.util.Map;
  * answers to the same question and two passes would eventually disagree about
  * how many beds there are.
  *
+ * <p><strong>Everything is measured about the cell that lands on the plot</strong>,
+ * which is the middle of the file's own box and not the cell the file names as
+ * its anchor: see {@link #plotCell}, and {@code BlueprintPlacer.fromBlueprint},
+ * which lays the structure about the same cell. The two have to agree or the beds
+ * this finds are in the wrong place.
+ *
  * <p><strong>Everything is worked out in the un-turned frame</strong> — the one
  * where the front wall is at {@code +z}, which is the frame {@link Beds} and
  * every drawing method in {@link BlueprintPlacer} work in. A blueprint arrives
@@ -67,8 +73,13 @@ public final class AuthoredReading {
      * @param facing    quarter turns clockwise the building stands at
      */
     public static Reading read(String blueprintId, LoadedBlueprint blueprint, int facing) {
-        BlockPos anchor = blueprint.anchor();
         Vec3i size = blueprint.size();
+        // Measured about the cell that actually lands on the plot, which is the
+        // middle of the file's own box and not whatever cell the file names. See
+        // plotCell: getting this wrong would measure every rule below -- what is
+        // outside the footprint, where the beds are, where the doorstep is --
+        // against a point the building is not standing on.
+        BlockPos anchor = plotCell(size);
 
         // The declared shape, in its own frame. A file that is a different size
         // from the declared one is refused elsewhere; here it only decides which
@@ -146,9 +157,55 @@ public final class AuthoredReading {
                 quarter ? size.getX() : size.getZ(),
                 size.getY(),
                 feet.size(), post, doorstep != null, crops,
-                stray.stray(), stray.low(), stray.high());
+                stray.stray(), stray.low(), stray.high(),
+                anchorOffMiddle(blueprint));
 
         return new Reading(facts, survey);
+    }
+
+    /**
+     * The cell of a file that lands on the build plot: the middle of its own box.
+     *
+     * <p><strong>The middle, and never the cell the file names as its anchor.</strong>
+     * Honoring the stated one was the obvious reading — Structurize records a
+     * {@code primary_offset}, usually the hut block, and honoring it is what puts
+     * an imported building on its plot rather than beside it — and it is wrong,
+     * for a reason that is nothing to do with the file. A plot in this mod is a
+     * point; {@link com.civilization.sim.settlement.Footprint} is a width and a
+     * depth measured about that point; the excavation, the apron, the foundation
+     * and every overlap check in the simulation are all squared off around it.
+     * Laying the structure so that a corner cell lands on the point displaces the
+     * building by four blocks while the town goes on recording it centered — so
+     * the ground four blocks the other way reads as free, and the plan puts a
+     * cottage in it.
+     *
+     * <p>Nothing is lost by centering. A file whose blocks are not where its own
+     * box says they are is already refused by {@code strayOf} and the size rules,
+     * so the box's middle <em>is</em> the building's middle for every file that
+     * passes at all. What the author meant by naming another cell is reported
+     * rather than obeyed: see {@code BlueprintCheck.checkAnchor}.
+     *
+     * <p>Both spans of a placeable file are odd — that is its own rule — so the
+     * middle is a cell and not a seam.
+     */
+    public static BlockPos plotCell(Vec3i size) {
+        return new BlockPos((size.getX() - 1) / 2, 0, (size.getZ() - 1) / 2);
+    }
+
+    /**
+     * How far the cell the file names is from the one that will actually land on
+     * the plot, in blocks: the larger of the two axes.
+     *
+     * <p>The larger rather than the sum, because it is the number that answers
+     * "how far would this building have been displaced" — a corner anchor on a
+     * nine-by-nine is four, which is what a reader wants to hear rather than
+     * eight.
+     */
+    private static int anchorOffMiddle(LoadedBlueprint blueprint) {
+        BlockPos stated = blueprint.anchor();
+        BlockPos middle = plotCell(blueprint.size());
+        return Math.max(Math.abs(stated.getX() - middle.getX()),
+                Math.abs(stated.getZ() - middle.getZ()));
     }
 
     /**
