@@ -99,7 +99,12 @@ public final class Woodcut {
         for (BlockPos log : com.civilization.neoforge.world.Felling.treeAt(trunk, isLog)) {
             BlockState state = level.getBlockState(log);
             level.destroyBlock(log, false, null, 512);
-            Yield.keep(settlement, hands, state, log);
+            // CLEARING, and this is the call the whole distinction was drawn for.
+            // A trunk taken off the ground between a town's own streets is spoil:
+            // the crew was not working the wood, and debiting the forester's
+            // Stand for it would have a camp report a felled belt because somebody
+            // cleared the market square. See Yield.Cause.
+            Yield.keep(settlement, hands, state, log, Yield.Cause.CLEARING);
         }
         // Done when nothing else is standing in it. Asked again rather than
         // assumed, so a cell with two trees in it is not written off after one.

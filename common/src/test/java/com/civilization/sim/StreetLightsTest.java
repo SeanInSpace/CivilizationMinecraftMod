@@ -266,6 +266,28 @@ class StreetLightsTest {
 
         assertEquals(LightPlanner.LIGHTS_PER_STEP, town.lightsRaised(),
                 "an unwatched town lights itself at the clock's pace");
+        assertFalse(LightPlanner.isLit(town), "and has a good way to go yet");
+
+        town.setLightsRaised(LightPlanner.wanted(town));
+        assertTrue(LightPlanner.isLit(town), "until it does not");
+    }
+
+    @Test
+    void nobodyRaisesALampPostAtNight() {
+        Settlement town = crossroads();
+        town.setStock(TownStores.WOOD, 500);
+        town.setStock(TownStores.IRON, 500);
+        SimContext afterDusk = new SimContext(new QuietBridge() {
+            @Override public long dayTime() {
+                return com.civilization.sim.person.NightRest.DUSK + 1000;
+            }
+        }, 0, SimSettings.SANDBOX);
+
+        LightPlanner.advance(town, afterDusk);
+
+        assertEquals(0, town.lightsRaised(),
+                "a watched town's builders are walked home by the curfew, so a clock "
+                        + "that lit through the dark would outpace them");
     }
 
     @Test

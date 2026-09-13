@@ -266,6 +266,15 @@ public final class LightPlanner {
         if (!settlement.hasLivingResidents()) {
             return;
         }
+        // And nobody raises a lamp post at night, whoever is watching. A watched
+        // town's builders are walked home by the curfew like everybody else, so a
+        // clock that went on lighting through the dark would light an unwatched town
+        // faster than a watched one -- which is the asymmetry the trades were just
+        // squared for, and it would be no better here for being in a good cause.
+        if (com.civilization.sim.person.Curfew.idlesUnwatchedWork(
+                ctx.bridge().dayTime(), com.civilization.sim.person.Curfew.LEAD_TICKS)) {
+            return;
+        }
         for (int raised = 0; raised < LIGHTS_PER_STEP; raised++) {
             Lamp lamp = next(settlement);
             if (lamp == null) {

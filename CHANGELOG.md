@@ -77,7 +77,8 @@ Four things were wrong and all four are fixed.
   town is smaller and it is not starving, so it ships. Food and hauls are
   deliberately *not* idled: the food pass is also how a town eats and what
   starvation is measured against, and an errand already on the road has to be
-  allowed to arrive.
+  allowed to arrive. The new works keep the same hours for the same reason: nobody
+  raises a lamp post or fells a tree in the dark, whoever is watching.
 
 - **The paving leads and the lighting follows it.** A lamp stands on the verge of
   an opened street, so a town still walking out its network is a town whose

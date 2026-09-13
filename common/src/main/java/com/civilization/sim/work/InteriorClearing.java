@@ -278,6 +278,13 @@ public final class InteriorClearing {
         if (!settlement.hasLivingResidents()) {
             return;
         }
+        // Nobody fells a tree in the dark. Same parity argument as the lighting's:
+        // a watched town's crew is indoors, so a clock that worked through the
+        // night would clear an unwatched town's ground faster than a watched one's.
+        if (com.civilization.sim.person.Curfew.idlesUnwatchedWork(
+                ctx.bridge().dayTime(), com.civilization.sim.person.Curfew.LEAD_TICKS)) {
+            return;
+        }
         for (int done = 0; done < CELLS_PER_STEP; done++) {
             SimPos cell = next(settlement);
             if (cell == null) {

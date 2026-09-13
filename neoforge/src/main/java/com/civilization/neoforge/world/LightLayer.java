@@ -377,7 +377,11 @@ public final class LightLayer {
                 continue;
             }
             level.destroyBlock(at, false, null, 512);
-            Yield.keep(settlement, null, state, at);
+            // Clearing, never felling. A tuft of grass pulled up to stand a lamp
+            // post in is spoil; the forester's ledger has no opinion about it, and
+            // a call that said otherwise is the whole of what Yield.Cause exists
+            // to prevent.
+            Yield.keep(settlement, null, state, at, Yield.Cause.CLEARING);
         }
     }
 
