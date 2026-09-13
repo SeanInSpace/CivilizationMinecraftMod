@@ -174,7 +174,17 @@ public final class GoblinCampLayout implements Layout {
     @Override
     public SimPos plotFor(SimPos center, int index) {
         int at = Math.max(0, index);
-        return sequenceFor(center, at + 1).get(at);
+        SimPos plot = sequenceFor(center, at + 1).get(at);
+        // The height is the center's, and it is re-stamped here rather than taken
+        // off the remembered plot. The cache is keyed on x and z — a camp is the
+        // same camp however deep the valley it sits in — so a second ask at the
+        // same column and a different y would otherwise get back the first ask's
+        // height, which is a plan inventing a height and {@link Layout} says
+        // plainly that it must not. Caught by
+        // {@code LayoutTest.noLayoutAnswersDifferentlyForHavingBeenAskedBefore}
+        // only because another test in the suite happened to ask about (0, 72, 0)
+        // before this one asked about (0, 64, 0).
+        return new SimPos(plot.x(), center.y(), plot.z());
     }
 
     /**

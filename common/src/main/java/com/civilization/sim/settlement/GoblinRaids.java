@@ -60,7 +60,7 @@ public final class GoblinRaids {
      * How far a camp will walk for somebody else's food.
      *
      * <p>Five hundred and twelve blocks, which is one worldgen region: a camp raids
-     * the neighbours it was generated among and not the other side of the map. Far
+     * the neighbors it was generated among and not the other side of the map. Far
      * enough that most camps have a target at all — sites are one per region — and
      * near enough that a raid is a thing happening in the part of the world a player
      * is in rather than an event two kilometres away.
@@ -87,7 +87,7 @@ public final class GoblinRaids {
      * already empty.
      *
      * <p>A quarter rather than everything because a camp that emptied a town's
-     * granary in one night would end the town, and a dead neighbour is a camp with
+     * granary in one night would end the town, and a dead neighbor is a camp with
      * nothing to raid. Scavenging is a rent, not a conquest.
      */
     public static final int LOOT_SHARE = 4;

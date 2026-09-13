@@ -217,7 +217,7 @@ public final class Beds {
         // of them by {@code GoblinCamp}'s rule rather than by anything here. Four
         // in a rank along the back wall with a bay apiece, exactly as a house
         // ranks its four -- the chief, the shaman, and two of whoever is in
-        // favour this week.
+        // favor this week.
         table.put("chieftain_hut", List.of(
                 northward(-3, -2),
                 northward(-1, -2),

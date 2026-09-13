@@ -6,6 +6,92 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Goblins exist, and they are in the swamp taking your things
+
+### Added
+
+- **Goblin camps.** The mod has had goblins since races went in — a body worth
+  fourteen health, a culture, a skin — and nowhere for them to live that was not a
+  village with green beds in it. They now have a settlement of their own kind:
+  **hostile scavenger camps**, in swamps, mangrove swamps, dark forests and
+  old-growth taigas, eight goblins to a camp, a ring of sharpened stakes round the
+  outside and a heap of somebody else's property in the middle. They forage, they
+  never farm, and every so often a party walks out at the nearest village. Written
+  up in `docs/GOBLINS.md`.
+
+- **The camp itself.** A new arrangement, `goblin_camp`: an irregular huddle of
+  small plots round an open middle with a fire pit on it, packed off a golden-angle
+  spiral and accepted one plot at a time so nothing lines up and the edge is ragged.
+  No streets at all — that is what a camp *is*, the same statement the warren makes
+  — so a camp has no frontage and the road layer wears a track between the gate and
+  the loot pile rather than laying one. Measured, out from the middle on the wider
+  axis: a camp of eight reaches **14 blocks** and a big camp of twenty **28**, where
+  the warren these people used to build put its first outlying knot at fifty-two.
+  Two camps are never the same camp twice; the spiral is turned by the camp's own
+  center.
+
+- **Four buildings.** A **hovel** — packed mud over sticks, five by five, three
+  goblins and the lowest wall in the mod; a **tent** — hide over four poles, two
+  bedrolls, no walls at all, the first building here with none; a **loot pile**,
+  which is the camp's whole store, a ring of stakes round barrels and chests with a
+  cage either side; and a **chieftain's hut**, nine across with skulls on the corner
+  stakes, which is the largest roof in a camp and the reason anybody is in charge of
+  it. Beds through the same table every other home uses, so sleeping works.
+
+- **A chieftain and a shaman.** `KingPlanner` crowns a chieftain once the chieftain
+  hut stands — the same rule that crowns an orc king, in a smaller roof, worth the
+  same two guards to the camp's defense and half again his people's health. The
+  shaman is new: a second title, no building needed, worth an extra armful of forage
+  a step. **Lose both and the camp scatters** — two goblins slip away every step
+  until the place is empty, and what is left standing is a camp a player can walk
+  into and loot. While either of them lives it holds.
+
+- **A goblin armory.** A shiv, a club, a spear and a sling, each forged twice, and
+  every one of them one-handed — which is deliberate: a goblin is fourteen health
+  against an orc's thirty, so every goblin in the line has a hand free for a sling
+  and a camp can answer a creeper. Everybody in a camp is armed, the way everybody
+  in a warhost is, and for the opposite reason.
+
+- **Raiding, with somewhere for the takings to go.** Every raid in this mod came out
+  of nowhere and put nothing anywhere. A camp is the first raider with a name, a
+  home and a heap: on its own clock (about one raid in **300 steps**, offset per
+  camp) it sends **half the goblins it can spare** at the nearest non-goblin
+  settlement within **512 blocks**, worth a point a body plus the chieftain's morale.
+  The target's own `RaidPlanner` resolves it, unchanged — its grace, its early cap,
+  its casualty margin — and on a breakthrough **a quarter of the town's food, iron
+  and coin** moves to the loot pile. The camp pays for the walk: one goblin per two
+  points of defense the town fielded, capped at half the party. Watched, real
+  goblins walk out of the trees and fight; unwatched, it is arithmetic and both
+  event logs say what happened.
+
+- **Goblins are hostile to players, and everybody is hostile to goblins.** Walk
+  inside a camp's claim (or sixteen blocks) and every goblin who can walk comes at
+  you. Leave and they stop — a camp defends a swamp, it does not stalk you across a
+  continent. The danger table scores a goblin at **2** and a chieftain at **3**, so
+  human and orc guards engage them on sight and three of them in a village put it
+  indoors. Nobody fears his own kind.
+
+- **Where they are, and where they are not.** A `goblin_camp` weight in the worldgen
+  config, shipped at **150** against a friendly total of 610 — about one region in
+  five *draws* a camp, and the biome gate turns the ones that landed in a wheat
+  field into ordinary towns rather than leaving the region empty. **The spawn region
+  never draws one**: a player's first town must not shoot at them. The wayfinder
+  handed out on login points at the nearest place that will not, and `/civ info`,
+  `/civ list`, the login greeting and the wayfinder all name a camp as a camp and
+  say `hostile`.
+
+- **A goblin spawn egg**, which the goblins did not have because no ordinary world
+  held a goblin settlement to put one in. It recruits into the nearest camp, exactly
+  as the other two eggs recruit into the nearest town.
+
+### Fixed
+
+- **A stage a people cannot leave.** The VILLAGE graduation wanted two of the three
+  workshops standing, which was the same statement as "two" only while every people
+  could build all three. A goblin camp raises neither a mill nor a carpentry, so the
+  bar was two out of a possible one and no camp could ever leave VILLAGE. It is now
+  capped at what the people can actually have.
+
 ## Two Bellbrooks, a town that stops rearranging itself, and a warhost with one hall
 
 ### Fixed

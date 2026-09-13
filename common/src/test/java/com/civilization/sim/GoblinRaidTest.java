@@ -86,7 +86,7 @@ class GoblinRaidTest {
     }
 
     /**
-     * A camp and a village, close enough to be neighbours.
+     * A camp and a village, close enough to be neighbors.
      *
      * <p>Both are handed fixed ids so the going-out clock and the raid clock hash
      * the same way on every run — the property this whole suite leans on, and the
@@ -196,7 +196,7 @@ class GoblinRaidTest {
                 8, Culture.LAYOUT_GOBLIN_CAMP);
 
         assertSame(near, GoblinRaids.nearestVictim(camp, List.of(camp, otherCamp, near, far)),
-                "the camp walked past its neighbour, or raided another camp");
+                "the camp walked past its neighbor, or raided another camp");
         // And nothing at all when everybody is out of reach.
         Settlement distant = Founding.seeded(new SimPos(GoblinRaids.REACH * 4, 72, 0),
                 "Whitecliff", SettlementStage.VILLAGE, BuildCatalog.DEFAULT,

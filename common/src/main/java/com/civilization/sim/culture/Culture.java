@@ -394,7 +394,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
      * The mire goblins, who do not build towns at all — they make camps.
      *
      * <p>The first entry that proved the type was worth having, and now the one
-     * entry whose people are nobody's neighbours. Mire goblins are hostile
+     * entry whose people are nobody's neighbors. Mire goblins are hostile
      * scavengers: they camp in swamps and dark woods, they forage and they raid,
      * and they never farm. See {@code docs/GOBLINS.md} for what that means in
      * play and {@link #isHostile} for what it means to the rest of the code.
@@ -556,7 +556,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
      * that does so — see {@code KingPlanner.crownsAKing} for the first and the
      * argument for why a fact about a whole people belongs on the body rather
      * than on the culture. Goblins are hostile the way orcs arm everybody:
-     * whatever a mire goblin's neighbours do, a goblin of any culture somebody
+     * whatever a mire goblin's neighbors do, a goblin of any culture somebody
      * adds later raids them.
      *
      * <p>What it decides: a goblin settlement is called a camp and reported

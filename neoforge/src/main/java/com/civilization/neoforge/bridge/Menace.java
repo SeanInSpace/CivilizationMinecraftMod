@@ -305,7 +305,7 @@ public final class Menace {
      * What one of somebody else's settlers is worth to a town looking at him.
      *
      * <p>Nothing at all, for a human or an orc. Those peoples keep a watch, walk
-     * their own claim and leave the neighbours alone, and a village that put its
+     * their own claim and leave the neighbors alone, and a village that put its
      * alarm up because an orc trader walked past would never finish a building.
      *
      * <p><strong>A goblin is worth a skeleton.</strong> {@link Danger#AWKWARD} —

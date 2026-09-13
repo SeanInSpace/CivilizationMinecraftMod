@@ -129,7 +129,7 @@ public final class SimWorld {
         }
         // And then the one pass that needs two settlements at once. A kingdom steps
         // its own towns and a town steps itself, so neither of them can see a
-        // neighbour -- and a goblin camp raiding somebody is by construction a
+        // neighbor -- and a goblin camp raiding somebody is by construction a
         // thing that happens between two settlements. See GoblinRaids, which is
         // handed the list rather than this world so it stays testable without one.
         //
