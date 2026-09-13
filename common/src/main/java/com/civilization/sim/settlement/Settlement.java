@@ -16,6 +16,7 @@ import com.civilization.sim.quest.QuestPlanner;
 import com.civilization.sim.quest.Reputation;
 import com.civilization.sim.work.Spoil;
 import com.civilization.sim.world.SimContext;
+import com.civilization.sim.world.SimSettings;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -3247,7 +3248,7 @@ public final class Settlement {
             // there is no amount of waiting that turns it into anything else.
             // If the hands cannot get here the work simply waits, and the town
             // says so on its own report.
-            current.setWaitingOnHands(reasonHandsAreMissing(present));
+            current.setWaitingOnHands(reasonHandsAreMissing(present, ctx, current.site()));
             current.grantWork(current.workForStep(present));
             current.syncProgressToWork();
             if (!current.isVisuallyComplete()) {
@@ -3966,36 +3967,141 @@ public final class Settlement {
         return true;
     }
 
+    /** The step {@link #watchedThisStep} was decided for; see {@link #isWatched}. */
+    private long watchedStep = Long.MIN_VALUE;
+
+    /** Whether a player was within reach of the claim when this step began. */
+    private boolean watchedThisStep;
+
     /**
-     * Whether a player can see this spot, which is the only question that
-     * decides whether the clock may work here.
+     * Whether this <em>town</em> is watched, which is the only question that
+     * decides whether the clock may do any of its work.
      *
-     * <p>Asked of the work site and never of the town center. A town whose
-     * square is full of players and whose next plot is two hundred blocks out
-     * over the ridge is unwatched <em>at the plot</em>, and the clock is welcome
-     * to raise it: nobody is there to see it happen.
+     * <p>Judged for the whole claim and never site by site. The per-site rule
+     * this replaced read well and was wrong in the one way that matters: the
+     * town hall, mine and mill of Millbrook were placed by the clock while a
+     * player stood at the town center 109 blocks off, because each site was
+     * unwatched <em>at the site</em> and the ring is wider than the observed
+     * radius. He watched three buildings appear in the distance. Where there is
+     * a hand there is no clock, and a hand on the square is a hand in the town:
+     * a player within {@code observed_radius} of any part of the claim makes the
+     * whole town watched, and then every site is raised by hand, the roads are
+     * walked out, the wall goes up post by post, repairs and hauls are carried,
+     * and the clock does nothing here at all.
+     *
+     * <p>The claim is a circle — center and {@link #claimRadius}, which
+     * {@code BuildPlanner.claimRadiusFor} keeps wide enough to contain the
+     * outermost plot — so "within the observed radius of any part of it" is one
+     * distance test against a radius of claim plus observed. No new bridge
+     * question was needed for that, and one that took a bounding box would
+     * answer the same thing less exactly.
+     *
+     * <p>Decided once a step and remembered. Every planner in the pass asks, and
+     * a player who steps over the line halfway through a step must not leave one
+     * lane of the town on hands and the next on the clock — a step is one moment
+     * and has one answer.
      *
      * <p>Deliberately not {@code isLoaded}. A loaded chunk is not an audience —
      * a forceloaded chunk, or one held open by a player on the far side of the
-     * village, has nobody in it — and asking the wrong one of the two is how a
+     * world, has nobody in it — and asking the wrong one of the two is how a
      * town came to build in front of people while the code believed it was
      * alone.
      */
-    private boolean isWatched(SimContext ctx, SimPos site) {
-        return ctx.bridge().playerWithin(site, ctx.settings().observedRadius());
+    public boolean isWatched(SimContext ctx) {
+        if (watchedStep != ctx.step()) {
+            watchedStep = ctx.step();
+            watchedThisStep = claimIsWatched(ctx.bridge(), ctx.settings());
+        }
+        return watchedThisStep;
+    }
+
+    /**
+     * The same question, asked fresh and outside a step.
+     *
+     * <p>For the view layer, which runs on the entity tick rather than the
+     * simulation step and has no {@link SimContext} to key a cache on. It wants
+     * the answer now: a body it keeps or discards on a stale reading is a body
+     * in the wrong place a second later.
+     */
+    public boolean claimIsWatched(WorldBridge bridge, SimSettings settings) {
+        return bridge.playerWithin(center, claimRadius + settings.observedRadius());
+    }
+
+    /**
+     * Whether the clock may work at this particular spot.
+     *
+     * <p>A site inside a watched town is watched, whatever its own distance from
+     * anybody. The site's own surroundings are still asked about, for the one
+     * case the claim does not cover: an outlying field, mine or stand sited
+     * beyond the ring, which a player can be standing in while the town itself
+     * is alone.
+     */
+    public boolean isWatched(SimContext ctx, SimPos site) {
+        return isWatched(ctx)
+                || ctx.bridge().playerWithin(site, ctx.settings().observedRadius());
+    }
+
+    /**
+     * Whether a watched town needs this person standing in the world.
+     *
+     * <p>Only ever asked of a watched town, where the clock does nothing: the
+     * build queue, the fields, the mine, the stand, the pasture, every haul and
+     * the watch itself all wait for hands now. So the people those lanes wait
+     * for are needed as bodies wherever in the claim they happen to be, and
+     * everybody else — a child, somebody too weak to work, a trade whose
+     * workplace the town has not raised — is not, and stays a record until a
+     * player comes near them.
+     *
+     * <p>This is what keeps the new rule from deadlocking. A watched town's far
+     * plot is built by hand or not at all; with embodiment judged only by
+     * distance to a player, the crew for a plot out past the observed radius
+     * would be released on the walk out and the work would wait forever on
+     * hands that were never allowed to arrive.
+     */
+    public boolean needsHandsFrom(Person person) {
+        if (person.isTooWeakToWork()) {
+            return false;
+        }
+        if (person.haul() != null) {
+            return true;   // an errand already under way; nothing else will finish it
+        }
+        if (!buildQueue.isEmpty() && laborsAs(person, Profession.BUILDER)) {
+            return true;
+        }
+        return switch (person.profession()) {
+            // The watch is the watch. A watched raid is fought by entities, so a
+            // guard with no body is a guard who is not there.
+            case GUARD -> true;
+            case FARMER -> buildingWithRole(BuildingRole.CROP_FARM) != null;
+            case MINER -> buildingWithRole(BuildingRole.MINE) != null;
+            case LUMBERJACK -> buildingWithRole(BuildingRole.LUMBER_CAMP) != null;
+            case SHEPHERD -> buildingWithRole(BuildingRole.ANIMAL_FARM) != null;
+            default -> false;
+        };
     }
 
     /**
      * Why a watched site is not moving, in the words the town's report uses, or
      * null when the crew is there and it is simply slow going.
+     *
+     * <p>A site that is watched only because its town is gets its own sentence,
+     * because it is a different thing to be told: the work is stopped, nobody
+     * can see it stopped, and the reason is a walk that has not finished. A
+     * player who reads "no builder has reached the site" while looking at the
+     * empty plot in front of him is reading the truth; one who reads it about a
+     * plot over the ridge cannot tell whether the town is stuck or merely busy.
      */
-    private String reasonHandsAreMissing(int embodiedBuilders) {
+    private String reasonHandsAreMissing(int embodiedBuilders, SimContext ctx, SimPos site) {
         if (embodiedBuilders > 0) {
             return null;   // they are here; whatever is wrong is out in the world
         }
-        return ableBuilders() == 0
-                ? "no builder fit to work"
-                : "no builder has reached the site";
+        if (ableBuilders() == 0) {
+            return "no builder fit to work";
+        }
+        if (ctx.bridge().playerWithin(site, ctx.settings().observedRadius())) {
+            return "no builder has reached the site";
+        }
+        return "waiting for hands at (" + site.x() + ", " + site.z() + "), out of sight";
     }
 
     /**

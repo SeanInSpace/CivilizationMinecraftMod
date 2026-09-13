@@ -328,7 +328,10 @@ public final class RaidPlanner {
             settlement.setThreatLevel(strength);
         }
 
-        if (ctx.bridge().playerWithin(settlement.center(), ctx.settings().observedRadius())) {
+        // The claim, not the center. A raid resolved as arithmetic while a player
+        // stands at the edge of the town is a battle he was close enough to fight
+        // in and never saw.
+        if (settlement.isWatched(ctx)) {
             // Someone is watching: make it real and let entity combat decide.
             ctx.bridge().spawnHostiles(strength, settlement.center());
             settlement.logEvent(ctx.step(),
