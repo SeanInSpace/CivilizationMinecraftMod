@@ -209,29 +209,73 @@ public abstract class PlannedLayout implements Layout {
      */
     private static final int PLAN_SIZE = Layout.WHOLE_PLAN;
 
+    /**
+     * This town's plan, for as much of it as is asked about.
+     *
+     * <p><strong>Laid at exactly one size, ever, and that is the fix for a fault
+     * this file already half-knew about.</strong> The note on {@link #PLAN_SIZE}
+     * says the plan cannot be laid at the size asked for, because every number in
+     * a design is derived from the count and a plan re-laid bigger moves plot
+     * five. It then laid the plan at {@code max(want, PLAN_SIZE)} — so the rule
+     * held for every ask up to two hundred and fifty-six and broke for the first
+     * ask past it, which is a rule with a hole in exactly the place nobody
+     * looks.
+     *
+     * <p>Something does look there. {@code Settlement.chooseSite} walks
+     * {@code PLOT_ATTEMPTS} slots from the cursor and its give-up loops walk
+     * {@code LAST_DITCH} — five hundred and twelve — so a town whose cursor has
+     * reached a hundred and sixty asks its layout about plot four hundred as a
+     * matter of course. On the first such ask the whole plan was re-designed
+     * larger and every plot in the town moved underneath the houses standing on
+     * them. That is precisely the recorded symptom: the same three figures off
+     * one run read 39/41/2 from a fresh JVM and 32/32/1 from a warm one, and the
+     * plot-cursor fix "stabilized it" because it brought the cursor back under
+     * the threshold rather than because it removed the dependence.
+     *
+     * <p>So the design is laid once, at {@link #PLAN_SIZE}, and an ask beyond it
+     * is answered by <em>growing</em> that settled plan — the same street
+     * extensions and outskirt rings {@link #finish} has always used for a plan
+     * its frontage could not fill. Those append in a fixed order and cut off at
+     * the count, so the first n plots of a grown plan are the plan for a town of
+     * n, whatever n anybody has asked for before.
+     */
     @Override
     public TownPlan planFor(SimPos center, int wanted) {
         int want = Math.max(1, wanted);
+        TownPlan base;
         synchronized (planned) {
-            String key = center.x() + ":" + center.z();
-            TownPlan held = planned.get(key);
-            if (held == null || held.size() < want) {
-                held = lay(center, Math.max(want, PLAN_SIZE));
+            // The whole center, y included. Keyed on x and z alone, the cache
+            // answered a town at one height with the plan of a town at another --
+            // the geometry was right and every plot came back at somebody else's
+            // elevation, which is a cache keyed on part of its own input. Nothing
+            // downstream reads a plan's y (the survey decides the ground), so it
+            // hid until a test asked the same layout about two towns that happened
+            // to share a column.
+            String key = center.x() + ":" + center.y() + ":" + center.z();
+            base = planned.get(key);
+            if (base == null) {
+                base = lay(center, PLAN_SIZE);
                 if (planned.size() > TOWNS_REMEMBERED) {
                     planned.clear();
                 }
-                planned.put(key, held);
+                planned.put(key, base);
             }
-            if (held.size() == want) {
-                return held;
-            }
-            // A prefix, not a smaller plan. The streets are the town's streets
-            // whether or not it has filled them yet, and the plots come in the
-            // order the town takes them, so the first n of them ARE the plan for
-            // a town of n -- with the same geometry it will still have later.
-            return new TownPlan(center, held.streets(),
-                    held.plots().subList(0, Math.min(want, held.size())));
         }
+        if (want > base.size()) {
+            // Past the settled plan. Grown from it rather than designed afresh,
+            // so the plots it already has do not move -- and not cached, because
+            // this is rare and a second cache keyed by size is a second way for
+            // the answer to depend on what was asked first.
+            return finish(center, want, base.streets(), base.plots());
+        }
+        if (base.size() == want) {
+            return base;
+        }
+        // A prefix, not a smaller plan. The streets are the town's streets
+        // whether or not it has filled them yet, and the plots come in the
+        // order the town takes them, so the first n of them ARE the plan for
+        // a town of n -- with the same geometry it will still have later.
+        return new TownPlan(center, base.streets(), base.plots().subList(0, want));
     }
 
     /** The whole plan this town will ever have, however little of it is built. */

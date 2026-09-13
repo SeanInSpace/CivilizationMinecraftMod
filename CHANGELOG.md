@@ -6,6 +6,72 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The forester keeps his wood, and a spent mine is not the end of the stone
+
+### Fixed
+
+- **The town no longer strips its own forester bare.** Millbrook's 57 standing
+  trees became 4 in 218 steps while its camp's timber swung from 1072 down to 1,
+  and neither number was about the wood. Two separate faults met: every trunk the
+  town cleared off a building plot, a wall line or a road was charged to the lumber
+  camp's ledger, and the camp's woodland belt was staked on the very ground the
+  town's own plan had set aside to build on. So the clock read a stand it believed
+  had been felled, stopped paying the camp for wood it actually had, and the town
+  ran out of timber standing in a forest. Clearing is now spoil and nothing more —
+  the timber still goes to the town, because it always does — and the belt is
+  chosen away from every plot and street of the plan the town was seeded with,
+  not merely away from what happens to be standing.
+
+- **A camp that moves takes its wood with it.** A lumber camp relocated on arrival
+  used to leave its claim behind at the plot it had left, so it stood in one wood
+  and counted, felled and replanted in another — and nothing ever put it right,
+  because a claim that is not centered on its camp reads as one a player aimed
+  deliberately. Mines do the same thing now for the same reason.
+
+- **A cut-out mine is no longer the end of a town's stone.** A default seam of two
+  thousand blocks is gone by about step 1500, and a town would not order a second
+  mine while the first one still *stood* — which a building does forever. It orders
+  one now, and the miners at the dead face are handed to whatever trade the town is
+  actually short of instead of drawing wages into a hole. The spent mine stays
+  standing; it is a building the town raised, and a player may point its block at
+  fresh ground.
+
+- **A town's layout no longer depends on what anybody has asked it about.** Three
+  separate caches answered differently depending on their own call history, which
+  is how the same run read 39/41/2 from a fresh server and 32/32/1 from a warm one.
+  The planned layouts re-designed the whole town the first time anything asked
+  about a plot past the two hundred and fifty-sixth — routine on rough ground,
+  where the plot cursor runs into the hundreds — and plot five moved under the
+  house already standing on it. The organic scatter re-seeded its dart throws from
+  the plots already placed, so a town asked for its plots one at a time came out a
+  different town from the same town asked for forty at once. And both caches were
+  keyed on a town's x and z but not its height, so one settlement could be answered
+  with another's plots. None of it was visible by asking twice in a row, which is
+  the only way anything had ever checked.
+
+- **A relocation check that decides to stay put no longer costs the town a plot.**
+  Both checks spend a ring slot to ask whether there is better ground, and only one
+  of them handed it back. They are one rule now. Measured across every arrangement
+  on the recorded rough ground: 448 buildings against 443 and eleven per cent less
+  ring walked, at a cost of ten more doorsteps off a road out of 448.
+
+### Notes
+
+- The goal this came from also proposed treating a lumber camp with a bare stand as
+  spent, so a town would go and find new woodland. Built and measured, it builds
+  sheds: a camp ordered onto a ring slot with no trees on it reads as bare the
+  moment it is counted, and a town of eight buildings came out with fourteen lumber
+  camps and not one extra log. A seam does not grow back and a stand does — a bare
+  camp is waiting for seed, and another shed does not make saplings — so only the
+  mine is treated as spent, and a town will stand at most one spent producer of a
+  kind before it stops sinking shafts. How a town in genuinely bare country ever
+  gets its timber back is left open rather than guessed at.
+
+- Organic towns are shaped differently now, because the scatter that was fixed was
+  the scatter that was wrong. One seeded building of fourteen in one arrangement
+  arrives with no lane, on a plot the town has itself ordered — the road keepout
+  refusing a door instead of a wall, which is a fault already on the list.
+
 ## Nobody starves in front of the bread
 
 ### Changed

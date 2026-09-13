@@ -879,7 +879,8 @@ public final class PerimeterLayer {
                         // What the clock takes off the line is the town's, exactly
                         // as what a crew takes off it by hand is -- see Yield. No
                         // hands here, so it goes straight to the nearest shelves.
-                        Yield.keep(settlement, null, growth, at);
+                        Yield.keep(settlement, null, growth, at,
+                                Yield.Cause.CLEARING);
                     }
                 }
             }
@@ -913,7 +914,7 @@ public final class PerimeterLayer {
                 continue;   // the upper half went down with the lower one
             }
             level.destroyBlock(at, false, null, 512);
-            Yield.keep(settlement, null, plant, at);
+            Yield.keep(settlement, null, plant, at, Yield.Cause.CLEARING);
         }
     }
 

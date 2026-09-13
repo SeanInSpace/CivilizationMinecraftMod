@@ -64,12 +64,17 @@ it. Design questions and rebalances live under the next heading, not here.*
       blocks, and the carpentry and market swapped sites twice — a site
       refused for one was accepted for the other a step later. Bounded now,
       not zero; a no-swap rule is the obvious next constraint.
-- [ ] **The forester's stand is stripped by the town's own building.** 57
+- [x] **The forester's stand is stripped by the town's own building.** 57
       trees standing became 4 in 218 steps, trees felled 962, timber swinging
-      from 1072 to 1. Clearing plots in a forest counts as felling, and a camp
-      moved on arrival re-claims its belt in the woods. Plot clearing should
-      not count against the stand, and the belt should be claimed away from
-      planned plots.
+      from 1072 to 1. Fixed, and it was two faults meeting. Clearing a plot, a
+      wall line or a road was charged to the camp's ledger: clearing is spoil and
+      never a tree off the stand now, and the two reasons are told apart at every
+      call site by `Yield.Cause`. And the belt was staked on the ground the town's
+      own plan had set aside, so the camp watched its wood be built on: the belt is
+      chosen away from every plot and street of the plan the town was seeded with
+      (`ForesterStand.PlannedGround`), not merely away from what stands. A camp
+      that relocates also re-stakes its claim round where it ended up, which it
+      never did.
 - [ ] **Guard counts disagree in one report.** The same `/civ info` block
       said "jobs: guard x6", "defense 15 (guards x2 + structures)" and
       "garrison: 3 of 4 guards needed"; "equipped 0/17" counts tools and reads
@@ -193,24 +198,48 @@ it. Design questions and rebalances live under the next heading, not here.*
       drawn-size check and left alone so that the check could be pointed at
       `postFor` instead.
 
-- [ ] **Two things the siting work measured and could not explain.** Both are
-      recorded rather than resolved, because a hunch dressed as a fix is worse
-      than an open question.
+- [x] **Two things the siting work measured and could not explain.** Both are
+      resolved now; what was found is written under each.
 
       - **The plan cache answers differently depending on how far it has been
         grown.** The same three figures off the same run read 39/41/2 from a
-        fresh JVM and 32/32/1 from a warm one, before the plot-cursor fix. The
-        cursor fix stabilized it and nothing is known to be wrong now, but a
-        cache that depended on history was really there and nobody found out
-        why.
+        fresh JVM and 32/32/1 from a warm one, before the plot-cursor fix.
+        Found, and it was three faults rather than one.
+        `PlannedLayout.planFor` laid its plan at `max(asked, PLAN_SIZE)`, so
+        the first ask past plot 255 re-designed the whole town and moved plot
+        five — and `chooseSite` walks 96 slots from the cursor while its
+        give-up loops walk 512, so a cursor in the hundreds asks past 255 as a
+        matter of course. That is why the cursor fix appeared to stabilize it:
+        it brought the cursor back under the threshold rather than removing the
+        dependence. `Layouts.ORGANIC` re-seeded its dart stream by hashing the
+        plots already placed and rebuilt its active list from scratch on every
+        call, so a town asked one plot at a time threw different darts from the
+        same town asked for forty at once. And both caches were keyed on x and
+        z but not y, so one settlement could be answered with another's plots.
+        Plans are laid once at `WHOLE_PLAN` and grown from there; the scatter
+        keeps its stream, its active list and its restart count; both caches
+        key on the whole center. Asking twice in a row, which is all the
+        determinism rule ever did, cannot see any of it — see
+        `LayoutTest.noLayoutAnswersDifferentlyForHavingBeenAskedBefore`, which
+        asks in three orders across a cache flush.
       - **`relocatePending` still spends a ring slot when it decides not to
-        move.** A relocation check that declines to move has not used a plot,
-        and leaving the cursor past it costs the town a slot every step it sits
-        on unfit ground. Handing it back in `relocateIfUnsuitable` measured
-        better on seed 8675309 — 47 buildings against 46, cursor 166 against
-        195, three stranded doors against four. The identical edit in
-        `relocatePending` measured worse, three stranded doors to five. Left
-        alone, and the disagreement written down.
+        move.** One rule now: both paths hand it back. Why they seemed to
+        disagree, instrumented: on the recorded ground `relocatePending` never
+        actually relocates anything — nought moves in 500 steps in all four
+        combinations — so its whole effect on the world is where it leaves the
+        cursor, and the cursor's walk is **not monotone in where it starts**,
+        because a search refused near falls out of the ordinary 96 into the
+        give-up loops that advance it by 128 or 512 at a stroke. Handing the
+        slot back therefore *raised* the final cursor on that one town, 164 to
+        204, with the building count unchanged. Measured across all fourteen
+        arrangements instead, by `relocatePending / relocateIfUnsuitable`:
+        back/back 448 buildings, cursor sum 1720, 44 stranded doors;
+        spend/back 446, 1797, 48; back/spend and spend/spend both 443, 1911,
+        34. Handing it back in both is the larger, tighter town and costs ten
+        doorsteps of 448; it is chosen on the rule — a check that declines to
+        move has not used a plot — rather than on a downstream number no
+        version of the rule controls. The vale town the road fixture measures
+        reads three either way.
 
 - [ ] **The concave hull never checks its own starting legs against a plot.**
       `Hull.concave` begins from the convex hull and tests keepouts only on the
@@ -270,10 +299,28 @@ it. Design questions and rebalances live under the next heading, not here.*
 - [ ] **A queued plot draws at a stand-in height of six** in the lamp; there
       is no declared height per blueprint.
 
-- [ ] **A cut-out mine is a dead end.** requestProducer refuses a second mine
-      while any stands, exhausted or not; the seam of 2000 is gone by step 1500.
-      Proposed: skip producers that are visibly spent (Seam.isExhausted,
-      Stand.isBare with nothing planted).
+- [x] **A cut-out mine is a dead end.** requestProducer refused a second mine
+      while any stood, exhausted or not; the seam of 2000 is gone by step 1500.
+      Fixed for the mine: a producer whose seam is out no longer blocks the order
+      and no longer employs anybody, and `BuildPlanner.MOST_SPENT_PRODUCERS`
+      bounds it at one replacement so a superflat cannot spam shafts. The camp
+      half of the proposal was built, measured and refused — see below.
+
+- [ ] **A town in bare country can never get its timber back, and nobody has
+      decided what it should do instead.** The mine fix was proposed for the camp
+      too: skip a camp whose stand is bare with nothing coming up, so the town
+      goes and finds new woodland. Built and measured, it builds sheds. A camp
+      ordered onto a ring slot with no trees on it reads as bare the moment it is
+      counted, so the next shortage orders another, and a high-street town of
+      eight buildings grown 400 steps came out with **fourteen lumber camps and
+      not one extra log** — with four grown-town fixtures changing towns for it,
+      two of them for the worse. The reason is the one difference the two trades
+      are built around: a seam does not grow back and a stand does, so a bare camp
+      is a camp waiting for seed rather than a camp on dead ground, and another
+      shed does not make saplings. So only the mine is treated as spent.
+      What is actually wanted is a decision rather than a fix: should a town
+      prospect — send a camp to woodedness it has surveyed, rather than to the next
+      ring slot — and how far may it send one?
 
 ---
 

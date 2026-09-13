@@ -2111,7 +2111,17 @@ public final class Settlement {
 
     /** Whether this ground was staked out around this building. */
     private static boolean claimedBy(WorkArea area, Building building) {
-        return area != null && samePlot(area.center(), building.origin());
+        return claimedBy(area, building.origin());
+    }
+
+    /**
+     * Whether this ground was staked out around this plot.
+     *
+     * <p>The position rather than the building, for {@link #restakeWorkArea},
+     * which has to ask about where a building <em>was</em>.
+     */
+    private static boolean claimedBy(WorkArea area, SimPos plot) {
+        return area != null && samePlot(area.center(), plot);
     }
 
     public List<Building> buildings() {
@@ -3392,6 +3402,85 @@ public final class Settlement {
     }
 
     /**
+     * Hands back the ring slot a relocation check spent deciding to stay put.
+     *
+     * <p><strong>One rule for both relocation paths</strong>, which is the whole
+     * of this method. A check that declines to move has not used a plot, and
+     * leaving the cursor past it means every look at unfit ground costs the town a
+     * ring slot nothing was ever built on — the same leak the note on
+     * {@link #chooseSite} describes, arriving by a different door. The slot
+     * {@code chooseSite} advances to is {@code firstFree + 1}: a plot that was
+     * free, and sound or worth levelling. Burning one of those to answer a
+     * question is the strictly worse outcome however the downstream numbers fall.
+     *
+     * <p>It was one rule in one path and not the other, and the reason is worth
+     * keeping, because the recorded numbers looked like a contradiction and were
+     * not one. Handing the slot back in {@link #relocateIfUnsuitable} measured
+     * better on seed 8675309 — 47 buildings against 46, the cursor at 166 against
+     * 195, three stranded doors against four — and the same edit in
+     * {@link #relocatePending} measured worse, three stranded doors becoming five.
+     * So the second was left undone and the disagreement written down.
+     *
+     * <p>The two paths do differ, and not in the way the numbers suggest:
+     * <ul>
+     *   <li>{@code relocateIfUnsuitable} declines and the task <em>stays in the
+     *       queue</em>, so the same decision is taken again every step until the
+     *       building is raised. Spending a slot there costs one per step.</li>
+     *   <li>{@code relocatePending} declines and the building is drawn in the same
+     *       breath — see {@link #materializePending}, which falls straight through
+     *       to {@code materializeBlueprint}. The decision is taken once per
+     *       building, ever, so spending a slot there costs one per building.</li>
+     * </ul>
+     * Different rates, same sign. Neither is a reason for one path to keep a plot
+     * it did not use.
+     *
+     * <p><strong>Why the recorded numbers disagreed, which is the part that was
+     * not understood.</strong> On the recorded ground {@code relocatePending}
+     * <em>never actually relocates anything</em> — instrumented: nought moves in
+     * five hundred steps, in every one of the four combinations. So its entire
+     * effect on the world is where it leaves the cursor, and the cursor's walk is
+     * <strong>not monotone in where it starts</strong>: a search refused near falls
+     * out of the ordinary ninety-six into the give-up loops, which advance by
+     * {@code extra + 1} and jump it by a hundred or five. Handing the slot back
+     * therefore <em>raised</em> the final cursor on this one town, 164 to 204, with
+     * the building count unchanged at 43 and the doors off a road going 4 to 7. It
+     * is a one-slot nudge to a chaotic search, not a rule behaving differently.
+     *
+     * <p>So the decision is made on the suite rather than on the town. Across all
+     * fourteen arrangements on the recorded ground, 500 steps each, by
+     * {@code relocatePending / relocateIfUnsuitable}:
+     *
+     * <pre>
+     *   back / back    448 buildings   cursor sum 1720   44 stranded doors
+     *   spend / back   446 buildings   cursor sum 1797   48 stranded doors
+     *   back / spend   443 buildings   cursor sum 1911   34 stranded doors
+     *   spend / spend  443 buildings   cursor sum 1911   34 stranded doors
+     * </pre>
+     *
+     * <p>The bottom two are identical to the row, which is itself worth knowing:
+     * once the queued path is leaking a slot every step, what the pending path does
+     * with its one slot per building makes no measurable difference at all.
+     *
+     * <p><strong>What the rule costs, stated plainly.</strong> Handing the slot back
+     * in both is the tighter, larger town — five more buildings and a cursor sum of
+     * 1720 against 1911, eleven per cent less ring walked for the same number of
+     * settlements — and it pays ten stranded doors of 448 for it, 9.8 per cent
+     * against 7.7. The two are not trading size for doors: five buildings do not
+     * account for ten doors. They are trading the same thing the paragraph above
+     * describes, a nudge to a search whose walk is not monotone in where it starts,
+     * and there is no version of this rule that gets to choose the downstream
+     * outcome.
+     *
+     * <p>So it is decided on the rule rather than on the doors, and the rule is not
+     * in doubt: a check that declines to move has not used a plot. The vale town
+     * this class's sibling road fixture measures reads three stranded doors either
+     * way, so nothing there had to move for it.
+     */
+    private void giveTheSlotBack(int spentTo) {
+        nextPlotIndex = spentTo;
+    }
+
+    /**
      * Moves a never-drawn building off ground that turns out to be unfit.
      *
      * @return true if it moved, in which case nothing should be drawn this step
@@ -3425,6 +3514,7 @@ public final class Settlement {
             // search below — the same exception every other siting path in this
             // class makes for open water.
         }
+        int spentTo = nextPlotIndex;
         SimPos moved = chooseSite(ctx, span, building.role());
         // The third clause is new and only ever refuses more: a site that scores
         // no better than the one it would replace is not somewhere better, it is
@@ -3433,22 +3523,13 @@ public final class Settlement {
         // step -- the isLoaded guard cannot fire on a plot nobody has looked at
         // -- and never got drawn at all.
         //
-        // What is deliberately NOT here is the cursor being handed back when
-        // nothing moves, which its sibling relocateIfUnsuitable now does. Both
-        // spend a ring slot to decide to stay put and neither should; but the
-        // two were measured on the recorded ground and they do not behave
-        // alike. There it was worth a doorstep (four doors off a road became
-        // three, and the town gained a building); here the same edit took it
-        // the other way, three to five. That is a real effect and it is not
-        // understood -- this runs for every un-materialized building and its
-        // sibling for the head of the queue only -- so it is left as it was and
-        // written down rather than changed on a hunch.
         if (moved.equals(building.origin())
                 || (ctx.bridge().isLoaded(moved)
                         && !ctx.bridge().isSiteSuitable(moved, BuildPlanner.PLOT_PROBE_RADIUS))
                 || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
                         >= ctx.bridge().siteFault(building.origin(),
                                 BuildPlanner.PLOT_PROBE_RADIUS)) {
+            giveTheSlotBack(spentTo);
             return false;   // nowhere better; draw it here and make the best of it
         }
         return moveTo(ctx, building, moved);
@@ -3495,11 +3576,46 @@ public final class Settlement {
         if (!contains(building.origin())) {
             claimRadius = BuildPlanner.claimRadiusFor(center, building.origin());
         }
+        restakeWorkArea(ctx, building, from);
         long away = Math.round(Math.sqrt(from.horizontalDistanceSq(building.origin())));
         logEvent(ctx.step(), "The ground at " + from + " turned out unfit; the "
                 + building.blueprintId().substring(building.blueprintId().indexOf(':') + 1)
                 + " moves " + away + " blocks to " + building.origin());
         return true;
+    }
+
+    /**
+     * Follows a producer's claim when the producer itself moves.
+     *
+     * <p>A lumber camp's belt and a mine's workings are staked <em>around the
+     * building</em>, and until now nothing moved them when the building moved.
+     * That was the second half of the stand-stripping fault: a camp relocated on
+     * arrival left its woodland claim behind at the plot it had left, so the camp
+     * stood in one wood and counted, felled and replanted in another — and
+     * {@link ForesterStand#raise} would not correct it, because a claim that is
+     * not centered on the camp is read as one a player has deliberately pointed
+     * somewhere else and is never overruled.
+     *
+     * <p>Only the claim this building actually made, on exactly the reasoning
+     * {@link #forgetWorkArea} gives: a town with two camps must not have the one
+     * that moved drag the other's wood along with it, and a claim the player has
+     * aimed by hand is their decision.
+     *
+     * <p>The belt is re-staked by the same rule that staked it — see
+     * {@link ForesterStand#woodlandFor} — so it reaches out past the houses from
+     * wherever the camp has ended up. Which squares of it may hold a tree is
+     * worked out fresh every time it is asked, so nothing else has to be moved.
+     */
+    private void restakeWorkArea(SimContext ctx, Building moved, SimPos from) {
+        if (moved.role() == BuildingRole.LUMBER_CAMP && claimedBy(lumberArea, from)) {
+            lumberArea = ForesterStand.woodlandFor(moved.origin(), center, claimRadius);
+            logEvent(ctx.step(), "The lumber camp re-claims the woodland around "
+                    + moved.origin());
+        }
+        if (moved.role() == BuildingRole.MINE && claimedBy(mineArea, from)) {
+            mineArea = new WorkArea(moved.origin(), mineArea.radius());
+            logEvent(ctx.step(), "The mine re-claims the stone around " + moved.origin());
+        }
     }
 
     /**
@@ -3762,14 +3878,7 @@ public final class Settlement {
                 || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
                         >= ctx.bridge().siteFault(task.origin(),
                                 BuildPlanner.PLOT_PROBE_RADIUS)) {
-            // And give the slot back. A check that decided not to move has not
-            // used a plot, and leaving the cursor past it means every step of
-            // sitting on unfit ground costs the town a ring slot it never built
-            // on -- which is the same leak the class comment on chooseSite
-            // describes, arriving by a different door. Measured on the
-            // recorded ground: three doors off a road with the slot handed
-            // back, six with it spent, and four before any of this.
-            nextPlotIndex = spentTo;
+            giveTheSlotBack(spentTo);
             return false;   // nowhere better; build it here and make the best of it
         }
         BuildTask replacement = new BuildTask(

@@ -59,6 +59,86 @@ class LayoutTest {
         }
     }
 
+    /**
+     * How far past the settled plan a town actually asks.
+     *
+     * <p>Not a round number picked for headroom. {@code PlannedLayout} lays its
+     * plan at {@link Layout#WHOLE_PLAN} — two hundred and fifty-six — and
+     * {@code Settlement.chooseSite} walks {@code BuildPlanner.PLOT_ATTEMPTS}
+     * slots from the cursor while its give-up loops walk {@code LAST_DITCH} of
+     * five hundred and twelve. A town on rough ground measures a cursor in the
+     * hundreds, so asking past the settled plan is routine rather than
+     * hypothetical, and it is precisely the ask that used to re-lay the whole
+     * plan underneath the houses already standing on it.
+     */
+    private static final int PAST_THE_PLAN = Layout.WHOLE_PLAN + 44;
+
+    /**
+     * Nothing a layout has ever been asked changes what it answers.
+     *
+     * <p><strong>The rule {@code everyLayoutIsDeterministic} cannot see.</strong>
+     * Asking twice in a row passes with a cache that depends on its call history,
+     * because the second ask is served from whatever the first one built — and two
+     * separate caches in this package did depend on it. It surfaced as three
+     * figures off one recorded run reading <strong>39/41/2 from a fresh JVM and
+     * 32/32/1 from a warm one</strong>, which is a class of bug nobody can chase
+     * from a report.
+     *
+     * <p>Both causes are here. {@code PlannedLayout} laid its plan at
+     * {@code max(asked, PLAN_SIZE)}, so the first ask past two hundred and
+     * fifty-six re-designed the town and moved plot five. The organic scatter
+     * re-seeded its dart stream by hashing the plots already placed and rebuilt its
+     * active list from scratch, so a town asked for its plots one at a time threw a
+     * different sequence of darts from the same town asked for forty at once.
+     *
+     * <p>The caches hold a handful of towns and drop them when a ninth arrives,
+     * which is the only handle a test has on "a fresh JVM" — see {@link #flush}.
+     */
+    @Test
+    void noLayoutAnswersDifferentlyForHavingBeenAskedBefore() {
+        for (Layout layout : Layouts.all()) {
+            List<SimPos> forwards = new java.util.ArrayList<>();
+            for (int i = 0; i < PAST_THE_PLAN; i++) {
+                forwards.add(layout.plotFor(CENTER, i));
+            }
+
+            // Backwards, off a cache that knows nothing about this town. The far
+            // plot is the first thing asked for, which is the order that used to
+            // re-design the plan and move everything under it.
+            flush(layout);
+            for (int i = PAST_THE_PLAN - 1; i >= 0; i--) {
+                assertEquals(forwards.get(i), layout.plotFor(CENTER, i),
+                        layout.id() + " moved plot " + i + " when it was asked about"
+                                + " plot " + (PAST_THE_PLAN - 1) + " first");
+            }
+
+            // And the whole plan in one ask, which is how a settlement that has
+            // just loaded asks rather than how one that grew asks.
+            flush(layout);
+            TownPlan whole = layout.planFor(CENTER, PAST_THE_PLAN);
+            for (int i = 0; i < PAST_THE_PLAN; i++) {
+                assertEquals(forwards.get(i), whole.plot(i).at(),
+                        layout.id() + " plot " + i + " differs between a plan asked"
+                                + " for whole and one grown into");
+            }
+        }
+    }
+
+    /**
+     * Drops whatever this layout is remembering about the towns above.
+     *
+     * <p>By overflowing it, because that is the only door: both caches in the
+     * culture package keep eight towns and evict on the ninth, and neither has —
+     * or should have — a method a test can call. What is being simulated is a
+     * server that has since planned other settlements, which is the difference
+     * between the fresh JVM and the warm one that the recorded figures came from.
+     */
+    private static void flush(Layout layout) {
+        for (int i = 1; i <= 24; i++) {
+            layout.plotFor(new SimPos(100_000 + i * 977, 64, 100_000 + i * 1301), 3);
+        }
+    }
+
     @Test
     void everyLayoutHandsOutEachPieceOfGroundOnce() {
         // An index is spent when a plot is taken. A layout that repeated itself

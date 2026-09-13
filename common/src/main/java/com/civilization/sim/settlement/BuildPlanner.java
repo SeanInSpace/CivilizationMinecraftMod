@@ -438,6 +438,91 @@ public final class BuildPlanner {
             Profession.TRADER, Profession.SHEPHERD, Profession.SMITH, Profession.GUARD,
             Profession.MINER, Profession.LUMBERJACK, Profession.FARMER, Profession.BUILDER);
 
+    /**
+     * Whether this building is a producer with visibly nothing left to produce.
+     *
+     * <p>One predicate over both trades, because both are asked the same two
+     * questions — may the town order another one, and is there work here for
+     * anybody — and answering them separately is how they came to disagree.
+     *
+     * <p><strong>The measurement it exists for.</strong> A mine's default seam of
+     * two thousand blocks is gone by step 1500, and {@link #requestProducer}
+     * refused a second mine for as long as the first one <em>stood</em>. A cut-out
+     * mine is still a building, so it stands forever; so a town that ran out of
+     * stone never ordered another mine and never cut another block. A dead end by
+     * bookkeeping rather than by geology.
+     *
+     * <p><strong>Visibly</strong> spent, and the word is load-bearing. A seam
+     * nobody has ever counted is not an empty one — see {@link Seam#UNCOUNTED} —
+     * so a town whose mine sits in an unloaded chunk does not order a second.
+     *
+     * <p><strong>The mine and not the camp, and that is a change of mind the
+     * measurement forced.</strong> The goal proposes both: a new mine when the
+     * seam is out, a new camp when the stand is bare with nothing coming up. The
+     * first is right and is the bug. The second was built, measured, and is wrong
+     * twice over:
+     *
+     * <ul>
+     *   <li><strong>A bare stand is not a spent one.</strong> A seam does not grow
+     *       back and that is the whole difference between the two trades — it is
+     *       the first thing {@link Seam}'s own class note says. A camp felled bare
+     *       is a camp waiting for seed: its lumberjacks replant the moment the town
+     *       has a sapling, and {@code LumberPlanner.replant} does exactly that in
+     *       the same step. Another shed does not make saplings.</li>
+     *   <li><strong>It built sheds.</strong> A camp ordered onto a ring slot with
+     *       no trees on it counts nought trees and reads as bare at once, so the
+     *       next shortage orders another. A high-street town of eight buildings
+     *       grown 400 steps came out with <strong>fourteen lumber camps</strong>
+     *       and not one extra log. Four grown-town fixtures changed towns for it,
+     *       and the ones that measured a road backlog and a curb got worse.</li>
+     * </ul>
+     *
+     * <p>{@link Stand#isBare} stays as the predicate it was; what is refused is
+     * reading it as "this camp is finished". Whether a town in genuinely bare
+     * country should send a camp prospecting, and how far, is a question about the
+     * game rather than about this bug, and it is written up in GOALS rather than
+     * guessed at here.
+     *
+     * <p>A spent producer is not demolished and is not written off. It is a
+     * building the town raised, it stands where it stands, and a player may point
+     * its block at fresh ground tomorrow. What changes is only that it no longer
+     * blocks the order and no longer holds a worker at a dead face — see
+     * {@code JobPlanner.ProfessionNeed.appliesTo}.
+     */
+    public static boolean isSpentProducer(Building building) {
+        if (building == null) {
+            return false;
+        }
+        return building.role() == BuildingRole.MINE && Seam.isExhausted(building);
+    }
+
+    /**
+     * How many spent producers of a kind a town will stand before it stops
+     * ordering more: one.
+     *
+     * <p><strong>The bound the fix does not work without.</strong> Skipping a spent
+     * producer with no stopping condition turns "find more ground" into "keep
+     * building sheds": a mine sunk where there is no stone reads as cut out the
+     * moment it is counted, so the next shortage orders another, and so on. It is
+     * not hypothetical — {@code WorldBridge.countStoneBelow} answers nought for any
+     * bridge with no world behind it, and a superflat is the same answer with a
+     * world. The camp half of this, before it was dropped, built fourteen lumber
+     * camps in a town of eight buildings.
+     *
+     * <p>So the rule has a stopping condition, and the honest one is what the town
+     * has actually learned. The first replacement is a town looking for new ground,
+     * which is the whole point — a cut-out mine must not be the end of its stone.
+     * A second would be the town discovering that the country is bare rather than
+     * the building, and sinking another shaft does not make rock.
+     *
+     * <p>What that leaves open, deliberately: how a town in genuinely bare country
+     * ever gets its stone back. It does not, and it did not before either — this
+     * bound restores the old behavior at the second attempt rather than the first.
+     * Whether a town should keep prospecting, and how far it may send a mine to do
+     * it, is a question about the game and not about this bug.
+     */
+    public static final int MOST_SPENT_PRODUCERS = 1;
+
     /** Builder-steps for a producer ordered out of turn; the catalog cost is used when known. */
     public static final int PRODUCER_WORK = 30;
 
@@ -488,10 +573,22 @@ public final class BuildPlanner {
         if (producer == null) {
             return false;
         }
+        int spent = 0;
         for (Building standing : settlement.buildings()) {
-            if (standing.blueprintId().equals(producer)) {
+            if (!standing.blueprintId().equals(producer)) {
+                continue;
+            }
+            // A producer that is standing and still has something in it. One
+            // that is cut out is a building, not a supply -- see
+            // isSpentProducer -- and counting it here is what made a spent mine
+            // the end of a town's stone.
+            if (!isSpentProducer(standing)) {
                 return false;   // already have one; the shortage is a real shortage
             }
+            spent++;
+        }
+        if (spent > MOST_SPENT_PRODUCERS) {
+            return false;   // the country is bare, not the building
         }
         for (BuildTask queued : settlement.buildQueue()) {
             if (queued.blueprintId().equals(producer)) {
