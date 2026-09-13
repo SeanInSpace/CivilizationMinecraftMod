@@ -2222,6 +2222,41 @@ public final class Settlement {
     }
 
     /**
+     * How many street lamps this town has raised.
+     *
+     * <p>An index into {@code LightPlanner.lamps}, which is derived from the
+     * streets and the buildings and so is not stored twice. Exactly the same
+     * arrangement as {@code Perimeter.laid}: the positions are a function of the
+     * town's shape, and what has to be written down is how far along them the work
+     * has got.
+     */
+    private int lightsRaised;
+
+    public int lightsRaised() {
+        return lightsRaised;
+    }
+
+    public void setLightsRaised(int lightsRaised) {
+        this.lightsRaised = Math.max(0, lightsRaised);
+    }
+
+    /**
+     * How many cells of the wood inside its own streets this town has cleared.
+     *
+     * <p>An index into {@code InteriorClearing.cells}, on the same terms as
+     * {@link #lightsRaised}.
+     */
+    private int interiorCleared;
+
+    public int interiorCleared() {
+        return interiorCleared;
+    }
+
+    public void setInteriorCleared(int interiorCleared) {
+        this.interiorCleared = Math.max(0, interiorCleared);
+    }
+
+    /**
      * Whether this person does this kind of labor here, today.
      *
      * <p>The seam the pioneer works through: below VILLAGE a pioneer is every
@@ -2457,7 +2492,14 @@ public final class Settlement {
         // Roads before walls: the perimeter cuts its gates where the roads
         // cross the ring, so the network has to exist before it is staked.
         PathPlanner.advance(this, ctx);
+        // The lighting after the roads and before the wall, which is the order
+        // PublicWorks states: a lamp stands on a verge and a verge is beside an
+        // opened street, so there is nothing to light until the street is walked
+        // out. See LightPlanner, and the night that produced it.
+        com.civilization.sim.work.LightPlanner.advance(this, ctx);
         PerimeterPlanner.advance(this, ctx);
+        // And the wood between the streets, last of the public works.
+        com.civilization.sim.work.InteriorClearing.advance(this, ctx);
         InnPlanner.advance(this, ctx);
         advanceBuildQueue(ctx);
         materializePending(ctx);
@@ -2472,9 +2514,30 @@ public final class Settlement {
         // first and its load moves on the same step it was ordered.
         SupplyPlanner.advance(this, ctx);
         HaulPlanner.advance(this, ctx);
-        LumberPlanner.advance(this, ctx);
-        MinePlanner.advance(this, ctx);
-        SmithPlanner.advance(this, ctx);
+        // The outdoor trades stop when the town stops, whoever is watching.
+        //
+        // <p>The doctrine is that both fidelities produce the same outcome, and
+        // until now they plainly did not: a watched town's farmers, foresters and
+        // miners have always been sent indoors after dark by dailyRoutine, and the
+        // clock worked straight through the night. A watched town was therefore
+        // losing to an unwatched one on every trade that has a body attached to it,
+        // which is a reason to stand still and wait rather than to play.
+        //
+        // <p>The three named here are the ones done outdoors by one person at one
+        // place, which is exactly the set the curfew walks home. Food is not among
+        // them and that is deliberate: FoodPlanner is also how a town eats, its
+        // ledger is what starvation is measured against, and halving it to square a
+        // parity argument is how a cure kills the patient. See NightEconomyTest,
+        // which measures what this costs, and the changelog, which says what the
+        // measurement decided. Hauls are not among them either -- a haul already in
+        // flight has to be allowed to arrive, or goods freeze on the road at dusk.
+        boolean nightIdle = com.civilization.sim.person.Curfew.idlesUnwatchedWork(
+                ctx.bridge().dayTime(), com.civilization.sim.person.Curfew.LEAD_TICKS);
+        if (!nightIdle) {
+            LumberPlanner.advance(this, ctx);
+            MinePlanner.advance(this, ctx);
+            SmithPlanner.advance(this, ctx);
+        }
         equipWorkers();
         JobPlanner.retrainOne(this);
         PopulationPlanner.advance(this, ctx);

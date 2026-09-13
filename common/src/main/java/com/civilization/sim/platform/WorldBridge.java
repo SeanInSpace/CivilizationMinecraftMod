@@ -443,6 +443,25 @@ public interface WorldBridge {
         return 0;
     }
 
+    /**
+     * The world's clock, in ticks since dawn of the first day.
+     *
+     * <p>The simulation has never had an hour and mostly should not want one: a
+     * step is the same step at noon and at midnight, and grain, trade and building
+     * do not care. Two things do. A watched town stops work and walks home before
+     * dusk ({@code Curfew}), and if the unwatched clock keeps working through the
+     * night then a town you are standing in falls behind one you are not — which is
+     * the one asymmetry between the two fidelities that is never allowed to stand.
+     *
+     * <p>Zero by default, which reads as dawn and so as "always daylight". That is
+     * the right default for a bridge with no world behind it: a test double keeps
+     * exactly the behavior it had, and nothing about a curfew can fire in a
+     * simulation that has no day.
+     */
+    default long dayTime() {
+        return 0L;
+    }
+
     /** Structured logging that does not depend on a specific logging backend. */
     void log(String message);
 

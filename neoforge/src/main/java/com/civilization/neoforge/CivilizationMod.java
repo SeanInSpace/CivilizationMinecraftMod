@@ -132,6 +132,10 @@ public final class CivilizationMod {
         // going away — a timestamp from a closed world would have the next one's
         // first sweep measuring an interval that spans the two.
         com.civilization.neoforge.world.PerimeterLayer.forget();
+        // The same for the lighting's and the clearing's sweeps, which keep the
+        // same pair of notes for the same reason.
+        com.civilization.neoforge.world.LightLayer.forget();
+        com.civilization.neoforge.world.Woodcut.forget();
         // And where each paving crew had got along its run, which is a place in
         // a network that is going away with the world it belonged to.
         com.civilization.neoforge.view.Foreman.forget();

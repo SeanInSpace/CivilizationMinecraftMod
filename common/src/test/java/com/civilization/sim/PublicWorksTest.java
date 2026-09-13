@@ -487,6 +487,10 @@ class PublicWorksTest {
                 "a half-built wall is a town that cannot shut its gate");
         assertEquals("road", works.get(2).name(),
                 "a half-built lane is a walk across grass");
+        assertEquals("lights", works.get(3).name(),
+                "and a lamp stands on the verge of a street that has to exist first");
+        assertEquals("clearing", works.get(4).name(),
+                "and the wood between the streets last, being slow and free");
     }
 
     @Test

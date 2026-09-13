@@ -54,4 +54,34 @@ public final class RoadUpkeep {
     public static boolean mayMend(Settlement settlement, int index) {
         return settlement.paths().isOpened(index) && settlement.hasLivingResidents();
     }
+
+    /**
+     * Whether a street lamp of the raised prefix may be drawn for the first time.
+     *
+     * <p>The lighting is upkept on exactly the same terms as the road it stands
+     * beside, so its two questions live here beside the road's rather than in the
+     * layer that places the blocks. A rule that only exists inside a block-placing
+     * loop is a rule a dead town goes on breaking, which is the whole reason this
+     * class exists.
+     *
+     * <p>Delegated to {@code LightPlanner} rather than restated, so there is one
+     * definition of "raised". Here for the reader who comes looking for the upkeep
+     * rules and finds them together.
+     */
+    public static boolean mayDrawLight(Settlement settlement, int index) {
+        return com.civilization.sim.work.LightPlanner.mayDraw(settlement, index);
+    }
+
+    /**
+     * Whether a missing street lamp may be put back.
+     *
+     * <p>A lamp that has been broken — a creeper, a player, a zombie that walked
+     * into the post — is a hole in the town's lighting and putting it back is a
+     * morning with a ladder. So it is work, and a town with nobody left in it does
+     * not do it: the lamp stays out, the street goes dark, and the village looks
+     * like what it is.
+     */
+    public static boolean mayMendLight(Settlement settlement, int index) {
+        return com.civilization.sim.work.LightPlanner.mayMend(settlement, index);
+    }
 }
