@@ -85,8 +85,6 @@ it. Design questions and rebalances live under the next heading, not here.*
       loaded on its own. What is still unproven is the force-load box this
       item was measured in.
 
-- [ ] **The simulation's clock is not saved, and four things are compared
-
 - [ ] **A hall never lands on the middle.** The plan reserves plot 0 for the
       great hut, and for every other arrangement's hall, but the camp post
       takes plot 0 on step one and the hall is raised a hundred blocks out.
