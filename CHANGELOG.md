@@ -6,6 +6,111 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The wall gives back the posts it takes, and a ruin stops hiding behind a note
+
+### Fixed
+
+- **The gate stops leaving a hole where it used to be.** A gateway is three
+  positions wide and the two beside its middle are an opening, so the drawing
+  pulls up any post standing in them — and the gates follow the streets while the
+  wall is going up, hopping to the next junction every twenty steps. The columns
+  the gate used to stand in were ordinary wall again with nothing in them, and the
+  only thing that would ever put a post back was the sweep's cursor coming round a
+  whole lap later. That is the "one wall post in 986 will not go up": a handful of
+  columns, never none and never many, laid and paid for, no post, nothing in the
+  way, air at the footing. A gate that moves now hands the posts back on the very
+  next sweep, out of the same budget.
+
+- **`/civ wall` says whether the drawing has actually been there.** The report
+  could count the positions with no post and name the block standing in each; what
+  it could not say was whether the sweep had ever visited that column, and without
+  that every explanation of the count was a guess — five of them, all wrong. It
+  now lists each column the drawing has been to and left empty, with the footing
+  it found, what is in the ground there, whether anything is growing across the
+  line, and how many consecutive visits have read it that way. One visit is a
+  sweep that was somewhere else. Two is a fault.
+
+- **A building drawn and destroyed inside one minute is written off.** The town may
+  not call a building demolished unless something saw it standing, and that mark
+  was only ever taken by the auditor's own sweep, once a minute. So a cottage drawn
+  as a player walked into town and blown up half a minute later was never recorded
+  standing, the reading of the wreck became its own high-water mark, and the ruin
+  stayed on the books for the rest of the world's life. The mark is taken where the
+  structure is drawn now, at both fidelities — the whole-structure stamp and the
+  last block a crew lays by hand. What is recorded is the share actually measured,
+  never a presumed hundred, so a field, a pen and a platform are still exempt from
+  a check about walls they never had.
+
+- **A kingdom of two towns can write off a building the world never drew.** The
+  "recorded here, but nothing stands" rule wants two sweeps running before it
+  complains, and the record of what was undrawn last time was one set for the whole
+  world, cleared and refilled by every town's sweep. With two settlements the
+  second wiped the first's evidence and neither ever reached two. It was not
+  weakened, it was inert, and it had been inert in every kingdom that ever
+  expanded. The record is per settlement.
+
+- **A booked repair stops shielding a ruin nobody is working on.** The auditor
+  spares a building with a repair on the books, and the queue is worked from the
+  front: a more urgent job can push the repair off the head, and a stalled head
+  then shielded the ruin indefinitely. A repair shields its building while it is at
+  the head of the queue, or while it has actually moved in the last hundred steps
+  — about two minutes, and longer than the gap between two sweeps, so a crew
+  genuinely laying blocks never loses the shield between them. Otherwise the shell
+  is written off, and writing it off cancels the repair booked on it, so the stall
+  goes with it.
+
+- **The wall is no longer staked across ground the town has already ordered.** The
+  concave hull starts from the convex hull and only ever split a leg that was too
+  long, so a plot lying under a short starting leg was crossed with nothing able to
+  correct it — every other keepout rule refuses a *move* across a plot and none of
+  them repairs a crossing that was there first. A crossed leg is now repaired at
+  any length: by digging in to a point the town owns where there is one, and
+  otherwise by bulging the line out round the plot's own corners, which is the
+  repair a dig-in cannot make at all for ordered ground — an order is a keepout and
+  deliberately not a point the ring must enclose, so it offers no corner to dig in
+  to. Measured over the grown fixtures: **36 plots with a post inside them fell to
+  1**, and that one is ordered ground rather than a standing building. It costs nothing: the staking of a town
+  of two hundred measured 216 ms before and 212 ms after, and the hull itself 6 ms
+  of that, because a leg's answer about the plots is now remembered between passes
+  and a plot whose box the leg never enters is settled by four comparisons.
+
+- **A building is not sited on the posts of the wall the town has just replaced.**
+  Siting asked the standing ring and nothing else, so a settlement that had moved
+  its line would put a house straight onto the old one's raised posts. What is
+  refused is the part of the old line that physically still stands — the retired
+  loop from the point the demolition has pulled up to — so the band narrows as the
+  posts come out and is gone the moment the last one does. Refusing the whole
+  retired loop instead would sterilize a strip through the middle of a town for as
+  long as the demolition takes, which on an unloaded stretch is for ever. Measured
+  over the grown fixtures: **347 buildings standing on a retired line's posts fell
+  to 23**.
+
+- **A plot the town gave up on is not offered again.** Found by the wall work
+  rather than looked for: two tests about plot cursors went red when the shape of a
+  wall changed, and the reason was that "the plot is burned" meant "the cursor
+  moves on one slot" — and the cursor is left at the first *free* slot a search
+  saw, not at the one it took, so a plot chosen from further along the ring sat
+  ahead of the cursor still and came round again on the very next step. What kept
+  the promise was an incidental palisade refusing that ground. The town now
+  remembers the last sixty-four plots it has given up on, by column, and will not
+  be offered them again; the memory is not saved, because it describes what the
+  builders found in the ground this session and a reload has gone back to look.
+
+### Notes
+
+- The fixtures behind those two numbers are the grown towns the wall work has
+  always been measured on — every arrangement on eight sandbox seeds and on the
+  recorded ground of seed 8675309, 126 towns of about 84 buildings each, grown
+  1400 steps so that a wall has time to be moved once. The probe that grows them
+  is `common/src/test/java/com/civilization/sim/WallProbe.java`, which is a
+  `main` rather than a test on purpose: it takes four and a half minutes and the
+  suite should not pay for that. The cheap regression detectors for the same
+  faults are in `HullTest`, `WallRestakeTest` and `PerimeterLayerPlanTest`.
+- The residual 23 buildings on retired posts are ones that predate the re-staking
+  — the old line was staked around them — rather than ground the siting has just
+  chosen. In the simulation nothing ever sweeps a post up, so that count is the
+  pessimistic reading; in a world the band lifts as the demolition works round.
+
 ## Nobody starves in front of the bread
 
 ### Changed

@@ -137,15 +137,6 @@ it. Design questions and rebalances live under the next heading, not here.*
       loaded on its own. What is still unproven is the force-load box this
       item was measured in.
 
-- [ ] **One wall post in 986 will not go up.** Stable across every report,
-      at a footing reading air — where `put` would succeed, so it is not a
-      refusal. It was 3, then 8, then 6 on earlier rings: always under half a
-      per cent, never zero. It no longer halts anything, because the sweep
-      walks past a position it cannot place, and that is precisely why it will
-      sit there forever unless somebody looks. Instrument the one position
-      rather than reasoning about it — every guess at this class of fault so
-      far has been wrong.
-
 - [ ] **The simulation's clock is not saved, and four things are compared
       against it.** `SimWorld.stepsElapsed` restarts at zero every session while
       `Perimeter.stakedOn`, `Building.completedOnStep` and the raid schedule come
@@ -154,36 +145,11 @@ it. Design questions and rebalances live under the next heading, not here.*
       counter is one field and its own unit, and it wants doing before the next
       thing is measured against age.
 
-- [ ] **A booked repair shields a ruin even when nothing is working on it.**
-      The auditor spares a building with a repair in the queue, and the queue is
-      head-blocking: another urgent job can displace the repair from the head and
-      a stalled head then shields the ruin indefinitely. That is the pre-existing
-      head-stall property, whose only escape today is `planSurvivalBuild` during
-      a famine. Settling it is a decision about the queue, not about repairs.
-
 - [ ] **The watched loop asks the wrong hunger question in nine places.**
       `PersonEntityManager` gates on `isTooWeakToWork()` where the clock asks
       `heldBackByHunger(person, starving)`, so a watched town's fields empty in a
       famine while an unwatched town's keep working. One predicate substituted;
       written up in docs/CITIZENS.md section 7.
-
-- [ ] **Two holes left in the demolition sweep.** A building can be pulled down
-      now and the town notices, but the noticing has a window and a bug.
-
-      - **A building drawn and destroyed inside one sweep is never written off.**
-        The `WAS_A_BUILDING` mark — you cannot say a building has been
-        demolished unless you saw it standing — is only ever taken by a sweep,
-        and a sweep runs once a minute. Closing it means taking the mark where
-        the structure is *drawn*, at both fidelities, which is a seam worth
-        cutting. Every failure this way leaves a ruin on the books, which is the
-        state the mod was in already; the failure the other way evicts a family
-        from a house that is standing.
-      - **A kingdom of two towns can never write off an undrawn building.**
-        `TownAuditor.LAST_UNDRAWN` is cleared per `audit()` call and `audit()` is
-        per settlement, so the second town's sweep wipes the first town's
-        record and the two-sweep rule never fires for either. Pre-existing, and
-        it means the "the simulation records it and the world never drew it"
-        report has been silently inert in every kingdom that expanded.
 
 - [ ] **The lumber camp's post is not a post.** `LumberCampBlock` does not
       extend `BuildingPostBlock`, so `isPost` does not recognize the camp's own
@@ -211,34 +177,14 @@ it. Design questions and rebalances live under the next heading, not here.*
         195, three stranded doors against four. The identical edit in
         `relocatePending` measured worse, three stranded doors to five. Left
         alone, and the disagreement written down.
-
-- [ ] **The concave hull never checks its own starting legs against a plot.**
-      `Hull.concave` begins from the convex hull and tests keepouts only on the
-      two legs of a dig-in split; `pushOut` and `relax` refuse a move that would
-      cross a plot but neither repairs a crossing that is already there. So a
-      building — or a plot the town has ordered — lying under a convex-hull leg
-      shorter than `MAX_STRAIGHT_RUN` is crossed with nothing to correct it.
-      Measured over 117 grown towns after the walk and the ordered-ground
-      keepout landed: **68 buildings with a post inside their walls, 63 of them
-      ordered when the ring was staked and 5 standing**, against 738 before.
-      Left open rather than fixed because the obvious repair — dig any crossing
-      leg regardless of its length — puts a keepout scan on every edge visit of
-      the loop `RESTAKE_REVIEW` already measures at a second and a half on a
-      town of two hundred, and that is a cost to weigh in a world rather than
-      guess at. Queued plots are also deliberately not hull *points*: obliging
-      the ring to enclose every order the moment it is made would drive a
-      re-staking off one shed and undo `RESTAKE_GROWTH`.
-
-- [ ] **A retired line's posts are not consulted when a plot is chosen.**
-      `Settlement.standsOnTheWall` asks the standing ring only, so a town that
-      has just moved its wall will happily site a building on the old line's
-      raised posts. In a world it mostly heals — the excavation clears the
-      building's own footprint and the demolition sweeps the rest — but nothing
-      guarantees the order, and in the simulation nothing sweeps at all, so the
-      fixtures count 695 of these across 117 towns and cannot tell which would
-      survive contact with a player. Worth watching in a world before refusing
-      the ground, which would sterilize a band right through the middle of a
-      town for as long as the demolition takes.
+      - **And a third, now closed, but it belongs beside them.** "A refused site
+        is burned" was `nextPlotIndex++`, and the cursor is left at the first
+        *free* slot a search saw rather than at the one it took — so a plot taken
+        from further along the ring stayed ahead of the cursor and was offered
+        again on the next step. What made the two tests that assert this pass was
+        an incidental palisade refusing that ground, which is how the wall work
+        found it: change the shape of a wall and a claim about plot cursors goes
+        red. `abandonBuild` remembers the column now.
 
 - [ ] **An authored blueprint is never measured against the ground reserved for
       it.** `BlueprintPlacer.fromBlueprint` takes the file's own size and its
@@ -620,6 +566,53 @@ work has landed, which changes what a street looks like from the middle of it.
 *Newest first. Everything older has been dropped -- it was proven by the
 endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
+
+- [x] **One wall post in 986 would not go up, and the cause was the gate.** A
+      gateway is three positions wide and the drawing pulls up any post standing
+      in the two beside its middle, because an opening is the point of a gate --
+      and `resiteGates` moves the gates every twenty steps while the wall is
+      going up, following the streets as they appear. The columns a gate has left
+      are ordinary wall again with nothing in them, and the only thing that would
+      put a post back was the sweep's cursor coming round a lap later: a handful
+      of columns at any moment, never none and never many, laid and paid for, no
+      post, nothing in the way, air at the footing. `PerimeterLayer` remembers the
+      gates it last drew with and plants those posts first on the next sweep.
+      Instrumented rather than argued about, as the item asked: `Hole` records,
+      per column, what the drawing answered there and how many consecutive visits
+      have left it empty, and `/civ wall` prints it -- so a column the cursor has
+      visited twice and still not planted is a fault, and one visited once is not.
+      A world run is what will confirm the count is zero.
+- [x] **Both holes in the demolition sweep.** The `WAS_A_BUILDING` mark is taken
+      where the structure is drawn -- `TownAuditor.sawDrawn`, called from
+      `BlueprintPlacer.place` for the whole-structure stamp and from
+      `markIfDrawn` when a crew lays the last block of a plan -- and what it
+      records is the share actually measured, so nothing whose ring was always
+      air is enrolled by having been built. `TownAuditor.LAST_UNDRAWN` is per
+      settlement, so the two-sweep rule fires in a kingdom of more than one town.
+- [x] **The concave hull checks its own starting legs against a plot.** A leg
+      drawn across a plot is repaired at any length: by digging in where the town
+      owns a point to dig in to, and otherwise by taking the line out round the
+      crossed plot's own corners, which is the only repair available for ground
+      the town has merely ordered -- an order is a keepout and not a hull point,
+      so it offers nothing to dig in to. Measured over the grown fixtures, plots
+      with a post inside them: 36 to 1, and that one is ordered ground. The cost the
+      item was worried about did not appear: staking a town of two hundred
+      measured 216 ms before and 212 ms after, the hull 6 ms of it, because a
+      leg's answer about the plots is remembered between passes and a plot whose
+      box the leg never enters is settled by four comparisons.
+- [x] **A retired line's standing posts are consulted when a plot is chosen.**
+      `Settlement.standsOnTheWall` asks the retired loop from `Perimeter.pulled()`
+      onward -- the part the demolition has not taken up yet -- so the refusal
+      band narrows as the old wall comes down and is gone when the last post is
+      out. Fixtures: 347 buildings on retired posts to 23, and the 23 predate the
+      re-staking rather than being ground the siting has just chosen. In the
+      simulation nothing sweeps, so that is the pessimistic reading.
+- [x] **A booked repair no longer shields a ruin nobody is working on.** A repair
+      shields its building while it is at the head of the build queue or has moved
+      in the last `TownAuditor.STALLED_REPAIR_STEPS` (100, about two minutes and
+      longer than the gap between two sweeps). Otherwise the auditor writes the
+      shell off, and `removeBuilding` cancels the repair booked on it, so the
+      head-stall goes with the ruin.
 
 - [x] **A worldgen town is laid out in the arrangement it was dealt.**
       `Founding.seeded` takes the layout id beside the culture id, so the

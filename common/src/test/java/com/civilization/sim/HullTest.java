@@ -128,6 +128,55 @@ class HullTest {
     }
 
     @Test
+    void aStartingLegDrawnAcrossAPlotIsRepaired() {
+        // The hull begins at the convex hull of the points it is given, and the
+        // dig-in only ever looked at legs longer than maxEdge -- so a plot lying
+        // under a short starting leg was crossed with nothing in the whole of the
+        // staking able to correct it. Every other keepout rule refuses a MOVE
+        // across a plot; none of them repairs a crossing that was there first.
+        //
+        // The plot here is the ordinary case: ground the town has ORDERED, which
+        // is a keepout and deliberately not a point the ring has to enclose, so
+        // it contributes no corner the line could dig in to. Two thirds of the
+        // crossings measured over the grown fixtures were exactly this.
+        List<SimPos> points = List.of(at(-40, -40), at(40, -40), at(40, 40), at(-40, 40));
+        Hull.Keepout ordered = new Hull.Keepout(40, 0, 6);
+
+        List<SimPos> plain = Hull.concave(points, 1000, List.of());
+        assertTrue(Hull.crossesKeepout(at(40, -40), at(40, 40), List.of(ordered)),
+                "fixture: the eastern leg runs straight through that plot");
+        assertEquals(4, plain.size(), "fixture: nothing else would split that leg");
+
+        List<SimPos> repaired = Hull.concave(points, 1000, List.of(ordered));
+
+        for (int i = 0; i < repaired.size(); i++) {
+            SimPos from = repaired.get(i);
+            SimPos to = repaired.get((i + 1) % repaired.size());
+            assertFalse(Hull.crossesKeepout(from, to, List.of(ordered)),
+                    "the line still runs from " + from + " to " + to
+                            + " through the plot at " + ordered);
+        }
+        for (SimPos point : points) {
+            assertTrue(Hull.contains(repaired, point),
+                    "the repair left " + point + " outside the wall");
+        }
+        assertTrue(repaired.size() > plain.size(),
+                "nothing was added, so nothing was repaired");
+    }
+
+    @Test
+    void aPlotNowhereNearTheLineChangesNothing() {
+        // The other side of the same rule, and what keeps the repair from being a
+        // licence to fret: a keepout the line does not touch is not a reason to
+        // add a single vertex.
+        List<SimPos> points = List.of(at(-40, -40), at(40, -40), at(40, 40), at(-40, 40));
+
+        assertEquals(Hull.concave(points, 1000, List.of()),
+                Hull.concave(points, 1000, List.of(new Hull.Keepout(0, 0, 6))),
+                "a plot in the middle of town moved the wall");
+    }
+
+    @Test
     void aPointOnTheWallCountsAsInside() {
         // Otherwise a building whose corner touches the line reads as excluded
         // and the planner pushes the wall out forever chasing it.

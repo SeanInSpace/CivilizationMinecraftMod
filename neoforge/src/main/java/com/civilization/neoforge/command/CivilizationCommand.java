@@ -1759,15 +1759,34 @@ public final class CivilizationCommand {
         for (String example : examples) {
             out.append("\n      at ").append(example);
         }
+        // What the drawing itself answered at the columns it left empty, which is
+        // the difference between a hole and a sweep that has not come round yet.
+        // A count alone could never tell those apart, and every explanation of
+        // "GENUINELY MISSING" before this was therefore a guess -- see
+        // PerimeterLayer.Hole.
+        java.util.List<com.civilization.neoforge.world.PerimeterLayer.Hole> holes =
+                com.civilization.neoforge.world.PerimeterLayer.holesIn(settlement);
+        out.append("\n  the drawing has been to ").append(holes.size())
+                .append(" of these and left them empty");
+        int shown = 0;
+        for (var hole : holes) {
+            if (shown++ >= 8) {
+                break;
+            }
+            out.append("\n      ").append(hole.describe());
+        }
         String report = out.toString();
         source.sendSuccess(() -> Component.literal(report), false);
         CivilizationMod.LOGGER.info(
                 "WALL {} laid={}/{} looked={} standing={} gateways={} unfooted={} "
                         + "blocked={} missing={} shutByBuilding={} because={} inTheWay={} "
-                        + "inside={} outside={} shutOutOfBed={}",
+                        + "inside={} outside={} shutOutOfBed={} visitedAndEmpty={} {}",
                 settlement.name(), ring.laid(), ring.length(), looked, standing,
                 gateways, unfooted, blocked, missing, shutByBuilding, why, inTheWay,
-                inside, outside, strandedFromBed);
+                inside, outside, strandedFromBed, holes.size(),
+                holes.stream().limit(8)
+                        .map(com.civilization.neoforge.world.PerimeterLayer.Hole::describe)
+                        .toList());
         return 1;
     }
 

@@ -812,6 +812,9 @@ public final class Settlement {
      * @param ignore a building origin to skip, for an improvement raised in place
      */
     public boolean isPlotFree(SimPos candidate, int span, SimPos ignore) {
+        if (hasGivenUpOn(candidate)) {
+            return false;   // the ground itself refused a build here; see abandonBuild
+        }
         for (Building standing : buildings) {
             if (!BuildPlanner.holdsGround(standing.blueprintId())
                     || (ignore != null && standing.origin().equals(ignore))) {
@@ -1076,6 +1079,22 @@ public final class Settlement {
      * {@code PerimeterPlanner.restakeIfOutgrown} moves the wall out around what
      * the town has <em>become</em>, carrying its raised posts with it — so this
      * is asked of the standing line, whichever line that currently is.
+     *
+     * <p><strong>And of the old line, for exactly as long as the old line is
+     * still in the ground.</strong> A town that has just moved its wall would
+     * otherwise site a building on the posts of the circuit it has replaced —
+     * measured on the fixtures at 347 buildings over 126 grown towns, and 23 after — because
+     * the retired loop is not the standing one and nothing asked about it. The
+     * naive repair, refusing the whole retired loop, sterilizes a band straight
+     * through the middle of a town for as long as the demolition takes, which on
+     * an unloaded stretch is for ever.
+     *
+     * <p>So what is refused is the part of the old line that <em>physically
+     * still stands</em>: {@link Perimeter#retiredPositions()} from
+     * {@link Perimeter#pulled()} onward, which is the prefix the crew and the
+     * sweep have not yet taken up. The band shrinks as the posts come out and is
+     * gone the moment the last one does — {@code forgetRetired} empties the list
+     * — so nothing is refused on account of a wall that is no longer there.
      */
     private boolean standsOnTheWall(SimPos candidate, int span) {
         if (perimeter == null) {
@@ -1083,6 +1102,14 @@ public final class Settlement {
         }
         double half = span / 2.0 + CURB;
         for (SimPos post : perimeter.ringPositions()) {
+            if (Math.abs(post.x() - candidate.x()) <= half
+                    && Math.abs(post.z() - candidate.z()) <= half) {
+                return true;
+            }
+        }
+        List<SimPos> retired = perimeter.retiredPositions();
+        for (int i = perimeter.pulled(); i < retired.size(); i++) {
+            SimPos post = retired.get(i);
             if (Math.abs(post.x() - candidate.x()) <= half
                     && Math.abs(post.z() - candidate.z()) <= half) {
                 return true;
@@ -1320,6 +1347,16 @@ public final class Settlement {
      * <p>For a site that cannot be built at all. The plot is burned rather than
      * reconsidered, so the town does not propose the same impossible spot on the
      * very next step.
+     *
+     * <p><strong>Burned by remembering it, not by moving the cursor.</strong>
+     * Bumping {@link #nextPlotIndex} was the whole of this and it only worked by
+     * luck: {@link #chooseSite} leaves the cursor at the first <em>free</em> slot
+     * it saw rather than at the one it took, so a plot chosen from further along
+     * the ring sits ahead of the cursor still and is offered again on the next
+     * step. What kept the promise in the fixtures was an incidental palisade
+     * refusing the ground — and the day the wall's shape changed, a town started
+     * proposing the impossible spot it had just given up on. The cursor still
+     * advances, because the slot was spent either way.
      */
     public void abandonBuild(long step, String reason) {
         if (buildQueue.isEmpty()) {
@@ -1327,7 +1364,46 @@ public final class Settlement {
         }
         BuildTask given = buildQueue.removeFirst();
         nextPlotIndex++;
+        rememberGivenUp(given.origin());
         logEvent(step, "Abandoned " + given.blueprintId() + " at " + given.site() + " — " + reason);
+    }
+
+    /**
+     * Plots the town has given up on, by column, newest last.
+     *
+     * <p>Columns rather than positions: a plot is offered at the middle of town's
+     * height and recorded at whatever the ground turned out to be, so the two
+     * would not compare.
+     *
+     * <p>Bounded, and deliberately not saved. Bounded because a town that gave up
+     * on a thousand sites has a different problem and this must not become a
+     * second claim ledger; unsaved because it describes what the view layer found
+     * in the ground this session, and a reload has by definition gone back to look
+     * again. The cost of forgetting is one wasted attempt at a site that will be
+     * abandoned a second time, which is exactly what happened before this existed.
+     */
+    private final java.util.LinkedHashSet<Long> givenUpOn = new java.util.LinkedHashSet<>();
+
+    /** How many abandoned plots are remembered. */
+    private static final int GIVEN_UP_REMEMBERED = 64;
+
+    private void rememberGivenUp(SimPos plot) {
+        givenUpOn.remove(column(plot));
+        givenUpOn.add(column(plot));
+        while (givenUpOn.size() > GIVEN_UP_REMEMBERED) {
+            java.util.Iterator<Long> oldest = givenUpOn.iterator();
+            oldest.next();
+            oldest.remove();
+        }
+    }
+
+    /** Whether the town has already given this ground up as unbuildable. */
+    private boolean hasGivenUpOn(SimPos plot) {
+        return !givenUpOn.isEmpty() && givenUpOn.contains(column(plot));
+    }
+
+    private static long column(SimPos at) {
+        return ((long) at.x() << 32) ^ (at.z() & 0xffffffffL);
     }
 
     public int claimRadius() {
