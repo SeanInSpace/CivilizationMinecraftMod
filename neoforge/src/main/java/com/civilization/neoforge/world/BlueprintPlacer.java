@@ -281,7 +281,15 @@ public final class BlueprintPlacer {
         for (Step step : plan.steps()) {
             lay(level, new Placement(step.pos(), step.state(), step.nbt()));
         }
-        return plotOf(base.getY(), plan);
+        Footprint plot = plotOf(base.getY(), plan);
+        // The structure is standing, and this is the only moment anything can say
+        // so with certainty. The auditor may not call a building demolished unless
+        // it saw it standing first, and it used to take that mark on its own sweep
+        // a minute later -- so anything drawn and destroyed inside one sweep could
+        // never be written off at all, because the reading of the wreck became its
+        // own high-water mark. See TownAuditor.WALLS_SEEN.
+        TownAuditor.sawDrawn(new LevelWorldView(level), base, plot);
+        return plot;
     }
 
     /**
@@ -850,6 +858,7 @@ public final class BlueprintPlacer {
             payFor(settlement, task, step);
         }
         task.recordStepDone(step.cost());
+        markIfDrawn(new LevelWorldView(level), task);
         return true;
     }
 
@@ -879,7 +888,35 @@ public final class BlueprintPlacer {
             payFor(settlement, task, step);
         }
         task.recordStepDone(step.cost());
+        markIfDrawn(new LevelWorldView(level), task);
         return true;
+    }
+
+    /**
+     * Takes the auditor's mark the moment a hand-built structure is finished.
+     *
+     * <p>The by-hand half of the seam {@code TownAuditor.WALLS_SEEN} describes.
+     * A building laid block by block never passes through {@link #place} at all,
+     * so nothing on this path ever told the auditor it had seen the thing
+     * standing — and a cottage a crew finished and a creeper flattened inside the
+     * same minute could therefore never be written off.
+     *
+     * <p>Asked of the task rather than of a {@code Building}, because at this
+     * moment there is no building: the last block goes down here and the
+     * settlement writes the record on its next step. The task carries both halves
+     * of what the mark needs — where the structure stands and the size the plan
+     * turned out to be.
+     *
+     * <p>Package-private and taking a {@link WorldView} so that a test can drive
+     * it, which is the whole reason the mark is worth cutting a seam for.
+     */
+    static void markIfDrawn(WorldView world, BuildTask task) {
+        if (!task.isVisuallyComplete()) {
+            return;   // still going up; nothing to have an opinion about yet
+        }
+        SimPos at = task.site();
+        TownAuditor.sawDrawn(world, new BlockPos(at.x(), at.y(), at.z()),
+                task.footprint());
     }
 
     private static Step currentStep(ServerLevel level, BuildTask task) {
