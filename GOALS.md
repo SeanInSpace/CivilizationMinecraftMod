@@ -50,6 +50,34 @@ it. Design questions and rebalances live under the next heading, not here.*
       outside the 96-block `observed_radius` judged at the site. The player
       watched a building appear in the distance. Judge the whole claim watched
       when a player is within the radius of any part of it, or use the view
+      distance; a decision, then a fix.
+- [x] **Two spawn towns are both called Bellbrook.** The hash now chooses where
+      in the pool to start looking rather than what the answer is; the pool is
+      walked until a free name turns up, and past the end of it a place-name
+      qualifier goes in front. Wants playing.
+- [x] **Seeded buildings are buried or open onto air.** Two halves. The
+      unwatched placement pass took its floor from the origin column where a
+      crew takes the median across the whole plot — one function now, in
+      `Grade.floorAcross` — and the seeded siting now applies the auditor's own
+      shelf geometry rather than only the fall across a plot's bulk. Measured
+      nought shelf faults before and after on the recorded ground, which cannot
+      produce one: the probe radius already covers the shelf of everything up to
+      a thirteen-wide hall, so the gap is the farm and the compound, and
+      `GradeTest` builds the hollow that shows it (one farm buried before, none
+      after). Wants playing, and wants the residual in the next item read:
+      the audit reported ground standing exactly 3 above a floor, which the
+      apron cut should have taken off, so either the cut is not reaching those
+      columns or `WorldView.groundLevel` reads back over an air pocket it made.
+      That needs real blocks to settle.
+- [x] **Four of fourteen seeded buildings still move on arrival.** The claim was
+      read to sixty-four blocks and the plan reaches a hundred and thirty, so the
+      outer plots were sited against the generator's noise and re-judged on
+      arrival. Read to the plan's reach instead: 19 of 394 moved to 0 of 375 on
+      thirty towns of the recorded ground. A site a building is moved off is
+      refused for twenty steps for the whole town, and a relocation is bounded to
+      one move per building — moved-twice 9 to 0. Wants playing.
+- [ ] **The forester's stand is stripped by the town's own building.** 57
+
       distance; a decision, then a fix. *Decided: the claim. A player within
       `observed_radius` of any part of a town's claim makes the whole town
       watched, and a watched town has no clock at all.*
@@ -296,9 +324,36 @@ it. Design questions and rebalances live under the next heading, not here.*
 - [ ] **A hall never lands on the middle.** The plan reserves plot 0 for the
       great hut, and for every other arrangement's hall, but the camp post
       takes plot 0 on step one and the hall is raised a hundred blocks out.
-      Fixing it means letting a building reserve a plot: a siting change.
+      Attempted 2026-09-13 and backed out; the attempt is in the commit
+      "Two Bellbrooks, a town that stops rearranging itself…" and the findings
+      are these. Freeing the camp post from plot 0 — a marker claims no plot —
+      is the easy half and not enough: reserving the *index* reserves no
+      *ground*, because `Layout.MIN_PLOT_SEPARATION` is eleven and stated for
+      two plots of the default span, so a thirteen-wide hall does not fit
+      between plot 0's neighbours in any arrangement in the mod. Reserving the
+      hall's whole square does work — eleven of the fourteen arrangements then
+      put the hall on plot 0, from none of them — and costs two plots near the
+      middle, which pushed one building in one arrangement onto ground its lane
+      cannot reach. Judging the reservation on walls rather than plots fits
+      without that cost and breaks the plot-overlap invariant `PlotOverlapTest`
+      and `SeededSettlementTest` hold. And in every lattice arrangement the
+      camp post is the road hub, so the town's lanes converge on the middle and
+      the middle reads back as carriageway: the hall needs the hub moved off it,
+      or those lanes dropped from a network whose stretches are keyed by index.
+      **Wants a decision about the roads**, not more siting: either the hub is
+      the settlement center offset clear of plot 0, or the marker's lanes are
+      superseded with the marker.
+      Three of the fourteen arrangements also have no plot near the middle at
+      all — `ring_streets`, `crossroads` and `bastide` draw their innermost
+      frontage 30 to 49 blocks out — so "plot 0" and "the middle" are not the
+      same claim for them, and the test has to say which it means.
 
-- [ ] **A war camp still raises a town hall beside its great hut.**
+- [x] **A war camp still raises a town hall beside its great hut.** The great
+      hut is a `HALL` by role now, and `Homes` substitutes it wherever a program
+      asks this people for a hall — so the want is satisfied by the hut already
+      standing and a `town_hall` is not buildable by a warhost at all. The roads
+      radiate from it too; the hub was matched by the text "town_hall", so an orc
+      camp had none. Wants playing.
 
 - [x] **A queued plot draws at a stand-in height of six.** Fixed 2026-09-12:
       `BuildingSizes.Size` carries a height, declared per kind as the tallest any

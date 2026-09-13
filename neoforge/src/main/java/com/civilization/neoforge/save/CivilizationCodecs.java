@@ -506,6 +506,13 @@ public final class CivilizationCodecs {
             // because "written into existence" and "built by somebody" is a
             // distinction a save has to carry rather than assume.
             Codec.BOOL.fieldOf("seeded").forGetter(Building::isSeeded),
+            // A relocation is bounded to one per building, and a save can land in
+            // the middle of an arrival — the claim loads over several steps — so
+            // the bound has to survive one or the town wakes up with a fresh
+            // allowance of moves for buildings it has already rearranged.
+            // Optional and false by default: a building in an older save has not
+            // been moved as far as anybody can tell, which is the honest answer.
+            Codec.BOOL.optionalFieldOf("relocated", false).forGetter(Building::hasRelocated),
             Codec.INT.optionalFieldOf("food", 0).forGetter(Building::foodStored),
             // Where the town's goods actually are. Optional and omitted when
             // empty, because most buildings hold nothing and a map apiece
@@ -516,10 +523,11 @@ public final class CivilizationCodecs {
             LEDGERS.fieldOf("ledgers").forGetter(Ledgers::of),
             AUTHORED.optionalFieldOf("authored").forGetter(
                     b -> java.util.Optional.ofNullable(b.authored()))
-    ).apply(i, (blueprint, plot, step, materialized, surveyed, seeded, food, held,
-                condition, ledgers, authored) -> {
+    ).apply(i, (blueprint, plot, step, materialized, surveyed, seeded, relocated, food,
+                held, condition, ledgers, authored) -> {
         Building building = new Building(blueprint, plot.origin(), step, materialized);
         building.setSeeded(seeded);
+        building.setRelocated(relocated);
         building.setFoodStored(food);
         building.setSurveyed(surveyed);
         building.setFootprint(plot.footprint());

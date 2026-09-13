@@ -6,6 +6,138 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Two Bellbrooks, a town that stops rearranging itself, and a warhost with one hall
+
+### Fixed
+
+- **No two towns are called the same thing.** A spawn town's name was the site
+  position hashed into its culture's pool, and nothing asked what was already
+  settled — with nine towns drawn from a pool of a dozen, two of them both being
+  called Bellbrook is the likely outcome and not the unlucky one. The hash still
+  chooses, because the hash is what makes a seed give the same world twice; it just
+  no longer gets the last word. The pool is walked from the hashed name until a
+  free one turns up, and once the whole pool is spoken for a place-name qualifier
+  goes in front of it — Upper Bellbrook, then Lower, then Little, in that order, so
+  the overflow is deterministic and reads like an English map rather than a counter.
+  Every name standing in the world counts, whoever settled it: two Bellbrooks are
+  two Bellbrooks on a map whichever culture got there first.
+
+- **A seeded town stops rearranging itself when you walk up to it.** The platform
+  reads the ground under a new town's claim before raising it, and it was reading
+  the claim radius — sixty-four blocks. A village's plan reaches ninety to a
+  hundred and thirty. So the outer plots of every generated town were chosen
+  against the generator's smoothed noise and judged by the loose allowance an
+  estimate gets, and then the player arrived, the real chunks came in, they were
+  judged strictly, and they moved. That was never a relocation fault; it was a
+  reading fault, in exactly the buildings nobody had looked at the ground under.
+  What is read now is what the plan can reach, plus the probe radius the siting
+  judges a plot by and half the widest plot it may put there.
+
+- **No two buildings trade sites, and none moves twice.** A relocation used to ask
+  whether a plot was *better than where this building stands* rather than whether
+  it was any good, so "refused" was never a fact about the ground — it was a
+  comparison against whoever happened to be asking, and one step later the same
+  ground was the best thing on offer to somebody else. The playtest's carpentry and
+  market traded plots twice over doing precisely that. A site a building has been
+  moved off is now written down as refused for twenty steps and no building in that
+  town may walk onto it; both relocation paths ask one question about the site
+  instead of two different questions about themselves; and a relocation is bounded
+  to one move per building, so a building that has moved once and is refused again
+  stays, and has the ground cut in under it instead.
+
+- **A war camp raises one hall, and it is the great hut.** The TOWN program wants a
+  hall and nothing told it the orcs already have one, so a warhost stood a human
+  town hall beside its own chief's seat. The great hut is now a `HALL` by role — it
+  is what `KingPlanner` names as the seat and it stands on the muster yard, so every
+  rule ever written about "the hall" has always meant it and none of them could see
+  it — and `Homes` substitutes it wherever a program asks this people for a hall.
+  That answers both halves at once: the want is satisfied by the hut already
+  standing, and a `town_hall` is not buildable by a warhost at all. The roads
+  radiate from it too, which they did not before: the hub was found by matching the
+  text "town_hall", so an orc camp had no hub and ran its lanes from the middle of
+  the claim instead of from the chief's door.
+
+- **The two placement paths agree about where a floor goes.** A crew surveys a whole
+  plot and sets the floor at its median, held down to what the underpinning can
+  reach. The unwatched pass — which is every seeded building, by definition — took
+  the origin column and nothing else. On a hillside those are different numbers, and
+  an origin column sitting in a dip sets a floor the building's own plot stands
+  courses above: "buried — the ground stands up to 3 above its floor on every side",
+  in the audit's words, reported for a hearth, a lumber camp and a mine. One
+  function now, and the arithmetic of it lives in the simulation so the siting can
+  ask what floor a plot will be given before there is a world to place anything in.
+
+- **Seeded siting asks the question the auditor asks.** Siting asked how far the
+  ground falls across the bulk of a plot; the auditor asks whether the ring of
+  ground one step outside the walls can be brought to the floor once the floor is
+  set. Those are different questions, and a plot can pass the first and fail the
+  second. The new rule is the placer's own reach stated as arithmetic — three
+  courses off with the apron cut, three on with the doorstep course — and one side
+  the ground can be brought to is enough, which is the auditor's own tolerance for a
+  hillside build.
+
+### Measurements
+
+- Seeded towns on the recorded ground of seed 8675309, thirty centers across the
+  field, seeded against a claim read the way the platform reads it and then walked
+  up to a chunk at a time:
+
+  | | moved on arrival | moved twice | swaps | furthest |
+  |---|---|---|---|---|
+  | before | 19 of 394 | 9 | 0 | 178 blocks |
+  | one move, no swap | 19 of 394 | 0 | 0 | 152 blocks |
+  | and the claim read to the plan's reach | **0 of 375** | 0 | 0 | 0 |
+
+- The auditor's shelf geometry over the same thirty towns: nought faults before and
+  nought after. The recorded ground cannot produce one, which is worth knowing
+  rather than worth celebrating — see the notes.
+- On ground built to exhibit it, one farm of fourteen buildings was left buried
+  before and none after.
+- Names: thirty towns out of a pool of three, all called something nobody else is;
+  and every culture's real pool drawn down twice over with nothing handed out twice.
+
+### Notes
+
+- Save compatibility is waived, so a building gained a key rather than a migration:
+  `relocated`, optional and false when absent, which is what a world written before
+  this loaded with anyway. It has to survive a save because a claim loads over
+  several steps and a player can walk away in the middle of one — without it the
+  town wakes up with a fresh allowance of moves for buildings it has already
+  rearranged.
+- Reading more ground per town costs world-start time and nothing else: the claim is
+  generated to the carvers at eight chunks a tick and resumed on the next, with
+  nobody in the world to feel it. A sixty-four block claim is about sixty-five
+  chunks; the plan's reach is roughly twice that radius, so about four times the
+  chunks, and the nine spawn towns take a few seconds rather than under one.
+- The towns are very slightly smaller: 375 buildings across the thirty against 394.
+  That is the same strictness working — plots beyond sixty-four blocks used to be
+  chosen against an estimate that knows nothing about water or ravines, and a
+  program that now runs short is one that used to place a building it would have had
+  to move. A "Seeded short" line goes in the town's own history when it happens.
+- **Why the recorded ground shows nought shelf faults, before and after.** The
+  siting probes six blocks round a plot and the shelf a nine-wide building is judged
+  by is its ring at four, so for everything up to a thirteen-wide hall the rule
+  siting already had was looking at the ground the auditor judges. The gap is the
+  two widest things a town builds — the farm at fifteen and the compound at
+  seventeen, whose shelves stand at seven and eight — and a flat-bottomed hollow
+  exactly thirteen across is the shape that falls in it: every sample the probe takes
+  lands on its floor, so it scores a perfect nought, and it buries a farm five
+  courses deep on every side. `GradeTest` builds that hollow rather than looking for
+  one in the recording, because the recording is sampled at a grain of two and
+  smooths it away.
+- **The hall still does not land on the middle, and this does not fix it.** Freeing
+  the camp post from plot zero is only the first half; reserving the index reserves
+  no ground, because a plan keeps its plots eleven apart and that figure is stated
+  for two plots of the default span — a thirteen-wide hall does not fit between them
+  in any arrangement in the mod. Reserving the hall's whole square instead does work
+  (eleven of the fourteen arrangements put the hall on plot zero, from none of them)
+  and costs two plots near the middle, which pushed one building in one arrangement
+  onto ground its lane cannot reach; judging the reservation on walls instead of
+  plots breaks the plot-overlap invariant two other suites hold; and either way the
+  road hub has to move off the middle or the marker's lanes have to be dropped from
+  an index-keyed network. That is a road-planning decision rather than a siting one,
+  so the attempt is written up in the commit and the bug stays open.
+
 ## A town is watched all at once
 
 ### Fixed

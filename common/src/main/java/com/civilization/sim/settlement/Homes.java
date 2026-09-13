@@ -64,7 +64,23 @@ public final class Homes {
             "civilization:cottage", "civilization:hut",
             "civilization:house", "civilization:hut",
             "civilization:longhouse", "civilization:great_hut",
-            "civilization:croft", "civilization:great_hut");
+            "civilization:croft", "civilization:great_hut",
+            // And the hall, which is the one entry here that is not a home.
+            //
+            // A warhost raised a town hall beside its great hut, because the TOWN
+            // program wants a hall and nothing told it the orcs already have one.
+            // The great hut IS the orc hall — it is where the chief sits, it is
+            // what {@code KingPlanner.SEAT} names, and it is the building at the
+            // middle of the muster yard. A camp with a second, human, civic
+            // building next to it is a camp with somebody else's architecture in it.
+            //
+            // Written as a substitution rather than as a special case in the
+            // program for the reason the class javadoc gives: a substitution
+            // answers both halves at once. The program's want for a hall resolves
+            // to the great hut, which already stands, so the want is satisfied and
+            // nothing is ordered; and buildableBy refuses a town_hall to this
+            // people outright, so the catalog scan cannot reach one either.
+            "civilization:town_hall", "civilization:great_hut");
 
     private static final Map<String, Map<String, String>> INSTEAD = instead();
 
