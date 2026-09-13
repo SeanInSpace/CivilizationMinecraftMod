@@ -6,6 +6,108 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The report stops contradicting itself, and the clock is saved
+
+### Fixed
+
+- **The report gives one guard count, and says what "defense" is made of.** The
+  same `/civ info` block used to read "jobs: guard x6" and then "defense 15
+  (guards x2 + structures)", where the 2 is what one guard is *worth* and not how
+  many there are — so the town appeared to disagree with itself about its own
+  watch four lines apart. The defense figure is written out as its own arithmetic
+  now: "defense 15 = 6 guards x 2 + structures 3", with the king as his own term
+  when somebody is crowned. The garrison line names the crown's share of the
+  strength too, so it agrees with the jobs line instead of reading one higher for
+  no visible reason. The town map's watch panel says both in the same words, out
+  of the same two functions.
+
+- **"equipped 0/17" is "tools 0/17".** It counts who has been issued a tool off
+  the smith's rack and has never had anything to do with weapons — but read as
+  "equipped", it said a town of seventeen was going into a raid unarmed. Nothing
+  about the count changed; it is now called what it counts. Same rename on the
+  town map's payload.
+
+- **`/civ info` is headed "=== Civilization"**, not "=== Kingdoms". That was the
+  last user-facing survival of the mod's old name; the remaining uses of the word
+  are the domain word for a realm, which is correct, and one internal save key.
+
+- **A town does not use the same name twice.** Every namer derived a name from a
+  count — the population, the number of households, the size of a family — and
+  every one of those counts falls when somebody dies or a family dies out. So each
+  came back round to a number it had already used and handed out the name it had
+  handed out there: "Bren Smith" was born, buried, and born again, and three
+  unrelated families were all "the Turners" at once. A name is now the first one
+  from the pool that nothing living in the town is already using, and a person's
+  search starts at the simulation step — which only goes up — rather than at a
+  count of people, which does not.
+
+- **Every people has forty given names and thirty family names of its own, in its
+  own idiom.** They had eight of each, shared: a Norman, a burgher and a hill
+  family drew from one list, and a goblin warren had families called Baker and
+  Cooper. Now the Normans have the feudal trades, the hill folk the ground they
+  graze, the burghers the guild and the counting house, the vale folk the work of
+  the green — and the orcs and goblins share not one name with any of them. A
+  refusing policy needs somewhere to fall through to, which is why the widening
+  and the refusing are one change.
+
+- **A newcomer taken in by a family takes the family's name.** An arrival used to
+  keep whichever surname they turned up with, so the Coopers held a Palfreyman and
+  the report listed a family whose members were not of it. Their given name
+  survives. The same now holds for anybody who moves house: a couple leaving the
+  bunks and a child setting up on their own take the name of the household they
+  found. A name the simulation did not choose — a hand-named settler — is never
+  overwritten.
+
+- **A family's growth no longer reads past its own cap.** "growth 45/24" was two
+  faults in one line. The report printed the base birth rate while the gate used
+  the rate stretched by how crowded the town is — forty-eight on a town of
+  seventeen — so a family nine-tenths of the way there read as twice over. And
+  because the stretched rate *falls* when the population does, seventeen deaths in
+  one night left every waiting family banked above a threshold that had dropped
+  under it. The report asks the same function the gate asks, and banked progress
+  is held at the line from above as well as from below.
+
+- **The night line always says something at night.** "N asleep, M could not reach
+  a bed" went silent whenever both counts were zero — which is exactly the state
+  worth reading about, and is the state a night of monsters produces: anything
+  hostile inside notice turns a settler out of bed and keeps them out, so nobody
+  is asleep and nobody is trying, and the line vanished. Through the whole night of
+  2026-09-12 the report said nothing about beds while a settler was photographed
+  asleep in a bunkhouse. It now reads "nobody in bed — 13 awake (9 with something
+  inside notice)", or says that the town has no bodies in the world at all, so
+  silence means one thing only: it is not night.
+
+- **The simulation's clock survives a reload.** `SimWorld.stepsElapsed` restarted
+  at zero every session while four durable things carried step numbers out of the
+  save file — the wall's stake, each building's completion step, the town's
+  founding step and the raid schedule. Every one of them was a date in the future
+  on load. A wall could never be moved again in a world that had ever been
+  reloaded (the cooldown had a workaround for it, which is now a fallback for old
+  saves), and a reloaded town came back aged zero and therefore inside its
+  founding grace against raids all over again. The counter is written and restored,
+  and `/civ step` records it too.
+
+- **The four survey fixtures carry the current culture ids.** They recorded
+  `kingdoms:norman` and `kingdoms:highland`, which no culture has been called
+  since the rename; they now read `civilization:human/norman` and
+  `civilization:human/highland`. Nothing measured in them changed — the recorded
+  layout is still one that people builds — so all four were rewritten and none
+  deleted.
+
+### Notes
+
+- Save compatibility is waived, so the save gained a key rather than a migration:
+  `steps_elapsed` at the top of each dimension's kingdom data. It is optional and
+  reads as zero when absent, which is what a world written before this loaded with
+  anyway. The town map payload's `Watch` gained a `guardHeads` field and `Folk`
+  renamed `equipped` to `withTools`; both are per-session network shapes and carry
+  no save format with them.
+
+- A dead settler's name is free for the town to use again eventually, deliberately:
+  a village that could never reuse a great-grandmother's name would exhaust its own
+  language. What is refused is a name a *living* resident bears, and the step-based
+  search means the pool is walked through before anything comes round again.
+
 ## The fields keep working in a famine, and the board fits on the screen
 
 ### Fixed

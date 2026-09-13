@@ -1,7 +1,6 @@
 package com.civilization.sim.settlement;
 
 import com.civilization.sim.geom.SimPos;
-import com.civilization.sim.culture.Culture;
 import com.civilization.sim.person.Household;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
@@ -70,11 +69,21 @@ public final class PopulationPlanner {
         return Math.max(1, baseSteps) * crowding;
     }
 
-    private static final List<String> FAMILY_NAMES = List.of(
-            "Baker", "Miller", "Smith", "Cooper", "Fletcher", "Mason", "Turner", "Weaver");
-
-    private static final List<String> GIVEN_NAMES = List.of(
-            "Ada", "Bren", "Cyn", "Dov", "Esa", "Fen", "Gil", "Hana", "Ivo", "Jor");
+    /**
+     * The threshold a family in <em>this</em> town is counting toward right now.
+     *
+     * <p>Named and public because {@code /civ info} was printing
+     * {@link #STEPS_PER_BIRTH} — the base rate, before crowding — beside a
+     * numerator that {@link #growFamilies} counts against the stretched one. On a
+     * town of seventeen the gate wants forty-eight steps and the report said
+     * twenty-four, so every family past its twenty-fourth step read as over a cap
+     * it was nowhere near. The report and the gate ask the same function now.
+     *
+     * @param baseSteps the configured base rate, {@code SimSettings.stepsPerBirth}
+     */
+    public static int stepsToNextBirth(Settlement settlement, int baseSteps) {
+        return stepsPerBirthIn(baseSteps, settlement.population());
+    }
 
     private PopulationPlanner() {
     }
@@ -89,10 +98,10 @@ public final class PopulationPlanner {
      */
     public static void advance(Settlement settlement, SimContext ctx) {
         retireEmptyHouseholds(settlement);
-        groupUnassignedResidents(settlement);
+        groupUnassignedResidents(settlement, ctx.step());
         assignHomes(settlement);
-        rehouseIntoFamilyHomes(settlement);
-        growFamilies(settlement, ctx.settings().stepsPerBirth(),
+        rehouseIntoFamilyHomes(settlement, ctx.step());
+        growFamilies(settlement, ctx.step(), ctx.settings().stepsPerBirth(),
                 ctx.settings().maxSettlementPopulation());
     }
 
@@ -206,7 +215,7 @@ public final class PopulationPlanner {
      * whatever migration system exists later — are gathered into families rather
      * than each becoming a lone household, which would need one house each.
      */
-    private static void groupUnassignedResidents(Settlement settlement) {
+    private static void groupUnassignedResidents(Settlement settlement, long step) {
         int groupSize = largestHousingCapacity(settlement);
         for (Person person : settlement.residents()) {
             if (belongsToAFamily(settlement, person.id())) {
@@ -214,10 +223,22 @@ public final class PopulationPlanner {
             }
             Household household = lastFamilyWithRoom(settlement, groupSize);
             if (household == null) {
-                household = new Household(Household.Id.random(), nextFamilyName(settlement));
+                // Named after the surname they arrived under where that is one of
+                // this people's, rather than after the next name in the pool.
+                // Newcomer already picked one no household and no resident was
+                // using, so the family and its one member say the same thing --
+                // which the two independent pickers did not.
+                household = new Household(Household.Id.random(),
+                        Names.familyFoundedBy(settlement, person));
                 settlement.addHousehold(household);
             }
             household.addMember(person.id());
+            // A newcomer joining a family takes the family's name. Their given
+            // name survives wherever it is free in that family, so this is a
+            // change of surname and not of person -- and it is a no-op for
+            // anybody already correctly named, which is everybody the planner
+            // itself made.
+            takeTheFamilyName(settlement, person, household, step);
         }
     }
 
@@ -246,7 +267,7 @@ public final class PopulationPlanner {
      * cottages the VILLAGE program raised stood empty while the stage waited
      * on the families they were for.
      */
-    private static void rehouseIntoFamilyHomes(Settlement settlement) {
+    private static void rehouseIntoFamilyHomes(Settlement settlement, long step) {
         for (Household household : List.copyOf(settlement.households())) {
             if (!household.isHoused()
                     || settlement.isFamilyHome(household.home())) {
@@ -270,15 +291,16 @@ public final class PopulationPlanner {
                     }
                 }
             } else {
-                moveCoupleInto(settlement, household, door);
+                moveCoupleInto(settlement, household, door, step);
             }
             return;   // one move a step keeps the town legible
         }
     }
 
     /** Two members found a new household in the vacant family home. */
-    private static void moveCoupleInto(Settlement settlement, Household parent, SimPos vacant) {
-        Household founded = new Household(Household.Id.random(), nextFamilyName(settlement));
+    private static void moveCoupleInto(Settlement settlement, Household parent,
+                                       SimPos vacant, long step) {
+        Household founded = new Household(Household.Id.random(), Names.familyFor(settlement));
         for (int i = 0; i < 2 && parent.members().size() > 1; i++) {
             Person.Id leaver = parent.members().getLast();
             parent.removeMember(leaver);
@@ -286,6 +308,7 @@ public final class PopulationPlanner {
             Person person = settlement.resident(leaver);
             if (person != null) {
                 person.setPosition(vacant);
+                takeTheFamilyName(settlement, person, founded, step);
             }
         }
         founded.setHome(vacant);
@@ -341,7 +364,8 @@ public final class PopulationPlanner {
 
     // --- 3. growth ---
 
-    private static void growFamilies(Settlement settlement, int stepsPerBirth, int populationCap) {
+    private static void growFamilies(Settlement settlement, long step, int stepsPerBirth,
+                                     int populationCap) {
         // Copied because splitting appends to the household list as we iterate.
         for (Household household : List.copyOf(settlement.households())) {
             if (!household.isHoused()) {
@@ -372,10 +396,18 @@ public final class PopulationPlanner {
             // Stretched by how full the town already is -- see CROWDING_SCALE.
             // A hamlet grows quickly and a town barely at all, which is what
             // keeps the curve from running away now the hard cap is gone.
-            int needed = stepsPerBirthIn(stepsPerBirth, settlement.population());
+            int needed = stepsToNextBirth(settlement, stepsPerBirth);
             if (household.growthProgress() < needed) {
                 household.addGrowthProgress(1);
             }
+            // And held at it from above as well as from below. The threshold is
+            // stretched by the population and therefore shrinks when the
+            // population does, so a family holding banked progress against the
+            // old, larger threshold was left standing above the new one -- which
+            // is the "growth 45/24" the report showed after a bad night. The
+            // counter is meant to hold at the line and now does, whichever side
+            // the line moves from.
+            household.holdGrowthProgressAt(needed);
             if (household.growthProgress() < needed) {
                 continue;
             }
@@ -416,7 +448,7 @@ public final class PopulationPlanner {
             }
             if (household.size() < capacity.getAsInt()) {
                 household.resetGrowthProgress();
-                bearChild(settlement, household);
+                bearChild(settlement, household, step);
                 continue;
             }
 
@@ -426,7 +458,7 @@ public final class PopulationPlanner {
             SimPos vacant = firstVacantHome(settlement);
             if (vacant != null) {
                 household.resetGrowthProgress();
-                splitFamilyInto(settlement, household, vacant);
+                splitFamilyInto(settlement, household, vacant, step);
             }
         }
     }
@@ -436,14 +468,14 @@ public final class PopulationPlanner {
      * family trade when nothing is short. This is how a town founded entirely by
      * builders grows its own guards and farmers — see {@link JobPlanner}.
      */
-    private static void bearChild(Settlement settlement, Household household) {
+    private static void bearChild(Settlement settlement, Household household, long step) {
         Person elder = settlement.resident(household.members().getFirst());
         Profession trade = JobPlanner.mostNeeded(settlement)
                 .orElseGet(() -> elder != null ? elder.profession() : Profession.IDLER);
 
         Person child = new Person(
                 Person.Id.random(),
-                givenName(settlement, household.size()) + " " + household.name(),
+                Names.childOf(settlement, household, step),
                 trade,
                 household.home());
 
@@ -451,8 +483,30 @@ public final class PopulationPlanner {
         household.addMember(child.id());
     }
 
+    /**
+     * Somebody's surname becomes the surname of the family they are now in.
+     *
+     * <p>Used by every path that moves a person between households — a newcomer
+     * gathered in, a couple moving out of the bunks, a child setting up on their
+     * own. A town holds one family per name and shows a household as "the
+     * Turners", so a member whose own surname is something else is a line in the
+     * report that contradicts itself. Which name the household has is decided
+     * before this is called; this only makes the people agree with it.
+     *
+     * <p>A no-op for anybody whose name this policy did not hand out — see
+     * {@link Names#joining} — so a hand-named settler keeps what they were called.
+     */
+    private static void takeTheFamilyName(Settlement settlement, Person person,
+                                          Household household, long step) {
+        String joined = Names.joining(settlement, person, household, step);
+        if (!joined.equals(person.name())) {
+            person.rename(joined);
+        }
+    }
+
     /** The most recently added member leaves to found a family in the empty house. */
-    private static void splitFamilyInto(Settlement settlement, Household parent, SimPos vacant) {
+    private static void splitFamilyInto(Settlement settlement, Household parent,
+                                        SimPos vacant, long step) {
         Person.Id leaver = parent.members().getLast();
         parent.removeMember(leaver);
         if (parent.members().isEmpty()) {
@@ -462,7 +516,7 @@ public final class PopulationPlanner {
             settlement.removeHousehold(parent);
         }
 
-        Household founded = new Household(Household.Id.random(), nextFamilyName(settlement));
+        Household founded = new Household(Household.Id.random(), Names.familyFor(settlement));
         founded.addMember(leaver);
         founded.setHome(vacant);
         settlement.addHousehold(founded);
@@ -470,6 +524,7 @@ public final class PopulationPlanner {
         Person person = settlement.resident(leaver);
         if (person != null) {
             person.setPosition(vacant);
+            takeTheFamilyName(settlement, person, founded, step);
         }
     }
 
@@ -630,31 +685,4 @@ public final class PopulationPlanner {
         return last.size() < groupSize ? last : null;
     }
 
-    /**
-     * The next family name this town has not used, in its own language.
-     *
-     * <p>Read from the settlement's culture rather than the one list everybody
-     * used to share. A goblin warren whose families were called Baker and
-     * Cooper was the clearest sign that culture reached the beasts in the pens
-     * and almost nothing else.
-     */
-    private static String nextFamilyName(Settlement settlement) {
-        List<String> pool = namesOr(Culture.of(settlement.cultureId()).familyNames(),
-                FAMILY_NAMES);
-        int index = settlement.households().size();
-        String base = pool.get(index % pool.size());
-        int wrap = index / pool.size();
-        return wrap == 0 ? base : base + " " + (wrap + 1);
-    }
-
-    private static String givenName(Settlement settlement, int index) {
-        List<String> pool = namesOr(Culture.of(settlement.cultureId()).givenNames(),
-                GIVEN_NAMES);
-        return pool.get(index % pool.size());
-    }
-
-    /** A culture's own list, or the lowland one if it never defined any. */
-    private static List<String> namesOr(List<String> pool, List<String> fallback) {
-        return pool == null || pool.isEmpty() ? fallback : pool;
-    }
 }

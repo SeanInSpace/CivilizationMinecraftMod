@@ -100,6 +100,27 @@ public final class Household {
         growthProgress = 0;
     }
 
+    /**
+     * Never more progress than the threshold it is progress toward.
+     *
+     * <p>Progress is banked while a family cannot act on it — a full house with
+     * nowhere to move to, a town at its cap, a famine — and the threshold it is
+     * banked against is not a constant: {@code PopulationPlanner.stepsPerBirthIn}
+     * stretches it by how crowded the town is, so it <em>falls</em> when the
+     * population does. Seventeen people died in one night on seed 8675309 and
+     * every surviving family's banked progress was suddenly above a threshold that
+     * had dropped under it, which is how {@code /civ info} came to read
+     * "growth 45/24" — a numerator past its own denominator, for a counter whose
+     * whole documented behavior is to hold at the line.
+     *
+     * <p>Held rather than reset, because a family that has waited is owed its
+     * wait: the child arrives on the next step, which is what the threshold
+     * falling ought to mean.
+     */
+    public void holdGrowthProgressAt(int threshold) {
+        growthProgress = Math.min(growthProgress, Math.max(0, threshold));
+    }
+
     public int pantry() {
         return pantry;
     }

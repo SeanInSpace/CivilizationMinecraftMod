@@ -262,9 +262,16 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
 
     // --- the overview, which is what /civ info prints ---
 
-    /** The people: how many, how housed, how fed, how equipped. */
+    /**
+     * The people: how many, how housed, how fed, how many hold a tool.
+     *
+     * <p>{@code withTools} was {@code equipped}, which is a word about weapons in
+     * every other context and a word about {@code Person::hasTool} here. Nothing
+     * in it is about arms: the smith issues tools off the town's rack, and what
+     * anybody fights with is decided elsewhere and not recorded per person.
+     */
     public record Folk(int population, int housing, int embodied, int families,
-                       int worstHunger, int starving, int hungry, int equipped) {
+                       int worstHunger, int starving, int hungry, int withTools) {
     }
 
     /**
@@ -289,12 +296,41 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
                           int seam, boolean seamCounted, boolean seamExhausted, int treasury) {
     }
 
-    /** The watch, against what it is watching for. */
-    public record Watch(int threat, int defense, int guards, int neededGuards, String king,
+    /**
+     * The watch, against what it is watching for.
+     *
+     * <p>{@code guards} is the strength the town musters and {@code guardHeads} is
+     * how many people that is. They are not the same number when somebody is
+     * crowned — a king is worth {@link KingPlanner#KING_GUARD_BONUS} to the line
+     * and is not a guard — and both travel because the panel that draws them also
+     * draws a trades list saying how many guards the town has. One of those
+     * numbers reading one higher than the other, with nothing to say why, is the
+     * fault this pair exists to close.
+     */
+    public record Watch(int threat, int defense, int guards, int guardHeads,
+                        int neededGuards, String king,
                         int roadRuns, int roadLength, int roadsJoined) {
 
         public Watch {
             king = clip(king, MAX_WORD);
+        }
+
+        /** What the crown is worth to the line, which is the rest of the strength. */
+        public int kingsWorth() {
+            return Math.max(0, guards - guardHeads);
+        }
+
+        /**
+         * Every standing structure's defense bonus, as the remainder of the sum.
+         *
+         * <p>Derived rather than sent, and that is the point as much as the byte
+         * saved: {@code RaidPlanner.defensePower} is guards times
+         * {@link RaidPlanner#GUARD_POWER} plus the crown plus the structures, so
+         * taking the bodies back off the total cannot disagree with the total the
+         * way a separately measured field could.
+         */
+        public int structures() {
+            return defense - guards * RaidPlanner.GUARD_POWER;
         }
     }
 
@@ -487,7 +523,7 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
                     ByteBufCodecs.VAR_INT, Folk::worstHunger,
                     ByteBufCodecs.VAR_INT, Folk::starving,
                     ByteBufCodecs.VAR_INT, Folk::hungry,
-                    ByteBufCodecs.VAR_INT, Folk::equipped,
+                    ByteBufCodecs.VAR_INT, Folk::withTools,
                     Folk::new);
 
     private static final StreamCodec<RegistryFriendlyByteBuf, Larder> LARDER_CODEC =
@@ -519,6 +555,7 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
                     ByteBufCodecs.VAR_INT, Watch::threat,
                     ByteBufCodecs.VAR_INT, Watch::defense,
                     ByteBufCodecs.VAR_INT, Watch::guards,
+                    ByteBufCodecs.VAR_INT, Watch::guardHeads,
                     ByteBufCodecs.VAR_INT, Watch::neededGuards,
                     ByteBufCodecs.stringUtf8(MAX_WORD), Watch::king,
                     ByteBufCodecs.VAR_INT, Watch::roadRuns,
@@ -912,7 +949,7 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
         int worst = 0;
         int starving = 0;
         int hungry = 0;
-        int equipped = 0;
+        int withTools = 0;
         int embodied = 0;
         for (Person person : settlement.residents()) {
             worst = Math.max(worst, person.hunger());
@@ -923,7 +960,7 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
                 hungry++;
             }
             if (person.hasTool()) {
-                equipped++;
+                withTools++;
             }
             if (person.isEmbodied()) {
                 embodied++;
@@ -931,7 +968,7 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
         }
         return new Folk(settlement.population(),
                 PopulationPlanner.totalHousingCapacity(settlement), embodied,
-                settlement.households().size(), worst, starving, hungry, equipped);
+                settlement.households().size(), worst, starving, hungry, withTools);
     }
 
     private static Larder larderOf(Settlement settlement) {
@@ -982,7 +1019,8 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
                 ? KingPlanner.king(settlement) : null;
         PathNetwork paths = settlement.paths();
         return new Watch(settlement.threatLevel(), RaidPlanner.defensePower(settlement),
-                Garrison.guardStrength(settlement), Garrison.neededGuards(settlement),
+                Garrison.guardStrength(settlement), Garrison.guardHeads(settlement),
+                Garrison.neededGuards(settlement),
                 crowned == null ? "" : crowned.name(),
                 paths.segments().size(), paths.totalLength(), paths.joined().size());
     }

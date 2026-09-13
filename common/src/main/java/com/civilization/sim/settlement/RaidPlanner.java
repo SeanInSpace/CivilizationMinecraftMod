@@ -272,6 +272,45 @@ public final class RaidPlanner {
         return guards * GUARD_POWER + structures + crown;
     }
 
+    /**
+     * The defense figure with its own arithmetic written out beside it.
+     *
+     * <p>Because the number on its own was read wrong, and by the person who
+     * wrote it. {@code /civ info} used to print {@code "defense 15 (guards x2 +
+     * structures)"}, where the {@code 2} is {@link #GUARD_POWER} — what one guard
+     * is worth — and every reader took it for the number of guards. The same
+     * report said {@code "jobs: guard x6"} four lines above, so the town appeared
+     * to disagree with itself about its own watch.
+     *
+     * <p>So the head count goes in the sentence and the sentence adds up:
+     * {@code "15 = 6 guards x 2 + structures 3"}. There is exactly one guard
+     * count in the report now, it is a count of people, and it is the same one
+     * {@link JobPlanner#count} gives the jobs line and {@link Garrison} gives the
+     * garrison line.
+     *
+     * <p>Composed from four numbers rather than read off a settlement so the town
+     * map can say it in the same words from the other side of the network, where
+     * there is no {@link Settlement} to ask — two screens wording the watch
+     * differently is how a player learns to trust neither.
+     */
+    public static String describeDefense(int defense, int guardHeads, int kingsWorth,
+                                        int structures) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(defense).append(" = ").append(guardHeads)
+                .append(guardHeads == 1 ? " guard x " : " guards x ").append(GUARD_POWER);
+        if (kingsWorth > 0) {
+            sb.append(" + king ").append(kingsWorth * GUARD_POWER);
+        }
+        return sb.append(" + structures ").append(structures).toString();
+    }
+
+    /** {@link #describeDefense} for a settlement as it presently stands. */
+    public static String defenseBreakdown(Settlement settlement) {
+        return describeDefense(defensePower(settlement),
+                Garrison.guardHeads(settlement), Garrison.kingsWorth(settlement),
+                structureDefense(settlement));
+    }
+
     public static int defenseBonusOf(Settlement settlement, String blueprintId) {
         return settlement.catalog().stream()
                 .filter(type -> type.id().equals(BuildPlanner.baseIdOf(blueprintId)))

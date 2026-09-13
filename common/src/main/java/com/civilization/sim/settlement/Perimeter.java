@@ -76,8 +76,9 @@ public final class Perimeter {
      * had an age reads, and that is the honest answer for them: those towns
      * have stood inside the same line for as long as anybody has been counting.
      *
-     * <p>Read through {@link #ageAt(long)} rather than subtracted directly. The
-     * step it is compared against is not saved, and the difference matters.
+     * <p>Read through {@link #ageAt(long)} rather than subtracted directly, which
+     * now costs nothing and guards against a save written before the world's clock
+     * was durable.
      */
     private final long stakedOn;
 
@@ -89,20 +90,21 @@ public final class Perimeter {
     /**
      * How long this line has stood, as of this step.
      *
-     * <p>Not simply {@code step - stakedOn()}, because {@code SimWorld} does not
-     * save its step counter: it restarts at zero every time the server comes up,
-     * while the stake step it is compared against comes out of the save file. A
-     * wall staked at step nine hundred in the last session therefore reads as
-     * staked nine hundred steps from <em>now</em>, and taken literally that is a
-     * wall which can never be moved again on any world that has ever been
-     * reloaded — a rule that quietly stops working, which is the worst kind.
+     * <p>The plain subtraction, now that {@code SimWorld.stepsElapsed} is saved
+     * and restored: a wall staked at step nine hundred in the last session is nine
+     * hundred steps old at step nine hundred of this one, which is what it always
+     * should have said.
      *
-     * <p>So a stake in the future is read as what it is, a clock that restarted,
-     * and the wall's honest age is then the age of the session: it was standing
-     * when the session began, and nobody can say for how long before that. The
-     * cooldown runs from the reload, which errs towards leaving the wall where
-     * it is. Should the world clock ever start being saved, this degrades to the
-     * plain subtraction on its own.
+     * <p>The guard against a stake in the future is what it read as before the
+     * clock was durable, and it is kept rather than removed. The counter restarted
+     * at zero every launch while the stake step came out of the save file, so every
+     * wall in a reloaded world was staked in the future and could never be moved
+     * again — a rule that quietly stopped working, which is the worst kind. A world
+     * written before the clock was persisted still loads with a zero clock and
+     * every stake ahead of it, and this is the reading that keeps such a world
+     * sane: the wall was standing when the session began, nobody can say for how
+     * long before that, and the cooldown runs from the reload, which errs towards
+     * leaving the wall where it is.
      */
     public long ageAt(long step) {
         return stakedOn > step ? step : step - stakedOn;

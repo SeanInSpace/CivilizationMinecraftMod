@@ -138,18 +138,138 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
 
     /** The same, for a people who build in more than one arrangement. */
     public Culture(String id, List<String> pennedAnimals, List<String> layouts) {
-        this(id, pennedAnimals, layouts, LOWLAND_TOWNS, LOWLAND_FAMILIES, LOWLAND_GIVEN);
+        this(id, pennedAnimals, layouts, LOWLAND_TOWNS, NORMAN_FAMILIES, NORMAN_GIVEN);
     }
+
+    /*
+     * ---- The name pools ----
+     *
+     * Forty given names and thirty family names per people, which is not a round
+     * number chosen for tidiness. It is what stops a town recycling: the naming
+     * policy in `Names` refuses any name a living resident already bears and any
+     * family name a household in the town is already using, and it can only refuse
+     * while there is something left to fall through to. On eight of each -- what
+     * every people had -- a town of seventeen had run out before it was a village,
+     * so "Bren Smith" was born, died, and was born again, and three unrelated
+     * families were all "the Turners".
+     *
+     * Every list is in its own people's idiom, and the orcs' and goblins' share
+     * nothing with the humans': a warhost whose families were called Baker and
+     * Cooper was the clearest sign that culture reached the beasts in the pens and
+     * almost nothing else.
+     *
+     * Each human list keeps whatever that people was already using at its head, so
+     * a town already standing in somebody's world goes on drawing the names it has
+     * been drawing and only reaches the new ones when it would have repeated.
+     */
 
     static final List<String> LOWLAND_TOWNS = List.of(
             "Ashmarch", "Bellbrook", "Millbrook", "Stonebridge", "Fairwater",
             "Oakhollow", "Greenfield", "Whitecliff");
 
-    static final List<String> LOWLAND_FAMILIES = List.of(
-            "Baker", "Miller", "Smith", "Cooper", "Fletcher", "Mason", "Turner", "Weaver");
+    /** Norman families: the feudal trades, which is what a charter writes down. */
+    static final List<String> NORMAN_FAMILIES = List.of(
+            "Baker", "Miller", "Smith", "Cooper", "Fletcher", "Mason", "Turner", "Weaver",
+            "Chandler", "Fowler", "Tanner", "Carter", "Sawyer", "Wright", "Glover",
+            "Cartwright", "Barber", "Falconer", "Marshal", "Sergeant", "Bailiff",
+            "Forester", "Warrener", "Parmenter", "Lorimer", "Hooper", "Fuller",
+            "Dyer", "Skinner", "Palfreyman");
 
-    static final List<String> LOWLAND_GIVEN = List.of(
-            "Ada", "Bren", "Cyn", "Dov", "Esa", "Fen", "Gil", "Hana", "Ivo", "Jor");
+    static final List<String> NORMAN_GIVEN = List.of(
+            "Ada", "Bren", "Cyn", "Dov", "Esa", "Fen", "Gil", "Hana", "Ivo", "Jor",
+            "Kest", "Lowen", "Maud", "Nesta", "Osric", "Perrin", "Quenel", "Rolf",
+            "Sibyl", "Tancred", "Urse", "Verel", "Warin", "Ysolde", "Aveline",
+            "Bertran", "Constance", "Drogo", "Emma", "Fulk", "Geva", "Hamon",
+            "Isabel", "Joscelin", "Lambert", "Melisant", "Odo", "Ranulf", "Sewal",
+            "Tiffania");
+
+    /** Highland families: the ground they graze, which is what a hill people own. */
+    static final List<String> HIGHLAND_FAMILIES = List.of(
+            "Cairney", "Craigie", "Glenholm", "Braeside", "Muirhead", "Strathearn",
+            "Kinloch", "Lochhead", "Fernie", "Heatherlie", "Rowanlea", "Tarbert",
+            "Dunmore", "Balmore", "Corrie", "Sheiling", "Drover", "Harrower",
+            "Peatman", "Whinney", "Gowrie", "Airlie", "Blairmore", "Cranstoun",
+            "Dalziel", "Elphin", "Fintry", "Garvock", "Halkirk", "Inchbrae");
+
+    static final List<String> HIGHLAND_GIVEN = List.of(
+            "Ailsa", "Aonghas", "Beathag", "Bhaltair", "Cailean", "Coll", "Dughall",
+            "Donnchadh", "Eilidh", "Eachann", "Fearghas", "Fionnlagh", "Gormal",
+            "Gilleasbuig", "Hamish", "Iain", "Iseabail", "Kenna", "Kirstane",
+            "Lachlan", "Latharna", "Moira", "Murchadh", "Nairn", "Niallghas",
+            "Oighrig", "Padraig", "Peigi", "Raonaid", "Ruairidh", "Seonaid",
+            "Sorley", "Somhairle", "Tormod", "Torcuil", "Una", "Uilleam", "Ysenda",
+            "Ceit", "Morag");
+
+    /** Burgher families: the guild and the counting house, never the field. */
+    static final List<String> BURGHER_FAMILIES = List.of(
+            "Brouwer", "Dekker", "Ackerman", "Vandermeer", "Coppens", "Eeckhout",
+            "Goudsmit", "Kramer", "Meulenaar", "Reeder", "Scheffer", "Stadler",
+            "Tolman", "Wisselaar", "Zeeman", "Bankmann", "Marktveld", "Pfeffer",
+            "Salzmann", "Tuchmann", "Bergemann", "Lindhorst", "Osterkamp",
+            "Rademaker", "Steenbeek", "Verhoeven", "Weghuis", "Zoutman",
+            "Kaufmann", "Hovenier");
+
+    static final List<String> BURGHER_GIVEN = List.of(
+            "Adelheid", "Bartel", "Claes", "Dirk", "Elsbeth", "Frans", "Geert",
+            "Hendrik", "Ilse", "Joost", "Klaas", "Lysbet", "Maarten", "Niclaes",
+            "Otto", "Pieter", "Quirin", "Reinout", "Sibbe", "Thijs", "Ubbo",
+            "Volker", "Wibbe", "Xander", "Ysbrand", "Zwaantje", "Annecke",
+            "Berndt", "Coenraad", "Dieuwke", "Egbert", "Femke", "Gerrit",
+            "Heijltje", "Imme", "Jannick", "Katrijn", "Lambrecht", "Mechteld",
+            "Nele");
+
+    /** Vale families: the work of the green and the common, in the old tongue. */
+    static final List<String> VALE_FAMILIES = List.of(
+            "Hayward", "Reeve", "Shepherd", "Orchard", "Greenway", "Thatcher",
+            "Bramble", "Fielding", "Ringwood", "Haygarth", "Combe", "Stockwell",
+            "Applegarth", "Meadows", "Byreman", "Croftwell", "Pightle", "Lammas",
+            "Hollybed", "Oxlease", "Sheepwash", "Windlesham", "Nettlebed",
+            "Beanacre", "Furlong", "Headland", "Longmead", "Hazeldene",
+            "Waterdell", "Greenhow");
+
+    static final List<String> VALE_GIVEN = List.of(
+            "Alis", "Bede", "Cwen", "Dunstan", "Edith", "Frith", "Godric", "Hilda",
+            "Leofa", "Mildred", "Osgar", "Wulfric", "Aelfgifu", "Brihtwald",
+            "Ceolwyn", "Deorwine", "Eadgyth", "Leofwine", "Wynflaed", "Aethelric",
+            "Beorn", "Cuthbert", "Dunna", "Eanswith", "Golda", "Herewald",
+            "Ingild", "Kenelm", "Lufu", "Merewald", "Nothelm", "Oswine", "Puttoc",
+            "Raedwald", "Saewynn", "Tidhelm", "Ulfa", "Wilburh", "Yffi", "Aldgyth");
+
+    /**
+     * Orc families: what the bearer has done to somebody, which is the only
+     * lineage a warhost keeps. Not one of these is a human name, and that is the
+     * point of the list existing at all.
+     */
+    static final List<String> ORC_FAMILIES = List.of(
+            "Gorehand", "Skullsplit", "Ironjaw", "Blacktusk", "Redaxe", "Bonebreak",
+            "Stonefist", "Grimhide", "Spearbiter", "Warmaul", "Bloodbanner",
+            "Skullpike", "Irongut", "Ashfist", "Boneyoke", "Cleaverarm", "Doomhorn",
+            "Flinttooth", "Gutripper", "Hammerjaw", "Ironhorn", "Killhand",
+            "Maulfist", "Nightfang", "Oxbreaker", "Pyrehand", "Ragetusk",
+            "Scarhide", "Trollbane", "Wraithaxe");
+
+    static final List<String> ORC_GIVEN = List.of(
+            "Brak", "Durg", "Ghal", "Hrok", "Kazh", "Morg", "Rurk", "Thok", "Uzga",
+            "Zharg", "Arg", "Bruzh", "Dakka", "Ekkul", "Fazgor", "Gormak", "Hazruk",
+            "Ikzul", "Jurgak", "Krugg", "Lodak", "Mazgar", "Nargak", "Ogruk",
+            "Prazh", "Qorak", "Rhogg", "Skarrg", "Targuk", "Ulgar", "Vrazh",
+            "Wogrim", "Xarrg", "Yazgur", "Zugg", "Bhorka", "Drokka", "Ghorbak",
+            "Muzruk", "Shargul");
+
+    /** Goblin families: the mire itself, and what it smells of. */
+    static final List<String> GOBLIN_FAMILIES = List.of(
+            "Snag", "Grib", "Mulch", "Skarn", "Wretch", "Gnash", "Bogle", "Nix",
+            "Sludge", "Bogwattle", "Rotgut", "Fenscrape", "Mirestink", "Grubhole",
+            "Slimefoot", "Peatbelly", "Reekmaw", "Croakbottom", "Leechbite",
+            "Muckpaw", "Nettlegrub", "Ooze", "Puddlejaw", "Quagmaw", "Scumtooth",
+            "Toadwallow", "Wormrot", "Boghopper", "Cinderscab", "Drainmuck");
+
+    static final List<String> GOBLIN_GIVEN = List.of(
+            "Zib", "Krek", "Nub", "Vex", "Grot", "Hix", "Snee", "Ug", "Yark", "Pib",
+            "Blib", "Chig", "Dreg", "Eelk", "Fizz", "Gnik", "Hobb", "Iggle", "Jib",
+            "Klub", "Lurk", "Mig", "Nizz", "Oont", "Pluk", "Quib", "Rigg", "Squib",
+            "Tob", "Ubb", "Vug", "Wubb", "Xip", "Yig", "Zog", "Blent", "Crud",
+            "Drib", "Fenk", "Glop");
 
     public static final Culture DEFAULT = new Culture(
             "civilization:default",
@@ -177,7 +297,8 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             // And a green: the village round an open middle is the archetypal
             // lowland farming settlement, which is what these people are when
             // they are not founding anything.
-            List.of(LAYOUT_RING, LAYOUT_BASTIDE, LAYOUT_GREEN));
+            List.of(LAYOUT_RING, LAYOUT_BASTIDE, LAYOUT_GREEN),
+            LOWLAND_TOWNS, NORMAN_FAMILIES, NORMAN_GIVEN);
 
     /**
      * The hill people, who keep different beasts.
@@ -202,7 +323,8 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             // lane, nothing lining up, and an edge ragged enough that it does not
             // read as a rectangle cut out of a wood. It is what the organic
             // scatter would be if these people had ever agreed on a road.
-            List.of(LAYOUT_ORGANIC, LAYOUT_THORP));
+            List.of(LAYOUT_ORGANIC, LAYOUT_THORP),
+            LOWLAND_TOWNS, HIGHLAND_FAMILIES, HIGHLAND_GIVEN);
 
     /**
      * Townsfolk, who lay a street and build along it.
@@ -234,7 +356,8 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "civilization:human/burgher",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),
             List.of(LAYOUT_HIGH_STREET, LAYOUT_RADIAL_CONCENTRIC,
-                    LAYOUT_CROSSROADS));
+                    LAYOUT_CROSSROADS),
+            LOWLAND_TOWNS, BURGHER_FAMILIES, BURGHER_GIVEN);
 
     /**
      * The vale folk, who build round a green — the fourth and last of the human
@@ -264,10 +387,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             List.of(LAYOUT_RING_STREETS, LAYOUT_CRESCENTS),
             List.of("Ringmere", "Greenhaugh", "Hollowdean", "Roundwell",
                     "Thornring", "Elmgarth", "Wilbury", "Combe Dando"),
-            List.of("Hayward", "Reeve", "Shepherd", "Orchard", "Greenway",
-                    "Thatcher", "Bramble", "Fielding"),
-            List.of("Alis", "Bede", "Cwen", "Dunstan", "Edith", "Frith", "Godric",
-                    "Hilda", "Leofa", "Mildred"));
+            VALE_FAMILIES, VALE_GIVEN);
 
     /**
      * The mire goblins, who do not build towns so much as accumulate them.
@@ -289,8 +409,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             List.of(LAYOUT_WARREN),
             List.of("Gritmaw", "Snagholt", "Murkdig", "Rotcrag", "Slugwarren",
                     "Cinderhole", "Grubfen", "Thistlemire"),
-            List.of("Snag", "Grib", "Mulch", "Skarn", "Wretch", "Gnash", "Bogle", "Nix"),
-            List.of("Zib", "Krek", "Nub", "Vex", "Grot", "Hix", "Snee", "Ug", "Yark", "Pib"));
+            GOBLIN_FAMILIES, GOBLIN_GIVEN);
 
     /**
      * The orcs, who lay a camp out in rows and mean it.
@@ -318,10 +437,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             List.of(LAYOUT_ORC_RING, LAYOUT_STRONGHOLD, LAYOUT_STRONGHOLD_STREETS),
             List.of("Karrgurd", "Dromgar", "Ironmaw", "Bloodpost", "Skullwatch",
                     "Grimhold", "Ashfang", "Warmoot"),
-            List.of("Gorehand", "Skullsplit", "Ironjaw", "Blacktusk", "Redaxe",
-                    "Bonebreak", "Stonefist", "Grimhide"),
-            List.of("Brak", "Durg", "Ghal", "Hrok", "Kazh", "Morg", "Rurk", "Thok",
-                    "Uzga", "Zharg"));
+            ORC_FAMILIES, ORC_GIVEN);
 
     private static final Map<String, Culture> KNOWN = Map.of(
             DEFAULT.id(), DEFAULT,

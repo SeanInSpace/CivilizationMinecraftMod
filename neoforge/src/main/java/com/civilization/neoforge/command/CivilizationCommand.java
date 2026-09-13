@@ -665,7 +665,7 @@ public final class CivilizationCommand {
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("=== Kingdoms (").append(world.stepsElapsed()).append(" steps elapsed) ===");
+        sb.append("=== Civilization (").append(world.stepsElapsed()).append(" steps elapsed) ===");
         // Read this line before believing any other line in the report. Every
         // rate below it — the wall going up, the paths being joined, the litter
         // being picked up — is paced by the manager's pass, and on a server that
@@ -731,8 +731,11 @@ public final class CivilizationCommand {
                         sb.append("none — the warband is still mourning");
                     }
                 }
-                sb.append("\n      defense ").append(RaidPlanner.defensePower(s))
-                        .append(" (guards x").append(RaidPlanner.GUARD_POWER).append(" + structures)");
+                // Written out as a sum, because the figure on its own was read
+                // wrong: "guards x2" was GUARD_POWER and every reader took it for
+                // a count of two guards, four lines under "jobs: guard x6". One
+                // guard count in the report, and it is a count of people.
+                sb.append("\n      defense ").append(RaidPlanner.defenseBreakdown(s));
                 // Only when the watch is short. The line above says what the
                 // town can field; this one says what it is about to do about
                 // it, and on a calm afternoon there is nothing to say.
@@ -798,9 +801,12 @@ public final class CivilizationCommand {
                 // nobody, and which of the several ways that happens cannot be
                 // told apart from inside the simulation -- so say who, where,
                 // doing what, and how hungry, and let the world settle it.
-                // How the night went. Silent by day and whenever nobody is
-                // lying down, so the line only ever appears when there is
-                // something to say about beds.
+                // How the night went. Silent by day and never at night: it used
+                // to go quiet whenever nobody happened to be lying down, which is
+                // exactly the state worth reporting, and through a whole night of
+                // monsters inside the claim the report said nothing about beds at
+                // all. At night it always says something, even if that something
+                // is "nobody in bed".
                 String night = digger == null ? null : digger.nightReport(s);
                 if (night != null) {
                     sb.append("\n      night: ").append(night);
@@ -821,13 +827,20 @@ public final class CivilizationCommand {
                     }
                 }
                 if (!s.households().isEmpty()) {
+                    // The threshold the gate actually uses, not the base rate.
+                    // stepsPerBirthIn stretches the base by how crowded the town
+                    // is, so printing STEPS_PER_BIRTH put a numerator counted
+                    // against forty-eight over a denominator of twenty-four and
+                    // every waiting family read as past a cap: "growth 45/24".
+                    int birthAt = PopulationPlanner.stepsToNextBirth(
+                            s, world.settings().stepsPerBirth());
                     sb.append("\n      families (").append(s.households().size()).append("):");
                     for (Household h : s.households()) {
                         sb.append("\n        the ").append(h.name()).append("s — ")
                                 .append(h.size()).append(" member(s), ")
                                 .append(h.isHoused()
                                         ? "home " + h.home() + ", growth " + h.growthProgress()
-                                          + "/" + PopulationPlanner.STEPS_PER_BIRTH
+                                          + "/" + birthAt
                                         : "NO HOME (cannot grow)");
                     }
                 }
@@ -872,7 +885,14 @@ public final class CivilizationCommand {
                 // an orc town's guards will not go down.
                 sb.append("\n      culture ").append(s.cultureId())
                         .append(" (").append(Culture.of(s.cultureId()).race().word())
-                        .append("), equipped ")
+                        // "tools", not "equipped". It counts Person::hasTool --
+                        // whether the smith has issued somebody a tool off the
+                        // town's rack -- and nothing in it is about weapons, which
+                        // the simulation does not track per person at all. Read as
+                        // "equipped 0/17" it said a town of seventeen was going
+                        // into a raid unarmed, which was never what the field
+                        // meant.
+                        .append("), tools ")
                         .append(s.residents().stream().filter(Person::hasTool).count())
                         .append("/").append(s.population());
                 for (BuildTask task : s.buildQueue()) {
@@ -1993,8 +2013,23 @@ public final class CivilizationCommand {
 
     // --- helpers ---
 
+    /**
+     * The simulation changed under the save data; write it.
+     *
+     * <p>The clock goes across too, and this is why it lives in one helper rather
+     * than at every call site: {@code /civ step} advances {@code SimWorld} without
+     * a single game tick passing, so the per-tick hook that normally copies the
+     * counter never runs, and a hundred stepped steps would have been forgotten on
+     * the next reload while every building they raised remembered which of them it
+     * was finished on.
+     */
     private static void markDirty(CommandSourceStack source) {
-        CivilizationSavedData.get(source.getLevel()).setDirty();
+        CivilizationSavedData data = CivilizationSavedData.get(source.getLevel());
+        SimWorld world = CivilizationMod.simulationFor(source.getLevel());
+        if (world != null) {
+            data.setStepsElapsed(world.stepsElapsed());
+        }
+        data.setDirty();
     }
 
     private static SimPos toSimPos(Vec3 pos) {
