@@ -1080,9 +1080,18 @@ public final class TownMapScreen extends Screen {
 
         heading(lines, "The watch");
         fact(lines, "Threat", Integer.toString(overview.watch().threat()));
-        lines.add(Component.literal("  Defense " + overview.watch().defense()
-                        + " · " + com.civilization.sim.settlement.Garrison.watchSummary(
-                                overview.watch().guards(), overview.watch().neededGuards()))
+        // The same two sentences /civ info prints, out of the same two functions.
+        // The defense figure is written out as a sum because the number alone was
+        // read as a guard count, and the watch line names the king's share of the
+        // strength so it agrees with the trades list further down.
+        lines.add(Component.literal("  Defense "
+                        + com.civilization.sim.settlement.RaidPlanner.describeDefense(
+                                overview.watch().defense(), overview.watch().guardHeads(),
+                                overview.watch().kingsWorth(), overview.watch().structures()))
+                .withColor(SUBTLE));
+        lines.add(Component.literal("  " + com.civilization.sim.settlement.Garrison.watchSummary(
+                        overview.watch().guardHeads(), overview.watch().kingsWorth(),
+                        overview.watch().neededGuards()))
                 .withColor(overview.watch().guards() < overview.watch().neededGuards()
                         ? ALARM_HUNGRY : SUBTLE));
         fact(lines, "King", overview.watch().king().isBlank()

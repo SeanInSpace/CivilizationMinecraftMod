@@ -3481,13 +3481,26 @@ public final class PersonEntityManager {
      * idlers about their homes. The wander goal mills them around whatever spot
      * this chooses, so the town reads as lived-in rather than marched.
      */
+    /**
+     * Whether it is the hour people go to bed in.
+     *
+     * <p>Dark out AND past dusk. The two are not the same thing: a thunderstorm
+     * at noon is dark enough to send people indoors, which is what it has always
+     * done, and is not a reason to get into bed. Bedtime is the clock's, and it is
+     * the same figure vanilla villagers keep.
+     *
+     * <p>One function rather than a line in {@link #dailyRoutine}, because
+     * {@link #nightReport} has to mean the same thing by "night" as the routine
+     * does. A report whose notion of night differed from the routine's by a
+     * thunderstorm would say nothing on exactly the nights worth reading about.
+     */
+    private boolean isBedtime() {
+        return level.isDarkOutside() && NightRest.isNight(level.getDefaultClockTime());
+    }
+
     private void dailyRoutine(Settlement settlement) {
         boolean night = level.isDarkOutside();
-        // Dark out AND past dusk. The two are not the same thing: a thunderstorm
-        // at noon is dark enough to send people indoors, which is what it has
-        // always done, and is not a reason to get into bed. Bedtime is the
-        // clock's, and it is the same figure vanilla villagers keep.
-        boolean bedtime = night && NightRest.isNight(level.getDefaultClockTime());
+        boolean bedtime = isBedtime();
         Alarm alarm = settlement.alarm();
 
         Map<UUID, SimPos> homes = new HashMap<>();
@@ -3771,35 +3784,86 @@ public final class PersonEntityManager {
     }
 
     /**
-     * How the town slept, or null by day and whenever nobody is in bed.
+     * How the town slept: one line at night, and nothing at all by day.
      *
-     * <p>One line, and the second half of it is the whole reason for the first.
-     * "Nobody is asleep" is not a report — a village stands about in the dark for
-     * a dozen reasons, from a raid to a bell to nobody having a roof — but
-     * "four asleep, three could not reach a bed" names a fault and says how many
-     * people it has. The beds themselves are named in the idle lines below.
+     * <p><strong>It used to say nothing when both counts were zero, and that is
+     * the bug.</strong> Through the whole night of 2026-09-12 this line was absent
+     * from every {@code /civ info} while a settler was photographed asleep in a
+     * bunkhouse bed — and the counts were not wrong, they were the answer to a
+     * question asked a moment later. A creeper, seven zombies, two skeletons and
+     * four spiders were inside the claim that night; {@code markPeril} runs before
+     * {@link #dailyRoutine} every pass, so {@code isThreatened} held, so
+     * {@link NightRest#mustWake} turned everybody out and {@link NightRest#wantsBed}
+     * would not send them back. Nobody was asleep by the time the report ran, and
+     * nobody was <em>stranded</em> either, because {@link #bedsGivenUpOn} only
+     * fills for somebody who is trying to reach a bed and being turned out is not
+     * trying. Zero and zero, and the line vanished.
+     *
+     * <p>So silence meant four different things at once — it is not night, nobody
+     * is embodied, the whole town is awake, the report never ran — and a reader had
+     * no way to tell which. It means one thing now: it is not night. Every other
+     * case is a sentence.
+     *
+     * <p>The counts the town was roused by travel with it, because "nobody in bed"
+     * on its own is the same dead end one step along: a town standing in the dark
+     * with nine people inside notice of something is a town with a monster problem,
+     * and a town standing in the dark with nothing near it is a town with a bed
+     * problem. The beds themselves are named in the idle lines.
      */
     public String nightReport(Settlement settlement) {
+        if (!isBedtime()) {
+            return null;   // by day there is nothing to say about beds
+        }
         int asleep = 0;
         int stranded = 0;
+        int awake = 0;
+        int threatened = 0;
+        int called = 0;
+        int bodiless = 0;
+        Alarm alarm = settlement.alarm();
         for (Person person : settlement.residents()) {
-            if (!person.isEmbodied()) {
-                continue;
-            }
-            PersonEntity view = tracked.get(person.id().value());
+            PersonEntity view = person.isEmbodied() ? tracked.get(person.id().value()) : null;
             if (view == null || view.isRemoved()) {
+                // Nobody to look at. Counted rather than skipped: an unwatched
+                // town has no bodies at all, and that is data about why the line
+                // says nothing else, not an absence of data.
+                bodiless++;
                 continue;
             }
             if (view.isSleeping()) {
                 asleep++;
-            } else if (bedsGivenUpOn.containsKey(person.id().value())) {
+                continue;
+            }
+            awake++;
+            if (bedsGivenUpOn.containsKey(person.id().value())) {
                 stranded++;
             }
+            if (view.isThreatened() || view.isFleeing()) {
+                threatened++;
+            } else if (alarm.callsIn(person.profession())) {
+                called++;
+            }
         }
-        if (asleep == 0 && stranded == 0) {
-            return null;
+        if (asleep == 0 && awake == 0) {
+            return "nobody is in the world to sleep — " + bodiless
+                    + " of this town has no body tonight";
         }
-        return asleep + " asleep, " + stranded + " could not reach a bed";
+        StringBuilder sb = new StringBuilder();
+        sb.append(asleep == 0 ? "nobody in bed" : asleep + " asleep");
+        sb.append(", ").append(stranded).append(" could not reach a bed");
+        if (awake > 0) {
+            sb.append(", ").append(awake).append(" awake");
+            if (threatened > 0) {
+                sb.append(" (").append(threatened).append(" with something inside notice");
+                sb.append(called > 0 ? ", " + called + " called by the bell)" : ")");
+            } else if (called > 0) {
+                sb.append(" (").append(called).append(" called by the bell)");
+            }
+        }
+        if (bodiless > 0) {
+            sb.append(", ").append(bodiless).append(" with no body");
+        }
+        return sb.toString();
     }
 
     /** The farmer's rostered field, falling back to the nearest if the town has none. */

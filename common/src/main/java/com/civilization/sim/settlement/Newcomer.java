@@ -8,8 +8,6 @@ import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
 import com.civilization.sim.world.SimWorld;
 
-import java.util.List;
-
 /**
  * One person walking into a town that already stands.
  *
@@ -85,6 +83,13 @@ public final class Newcomer {
      * a house nobody assigned him would be a state the planner cannot produce and
      * therefore a state nothing maintains.
      *
+     * <p>A name of their own from {@link Names}, which is what stops an arrival
+     * being called after somebody who has died. It used to be indexed off the
+     * population, and a population falls: "Bren Smith" died and the next newcomer
+     * was named "Bren Smith". The surname is a family nothing in the town is
+     * using, and if {@code PopulationPlanner} then puts them in with a family that
+     * already exists they take that family's name instead.
+     *
      * <p>Empty pockets, because a town that is standing has a granary and a
      * newcomer starts unhungry — there is a whole day of simulation between
      * arriving and needing a meal. The rations a chartered party carries are for
@@ -95,37 +100,11 @@ public final class Newcomer {
      * @param step the simulation step this happened on, for the town's own log
      */
     public static Person arrive(Settlement town, SimPos spot, long step) {
-        Person person = new Person(Person.Id.random(), nameIn(town), Profession.IDLER, spot);
+        Person person = new Person(Person.Id.random(), Names.forNewcomer(town, step),
+                Profession.IDLER, spot);
         town.addResident(person);
         town.logEvent(step, person.name() + " arrived in " + town.name());
         return person;
-    }
-
-    /**
-     * A name in the town's own people's words: a given name and a family name.
-     *
-     * <p>Indexed off the population rather than drawn at random, so the first
-     * arrival in a camp is not the fifth given name by luck — and so two eggs in
-     * a row produce two different people rather than the same name twice, which
-     * random would do often enough to look broken.
-     *
-     * <p>The two pools are walked at different rates on purpose: the same count
-     * over both would pair the nth given name with the nth family name forever,
-     * and a people with ten of each would only ever have ten names between them.
-     */
-    private static String nameIn(Settlement town) {
-        Culture culture = Culture.of(town.cultureId());
-        List<String> given = culture.givenNames();
-        List<String> families = culture.familyNames();
-        int count = town.population();
-        String first = given.isEmpty() ? "Settler" : given.get(count % given.size());
-        if (families.isEmpty()) {
-            return first;
-        }
-        // Advances one family for every full pass through the given names, so the
-        // pair does not repeat until both pools have.
-        int family = (count / Math.max(1, given.size()) + count) % families.size();
-        return first + " " + families.get(family);
     }
 
     private Newcomer() {

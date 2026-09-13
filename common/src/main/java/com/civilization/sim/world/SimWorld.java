@@ -64,6 +64,33 @@ public final class SimWorld {
         return stepsElapsed;
     }
 
+    /**
+     * Puts the clock back where the save left it.
+     *
+     * <p>The one thing about this simulation that was not durable, while four
+     * things were compared against it. {@code Perimeter.stakedOn},
+     * {@code Building.completedOnStep}, {@code Settlement.firstStep} and the raid
+     * schedule all come out of the save carrying step numbers from the last
+     * session; the counter they are numbers <em>in</em> restarted at zero every
+     * launch. So a wall staked on step 900 was, after a reload, staked nine
+     * hundred steps in the future, and a town founded on step 900 was owed its
+     * founding grace all over again.
+     *
+     * <p>Called once, between constructing the world and the first step, by
+     * whatever loaded the save. Not a setter: a clock that could be wound at any
+     * time is a clock nothing may be compared against, so this refuses to go
+     * backwards and refuses to run twice after the simulation has moved.
+     *
+     * @param steps the count the save carries; a negative or absent one is zero
+     */
+    public void restoreStepsElapsed(long steps) {
+        if (stepsElapsed != 0) {
+            throw new IllegalStateException(
+                    "the clock has already run to " + stepsElapsed + "; it cannot be restored");
+        }
+        stepsElapsed = Math.max(0L, steps);
+    }
+
     public WorldBridge bridge() {
         return bridge;
     }

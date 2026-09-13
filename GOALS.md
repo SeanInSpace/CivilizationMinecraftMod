@@ -70,19 +70,19 @@ it. Design questions and rebalances live under the next heading, not here.*
       moved on arrival re-claims its belt in the woods. Plot clearing should
       not count against the stand, and the belt should be claimed away from
       planned plots.
-- [ ] **Guard counts disagree in one report.** The same `/civ info` block
+- [x] **Guard counts disagree in one report.** The same `/civ info` block
       said "jobs: guard x6", "defense 15 (guards x2 + structures)" and
       "garrison: 3 of 4 guards needed"; "equipped 0/17" counts tools and reads
       as unarmed. One count, one word.
-- [ ] **"=== Kingdoms" still heads `/civ info`.** `CivilizationCommand` line
+- [x] **"=== Kingdoms" still heads `/civ info`.** `CivilizationCommand` line
       668.
-- [ ] **Names recycle.** "Bren Smith" died twice as two entities and three
+- [x] **Names recycle.** "Bren Smith" died twice as two entities and three
       separate families are "the Turners"; the given and family pools are
       eight names each and nothing avoids a name in use.
-- [ ] **Family growth exceeds its cap.** `/civ info` read "growth 45/24" and
+- [x] **Family growth exceeds its cap.** `/civ info` read "growth 45/24" and
       "36/24"; the progress keeps counting past the threshold instead of
       holding at it as `PopulationPlanner` says it should.
-- [ ] **The night line never appeared.** "N asleep, M could not reach a bed"
+- [x] **The night line never appeared.** "N asleep, M could not reach a bed"
       was absent at every `/civ info` of the night while a sleeper was
       photographed; asleep and stranded both read 0. Most likely the bell woke
       everyone and the count ran after; needs a quiet night to judge.
@@ -146,7 +146,7 @@ it. Design questions and rebalances live under the next heading, not here.*
       rather than reasoning about it — every guess at this class of fault so
       far has been wrong.
 
-- [ ] **The simulation's clock is not saved, and four things are compared
+- [x] **The simulation's clock is not saved, and four things are compared
       against it.** `SimWorld.stepsElapsed` restarts at zero every session while
       `Perimeter.stakedOn`, `Building.completedOnStep` and the raid schedule come
       out of the save. The wall's cooldown reads a stake in the future as a
@@ -257,7 +257,7 @@ it. Design questions and rebalances live under the next heading, not here.*
       both name the one person type. One type per race would fix it and put
       the race back into the attribute table. Left alone.
 
-- [ ] **The four old survey files carry the old culture ids.** Rewrite them or
+- [x] **The four old survey files carry the old culture ids.** Rewrite them or
       drop them before comparing against a fresh survey.
 
 - [ ] **A hall never lands on the middle.** The plan reserves plot 0 for the
