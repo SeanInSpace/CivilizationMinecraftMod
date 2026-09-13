@@ -42,11 +42,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * getting hungrier. Guards and builders were never shoppers at any hunger at
  * all.
  *
- * <p>The rule now: past {@link Person#HUNGER_WEAK} you put the job down and
- * walk to the nearest food yourself, and the job is yours again when you have
- * eaten. With one exception, which is the other half of the same sentence —
- * nowhere to walk to and you stay on the job, because a starving idler is worse
- * off than a starving worker.
+ * <p>The rule now: from {@link Person#HUNGER_HUNGRY} you walk to the nearest
+ * food yourself as soon as there is nothing in your pockets and nothing on your
+ * family's shelf, and past {@link Person#HUNGER_WEAK} that same walk is what
+ * putting the job down looks like. The job is yours again when you have eaten.
+ * With one exception, which is the other half of the same sentence — nowhere to
+ * walk to and you stay on the job, because a starving idler is worse off than a
+ * starving worker.
+ *
+ * <p>The tests below still set hunger to {@link Person#HUNGER_WEAK} because that
+ * is where the interesting interactions live: the weak line is what the worker
+ * loops read, so it is where an errand and a job can actually disagree. Thirty
+ * is covered in {@code FoodPlannerTest}.
  */
 class HungerFirstTest {
 

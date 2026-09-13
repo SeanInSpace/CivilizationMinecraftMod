@@ -583,10 +583,11 @@ public final class Founding {
      * and the one the ordinary planner is for.
      *
      * <p>Everyone arrives a pioneer and carries their own rations, exactly as a
-     * chartered party does. The rations are not generosity: below
-     * {@link Person#HUNGER_SEVERE} nobody helps themselves from the granary, so
-     * a town seeded with empty pockets walks its whole population through the
-     * too-weak-to-work band before it eats for the first time.
+     * chartered party does. The rations are not generosity: a seeded town has no
+     * pantries stocked and no granary anybody has walked to yet, so a population
+     * with empty pockets spends its first thirty steps getting hungry and the
+     * next however-many walking to the one store it owns. Rations mean the first
+     * meal is eaten where they stand.
      */
     private static void settlePeople(Settlement town, int wanted) {
         int souls = wanted > 0 ? wanted

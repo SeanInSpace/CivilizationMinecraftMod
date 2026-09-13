@@ -97,13 +97,18 @@ class FarmsAheadTest {
      *
      * <p>Written out here rather than only in the javadoc, because this is the
      * number the whole rule rests on and it is derived from four other numbers
-     * that people will change.
+     * that people will change. It survived one of them: halving the nutrition
+     * table and the hunger step together left a loaf worth exactly fifteen steps,
+     * where thirty over two had been, so every farm, birth buffer and caravan
+     * figure downstream of this fraction stayed where it was.
      */
     @Test
     void aFarmIsReckonedToFeedSeven() {
         int loavesPerFarm = Field.LOAVES_PER_STEP_TENDED;
         int stepsPerLoaf = Foods.nutrition(Foods.PROVISION) / FoodPlanner.HUNGER_PER_STEP;
 
+        assertEquals(1, FoodPlanner.HUNGER_PER_STEP, "hunger climbs one a step");
+        assertEquals(15, Foods.nutrition(Foods.PROVISION), "and a loaf is worth fifteen");
         assertEquals(1, loavesPerFarm, "a fully staffed, fully tended field, per step");
         assertEquals(15, stepsPerLoaf, "steps one loaf carries one person");
         assertEquals(15, loavesPerFarm * stepsPerLoaf, "mouths a field covers flat out");

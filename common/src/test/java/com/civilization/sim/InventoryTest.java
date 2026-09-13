@@ -137,15 +137,15 @@ class InventoryTest {
     void aGiftOfFoodSavesAStarvingSettler() {
         Settlement s = settlement();
         Person person = settler(s);
-        person.setHunger(Person.HUNGER_MAX);
-        person.setStarvingSteps(FoodPlanner.STARVATION_GRACE_STEPS - 1);
+        person.setHunger(Person.HUNGER_MAX - FoodPlanner.HUNGER_PER_STEP);
 
         // What a player handing over bread amounts to.
         person.inventory().add(Foods.PROVISION, 1);
         FoodPlanner.advance(s, CTX);
 
         assertEquals(1, s.population(), "the gift arrived in time");
-        assertEquals(0, person.starvingSteps(), "and the starvation clock reset");
+        assertTrue(person.hunger() < Person.HUNGER_SEVERE,
+                "and the loaf bought back a whole band; hunger " + person.hunger());
         assertTrue(person.inventory().isEmpty(), "the loaf was eaten");
     }
 }

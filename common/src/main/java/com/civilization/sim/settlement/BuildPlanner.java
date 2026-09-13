@@ -804,10 +804,12 @@ public final class BuildPlanner {
      *       between them they bring in {@link Field#LOAVES_PER_STEP_TENDED} a
      *       step: <strong>one loaf a step</strong> off a fully staffed field,
      *       the field ripening as fast as they can tend it.</li>
-     *   <li>A person gains {@link FoodPlanner#HUNGER_PER_STEP} hunger a step and
-     *       a loaf undoes {@code Foods.nutrition(PROVISION)} of it — thirty. So
-     *       one mouth costs <strong>2/30, a fifteenth of a loaf a step</strong>,
-     *       and a farm at full tilt covers <strong>fifteen of them</strong>.</li>
+     *   <li>A person gains {@link FoodPlanner#HUNGER_PER_STEP} hunger a step —
+     *       one — and a loaf undoes {@code Foods.nutrition(PROVISION)} of it —
+     *       fifteen. So one mouth costs <strong>1/15, a fifteenth of a loaf a
+     *       step</strong>, and a farm at full tilt covers <strong>fifteen of
+     *       them</strong>. Halving the table and the step together left this
+     *       fraction exactly where it was.</li>
      *   <li>Halved for the margin, which is this number. A field hand is not in
      *       the rows every step of their life: they walk loads to the granary,
      *       they go weak and stop, the muster takes them when something is

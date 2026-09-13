@@ -6,6 +6,61 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Nobody starves in front of the bread
+
+### Changed
+
+- **Hunger is one ladder now, with no secret second one underneath it.** It used
+  to climb two a step to a cap of 99, and then a hidden ten-step counter decided
+  when you actually died — so every rung of the scale was worth one step and the
+  top rung was worth ten, and a settler could read "99" for ten steps running
+  while nothing you could see changed. Hunger climbs one a step, every step costs
+  the same as every other step, and 99 is death. The 90–98 band is the death
+  clock: ten steps, exactly what the old grace period was worth, spent with the
+  whole town being emptied on that person's behalf.
+
+- **Fed to dead is ninety-nine steps, about eight minutes of play.** It used to be
+  fifty-nine: forty-nine steps of visible scale plus the ten nobody could see. A
+  famine is now something you have time to notice and time to fix.
+
+- **Bread satisfies less, and nothing else moved.** The whole nutrition table is
+  halved: bread 15, golden apple 30, cooked beef and pork 23, cooked chicken 18,
+  baked potato 13, apple 10, carrot 8, beetroot 6, wheat 5, potato 4, sweet
+  berries 4. Halving the table and the hunger step together leaves a loaf worth
+  exactly fifteen steps, which is what it was worth before, so a farm still feeds
+  seven, the birth buffer still buys what it bought, and no caravan or charter
+  number changed. What did change is that a single loaf is no longer a third of a
+  settler's whole life.
+
+- **Walking to dinner comes thirty steps before anything slows you down.** A
+  settler with empty pockets and nothing on the family shelf is sent to the
+  nearest food from hunger 30, not 60 — and between 30 and 59 that costs them
+  nothing, because a person with a meal errand is simply a person on an errand and
+  every worker loop already stands aside for one. The weak line stays at 60 and
+  still means downing tools; it is just no longer the first time anybody thinks
+  about food. Somebody whose own larder will feed them is not sent anywhere.
+
+- **Slowness and weakness belong to a starving town, not to a hungry person.**
+  Debuffs used to be applied straight off personal hunger, which meant the one
+  settler who missed lunch got crippled on the way to the granary — the single
+  most effective way to make sure they never arrived. Nothing is applied at all
+  unless the settlement itself is starving. Once it is, the famine shows exactly
+  as before: Slowness at 60, Slowness II and Weakness at 90.
+
+- **A town with somebody nine steps from dead counts as starving, however full
+  the granary.** The crisis flag used to ask whether anyone was on the hidden
+  death clock. It now asks whether anyone is at hunger 90. Bread on the shelf and
+  a settler dying in front of it is a distribution emergency, and the flag is what
+  lifts the rules standing in the way of fixing it.
+
+### Notes
+
+- Old saves carrying `starving_steps` lose nothing meaningful. The field is gone
+  and there is no migration: the value it held was a count of steps already spent
+  at a cap that no longer exists, and anybody it described is inside the 90–98
+  band on load and continues from their hunger instead. Worst case a settler who
+  was nine steps into the old grace period gets the full ten of the new one.
+
 ## The town is where it looks like it is
 
 ### Fixed

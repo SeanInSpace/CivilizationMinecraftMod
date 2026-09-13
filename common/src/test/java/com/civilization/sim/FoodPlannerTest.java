@@ -345,37 +345,130 @@ class FoodPlannerTest {
         assertTrue(s.isStarving(), "and when the stall empties too, it does not");
     }
 
+    /**
+     * The whole ladder, walked once, with nothing anywhere to eat.
+     *
+     * <p>Every rung costs the same as every other one now, so the run from fed to
+     * dead is just {@code HUNGER_MAX / HUNGER_PER_STEP} steps of arithmetic and
+     * this test is that arithmetic written out. It is deliberately expressed in
+     * the constants: change either and the expectation moves with it, and what is
+     * actually asserted is that there is no hidden grace period on either end.
+     */
     @Test
-    void starvationKillsAfterTheGrace() {
+    void aSettlerWithNothingToEatWalksTheWholeLadderAndDiesAtTheCap() {
         Settlement s = settlement();
         s.setFoodStock(0);
         Person person = add(s, Profession.BUILDER);
-        person.setHunger(Person.HUNGER_MAX);
 
-        for (int i = 0; i < FoodPlanner.STARVATION_GRACE_STEPS; i++) {
-            assertEquals(1, s.population(), "alive through the grace period");
+        int stepsToDeath = Person.HUNGER_MAX / FoodPlanner.HUNGER_PER_STEP;
+        assertEquals(99, stepsToDeath, "ninety-nine steps, about eight minutes of play");
+
+        for (int step = 1; step < stepsToDeath; step++) {
             FoodPlanner.advance(s, CTX);
+            assertEquals(1, s.population(),
+                    "alive at hunger " + person.hunger() + " after " + step + " steps");
+            assertEquals(step * FoodPlanner.HUNGER_PER_STEP, person.hunger(),
+                    "hunger climbs one a step and nothing else");
         }
 
-        assertEquals(0, s.population(), "then starvation takes them");
+        assertEquals(Person.HUNGER_MAX - FoodPlanner.HUNGER_PER_STEP, person.hunger(),
+                "one step short of the cap, and still standing");
+
+        FoodPlanner.advance(s, CTX);
+
+        assertEquals(0, s.population(), "the step hunger reaches the cap is the last one");
         assertTrue(s.events().stream().anyMatch(e -> e.message().contains("starved")),
                 "and the town remembers");
     }
 
+    /** Ten steps of severe band, which is exactly what the old grace was worth. */
     @Test
-    void eatingResetsTheStarvationClock() {
+    void theSevereBandIsTheDeathClock() {
+        Settlement s = settlement();
+        s.setFoodStock(0);
+        Person person = add(s, Profession.BUILDER);
+        person.setHunger(Person.HUNGER_SEVERE - FoodPlanner.HUNGER_PER_STEP);
+
+        int survived = 0;
+        while (s.population() > 0) {
+            FoodPlanner.advance(s, CTX);
+            survived++;
+        }
+
+        assertEquals(10, survived,
+                "ten steps from the severe line to the grave, the old grace period over again");
+    }
+
+    @Test
+    void aMealTheStepBeforeTheCapSavesThem() {
         Settlement s = settlement();
         s.setFoodStock(0);
         Person person = add(s, Profession.BUILDER);
         Household family = house(s, person);
-        person.setHunger(Person.HUNGER_MAX);
-        person.setStarvingSteps(FoodPlanner.STARVATION_GRACE_STEPS - 1);
+        person.setHunger(Person.HUNGER_MAX - FoodPlanner.HUNGER_PER_STEP);
         family.setPantry(5);
 
         FoodPlanner.advance(s, CTX);
 
         assertEquals(1, s.population(), "food arrived in time");
-        assertEquals(0, person.starvingSteps(), "the clock resets on a meal");
+        assertTrue(person.hunger() < Person.HUNGER_SEVERE,
+                "and a loaf put them back below the severe line; hunger " + person.hunger());
+    }
+
+    // --- dinner before any penalty ---
+
+    @Test
+    void theMerelyHungryWalkToFoodWhenThereIsNothingAtHome() {
+        // Thirty is where the errand starts now, not sixty. Nothing in their
+        // pockets, no pantry to refill from, and a granary across town.
+        Settlement s = settlement();
+        s.setFoodStock(40);
+        Person person = add(s, Profession.BUILDER);
+        person.setHunger(Person.HUNGER_HUNGRY);
+
+        FoodPlanner.advance(s, CTX);
+
+        assertNotNull(person.haul(), "a hungry settler with no dinner at home goes for one");
+        assertTrue(FoodPlanner.isGoingToEat(person), "and the errand is a meal");
+        assertFalse(person.isTooWeakToWork(),
+                "while still counting as a worker: going for dinner is not downing tools");
+    }
+
+    @Test
+    void aStockedPantryMeansNobodyHasToWalk() {
+        // The same hunger, the same granary, but a housed family with loaves on
+        // the shelf. eatAndHunger reaches the pantry by arithmetic, so an errand
+        // would be a walk to nowhere.
+        Settlement s = settlement();
+        s.setFoodStock(40);
+        Person person = add(s, Profession.BUILDER);
+        Household family = house(s, person);
+        family.setPantry(6);
+        person.setHunger(Person.HUNGER_HUNGRY);
+
+        FoodPlanner.advance(s, CTX);
+
+        assertFalse(FoodPlanner.isGoingToEat(person),
+                "dinner was already at home; nobody is sent out for it");
+        assertTrue(person.hunger() < Person.HUNGER_HUNGRY, "and they ate");
+    }
+
+    @Test
+    void oneStarvingSettlerIsACrisisWhateverTheGranaryHolds() {
+        // The clause that replaced "somebody is on the death clock". A town with
+        // bread on the shelf and a settler nine steps from dead in front of it
+        // has an emergency, and the flag is what lifts the rules in the way.
+        Settlement s = settlement();
+        s.setFoodStock(500);
+        Person person = add(s, Profession.BUILDER);
+        add(s, Profession.IDLER);
+
+        assertFalse(s.isStarving(), "a full granary and nobody starving is an ordinary day");
+
+        person.setHunger(Person.HUNGER_SEVERE);
+
+        assertTrue(s.isStarving(),
+                "somebody at the severe line is a starving town however full the granary");
     }
 
     // --- unchanged foundations ---

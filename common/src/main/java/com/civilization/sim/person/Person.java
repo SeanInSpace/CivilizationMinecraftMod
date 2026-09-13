@@ -29,7 +29,17 @@ public final class Person {
         }
     }
 
-    /** Hunger 30+: hungry. 60+: too weak to work, debuffed. 90+: severe. */
+    /**
+     * The rungs of the hunger ladder, which climbs one a step.
+     *
+     * <p>30+: hungry — eats what is carried, refills from the family pantry, and
+     * walks to the nearest food when there is none at home. 60+: too weak to
+     * work, so the tools go down and dinner comes first. 90+: starving.
+     * {@link #HUNGER_MAX} is death, reached on the step hunger gets there with
+     * nothing eaten — the 90–98 band is the whole death clock, and there is no
+     * separate one. Debuffs are the town's business, not a person's: they are
+     * applied only while the settlement itself is starving.
+     */
     public static final int HUNGER_HUNGRY = 30;
     public static final int HUNGER_WEAK = 60;
     public static final int HUNGER_SEVERE = 90;
@@ -40,7 +50,7 @@ public final class Person {
     private Profession profession;
     private SimPos position;
 
-    /** 0 (fed) to {@link #HUNGER_MAX}. Held at the cap while starving. */
+    /** 0 (fed) to {@link #HUNGER_MAX}, which is not survived. */
     private int hunger;
 
     /** What they are actually carrying. Real items, eaten from directly. */
@@ -54,9 +64,6 @@ public final class Person {
      * out of the ground under them, and a settler routinely has both.
      */
     private final Pockets pockets = new Pockets();
-
-    /** Consecutive steps spent at maximum hunger. Death comes when it runs out. */
-    private int starvingSteps;
 
     /** The load they are fetching or delivering, or null when not hauling. */
     private HaulTask haul;
@@ -200,14 +207,6 @@ public final class Person {
 
     public void setHaul(HaulTask haul) {
         this.haul = haul;
-    }
-
-    public int starvingSteps() {
-        return starvingSteps;
-    }
-
-    public void setStarvingSteps(int starvingSteps) {
-        this.starvingSteps = Math.max(0, starvingSteps);
     }
 
     @Override

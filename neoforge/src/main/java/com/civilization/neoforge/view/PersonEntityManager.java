@@ -2143,11 +2143,23 @@ public final class PersonEntityManager {
     }
 
     /**
-     * Hunger made visible. Weak (60+) people move slowly; the severely starved
-     * (90+) barely crawl and hit like children. Effects refresh each second so
-     * they lift on their own once the person eats.
+     * Hunger made visible — but only a starving town's hunger.
+     *
+     * <p>A debuff is a statement about the settlement, not about one person's
+     * afternoon. Somebody who missed lunch has thirty steps of meal errand ahead
+     * of them before they even reach the weak line, and slowing them down on the
+     * way to the granary is the one thing that makes the walk fail; so nothing is
+     * applied at all unless {@link Settlement#isStarving()} holds. Once it does,
+     * the famine shows: weak (60+) people move slowly and the starving (90+)
+     * barely crawl and hit like children.
+     *
+     * <p>Effects refresh each second, so they lift on their own the moment the
+     * person eats or the town stops starving.
      */
     private void applyHungerEffects(Settlement settlement) {
+        if (!settlement.isStarving()) {
+            return;
+        }
         for (Person person : settlement.residents()) {
             if (!person.isEmbodied() || person.hunger() < Person.HUNGER_WEAK) {
                 continue;

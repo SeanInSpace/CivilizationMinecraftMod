@@ -106,8 +106,7 @@ public final class TownAuditor {
      * chain; below it the town is spending its last reserve.
      */
     public static final int LEAN_RESERVE_STEPS =
-            Person.HUNGER_MAX / FoodPlanner.HUNGER_PER_STEP
-                    + FoodPlanner.STARVATION_GRACE_STEPS;
+            Person.HUNGER_MAX / FoodPlanner.HUNGER_PER_STEP;
 
     /**
      * Simulation steps a build may sit without advancing before its queue reads

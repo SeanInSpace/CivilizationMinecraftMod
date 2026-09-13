@@ -4,6 +4,7 @@ import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.person.Foods;
 import com.civilization.sim.person.HaulTask;
 import com.civilization.sim.person.Household;
+import com.civilization.sim.person.Inventory;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
 import com.civilization.sim.world.SimContext;
@@ -15,8 +16,9 @@ import java.util.Map;
 
 /**
  * The food chain, from field to mouth. Hunger is the one thing that outranks a
- * job: past {@link Person#HUNGER_WEAK} a settler puts the work down and walks to
- * the nearest food themselves — see {@link #assignMealErrands} — and picks the
+ * job: from {@link Person#HUNGER_HUNGRY} a settler with nothing to eat at home
+ * walks to the nearest food themselves — see {@link #assignMealErrands} — and
+ * past {@link Person#HUNGER_WEAK} they put the work down to do it, picking the
  * work back up when they have eaten.
  *
  * <p>The chain that is supposed to make that unnecessary:
@@ -43,18 +45,31 @@ import java.util.Map;
  * a hole in it: {@code /civ info} prints the sacks so the answer is a building
  * and not a mystery.
  *
- * <p><strong>Hunger</strong> rises every step and is scored 0–99:
+ * <p><strong>Hunger</strong> rises {@link #HUNGER_PER_STEP} a step and is scored
+ * 0–99, so a settler who never eats goes from fed to dead in ninety-nine steps —
+ * something over eight minutes of play. Every rung costs the same as every other
+ * one; there is no separate death clock any more.
  * <ul>
  *   <li><b>0–29</b> — fed;</li>
- *   <li><b>30–59</b> — hungry (eats at 30 when there is anything to eat);</li>
- *   <li><b>60–89</b> — weak: stops farming, hauling and building and goes to
- *       eat instead; visibly debuffed in the world. Nowhere to go and they keep
- *       working, because a starving idler is worse off than a starving
- *       worker;</li>
- *   <li><b>90–99</b> — severe: heavier debuffs, and after
- *       {@link #STARVATION_GRACE_STEPS} steps held at the cap, death. Starvation
- *       deaths are permanent and enter the town's history.</li>
+ *   <li><b>30–59</b> — hungry: eats what is in their pockets, refills those from
+ *       the family pantry, and walks to the nearest food when there is nothing
+ *       at home to refill from. They keep working while they walk;</li>
+ *   <li><b>60–89</b> — weak: stops farming, hauling and building and goes to eat
+ *       instead. Nowhere to go and they keep working, because a starving idler is
+ *       worse off than a starving worker;</li>
+ *   <li><b>90–98</b> — starving: the town reaches into the granary, the stalls
+ *       and the fields on their behalf. Ten steps, which is what the old grace
+ *       period was worth;</li>
+ *   <li><b>99</b> — dead, on the step hunger reaches it with nothing eaten.
+ *       Starvation deaths are permanent and enter the town's history.</li>
  * </ul>
+ *
+ * <p><strong>Debuffs belong to a starving town, not to a hungry person.</strong>
+ * Slowness and weakness are applied in the world only while
+ * {@link #isStarving} holds, so one settler who missed lunch walks at full
+ * speed and a town in famine visibly drags. Walking to dinner always comes
+ * first: a person is sent to food a full thirty points before anything slows
+ * them down.
  *
  * <p>Young settlements without a market fetch straight from the granary pool;
  * once a market stands, families shop there — the chain grows with the town.
@@ -64,8 +79,11 @@ public final class FoodPlanner {
     public static final int STARTING_PROVISIONS = 100;
 
     // hunger pacing
-    public static final int HUNGER_PER_STEP = 2;
-    public static final int STARVATION_GRACE_STEPS = 10;
+    //
+    // One a step, which makes the whole 0-99 scale a hundred steps of honest
+    // clock: the severe band is ten steps long on its own, exactly what the old
+    // grace period after the cap was worth, and nothing else needs a timer.
+    public static final int HUNGER_PER_STEP = 1;
 
     // the chain's carrying numbers
     //
@@ -295,6 +313,14 @@ public final class FoodPlanner {
      * farming, a build queue frozen on a hall it could not pay for, and
      * thirty-two loaves; every rule that produced that was individually
      * sensible. This is the flag that suspends them.
+     *
+     * <p>Two ways in. Anybody at {@link Person#HUNGER_SEVERE} is nine steps from
+     * dead and that is a crisis whatever the granary says — a town with bread on
+     * the shelf and a settler about to die in front of it has a distribution
+     * emergency, and the rules this flag lifts are the ones standing in the way.
+     * Failing that, the larder: a town with less food than
+     * {@link #CRISIS_FOOD_PER_RESIDENT} a head, counting every field, stall and
+     * family pantry, is starving whether or not anybody has noticed yet.
      */
     public static boolean isStarving(Settlement settlement) {
         int mouths = settlement.population();
@@ -302,8 +328,8 @@ public final class FoodPlanner {
             return false;
         }
         for (Person person : settlement.residents()) {
-            if (person.starvingSteps() > 0) {
-                return true;   // somebody is already on the death clock
+            if (person.hunger() >= Person.HUNGER_SEVERE) {
+                return true;   // somebody is nine steps from dead
             }
         }
         int floor = mouths * CRISIS_FOOD_PER_RESIDENT;
@@ -329,10 +355,16 @@ public final class FoodPlanner {
     /**
      * Whether hunger keeps this person from working.
      *
-     * <p>It normally does, and should — the weak stop farming, hauling and
-     * building. That rule is also precisely how a town dies: weak hands bring in
-     * no food, so more hands go weak. While the town is starving it is suspended,
-     * and the hungry are allowed to go and fetch their own dinner.
+     * <p>Only from {@link Person#HUNGER_WEAK}, which is deliberately thirty
+     * points above where a meal errand is handed out: going for dinner and
+     * downing tools are separate matters, and between 30 and 59 a person walks
+     * to food while still counting as a worker.
+     *
+     * <p>From 60 it normally does hold people back, and should — the weak stop
+     * farming, hauling and building. That rule is also precisely how a town dies:
+     * weak hands bring in no food, so more hands go weak. While the town is
+     * starving it is suspended, and the hungry are allowed to go and fetch their
+     * own dinner.
      *
      * <p>The second escape is the one a player reported: a settler at hunger 88,
      * reading "weak", standing on a roof doing nothing whatever. Downing tools is
@@ -485,27 +517,33 @@ public final class FoodPlanner {
     }
 
     /**
-     * Sends anybody past the weak line to the nearest thing they can eat.
+     * Sends anybody hungry with no dinner at home to the nearest thing they can
+     * eat.
      *
-     * <p>The rule the player asked for, in one sentence: <strong>a person too
-     * weak to work stops working and goes to eat, and picks the job back up
-     * afterwards.</strong> There is nothing to save and restore — a profession is
-     * a standing fact and the build queue belongs to the town — so suspending is
-     * an errand and resuming is that errand ending. Every worker loop on both
-     * fidelities already stands aside for somebody with a haul, so this reaches
-     * builders, haulers, farmers and off-alarm guards through machinery that was
-     * already there.
+     * <p><strong>Walking to food comes before any penalty for not having
+     * eaten.</strong> The errand is handed out from {@link Person#HUNGER_HUNGRY}
+     * — a full thirty points, thirty steps, before the weak line and before the
+     * world slows anybody down. Between 30 and 59 this costs nothing: a person
+     * with a meal errand is simply a person on an errand, and every worker loop
+     * on both fidelities already stands aside for somebody with a haul. Past
+     * {@link Person#HUNGER_WEAK} the same errand is what downing tools looks
+     * like, because by then they are too weak to work anyway.
      *
-     * <p>Four refusals. Somebody already out on an errand keeps it for the one
-     * step it takes to put the load down. Somebody carrying food eats where
-     * they stand and needs no walk. A guard leaves the wall for dinner only
-     * while the town is calm, because a hungry watch beats no watch. And a
-     * settler with nothing to walk to is left on the job: see
-     * {@link #heldBackByHunger}.
+     * <p>There is nothing to save and restore — a profession is a standing fact
+     * and the build queue belongs to the town — so suspending is an errand and
+     * resuming is that errand ending.
+     *
+     * <p>Five refusals. Somebody already out on an errand keeps it for the one
+     * step it takes to put the load down. Somebody carrying food eats where they
+     * stand and needs no walk. Somebody whose family pantry can hand them a loaf
+     * is fed by arithmetic in {@link #eatAndHunger} without going anywhere. A
+     * guard leaves the wall for dinner only while the town is calm, because a
+     * hungry watch beats no watch. And a settler with nothing to walk to is left
+     * on the job: see {@link #heldBackByHunger}.
      */
     private static void assignMealErrands(Settlement settlement) {
         for (Person person : settlement.residents()) {
-            if (person.hunger() < Person.HUNGER_WEAK) {
+            if (person.hunger() < Person.HUNGER_HUNGRY) {
                 continue;
             }
             if (person.haul() != null) {
@@ -519,6 +557,9 @@ public final class FoodPlanner {
             }
             if (person.inventory().bestFood() != null) {
                 continue;   // already holding a meal; eatAndHunger serves it
+            }
+            if (pantryWillFeed(settlement, person)) {
+                continue;   // dinner is already at home and nobody has to walk
             }
             if (person.profession() == Profession.GUARD
                     && settlement.alarm() != Alarm.CALM) {
@@ -536,15 +577,36 @@ public final class FoodPlanner {
     }
 
     /**
+     * Whether this person's own family larder will feed them where they stand.
+     *
+     * <p>{@link #eatAndHunger} reaches into the pantry by arithmetic every step,
+     * so somebody with a stocked larder at home has already eaten and needs no
+     * errand. Two ways that fails and the walk is wanted after all: no housed
+     * family to have a pantry at all, and a pantry with food in it that cannot
+     * hand any over because every pocket is full of picked-up weeds. Walking to
+     * the larder lets the loaf be eaten on the spot instead of needing a free
+     * slot first.
+     */
+    private static boolean pantryWillFeed(Settlement settlement, Person person) {
+        for (Household household : settlement.households()) {
+            if (!household.contains(person.id())) {
+                continue;
+            }
+            // Nobody belongs to two families, so this is the answer either way.
+            boolean roomForALoaf = person.inventory().slots().size() < Inventory.SLOTS;
+            return household.isHoused() && household.pantry() > 0 && roomForALoaf;
+        }
+        return false;
+    }
+
+    /**
      * The closest place this person could actually get a mouthful, or null.
      *
      * <p>Their own family larder counts, and is usually the nearest thing there
-     * is — but a larder is reached by arithmetic every step in
-     * {@link #eatAndHunger}, so somebody weak with a stocked pantry has already
-     * eaten and never gets here. It is listed all the same for the case that put
-     * this on the report: pockets so full of picked-up weeds that the larder
-     * could not hand them anything. Walking to it lets the food be eaten on the
-     * spot instead of needing a free slot first.
+     * is — though a larder that will simply feed them is filtered out one step
+     * earlier by {@link #pantryWillFeed}, so in practice this reaches the home
+     * shelf only for the case that put it on the report: pockets so full of
+     * picked-up weeds that the larder could not hand them anything.
      */
     private static Meal nearestMeal(Settlement settlement, Person person) {
         Meal best = null;
@@ -1194,7 +1256,7 @@ public final class FoodPlanner {
         return false;
     }
 
-    /** Hunger rises; the hungry eat what they carry; the starving die. */
+    /** Hunger rises one; the hungry eat what they carry; whoever hits the cap dies. */
     private static void eatAndHunger(Settlement settlement, SimContext ctx) {
         Map<Person.Id, Household> families = new HashMap<>();
         for (Household household : settlement.households()) {
@@ -1275,13 +1337,17 @@ public final class FoodPlanner {
                 }
             }
 
+            // The top of the scale is the end of it. There is no grace period
+            // and no separate counter: hunger climbs one a step, so the ten
+            // steps from HUNGER_SEVERE to here are the death clock, spent with
+            // every store in town being emptied on this person's behalf. Reach
+            // 99 with nothing eaten and that was the last of it.
+            //
+            // Anything eaten above undoes at least four hunger and setHunger
+            // caps at HUNGER_MAX, so somebody who got a mouthful this step
+            // cannot still be at the cap when this is asked.
             if (person.hunger() >= Person.HUNGER_MAX) {
-                person.setStarvingSteps(person.starvingSteps() + 1);
-                if (person.starvingSteps() >= STARVATION_GRACE_STEPS) {
-                    starved.add(person);
-                }
-            } else {
-                person.setStarvingSteps(0);
+                starved.add(person);
             }
         }
 
