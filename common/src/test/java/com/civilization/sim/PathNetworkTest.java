@@ -403,12 +403,27 @@ class PathNetworkTest {
         List<SimPos> stand = ForesterStand.stand(standing);
         assertFalse(stand.isEmpty(), "a camp with a belt has somewhere to put a tree");
 
-        assertEquals(new SimPos(20, 64, 10),
-                felledBy(withAStand(false, false).paths(), stand),
-                "the same town with no wood to protect lays the lane straight "
-                        + "through the belt, which is the fault being fixed");
         assertEquals(null, felledBy(standing.paths(), stand),
-                "and with the wood there, a lane was still gravelled over a trunk");
+                "a lane was gravelled over a trunk of the stand");
+        // The control this test used to carry is gone, and the reason is the
+        // second half of the same fix rather than a weakening. It asserted that
+        // the identical town with no wood to protect DID gravel the trunk at
+        // (20, 64, 10) -- the fault, still exhibitable, which is what kept the
+        // assertion above honest. The belt is now also held off the ground the
+        // town's own plan has reserved (ForesterStand.PlannedGround), and on this
+        // ring town the plan reserves (20, 10): the stand moved out to (25, 0),
+        // (30, 0), (35, 0) and the flanks, the lane to the outlying farm runs
+        // nowhere near any of them, and the two towns route identically. There is
+        // no ground left in this fixture where the fault can still be shown.
+        //
+        // What still shows the router's keepout doing work, rather than the belt
+        // having moved out of its way: the sibling test below, where a trunk
+        // stands between the door and the road and the lane goes round it, and
+        // ForesterStandTest.noRoadASeededTownOpensIsLaidThroughTheStand.
+        assertEquals(felledBy(withAStand(false, false).paths(), stand),
+                felledBy(standing.paths(), stand),
+                "the two towns differ, so this fixture can exhibit the fault "
+                        + "again and the control above should be restored");
     }
 
     @Test

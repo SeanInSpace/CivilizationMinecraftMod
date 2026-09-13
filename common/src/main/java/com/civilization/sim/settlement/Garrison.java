@@ -79,7 +79,22 @@ public final class Garrison {
      * either.
      */
     public static int guardStrength(Settlement settlement) {
-        return JobPlanner.count(settlement, Profession.GUARD) + kingsWorth(settlement);
+        return guardHeads(settlement) + kingsWorth(settlement);
+    }
+
+    /**
+     * How many people in this town are guards. The one guard count.
+     *
+     * <p>Named, and public, because three lines of {@code /civ info} were
+     * counting the watch in three different currencies and a reader could not
+     * tell which. This is the head count and nothing else: it is what the jobs
+     * line prints, it is the {@code guards} term of
+     * {@link RaidPlanner#defensePower}, and it is what {@link #guardStrength}
+     * adds the crown to. Anything in the report that says a number of guards says
+     * this one.
+     */
+    public static int guardHeads(Settlement settlement) {
+        return JobPlanner.count(settlement, Profession.GUARD);
     }
 
     /**
@@ -98,7 +113,7 @@ public final class Garrison {
      * which case both numbers are right, or he is not, in which case both are
      * zero.
      */
-    private static int kingsWorth(Settlement settlement) {
+    public static int kingsWorth(Settlement settlement) {
         return KingPlanner.hasKing(settlement) ? KingPlanner.KING_GUARD_BONUS : 0;
     }
 
@@ -185,8 +200,26 @@ public final class Garrison {
                 : held + ", " + neededGuards + " needed";
     }
 
+    /**
+     * The same, with the crown's share of the watch named instead of folded in.
+     *
+     * <p>{@link #guardStrength} is a head count plus a morale bonus, and the
+     * bonus is invisible in the total: a warband of six with a king reads as
+     * seven guards, four lines under a jobs line that says six. Naming it is what
+     * makes the two lines the same count again — {@code "7 guards, 5 needed (6 on
+     * the roster, +1 for the king)"} — and a town with nobody crowned is the
+     * commonest case and says nothing extra at all.
+     */
+    public static String watchSummary(int guardHeads, int kingsWorth, int neededGuards) {
+        String summary = watchSummary(guardHeads + kingsWorth, neededGuards);
+        return kingsWorth <= 0 ? summary
+                : summary + " (" + guardHeads + " on the roster, +" + kingsWorth
+                        + " for the king)";
+    }
+
     /** {@link #watchSummary} for a settlement as it presently stands. */
     public static String watchSummary(Settlement settlement) {
-        return watchSummary(guardStrength(settlement), neededGuards(settlement));
+        return watchSummary(guardHeads(settlement), kingsWorth(settlement),
+                neededGuards(settlement));
     }
 }

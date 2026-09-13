@@ -15,6 +15,7 @@ import com.civilization.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -182,5 +183,113 @@ class SeamTest {
                         + " there is no regrowth down here");
         assertTrue(town.events().stream().anyMatch(e -> e.message().contains("cut out")),
                 "and the town's own history says why the stone stopped");
+    }
+
+    // --- and finding more ground ---
+
+    /** Runs a mine to exhaustion, the long way, with one miner in it. */
+    private static Settlement minedOut() {
+        Settlement town = mineTown(1);
+        town.setCatalog(com.civilization.sim.settlement.BuildCatalog.DEFAULT);
+        town.addResident(new Person(Person.Id.random(), "Bram",
+                Profession.BUILDER, town.center()));
+        town.addResident(new Person(Person.Id.random(), "Cass",
+                Profession.IDLER, town.center()));
+        Alone world = new Alone();
+        world.stone = 60;   // ten steps of one miner, rather than 333
+        for (int step = 1; step <= 40; step++) {
+            town.setStock(TownStores.STONE, 0);   // the town spends it as fast as it cuts
+            MinePlanner.advance(town, new SimContext(world, step, SHIPPED));
+        }
+        assertTrue(Seam.isExhausted(only(town)), "the fixture did not run the seam out");
+        return town;
+    }
+
+    /**
+     * The dead end, in one assertion.
+     *
+     * <p>{@code requestProducer} refused a second mine for as long as the first
+     * one stood, and a cut-out mine is still a building, so it stands forever.
+     * The seam of two thousand is gone by step 1500 — which is well inside the
+     * life of an ordinary town — and after that the town could not order another
+     * mine and never cut another block.
+     */
+    @Test
+    void aTownWhoseSeamIsOutOrdersAnotherMine() {
+        Settlement town = minedOut();
+
+        assertTrue(com.civilization.sim.settlement.BuildPlanner.isSpentProducer(only(town)),
+                "a mine with nothing in it is visibly spent");
+        assertTrue(com.civilization.sim.settlement.BuildPlanner.requestProducer(
+                        town, TownStores.STONE, 41),
+                "a town out of stone with a cut-out mine has to be able to find "
+                        + "more ground, or the mine is the end of its stone");
+        assertEquals("civilization:mine", town.buildQueue().getFirst().blueprintId());
+    }
+
+    @Test
+    void aMineWithStoneInItStillRefusesASecond() {
+        Settlement town = mineTown(1);
+        town.setCatalog(com.civilization.sim.settlement.BuildCatalog.DEFAULT);
+        town.addResident(new Person(Person.Id.random(), "Cass",
+                Profession.IDLER, town.center()));
+        Seam.recount(only(town), 500);
+
+        assertFalse(com.civilization.sim.settlement.BuildPlanner.isSpentProducer(only(town)));
+        assertFalse(com.civilization.sim.settlement.BuildPlanner.requestProducer(
+                        town, TownStores.STONE, 1),
+                "the shortage is a real shortage; the mine is working");
+    }
+
+    @Test
+    void aSeamNobodyHasCountedIsNotAnEmptyOne() {
+        // "Nobody has looked" and "there is nothing there" are opposite facts. A
+        // town whose mine is in an unloaded chunk must not order a second one.
+        Settlement town = mineTown(0);
+        assertFalse(Seam.isCounted(only(town)), "the fixture already counted it");
+        assertFalse(com.civilization.sim.settlement.BuildPlanner.isSpentProducer(only(town)),
+                "an uncounted seam is a mine of unknown worth, not a spent one");
+    }
+
+    /**
+     * And nobody is left standing at a dead face.
+     *
+     * <p>The staffing table wanted a miner per twelve residents for as long as a
+     * mine <em>stood</em>, so a town went on paying wages into a hole. A spent mine
+     * is still a building and stays standing — a player may dig it out or point its
+     * block at fresh ground tomorrow — but it employs nobody.
+     */
+    @Test
+    void aSpentMineEmploysNobody() {
+        Settlement town = minedOut();
+        com.civilization.sim.settlement.JobPlanner.ProfessionNeed miners = null;
+        for (com.civilization.sim.settlement.JobPlanner.ProfessionNeed need
+                : com.civilization.sim.settlement.JobPlanner.DEFAULT_NEEDS) {
+            if (need.profession() == Profession.MINER) {
+                miners = need;
+            }
+        }
+        assertTrue(miners != null, "the staffing table has no miner row");
+
+        assertFalse(miners.appliesTo(town),
+                "there is nothing down there to cut, so the trade is not wanted here");
+        assertEquals(0, miners.desiredCount(town),
+                "and the surplus arithmetic has to agree, or the miners standing at "
+                        + "the dead face are never handed to anything else");
+        assertTrue(com.civilization.sim.settlement.JobPlanner.shortfall(town, miners) <= 0,
+                "a town short of nothing does not hire");
+    }
+
+    @Test
+    void aWorkingMineStillWantsItsMiner() {
+        Settlement town = mineTown(0);
+        Seam.recount(only(town), 500);
+        for (com.civilization.sim.settlement.JobPlanner.ProfessionNeed need
+                : com.civilization.sim.settlement.JobPlanner.DEFAULT_NEEDS) {
+            if (need.profession() == Profession.MINER) {
+                assertTrue(need.appliesTo(town), "a mine with rock in it wants a miner");
+                assertTrue(need.desiredCount(town) > 0);
+            }
+        }
     }
 }

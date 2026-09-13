@@ -181,8 +181,10 @@ public final class LumberPlanner {
      * and only then finds out what it is standing in.
      */
     private static boolean reckonStand(Settlement settlement, Building camp, SimContext ctx) {
-        boolean watched = ctx.bridge().playerWithin(
-                camp.origin(), ctx.settings().observedRadius());
+        // The town's answer, not the camp's: a stand inside a watched claim is
+        // felled by hands. A camp sited out past the ring still answers for its
+        // own ground.
+        boolean watched = settlement.isWatched(ctx, camp.origin());
         boolean arriving = watched && !camp.wasWatched();
         if (arriving || !Stand.isCounted(camp)) {
             if (ctx.bridge().isLoaded(camp.origin())) {

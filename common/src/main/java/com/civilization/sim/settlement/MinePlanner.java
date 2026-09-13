@@ -115,8 +115,10 @@ public final class MinePlanner {
      * squares the books against the hole they left.
      */
     private static boolean reckonSeam(Settlement settlement, Building mine, SimContext ctx) {
-        boolean watched = ctx.bridge().playerWithin(
-                mine.origin(), ctx.settings().observedRadius());
+        // The town's answer, not the mine's: a shaft inside a watched claim is
+        // worked by picks. A mine sunk out past the ring answers for its own
+        // ground.
+        boolean watched = settlement.isWatched(ctx, mine.origin());
         boolean arriving = watched && !mine.wasWatched();
         if (arriving || !Seam.isCounted(mine)) {
             if (ctx.bridge().isLoaded(mine.origin())) {

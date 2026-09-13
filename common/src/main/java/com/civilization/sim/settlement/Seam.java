@@ -100,6 +100,7 @@ public final class Seam {
         return isCounted(mine) && mine.stoneSeam() <= 0;
     }
 
+
     /** Take the world's word for what is down there. */
     public static void recount(Building mine, int blocks) {
         mine.setStoneSeam(Math.max(0, blocks));

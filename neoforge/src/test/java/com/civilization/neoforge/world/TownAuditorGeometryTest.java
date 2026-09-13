@@ -205,10 +205,17 @@ class TownAuditorGeometryTest {
         return pending;
     }
 
-    private static List<String> sweep(FakeWorld world, Building building) {
-        Settlement town = new Settlement(
-                Settlement.Id.random(), "Testburg", new SimPos(0, FLOOR, 0), 64);
-        town.addBuilding(building);
+    /**
+     * One sweep of one town, and the town is handed in rather than made here.
+     *
+     * <p>It used to make a fresh settlement per call, which worked only while the
+     * auditor's memory of what was undrawn was one set for the whole world. That
+     * was the bug — in a kingdom of two towns each sweep wiped the other's
+     * evidence and the two-sweep rule never fired for either — so the memory is
+     * per settlement now, and a fixture that wants two consecutive sweeps has to
+     * sweep the same town twice, exactly as a running server does.
+     */
+    private static List<String> sweep(FakeWorld world, Settlement town) {
         return TownAuditor.audit(world, town).stream()
                 .map(TownAuditor.Fault::describe)
                 .toList();
@@ -226,7 +233,7 @@ class TownAuditorGeometryTest {
         // run, every one of which was drawn thirty seconds later.
         TownAuditor.forget();
 
-        assertFalse(reportsNothingStanding(sweep(sealedHouse(), undrawn())),
+        assertFalse(reportsNothingStanding(sweep(sealedHouse(), townWith(undrawn()))),
                 "one sweep is not evidence; it has had no chance to be drawn yet");
     }
 
@@ -236,10 +243,10 @@ class TownAuditorGeometryTest {
         // building, never materialized, looked at twice. Anything actually
         // stuck stays stuck, and this is what it looks like.
         TownAuditor.forget();
-        Building stuck = undrawn();
+        Settlement town = townWith(undrawn());
 
-        sweep(sealedHouse(), stuck);
-        List<String> second = sweep(sealedHouse(), stuck);
+        sweep(sealedHouse(), town);
+        List<String> second = sweep(sealedHouse(), town);
 
         assertTrue(reportsNothingStanding(second),
                 "twice running is a building that is not going to be drawn");
@@ -250,10 +257,11 @@ class TownAuditorGeometryTest {
         // The race, run the way it actually goes.
         TownAuditor.forget();
         Building pending = undrawn();
+        Settlement town = townWith(pending);
 
-        sweep(sealedHouse(), pending);
+        sweep(sealedHouse(), town);
         pending.setMaterialized(true);
-        List<String> second = sweep(sealedHouse(), pending);
+        List<String> second = sweep(sealedHouse(), town);
 
         assertFalse(reportsNothingStanding(second),
                 "it was drawn, which is what was supposed to happen");
@@ -265,14 +273,14 @@ class TownAuditorGeometryTest {
         // an hour -- there was no sweep to observe it. Unloaded ground must not
         // accumulate evidence.
         TownAuditor.forget();
-        Building pending = undrawn();
-        sweep(sealedHouse(), pending);
+        Settlement town = townWith(undrawn());
+        sweep(sealedHouse(), town);
 
         FakeWorld away = sealedHouse();
         away.unloaded(0, FLOOR, 0);
-        sweep(away, pending);
+        sweep(away, town);
 
-        assertFalse(reportsNothingStanding(sweep(sealedHouse(), pending)),
+        assertFalse(reportsNothingStanding(sweep(sealedHouse(), town)),
                 "the count starts again from the first sweep that could see it");
     }
 
@@ -449,9 +457,10 @@ class TownAuditorGeometryTest {
         // never draws is reported.
         TownAuditor.forget();
         Building unbuilt = new Building("civilization:house", new SimPos(0, FLOOR, 0), 1, false);
+        Settlement town = townWith(unbuilt);
 
-        TownAuditor.audit(sealedHouse(), townWith(unbuilt));
-        List<String> faults = TownAuditor.audit(sealedHouse(), townWith(unbuilt)).stream()
+        TownAuditor.audit(sealedHouse(), town);
+        List<String> faults = TownAuditor.audit(sealedHouse(), town).stream()
                 .map(TownAuditor.Fault::describe)
                 .toList();
 

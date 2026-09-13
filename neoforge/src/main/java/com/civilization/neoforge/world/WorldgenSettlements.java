@@ -6,6 +6,7 @@ import com.civilization.neoforge.bridge.NeoForgeWorldBridge;
 import com.civilization.neoforge.save.CivilizationSavedData;
 import com.civilization.neoforge.save.SiteLedger;
 import com.civilization.sim.culture.Culture;
+import com.civilization.sim.culture.TownNames;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.kingdom.Kingdom;
 import com.civilization.sim.settlement.BuildCatalog;
@@ -390,7 +391,8 @@ public final class WorldgenSettlements {
 
         // And now the ground, before a single plot is chosen. Bounded, and
         // resumed next tick when the budget runs out: see readClaim.
-        if (!readClaim(world, chosen)) {
+        if (!readClaim(world, chosen, Founding.groundToRead(chosen, site.layoutId(),
+                BuildCatalog.DEFAULT))) {
             return false;   // still reading; the region is undecided, so come back
         }
         // Re-asked against read ground rather than the estimate it was asked
@@ -421,8 +423,8 @@ public final class WorldgenSettlements {
         }
 
         String name = Culture.of(site.cultureId()).townNames().isEmpty()
-                ? "Wayside"
-                : pickName(site);
+                ? pickName(world, site, List.of("Wayside"))
+                : pickName(world, site, Culture.of(site.cultureId()).townNames());
         // A shire is named after its town and a warband after its chief's line.
         // The settlement keeps the town name either way; only the realm differs.
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(),
@@ -490,14 +492,24 @@ public final class WorldgenSettlements {
      * and redstone are not — a read chunk here is not a ticking chunk. See
      * {@link TerrainOracle#readGround}.
      *
+     * <p><strong>As far as the plan reaches, not as far as the claim does.</strong>
+     * This used to read {@code Founding.INITIAL_CLAIM} — sixty-four blocks — and a
+     * village's plan reaches ninety to a hundred and thirty. So the outer four
+     * plots of every seeded town were chosen against the generator's noise, judged
+     * by the loose allowance an estimate gets, and then re-judged strictly the
+     * moment somebody walked up and the real chunks came in. Four of fourteen
+     * buildings moved on arrival in the playtest, and those were the four. See
+     * {@link Founding#groundToRead}, which is where the number comes from.
+     *
+     * @param reach how far out the ground has to be read, in blocks
      * @return whether the claim is now read, so the town may be raised
      */
-    private static boolean readClaim(SimWorld world, SimPos center) {
+    private static boolean readClaim(SimWorld world, SimPos center, int reach) {
         if (!(world.bridge() instanceof NeoForgeWorldBridge bridge)) {
             return true;   // no oracle behind this world; nothing to read
         }
         int owed = bridge.oracle().readGround(center.x(), center.z(),
-                Founding.INITIAL_CLAIM, CLAIM_CHUNKS_PER_TICK);
+                reach, CLAIM_CHUNKS_PER_TICK);
         return owed == 0;
     }
 
@@ -510,10 +522,37 @@ public final class WorldgenSettlements {
      */
     private static final int TOWN_HEART = 16;
 
-    /** A name from the people who settled it, chosen by where they settled. */
-    private static String pickName(SettlementSites.Site site) {
-        List<String> names = Culture.of(site.cultureId()).townNames();
-        int at = Math.floorMod(site.center().x() * 31 + site.center().z(), names.size());
-        return names.get(at);
+    /**
+     * A name from the people who settled it, chosen by where they settled — and
+     * never one that is already standing somewhere else.
+     *
+     * <p>The hash is unchanged and is still what makes a seed reproduce: it
+     * decides where in the pool to start looking. What is new is that it is a
+     * starting point rather than the answer. Two of the nine spawn towns came out
+     * of a playtest both called Bellbrook, because nothing asked.
+     *
+     * <p>Every name in the world counts, whoever settled it. A Norman Bellbrook
+     * and an Anglian Bellbrook are two places with one name on a map and in a
+     * {@code /civ} report, and the culture that happened to get there first is no
+     * comfort to a player reading either.
+     *
+     * <p>The walking and the qualifying are {@link TownNames}', so they can be
+     * put to a pool smaller than the number of towns without a world to generate.
+     */
+    private static String pickName(SimWorld world, SettlementSites.Site site,
+                                   List<String> pool) {
+        return TownNames.pick(pool,
+                site.center().x() * 31 + site.center().z(), namesTaken(world));
+    }
+
+    /** Every settlement name standing in this world, of any culture. */
+    private static Set<String> namesTaken(SimWorld world) {
+        Set<String> taken = new HashSet<>();
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement settlement : kingdom.settlements()) {
+                taken.add(settlement.name());
+            }
+        }
+        return taken;
     }
 }

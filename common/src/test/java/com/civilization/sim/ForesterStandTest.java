@@ -153,10 +153,23 @@ class ForesterStandTest {
 
     // --- the stand ---
 
+    /**
+     * The candidate squares of the claim a camp actually settles on.
+     *
+     * <p>Not of the first belt, and the difference is now the ordinary case. The
+     * belt is held off the ground the town's own plan has reserved, and on a
+     * closely plotted arrangement — a bastide, a green — the annulus immediately
+     * outside the houses is very nearly all reserved. {@code ForesterStand.raise}
+     * answers that by looking further out, up to {@link ForesterStand#BELTS_OUT}
+     * belts, which is exactly what that bound is for; so the claim worth asking
+     * about is the one it stops at rather than the one it starts from.
+     */
     private static List<SimPos> stand() {
         Settlement town = seeded();
-        return ForesterStand.candidates(town, ForesterStand.woodlandFor(
-                campOf(town).origin(), town.center(), town.claimRadius()));
+        town.step(new SimContext(new Planted(), 1, SimSettings.SANDBOX));
+        WorkArea settled = town.lumberArea();
+        assertNotNull(settled, "the camp never staked a claim at all");
+        return ForesterStand.candidates(town, settled);
     }
 
     @Test
@@ -226,7 +239,24 @@ class ForesterStandTest {
     /** A world that is entirely loaded, entirely flat, and counts its trees. */
     private static final class Planted implements WorldBridge {
         private final List<SimPos> offered = new ArrayList<>();
+        private final List<SimPos> refused = new ArrayList<>();
         private int calls;
+
+        /** One column the ground will not take, for the relocation paths. */
+        Planted refuse(SimPos where) {
+            refused.add(where);
+            return this;
+        }
+
+        @Override
+        public boolean isSiteSuitable(SimPos plot, int radius) {
+            for (SimPos no : refused) {
+                if (no.x() == plot.x() && no.z() == plot.z()) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         @Override
         public boolean playerWithin(SimPos pos, double radius) {
@@ -334,6 +364,128 @@ class ForesterStandTest {
                 }
             }
         }
+    }
+
+    // --- the ground the plan has spoken for ---
+
+    /**
+     * A town is nineteen buildings inside a plan of two hundred and fifty-six, so
+     * a belt chosen against what is <em>standing</em> is a belt planted squarely on
+     * the ground the town has not reached yet. Every one of those plots is cleared
+     * in its turn, and the camp watches its wood be built on: Millbrook went from
+     * 57 trees to 4 in 218 steps that way.
+     */
+    @Test
+    void noTreeStandsOnGroundTheTownsOwnPlanHasReserved() {
+        // Every arrangement, because the reserved ground is shaped by the
+        // arrangement and the one a culture happens to hash to proves nothing
+        // about the other fourteen.
+        for (Culture culture : Culture.all()) {
+            for (String layout : culture.layouts()) {
+                Settlement town = Founding.seeded(SITE, "Seedholt",
+                        SettlementStage.VILLAGE, BuildCatalog.DEFAULT, culture.id());
+                town.setLayoutId(layout);
+                if (town.buildingWithRole(BuildingRole.LUMBER_CAMP) == null) {
+                    continue;
+                }
+                town.step(new SimContext(new Planted(), 1, SimSettings.SANDBOX));
+                List<SimPos> standing = ForesterStand.stand(town);
+                assertFalse(standing.isEmpty(),
+                        layout + " settled its claim and got no stand at all");
+
+                com.civilization.sim.culture.TownPlan plan = town.arrangement()
+                        .planFor(town.center(), Founding.PLOTS_ENOUGH_FOR_ANY_PROGRAM);
+                for (SimPos trunk : standing) {
+                    for (com.civilization.sim.culture.TownPlan.Plot plot : plan.plots()) {
+                        int reach = plot.span() / 2;
+                        assertFalse(Math.abs(trunk.x() - plot.at().x()) <= reach
+                                        && Math.abs(trunk.z() - plot.at().z()) <= reach,
+                                layout + ": " + trunk + " stands on plot " + plot.at()
+                                        + ", which the town has not built on yet and will");
+                    }
+                    for (com.civilization.sim.culture.TownPlan.Street street
+                            : plan.streets()) {
+                        assertFalse(street.touches(trunk, 0.5), layout + ": " + trunk
+                                + " stands in a street the plan has drawn, and the "
+                                + "road is built before the trees are missed");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The belt is staked around the camp, so it has to move when the camp does.
+     *
+     * <p>A camp relocated on arrival used to leave its claim behind at the plot it
+     * had left — and {@code ForesterStand.raise} would not put it right, because a
+     * claim that is not centered on the camp is read as one a player pointed
+     * somewhere else deliberately and is never overruled. So the camp stood in one
+     * wood and counted, felled and replanted in another.
+     */
+    @Test
+    void aCampThatRelocatesTakesItsBeltWithIt() {
+        Settlement town = seeded();
+        SimPos was = campOf(town).origin();
+        town.setLumberArea(ForesterStand.woodlandFor(was, town.center(),
+                town.claimRadius()));
+        assertEquals(was, town.lumberArea().center(),
+                "the belt starts out staked around the camp");
+
+        // The one column the world refuses, which is what makes a building move
+        // on the step it would otherwise have been drawn.
+        Planted world = new Planted();
+        world.refuse(was);
+        for (int step = 1; step <= 4; step++) {
+            town.step(new SimContext(world, step, SimSettings.SANDBOX));
+        }
+
+        SimPos now = campOf(town).origin();
+        assertFalse(now.x() == was.x() && now.z() == was.z(),
+                "the camp did not move, so nothing here is being tested");
+        assertEquals(now.x(), town.lumberArea().center().x(),
+                "a camp that moved is working the wood around where it moved to, "
+                        + "not the wood it left: belt at " + town.lumberArea().center()
+                        + ", camp at " + now);
+        assertEquals(now.z(), town.lumberArea().center().z(),
+                "a camp that moved is working the wood around where it moved to");
+    }
+
+    // --- the town building itself out ---
+
+    /**
+     * The measured fault, end to end: 57 trees standing became 4 in 218 steps
+     * while the town cleared its own plots, and the camp's timber swung from 1072
+     * to 1 because the clock was reading a stand it believed had been felled.
+     *
+     * <p>The wood store is held full on purpose, so the forester has no reason to
+     * fell and every tree the ledger loses is a tree somebody else took. What the
+     * town is doing meanwhile is raising buildings, which means clearing plots.
+     */
+    @Test
+    void theStandSurvivesTheTownBuildingItselfOut() {
+        Settlement town = seeded();
+        Planted world = new Planted();
+        town.step(new SimContext(world, 1, SimSettings.SANDBOX));
+        Building camp = campOf(town);
+        int planted = com.civilization.sim.settlement.Stand.trees(camp);
+        assertTrue(planted > 0, "nothing to test if the camp was never given a stand");
+
+        int before = town.buildings().size();
+        for (int step = 2; step <= 300; step++) {
+            // Held above the ceiling, so wantsMoreTimber is false and the
+            // forester's own axe is never the explanation for a missing tree.
+            town.stores().add(TownStores.WOOD, 4096);
+            town.stores().add(TownStores.STONE, 512);
+            town.step(new SimContext(world, step, SimSettings.SANDBOX));
+            assertTrue(com.civilization.sim.settlement.Stand.trees(camp) >= planted,
+                    "the stand fell to " + com.civilization.sim.settlement.Stand.trees(camp)
+                            + " of " + planted + " by step " + step
+                            + " with nobody felling it");
+        }
+        assertTrue(town.buildings().size() > before,
+                "the town raised nothing, so no plot was ever cleared and this "
+                        + "asserts nothing: " + town.buildings().size());
     }
 
     @Test

@@ -598,13 +598,13 @@ public final class PathPlanner {
                 return;   // somebody is there to walk it out themselves
             }
             // And whether or not anybody is coming, a street does not pave
-            // itself in front of a player. Asked at the stretch rather than at
-            // the town, so an outlying lane over the hill is still the clock's
-            // to open while the square is watched — and asked after the crew
-            // question rather than instead of it, because the two refuse for
-            // different reasons and both refusals stand.
-            if (ctx.bridge().playerWithin(segments.get(i).positions().getFirst(),
-                    ctx.settings().observedRadius())) {
+            // itself in front of a player. Asked of the town now rather than of
+            // the stretch: a lane over the hill is still inside the claim, and a
+            // player on the square watching the town grow is close enough to the
+            // claim to be watching all of it. Asked after the crew question
+            // rather than instead of it, because the two refuse for different
+            // reasons and both refusals stand.
+            if (settlement.isWatched(ctx, segments.get(i).positions().getFirst())) {
                 return;   // watched ground: hands or nothing
             }
             network.markOpened(i);
@@ -994,11 +994,16 @@ public final class PathPlanner {
     private static Building hubBuilding(Settlement settlement) {
         Building campPost = null;
         for (Building building : settlement.buildings()) {
-            String id = BuildPlanner.baseIdOf(building.blueprintId());
-            if (id.endsWith("town_hall")) {
+            // By role rather than by the id spelling. A warhost's hall is its great
+            // hut and never a town_hall — see Homes and BuildingRole — so a text
+            // match found no hub at all in an orc camp and the roads fell back on
+            // radiating from the settlement's own center, which is not where the
+            // chief's seat stands.
+            if (building.role() == BuildingRole.HALL) {
                 return building;
             }
-            if (campPost == null && id.endsWith("camp_post")) {
+            if (campPost == null
+                    && BuildPlanner.baseIdOf(building.blueprintId()).endsWith("camp_post")) {
                 campPost = building;
             }
         }

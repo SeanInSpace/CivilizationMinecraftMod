@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -138,5 +139,39 @@ class PerimeterLayerPlanTest {
             assertTrue(PerimeterLayer.plan(ring, beside, 3, FOOTING).isEmpty(),
                     "the wall lays nothing at " + beside + ", which is what an opening is");
         }
+    }
+
+    @Test
+    void aGateThatMovesOnNamesThePostsItPulledUp() {
+        // The fault behind "one wall post in 986 will not go up", and it is this
+        // simple: a gateway's flanking positions have their posts PULLED UP,
+        // because an opening is the point of a gate — and the gates follow the
+        // streets while the wall is going up, every twenty steps. The columns a
+        // gate used to stand in are ordinary wall again with nothing in them, and
+        // the drawing's cursor is a whole lap away from coming back to them. A
+        // handful of columns, never none and never many, laid and paid for, no
+        // post, and air at the footing: exactly the report.
+        //
+        // So the drawing is told which columns a moved gate owes posts to.
+        Perimeter ring = plainRing();
+        List<SimPos> posts = ring.ringPositions();
+        ring.setGates(List.of(posts.get(4)));
+        List<SimPos> stoodAt = List.copyOf(ring.gates());
+
+        ring.setGates(List.of(posts.get(12)));
+        List<Integer> owed = PerimeterLayer.formerOpenings(ring, stoodAt, ring.length());
+
+        assertEquals(List.of(3, 4, 5), owed,
+                "the three positions of the old opening are the posts it took up");
+        for (int at : owed) {
+            assertFalse(ring.isGateway(posts.get(at)),
+                    "position " + at + " is wall again, which is why it wants a post");
+        }
+        assertTrue(PerimeterLayer.formerOpenings(ring, ring.gates(), ring.length()).isEmpty(),
+                "a gate that has not moved owes nothing");
+        // And nothing beyond the laid prefix: a position the town has not paid
+        // for is not a hole in anything.
+        assertTrue(PerimeterLayer.formerOpenings(ring, stoodAt, 0).isEmpty(),
+                "an unpaid stretch of line is not owed posts either");
     }
 }

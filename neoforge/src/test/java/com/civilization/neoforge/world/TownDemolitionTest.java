@@ -8,6 +8,7 @@ import com.civilization.sim.settlement.Building;
 import com.civilization.sim.settlement.BuildingSizes;
 import com.civilization.sim.settlement.Footprint;
 import com.civilization.sim.settlement.Settlement;
+import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -451,6 +452,180 @@ class TownDemolitionTest {
         assertTrue(TownAuditor.demolishRuins(flattened(), town).isEmpty());
         assertEquals(1, TownAuditor.demolishRuins(flattened(), town).size(),
                 "and the third takes it off the books");
+    }
+
+    @Test
+    void aRepairPushedOffTheHeadAndStandingStillStopsSparingTheRuin() {
+        // The other half of the head-stall, and the one a booking alone could not
+        // see. The queue is worked from the front: a more urgent job can displace
+        // a repair from the head, and a displaced repair on a head that is itself
+        // stuck shields its ruin for as long as the stall lasts, which is for
+        // ever. A shell nobody has laid a block on for two minutes is not being
+        // mended, whatever the queue says about it.
+        Settlement town = withBuilder();
+        Building house = house();
+        town.addBuilding(house);
+        BuildTask repair = repairOf(house);
+        town.enqueueUrgent(repair);
+        BuildTask displacing = new BuildTask("civilization:granary", new SimPos(40, FLOOR, 40), 60);
+        town.enqueueUrgent(displacing);
+        TownAuditor.audit(standing(), town);
+
+        // The first sweep has nothing to compare the work against and must not
+        // convict on that: it takes the reading and spares the shell.
+        assertTrue(TownAuditor.demolishRuins(flattened().atStep(0), town).isEmpty(),
+                "the first look at a waiting repair is not evidence of a stall");
+
+        List<Building> razed = List.of();
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF; sweep++) {
+            razed = TownAuditor.demolishRuins(
+                    flattened().atStep(TownAuditor.STALLED_REPAIR_STEPS + 1 + 60L * sweep),
+                    town);
+        }
+
+        assertEquals(List.of(house), razed,
+                "a repair that has not moved in " + TownAuditor.STALLED_REPAIR_STEPS
+                        + " steps went on shielding the ruin");
+        assertFalse(town.buildQueue().contains(repair),
+                "and writing the building off did not cancel the repair booked on it");
+        assertTrue(town.buildQueue().contains(displacing),
+                "while the job that had nothing to do with it is left alone");
+    }
+
+    @Test
+    void aRepairOffTheHeadThatIsStillMovingKeepsItsShield() {
+        // The same queue, and the opposite answer. What shields a ruin is work,
+        // not position: a crew laying blocks on a job that happens not to be at
+        // the front of the queue is still a crew laying blocks, and the town must
+        // not evict the family out from under them.
+        Settlement town = withBuilder();
+        Building house = house();
+        town.addBuilding(house);
+        BuildTask repair = repairOf(house);
+        town.enqueueUrgent(repair);
+        town.enqueueUrgent(new BuildTask("civilization:granary", new SimPos(40, FLOOR, 40), 60));
+        TownAuditor.audit(standing(), town);
+
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF + 3; sweep++) {
+            repair.addProgress(1);   // a block went down since the last sweep
+            long step = TownAuditor.STALLED_REPAIR_STEPS * 4L * (sweep + 1);
+            assertTrue(TownAuditor.demolishRuins(flattened().atStep(step), town).isEmpty(),
+                    "sweep " + sweep + " wrote off a building being actively mended");
+        }
+
+        assertEquals(1, town.buildings().size(), "the house is still on the books");
+        assertTrue(town.buildQueue().contains(repair), "and so is the work on it");
+    }
+
+    // --- the mark, taken where the structure is drawn ---
+
+    @Test
+    void aBuildingDrawnAndDestroyedInsideOneSweepIsStillWrittenOff() {
+        // The window this closes. "You cannot say a building has been demolished
+        // unless you saw it standing" was enforced by a mark the auditor took on
+        // its own sweep, once a minute — so a cottage drawn as a player walks into
+        // town and blown up half a minute later was never recorded standing, the
+        // reading of the wreck became its own high-water mark, and the ruin stayed
+        // on the books for ever. The mark is taken where the structure is drawn
+        // now, and this is that seam: no audit has ever looked at this house.
+        Settlement town = town();
+        Building house = house();
+        town.addBuilding(house);
+
+        TownAuditor.sawDrawn(standing(), new BlockPos(0, FLOOR, 0), house.footprint());
+
+        List<Building> razed = List.of();
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF; sweep++) {
+            razed = TownAuditor.demolishRuins(flattened(), town);
+        }
+        assertEquals(List.of(house), razed,
+                "nothing ever audited this house, and it was still standing when it"
+                        + " was drawn, which is all the check needs");
+    }
+
+    @Test
+    void whatIsDrawnWithNoWallsIsNotEnrolledByHavingBeenDrawn() {
+        // And the mark must not be taken on trust. A field is a one-block fence
+        // round tilled soil; it reads as a building with its walls missing from
+        // the day it is finished, and a draw-time mark of "a hundred per cent,
+        // because I just built it" would enroll every field, pen and platform in
+        // the town in a check that would then raze them. What is recorded is what
+        // was measured.
+        Settlement town = town();
+        Building field = new Building("civilization:farm", new SimPos(0, FLOOR, 0), 1, true);
+        field.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 4));
+        town.addBuilding(field);
+
+        TownAuditor.sawDrawn(flattened(), new BlockPos(0, FLOOR, 0), field.footprint());
+
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF + 3; sweep++) {
+            assertTrue(TownAuditor.demolishRuins(flattened(), town).isEmpty(),
+                    "sweep " + sweep + " wrote off a field for never having had walls");
+        }
+    }
+
+    @Test
+    void aHandBuiltStructureTakesTheMarkWhenItsLastBlockGoesDown() {
+        // The by-hand fidelity of the same seam. A building laid block by block
+        // never passes through the instant path at all, so nothing on that side
+        // ever told the auditor it had seen the thing standing.
+        Settlement town = town();
+        Building house = house();
+        town.addBuilding(house);
+        BuildTask task = new BuildTask("civilization:house", new SimPos(0, FLOOR, 0), 40);
+        task.setSiteY(FLOOR);
+        task.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 4));
+        task.setPlan(10, 10);
+
+        BlueprintPlacer.markIfDrawn(standing(), task);
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF; sweep++) {
+            assertTrue(TownAuditor.demolishRuins(flattened(), town).isEmpty(),
+                    "a half-built structure is not something anybody saw standing");
+        }
+
+        task.setWorkDone(10);   // the last block of the plan
+        BlueprintPlacer.markIfDrawn(standing(), task);
+
+        List<Building> razed = List.of();
+        for (int sweep = 0; sweep < TownAuditor.SWEEPS_BEFORE_WRITTEN_OFF; sweep++) {
+            razed = TownAuditor.demolishRuins(flattened(), town);
+        }
+        assertEquals(List.of(house), razed,
+                "the crew finished it and the mark was not taken");
+    }
+
+    // --- two towns, one memory ---
+
+    @Test
+    void aSecondTownsSweepDoesNotWipeTheFirstsRecordOfWhatWasUndrawn() {
+        // TownAuditor.audit is called once per settlement and LAST_UNDRAWN was one
+        // set for the world, cleared and refilled by every call — so the second
+        // town's sweep threw away the first town's evidence and neither could ever
+        // reach the two sweeps the rule wants. It was not weakened; it was inert,
+        // in every kingdom that ever expanded.
+        Settlement first = town();
+        Building undrawnHere = new Building("civilization:house", new SimPos(0, FLOOR, 0), 1, false);
+        undrawnHere.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 4));
+        first.addBuilding(undrawnHere);
+
+        Settlement second = new Settlement(
+                Settlement.Id.random(), "Otherburg", new SimPos(400, FLOOR, 400), 64);
+        Building undrawnThere =
+                new Building("civilization:house", new SimPos(400, FLOOR, 400), 1, false);
+        undrawnThere.setFootprint(new Footprint(FLOOR, SPAN, SPAN, 4));
+        second.addBuilding(undrawnThere);
+
+        // One sweep each: a building undrawn for one sweep is a race, not a fault.
+        assertTrue(faultsOf(flattened(), first).isEmpty(), "one sweep is not two");
+        assertTrue(faultsOf(flattened(), second).isEmpty());
+
+        // And now the second sweep of each, in the same order.
+        assertTrue(faultsOf(flattened(), first).stream()
+                        .anyMatch(fault -> fault.contains("nothing stands")),
+                "the first town's record was wiped by the second town's sweep");
+        assertTrue(faultsOf(flattened(), second).stream()
+                        .anyMatch(fault -> fault.contains("nothing stands")),
+                "and the second town's by the first's");
     }
 
     @Test

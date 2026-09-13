@@ -221,6 +221,66 @@ public final class Founding {
     public static final int PLOTS_ENOUGH_FOR_ANY_PROGRAM = 64;
 
     /**
+     * How many plots a seeded town's program can actually reach.
+     *
+     * <p>Twice the fifteen-building program, which covers the plots burned on the
+     * way past — a farm is fifteen across and a hall thirteen, so a pair of them
+     * offered adjacent plots fouls each other and the offer is spent. Measured on
+     * every arrangement in the mod, a seeded VILLAGE takes its fourteenth building
+     * on plot nineteen at the worst.
+     *
+     * <p>Distinct from {@link #PLOTS_ENOUGH_FOR_ANY_PROGRAM}, which is a generous
+     * bound for <em>asking</em> a plan and costs nothing to overstate. This one is
+     * paid for in chunk generation — see {@link #groundToRead} — so it is the
+     * tightest number that is still safe.
+     */
+    private static final int PLOTS_THE_PROGRAM_REACHES = 32;
+
+    /**
+     * How far out the ground has to be read before a town is seeded here.
+     *
+     * <p><strong>Why the claim radius was the wrong answer.</strong> The platform
+     * reads the ground under a new town's claim before raising it, and the claim is
+     * {@link #INITIAL_CLAIM} — sixty-four blocks. A village's plan reaches further
+     * than that: on the recorded ground its outermost plots sit ninety to a hundred
+     * and thirty blocks out. Those plots were therefore sited against the
+     * generator's noise and judged by the loose allowance an estimate gets, and
+     * then the player arrived, the real chunks came in, and they were judged
+     * strictly and moved. That is the whole of "four of fourteen seeded buildings
+     * still move on arrival": not a relocation fault, a reading fault, in the four
+     * buildings nobody had looked at the ground under.
+     *
+     * <p>So what is read is what the plan can reach, plus the probe radius the
+     * siting judges a plot by and half the widest plot it may put there — because
+     * a plot judged at its edge is a plot judged partly on estimate.
+     *
+     * <p>Chebyshev rather than Euclidean, because chunks come in squares and this
+     * number is handed to something that generates them.
+     */
+    public static int groundToRead(SimPos center, String layoutId,
+                                   List<BuildingType> catalog) {
+        TownPlan plan = com.civilization.sim.culture.Layouts.of(layoutId)
+                .planFor(center, PLOTS_THE_PROGRAM_REACHES);
+        int reach = INITIAL_CLAIM;
+        for (int at = 0; at < plan.size(); at++) {
+            SimPos plot = plan.plot(at).at();
+            int away = Math.max(Math.abs(plot.x() - center.x()),
+                    Math.abs(plot.z() - center.z()));
+            reach = Math.max(reach, away);
+        }
+        return reach + BuildPlanner.PLOT_PROBE_RADIUS + widestPlotHalf(catalog);
+    }
+
+    /** Half the widest plot this catalog can put on a plan plot. */
+    private static int widestPlotHalf(List<BuildingType> catalog) {
+        int widest = BuildPlanner.DEFAULT_PLOT_SPAN;
+        for (BuildingType type : catalog) {
+            widest = Math.max(widest, BuildPlanner.plotSpanOf(type.id(), catalog));
+        }
+        return widest / 2;
+    }
+
+    /**
      * A settlement that is already what a founding party spends four hundred
      * steps becoming.
      *
@@ -484,10 +544,27 @@ public final class Founding {
             if (ground == null) {
                 return at;
             }
-            int fault = ground.siteFault(onGround(where, ground),
-                    BuildPlanner.PLOT_PROBE_RADIUS);
-            if (fault == com.civilization.sim.platform.WorldBridge.SITE_FAULT_NONE) {
+            SimPos onTheGround = onGround(where, ground);
+            int fault = ground.siteFault(onTheGround, BuildPlanner.PLOT_PROBE_RADIUS);
+            // And then the narrower question, which is the one the auditor asks and
+            // which siting was never asking at all: once this building's floor is
+            // set, can the ring of ground one step outside its walls be brought to
+            // it? A plot in a shallow bowl falls hardly at all across its bulk — so
+            // siteFault passes it — and stands three courses over the floor on every
+            // side, which is exactly the "buried" fault the in-game audit reported
+            // for a hearth, a lumber camp and a mine. See Grade.
+            Grade.Shelf shelf = Grade.shelf(ground, onTheGround, span,
+                    Grade.isField(type.id()));
+            if (fault == com.civilization.sim.platform.WorldBridge.SITE_FAULT_NONE
+                    && shelf == Grade.Shelf.LEVEL) {
                 return at;
+            }
+            if (shelf != Grade.Shelf.LEVEL) {
+                // Ranked below every gradable slope, and deliberately: a plot whose
+                // ring the placer cannot reach is a plot the auditor will condemn
+                // however gently the ground falls across it, so anything the town
+                // can actually cut in to is better.
+                fault = Math.max(fault, BuildPlanner.LEVELABLE_FALL + shelf.ordinal());
             }
             // Open water is never a preference — see LeastBad, which refuses it
             // for the same reason. A building in a river reads as broken however

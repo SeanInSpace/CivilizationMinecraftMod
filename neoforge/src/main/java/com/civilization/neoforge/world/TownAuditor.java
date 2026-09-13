@@ -180,11 +180,16 @@ public final class TownAuditor {
      * <p>So a building must be found undrawn twice running before it is worth
      * complaining about. Anything genuinely stuck stays stuck and is still
      * reported; anything that was merely caught mid-step is not.
+     *
+     * <p><strong>Per settlement, for the same reason {@link #SEEN_RUINED} is.</strong>
+     * {@link #audit} is called once per settlement and this was one set for the
+     * world, cleared and refilled by every call — so in a kingdom of two towns
+     * the second town's sweep threw away the first town's evidence and neither
+     * could ever reach two sweeps running. The rule was not merely weakened, it
+     * was inert, and it had been inert in every kingdom that ever expanded.
      */
-    private static final java.util.Set<BlockPos> LAST_UNDRAWN = new java.util.HashSet<>();
-
-    /** Filled during a sweep, and swapped into {@link #LAST_UNDRAWN} at the end of it. */
-    private static final java.util.Set<BlockPos> UNDRAWN_THIS_SWEEP = new java.util.HashSet<>();
+    private static final java.util.Map<Settlement.Id, java.util.Set<BlockPos>> LAST_UNDRAWN =
+            new java.util.HashMap<>();
 
     /**
      * The share of its wall ring, in percent, a building has to keep to still be
@@ -266,25 +271,63 @@ public final class TownAuditor {
      * away what a first town's sweep learned. Positions are unique in a world,
      * so no two buildings share a key.
      *
-     * <p><strong>The mark is only ever taken by a sweep, so there is a window in
-     * which a building can be destroyed before this has any record of it
-     * standing</strong> — and then it never can be written off, because the low
-     * reading it is first seen with becomes its own high-water mark. The window
-     * is one sweep wide and it is a real one: a cottage drawn as a player walks
-     * into town and blown up half a minute later falls in it, as does anything
-     * knocked down in the minute before the server stops. Closing it properly
-     * means taking the mark where the structure is drawn rather than where it is
-     * next looked at — at both fidelities, since a building laid by hand never
-     * passes through {@code materializeBlueprint} — which is a seam worth
-     * cutting and is not this.
+     * <p><strong>The mark is taken where the structure is drawn.</strong> It used
+     * to be taken only by a sweep, which left a window one sweep wide — a minute
+     * — in which a building could be destroyed before anything had a record of it
+     * standing; and then it could never be written off at all, because the low
+     * reading it was first seen with became its own high-water mark. A cottage
+     * drawn as a player walks into town and blown up half a minute later fell in
+     * it, as did anything knocked down in the minute before the server stopped.
+     * {@link #sawDrawn} closes it at both fidelities — {@code BlueprintPlacer}
+     * stamps a whole structure at once, and a building laid block by block never
+     * passes through that path at all, so each calls it for itself.
      *
-     * <p>Standing in it is deliberate rather than cheap. Every failure here is a
-     * ruin left on the books, which is the state the whole mod was in until this
-     * existed; the failure in the other direction evicts a family from a house
-     * that was still there.
+     * <p>What is recorded there is the <em>measured</em> share, never a presumed
+     * hundred. Plenty of what a settlement builds has no wall at head height and
+     * never did — see {@link #WAS_A_BUILDING} — and a mark taken on trust at the
+     * moment of drawing would enroll every field, pen and platform in the town
+     * in a check that would then raze them.
+     *
+     * <p>Keyed by column rather than by the whole position, because the y of a
+     * building's origin is whatever the ground turned out to be and is written
+     * again when the structure is finally placed: a mark filed at the moment of
+     * drawing and looked for at the surveyed floor would be two different keys
+     * for one house. No two buildings share a column — plots may not overlap —
+     * so nothing is lost by forgetting the height.
      */
-    private static final java.util.Map<BlockPos, Integer> WALLS_SEEN =
+    private static final java.util.Map<Long, Integer> WALLS_SEEN =
             new java.util.HashMap<>();
+
+    /** One key per plot: see {@link #WALLS_SEEN}. */
+    private static long column(BlockPos at) {
+        return ((long) at.getX() << 32) ^ (at.getZ() & 0xffffffffL);
+    }
+
+    /**
+     * Records how a structure looked on the day it was drawn.
+     *
+     * <p>The seam {@link #WALLS_SEEN} describes, and the only way into it from
+     * outside: both fidelities call this the moment the last block of a structure
+     * is in the ground, which is the one moment something is certainly standing.
+     * Everything after that is the auditor's ordinary business.
+     *
+     * <p>Takes a footprint and a position rather than a {@link Building}, because
+     * at the moment of drawing there may not be a building yet: a hand-built
+     * structure is finished by the crew and only then written down by the
+     * settlement. A reading the world cannot answer — an unloaded ring, a shape
+     * with no wall ring outside its own notch — records nothing, exactly as a
+     * sweep's would.
+     */
+    public static void sawDrawn(WorldView world, BlockPos origin, Footprint plot) {
+        if (plot == null || !plot.isKnown() || !hasSomethingToEnter(plot)) {
+            return;
+        }
+        int share = measureWalls(world, origin, plot);
+        if (share < 0) {
+            return;
+        }
+        rememberMark(origin, share);
+    }
 
     private TownAuditor() {
     }
@@ -303,9 +346,9 @@ public final class TownAuditor {
         LAST_HEAD.clear();
         LAST_PLANTED.clear();
         LAST_UNDRAWN.clear();
-        UNDRAWN_THIS_SWEEP.clear();
         SEEN_RUINED.clear();
         WALLS_SEEN.clear();
+        MENDING.clear();
     }
 
     /**
@@ -334,10 +377,12 @@ public final class TownAuditor {
     public static List<Fault> audit(WorldView world, Settlement settlement) {
         List<Fault> faults = new ArrayList<>();
         List<Building> present = new ArrayList<>();
-        // What was undrawn when we last looked, so this sweep can tell a
-        // building caught mid-step from one that is genuinely stuck. Collected
-        // fresh below and swapped in at the end.
-        UNDRAWN_THIS_SWEEP.clear();
+        // What was undrawn when we last looked at THIS town, so this sweep can
+        // tell a building caught mid-step from one that is genuinely stuck.
+        // Collected fresh below and swapped in at the end.
+        java.util.Set<BlockPos> lastUndrawn =
+                LAST_UNDRAWN.getOrDefault(settlement.id(), java.util.Set.of());
+        java.util.Set<BlockPos> undrawnThisSweep = new java.util.HashSet<>();
         for (Building building : settlement.buildings()) {
             if (isPath(building.blueprintId())) {
                 continue;   // steps are a path, not a building with an inside
@@ -348,7 +393,7 @@ public final class TownAuditor {
                 continue;
             }
             present.add(building);
-            auditOne(world, building, origin, faults);
+            auditOne(world, building, origin, faults, lastUndrawn, undrawnThisSweep);
         }
         auditOverlaps(present, faults);
         auditTown(world, settlement, faults);
@@ -357,8 +402,7 @@ public final class TownAuditor {
         // fall out of the set here means it starts its two-sweep count again
         // when somebody next walks past — which is right, because a building
         // nobody has seen for an hour has not been "stuck" for an hour.
-        LAST_UNDRAWN.clear();
-        LAST_UNDRAWN.addAll(UNDRAWN_THIS_SWEEP);
+        LAST_UNDRAWN.put(settlement.id(), undrawnThisSweep);
         return faults;
     }
 
@@ -504,15 +548,17 @@ public final class TownAuditor {
     // --- the checks ---
 
     private static void auditOne(WorldView world, Building building, BlockPos origin,
-                                 List<Fault> faults) {
+                                 List<Fault> faults,
+                                 java.util.Set<BlockPos> lastUndrawn,
+                                 java.util.Set<BlockPos> undrawnThisSweep) {
         if (!building.isMaterialized()) {
             // The chunk is loaded and the simulation says this building exists,
             // yet nothing has been drawn. That is expected for exactly one step
             // — materializePending draws it the next time the settlement runs —
             // so it is only worth reporting if it is STILL true next sweep. See
             // LAST_UNDRAWN for the measurements that forced this distinction.
-            UNDRAWN_THIS_SWEEP.add(origin);
-            if (LAST_UNDRAWN.contains(origin)) {
+            undrawnThisSweep.add(origin);
+            if (lastUndrawn.contains(origin)) {
                 faults.add(new Fault(building.blueprintId(), origin,
                         "recorded here, but nothing stands on the ground —"
                                 + " and it was the same last sweep"));
@@ -577,6 +623,34 @@ public final class TownAuditor {
         if (!building.isMaterialized() || !plot.isKnown() || !hasSomethingToEnter(plot)) {
             return -1;
         }
+        int share = measureWalls(world, origin, plot);
+        if (share < 0) {
+            return -1;   // nothing the world could answer, so nothing to judge
+        }
+        return rememberMark(origin, share) >= WAS_A_BUILDING ? share : -1;
+    }
+
+    /**
+     * Raises this plot's high-water mark by a reading, and hands back the mark.
+     *
+     * <p>Both readers of the ring go through here — the sweep that acts on a ruin
+     * and the drawing that first puts one up — so the mark cannot be raised one
+     * way in one place and another way in another.
+     */
+    private static int rememberMark(BlockPos origin, int share) {
+        int best = Math.max(share, WALLS_SEEN.getOrDefault(column(origin), 0));
+        WALLS_SEEN.put(column(origin), best);
+        return best;
+    }
+
+    /**
+     * What share of this plot's wall ring is standing right now, or -1 when the
+     * question cannot be answered here.
+     *
+     * <p>No memory of its own: this is the reading, and {@link #raiseMark} is what
+     * remembers it.
+     */
+    private static int measureWalls(WorldView world, BlockPos origin, Footprint plot) {
         int columns = 0;
         int standing = 0;
         for (BlockPos wall : ring(origin, wallHalf(plot.width()), wallHalf(plot.depth()), 1)) {
@@ -603,10 +677,7 @@ public final class TownAuditor {
         if (columns == 0) {
             return -1;   // a shape with no ring outside its own notch
         }
-        int share = standing * 100 / columns;
-        int best = Math.max(share, WALLS_SEEN.getOrDefault(origin, 0));
-        WALLS_SEEN.put(origin, best);
-        return best >= WAS_A_BUILDING ? share : -1;
+        return standing * 100 / columns;
     }
 
     /**
@@ -641,7 +712,7 @@ public final class TownAuditor {
             if (isPath(building.blueprintId())) {
                 continue;   // steps are a path, not a building with walls to lose
             }
-            if (isBeingMended(settlement, building)) {
+            if (isBeingMended(settlement, building, world.stepsElapsed())) {
                 // Not evidence and not a clock either: the count is dropped
                 // rather than held, so when the crew is finished the shell gets
                 // its full three sweeps from a standing start.
@@ -667,7 +738,12 @@ public final class TownAuditor {
             if (settlement.removeBuilding(building, world.stepsElapsed(),
                     "only " + walls + "% of its walls were left standing, "
                             + "on " + sweeps + " sweeps running")) {
-                WALLS_SEEN.remove(origin);   // whatever is built here next is its own building
+                // Whatever is built here next is its own building, and whatever
+                // was booked against this one is work on a thing that has stopped
+                // existing -- removeBuilding cancels that, which is the other
+                // half of the repair rule below.
+                WALLS_SEEN.remove(column(origin));
+                MENDING.remove(column(origin));
                 razed.add(building);
             }
         }
@@ -696,18 +772,101 @@ public final class TownAuditor {
      * the town ordering anything else for the rest of the world's life. So the
      * crew is asked for again here, every sweep. When there is nobody left the
      * shell is written off, and writing it off is what clears the job.
+     *
+     * <p><strong>And a booking is not work.</strong> Asking only whether the town
+     * has hands somewhere left the other half of the head-stall open: the queue
+     * is worked from the front, so a more urgent job can displace a repair from
+     * the head, and the displaced repair then shields its ruin for as long as the
+     * head is stuck — which, being the head-stall, is indefinitely. A shell
+     * nobody has laid a block on for two minutes is not being mended, whatever
+     * the queue says about it.
+     *
+     * <p>So a repair shields its building while it is at the head of the queue —
+     * where it is the job the crew are on, whether or not this particular minute
+     * saw a block go down — or while it has actually moved in the last
+     * {@link #STALLED_REPAIR_STEPS}. Anything else is a ruin with a note pinned
+     * to it, and the town writes it off; {@code Settlement.removeBuilding}
+     * cancels the queued repair on the way past, so the head-stall goes with it.
      */
-    private static boolean isBeingMended(Settlement settlement, Building building) {
+    private static boolean isBeingMended(Settlement settlement, Building building,
+                                         long step) {
         if (!RepairPlanner.hasAbleBuilder(settlement)) {
             return false;
         }
+        BuildTask repair = null;
+        boolean atTheHead = false;
         for (BuildTask queued : settlement.buildQueue()) {
             if (queued.isRepair() && RepairPlanner.isWorkOn(queued, building)) {
-                return true;
+                repair = queued;
+                atTheHead = queued == settlement.buildQueue().getFirst();
+                break;
             }
         }
-        return false;
+        BlockPos origin = new BlockPos(building.origin().x(),
+                building.origin().y(), building.origin().z());
+        if (repair == null) {
+            MENDING.remove(column(origin));
+            return false;
+        }
+        if (atTheHead) {
+            // The crew are on it. Remember where the work stands so that a job
+            // later pushed off the head is judged from here rather than from its
+            // first sweep in the cold.
+            MENDING.put(column(origin), new Mending(workDoneOn(repair), step));
+            return true;
+        }
+        int work = workDoneOn(repair);
+        Mending last = MENDING.get(column(origin));
+        if (last == null || last.work() != work) {
+            // Either the first time this shell has been looked at while its
+            // repair waits, or a block has gone down since. Both are progress as
+            // far as this rule is concerned: the first reading has nothing to
+            // compare against and must not convict on that.
+            MENDING.put(column(origin), new Mending(work, step));
+            return true;
+        }
+        return step - last.step() <= STALLED_REPAIR_STEPS;
     }
+
+    /**
+     * How far a queued repair has got, as one number that only ever goes up.
+     *
+     * <p>Both fidelities in one figure, because a repair can be worked by either:
+     * {@code workDone} counts the blocks a crew has laid and dug, and
+     * {@code progress} is what the clock adds where nobody is watching. A change
+     * in the sum is a block laid or a step of work paid for, and no change is a
+     * job standing still.
+     */
+    private static int workDoneOn(BuildTask task) {
+        return task.workDone() + task.progress() + task.stepsDone();
+    }
+
+    /**
+     * How long a repair off the head of the queue may show no progress at all
+     * before it stops shielding its ruin.
+     *
+     * <p>A hundred steps, which is a little under two minutes of a running
+     * server and a good deal longer than the gap between two of these sweeps. It
+     * has to be longer than a sweep interval or a repair that is genuinely being
+     * worked would lose its shield between two blocks; it has to be short enough
+     * that a head-stalled queue is not a permanent amnesty, which at two minutes
+     * plus the three sweeps the write-off itself takes it is.
+     */
+    public static final int STALLED_REPAIR_STEPS = 100;
+
+    /** Where a shielded repair's work stood the last time this looked, and when. */
+    private record Mending(int work, long step) {
+    }
+
+    /**
+     * The last reading of each shielded repair, by plot.
+     *
+     * <p>Keyed by column for the same reason {@link #WALLS_SEEN} is, and dropped
+     * the moment the repair leaves the queue — finished, cancelled, or written off
+     * with its building — so a later repair on the same plot starts fresh rather
+     * than inheriting a stall.
+     */
+    private static final java.util.Map<Long, Mending> MENDING = new java.util.HashMap<>();
 
     /** Convenience for callers holding a live level. */
     public static List<Building> demolishRuins(ServerLevel level, Settlement settlement) {

@@ -20,6 +20,7 @@ import com.civilization.sim.kingdom.Kingdom;
 import com.civilization.sim.settlement.BuildPlanner;
 import com.civilization.sim.settlement.BlueprintCheck;
 import com.civilization.sim.settlement.BuildingSizes;
+import com.civilization.sim.settlement.Grade;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -281,7 +282,15 @@ public final class BlueprintPlacer {
         for (Step step : plan.steps()) {
             lay(level, new Placement(step.pos(), step.state(), step.nbt()));
         }
-        return plotOf(base.getY(), plan);
+        Footprint plot = plotOf(base.getY(), plan);
+        // The structure is standing, and this is the only moment anything can say
+        // so with certainty. The auditor may not call a building demolished unless
+        // it saw it standing first, and it used to take that mark on its own sweep
+        // a minute later -- so anything drawn and destroyed inside one sweep could
+        // never be written off at all, because the reading of the wreck became its
+        // own high-water mark. See TownAuditor.WALLS_SEEN.
+        TownAuditor.sawDrawn(new LevelWorldView(level), base, plot);
+        return plot;
     }
 
     /**
@@ -479,11 +488,12 @@ public final class BlueprintPlacer {
      * point: see {@link #LOW_GROUND_QUANTILE}.
      */
     static int baseAcross(String blueprintId, int[] firstAir) {
-        int[] sorted = firstAir.clone();
-        Arrays.sort(sorted);
-        int low = sorted[Math.min(sorted.length - 1, sorted.length / LOW_GROUND_QUANTILE)];
-        return Math.min(baseFor(blueprintId, sorted[sorted.length / 2]),
-                low + FOUNDATION_DEPTH);
+        // The arithmetic lives in the simulation now, in Grade, because the siting
+        // has to be able to ask what floor a plot will be given before there is a
+        // world to place anything in — and the seeded siting asking one rule while
+        // the placer used another is precisely how a plot passed siting and was then
+        // condemned by the audit. One copy, two callers.
+        return Grade.floorAcross(firstAir, isField(blueprintId));
     }
 
     // --- the visible path ---
@@ -615,9 +625,28 @@ public final class BlueprintPlacer {
      * The dimensions do not depend on the base, so a provisional one will do.
      */
     private static int surveyBase(ServerLevel level, BuildTask task) {
-        int x = task.origin().x();
-        int z = task.origin().z();
-        StructurePlan shape = planFor(level, task.blueprintId(),
+        return surveyBase(level, task.blueprintId(), task.origin().x(),
+                task.origin().z(), task.origin().y());
+    }
+
+    /**
+     * The same, for a building nobody is standing over.
+     *
+     * <p><strong>This is the seam the "buried" reports came through.</strong> The
+     * crew's floor is the median of a whole plot, held down to what the
+     * underpinning can reach. The unwatched placement pass took
+     * {@code baseFor(surfaceHeight(origin))} — the origin column and nothing else —
+     * so the same building got two different floors depending on whether anybody
+     * happened to be watching it go up. On a real hillside an origin column in a
+     * dip sets a floor the rest of its own plot stands three courses above, which
+     * is the auditor's "buried — the ground stands up to 3 above its floor on every
+     * side" word for word.
+     *
+     * <p>Two paths, one function now. Every caller goes through here.
+     */
+    public static int surveyBase(ServerLevel level, String blueprintId, int x, int z,
+                                 int provisionalY) {
+        StructurePlan shape = planFor(level, blueprintId,
                 new BlockPos(x, groundLevel(level, x, z), z));
         // A square of the wider half-span. Buildings are turned to face the town
         // center, which swaps width and depth, and a survey that sampled the
@@ -637,13 +666,13 @@ public final class BlueprintPlacer {
                 }
                 // A plot may straddle a chunk nobody has loaded. Ask first:
                 // reading the heightmap of an absent chunk is what drags one in.
-                if (!level.isLoaded(new BlockPos(x + dx, task.origin().y(), z + dz))) {
+                if (!level.isLoaded(new BlockPos(x + dx, provisionalY, z + dz))) {
                     continue;
                 }
                 columns[read++] = groundLevel(level, x + dx, z + dz);
             }
         }
-        return baseAcross(task.blueprintId(), Arrays.copyOf(columns, read));
+        return baseAcross(blueprintId, Arrays.copyOf(columns, read));
     }
 
     /**
@@ -850,6 +879,7 @@ public final class BlueprintPlacer {
             payFor(settlement, task, step);
         }
         task.recordStepDone(step.cost());
+        markIfDrawn(new LevelWorldView(level), task);
         return true;
     }
 
@@ -879,7 +909,35 @@ public final class BlueprintPlacer {
             payFor(settlement, task, step);
         }
         task.recordStepDone(step.cost());
+        markIfDrawn(new LevelWorldView(level), task);
         return true;
+    }
+
+    /**
+     * Takes the auditor's mark the moment a hand-built structure is finished.
+     *
+     * <p>The by-hand half of the seam {@code TownAuditor.WALLS_SEEN} describes.
+     * A building laid block by block never passes through {@link #place} at all,
+     * so nothing on this path ever told the auditor it had seen the thing
+     * standing — and a cottage a crew finished and a creeper flattened inside the
+     * same minute could therefore never be written off.
+     *
+     * <p>Asked of the task rather than of a {@code Building}, because at this
+     * moment there is no building: the last block goes down here and the
+     * settlement writes the record on its next step. The task carries both halves
+     * of what the mark needs — where the structure stands and the size the plan
+     * turned out to be.
+     *
+     * <p>Package-private and taking a {@link WorldView} so that a test can drive
+     * it, which is the whole reason the mark is worth cutting a seam for.
+     */
+    static void markIfDrawn(WorldView world, BuildTask task) {
+        if (!task.isVisuallyComplete()) {
+            return;   // still going up; nothing to have an opinion about yet
+        }
+        SimPos at = task.site();
+        TownAuditor.sawDrawn(world, new BlockPos(at.x(), at.y(), at.z()),
+                task.footprint());
     }
 
     private static Step currentStep(ServerLevel level, BuildTask task) {

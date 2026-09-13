@@ -26,6 +26,18 @@ import java.util.List;
  *       margin is hysteresis: without it, a person standing right on the radius
  *       would flicker in and out of existence as the player shifts.</li>
  * </ul>
+ *
+ * <p>And one exception, which is the price of judging watchedness for the whole
+ * claim. A watched town's work is all done by hand — see
+ * {@code Settlement.isWatched} — and its claim is wider than the observed
+ * radius, so the far half of it is work the clock will not do and distance alone
+ * would never put a body near. Both rules therefore bend for the people such a
+ * town is actually waiting on ({@code Settlement.needsHandsFrom}): they are
+ * embodied anywhere in a watched town and not released while it stays watched.
+ * Without that, a far plot inside a watched claim waits on hands that were
+ * released the moment they walked out of sight to reach it, which is a deadlock
+ * rather than a doctrine. Everybody else is still judged by distance: a child or
+ * an idler two hundred blocks off has no reason to be an entity.
  */
 public final class EmbodimentPlanner {
 
@@ -48,15 +60,19 @@ public final class EmbodimentPlanner {
         List<Person> toRelease = new ArrayList<>();
 
         int embodied = (int) settlement.residents().stream().filter(Person::isEmbodied).count();
+        boolean townWatched = settlement.claimIsWatched(bridge, settings);
 
         for (Person person : settlement.residents()) {
+            boolean needed = townWatched && settlement.needsHandsFrom(person);
             if (person.isEmbodied()) {
-                if (!bridge.playerWithin(person.position(), settings.observedRadius() + RELEASE_MARGIN)) {
+                if (!needed && !bridge.playerWithin(person.position(),
+                        settings.observedRadius() + RELEASE_MARGIN)) {
                     toRelease.add(person);
                 }
             } else {
                 if (embodied + toEmbody.size() < settings.embodyCapPerSettlement()
-                        && bridge.playerWithin(person.position(), settings.observedRadius())) {
+                        && (needed || bridge.playerWithin(person.position(),
+                                settings.observedRadius()))) {
                     toEmbody.add(person);
                 }
             }

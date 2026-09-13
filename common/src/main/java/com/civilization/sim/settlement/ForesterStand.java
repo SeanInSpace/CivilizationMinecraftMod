@@ -1,5 +1,6 @@
 package com.civilization.sim.settlement;
 
+import com.civilization.sim.culture.TownPlan;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.world.SimContext;
 
@@ -100,13 +101,20 @@ public final class ForesterStand {
      * How many further belts a camp will look out before settling for what it
      * has: four.
      *
-     * <p>A bound rather than a budget. Measured across every people and every
-     * arrangement they build, on flat ground, at the size a town settles at: the
-     * first belt offers between forty-eight and ninety-seven squares, so the
-     * loop below almost never runs at all, and one further belt has always been
-     * enough where it does. Four is that with room to spare, and it is here so
-     * that a camp walled in by its own town stops rather than claiming the
-     * county.
+     * <p>A bound rather than a budget, and it earns its keep now where it used to
+     * be nearly dead code. It was written when the first belt offered between
+     * forty-eight and ninety-seven squares and the loop below almost never ran.
+     * The belt is now held off the ground the town's own plan has reserved as
+     * well — see {@link PlannedGround} — and a closely plotted arrangement has
+     * reserved very nearly the whole annulus immediately outside its houses. So
+     * looking further out is the <em>ordinary</em> case rather than the exception.
+     *
+     * <p>Measured on flat ground across all fifteen arrangements, at the size a
+     * seeded village stands: the first belt offers between <strong>nought and
+     * fifty</strong> squares — a bastide nought, a green two — and the claim the
+     * camp settles on after widening runs from 44 to 84 blocks and offers between
+     * 37 and 124. Every arrangement gets its stand, and none of them needed more
+     * than two further belts of the four.
      */
     public static final int BELTS_OUT = 4;
 
@@ -148,9 +156,11 @@ public final class ForesterStand {
      * <p>A grid on {@link #SPACING}, anchored on the camp so the ranks line up
      * with the camp rather than with the world origin, minus everything a tree
      * has no business being on: the camp's own square, anything outside the
-     * claim, anything inside the village, and any plot, road or wall the town's
-     * own siting rules already refuse — {@code Settlement.isPlotFree} answers all
-     * three of those in one question, and answering it the same way is the point.
+     * claim, anything inside the village, any plot, road or wall the town's own
+     * siting rules already refuse — {@code Settlement.isPlotFree} answers those
+     * in one question, and answering it the same way is the point — and every
+     * plot and street of the town's plan, standing or not, which is
+     * {@link PlannedGround} and is the half that was missing.
      *
      * <p>Nearest the camp first, so a claim that only yields a handful of usable
      * squares yields the handful closest to the people who work them, and so the
@@ -163,6 +173,139 @@ public final class ForesterStand {
      */
     public static List<SimPos> candidates(Settlement town, WorkArea area) {
         return freeOf(town, grid(town, area), Integer.MAX_VALUE);
+    }
+
+    /**
+     * The ground the town's own plan has already spoken for, as one set.
+     *
+     * <p><strong>The plan, and not merely what is standing.</strong> This is the
+     * second half of the stand-stripping fault and the half that caused it.
+     * {@code Settlement.isPlotFree} asks the buildings that stand, the builds
+     * that are queued, the ways that are laid and the wall that is staked — every
+     * one of which is a thing the town has <em>done</em>. A town is nineteen
+     * buildings inside a plan of two hundred and fifty-six, so a belt chosen
+     * against what is standing is a belt planted squarely on the two hundred and
+     * thirty-seven plots the town has not reached yet. Every one of those is
+     * cleared in its turn, and the camp watches its wood be built on.
+     *
+     * <p>The plan is known from the moment the town is seeded and its plots do
+     * not move — that is the whole point of {@code PlannedLayout}'s fixed plan
+     * size — so there is nothing to wait for. The same reasoning
+     * {@code PathPlanner.heldGround} already gives for keeping a routed road off
+     * every plot the plan might still use: ordering was the hole, and a plan that
+     * does not move can be respected from the start.
+     *
+     * <p>The streets too. A lane the plan has drawn is ground no tree may stand
+     * on for the same reason a plot is — and worse, because a road is built
+     * first: a trunk on the carriageway is felled by the crew that opens it.
+     *
+     * <p><strong>{@link Founding#PLOTS_ENOUGH_FOR_ANY_PROGRAM} of them and not the
+     * whole two hundred and fifty-six</strong>, and the difference is the whole
+     * difference between a rule and a sterilization. A layout will answer for any
+     * index it is handed, and a lattice answers by tiling the plane: a ring plan of
+     * two hundred and fifty-six reaches a hundred and forty blocks out on a
+     * sixteen-block pitch, so treating all of it as reserved leaves a forester
+     * nowhere in the county. Measured, before this was bounded: a bastide and a
+     * stronghold were left <em>nought</em> squares and a green two.
+     *
+     * <p>Sixty-four is the number a seeded town actually asks its plan for, and it
+     * is documented there as room for the whole fifteen-building program with a
+     * wide margin. That is ground the town has reserved. Past it is ground the
+     * layout merely has an opinion about, and an opinion is not a claim.
+     *
+     * <p>Held as a set of the camp's own grid squares rather than asked square by
+     * square. A widened claim holds thousands of squares and the plan holds
+     * hundreds of plots; the product is a quarter of a million comparisons a
+     * step, which is how a siting pass comes to take a second. Marking the plan
+     * onto the grid once costs a few thousand.
+     */
+    private static final class PlannedGround {
+
+        /**
+         * How wide a tree is held to be here: one column, its trunk.
+         *
+         * <p>Not its {@link #SPACING} square and emphatically not its crown, for
+         * the reason {@code PathPlanner.TRUNK_SPAN} gives in the same words: a
+         * canopy is about as wide as the stand's own pitch, so measuring the
+         * keepout at the crown fences off the entire belt. Built that way first
+         * and measured: a ring plan's plots sit sixteen apart and a crown-wide box
+         * is fifteen, so the belt was left fewer squares than it wanted trees and
+         * a seeded camp came out with a hedge.
+         *
+         * <p>A trunk plus a curb is what clearing a plot actually reaches: the
+         * excavation takes the building's footprint and its doorstep ring, and a
+         * trunk outside that is a tree in somebody's garden rather than a tree in
+         * the way.
+         */
+        private static final int TRUNK = 1;
+
+        /** Bare ground between a tree and a carriageway, as a plot gets a curb. */
+        private static final int CURB = 1;
+
+        private final SimPos anchor;
+        private final java.util.Set<Long> taken = new java.util.HashSet<>();
+
+        private PlannedGround(Settlement town, SimPos anchor) {
+            this.anchor = anchor;
+            TownPlan plan = town.arrangement()
+                    .planFor(town.center(), Founding.PLOTS_ENOUGH_FOR_ANY_PROGRAM);
+            for (TownPlan.Plot plot : plan.plots()) {
+                mark(plot.at(), plot.span() / 2 + TRUNK + CURB);
+            }
+            for (TownPlan.Street street : plan.streets()) {
+                int reach = street.width() / 2 + TRUNK + CURB;
+                for (SimPos along : street.path()) {
+                    mark(along, reach);
+                }
+                // Between the drawn points as well. A street is a polyline on
+                // SEGMENT pitch and a tree can stand in the middle of a run.
+                List<SimPos> path = street.path();
+                for (int i = 1; i < path.size(); i++) {
+                    SimPos from = path.get(i - 1);
+                    SimPos to = path.get(i);
+                    int steps = Math.max(Math.abs(to.x() - from.x()),
+                                         Math.abs(to.z() - from.z()));
+                    for (int s = 1; s < steps; s += SPACING) {
+                        mark(new SimPos(
+                                from.x() + (to.x() - from.x()) * s / steps, from.y(),
+                                from.z() + (to.z() - from.z()) * s / steps), reach);
+                    }
+                }
+            }
+        }
+
+        /** Every grid square of the camp's lattice within reach of this claim. */
+        private void mark(SimPos at, int reach) {
+            int fromX = ceilDiv(at.x() - reach - anchor.x(), SPACING);
+            int toX = Math.floorDiv(at.x() + reach - anchor.x(), SPACING);
+            int fromZ = ceilDiv(at.z() - reach - anchor.z(), SPACING);
+            int toZ = Math.floorDiv(at.z() + reach - anchor.z(), SPACING);
+            for (int kx = fromX; kx <= toX; kx++) {
+                for (int kz = fromZ; kz <= toZ; kz++) {
+                    taken.add(((long) kx << 32) ^ (kz & 0xFFFFFFFFL));
+                }
+            }
+        }
+
+        /**
+         * Rounding toward negative infinity throughout, which is the whole of a
+         * bug this class had for an afternoon.
+         *
+         * <p>Java's integer division truncates toward zero, so the cell of a
+         * square west or north of the anchor came out one too high and a trunk was
+         * looked up in the wrong cell. It showed on one arrangement of fifteen — an
+         * orc ring whose camp sits at (-16, -26) — because it only bites on the
+         * negative side of the anchor.
+         */
+        private static int ceilDiv(int a, int b) {
+            return -Math.floorDiv(-a, b);
+        }
+
+        private boolean holds(SimPos spot) {
+            long kx = Math.floorDiv(spot.x() - anchor.x(), SPACING);
+            long kz = Math.floorDiv(spot.z() - anchor.z(), SPACING);
+            return taken.contains((kx << 32) ^ (kz & 0xFFFFFFFFL));
+        }
     }
 
     /**
@@ -213,9 +356,26 @@ public final class ForesterStand {
      */
     private static List<SimPos> freeOf(Settlement town, List<SimPos> grid, int wanted) {
         List<SimPos> free = new ArrayList<>();
+        if (grid.isEmpty()) {
+            return free;
+        }
+        // The plan is marked out once, off the camp's own lattice, before a
+        // single square is weighed -- see PlannedGround for why asking it per
+        // square is not affordable.
+        //
+        // Phased off a square of the grid rather than off the camp, because the
+        // two are not the same thing. grid() walks dx from -radius upward in
+        // steps of SPACING, so the ranks are phased on the far edge of the claim
+        // and line up with the camp only when the radius happens to divide by
+        // five -- which the doc on candidates() has always claimed they do. Any
+        // member of the grid carries its true phase, so the first one is used.
+        PlannedGround planned = new PlannedGround(town, grid.get(0));
         for (SimPos spot : grid) {
             if (free.size() >= wanted) {
                 break;
+            }
+            if (planned.holds(spot)) {
+                continue;   // the town's own plan wants this ground
             }
             if (town.isPlotFree(spot, SPACING, null)) {
                 free.add(spot);   // not a plot, not a road, not the wall

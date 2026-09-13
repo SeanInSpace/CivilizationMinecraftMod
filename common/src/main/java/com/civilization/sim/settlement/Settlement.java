@@ -16,6 +16,7 @@ import com.civilization.sim.quest.QuestPlanner;
 import com.civilization.sim.quest.Reputation;
 import com.civilization.sim.work.Spoil;
 import com.civilization.sim.world.SimContext;
+import com.civilization.sim.world.SimSettings;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -812,6 +813,9 @@ public final class Settlement {
      * @param ignore a building origin to skip, for an improvement raised in place
      */
     public boolean isPlotFree(SimPos candidate, int span, SimPos ignore) {
+        if (hasGivenUpOn(candidate)) {
+            return false;   // the ground itself refused a build here; see abandonBuild
+        }
         for (Building standing : buildings) {
             if (!BuildPlanner.holdsGround(standing.blueprintId())
                     || (ignore != null && standing.origin().equals(ignore))) {
@@ -1076,6 +1080,22 @@ public final class Settlement {
      * {@code PerimeterPlanner.restakeIfOutgrown} moves the wall out around what
      * the town has <em>become</em>, carrying its raised posts with it — so this
      * is asked of the standing line, whichever line that currently is.
+     *
+     * <p><strong>And of the old line, for exactly as long as the old line is
+     * still in the ground.</strong> A town that has just moved its wall would
+     * otherwise site a building on the posts of the circuit it has replaced —
+     * measured on the fixtures at 347 buildings over 126 grown towns, and 23 after — because
+     * the retired loop is not the standing one and nothing asked about it. The
+     * naive repair, refusing the whole retired loop, sterilizes a band straight
+     * through the middle of a town for as long as the demolition takes, which on
+     * an unloaded stretch is for ever.
+     *
+     * <p>So what is refused is the part of the old line that <em>physically
+     * still stands</em>: {@link Perimeter#retiredPositions()} from
+     * {@link Perimeter#pulled()} onward, which is the prefix the crew and the
+     * sweep have not yet taken up. The band shrinks as the posts come out and is
+     * gone the moment the last one does — {@code forgetRetired} empties the list
+     * — so nothing is refused on account of a wall that is no longer there.
      */
     private boolean standsOnTheWall(SimPos candidate, int span) {
         if (perimeter == null) {
@@ -1083,6 +1103,14 @@ public final class Settlement {
         }
         double half = span / 2.0 + CURB;
         for (SimPos post : perimeter.ringPositions()) {
+            if (Math.abs(post.x() - candidate.x()) <= half
+                    && Math.abs(post.z() - candidate.z()) <= half) {
+                return true;
+            }
+        }
+        List<SimPos> retired = perimeter.retiredPositions();
+        for (int i = perimeter.pulled(); i < retired.size(); i++) {
+            SimPos post = retired.get(i);
             if (Math.abs(post.x() - candidate.x()) <= half
                     && Math.abs(post.z() - candidate.z()) <= half) {
                 return true;
@@ -1320,6 +1348,16 @@ public final class Settlement {
      * <p>For a site that cannot be built at all. The plot is burned rather than
      * reconsidered, so the town does not propose the same impossible spot on the
      * very next step.
+     *
+     * <p><strong>Burned by remembering it, not by moving the cursor.</strong>
+     * Bumping {@link #nextPlotIndex} was the whole of this and it only worked by
+     * luck: {@link #chooseSite} leaves the cursor at the first <em>free</em> slot
+     * it saw rather than at the one it took, so a plot chosen from further along
+     * the ring sits ahead of the cursor still and is offered again on the next
+     * step. What kept the promise in the fixtures was an incidental palisade
+     * refusing the ground — and the day the wall's shape changed, a town started
+     * proposing the impossible spot it had just given up on. The cursor still
+     * advances, because the slot was spent either way.
      */
     public void abandonBuild(long step, String reason) {
         if (buildQueue.isEmpty()) {
@@ -1327,7 +1365,46 @@ public final class Settlement {
         }
         BuildTask given = buildQueue.removeFirst();
         nextPlotIndex++;
+        rememberGivenUp(given.origin());
         logEvent(step, "Abandoned " + given.blueprintId() + " at " + given.site() + " — " + reason);
+    }
+
+    /**
+     * Plots the town has given up on, by column, newest last.
+     *
+     * <p>Columns rather than positions: a plot is offered at the middle of town's
+     * height and recorded at whatever the ground turned out to be, so the two
+     * would not compare.
+     *
+     * <p>Bounded, and deliberately not saved. Bounded because a town that gave up
+     * on a thousand sites has a different problem and this must not become a
+     * second claim ledger; unsaved because it describes what the view layer found
+     * in the ground this session, and a reload has by definition gone back to look
+     * again. The cost of forgetting is one wasted attempt at a site that will be
+     * abandoned a second time, which is exactly what happened before this existed.
+     */
+    private final java.util.LinkedHashSet<Long> givenUpOn = new java.util.LinkedHashSet<>();
+
+    /** How many abandoned plots are remembered. */
+    private static final int GIVEN_UP_REMEMBERED = 64;
+
+    private void rememberGivenUp(SimPos plot) {
+        givenUpOn.remove(column(plot));
+        givenUpOn.add(column(plot));
+        while (givenUpOn.size() > GIVEN_UP_REMEMBERED) {
+            java.util.Iterator<Long> oldest = givenUpOn.iterator();
+            oldest.next();
+            oldest.remove();
+        }
+    }
+
+    /** Whether the town has already given this ground up as unbuildable. */
+    private boolean hasGivenUpOn(SimPos plot) {
+        return !givenUpOn.isEmpty() && givenUpOn.contains(column(plot));
+    }
+
+    private static long column(SimPos at) {
+        return ((long) at.x() << 32) ^ (at.z() & 0xffffffffL);
     }
 
     public int claimRadius() {
@@ -2111,7 +2188,17 @@ public final class Settlement {
 
     /** Whether this ground was staked out around this building. */
     private static boolean claimedBy(WorkArea area, Building building) {
-        return area != null && samePlot(area.center(), building.origin());
+        return claimedBy(area, building.origin());
+    }
+
+    /**
+     * Whether this ground was staked out around this plot.
+     *
+     * <p>The position rather than the building, for {@link #restakeWorkArea},
+     * which has to ask about where a building <em>was</em>.
+     */
+    private static boolean claimedBy(WorkArea area, SimPos plot) {
+        return area != null && samePlot(area.center(), plot);
     }
 
     public List<Building> buildings() {
@@ -3182,7 +3269,7 @@ public final class Settlement {
             // there is no amount of waiting that turns it into anything else.
             // If the hands cannot get here the work simply waits, and the town
             // says so on its own report.
-            current.setWaitingOnHands(reasonHandsAreMissing(present));
+            current.setWaitingOnHands(reasonHandsAreMissing(present, ctx, current.site()));
             current.grantWork(current.workForStep(present));
             current.syncProgressToWork();
             if (!current.isVisuallyComplete()) {
@@ -3413,6 +3500,85 @@ public final class Settlement {
     }
 
     /**
+     * Hands back the ring slot a relocation check spent deciding to stay put.
+     *
+     * <p><strong>One rule for both relocation paths</strong>, which is the whole
+     * of this method. A check that declines to move has not used a plot, and
+     * leaving the cursor past it means every look at unfit ground costs the town a
+     * ring slot nothing was ever built on — the same leak the note on
+     * {@link #chooseSite} describes, arriving by a different door. The slot
+     * {@code chooseSite} advances to is {@code firstFree + 1}: a plot that was
+     * free, and sound or worth levelling. Burning one of those to answer a
+     * question is the strictly worse outcome however the downstream numbers fall.
+     *
+     * <p>It was one rule in one path and not the other, and the reason is worth
+     * keeping, because the recorded numbers looked like a contradiction and were
+     * not one. Handing the slot back in {@link #relocateIfUnsuitable} measured
+     * better on seed 8675309 — 47 buildings against 46, the cursor at 166 against
+     * 195, three stranded doors against four — and the same edit in
+     * {@link #relocatePending} measured worse, three stranded doors becoming five.
+     * So the second was left undone and the disagreement written down.
+     *
+     * <p>The two paths do differ, and not in the way the numbers suggest:
+     * <ul>
+     *   <li>{@code relocateIfUnsuitable} declines and the task <em>stays in the
+     *       queue</em>, so the same decision is taken again every step until the
+     *       building is raised. Spending a slot there costs one per step.</li>
+     *   <li>{@code relocatePending} declines and the building is drawn in the same
+     *       breath — see {@link #materializePending}, which falls straight through
+     *       to {@code materializeBlueprint}. The decision is taken once per
+     *       building, ever, so spending a slot there costs one per building.</li>
+     * </ul>
+     * Different rates, same sign. Neither is a reason for one path to keep a plot
+     * it did not use.
+     *
+     * <p><strong>Why the recorded numbers disagreed, which is the part that was
+     * not understood.</strong> On the recorded ground {@code relocatePending}
+     * <em>never actually relocates anything</em> — instrumented: nought moves in
+     * five hundred steps, in every one of the four combinations. So its entire
+     * effect on the world is where it leaves the cursor, and the cursor's walk is
+     * <strong>not monotone in where it starts</strong>: a search refused near falls
+     * out of the ordinary ninety-six into the give-up loops, which advance by
+     * {@code extra + 1} and jump it by a hundred or five. Handing the slot back
+     * therefore <em>raised</em> the final cursor on this one town, 164 to 204, with
+     * the building count unchanged at 43 and the doors off a road going 4 to 7. It
+     * is a one-slot nudge to a chaotic search, not a rule behaving differently.
+     *
+     * <p>So the decision is made on the suite rather than on the town. Across all
+     * fourteen arrangements on the recorded ground, 500 steps each, by
+     * {@code relocatePending / relocateIfUnsuitable}:
+     *
+     * <pre>
+     *   back / back    448 buildings   cursor sum 1720   44 stranded doors
+     *   spend / back   446 buildings   cursor sum 1797   48 stranded doors
+     *   back / spend   443 buildings   cursor sum 1911   34 stranded doors
+     *   spend / spend  443 buildings   cursor sum 1911   34 stranded doors
+     * </pre>
+     *
+     * <p>The bottom two are identical to the row, which is itself worth knowing:
+     * once the queued path is leaking a slot every step, what the pending path does
+     * with its one slot per building makes no measurable difference at all.
+     *
+     * <p><strong>What the rule costs, stated plainly.</strong> Handing the slot back
+     * in both is the tighter, larger town — five more buildings and a cursor sum of
+     * 1720 against 1911, eleven per cent less ring walked for the same number of
+     * settlements — and it pays ten stranded doors of 448 for it, 9.8 per cent
+     * against 7.7. The two are not trading size for doors: five buildings do not
+     * account for ten doors. They are trading the same thing the paragraph above
+     * describes, a nudge to a search whose walk is not monotone in where it starts,
+     * and there is no version of this rule that gets to choose the downstream
+     * outcome.
+     *
+     * <p>So it is decided on the rule rather than on the doors, and the rule is not
+     * in doubt: a check that declines to move has not used a plot. The vale town
+     * this class's sibling road fixture measures reads three stranded doors either
+     * way, so nothing there had to move for it.
+     */
+    private void giveTheSlotBack(int spentTo) {
+        nextPlotIndex = spentTo;
+    }
+
+    /**
      * Moves a never-drawn building off ground that turns out to be unfit.
      *
      * @return true if it moved, in which case nothing should be drawn this step
@@ -3423,6 +3589,17 @@ public final class Settlement {
             // Surveyed means somebody already built or saw it here; leveled
             // means it grew from something that stood here. Both belong where
             // they are, whatever the ground thinks.
+            return false;
+        }
+        if (building.hasRelocated()) {
+            // One move, and then it stays. A building that has been moved once and
+            // is refused again is a building whose town has nowhere better for it,
+            // and moving it a second time has never once ended anywhere good: the
+            // playtest that prompted this moved the carpentry twice and the market
+            // twice, and the second move of each was onto the site the other had
+            // just been refused at. The ground is made to fit the building instead
+            // — cut in and underpinned, which is what the placer does with a slope
+            // anyway and what the auditor judges it by.
             return false;
         }
         if (ctx.bridge().isSiteSuitable(building.origin(), BuildPlanner.PLOT_PROBE_RADIUS)) {
@@ -3446,6 +3623,7 @@ public final class Settlement {
             // search below — the same exception every other siting path in this
             // class makes for open water.
         }
+        int spentTo = nextPlotIndex;
         SimPos moved = chooseSite(ctx, span, building.role());
         // The third clause is new and only ever refuses more: a site that scores
         // no better than the one it would replace is not somewhere better, it is
@@ -3454,25 +3632,84 @@ public final class Settlement {
         // step -- the isLoaded guard cannot fire on a plot nobody has looked at
         // -- and never got drawn at all.
         //
-        // What is deliberately NOT here is the cursor being handed back when
-        // nothing moves, which its sibling relocateIfUnsuitable now does. Both
-        // spend a ring slot to decide to stay put and neither should; but the
-        // two were measured on the recorded ground and they do not behave
-        // alike. There it was worth a doorstep (four doors off a road became
-        // three, and the town gained a building); here the same edit took it
-        // the other way, three to five. That is a real effect and it is not
-        // understood -- this runs for every un-materialized building and its
-        // sibling for the head of the queue only -- so it is left as it was and
-        // written down rather than changed on a hunch.
         if (moved.equals(building.origin())
-                || (ctx.bridge().isLoaded(moved)
-                        && !ctx.bridge().isSiteSuitable(moved, BuildPlanner.PLOT_PROBE_RADIUS))
+                || !mayRelocateTo(ctx, building, moved)
                 || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
                         >= ctx.bridge().siteFault(building.origin(),
                                 BuildPlanner.PLOT_PROBE_RADIUS)) {
+            giveTheSlotBack(spentTo);
             return false;   // nowhere better; draw it here and make the best of it
         }
         return moveTo(ctx, building, moved);
+    }
+
+    /**
+     * How long a site this town refused stays refused.
+     *
+     * <p>Twenty steps, which is well past the handful a player's arrival takes to
+     * load a claim — the window the whole trade happened inside. Long enough that
+     * no second building walks onto the ground the first just left while the town
+     * is still discovering its own terrain, short enough that a plot refused for a
+     * cottage in a town's first week is offered again to the mill in its second.
+     *
+     * <p>Not persisted, and it should not be: it records what this town has just
+     * learned about its own ground during one arrival. A reload has by definition
+     * interrupted that, and every building the rule protects is drawn long before.
+     */
+    private static final long REFUSAL_HOLDS_FOR = 20;
+
+    /**
+     * Sites this town moved a building off, and the step it did it on.
+     *
+     * <p>The whole of the no-swap rule. From the playtest: the carpentry was
+     * refused at (115,84,279) and moved to (128,80,244) — the market's old site —
+     * and the market was refused at (147,69,277) and moved to (115,84,279), the
+     * site refused for the carpentry a step earlier. Two buildings traded ground
+     * that the town had already judged unfit for each of them, one step apart,
+     * because "refused" was never a fact about the site: it was a comparison
+     * against wherever the building happened to be standing, so the same ground
+     * was refused for one building and preferred for the next.
+     */
+    private final Map<String, Long> refusedSites = new LinkedHashMap<>();
+
+    /** Records that this town has judged this ground and moved off it. */
+    private void refuseSite(SimPos at, long step) {
+        refusedSites.put(columnKey(at), step);
+    }
+
+    /**
+     * Whether some building of this town was moved off this ground lately.
+     *
+     * <p>Asked of the column rather than of the position, because a building takes
+     * its height from the ground and two buildings on one plot have two different
+     * heights. The plot is what was refused.
+     */
+    private boolean refusedRecently(SimPos at, long step) {
+        Long when = refusedSites.get(columnKey(at));
+        return when != null && step - when <= REFUSAL_HOLDS_FOR;
+    }
+
+    /**
+     * Whether a relocation may take this ground: one judgment, for every path.
+     *
+     * <p>Both relocation paths used to ask their own question and the answers did
+     * not agree — {@link #moveOnThePlan} asked whether a plot was <em>better</em>
+     * than where the building stood, and the wide search asked whether it was
+     * <em>suitable</em>. "Refused" therefore meant nothing about the site, only
+     * something about the building doing the asking. This is the one question both
+     * ask now, and it is about the site.
+     */
+    private boolean mayRelocateTo(SimContext ctx, Building building, SimPos to) {
+        if (refusedRecently(to, ctx.step())) {
+            return false;
+        }
+        return !ctx.bridge().isLoaded(to)
+                || ctx.bridge().isSiteSuitable(to, BuildPlanner.PLOT_PROBE_RADIUS);
+    }
+
+    /** A plot, as the key its column is remembered by. */
+    private static String columnKey(SimPos at) {
+        return at.x() + "," + at.z();
     }
 
     /**
@@ -3492,6 +3729,12 @@ public final class Settlement {
      */
     private boolean moveTo(SimContext ctx, Building building, SimPos moved) {
         SimPos from = building.origin();
+        // Written down before anything else. A site a building has just left is a
+        // site this town has judged and refused, and nothing else in the town may
+        // walk onto it while that judgment is fresh — see #refusedRecently, and the
+        // trade the carpentry and the market made without it.
+        refuseSite(from, ctx.step());
+        building.setRelocated(true);
         building.setOrigin(new SimPos(moved.x(), ctx.bridge().groundHeight(moved), moved.z()));
         building.setFacing(arrangement().facingFor(center, moved));
         // And the family moves with the house. Everything that asks where
@@ -3516,11 +3759,46 @@ public final class Settlement {
         if (!contains(building.origin())) {
             claimRadius = BuildPlanner.claimRadiusFor(center, building.origin());
         }
+        restakeWorkArea(ctx, building, from);
         long away = Math.round(Math.sqrt(from.horizontalDistanceSq(building.origin())));
         logEvent(ctx.step(), "The ground at " + from + " turned out unfit; the "
                 + building.blueprintId().substring(building.blueprintId().indexOf(':') + 1)
                 + " moves " + away + " blocks to " + building.origin());
         return true;
+    }
+
+    /**
+     * Follows a producer's claim when the producer itself moves.
+     *
+     * <p>A lumber camp's belt and a mine's workings are staked <em>around the
+     * building</em>, and until now nothing moved them when the building moved.
+     * That was the second half of the stand-stripping fault: a camp relocated on
+     * arrival left its woodland claim behind at the plot it had left, so the camp
+     * stood in one wood and counted, felled and replanted in another — and
+     * {@link ForesterStand#raise} would not correct it, because a claim that is
+     * not centered on the camp is read as one a player has deliberately pointed
+     * somewhere else and is never overruled.
+     *
+     * <p>Only the claim this building actually made, on exactly the reasoning
+     * {@link #forgetWorkArea} gives: a town with two camps must not have the one
+     * that moved drag the other's wood along with it, and a claim the player has
+     * aimed by hand is their decision.
+     *
+     * <p>The belt is re-staked by the same rule that staked it — see
+     * {@link ForesterStand#woodlandFor} — so it reaches out past the houses from
+     * wherever the camp has ended up. Which squares of it may hold a tree is
+     * worked out fresh every time it is asked, so nothing else has to be moved.
+     */
+    private void restakeWorkArea(SimContext ctx, Building moved, SimPos from) {
+        if (moved.role() == BuildingRole.LUMBER_CAMP && claimedBy(lumberArea, from)) {
+            lumberArea = ForesterStand.woodlandFor(moved.origin(), center, claimRadius);
+            logEvent(ctx.step(), "The lumber camp re-claims the woodland around "
+                    + moved.origin());
+        }
+        if (moved.role() == BuildingRole.MINE && claimedBy(mineArea, from)) {
+            mineArea = new WorkArea(moved.origin(), mineArea.radius());
+            logEvent(ctx.step(), "The mine re-claims the stone around " + moved.origin());
+        }
     }
 
     /**
@@ -3601,6 +3879,9 @@ public final class Settlement {
             }
             if (ctx.bridge().siteFault(at, BuildPlanner.PLOT_PROBE_RADIUS) >= standing) {
                 continue;   // not better; only different
+            }
+            if (!mayRelocateTo(ctx, building, at)) {
+                continue;   // ground this town has already refused, or refuses now
             }
             best = at;
             bestAway = away;
@@ -3783,14 +4064,7 @@ public final class Settlement {
                 || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
                         >= ctx.bridge().siteFault(task.origin(),
                                 BuildPlanner.PLOT_PROBE_RADIUS)) {
-            // And give the slot back. A check that decided not to move has not
-            // used a plot, and leaving the cursor past it means every step of
-            // sitting on unfit ground costs the town a ring slot it never built
-            // on -- which is the same leak the class comment on chooseSite
-            // describes, arriving by a different door. Measured on the
-            // recorded ground: three doors off a road with the slot handed
-            // back, six with it spent, and four before any of this.
-            nextPlotIndex = spentTo;
+            giveTheSlotBack(spentTo);
             return false;   // nowhere better; build it here and make the best of it
         }
         BuildTask replacement = new BuildTask(
@@ -3802,36 +4076,141 @@ public final class Settlement {
         return true;
     }
 
+    /** The step {@link #watchedThisStep} was decided for; see {@link #isWatched}. */
+    private long watchedStep = Long.MIN_VALUE;
+
+    /** Whether a player was within reach of the claim when this step began. */
+    private boolean watchedThisStep;
+
     /**
-     * Whether a player can see this spot, which is the only question that
-     * decides whether the clock may work here.
+     * Whether this <em>town</em> is watched, which is the only question that
+     * decides whether the clock may do any of its work.
      *
-     * <p>Asked of the work site and never of the town center. A town whose
-     * square is full of players and whose next plot is two hundred blocks out
-     * over the ridge is unwatched <em>at the plot</em>, and the clock is welcome
-     * to raise it: nobody is there to see it happen.
+     * <p>Judged for the whole claim and never site by site. The per-site rule
+     * this replaced read well and was wrong in the one way that matters: the
+     * town hall, mine and mill of Millbrook were placed by the clock while a
+     * player stood at the town center 109 blocks off, because each site was
+     * unwatched <em>at the site</em> and the ring is wider than the observed
+     * radius. He watched three buildings appear in the distance. Where there is
+     * a hand there is no clock, and a hand on the square is a hand in the town:
+     * a player within {@code observed_radius} of any part of the claim makes the
+     * whole town watched, and then every site is raised by hand, the roads are
+     * walked out, the wall goes up post by post, repairs and hauls are carried,
+     * and the clock does nothing here at all.
+     *
+     * <p>The claim is a circle — center and {@link #claimRadius}, which
+     * {@code BuildPlanner.claimRadiusFor} keeps wide enough to contain the
+     * outermost plot — so "within the observed radius of any part of it" is one
+     * distance test against a radius of claim plus observed. No new bridge
+     * question was needed for that, and one that took a bounding box would
+     * answer the same thing less exactly.
+     *
+     * <p>Decided once a step and remembered. Every planner in the pass asks, and
+     * a player who steps over the line halfway through a step must not leave one
+     * lane of the town on hands and the next on the clock — a step is one moment
+     * and has one answer.
      *
      * <p>Deliberately not {@code isLoaded}. A loaded chunk is not an audience —
      * a forceloaded chunk, or one held open by a player on the far side of the
-     * village, has nobody in it — and asking the wrong one of the two is how a
+     * world, has nobody in it — and asking the wrong one of the two is how a
      * town came to build in front of people while the code believed it was
      * alone.
      */
-    private boolean isWatched(SimContext ctx, SimPos site) {
-        return ctx.bridge().playerWithin(site, ctx.settings().observedRadius());
+    public boolean isWatched(SimContext ctx) {
+        if (watchedStep != ctx.step()) {
+            watchedStep = ctx.step();
+            watchedThisStep = claimIsWatched(ctx.bridge(), ctx.settings());
+        }
+        return watchedThisStep;
+    }
+
+    /**
+     * The same question, asked fresh and outside a step.
+     *
+     * <p>For the view layer, which runs on the entity tick rather than the
+     * simulation step and has no {@link SimContext} to key a cache on. It wants
+     * the answer now: a body it keeps or discards on a stale reading is a body
+     * in the wrong place a second later.
+     */
+    public boolean claimIsWatched(WorldBridge bridge, SimSettings settings) {
+        return bridge.playerWithin(center, claimRadius + settings.observedRadius());
+    }
+
+    /**
+     * Whether the clock may work at this particular spot.
+     *
+     * <p>A site inside a watched town is watched, whatever its own distance from
+     * anybody. The site's own surroundings are still asked about, for the one
+     * case the claim does not cover: an outlying field, mine or stand sited
+     * beyond the ring, which a player can be standing in while the town itself
+     * is alone.
+     */
+    public boolean isWatched(SimContext ctx, SimPos site) {
+        return isWatched(ctx)
+                || ctx.bridge().playerWithin(site, ctx.settings().observedRadius());
+    }
+
+    /**
+     * Whether a watched town needs this person standing in the world.
+     *
+     * <p>Only ever asked of a watched town, where the clock does nothing: the
+     * build queue, the fields, the mine, the stand, the pasture, every haul and
+     * the watch itself all wait for hands now. So the people those lanes wait
+     * for are needed as bodies wherever in the claim they happen to be, and
+     * everybody else — a child, somebody too weak to work, a trade whose
+     * workplace the town has not raised — is not, and stays a record until a
+     * player comes near them.
+     *
+     * <p>This is what keeps the new rule from deadlocking. A watched town's far
+     * plot is built by hand or not at all; with embodiment judged only by
+     * distance to a player, the crew for a plot out past the observed radius
+     * would be released on the walk out and the work would wait forever on
+     * hands that were never allowed to arrive.
+     */
+    public boolean needsHandsFrom(Person person) {
+        if (person.isTooWeakToWork()) {
+            return false;
+        }
+        if (person.haul() != null) {
+            return true;   // an errand already under way; nothing else will finish it
+        }
+        if (!buildQueue.isEmpty() && laborsAs(person, Profession.BUILDER)) {
+            return true;
+        }
+        return switch (person.profession()) {
+            // The watch is the watch. A watched raid is fought by entities, so a
+            // guard with no body is a guard who is not there.
+            case GUARD -> true;
+            case FARMER -> buildingWithRole(BuildingRole.CROP_FARM) != null;
+            case MINER -> buildingWithRole(BuildingRole.MINE) != null;
+            case LUMBERJACK -> buildingWithRole(BuildingRole.LUMBER_CAMP) != null;
+            case SHEPHERD -> buildingWithRole(BuildingRole.ANIMAL_FARM) != null;
+            default -> false;
+        };
     }
 
     /**
      * Why a watched site is not moving, in the words the town's report uses, or
      * null when the crew is there and it is simply slow going.
+     *
+     * <p>A site that is watched only because its town is gets its own sentence,
+     * because it is a different thing to be told: the work is stopped, nobody
+     * can see it stopped, and the reason is a walk that has not finished. A
+     * player who reads "no builder has reached the site" while looking at the
+     * empty plot in front of him is reading the truth; one who reads it about a
+     * plot over the ridge cannot tell whether the town is stuck or merely busy.
      */
-    private String reasonHandsAreMissing(int embodiedBuilders) {
+    private String reasonHandsAreMissing(int embodiedBuilders, SimContext ctx, SimPos site) {
         if (embodiedBuilders > 0) {
             return null;   // they are here; whatever is wrong is out in the world
         }
-        return ableBuilders() == 0
-                ? "no builder fit to work"
-                : "no builder has reached the site";
+        if (ableBuilders() == 0) {
+            return "no builder fit to work";
+        }
+        if (ctx.bridge().playerWithin(site, ctx.settings().observedRadius())) {
+            return "no builder has reached the site";
+        }
+        return "waiting for hands at (" + site.x() + ", " + site.z() + "), out of sight";
     }
 
     /**

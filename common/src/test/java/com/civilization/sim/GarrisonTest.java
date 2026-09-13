@@ -151,4 +151,47 @@ class GarrisonTest {
         s.setThreatLevel(Danger.HOPELESS);   // 10 -> needs 5
         assertEquals("2 of 5 guards needed", Garrison.watchSummary(s));
     }
+
+    // --- one guard count, and a defense figure that adds up ---
+
+    /**
+     * The three lines of {@code /civ info} that disagreed about the watch.
+     *
+     * <p>Measured on Millbrook: {@code "jobs: guard x6"}, then
+     * {@code "defense 15 (guards x2 + structures)"}, then a garrison line. The
+     * {@code 2} in the middle one is {@link RaidPlanner#GUARD_POWER} — what one
+     * guard is worth — printed where every reader takes a number after "guards" for
+     * a count of them, and the report gave nothing to tell the two readings apart.
+     *
+     * <p>So the figure is written out as its own arithmetic, with the head count in
+     * it: one guard count in the report, and it adds up to the total beside it.
+     */
+    @Test
+    void theDefenseFigureSaysWhatItIsMadeOfAndTheSumIsRight() {
+        assertEquals("6 guards x 2 + structures 3",
+                RaidPlanner.describeDefense(15, 6, 0, 3).substring("15 = ".length()),
+                "the breakdown of the very figure that was misread");
+        assertEquals("15 = 6 guards x 2 + structures 3",
+                RaidPlanner.describeDefense(15, 6, 0, 3));
+        assertEquals("2 = 1 guard x 2 + structures 0",
+                RaidPlanner.describeDefense(2, 1, 0, 0), "one guard, not one guards");
+        assertEquals("8 = 3 guards x 2 + king 2 + structures 0",
+                RaidPlanner.describeDefense(8, 3, 1, 0),
+                "the crown is its own term, because it is not a guard");
+    }
+
+    @Test
+    void theBreakdownOfARealTownAddsUpToItsDefense() {
+        Settlement s = settlement();
+        add(s, Profession.GUARD, 6);
+        add(s, Profession.FARMER, 11);
+
+        String line = RaidPlanner.defenseBreakdown(s);
+        assertTrue(line.startsWith(RaidPlanner.defensePower(s) + " = "),
+                "the breakdown does not begin with the figure it breaks down: " + line);
+        assertTrue(line.contains(Garrison.guardHeads(s) + " guards"),
+                "the head count the jobs line prints is not in the defense line: " + line);
+        assertEquals(6, Garrison.guardHeads(s), "the one guard count is a count of people");
+        assertEquals(12, RaidPlanner.defensePower(s), "six guards at two each, no structures");
+    }
 }
