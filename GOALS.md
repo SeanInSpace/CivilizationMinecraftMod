@@ -34,7 +34,7 @@ starts until the town in hand is right.*
 Roughly 44,900 lines of source across three modules — `common` 21,500 (pure
 simulation, never imports Minecraft), `neoforge` 20,700 (the world, the
 entities, the blocks), `keystone` 2,600 (blueprints) — with 22,700 more again in
-the tests. **950 tests across 98 classes, 0 failures**, and no TODO markers
+the tests. **1747 tests across 174 classes, 0 failures**, and no TODO markers
 anywhere in the source.
 
 The milestone is met, and there is a counter to stand at now. A charter-founded
@@ -73,7 +73,63 @@ part of the work that cannot be delegated.
 
 ---
 
-## Open
+## Bugs
+
+*Things that are wrong against the design as it stands. Newest first; each
+carries the measurement it was found by, so the fix can be checked against
+it. Design questions and rebalances live under the next heading, not here.*
+
+- [ ] **A watched town does not survive a Normal-difficulty night.** Seed
+      8675309, 2026-09-12: 17 of Millbrook's people died in one night
+      (a creeper, seven zombies, two skeletons, four spiders, a guard among
+      them) at unlit outlying fields and houses 130-165 blocks from the
+      center, while the guards slew 13 and births refilled the town to 17 as
+      if nothing had happened. Nothing is lit but the farm lanterns, the
+      forest inside the ring stands, and people are outdoors at dusk. Wants a
+      decision on the cure — street lamps, everyone home by dusk, patrols — and
+      then a fix; the outcome is wrong whichever is chosen.
+- [ ] **Buildings materialize whole in plain view.** The town hall, mine and
+      mill of Millbrook were placed by the clock ("Materialized … surveyed
+      false") while the player stood at the town center 109 blocks off,
+      outside the 96-block `observed_radius` judged at the site. The player
+      watched a building appear in the distance. Judge the whole claim watched
+      when a player is within the radius of any part of it, or use the view
+      distance; a decision, then a fix.
+- [ ] **Two spawn towns are both called Bellbrook.** `WorldgenSettlements.pickName`
+      hashes the site position into the culture's name pool and never checks
+      what is taken.
+- [ ] **Seeded buildings are buried or open onto air.** The in-game audit on
+      arrival: Millbrook's hearth, lumber camp and mine "buried — the ground
+      stands up to 3 above its floor on every side", Stonebridge's hearth and
+      mine the same, and a cottage "no way in — outside the gap is air" (which
+      the town later fixed itself with steps). Seeded siting accepts ground
+      the auditor condemns.
+- [ ] **Four of fourteen seeded buildings still move on arrival**, 32-47
+      blocks, and the carpentry and market swapped sites twice — a site
+      refused for one was accepted for the other a step later. Bounded now,
+      not zero; a no-swap rule is the obvious next constraint.
+- [ ] **The forester's stand is stripped by the town's own building.** 57
+      trees standing became 4 in 218 steps, trees felled 962, timber swinging
+      from 1072 to 1. Clearing plots in a forest counts as felling, and a camp
+      moved on arrival re-claims its belt in the woods. Plot clearing should
+      not count against the stand, and the belt should be claimed away from
+      planned plots.
+- [ ] **Guard counts disagree in one report.** The same `/civ info` block
+      said "jobs: guard x6", "defense 15 (guards x2 + structures)" and
+      "garrison: 3 of 4 guards needed"; "equipped 0/17" counts tools and reads
+      as unarmed. One count, one word.
+- [ ] **"=== Kingdoms" still heads `/civ info`.** `CivilizationCommand` line
+      668.
+- [ ] **Names recycle.** "Bren Smith" died twice as two entities and three
+      separate families are "the Turners"; the given and family pools are
+      eight names each and nothing avoids a name in use.
+- [ ] **Family growth exceeds its cap.** `/civ info` read "growth 45/24" and
+      "36/24"; the progress keeps counting past the threshold instead of
+      holding at it as `PopulationPlanner` says it should.
+- [ ] **The night line never appeared.** "N asleep, M could not reach a bed"
+      was absent at every `/civ info` of the night while a sleeper was
+      photographed; asleep and stranded both read 0. Most likely the bell woke
+      everyone and the count ran after; needs a quiet night to judge.
 
 - [ ] **A town that grew unwatched draws nothing at all until somebody
       arrives.** The hypothesis this item carried for six runs — that the
@@ -119,6 +175,158 @@ part of the work that cannot be delegated.
       sampled the growth phase. **Measure the thing, in the function that does
       the work, across the window that matters.**
 
+      **Re-test before more work.** The seed-world playtest of 2026-09-12
+      watched Stonebridge, unvisited and 300 blocks off, raise its town hall
+      with nobody near it, so the unwatched path draws on ground the world
+      loaded on its own. What is still unproven is the force-load box this
+      item was measured in.
+
+- [ ] **One wall post in 986 will not go up.** Stable across every report,
+      at a footing reading air — where `put` would succeed, so it is not a
+      refusal. It was 3, then 8, then 6 on earlier rings: always under half a
+      per cent, never zero. It no longer halts anything, because the sweep
+      walks past a position it cannot place, and that is precisely why it will
+      sit there forever unless somebody looks. Instrument the one position
+      rather than reasoning about it — every guess at this class of fault so
+      far has been wrong.
+
+- [ ] **The simulation's clock is not saved, and four things are compared
+      against it.** `SimWorld.stepsElapsed` restarts at zero every session while
+      `Perimeter.stakedOn`, `Building.completedOnStep` and the raid schedule come
+      out of the save. The wall's cooldown reads a stake in the future as a
+      restarted clock and runs from the reload; nothing else does. Persisting the
+      counter is one field and its own unit, and it wants doing before the next
+      thing is measured against age.
+
+- [ ] **A booked repair shields a ruin even when nothing is working on it.**
+      The auditor spares a building with a repair in the queue, and the queue is
+      head-blocking: another urgent job can displace the repair from the head and
+      a stalled head then shields the ruin indefinitely. That is the pre-existing
+      head-stall property, whose only escape today is `planSurvivalBuild` during
+      a famine. Settling it is a decision about the queue, not about repairs.
+
+- [ ] **The watched loop asks the wrong hunger question in nine places.**
+      `PersonEntityManager` gates on `isTooWeakToWork()` where the clock asks
+      `heldBackByHunger(person, starving)`, so a watched town's fields empty in a
+      famine while an unwatched town's keep working. One predicate substituted;
+      written up in docs/CITIZENS.md section 7.
+
+- [ ] **Two holes left in the demolition sweep.** A building can be pulled down
+      now and the town notices, but the noticing has a window and a bug.
+
+      - **A building drawn and destroyed inside one sweep is never written off.**
+        The `WAS_A_BUILDING` mark — you cannot say a building has been
+        demolished unless you saw it standing — is only ever taken by a sweep,
+        and a sweep runs once a minute. Closing it means taking the mark where
+        the structure is *drawn*, at both fidelities, which is a seam worth
+        cutting. Every failure this way leaves a ruin on the books, which is the
+        state the mod was in already; the failure the other way evicts a family
+        from a house that is standing.
+      - **A kingdom of two towns can never write off an undrawn building.**
+        `TownAuditor.LAST_UNDRAWN` is cleared per `audit()` call and `audit()` is
+        per settlement, so the second town's sweep wipes the first town's
+        record and the two-sweep rule never fires for either. Pre-existing, and
+        it means the "the simulation records it and the world never drew it"
+        report has been silently inert in every kingdom that expanded.
+
+- [ ] **The lumber camp's post is not a post.** `LumberCampBlock` does not
+      extend `BuildingPostBlock`, so `isPost` does not recognize the camp's own
+      marker: it is neither laid first at the site nor withheld from the
+      excavation that follows, and a digger will happily level it. A fault in
+      the block hierarchy rather than in the geometry, found while building the
+      drawn-size check and left alone so that the check could be pointed at
+      `postFor` instead.
+
+- [ ] **Two things the siting work measured and could not explain.** Both are
+      recorded rather than resolved, because a hunch dressed as a fix is worse
+      than an open question.
+
+      - **The plan cache answers differently depending on how far it has been
+        grown.** The same three figures off the same run read 39/41/2 from a
+        fresh JVM and 32/32/1 from a warm one, before the plot-cursor fix. The
+        cursor fix stabilized it and nothing is known to be wrong now, but a
+        cache that depended on history was really there and nobody found out
+        why.
+      - **`relocatePending` still spends a ring slot when it decides not to
+        move.** A relocation check that declines to move has not used a plot,
+        and leaving the cursor past it costs the town a slot every step it sits
+        on unfit ground. Handing it back in `relocateIfUnsuitable` measured
+        better on seed 8675309 — 47 buildings against 46, cursor 166 against
+        195, three stranded doors against four. The identical edit in
+        `relocatePending` measured worse, three stranded doors to five. Left
+        alone, and the disagreement written down.
+
+- [ ] **The concave hull never checks its own starting legs against a plot.**
+      `Hull.concave` begins from the convex hull and tests keepouts only on the
+      two legs of a dig-in split; `pushOut` and `relax` refuse a move that would
+      cross a plot but neither repairs a crossing that is already there. So a
+      building — or a plot the town has ordered — lying under a convex-hull leg
+      shorter than `MAX_STRAIGHT_RUN` is crossed with nothing to correct it.
+      Measured over 117 grown towns after the walk and the ordered-ground
+      keepout landed: **68 buildings with a post inside their walls, 63 of them
+      ordered when the ring was staked and 5 standing**, against 738 before.
+      Left open rather than fixed because the obvious repair — dig any crossing
+      leg regardless of its length — puts a keepout scan on every edge visit of
+      the loop `RESTAKE_REVIEW` already measures at a second and a half on a
+      town of two hundred, and that is a cost to weigh in a world rather than
+      guess at. Queued plots are also deliberately not hull *points*: obliging
+      the ring to enclose every order the moment it is made would drive a
+      re-staking off one shed and undo `RESTAKE_GROWTH`.
+
+- [ ] **A retired line's posts are not consulted when a plot is chosen.**
+      `Settlement.standsOnTheWall` asks the standing ring only, so a town that
+      has just moved its wall will happily site a building on the old line's
+      raised posts. In a world it mostly heals — the excavation clears the
+      building's own footprint and the demolition sweeps the rest — but nothing
+      guarantees the order, and in the simulation nothing sweeps at all, so the
+      fixtures count 695 of these across 117 towns and cannot tell which would
+      survive contact with a player. Worth watching in a world before refusing
+      the ground, which would sterilize a band right through the middle of a
+      town for as long as the demolition takes.
+
+- [ ] **An authored blueprint is never measured against the ground reserved for
+      it.** `BlueprintPlacer.fromBlueprint` takes the file's own size and its
+      own anchor cell, and neither is compared with `BuildingSizes` the way
+      `procedural` is — no `SIZE MISMATCH`, no bound. Worse, an anchor that is
+      not the middle of the structure puts the building off center on its plot
+      while `Footprint` records it as centered, so every overlap check in the mod
+      is wrong by the anchor offset. Nothing ships a blueprint today, so this is
+      a datapack's way of making two structures overlap rather than a fault a
+      player can hit now.
+
+- [ ] **The quest board has no vertical bound**: more than five notices
+      overflow a 720p window at GUI scale 3.
+
+- [ ] **Creative middle-click on a settler may hand you either egg**, since
+      both name the one person type. One type per race would fix it and put
+      the race back into the attribute table. Left alone.
+
+- [ ] **The four old survey files carry the old culture ids.** Rewrite them or
+      drop them before comparing against a fresh survey.
+
+- [ ] **A hall never lands on the middle.** The plan reserves plot 0 for the
+      great hut, and for every other arrangement's hall, but the camp post
+      takes plot 0 on step one and the hall is raised a hundred blocks out.
+      Fixing it means letting a building reserve a plot: a siting change.
+
+- [ ] **A war camp still raises a town hall beside its great hut.**
+
+- [ ] **A queued plot draws at a stand-in height of six** in the lamp; there
+      is no declared height per blueprint.
+
+- [ ] **A cut-out mine is a dead end.** requestProducer refuses a second mine
+      while any stands, exhausted or not; the seam of 2000 is gone by step 1500.
+      Proposed: skip producers that are visibly spent (Seam.isExhausted,
+      Stand.isBare with nothing planted).
+
+---
+
+## Reworks and design decisions
+
+*Things that work as written and want a decision, a rebalance, or a rewrite
+before they are right. Where an item is not properly specified, the open
+question is written down rather than papered over.*
+
 - [ ] **The warren layout cannot support a town, and separation was not why.**
       A prediction made in advance and falsified, which is the useful kind. The
       geometry fix took accepted plots from 31/48 to 48/48 — and the town got
@@ -163,49 +371,15 @@ part of the work that cannot be delegated.
       *bigger* rather than denser, which is written on `LayoutFitnessTest`'s
       warren ceiling and in the spacing commit.
 
-- [ ] **Finish the wall.** A town stakes its one wall at TOWN, moves it only
-      when more of its buildings stand outside the line than inside -- never
-      while the standing wall is unfinished, at most once in five hundred steps
-      -- and its builders plant the posts by hand and pull the old line up. Good
-      is not done, and these are left standing.
-
-      - **One post in 986 still will not go up.** Stable across every report, at
-        a footing reading air — where `put` would succeed, so it is not a
-        refusal. It was 3, then 8, then 6 on earlier rings: always under half a
-        per cent, never zero. It no longer halts anything, because the sweep
-        walks past a position it cannot place, and that is precisely why it will
-        sit there forever unless somebody looks. Instrument the one position
-        rather than reasoning about it — every guess at this class of fault so
-        far has been wrong.
-      - **A town cannot afford the wall that follows it.** Withdrawn once, and
-        back in a new form now the ring grows with the town. In the world run
-        Batchmere stalled at `wall=666/1292` with `coin=2`; on a 1400-step
-        fixture the wall unit measured the same stall, 666 laid of 2612. Nothing
-        is charged twice — the posts already raised travel with the town — so
-        this is not the old finding returning. A town that keeps growing simply
-        outruns its own income, and coin only ever enters through player trade.
-        It is a siting and economy question rather than a wall one, and there is
-        a market to trade at now, which changes the sum.
-      - **The gates are unproven.** Nine on one ring, seven on another, and
-        `tendGates` opens one for anybody facing it — but a closed fence gate is
-        impassable to vanilla pathfinding, so a settler may not be able to path
-        to the gate that would let them through. Never tested. `shut out of bed`
-        refusing to settle is evidence that people cross, not proof of how.
-
-- [ ] **The simulation's clock is not saved, and four things are compared
-      against it.** `SimWorld.stepsElapsed` restarts at zero every session while
-      `Perimeter.stakedOn`, `Building.completedOnStep` and the raid schedule come
-      out of the save. The wall's cooldown reads a stake in the future as a
-      restarted clock and runs from the reload; nothing else does. Persisting the
-      counter is one field and its own unit, and it wants doing before the next
-      thing is measured against age.
-
-- [ ] **A booked repair shields a ruin even when nothing is working on it.**
-      The auditor spares a building with a repair in the queue, and the queue is
-      head-blocking: another urgent job can displace the repair from the head and
-      a stalled head then shields the ruin indefinitely. That is the pre-existing
-      head-stall property, whose only escape today is `planSurvivalBuild` during
-      a famine. Settling it is a decision about the queue, not about repairs.
+- [ ] **A town cannot afford the wall that follows it.** Withdrawn once, and
+      back in a new form now the ring grows with the town. In the world run
+      Batchmere stalled at `wall=666/1292` with `coin=2`; on a 1400-step
+      fixture the wall unit measured the same stall, 666 laid of 2612. Nothing
+      is charged twice — the posts already raised travel with the town — so
+      this is not the old finding returning. A town that keeps growing simply
+      outruns its own income, and coin only ever enters through player trade.
+      It is a siting and economy question rather than a wall one, and there is
+      a market to trade at now, which changes the sum.
 
 - [ ] **A busy town's wall does not advance at all.** `PerimeterPlanner`'s own
       clock gate stands aside for any embodied builder, so while the build queue
@@ -214,12 +388,6 @@ part of the work that cannot be delegated.
       for a long while. Loosening it would let posts appear beside builders
       working elsewhere, the complaint the hands-on-the-wall unit was written
       against. A design fork; decide it with a town in view.
-
-- [ ] **The watched loop asks the wrong hunger question in nine places.**
-      `PersonEntityManager` gates on `isTooWeakToWork()` where the clock asks
-      `heldBackByHunger(person, starving)`, so a watched town's fields empty in a
-      famine while an unwatched town's keep working. One predicate substituted;
-      written up in docs/CITIZENS.md section 7.
 
 - [ ] **The market's counters disagree.** The stall is a real screen now and the
       simulation behind it holds, but two things about it are somebody else's
@@ -239,38 +407,6 @@ part of the work that cannot be delegated.
 
         Opened in a world by the manager on seed 8675309: right-clicking the market post of a town with two coin in its treasury showed four goods, each with its reason beside the price — "They can spare it" on food, wood and stone, "More than they can store" on iron — and the footer "Prices move with what the town is short of. Paid in emeralds." The post stands a block off center because the stall is turned to face its street, which is worth knowing before clicking at it from a script.
 
-- [ ] **Settle the danger table.** Three of the four questions this item asked
-      are decided: `Danger` in `common` names the rungs and both thresholds read
-      from it, an unrecognized creature is no longer read as a zombie — the
-      default is derived from what the game itself knows (nothing hostile 0, a
-      boss 10, a raider or anything ranged 3, any other hostile 2), with drowned
-      2, ghast 4, blaze, breeze and piglin brute 3, and the wither and the
-      dragon 10 named outright — and the sweep now reaches everything the table
-      grades rather than only what walks. One is left.
-
-      - **Whether a creeper at 4 is right.** It is the number the whole feature
-        turns on. Too low and a lone creeper barely registers; too high and a
-        pair of them panics a town that could have handled it. This one is only
-        answerable by watching a town meet one.
-
-- [ ] **Two holes left in the demolition sweep.** A building can be pulled down
-      now and the town notices, but the noticing has a window and a bug.
-
-      - **A building drawn and destroyed inside one sweep is never written off.**
-        The `WAS_A_BUILDING` mark — you cannot say a building has been
-        demolished unless you saw it standing — is only ever taken by a sweep,
-        and a sweep runs once a minute. Closing it means taking the mark where
-        the structure is *drawn*, at both fidelities, which is a seam worth
-        cutting. Every failure this way leaves a ruin on the books, which is the
-        state the mod was in already; the failure the other way evicts a family
-        from a house that is standing.
-      - **A kingdom of two towns can never write off an undrawn building.**
-        `TownAuditor.LAST_UNDRAWN` is cleared per `audit()` call and `audit()` is
-        per settlement, so the second town's sweep wipes the first town's
-        record and the two-sweep rule never fires for either. Pre-existing, and
-        it means the "the simulation records it and the world never drew it"
-        report has been silently inert in every kingdom that expanded.
-
 - [ ] **The curve constants are a cliff, not a slope.** `ARC_PITCH` at 18 and
       the rank gap at 46 are honest sums now rather than literals, but the
       numbers themselves have not moved, and every attempt to tighten them made
@@ -287,99 +423,78 @@ part of the work that cannot be delegated.
       themselves. That is a change to how offers are generated, not a constant
       to nudge, which is why it was not attempted here.
 
-- [ ] **The lumber camp's post is not a post.** `LumberCampBlock` does not
-      extend `BuildingPostBlock`, so `isPost` does not recognize the camp's own
-      marker: it is neither laid first at the site nor withheld from the
-      excavation that follows, and a digger will happily level it. A fault in
-      the block hierarchy rather than in the geometry, found while building the
-      drawn-size check and left alone so that the check could be pointed at
-      `postFor` instead.
+- [ ] **A two-handed orc guard stands off a creeper forever.** Half the
+      warhost's kit has no bow, and the bow stance is handed out anyway, so a
+      greatsword bearer walks to fourteen blocks and waits. Give two-handers a
+      hand-off, a thrown axe, or let them close on an unfused creeper.
 
-- [ ] **Two things the siting work measured and could not explain.** Both are
-      recorded rather than resolved, because a hunch dressed as a fix is worse
-      than an open question.
+- [ ] **A seeded village keeps one guard until step 778.** The staffing table
+      does not ask for a second sooner; the early raid cap lifts at 500 on a
+      still-thin town, which is where the residual losses come from.
 
-      - **The plan cache answers differently depending on how far it has been
-        grown.** The same three figures off the same run read 39/41/2 from a
-        fresh JVM and 32/32/1 from a warm one, before the plot-cursor fix. The
-        cursor fix stabilized it and nothing is known to be wrong now, but a
-        cache that depended on history was really there and nobody found out
-        why.
-      - **`relocatePending` still spends a ring slot when it decides not to
-        move.** A relocation check that declines to move has not used a plot,
-        and leaving the cursor past it costs the town a slot every step it sits
-        on unfit ground. Handing it back in `relocateIfUnsuitable` measured
-        better on seed 8675309 — 47 buildings against 46, cursor 166 against
-        195, three stranded doors against four. The identical edit in
-        `relocatePending` measured worse, three stranded doors to five. Left
-        alone, and the disagreement written down.
+- [ ] **The town center is still picked from noise.** The claim is read round
+      the chosen center and the center re-tested; a region whose heart is a
+      ravine is refused rather than moved. Reading the 112-block siting radius
+      would triple the chunk cost.
 
-- [ ] **A wall raised before the posts were walked along the line cannot be
-      found again.** `Perimeter.laid` is an index into `ringPositions()`, and
-      that walk changed: a leg used to be walked as an L — its whole x run at
-      the starting z, then its whole z run at the finishing x — and is now
-      walked along the straight line the staking checked. Same count of posts,
-      different columns. So a save carrying a half-raised ring points its built
-      stretch at ground nobody planted, leaves a gap where the old L ran, and
-      orphans the real posts with nothing naming them; `Retired` carries the
-      same wound, and a demolition circuit that finds nothing outstanding then
-      calls `forgetRetired` and loses the line for good. Nothing in `common` can
-      recover those columns — the walk that made them is gone, and keeping it
-      for old lines is only right until the first line raised under the new one.
-      A migration wants a save version and the old walk kept beside the new one
-      to read it with, which is a decision about the save format. Until then a
-      world carried across this change may have stray fence where its wall used
-      to bend.
+- [ ] **A library does nothing in the simulation.** Both libraries are pure
+      capstones with BuildingRole.OTHER. Give learning a consequence, or say
+      it is ornament.
 
-- [ ] **The concave hull never checks its own starting legs against a plot.**
-      `Hull.concave` begins from the convex hull and tests keepouts only on the
-      two legs of a dig-in split; `pushOut` and `relax` refuse a move that would
-      cross a plot but neither repairs a crossing that is already there. So a
-      building — or a plot the town has ordered — lying under a convex-hull leg
-      shorter than `MAX_STRAIGHT_RUN` is crossed with nothing to correct it.
-      Measured over 117 grown towns after the walk and the ordered-ground
-      keepout landed: **68 buildings with a post inside their walls, 63 of them
-      ordered when the ring was staked and 5 standing**, against 738 before.
-      Left open rather than fixed because the obvious repair — dig any crossing
-      leg regardless of its length — puts a keepout scan on every edge visit of
-      the loop `RESTAKE_REVIEW` already measures at a second and a half on a
-      town of two hundred, and that is a cost to weigh in a world rather than
-      guess at. Queued plots are also deliberately not hull *points*: obliging
-      the ring to enclose every order the moment it is made would drive a
-      re-staking off one shed and undo `RESTAKE_GROWTH`.
+- [ ] **A human skin set.** Humans still wear Steve.
 
-- [ ] **A retired line's posts are not consulted when a plot is chosen.**
-      `Settlement.standsOnTheWall` asks the standing ring only, so a town that
-      has just moved its wall will happily site a building on the old line's
-      raised posts. In a world it mostly heals — the excavation clears the
-      building's own footprint and the demolition sweeps the rest — but nothing
-      guarantees the order, and in the simulation nothing sweeps at all, so the
-      fixtures count 695 of these across 117 towns and cannot tell which would
-      survive contact with a player. Worth watching in a world before refusing
-      the ground, which would sterilize a band right through the middle of a
-      town for as long as the demolition takes.
+- [ ] **Standing does not move market prices.** The spread is too narrow for a
+      discount without turning the treasury into a fountain; widen the spread
+      first.
 
-- [ ] **A worldgen town is laid out in the wrong arrangement.**
-      `WorldgenSettlements.resolve` calls `Founding.seeded`, which places every
-      building through `town.arrangement()` — the culture's default for that
-      center — and only afterwards calls `settlement.setLayoutId(site.layoutId())`.
-      So the buildings stand in one arrangement, the plot cursor was counted in
-      that one, and every building the town raises from its first step is sited
-      in another. The config weights and the `WORLDGEN raised … laid out as …`
-      log both name the arrangement the town does not have. No overlap comes of
-      it — `isPlotFree` still guards every placement — but the town is two plans
-      interleaved. `Founding.seeded` wants the layout id alongside the culture
-      id rather than after it.
+- [ ] **Ten orc weapon items, not five.** Crude and forged are separate items
+      so the smithy's upgrade is visible; collapse to five if unwanted.
 
-- [ ] **An authored blueprint is never measured against the ground reserved for
-      it.** `BlueprintPlacer.fromBlueprint` takes the file's own size and its
-      own anchor cell, and neither is compared with `BuildingSizes` the way
-      `procedural` is — no `SIZE MISMATCH`, no bound. Worse, an anchor that is
-      not the middle of the structure puts the building off center on its plot
-      while `Footprint` records it as centered, so every overlap check in the mod
-      is wrong by the anchor offset. Nothing ships a blueprint today, so this is
-      a datapack's way of making two structures overlap rather than a fault a
-      player can hit now.
+- [ ] **Region size is read live.** Changing it on an existing world re-keys
+      every unvisited region; ledgered towns stay. Lock it at world creation if
+      that footgun matters.
+
+- [ ] **Dug goods past a store's ceiling are refused, not piled.** The loose
+      pile sits inside the pooled total the ceiling measures, so sending
+      overflow there would make the timber cap a no-op. What the ceiling
+      refuses is not created, exactly as a lumberjack felling into a full
+      store today. Decide whether a town clearing a forest should bank it.
+
+- [ ] **Early-street bar loosened to 55 percent** by the siting rule keeping
+      off footpaths (41/92 before, 45/88 after). The fault it was written for
+      was 405 stretches round 62 buildings; a second opinion is worth having.
+
+- [ ] **Buildings cost more now.** Homes about three quarters more, trades
+      about half more, the warehouse and hall double, the library 2377 blocks and
+      the grand library 5830. The founding grant still covers a camp, but build
+      lengths were calibrated against the boxes. Rebalance costs or the grant with
+      a town in view; the library's gallery and wall height are the first fat to
+      trim, and the grand library's two floor plates are 960 blocks between them.
+      Its catalog work of 900 is set to the same blocks-per-work the library runs
+      at, so the two at least agree with each other.
+
+- [ ] **The granary is not raised and the hall's floor is not stepped up.**
+      Both would bury the building post at its fixed floor-course cell. Moving
+      the post cells is the enabling change if either look is wanted. The grand
+      library's entrance wanted the same thing and got the same answer: its
+      approach is a paved frontage with stepped shoulders and a colonnade on it,
+      all at floor level, which is what a flush entrance can carry. Three
+      buildings asking now.
+
+- [ ] **The yield tables govern nothing now.** Food, wood, saplings, stone and
+      iron all left them for ledgers of real things; YieldPolicy, the two config
+      tables and Settlement.abstractYield are live code with no consumer.
+      Remove them, or keep one knob for people who want faster towns.
+
+- [ ] **Timber is about four times scarcer than the conjured rate**, bounded by
+      240-step sapling growth. WOOD_PER_WORK = 4 was calibrated against conjured
+      timber; eight town-shape tests were handed timber to keep measuring
+      geometry. Rebalance build costs, or widen claims, with a town in view.
+
+- [ ] **Bread stays where it is baked.** The mill-to-granary leg was built and
+      measured to freeze a town (one miller bakes nine a step, one courier moves
+      one); it was dropped and the loaves join the larder at the oven. Late
+      towns bank grain at the granary ceiling; a bigger granary is the answer.
 
 ---
 
@@ -519,13 +634,43 @@ work has landed, which changes what a street looks like from the middle of it.
       the moment the third sweep agrees, and nobody has watched that happen from
       inside the town it happened to.
 
+- [ ] Do settlers get through the gates? Nine on one ring, seven on another,
+      and `tendGates` opens one for anybody facing it — but a closed fence gate
+      is impassable to vanilla pathfinding, so a settler may not be able to
+      path to the gate that would let them through. Never tested. `shut out of
+      bed` refusing to settle is evidence that people cross, not proof of how.
+
+- [ ] Is a creeper at 4 right? It is the number the whole danger table turns
+      on. Too low and a lone creeper barely registers; too high and a pair of
+      them panics a town that could have handled it. Everything else about the
+      table is decided (`Danger` names the rungs, an unknown creature is graded
+      from what the game knows about it); this one is only answerable by
+      watching a town meet one.
+
+- [ ] Unvisited in both playtests: a crew clearing a wooded plot with pockets
+      (seen once, from above), a dead town's roads staying broken, a quest
+      delivery at the storehouse, a scanned cottage raised by a town, and the
+      two-handed guard's creeper stand-off.
+
+- [ ] Does the one-block doorstep ring read as a scraped pad? It is cleared of
+      ground cover, literal to the brief, while the code elsewhere prefers
+      grass and flowers left where they are. If it reads as a pad in-world,
+      drop ground cover from the clearing outside the walls proper.
+
 ---
 
 ## Done
 
-*Two batches, newest first. Everything older has been dropped -- it was proven by
-the endurance and client playtests and lives in the git history. What is here is
+*Newest first. Everything older has been dropped -- it was proven by the
+endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
+
+- [x] **A worldgen town is laid out in the arrangement it was dealt.**
+      `Founding.seeded` takes the layout id beside the culture id, so the
+      plots, the cursor and the log all name the same plan.
+- [x] **Half-raised walls from before the straight-line walk.** Moot: save
+      compatibility was waived on 2026-09-11 and worlds from before the save
+      cleanup do not load, so no migration of `Perimeter.laid` is owed.
 
 - [x] **The first playtest in three weeks, and its fixes.** Two worlds on
       2026-09-12. Fixed from it: a seeded town's ground is read before its
@@ -539,6 +684,7 @@ kept only until a run has been watched over it.*
       has its texture; /civ culture and /civ build take namespaced ids; the map
       says "6 guards, none needed"; /civ list says how many spawn towns are
       still being raised.
+
 - [x] **The second playtest, same seed, after the fixes.** 2026-09-12,
       seed 8675309, Normal difficulty. Held: Millbrook reads as a ring town on
       its hill instead of cabins over the hills; no raid in 218 steps; eight
@@ -560,192 +706,145 @@ kept only until a run has been watched over it.*
       three lines; "=== Kingdoms" heads /civ info; Bren Smith died twice and
       three families are the Turners; family growth reads 45/24; 196 steps
       passed in 17 minutes while the pace line said 60 a minute.
-- [ ] **A two-handed orc guard stands off a creeper forever.** Half the
-      warhost's kit has no bow, and the bow stance is handed out anyway, so a
-      greatsword bearer walks to fourteen blocks and waits. Give two-handers a
-      hand-off, a thrown axe, or let them close on an unfused creeper.
-- [ ] **A seeded village keeps one guard until step 778.** The staffing table
-      does not ask for a second sooner; the early raid cap lifts at 500 on a
-      still-thin town, which is where the residual losses come from.
-- [ ] **The town center is still picked from noise.** The claim is read round
-      the chosen center and the center re-tested; a region whose heart is a
-      ravine is refused rather than moved. Reading the 112-block siting radius
-      would triple the chunk cost.
-- [ ] **The quest board has no vertical bound**: more than five notices
-      overflow a 720p window at GUI scale 3.
-- [ ] **Unvisited in the playtest**: a crew clearing a wooded plot with
-      pockets, a dead town's roads staying broken, a quest delivery at the
-      storehouse, a scanned cottage raised by a town, the creeper stand-off
-      reproduction above.
+
 - [x] **Towns deal in coins.** One item, civilization:coin, at every site
       that handed out or took emeralds; rates unchanged. The name players read
       is one lang line; the registry id stays coin. The charter and wayfinder
       recipes keep vanilla emeralds so a first town can be founded.
+
 - [x] **A grand library.** 31 by 25, three floors round an open hall, a
       glazed lantern with a quartz finial, a colonnade on paved frontage, 294
       bookshelves; wanted once a library stands, one per town; sited in every
       arrangement at a hundred residents. 5830 blocks.
-- [ ] **A library does nothing in the simulation.** Both libraries are pure
-      capstones with BuildingRole.OTHER. Give learning a consequence, or say
-      it is ornament.
+
 - [x] **Orcs have faces of their own, and eggs recruit.** A script-drawn
       64-by-64 orc skin in two variants and a goblin one, picked by the
       person's id so a face survives re-embodiment; humans keep Steve for now.
       Human and orc settler eggs add a resident to the nearest town of that
       race whose claim you stand in, or refuse; nothing is ever spawned loose.
-- [ ] **Creative middle-click on a settler may hand you either egg**, since
-      both name the one person type. One type per race would fix it and put
-      the race back into the attribute table. Left alone.
-- [ ] **A human skin set.** Humans still wear Steve.
+
 - [x] **The mod is called Civilization.** Mod id, namespace, package, class
       prefix, config, and world folder renamed; /civ and keystone kept; the
       domain word kingdom stays where it means one. New worlds only.
+
 - [x] **A town map you can read.** One screen from the hall post, the map
       item, or the wayfinder: the plan, roads, wall, buildings by role,
       citizens as dots, tooltips, and five tabs; refreshed every second on the
       client's own ask.
+
 - [x] **A quest board that asks for what the town lacks.** Deliver, slay,
       clear, and visit notices generated from the town's real troubles,
       deterministic per step; paid in emeralds from the treasury and in
       standing with that town; five on the board, ten remembered.
+
 - [x] **Authored structures are first class.** World folder beats shared
       folder beats jar; scan, check, place, and list commands; a validator
       against the size table and bed count; beds, door, and crop count read
       from the file; an oversize file refused by name and the drawn shape
       used instead. No example ships: nobody here could look at one.
-- [ ] **Standing does not move market prices.** The spread is too narrow for a
-      discount without turning the treasury into a fountain; widen the spread
-      first.
-- [ ] **The four old survey files carry the old culture ids.** Rewrite them or
-      drop them before comparing against a fresh survey.
+
 - [x] **Humans, orcs, and goblins are races.** Culture ids carry the race
       (civilization:human/norman, civilization:orc/warhost, civilization:goblin/mire);
       orcs have 30 health, +1 to the swing, and walk a tenth slower, goblins
       the reverse. All eight streets-first human arrangements generate,
       weighted by the survey.
+
 - [x] **Orcs are armed.** Greatsword, falchion, cleaver, axe, and morningstar,
       crude and forged; guards dealt one by their id, two-handers without a
       bow; every orc civilian carries a cleaver or a hand axe and swings back
       once at what bit them. Placeholder art drawn by script.
+
 - [x] **The warhost lives in a ring of huts round a great hut, under a king.**
       A round layout with the hall on the middle and huts fronting inward;
       round huts with a true cone roof; a king crowned when the great hut
       stands, worth two guards, mourned a hundred steps.
+
 - [x] **The save format is American and uncapped.** centre and armour keys
       renamed; the settlement, building, and task codecs split into named
       sub-records with headroom; landings for old saves removed. Worlds saved
       before this will not load.
+
 - [x] **A road through the forester's belt spares its trunks**, and the lamp
       draws each plot as a box.
-- [ ] **A hall never lands on the middle.** The plan reserves plot 0 for the
-      great hut, and for every other arrangement's hall, but the camp post
-      takes plot 0 on step one and the hall is raised a hundred blocks out.
-      Fixing it means letting a building reserve a plot: a siting change.
-- [ ] **A war camp still raises a town hall beside its great hut.**
-- [ ] **Two-handed orc guards have no answer to a creeper**; they hold the
-      band and never loose. Half the watch is one-handed by construction.
-- [ ] **Ten orc weapon items, not five.** Crude and forged are separate items
-      so the smithy's upgrade is visible; collapse to five if unwanted.
-- [ ] **A queued plot draws at a stand-in height of six** in the lamp; there
-      is no declared height per blueprint.
+
 - [x] **The surveyor's lamp draws lines that hold still.** A survey payload
       once a second, rendered on the client as solid white lines through the
       terrain: opened roads solid, planned dashed, the wall gray, plots as
       rectangles with a tick at the door. The lamp now needs the mod on the
       client; the charter's claim ring is still particles.
+
 - [x] **A forester's stand on a superflat.** Two causes: planting asked for
       the dirt tag, which in 26.2 excludes grass; and a town reached late had
       outgrown the 64-block claim cap, so the belt held no candidates. Twelve
       of fourteen arrangements needed more than 64.
+
 - [x] **Towns you can find from spawn.** The nine regions round spawn always
       hold a site, the spawn town within 200 blocks, all raised at world start;
       a greeting on login lists the nearest five with distance and bearing; a
       wayfinder compass points at the nearest and cycles on use; region size
       and site chance (35 percent) are config knobs.
-- [ ] **A road paved through the forester's belt fells its trees.** The paving
-      clearance does not consult the spared area, and the town keeps building
-      after the stand goes in. Separate gap from the planting.
-- [ ] **Region size is read live.** Changing it on an existing world re-keys
-      every unvisited region; ledgered towns stay. Lock it at world creation if
-      that footgun matters.
+
 - [x] **Nothing a citizen breaks is thrown away.** One yield table beside the
       building materials: logs are timber, rock is stone, soil is earth, iron
       ore is iron, leaves and litter nothing. A body carries what it breaks in
       pockets of sixteen and walks it to the nearest store when full or when
       the hole is done; the unwatched clock credits exactly what a site's dig
       list would have yielded in place of the abstract earth spoil.
-- [ ] **Dug goods past a store's ceiling are refused, not piled.** The loose
-      pile sits inside the pooled total the ceiling measures, so sending
-      overflow there would make the timber cap a no-op. What the ceiling
-      refuses is not created, exactly as a lumberjack felling into a full
-      store today. Decide whether a town clearing a forest should bank it.
+
 - [x] **A guard does not shoot through a wall.** One block-collision ray per
       guard per pass, a full second of unbroken sight before the first arrow,
       a walk round to a clear stand on the creeper's ring when there is none,
       and no shot with a townsperson in the arrow's path.
+
 - [x] **Felling one tree fells one tree.** Site clearing and the wall builder
       flooded through leaves, which joined every crown in a wood into one blob.
       A tree is now its logs, 26-connected through wood only (fancy oaks and
       dark oaks branch on the diagonal), and crowns decay by vanilla's rule.
+
 - [x] **The town clears its ground.** Litter and ground cover off every paved
       column and bridge deck, the verge kept; canopy stripped to the sky over
       every plot; trunks within two blocks of a wall felled; the forester's
       stand outside the village spared; nothing of it in the repair diff.
+
 - [x] **No building on a road, no road through a building.** Every one of 972
       wall-through-way pairs across 104 grown towns was a footpath: lanes were
       drawn as two raw right angles with no keepout, and plots ignored tracks.
       Lanes now go round every standing wall and queued plot; a plot may only
       cover a dead-end lane to a door nobody has. 972 to 0; 0.7% of doors are
       left unjoined and counted in /civ info.
-- [ ] **Doorstep ring cleared of ground cover.** Literal to the brief, but the
-      code elsewhere prefers grass and flowers left where they are; with the
-      one-block apron it is a one-block skirt of bare ground. If it reads as a
-      scraped pad in-world, drop ground cover from the clearing outside the
-      walls proper.
-- [ ] **Early-street bar loosened to 55 percent** by the siting rule keeping
-      off footpaths (41/92 before, 45/88 after). The fault it was written for
-      was 405 stretches round 62 buildings; a second opinion is worth having.
+
 - [x] **A town the world put there arrives with its streets and its wood.**
       Roads are recorded as a debt at seeding and paid once on the first step
       with a world; the forester's stand waits for its belt to load rather than
       cancelling on unread ground; the arrangement is named before a plot is
       taken.
+
 - [x] **The town goes to bed.** Real beds, one per bed of capacity, tinted by
       culture; each resident has a deterministic bed and sleeps in it from dusk
       to dawn unless the alarm, danger, or real weakness wakes them.
+
 - [x] **Houses have roofs and every people builds its own.** Gable and hip
       roofs of stairs, chimneys, porches, half-timbering, plinths, shutters,
       dormers, battlements; one style per culture; per-plot variation from the
       plot's own coordinates.
+
 - [x] **Every trade and civic building reads as what it is.** Forge bay and
       chimney, windmill sails, lean-to and log stacks, headframe and rail stub,
       staddle-stone granary, canopied storehouse, two-story warehouse, belfry
       and bell on the hall, open market square with stalls and a well, two-story
       inn with a stable, galleried library, crenellated tower, roofed hearth.
-- [ ] **Buildings cost more now.** Homes about three quarters more, trades
-      about half more, the warehouse and hall double, the library 2377 blocks and
-      the grand library 5830. The founding grant still covers a camp, but build
-      lengths were calibrated against the boxes. Rebalance costs or the grant with
-      a town in view; the library's gallery and wall height are the first fat to
-      trim, and the grand library's two floor plates are 960 blocks between them.
-      Its catalog work of 900 is set to the same blocks-per-work the library runs
-      at, so the two at least agree with each other.
-- [ ] **The granary is not raised and the hall's floor is not stepped up.**
-      Both would bury the building post at its fixed floor-course cell. Moving
-      the post cells is the enabling change if either look is wanted. The grand
-      library's entrance wanted the same thing and got the same answer: its
-      approach is a paved frontage with stepped shoulders and a colonnade on it,
-      all at floor level, which is what a flush entrance can carry. Three
-      buildings asking now.
+
 - [x] **A founded town's roads are walked out.** The crew was offered public
       works only on the one step in ten the build queue was empty; now the roads
       alone are offered whenever the town can spare a hand beyond the last one
       kept on buildings. A charter party opens every stretch it plans.
+
 - [x] **The watch carries a sword and a bow.** Every guard holds a wooden
       sword with a bow in the off hand from the day they take the post; the
       smithy's iron sword is an upgrade, billed once against a ledger. Creepers
       are shot from a band of eight to fourteen blocks with real arrows at the
       vanilla skeleton's rate; everything else meets the sword.
+
 - [x] **An unwatched town lives off what stands in the world.** Each farm is
       a ledger of its 71 real crop blocks ripening on Minecraft's schedule, cut
       and tended by the farmers it has; each lumber camp a count of trees
@@ -753,53 +852,40 @@ kept only until a run has been watched over it.*
       Grain is cut, carried to the mill or the hearth, baked, and eaten. Farms
       are ordered one per seven mouths ahead of need and staffed two per field.
       A camp of four alone for 1500 steps: TOWN of 45, 1012 loaves.
-- [ ] **The yield tables govern nothing now.** Food, wood, saplings, stone and
-      iron all left them for ledgers of real things; YieldPolicy, the two config
-      tables and Settlement.abstractYield are live code with no consumer.
-      Remove them, or keep one knob for people who want faster towns.
-- [ ] **A cut-out mine is a dead end.** requestProducer refuses a second mine
-      while any stands, exhausted or not; the seam of 2000 is gone by step 1500.
-      Proposed: skip producers that are visibly spent (Seam.isExhausted,
-      Stand.isBare with nothing planted).
-- [ ] **Timber is about four times scarcer than the conjured rate**, bounded by
-      240-step sapling growth. WOOD_PER_WORK = 4 was calibrated against conjured
-      timber; eight town-shape tests were handed timber to keep measuring
-      geometry. Rebalance build costs, or widen claims, with a town in view.
-- [ ] **Bread stays where it is baked.** The mill-to-granary leg was built and
-      measured to freeze a town (one miller bakes nine a step, one courier moves
-      one); it was dropped and the loaves join the larder at the oven. Late
-      towns bank grain at the granary ceiling; a bigger granary is the answer.
+
 - [x] **A dead town's roads and wall stay broken.** The road sweep tells a
       first drawing from a repair by a persisted laid-through mark; the wall
       sweep stands aside entirely for a town with nobody in it.
+
 - [x] **Nothing builds itself while a player is near.** The clock does no
       building, wall, road or repair work at a site inside the observed radius,
       judged at the site, with no grace fallthrough; the queue says what it is
       waiting on.
+
 - [x] **More threat than guards means guards first.** Needed guards is
       ceil(threat / 2), the number a raid is repelled by; retraining takes
       idlers then the trade furthest above its minimum, never the last farmer
       or builder; the watchtower and smithy lead the next choice while short.
+
 - [x] **A seeded lumber camp has a wood to work.** Up to twelve grown trees of
       the biome's species on a five-block grid outside the houses, eight
       saplings on the shelves, the claim widened to reach past the village.
+
 - [x] **No supplies out of nowhere.** Clock yield defaults to 0/0; foraging
       takes only what a sampled survey of the ground finds and depletes it;
       seeded towns hold what their own buildings could hold.
-- [ ] **At 0/0 an unattended town dies.** Foraging stops past HOMESTEAD and an
-      unwatched field at zero percent grows nothing, so any town nobody
-      revisits runs down: a founded camp is dead by step 800, a seeded village
-      by 600. Two levers, the user's to pull: pioneers keep foraging past
-      HOMESTEAD, or unwatched farms get a small floor tied to farm hands.
+
 - [x] **How much of a town's income is imaginary is a setting.** Two tables
       in the server config, one percentage per resource: the clock's yield for a
       town nobody is near (default 70) and the floor under real hands that have
       stalled (default 0). Real harvests are never scaled; transfers, refunds,
       the forge and the caravan are not gains and are not touched.
+
 - [x] **Fear makes a settler think, not sprint.** Every pace a citizen can be
       given is one walking pace; a creeper is noticed at eighteen blocks by
       arithmetic, tools go down at once, and the run goes to a door unless the
       door is on the far side of the blast.
+
 - [x] **A town with nobody alive in it stops.** The clock stands in for an
       unwatched town's people; with no people it stands in for nobody, so an
       emptied town raises nothing, opens nothing and earns nothing until
@@ -809,27 +895,33 @@ kept only until a run has been watched over it.*
       outgrow it.** Re-stakings over 1400 steps went from four to seven per
       arrangement to zero or one; first staking unchanged; a reloaded clock
       cannot freeze the rule.
+
 - [x] **The wall, the roads and every repair are laid by builders.** Posts out of
       planks somebody carried, streets walked cross-section by cross-section with
       no load, repairs as the missing blocks only from five percent damage; the
       unwatched clock untouched on all three.
+
 - [x] **The wall is built where it was staked.** Posts on a slanted stretch were
       laid in an L up to seven blocks off the approved line, and staking ignored
       the build queue. 738 to 68 buildings with a wall through them across 117
       towns; structure-on-structure overlap: none in 67 million checks.
+
 - [x] **Somebody weak with hunger goes and eats, and a builder gets down off the
       roof.** The 60-89 hunger band barred a settler from work and from shopping
       at once; a meal is an errand now on both fidelities, measured identical to
       the digit unwatched.
+
 - [x] **Every creature sees the townspeople and is seen.** Anything the danger
       table scores hunts citizens one goal-slot behind players -- raiders had
       never seen a citizen at all -- neutral creatures only when provoked; the
       sweep and the guard's target list are one list.
+
 - [x] **The carpenter stays at his bench and the farmer in the rows.** A haul
       goes to an idler, then to a trade with nothing queued, never to a builder,
       guard or busy crafter; a field is collected at a full armful.
       docs/CITIZENS.md says what every citizen does and in what order;
       docs/HAULERS.md plans the porter's trade.
+
 - [x] **The tree is in American English, identifiers included.** 2042 hits
       across 212 files converted from the audit's marks; `BuildCatalogue`,
       `KerbTest` and `LevellingTest` renamed with their types; the survey
