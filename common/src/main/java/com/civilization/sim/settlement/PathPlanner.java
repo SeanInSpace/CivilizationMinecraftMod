@@ -994,11 +994,16 @@ public final class PathPlanner {
     private static Building hubBuilding(Settlement settlement) {
         Building campPost = null;
         for (Building building : settlement.buildings()) {
-            String id = BuildPlanner.baseIdOf(building.blueprintId());
-            if (id.endsWith("town_hall")) {
+            // By role rather than by the id spelling. A warhost's hall is its great
+            // hut and never a town_hall — see Homes and BuildingRole — so a text
+            // match found no hub at all in an orc camp and the roads fell back on
+            // radiating from the settlement's own center, which is not where the
+            // chief's seat stands.
+            if (building.role() == BuildingRole.HALL) {
                 return building;
             }
-            if (campPost == null && id.endsWith("camp_post")) {
+            if (campPost == null
+                    && BuildPlanner.baseIdOf(building.blueprintId()).endsWith("camp_post")) {
                 campPost = building;
             }
         }

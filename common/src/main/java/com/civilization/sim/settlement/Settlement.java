@@ -3480,6 +3480,17 @@ public final class Settlement {
             // they are, whatever the ground thinks.
             return false;
         }
+        if (building.hasRelocated()) {
+            // One move, and then it stays. A building that has been moved once and
+            // is refused again is a building whose town has nowhere better for it,
+            // and moving it a second time has never once ended anywhere good: the
+            // playtest that prompted this moved the carpentry twice and the market
+            // twice, and the second move of each was onto the site the other had
+            // just been refused at. The ground is made to fit the building instead
+            // — cut in and underpinned, which is what the placer does with a slope
+            // anyway and what the auditor judges it by.
+            return false;
+        }
         if (ctx.bridge().isSiteSuitable(building.origin(), BuildPlanner.PLOT_PROBE_RADIUS)) {
             return false;
         }
@@ -3520,14 +3531,82 @@ public final class Settlement {
         // sibling for the head of the queue only -- so it is left as it was and
         // written down rather than changed on a hunch.
         if (moved.equals(building.origin())
-                || (ctx.bridge().isLoaded(moved)
-                        && !ctx.bridge().isSiteSuitable(moved, BuildPlanner.PLOT_PROBE_RADIUS))
+                || !mayRelocateTo(ctx, building, moved)
                 || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
                         >= ctx.bridge().siteFault(building.origin(),
                                 BuildPlanner.PLOT_PROBE_RADIUS)) {
             return false;   // nowhere better; draw it here and make the best of it
         }
         return moveTo(ctx, building, moved);
+    }
+
+    /**
+     * How long a site this town refused stays refused.
+     *
+     * <p>Twenty steps, which is well past the handful a player's arrival takes to
+     * load a claim — the window the whole trade happened inside. Long enough that
+     * no second building walks onto the ground the first just left while the town
+     * is still discovering its own terrain, short enough that a plot refused for a
+     * cottage in a town's first week is offered again to the mill in its second.
+     *
+     * <p>Not persisted, and it should not be: it records what this town has just
+     * learned about its own ground during one arrival. A reload has by definition
+     * interrupted that, and every building the rule protects is drawn long before.
+     */
+    private static final long REFUSAL_HOLDS_FOR = 20;
+
+    /**
+     * Sites this town moved a building off, and the step it did it on.
+     *
+     * <p>The whole of the no-swap rule. From the playtest: the carpentry was
+     * refused at (115,84,279) and moved to (128,80,244) — the market's old site —
+     * and the market was refused at (147,69,277) and moved to (115,84,279), the
+     * site refused for the carpentry a step earlier. Two buildings traded ground
+     * that the town had already judged unfit for each of them, one step apart,
+     * because "refused" was never a fact about the site: it was a comparison
+     * against wherever the building happened to be standing, so the same ground
+     * was refused for one building and preferred for the next.
+     */
+    private final Map<String, Long> refusedSites = new LinkedHashMap<>();
+
+    /** Records that this town has judged this ground and moved off it. */
+    private void refuseSite(SimPos at, long step) {
+        refusedSites.put(columnKey(at), step);
+    }
+
+    /**
+     * Whether some building of this town was moved off this ground lately.
+     *
+     * <p>Asked of the column rather than of the position, because a building takes
+     * its height from the ground and two buildings on one plot have two different
+     * heights. The plot is what was refused.
+     */
+    private boolean refusedRecently(SimPos at, long step) {
+        Long when = refusedSites.get(columnKey(at));
+        return when != null && step - when <= REFUSAL_HOLDS_FOR;
+    }
+
+    /**
+     * Whether a relocation may take this ground: one judgment, for every path.
+     *
+     * <p>Both relocation paths used to ask their own question and the answers did
+     * not agree — {@link #moveOnThePlan} asked whether a plot was <em>better</em>
+     * than where the building stood, and the wide search asked whether it was
+     * <em>suitable</em>. "Refused" therefore meant nothing about the site, only
+     * something about the building doing the asking. This is the one question both
+     * ask now, and it is about the site.
+     */
+    private boolean mayRelocateTo(SimContext ctx, Building building, SimPos to) {
+        if (refusedRecently(to, ctx.step())) {
+            return false;
+        }
+        return !ctx.bridge().isLoaded(to)
+                || ctx.bridge().isSiteSuitable(to, BuildPlanner.PLOT_PROBE_RADIUS);
+    }
+
+    /** A plot, as the key its column is remembered by. */
+    private static String columnKey(SimPos at) {
+        return at.x() + "," + at.z();
     }
 
     /**
@@ -3547,6 +3626,12 @@ public final class Settlement {
      */
     private boolean moveTo(SimContext ctx, Building building, SimPos moved) {
         SimPos from = building.origin();
+        // Written down before anything else. A site a building has just left is a
+        // site this town has judged and refused, and nothing else in the town may
+        // walk onto it while that judgment is fresh — see #refusedRecently, and the
+        // trade the carpentry and the market made without it.
+        refuseSite(from, ctx.step());
+        building.setRelocated(true);
         building.setOrigin(new SimPos(moved.x(), ctx.bridge().groundHeight(moved), moved.z()));
         building.setFacing(arrangement().facingFor(center, moved));
         // And the family moves with the house. Everything that asks where
@@ -3656,6 +3741,9 @@ public final class Settlement {
             }
             if (ctx.bridge().siteFault(at, BuildPlanner.PLOT_PROBE_RADIUS) >= standing) {
                 continue;   // not better; only different
+            }
+            if (!mayRelocateTo(ctx, building, at)) {
+                continue;   // ground this town has already refused, or refuses now
             }
             best = at;
             bestAway = away;

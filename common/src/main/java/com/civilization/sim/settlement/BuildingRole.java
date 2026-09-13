@@ -64,6 +64,13 @@ public enum BuildingRole {
             Map.entry("market", MARKET),
             Map.entry("smith", SMITH),
             Map.entry("town_hall", HALL),
+            // The orcs' hall, and not a second kind of thing. The chief sits in
+            // the great hut, it stands on the muster yard in the middle of the
+            // camp, and KingPlanner names it as the seat — so every rule written
+            // about "the hall" has always meant it and could not see it. A war
+            // camp raised a town_hall beside its own great hut for exactly that
+            // reason: see Homes, which is the other half of the same fix.
+            Map.entry("great_hut", HALL),
             Map.entry("inn", INN),
             Map.entry("mill", MILL),
             Map.entry("carpentry", CARPENTRY));

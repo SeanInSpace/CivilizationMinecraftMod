@@ -20,6 +20,7 @@ import com.civilization.sim.kingdom.Kingdom;
 import com.civilization.sim.settlement.BuildPlanner;
 import com.civilization.sim.settlement.BlueprintCheck;
 import com.civilization.sim.settlement.BuildingSizes;
+import com.civilization.sim.settlement.Grade;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -487,11 +488,12 @@ public final class BlueprintPlacer {
      * point: see {@link #LOW_GROUND_QUANTILE}.
      */
     static int baseAcross(String blueprintId, int[] firstAir) {
-        int[] sorted = firstAir.clone();
-        Arrays.sort(sorted);
-        int low = sorted[Math.min(sorted.length - 1, sorted.length / LOW_GROUND_QUANTILE)];
-        return Math.min(baseFor(blueprintId, sorted[sorted.length / 2]),
-                low + FOUNDATION_DEPTH);
+        // The arithmetic lives in the simulation now, in Grade, because the siting
+        // has to be able to ask what floor a plot will be given before there is a
+        // world to place anything in — and the seeded siting asking one rule while
+        // the placer used another is precisely how a plot passed siting and was then
+        // condemned by the audit. One copy, two callers.
+        return Grade.floorAcross(firstAir, isField(blueprintId));
     }
 
     // --- the visible path ---
@@ -623,9 +625,28 @@ public final class BlueprintPlacer {
      * The dimensions do not depend on the base, so a provisional one will do.
      */
     private static int surveyBase(ServerLevel level, BuildTask task) {
-        int x = task.origin().x();
-        int z = task.origin().z();
-        StructurePlan shape = planFor(level, task.blueprintId(),
+        return surveyBase(level, task.blueprintId(), task.origin().x(),
+                task.origin().z(), task.origin().y());
+    }
+
+    /**
+     * The same, for a building nobody is standing over.
+     *
+     * <p><strong>This is the seam the "buried" reports came through.</strong> The
+     * crew's floor is the median of a whole plot, held down to what the
+     * underpinning can reach. The unwatched placement pass took
+     * {@code baseFor(surfaceHeight(origin))} — the origin column and nothing else —
+     * so the same building got two different floors depending on whether anybody
+     * happened to be watching it go up. On a real hillside an origin column in a
+     * dip sets a floor the rest of its own plot stands three courses above, which
+     * is the auditor's "buried — the ground stands up to 3 above its floor on every
+     * side" word for word.
+     *
+     * <p>Two paths, one function now. Every caller goes through here.
+     */
+    public static int surveyBase(ServerLevel level, String blueprintId, int x, int z,
+                                 int provisionalY) {
+        StructurePlan shape = planFor(level, blueprintId,
                 new BlockPos(x, groundLevel(level, x, z), z));
         // A square of the wider half-span. Buildings are turned to face the town
         // center, which swaps width and depth, and a survey that sampled the
@@ -645,13 +666,13 @@ public final class BlueprintPlacer {
                 }
                 // A plot may straddle a chunk nobody has loaded. Ask first:
                 // reading the heightmap of an absent chunk is what drags one in.
-                if (!level.isLoaded(new BlockPos(x + dx, task.origin().y(), z + dz))) {
+                if (!level.isLoaded(new BlockPos(x + dx, provisionalY, z + dz))) {
                     continue;
                 }
                 columns[read++] = groundLevel(level, x + dx, z + dz);
             }
         }
-        return baseAcross(task.blueprintId(), Arrays.copyOf(columns, read));
+        return baseAcross(blueprintId, Arrays.copyOf(columns, read));
     }
 
     /**
