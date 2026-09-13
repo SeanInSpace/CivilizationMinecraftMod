@@ -95,7 +95,7 @@ class TownMapPayloadTest {
                 new TownMapPayload.Folk(11, 12, 13, 14, 15, 16, 17, 18),
                 new TownMapPayload.Larder(21, 22, 23, 24, 25, 26, 27, true),
                 new TownMapPayload.Ledgers(31, 32, true, false, 35, true, false, 38),
-                new TownMapPayload.Watch(41, 42, 43, 44, "Karrgurd", 46, 47, 48),
+                new TownMapPayload.Watch(41, 42, 43, 44, 45, "Karrgurd", 46, 47, 48),
                 List.of(new TownMapPayload.Line("food", 51),
                         new TownMapPayload.Line("stone", 52)),
                 List.of(new TownMapPayload.Job("farmer", 61),
@@ -435,7 +435,7 @@ class TownMapPayloadTest {
                 new TownMapPayload.Folk(0, 0, 0, 0, 0, 0, 0, 0),
                 new TownMapPayload.Larder(0, 0, 0, 0, 0, 0, 0, false),
                 new TownMapPayload.Ledgers(0, 0, false, false, 0, false, false, 0),
-                new TownMapPayload.Watch(0, 0, 0, 0, "", 0, 0, 0),
+                new TownMapPayload.Watch(0, 0, 0, 0, 0, "", 0, 0, 0),
                 List.of(), List.of());
     }
 

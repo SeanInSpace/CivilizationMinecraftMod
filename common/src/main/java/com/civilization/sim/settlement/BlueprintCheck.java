@@ -99,10 +99,30 @@ public final class BlueprintCheck {
      * @param lowOverhangCells cells one block outside the footprint, below
      *                         {@link #OVERHANG_MIN_COURSE}
      * @param overhangCells    cells one block outside it at or above that course
+     * @param anchorOffMiddle  how far the cell the file names as its anchor is
+     *                         from the middle of its own box, in blocks —
+     *                         the larger of the two axes, and zero for a file
+     *                         whose anchor is its middle
      */
     public record Survey(String blueprintId, int width, int depth, int height,
                          int beds, boolean post, boolean door, int crops,
-                         int strayCells, int lowOverhangCells, int overhangCells) {
+                         int strayCells, int lowOverhangCells, int overhangCells,
+                         int anchorOffMiddle) {
+
+        /**
+         * A file whose stated anchor is its own middle, which is what a scan of a
+         * building somebody centered on themselves comes out as.
+         *
+         * <p>Kept so that the anchor is an addition to this record rather than a
+         * rewrite of every caller: nothing that does not care where a file's
+         * anchor is has to say so.
+         */
+        public Survey(String blueprintId, int width, int depth, int height,
+                      int beds, boolean post, boolean door, int crops,
+                      int strayCells, int lowOverhangCells, int overhangCells) {
+            this(blueprintId, width, depth, height, beds, post, door, crops,
+                    strayCells, lowOverhangCells, overhangCells, 0);
+        }
     }
 
     /**
@@ -117,6 +137,7 @@ public final class BlueprintCheck {
         String id = survey.blueprintId();
 
         checkSpans(found, survey);
+        checkAnchor(found, survey);
         checkBeds(found, survey, id);
         checkDoorAndPost(found, survey);
         checkCrops(found, survey, id);
@@ -141,12 +162,18 @@ public final class BlueprintCheck {
     /**
      * The size, against the table that reserved the ground.
      *
-     * <p>Three separate things, and only the middle one is the famous mismatch.
+     * <p>Four separate things, and only the second is the famous mismatch.
      * Odd spans come first because a building is placed about a point, so an
      * even one has no middle to place it about and moves half a block every
      * quarter turn. The plot span comes last because a kind absent from
      * {@link BuildingSizes} still has a plot reserved for it, and a file may
      * outgrow that without outgrowing anything else.
+     *
+     * <p>The height is the newest of the four and it is judged the same way, now
+     * that {@link BuildingSizes} declares one per kind. It is not about the
+     * neighbors: the site is cleared to the plan's height, so a file taller than
+     * the declared ceiling is a building with the hillside still standing through
+     * its roof, and the surveyor's lamp promised a box it does not fit in.
      */
     private static void checkSpans(List<Finding> found, Survey survey) {
         if (survey.width() <= 0 || survey.depth() <= 0 || survey.height() <= 0) {
@@ -166,13 +193,23 @@ public final class BlueprintCheck {
             found.add(new Finding(Severity.NOTE, "nothing draws a "
                     + BuildingRole.bareName(survey.blueprintId())
                     + ", so there is no declared size to check this against"));
-        } else if (survey.width() > declared.width() || survey.depth() > declared.depth()) {
-            found.add(new Finding(Severity.REFUSED, "SIZE MISMATCH: "
-                    + BuildingRole.bareName(survey.blueprintId()) + " is declared "
-                    + declared.width() + "x" + declared.depth() + " and this file is "
-                    + survey.width() + "x" + survey.depth()
-                    + ". The plan reserves ground for the declared size, so this one would"
-                    + " be built through whatever is next door."));
+        } else {
+            if (survey.width() > declared.width() || survey.depth() > declared.depth()) {
+                found.add(new Finding(Severity.REFUSED, "SIZE MISMATCH: "
+                        + BuildingRole.bareName(survey.blueprintId()) + " is declared "
+                        + declared.width() + "x" + declared.depth() + " and this file is "
+                        + survey.width() + "x" + survey.depth()
+                        + ". The plan reserves ground for the declared size, so this one would"
+                        + " be built through whatever is next door."));
+            }
+            if (survey.height() > declared.height()) {
+                found.add(new Finding(Severity.REFUSED, "SIZE MISMATCH: "
+                        + BuildingRole.bareName(survey.blueprintId()) + " is declared "
+                        + declared.height() + " courses tall and this file is "
+                        + survey.height() + ". The site is cleared to the declared height"
+                        + " and the survey draws a box that tall, so the top of this one"
+                        + " would be inside the hillside."));
+            }
         }
 
         int span = Math.max(survey.width(), survey.depth()) + 2 * BuildingSizes.APRON;
@@ -181,6 +218,36 @@ public final class BlueprintCheck {
             found.add(new Finding(Severity.REFUSED, "this file plus its doorstep needs a plot "
                     + span + " across and the plan reserves " + reserved));
         }
+    }
+
+    /**
+     * The anchor, against the middle of the file's own box.
+     *
+     * <p><strong>A building stands centered on its plot.</strong> Not by
+     * convention — by arithmetic that runs everywhere: a plot is a point and a
+     * span, {@link Footprint} is a width and a depth measured about that point,
+     * and every overlap check in the mod compares two of those. A structure laid
+     * so that some other cell of it lands on the point is a structure displaced by
+     * the offset while the town records it centered, and then every overlap check
+     * about it is wrong by that offset — in the direction of believing the ground
+     * beside it is free.
+     *
+     * <p>So the stated anchor is <em>not</em> honored as the cell that lands on
+     * the plot; the middle is. This is a warning rather than a refusal because the
+     * file is perfectly usable — it is placed centered and nothing is displaced —
+     * and the only thing lost is whatever the author meant by naming a different
+     * cell. Saying so is what stops them believing it did something.
+     */
+    private static void checkAnchor(List<Finding> found, Survey survey) {
+        if (survey.anchorOffMiddle() <= 0) {
+            return;
+        }
+        found.add(new Finding(Severity.WARNING, "the anchor cell this file names is "
+                + survey.anchorOffMiddle() + " block(s) off the middle of its own box."
+                + " A building stands centered on its plot, because the footprint the"
+                + " town records and every overlap check made against it are measured"
+                + " about that point — so the anchor is ignored and the file is centered."
+                + " Move it to the middle cell if you meant something by it."));
     }
 
     /**

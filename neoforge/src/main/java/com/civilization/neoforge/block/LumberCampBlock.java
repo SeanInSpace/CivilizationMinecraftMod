@@ -4,7 +4,6 @@ import com.civilization.neoforge.CivilizationMod;
 import com.civilization.neoforge.bridge.NeoForgeWorldBridge;
 import com.civilization.neoforge.save.CivilizationSavedData;
 import com.civilization.sim.geom.SimPos;
-import com.civilization.sim.kingdom.Kingdom;
 import com.civilization.sim.settlement.LumberPlanner;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.settlement.WorkArea;
@@ -15,7 +14,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
@@ -34,11 +32,21 @@ import net.minecraft.world.phys.BlockHitResult;
  *
  * <p>Every interaction reports the resulting orders in chat, so the block teaches
  * its own controls without a screen.
+ *
+ * <p><strong>It is a {@link BuildingPostBlock} first and a dial second</strong>,
+ * exactly as {@link MineBlock} is. It used to extend {@code Block} directly, and
+ * the consequence was not cosmetic: {@code BlueprintPlacer.isPost} recognizes a
+ * post by that type and nothing else, so the camp's marker was neither laid
+ * first at the site — the flag on the plot a player can walk up to and read
+ * while the job is still a hole — nor withheld from the excavation that follows,
+ * and a digger levelling the ground took the sign down with it. The controls
+ * below are unchanged; what changed is that the block is now in the hierarchy
+ * that makes it a post.
  */
-public class LumberCampBlock extends Block {
+public class LumberCampBlock extends BuildingPostBlock {
 
-    public LumberCampBlock(Properties properties) {
-        super(properties);
+    public LumberCampBlock(String role, String explains, Properties properties) {
+        super(role, explains, properties);
     }
 
     @Override
@@ -94,27 +102,5 @@ public class LumberCampBlock extends Block {
         settlement.setLumberArea(area);
         CivilizationSavedData.get(serverLevel).setDirty();
         return InteractionResult.SUCCESS;
-    }
-
-    private static Settlement owningSettlement(SimWorld world, SimPos pos) {
-        Settlement nearest = null;
-        long best = Long.MAX_VALUE;
-        for (Kingdom kingdom : world.kingdoms()) {
-            for (Settlement settlement : kingdom.settlements()) {
-                long distance = settlement.center().horizontalDistanceSq(pos);
-                if (distance < best) {
-                    best = distance;
-                    nearest = settlement;
-                }
-            }
-        }
-        // Only claim it if the post actually stands within the town's borders.
-        if (nearest != null) {
-            long limit = (long) nearest.claimRadius() + 32L;
-            if (best <= limit * limit) {
-                return nearest;
-            }
-        }
-        return null;
     }
 }

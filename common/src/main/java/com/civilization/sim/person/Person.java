@@ -46,7 +46,7 @@ public final class Person {
     public static final int HUNGER_MAX = 99;
 
     private final Id id;
-    private final String name;
+    private String name;
     private Profession profession;
     private SimPos position;
 
@@ -96,6 +96,26 @@ public final class Person {
         return name;
     }
 
+    /**
+     * Changes what this person is called. There is one reason to, and this is it.
+     *
+     * <p>A newcomer arrives under a surname of their own — nothing has decided
+     * which family will take them in yet — and on the next population step
+     * {@code PopulationPlanner} gathers them into a household that may already
+     * have a name. A person who kept their arrival surname would be a Palfreyman
+     * living among the Coopers, listed by the town as a member of a family whose
+     * name is not theirs.
+     *
+     * <p>Deliberately not a general setter. {@link #id()} is what anything durable
+     * refers to a person by — the household roster, the entity that embodies them,
+     * the job tables — so a name is a label and nothing keys off it; that is what
+     * makes this safe. It is still the only mutable label on the record, so it is
+     * named for the thing it does rather than {@code setName}.
+     */
+    public void rename(String name) {
+        this.name = Objects.requireNonNull(name, "name");
+    }
+
     public Profession profession() {
         return profession;
     }
@@ -112,13 +132,6 @@ public final class Person {
         this.position = Objects.requireNonNull(position, "position");
     }
 
-    /**
-     * Whether this person has been issued a tool from the town's rack.
-     *
-     * <p>A worker without one still works — an unequipped town should be poorer,
-     * not paralyzed — but the forge exists to change that, and the quest board
-     * counts the shortfall.
-     */
     /**
      * What this person is carrying to a build site, and how much of it.
      *
@@ -154,6 +167,24 @@ public final class Person {
         }
     }
 
+    /**
+     * Whether this person has been issued a tool from the town's rack.
+     *
+     * <p>A worker without one still works — a town short of tools should be
+     * poorer, not paralyzed — but the forge exists to change that, and the quest
+     * board counts the shortfall.
+     *
+     * <p><strong>A tool, not a weapon.</strong> Nothing about what anybody fights
+     * with is recorded here or anywhere else on a person: {@code Weaponry} hands
+     * out a kit derived from the person's own id at the moment a body is made, and
+     * the town's weapon rack is a store rather than a roster. The report used to
+     * print this count as "equipped", which read as a town going into a raid with
+     * its hands empty; it says "tools" now, because that is what it counts.
+     *
+     * <p>The javadoc sat above {@code carriedMaterial}'s, two doc comments deep,
+     * where nothing rendered it and nobody looking for the meaning of this field
+     * would have found it. That is how "equipped" survived as a word for it.
+     */
     public boolean hasTool() {
         return hasTool;
     }

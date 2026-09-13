@@ -999,7 +999,11 @@ final class CivicParts {
      * the watch cannot find is a town that cannot raise the alarm.
      */
     static void crown(List<Placement> blocks, BlockPos base, int deck, Block stone) {
-        Parts.battlements(blocks, base, new BuildingSizes.Size(3, 3), deck + 1, stone);
+        // Three by three and one course: an ad-hoc shape for the battlement
+        // arithmetic to work in, not a building. The height a Size carries is a
+        // declaration about a kind in the table, and a crown has no kind, so this
+        // one says the least it is allowed to say.
+        Parts.battlements(blocks, base, new BuildingSizes.Size(3, 3, 1), deck + 1, stone);
         add(blocks, base.offset(0, deck + 1, 0), Blocks.BELL.defaultBlockState()
                 .setValue(BellBlock.ATTACHMENT, BellAttachType.FLOOR)
                 .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH));

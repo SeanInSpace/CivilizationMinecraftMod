@@ -100,7 +100,13 @@ public final class CivilizationMod {
 
             // Rehydrate from disk. These are the same Kingdom instances the save
             // data holds, so simulation changes are picked up on the next write.
-            CivilizationSavedData.get(level).kingdoms().forEach(world::addKingdom);
+            CivilizationSavedData data = CivilizationSavedData.get(level);
+            data.kingdoms().forEach(world::addKingdom);
+            // And the clock those kingdoms' step numbers are numbers in. Without
+            // it a wall staked on step 900 came back staked nine hundred steps in
+            // the future, and a town founded on step 900 was handed its founding
+            // grace against a raid a second time.
+            world.restoreStepsElapsed(data.stepsElapsed());
 
             SIMULATIONS.put(level, world);
             MANAGERS.put(level, new PersonEntityManager(level, world));
@@ -179,6 +185,10 @@ public final class CivilizationMod {
             if (entry.getValue().onGameTick()) {
                 // A step ran, so the kingdoms changed in place. Nothing else marks
                 // this dirty, because the simulation mutates the objects directly.
+                // The clock is the exception: SimWorld owns it and the save data
+                // keeps its own copy, so it is handed across here.
+                CivilizationSavedData.get(entry.getKey())
+                        .setStepsElapsed(entry.getValue().stepsElapsed());
                 CivilizationSavedData.get(entry.getKey()).setDirty();
             }
         }

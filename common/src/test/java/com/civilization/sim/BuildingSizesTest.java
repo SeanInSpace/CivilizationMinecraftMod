@@ -78,7 +78,7 @@ class BuildingSizesTest {
             assertEquals(1, size.width() % 2, type.id() + " is even across");
             assertEquals(1, size.depth() % 2, type.id() + " is even deep");
         }
-        assertThrows(IllegalArgumentException.class, () -> new BuildingSizes.Size(8, 7),
+        assertThrows(IllegalArgumentException.class, () -> new BuildingSizes.Size(8, 7, 6),
                 "an even span should be refused where it is written, not discovered later");
     }
 
@@ -140,9 +140,9 @@ class BuildingSizesTest {
         // Two wings that do not meet are two buildings, and the walls of one of
         // them would be drawn along a line that has nothing on the other side.
         assertThrows(IllegalArgumentException.class,
-                () -> new BuildingSizes.Size(11, 9, new BuildingSizes.Notch(11, 4, 1, 1)));
+                () -> new BuildingSizes.Size(11, 9, 12, new BuildingSizes.Notch(11, 4, 1, 1)));
         assertThrows(IllegalArgumentException.class,
-                () -> new BuildingSizes.Size(11, 9, new BuildingSizes.Notch(4, 9, 1, 1)));
+                () -> new BuildingSizes.Size(11, 9, 12, new BuildingSizes.Notch(4, 9, 1, 1)));
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.civilization.sim;
 
 import com.civilization.sim.settlement.BlueprintCheck;
+import com.civilization.sim.settlement.BuildingSizes;
 import com.civilization.sim.settlement.Field;
 
 import org.junit.jupiter.api.Test;
@@ -101,6 +102,67 @@ class BlueprintCheckTest {
 
         assertTrue(refuses(empty));
         assertTrue(says(empty, "no volume"));
+    }
+
+    // --- the height, which is the third span and was not checked at all -------
+
+    @Test
+    void aFileTallerThanTheDeclaredHeightIsRefusedAsASizeMismatch() {
+        // The declared height is how far up the site is cleared and how tall the
+        // surveyor's lamp draws the plot's box. A file that outgrows it is a
+        // building with the hillside still standing through its roof -- and unlike
+        // the width, that is not about the neighbours, so it is stated as its own
+        // line rather than folded into theirs.
+        int declared = BuildingSizes.of(COTTAGE).height();
+        BlueprintCheck.Survey tall = new BlueprintCheck.Survey(COTTAGE, 7, 7, declared + 4,
+                3, true, true, 0, 0, 0, 0);
+
+        assertTrue(refuses(tall));
+        assertTrue(says(tall, "courses tall"));
+        assertTrue(says(tall, "SIZE MISMATCH"),
+                "the line somebody greps the log for, which is what the placer"
+                        + " matches on to refuse the file");
+    }
+
+    @Test
+    void aFileExactlyAsTallAsDeclaredIsFine() {
+        // The ceiling is inclusive: the tallest roof any culture puts on a cottage
+        // is the declared figure, so a file that reaches it is the drawn building
+        // and not an overgrown one.
+        int declared = BuildingSizes.of(COTTAGE).height();
+        BlueprintCheck.Survey exact = new BlueprintCheck.Survey(COTTAGE, 7, 7, declared,
+                3, true, true, 0, 0, 0, 0);
+
+        assertFalse(refuses(exact), "a file at the declared height is refused");
+    }
+
+    // --- the anchor -----------------------------------------------------------
+
+    @Test
+    void anAnchorOffTheMiddleIsWarnedAboutRatherThanObeyed() {
+        // The fault this rule exists for is not in the file, it is in what the
+        // mod would do with it. A plot is a point, a Footprint is measured about
+        // that point, and every overlap check compares two Footprints -- so a
+        // structure laid with its corner on the point is displaced four blocks
+        // while the town records it centered, and the plan reads the ground it is
+        // actually standing in as free.
+        //
+        // A warning and not a refusal: the file is placed centered, so nothing is
+        // displaced and nothing is lost but whatever the author meant.
+        BlueprintCheck.Survey cornered = new BlueprintCheck.Survey(COTTAGE, 7, 7, 6,
+                3, true, true, 0, 0, 0, 0, 3);
+
+        assertFalse(refuses(cornered), "a file that will be placed correctly is not refused");
+        assertTrue(says(cornered, "off the middle of its own box"));
+        assertTrue(says(cornered, "the anchor is ignored"),
+                "and it says what was done about it, or the author will believe"
+                        + " the cell they named did something");
+    }
+
+    @Test
+    void anAnchorAtTheMiddleSaysNothingAtAll() {
+        assertFalse(says(goodCottage(), "off the middle"),
+                "the ordinary file, which is centered, is not warned about being centered");
     }
 
     // --- the beds -------------------------------------------------------------

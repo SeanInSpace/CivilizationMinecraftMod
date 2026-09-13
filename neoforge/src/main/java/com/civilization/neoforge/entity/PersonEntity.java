@@ -1,6 +1,7 @@
 package com.civilization.neoforge.entity;
 
 import com.civilization.neoforge.CivilizationAttachments;
+import com.civilization.neoforge.CivilizationItems;
 import com.civilization.neoforge.CivilizationMod;
 import com.civilization.neoforge.net.PersonInventoryPayload;
 import com.civilization.sim.culture.Race;
@@ -33,6 +34,7 @@ import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -205,6 +207,32 @@ public final class PersonEntity extends PathfinderMob {
     /** Which of that race's skins this body wears; see {@link #SKINS_PER_RACE}. */
     public int skin() {
         return entityData.get(DATA_SKIN) & 0xFF;
+    }
+
+    /**
+     * The egg a creative middle-click on this settler puts in your hand.
+     *
+     * <p>Vanilla answers this from {@code SpawnEggItem.byId}, which is keyed by
+     * <em>entity type</em>. There is one settler type for every race, so two eggs
+     * name it and the map hands back whichever one it happens to hold — an orc
+     * middle-clicked gave you a human egg as often as not, and the reverse.
+     *
+     * <p>One entity type is the design and stays the design: the race lives on the
+     * body ({@link #DATA_RACE}) rather than in the attribute table, which is what
+     * lets one type carry three kinds of person. So the body answers for itself.
+     * It is exactly the same question {@link #race()} already answers, and it is
+     * answered on the client, where the pick happens and where {@code DATA_RACE}
+     * has arrived with the spawn packet.
+     *
+     * <p>A race with no registered egg — the goblins, today — falls through to
+     * vanilla's lookup rather than to an empty hand: whatever that hands back is
+     * no worse than the behavior this method replaces, and an empty stack would
+     * read as a broken pick.
+     */
+    @Override
+    public ItemStack getPickResult() {
+        Item egg = CivilizationItems.eggFor(race());
+        return egg == null ? super.getPickResult() : new ItemStack(egg);
     }
 
     /**

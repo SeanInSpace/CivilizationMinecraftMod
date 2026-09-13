@@ -178,12 +178,14 @@ public final class CivilizationItems {
      * and no town in an ordinary world is of it, so the egg's only possible
      * answer today would be "no goblin settlement here to join".
      *
-     * <p>One known wrinkle in sharing a type: vanilla's {@code SpawnEggItem.byId}
-     * looks an egg up <em>by</em> entity type and takes any match, so creative
-     * middle-click on a settler may hand you either egg regardless of what he is.
-     * Left alone rather than worked around — the alternative is an entity type per
-     * race, which would put the race back in the attribute table the whole design
-     * takes it out of.
+     * <p>One wrinkle in sharing a type, now answered: vanilla's
+     * {@code SpawnEggItem.byId} looks an egg up <em>by</em> entity type and takes
+     * any match, so creative middle-click on a settler would hand you whichever
+     * of these two the map happened to hold — regardless of what he is. The
+     * answer is not an entity type per race, which would put the race back in the
+     * attribute table the whole design takes it out of: the body already knows
+     * its own race, so {@link com.civilization.neoforge.entity.PersonEntity#getPickResult}
+     * overrides the lookup and hands back {@link #eggFor} of that race.
      */
     public static final DeferredItem<Item> HUMAN_SPAWN_EGG = ITEMS.registerItem(
             "human_spawn_egg",
@@ -194,6 +196,22 @@ public final class CivilizationItems {
             "orc_spawn_egg",
             properties -> new PersonSpawnEggItem(Race.ORC, properties),
             () -> PersonSpawnEggItem.properties(Race.ORC));
+
+    /**
+     * The egg that recruits one race, or null if that race has no egg.
+     *
+     * <p>The goblins have none — see above — and a race added tomorrow will not
+     * have one until somebody registers it, so this is nullable rather than
+     * falling back to the human egg: handing a player the wrong egg is the fault
+     * being fixed here, and handing them none is honest.
+     */
+    public static Item eggFor(Race race) {
+        return switch (race) {
+            case HUMAN -> HUMAN_SPAWN_EGG.get();
+            case ORC -> ORC_SPAWN_EGG.get();
+            default -> null;
+        };
+    }
 
     /** The registered item of that name, or null if the armory has no such thing. */
     public static Item orcWeapon(String name) {

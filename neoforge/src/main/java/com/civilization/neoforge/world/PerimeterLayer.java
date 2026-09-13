@@ -125,6 +125,24 @@ public final class PerimeterLayer {
         int drawn = 0;
         int looked = 0;
         int i = start;
+        // Before the lap: the openings that have moved since the last sweep.
+        //
+        // This is the fault the wall report could not name. A gate follows the
+        // streets while the line is going up -- PerimeterPlanner.resiteGates,
+        // every twenty steps -- and a position inside a gate's three-wide opening
+        // has its post PULLED UP by drawGateway, because an opening is the point
+        // of a gate. When the gate then hops to the next junction, the columns it
+        // used to stand in are ordinary wall again with nothing in them, and the
+        // only thing that will ever put a post back is the cursor coming round,
+        // which is a whole lap away. Meanwhile /civ wall walks the ring and finds
+        // exactly what was reported: a handful of columns, never none and never
+        // many, laid and paid for, no post, nothing in the way, air at the
+        // footing. Half a per cent of a ring is about what a few gate hops
+        // leaves.
+        //
+        // So the posts a moved gate gave up are planted first, out of the same
+        // budget, before the lap gets to spend it elsewhere.
+        drawn += closeFormerOpenings(level, settlement, perimeter, limit);
         // Only ground somebody could actually draw on counts against the budget.
         // A ring is usually half out of sight -- 254 of 640 positions loaded on a
         // measured town -- and charging the scan for the arc nobody can see meant
@@ -144,6 +162,7 @@ public final class PerimeterLayer {
                 drawn += perimeter.isGateway(pos)
                         ? drawGateway(level, perimeter, pos)
                         : drawPost(level, settlement, pos, i);
+                noteWhatStands(level, settlement, perimeter, pos);
                 looked++;
             }
             examined++;
@@ -154,6 +173,149 @@ public final class PerimeterLayer {
         }
         CURSOR.put(settlement.id(), i);
     }
+
+    /**
+     * Plants the posts a gate gave up when it moved on.
+     *
+     * <p>Bounded by the openings themselves — nine columns to a gate at most, and
+     * only on a sweep whose gate list differs from the last one's, which while the
+     * wall is going up is one sweep in twenty and after it closes is never. The
+     * positions are found from the gates this settlement was last drawn with
+     * rather than from a mark on the ring, because it is the drawing that pulled
+     * the posts up and the drawing that owes them back.
+     *
+     * @return posts planted, which come out of the same budget as the lap's
+     */
+    private static int closeFormerOpenings(ServerLevel level, Settlement settlement,
+                                           Perimeter perimeter, int limit) {
+        List<SimPos> now = perimeter.gates();
+        List<SimPos> before = LAST_GATES.put(settlement.id(), List.copyOf(now));
+        if (before == null || before.equals(now)) {
+            return 0;
+        }
+        List<SimPos> ring = perimeter.ringPositions();
+        int planted = 0;
+        for (int i : formerOpenings(perimeter, before, limit)) {
+            SimPos pos = ring.get(i);
+            if (!level.isLoaded(new BlockPos(pos.x(), pos.y(), pos.z()))) {
+                continue;
+            }
+            planted += drawPost(level, settlement, pos, i);
+        }
+        return planted;
+    }
+
+    /**
+     * Which positions of the laid line were an opening and are wall again.
+     *
+     * <p>Pure, and package-private so a test can ask it: the whole of this fault
+     * is a question about two lists of gates and a ring, and none of it needs a
+     * world. The columns it names are the ones whose posts were pulled up for a
+     * gate that has since moved on.
+     */
+    static List<Integer> formerOpenings(Perimeter perimeter, List<SimPos> before, int limit) {
+        List<SimPos> ring = perimeter.ringPositions();
+        List<Integer> was = new java.util.ArrayList<>();
+        for (int i = 0; i < limit && i < ring.size(); i++) {
+            SimPos pos = ring.get(i);
+            if (!perimeter.isGateway(pos) && wasGateway(before, pos)) {
+                was.add(i);
+            }
+        }
+        return was;
+    }
+
+    /** Whether this position stood in one of those openings. */
+    private static boolean wasGateway(List<SimPos> gates, SimPos pos) {
+        for (SimPos gate : gates) {
+            if (Math.abs(pos.x() - gate.x()) <= Perimeter.GATE_HALF_WIDTH
+                    && Math.abs(pos.z() - gate.z()) <= Perimeter.GATE_HALF_WIDTH) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The gates each settlement's line was last drawn with. */
+    private static final java.util.Map<com.civilization.sim.settlement.Settlement.Id,
+            List<SimPos>> LAST_GATES = new java.util.HashMap<>();
+
+    /**
+     * What one position of the line reads as, once the drawing has been at it.
+     *
+     * <p>The instrument this fault needed. {@code /civ wall} could say that a
+     * handful of positions had no post in them and name the block standing in
+     * their place; what it could not say was whether the drawing had ever been to
+     * that column, and without that every explanation was a guess. A column the
+     * cursor has visited twice running and still not planted is a fault; one
+     * visited once is the sweep being somewhere else, which is not.
+     *
+     * @param visits how many consecutive visits by the drawing have left this
+     *               column without a post
+     */
+    public record Hole(SimPos at, int footingY, String footing, boolean growth,
+                       int visits) {
+
+        /**
+         * The whole verdict on one line, for a report or a log.
+         *
+         * <p>A recorded hole is by construction neither an opening nor a stretch
+         * shut by a building nor a column with no footing — those are the three
+         * answers that make a missing post right — so what is left to say is
+         * where it is, what the drawing found in the ground there, whether
+         * anything is growing across the line, and how many visits it has read
+         * that way.
+         */
+        public String describe() {
+            return at.x() + "," + at.z() + " footing y=" + footingY + " " + footing
+                    + (growth ? " growth-in-the-line" : "")
+                    + " on " + visits + " visit" + (visits == 1 ? "" : "s");
+        }
+    }
+
+    /**
+     * Records what the drawing left behind at this position, or forgets it.
+     *
+     * <p>Called at every position the lap actually looks at, after the drawing has
+     * had its go, so the answer is the state the column is in <em>with</em> the
+     * sweep's best effort already spent on it.
+     */
+    private static void noteWhatStands(ServerLevel level, Settlement settlement,
+                                       Perimeter perimeter, SimPos pos) {
+        java.util.Map<Long, Hole> holes =
+                HOLES.computeIfAbsent(settlement.id(), id -> new java.util.HashMap<>());
+        long column = ((long) pos.x() << 32) ^ (pos.z() & 0xffffffffL);
+        BlockPos ground = surface(level, pos);
+        boolean gateway = perimeter.isGateway(pos);
+        if (ground == null || gateway || postStands(level, ground)
+                || lineIsClosed(level, ground)) {
+            holes.remove(column);
+            return;
+        }
+        Hole was = holes.get(column);
+        holes.put(column, new Hole(pos, ground.getY(),
+                level.getBlockState(ground).getBlock().getName().getString(),
+                WallClearing.inTheWay(level, ground) != null,
+                was == null ? 1 : was.visits() + 1));
+    }
+
+    /**
+     * The positions of this settlement's line the drawing has been to and left
+     * empty, worst first.
+     *
+     * <p>Read by {@code /civ wall}. Empty for a town nobody has looked at, which
+     * is the honest answer: a hole nothing has visited is not yet a hole.
+     */
+    public static List<Hole> holesIn(Settlement settlement) {
+        List<Hole> holes = new java.util.ArrayList<>(
+                HOLES.getOrDefault(settlement.id(), java.util.Map.of()).values());
+        holes.sort((a, b) -> b.visits() - a.visits());
+        return holes;
+    }
+
+    /** Per settlement, by column: how the drawing last left each empty position. */
+    private static final java.util.Map<com.civilization.sim.settlement.Settlement.Id,
+            java.util.Map<Long, Hole>> HOLES = new java.util.HashMap<>();
 
     /**
      * Drops what the sweep remembers about a world that is closing.
@@ -170,6 +332,8 @@ public final class PerimeterLayer {
     public static void forget() {
         CURSOR.clear();
         LAST_DRAW.clear();
+        LAST_GATES.clear();
+        HOLES.clear();
     }
 
     /**
@@ -689,15 +853,13 @@ public final class PerimeterLayer {
      * onto one. So a position closed by a building is a position where the line
      * grazes a wall rather than crossing it.
      *
-     * <p>What is <em>not</em> claimed: the convex hull the concave loop starts
-     * from is not itself checked, and none of the three rules can repair a
-     * stretch that was across a plot before they were asked — they refuse moves,
-     * they do not undo them. Sixty random towns produce no such stretch and
-     * neither does the grown one in {@code WallRestakeTest}, so it is a gap in
-     * the proof rather than an observed fault. Which is exactly why this stays
-     * as a guard rather than being deleted: a report that calls a solid stretch
-     * a hole is a report nobody reads, and the day this count climbs is the day
-     * that gap has stopped being theoretical.
+     * <p>The gap that used to be admitted here is closed: the convex hull the
+     * concave loop starts from is checked too, and a leg found across a plot is
+     * repaired at any length rather than merely refused a move — see
+     * {@code Hull.concave}. What stays true is that this is a guard and not a
+     * measurement: a report that calls a solid stretch a hole is a report nobody
+     * reads, and the day this count climbs is the day something in the staking
+     * has stopped holding.
      *
      * <p>Two courses, because that is what a post is. A single step somebody can
      * stand on is not a wall, and half of one is a stile.

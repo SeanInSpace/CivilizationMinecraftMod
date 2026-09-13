@@ -71,20 +71,30 @@ public final class BuildingSizes {
     }
 
     /**
-     * How much ground one building covers, walls only.
+     * How much ground one building covers, walls only — and how much air over it.
      *
-     * <p>Both odd, always. Everything is drawn symmetrically about its origin,
-     * so an even span would put the origin off center and a quarter turn would
-     * move the building half a block.
+     * <p>Both spans odd, always. Everything is drawn symmetrically about its
+     * origin, so an even span would put the origin off center and a quarter turn
+     * would move the building half a block. The height is under no such rule: it
+     * is measured from the floor course, and there is no turn that moves a roof.
+     *
+     * <p><strong>The height is a ceiling, not an equality.</strong> Width and
+     * depth are exact — a plot is reserved from them and a building drawn a block
+     * wider stands in its neighbor's ground — but a roof's pitch is the culture's
+     * business: the same cottage comes out ten courses tall in the highlands and
+     * six in a goblin mire, off the same declared footprint. So this is the
+     * tallest any people draws the kind, and a shorter roof is not drift. That is
+     * exactly how {@code animal_farm}'s depth already works, for the same reason
+     * and with the same test shape behind it.
      */
-    public record Size(int width, int depth, Notch notch, int chamfer) {
+    public record Size(int width, int depth, int height, Notch notch, int chamfer) {
 
-        public Size(int width, int depth) {
-            this(width, depth, Notch.NONE, 0);
+        public Size(int width, int depth, int height) {
+            this(width, depth, height, Notch.NONE, 0);
         }
 
-        public Size(int width, int depth, Notch notch) {
-            this(width, depth, notch, 0);
+        public Size(int width, int depth, int height, Notch notch) {
+            this(width, depth, height, notch, 0);
         }
 
         /**
@@ -99,13 +109,17 @@ public final class BuildingSizes {
          * @param chamfer how far in from each corner the cut reaches, as a
          *                distance along the two axes together
          */
-        public static Size round(int width, int depth, int chamfer) {
-            return new Size(width, depth, Notch.NONE, chamfer);
+        public static Size round(int width, int depth, int height, int chamfer) {
+            return new Size(width, depth, height, Notch.NONE, chamfer);
         }
 
         public Size {
             if (width <= 0 || depth <= 0) {
                 throw new IllegalArgumentException("a building has to have a size");
+            }
+            if (height <= 0) {
+                throw new IllegalArgumentException(
+                        "a building stands at least one course tall: " + height);
             }
             if (width % 2 == 0 || depth % 2 == 0) {
                 throw new IllegalArgumentException(
@@ -184,6 +198,15 @@ public final class BuildingSizes {
      * the size of a building is the cheapest way there is of saying what it is
      * for: a hall is big because a hall is important, a watchtower is narrow
      * because it is tall, an inn has the widest roof on the street.
+     *
+     * <p>The third number is the height, and it was missing for a long time with
+     * one visible consequence: the surveyor's lamp drew every queued plot as a box
+     * six courses tall, because six is what a cottage happens to come out at and
+     * nothing else was declared. A watchtower's order read as a shed and a grand
+     * library's read as a shed, which is the one question a player carries the lamp
+     * up a hill to ask. Each figure below is measured — see
+     * {@code BlueprintPlacerSizeTest}, which draws all twenty-seven against every
+     * culture there is and holds this column to them.
      */
     private static final Map<String, Size> DRAWN = drawn();
 
@@ -193,22 +216,26 @@ public final class BuildingSizes {
         // The founding camp. Small on purpose: these are what four people with
         // nothing put up in their first week, and they are meant to be
         // outgrown.
-        table.put("camp_post", new Size(3, 3));
-        table.put("cache", new Size(3, 3));
-        table.put("hearth", new Size(5, 5));
-        table.put("bunkhouse", new Size(9, 7));
+        table.put("camp_post", new Size(3, 3, 4));
+        table.put("cache", new Size(3, 3, 4));
+        table.put("hearth", new Size(5, 5, 7));
+        table.put("bunkhouse", new Size(9, 7, 10));
 
         // Homes, smallest to largest. A settlement's housing is most of what
         // anybody sees of it, so this is where the variety has to be.
-        table.put("cottage", new Size(7, 7));
-        table.put("house", new Size(9, 9));
-        table.put("longhouse", new Size(13, 9));
+        //
+        // The heights here are the steepest roof any culture puts on them, which
+        // in every case is the highland one: the same cottage is ten courses in
+        // the hills and six in a mire. See Size, where the ceiling is argued.
+        table.put("cottage", new Size(7, 7, 10));
+        table.put("house", new Size(9, 9, 12));
+        table.put("longhouse", new Size(13, 9, 12));
         // The one L in the mod, and the reason the shape language exists. Six
         // blocks by four are cut out of the corner away from the door, so the
         // house wraps two sides of a yard that is still walkable ground rather
         // than a scraped pad -- which is the whole visible difference between a
         // notch that is declared and a notch that is merely drawn.
-        table.put("croft", new Size(13, 11, new Notch(6, 4, 1, -1)));
+        table.put("croft", new Size(13, 11, 12, new Notch(6, 4, 1, -1)));
 
         // The orc homes, and the only round buildings in the mod. Seven across
         // with two blocks off each corner gives a ring of 3-5-7-7-7-5-3, which
@@ -221,38 +248,49 @@ public final class BuildingSizes {
         // off each corner keeps it as round as the small one -- a chamfer is a
         // count of blocks, so holding it at two on a building twice the size
         // would have made a square with the corners nipped.
-        table.put("hut", Size.round(7, 7, 2));
-        table.put("great_hut", Size.round(13, 13, 3));
+        table.put("hut", Size.round(7, 7, 8, 2));
+        table.put("great_hut", Size.round(13, 13, 13, 3));
 
         // Trades. Seven is a workshop with room to swing in; nine is a trade
         // with stock to keep.
-        table.put("mill", new Size(7, 7));
-        table.put("carpentry", new Size(7, 7));
-        table.put("lumber_camp", new Size(7, 7));
-        table.put("mine", new Size(7, 7));
-        table.put("granary", new Size(7, 7));
-        table.put("smith", new Size(9, 7));
-        table.put("storehouse", new Size(9, 7));
-        table.put("workshop", new Size(9, 7));
+        //
+        // The mill is the tall one of these by five courses, because the sails
+        // are the building: a mill that read as a shed on the lamp was the plan
+        // telling a player nothing about the skyline it was promising.
+        table.put("mill", new Size(7, 7, 13));
+        table.put("carpentry", new Size(7, 7, 10));
+        table.put("lumber_camp", new Size(7, 7, 8));
+        table.put("mine", new Size(7, 7, 8));
+        table.put("granary", new Size(7, 7, 10));
+        table.put("smith", new Size(9, 7, 12));
+        table.put("storehouse", new Size(9, 7, 10));
+        table.put("workshop", new Size(9, 7, 10));
 
         // Civic. These are the buildings a town is read by from the air.
-        table.put("market", new Size(9, 9));
-        table.put("inn", new Size(11, 9));
-        table.put("warehouse", new Size(11, 9));
-        table.put("town_hall", new Size(13, 11));
-        table.put("library", new Size(23, 17));
+        //
+        // The market is four courses -- a square with stalls round it, and no
+        // roof over the middle at all -- which makes it the flattest thing in
+        // the town and the clearest case for declaring a height rather than
+        // guessing at six.
+        table.put("market", new Size(9, 9, 4));
+        table.put("inn", new Size(11, 9, 14));
+        table.put("warehouse", new Size(11, 9, 15));
+        table.put("town_hall", new Size(13, 11, 17));
+        table.put("library", new Size(23, 17, 13));
         // The largest thing a settlement ever builds, and the one that has to be
         // asked for twice: a grand library is only wanted once an ordinary
         // library stands. Thirty-one by twenty-five claims thirty-three blocks
         // of ground, which is three of the plan's own frontages — so it is the
         // hardest case there is for the siting loop, and that is deliberate.
         // Anything that fits this fits everything.
-        table.put("grand_library", new Size(31, 25));
+        table.put("grand_library", new Size(31, 25, 21));
 
-        // Odd shapes, which are their own footprint and not a cabin.
-        table.put("watchtower", new Size(5, 5));
-        table.put("farm", new Size(11, 11));
-        table.put("animal_farm", new Size(9, 17));
+        // Odd shapes, which are their own footprint and not a cabin. And the two
+        // extremes of the height column: a watchtower is fifteen courses on five
+        // of ground, and a field is three on eleven.
+        table.put("watchtower", new Size(5, 5, 15));
+        table.put("farm", new Size(11, 11, 3));
+        table.put("animal_farm", new Size(9, 17, 4));
 
         return Map.copyOf(table);
     }
@@ -289,6 +327,32 @@ public final class BuildingSizes {
     /** What is drawn for this blueprint, or null if nothing here draws it. */
     public static Size of(String blueprintId) {
         return DRAWN.get(pathOf(blueprintId));
+    }
+
+    /**
+     * How tall a building nobody has a size for is assumed to be: six courses.
+     *
+     * <p>The sibling of {@link BuildPlanner#DEFAULT_PLOT_SPAN}, and it is here for
+     * the same reason: a datapack's blueprint, or a save holding an id this build
+     * has never heard of, still has to be drawn as something. Six is what an
+     * ordinary cottage came out at, which is why it was the figure the surveyor's
+     * lamp used for <em>every</em> plot before the column above existed.
+     */
+    public static final int DEFAULT_HEIGHT = 6;
+
+    /**
+     * How much air this building stands in: its declared height, or
+     * {@link #DEFAULT_HEIGHT} for a kind this table has never heard of.
+     *
+     * <p>A ceiling rather than an exact figure — see {@link Size} — so what reads
+     * this is reserving or drawing room for the tallest the kind gets, never
+     * asserting a roof is at that course. Anything that needs the exact height of
+     * a building that <em>stands</em> has one: {@code Footprint} carries what was
+     * measured when it was drawn.
+     */
+    public static int heightOf(String blueprintId) {
+        Size size = of(blueprintId);
+        return size == null ? DEFAULT_HEIGHT : size.height();
     }
 
     /**

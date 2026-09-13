@@ -72,6 +72,287 @@ messages carry the reasoning and the measurements.
   arrives with no lane, on a plot the town has itself ordered — the road keepout
   refusing a door instead of a wall, which is a fault already on the list.
 
+## The wall gives back the posts it takes, and a ruin stops hiding behind a note
+
+### Fixed
+
+- **The gate stops leaving a hole where it used to be.** A gateway is three
+  positions wide and the two beside its middle are an opening, so the drawing
+  pulls up any post standing in them — and the gates follow the streets while the
+  wall is going up, hopping to the next junction every twenty steps. The columns
+  the gate used to stand in were ordinary wall again with nothing in them, and the
+  only thing that would ever put a post back was the sweep's cursor coming round a
+  whole lap later. That is the "one wall post in 986 will not go up": a handful of
+  columns, never none and never many, laid and paid for, no post, nothing in the
+  way, air at the footing. A gate that moves now hands the posts back on the very
+  next sweep, out of the same budget.
+
+- **`/civ wall` says whether the drawing has actually been there.** The report
+  could count the positions with no post and name the block standing in each; what
+  it could not say was whether the sweep had ever visited that column, and without
+  that every explanation of the count was a guess — five of them, all wrong. It
+  now lists each column the drawing has been to and left empty, with the footing
+  it found, what is in the ground there, whether anything is growing across the
+  line, and how many consecutive visits have read it that way. One visit is a
+  sweep that was somewhere else. Two is a fault.
+
+- **A building drawn and destroyed inside one minute is written off.** The town may
+  not call a building demolished unless something saw it standing, and that mark
+  was only ever taken by the auditor's own sweep, once a minute. So a cottage drawn
+  as a player walked into town and blown up half a minute later was never recorded
+  standing, the reading of the wreck became its own high-water mark, and the ruin
+  stayed on the books for the rest of the world's life. The mark is taken where the
+  structure is drawn now, at both fidelities — the whole-structure stamp and the
+  last block a crew lays by hand. What is recorded is the share actually measured,
+  never a presumed hundred, so a field, a pen and a platform are still exempt from
+  a check about walls they never had.
+
+- **A kingdom of two towns can write off a building the world never drew.** The
+  "recorded here, but nothing stands" rule wants two sweeps running before it
+  complains, and the record of what was undrawn last time was one set for the whole
+  world, cleared and refilled by every town's sweep. With two settlements the
+  second wiped the first's evidence and neither ever reached two. It was not
+  weakened, it was inert, and it had been inert in every kingdom that ever
+  expanded. The record is per settlement.
+
+- **A booked repair stops shielding a ruin nobody is working on.** The auditor
+  spares a building with a repair on the books, and the queue is worked from the
+  front: a more urgent job can push the repair off the head, and a stalled head
+  then shielded the ruin indefinitely. A repair shields its building while it is at
+  the head of the queue, or while it has actually moved in the last hundred steps
+  — about two minutes, and longer than the gap between two sweeps, so a crew
+  genuinely laying blocks never loses the shield between them. Otherwise the shell
+  is written off, and writing it off cancels the repair booked on it, so the stall
+  goes with it.
+
+- **The wall is no longer staked across ground the town has already ordered.** The
+  concave hull starts from the convex hull and only ever split a leg that was too
+  long, so a plot lying under a short starting leg was crossed with nothing able to
+  correct it — every other keepout rule refuses a *move* across a plot and none of
+  them repairs a crossing that was there first. A crossed leg is now repaired at
+  any length: by digging in to a point the town owns where there is one, and
+  otherwise by bulging the line out round the plot's own corners, which is the
+  repair a dig-in cannot make at all for ordered ground — an order is a keepout and
+  deliberately not a point the ring must enclose, so it offers no corner to dig in
+  to. Measured over the grown fixtures: **36 plots with a post inside them fell to
+  1**, and that one is ordered ground rather than a standing building. It costs nothing: the staking of a town
+  of two hundred measured 216 ms before and 212 ms after, and the hull itself 6 ms
+  of that, because a leg's answer about the plots is now remembered between passes
+  and a plot whose box the leg never enters is settled by four comparisons.
+
+- **A building is not sited on the posts of the wall the town has just replaced.**
+  Siting asked the standing ring and nothing else, so a settlement that had moved
+  its line would put a house straight onto the old one's raised posts. What is
+  refused is the part of the old line that physically still stands — the retired
+  loop from the point the demolition has pulled up to — so the band narrows as the
+  posts come out and is gone the moment the last one does. Refusing the whole
+  retired loop instead would sterilize a strip through the middle of a town for as
+  long as the demolition takes, which on an unloaded stretch is for ever. Measured
+  over the grown fixtures: **347 buildings standing on a retired line's posts fell
+  to 23**.
+
+- **A plot the town gave up on is not offered again.** Found by the wall work
+  rather than looked for: two tests about plot cursors went red when the shape of a
+  wall changed, and the reason was that "the plot is burned" meant "the cursor
+  moves on one slot" — and the cursor is left at the first *free* slot a search
+  saw, not at the one it took, so a plot chosen from further along the ring sat
+  ahead of the cursor still and came round again on the very next step. What kept
+  the promise was an incidental palisade refusing that ground. The town now
+  remembers the last sixty-four plots it has given up on, by column, and will not
+  be offered them again; the memory is not saved, because it describes what the
+  builders found in the ground this session and a reload has gone back to look.
+
+### Notes
+
+- The fixtures behind those two numbers are the grown towns the wall work has
+  always been measured on — every arrangement on eight sandbox seeds and on the
+  recorded ground of seed 8675309, 126 towns of about 84 buildings each, grown
+  1400 steps so that a wall has time to be moved once. The probe that grows them
+  is `common/src/test/java/com/civilization/sim/WallProbe.java`, which is a
+  `main` rather than a test on purpose: it takes four and a half minutes and the
+  suite should not pay for that. The cheap regression detectors for the same
+  faults are in `HullTest`, `WallRestakeTest` and `PerimeterLayerPlanTest`.
+- The residual 23 buildings on retired posts are ones that predate the re-staking
+  — the old line was staked around them — rather than ground the siting has just
+  chosen. In the simulation nothing ever sweeps a post up, so that count is the
+  pessimistic reading; in a world the band lifts as the demolition works round.
+
+## The report stops contradicting itself, and the clock is saved
+
+### Fixed
+
+- **The report gives one guard count, and says what "defense" is made of.** The
+  same `/civ info` block used to read "jobs: guard x6" and then "defense 15
+  (guards x2 + structures)", where the 2 is what one guard is *worth* and not how
+  many there are — so the town appeared to disagree with itself about its own
+  watch four lines apart. The defense figure is written out as its own arithmetic
+  now: "defense 15 = 6 guards x 2 + structures 3", with the king as his own term
+  when somebody is crowned. The garrison line names the crown's share of the
+  strength too, so it agrees with the jobs line instead of reading one higher for
+  no visible reason. The town map's watch panel says both in the same words, out
+  of the same two functions.
+
+- **"equipped 0/17" is "tools 0/17".** It counts who has been issued a tool off
+  the smith's rack and has never had anything to do with weapons — but read as
+  "equipped", it said a town of seventeen was going into a raid unarmed. Nothing
+  about the count changed; it is now called what it counts. Same rename on the
+  town map's payload.
+
+- **`/civ info` is headed "=== Civilization"**, not "=== Kingdoms". That was the
+  last user-facing survival of the mod's old name; the remaining uses of the word
+  are the domain word for a realm, which is correct, and one internal save key.
+
+- **A town does not use the same name twice.** Every namer derived a name from a
+  count — the population, the number of households, the size of a family — and
+  every one of those counts falls when somebody dies or a family dies out. So each
+  came back round to a number it had already used and handed out the name it had
+  handed out there: "Bren Smith" was born, buried, and born again, and three
+  unrelated families were all "the Turners" at once. A name is now the first one
+  from the pool that nothing living in the town is already using, and a person's
+  search starts at the simulation step — which only goes up — rather than at a
+  count of people, which does not.
+
+- **Every people has forty given names and thirty family names of its own, in its
+  own idiom.** They had eight of each, shared: a Norman, a burgher and a hill
+  family drew from one list, and a goblin warren had families called Baker and
+  Cooper. Now the Normans have the feudal trades, the hill folk the ground they
+  graze, the burghers the guild and the counting house, the vale folk the work of
+  the green — and the orcs and goblins share not one name with any of them. A
+  refusing policy needs somewhere to fall through to, which is why the widening
+  and the refusing are one change.
+
+- **A newcomer taken in by a family takes the family's name.** An arrival used to
+  keep whichever surname they turned up with, so the Coopers held a Palfreyman and
+  the report listed a family whose members were not of it. Their given name
+  survives. The same now holds for anybody who moves house: a couple leaving the
+  bunks and a child setting up on their own take the name of the household they
+  found. A name the simulation did not choose — a hand-named settler — is never
+  overwritten.
+
+- **A family's growth no longer reads past its own cap.** "growth 45/24" was two
+  faults in one line. The report printed the base birth rate while the gate used
+  the rate stretched by how crowded the town is — forty-eight on a town of
+  seventeen — so a family nine-tenths of the way there read as twice over. And
+  because the stretched rate *falls* when the population does, seventeen deaths in
+  one night left every waiting family banked above a threshold that had dropped
+  under it. The report asks the same function the gate asks, and banked progress
+  is held at the line from above as well as from below.
+
+- **The night line always says something at night.** "N asleep, M could not reach
+  a bed" went silent whenever both counts were zero — which is exactly the state
+  worth reading about, and is the state a night of monsters produces: anything
+  hostile inside notice turns a settler out of bed and keeps them out, so nobody
+  is asleep and nobody is trying, and the line vanished. Through the whole night of
+  2026-09-12 the report said nothing about beds while a settler was photographed
+  asleep in a bunkhouse. It now reads "nobody in bed — 13 awake (9 with something
+  inside notice)", or says that the town has no bodies in the world at all, so
+  silence means one thing only: it is not night.
+
+- **The simulation's clock survives a reload.** `SimWorld.stepsElapsed` restarted
+  at zero every session while four durable things carried step numbers out of the
+  save file — the wall's stake, each building's completion step, the town's
+  founding step and the raid schedule. Every one of them was a date in the future
+  on load. A wall could never be moved again in a world that had ever been
+  reloaded (the cooldown had a workaround for it, which is now a fallback for old
+  saves), and a reloaded town came back aged zero and therefore inside its
+  founding grace against raids all over again. The counter is written and restored,
+  and `/civ step` records it too.
+
+- **The four survey fixtures carry the current culture ids.** They recorded
+  `kingdoms:norman` and `kingdoms:highland`, which no culture has been called
+  since the rename; they now read `civilization:human/norman` and
+  `civilization:human/highland`. Nothing measured in them changed — the recorded
+  layout is still one that people builds — so all four were rewritten and none
+  deleted.
+
+### Notes
+
+- Save compatibility is waived, so the save gained a key rather than a migration:
+  `steps_elapsed` at the top of each dimension's kingdom data. It is optional and
+  reads as zero when absent, which is what a world written before this loaded with
+  anyway. The town map payload's `Watch` gained a `guardHeads` field and `Folk`
+  renamed `equipped` to `withTools`; both are per-session network shapes and carry
+  no save format with them.
+
+- A dead settler's name is free for the town to use again eventually, deliberately:
+  a village that could never reuse a great-grandmother's name would exhaust its own
+  language. What is refused is a name a *living* resident bears, and the step-based
+  search means the pool is walked through before anything comes round again.
+
+## The fields keep working in a famine, and the board fits on the screen
+
+### Fixed
+
+- **A watched town's fields no longer empty during a famine.** The simulation's
+  rule has always been that the weakness rule is suspended while a town is
+  starving — weak hands go on farming, because the field is the thing that ends
+  the famine — and that somebody with no meal within reach keeps working, because
+  a starving idler is worse off than a starving worker. The watched loop did not
+  know either of those: it asked the plain personal question "is this person too
+  weak to work" in ten places, so the moment a town you were standing in went
+  hungry its farmers, lumberjacks, miners, shepherds, builders, wall crew and
+  haulers all downed tools while an identical town nobody was watching carried on.
+  All ten now ask the town's question, and each pass asks it once so a harvest
+  that lifts the famine part-way through cannot leave the fields and the haulers
+  disagreeing about who counts as a worker. Waking up is deliberately still
+  personal: hunger that bad gets you out of bed whether or not the granary is
+  empty.
+
+- **The quest board has a bottom edge.** Notices were stacked downward from the
+  header for as long as the board was, so the panel's height was the town's
+  business rather than the screen's: past five asks it ran off a 720p window at
+  GUI scale 3, and at twelve the header was off the top and the footer — with the
+  only button that changes face on it — off the bottom. The list is a bounded
+  viewport now: as many notices as the screen holds, the wheel scrolls one at a
+  time, and a slim bar in the right margin says where in the list you are. The
+  board's "done" face scrolls the same way at its own row height.
+
+- **A digger no longer levels the lumber camp's own post.** The camp's marker was
+  the one building post in the mod that was not a `BuildingPostBlock`, so nothing
+  recognized it as a post: it was not laid first at the site — where a post is the
+  flag on the plot, the thing you walk up to and read while the job is still a
+  hole — and its cell was not withheld from the excavation, so the crew clearing
+  the ground took the sign down. The camp's controls are unchanged; the block is
+  in the hierarchy now, and the test that pins the post table refuses anything
+  else that is not.
+
+- **Middle-clicking a settler in creative gives you that settler's egg.** There is
+  one settler entity type for every race, and vanilla looks a spawn egg up by
+  entity type — so both eggs matched and you got whichever one the map held,
+  regardless of whether you clicked a human or an orc. The body knows its own
+  race, so it answers for itself. Still one entity type: a type per race would
+  put the race back in the attribute table the whole design takes it out of.
+
+- **A planned plot is drawn the height the building will actually be.** The
+  surveyor's lamp drew every queued order as a box six courses tall, because six
+  is what a cottage happens to come out at and no height was declared anywhere.
+  A watchtower's order read as a shed, a grand library's read as a shed, and a
+  field's read as three times what it is — which is the one question you carry the
+  lamp up a hill to ask. Every kind declares a height now, measured off what the
+  placer actually draws and pinned against all twenty-seven of them in every
+  culture there is. The box is still redrawn at the exact measured height the
+  moment the building goes up.
+
+- **An authored blueprint is measured against the ground reserved for it, and
+  stands in the middle of it.** Two faults, one of them silent. A file's height was
+  never compared with anything, and now that a height is declared it is: a file
+  taller than its kind's ceiling is refused by name, because the site is only
+  cleared to the declared height and the rest of that building would be inside the
+  hillside. And a file naming a cell other than its own middle as its anchor was
+  laid with that cell on the plot — while the town recorded the building centered,
+  so every overlap check about it was wrong by the offset, in the direction of
+  believing the ground it was actually standing in was free. A building stands
+  centered on its plot; the anchor is reported rather than obeyed, so an author is
+  told the cell they named did nothing instead of finding out from a cottage built
+  through their wall.
+
+### Notes
+
+- Nothing ships an authored blueprint, so the anchor fault was a datapack's way of
+  making two structures overlap rather than something a player could hit. It is
+  fixed anyway, because the check that would have caught it in play was the same
+  check being extended for the height.
+
 ## Nobody starves in front of the bread
 
 ### Changed
