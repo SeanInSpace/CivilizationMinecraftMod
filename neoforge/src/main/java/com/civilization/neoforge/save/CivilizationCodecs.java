@@ -712,13 +712,14 @@ public final class CivilizationCodecs {
      */
     private record Works(List<BuildTask> buildQueue, List<Building> buildings, int nextPlot,
                          Optional<PathNetwork> paths, Optional<WorkArea> lumberArea,
-                         Optional<WorkArea> mineArea) {
+                         Optional<WorkArea> mineArea, int lightsRaised, int interiorCleared) {
         static Works of(Settlement s) {
             return new Works(s.buildQueue(), s.buildings(), s.nextPlotIndex(),
                     s.paths().isEmpty() && s.paths().joined().isEmpty()
                             ? Optional.empty() : Optional.of(s.paths()),
                     Optional.ofNullable(s.lumberArea()),
-                    Optional.ofNullable(s.mineArea()));
+                    Optional.ofNullable(s.mineArea()),
+                    s.lightsRaised(), s.interiorCleared());
         }
     }
 
@@ -731,7 +732,19 @@ public final class CivilizationCodecs {
             Codec.INT.fieldOf("next_plot").forGetter(Works::nextPlot),
             PATH_NETWORK.optionalFieldOf("paths").forGetter(Works::paths),
             WORK_AREA.optionalFieldOf("lumber_area").forGetter(Works::lumberArea),
-            WORK_AREA.optionalFieldOf("mine_area").forGetter(Works::mineArea)
+            WORK_AREA.optionalFieldOf("mine_area").forGetter(Works::mineArea),
+            // How far the two newest public works have got. Both are indexes into
+            // a list derived from the town's own shape rather than lists of
+            // positions -- see LightPlanner and InteriorClearing -- so what has to
+            // be written down is one number each, exactly as the perimeter writes
+            // down how many posts it has laid.
+            //
+            // Absent reads as nought, which is right for a town saved before
+            // either work existed: it has raised no lamps and cleared no ground,
+            // and will start doing both on its next step.
+            Codec.INT.optionalFieldOf("lights_raised", 0).forGetter(Works::lightsRaised),
+            Codec.INT.optionalFieldOf("interior_cleared", 0)
+                    .forGetter(Works::interiorCleared)
     ).apply(i, Works::new));
 
     /**
@@ -795,6 +808,8 @@ public final class CivilizationCodecs {
         works.paths().ifPresent(settlement::setPaths);
         works.lumberArea().ifPresent(settlement::setLumberArea);
         works.mineArea().ifPresent(settlement::setMineArea);
+        settlement.setLightsRaised(works.lightsRaised());
+        settlement.setInteriorCleared(works.interiorCleared());
         residents.forEach(settlement::addResident);
         works.buildQueue().forEach(settlement::enqueueBuild);
         works.buildings().forEach(settlement::addBuilding);

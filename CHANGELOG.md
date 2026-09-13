@@ -6,6 +6,97 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A watched town survives the night
+
+One Normal-difficulty night in Millbrook — a burgher town of seventeen in a
+forest, seed 8675309 — killed all seventeen of them: a creeper, seven zombies,
+two skeletons and four spiders, at unlit outlying fields and houses a hundred and
+thirty to a hundred and sixty-five blocks from the middle and on the unlit ring
+road. The guards killed thirteen, which is a watch that works. The forest inside
+the ring roads stood untouched, the farm lanterns were the only light in the
+claim, and people were still outdoors at dusk walking home through dark woods.
+Four things were wrong and all four are fixed.
+
+### Added
+
+- **A town lights its streets, in its own people's idiom.** Street lighting is a
+  public work now, like the roads and the wall: a lamp every eight blocks along
+  every opened street on alternating verges, one at every junction, one beside
+  every door, and one on each corner of every field. A builder carries the
+  standard out of the storehouse and plants it where somebody is watching; the
+  clock raises it where nobody is; a missing lamp is a repair, and a town with
+  nobody left in it does not make repairs. The Normans hang a lantern on an oak
+  post, the hill folk a torch on a spruce one, the burghers a lantern on a masoned
+  stone post, the vale folk a torch on oak, the orc warhost a soul lantern that
+  lights its roads blue, and the mire goblins a torch jammed on a bamboo stick.
+  The cost is real and comes out of the town's own shelves: a plank or a block of
+  stone for the standard, and a plank for a torch or a bar of iron for a lantern.
+  There is no new ledger for it — a torch is timber and a lantern is iron, and
+  adding a `lights` column to every store, codec and report to say the same thing
+  less clearly was considered and dropped. The coal a torch is half made of is not
+  charged, because nothing in this simulation has ever counted coal.
+
+- **Everybody is home before dark, and the far fields leave first.** There is a
+  dusk curfew: 1,500 ticks before nightfall the town stops handing out work, and
+  each person's own departure is timed off their own distance home at a walking
+  pace — the miller over the road works until ninety ticks before dusk and the
+  forester on the far belt set off eight minutes ago, and both are indoors when
+  the light goes. Somebody with no house of their own walks to the bunkhouse, and
+  failing that to the nearest standing door. Guards are exempt. At dawn everybody
+  goes back out; anyone already indoors stays in.
+
+- **Guards walk a beat at night instead of standing on the wall.** The ring is
+  where something coming *at* a town arrives, which is the right place to be in
+  daylight. After dark a town is not being approached — it is spawning inside
+  itself — so each guard walks a loop of the nearest opened streets, and two
+  guards take opposite halves of it rather than pacing each other down one lane.
+  The beat never leaves the claim: the one guard who died in the measurement died
+  in the outlying dark. Nothing about how a guard fights changed.
+
+- **A town clears the wood inside its own streets.** The trees between a village's
+  lanes are a canopy, a canopy is a roof, and a roof is darkness at noon in the
+  middle of town — which is where four spiders and seven zombies came from. So the
+  ground inside the hull of the opened streets is cleared as the town grows, a
+  cell of eight blocks square at a time, as the slowest of the public works. Only
+  trunks; their leaves decay by themselves, as they always have. Ground cover
+  stays, because a village on scraped dirt reads as a building site. The
+  forester's belt and every plot are spared, and both are asserted rather than
+  assumed.
+
+### Changed
+
+- **The unwatched clock keeps the same hours a watched town does.** A watched
+  town's farmers, foresters and miners have always been sent indoors at dusk,
+  while the clock that runs a town nobody is standing in worked straight through
+  the night — so a town you were standing in was quietly losing to one you had
+  walked away from, which is a reason to put the game down. The outdoor trades now
+  stop for the curfew and the night whoever is watching. Measured over a thousand
+  unwatched steps on a founding party of four in a wood (four days and a sixth):
+  before, a population of 7 with 15 buildings, 1,273 logs felled and 922 food;
+  after, a population of 7 with 11 buildings, 320 logs felled and 707 food. The
+  town is smaller and it is not starving, so it ships. Food and hauls are
+  deliberately *not* idled: the food pass is also how a town eats and what
+  starvation is measured against, and an errand already on the road has to be
+  allowed to arrive. The new works keep the same hours for the same reason: nobody
+  raises a lamp post or fells a tree in the dark, whoever is watching.
+
+- **The paving leads and the lighting follows it.** A lamp stands on the verge of
+  an opened street, so a town still walking out its network is a town whose
+  lighting plan is still moving. Putting the lighting above the roads was tried
+  first, on the strength of the casualty list, and it starved the very streets it
+  feeds on — a village paved twenty-eight of its fifty-eight stretches in three
+  hundred steps instead of all of them, because the lighting of a growing town is
+  never finished and held the one spare hand for ever.
+
+### Fixed
+
+- **A lantern is no longer counted as part of a house.** The census that decides
+  whether a building has been demolished counts solid blocks inside its footprint,
+  and a lamp standing in one would have the town go on sparing a crater because
+  there was a light in it. Lamps are never planned inside a footprint in the first
+  place; this is the second lock, of the kind the wall needed after it spent a
+  playtest counting a hundred and eighty-one tree trunks as palisade.
+
 ## Goblins exist, and they are in the swamp taking your things
 
 ### Added

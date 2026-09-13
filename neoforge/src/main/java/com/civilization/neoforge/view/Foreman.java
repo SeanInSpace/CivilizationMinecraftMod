@@ -5,6 +5,8 @@ import com.civilization.neoforge.entity.PersonEntity;
 import com.civilization.neoforge.world.Bridge;
 import com.civilization.neoforge.world.Felling;
 import com.civilization.neoforge.world.HandDig;
+import com.civilization.neoforge.world.LightLayer;
+import com.civilization.neoforge.world.Woodcut;
 import com.civilization.neoforge.world.PathLayer;
 import com.civilization.neoforge.world.PerimeterLayer;
 import com.civilization.neoforge.world.WallClearing;
@@ -113,6 +115,10 @@ public final class Foreman {
             }
             if (work instanceof PublicWorks.DismantleWork
                     && crossOffWhatIsAlreadyDown(level, settlement, work)) {
+                return work;
+            }
+            if (work instanceof PublicWorks.ClearingWork
+                    && crossOffOpenGround(level, settlement, work)) {
                 return work;
             }
             // Materials do not appear in a builder's hands. A fence post is a
@@ -277,6 +283,45 @@ public final class Foreman {
     private static final int CROSS_OFF_AT_ONCE = 64;
 
     /**
+     * Walks the crew's count past cells of the clearing that are already open
+     * ground.
+     *
+     * <p>Most of a town's interior is not wood. The streets, the yards, the square,
+     * the ground a house was demolished off: all of it is a cell of the clearing
+     * with nothing standing in it, and walking a builder across the village to look
+     * at each one in turn would be a crew that clears one tree an hour. Crossed off
+     * where they stand instead, which costs a scan of a cell and is exactly what the
+     * retired wall line already does.
+     *
+     * <p>Bounded per pass, and bounded harder than the wall's is: a cell is
+     * sixty-four columns of heightmap rather than one, so eight of them a pass is
+     * about the same work as sixty-four positions of line.
+     *
+     * @return whether anything was crossed off, in which case the crew's hands are
+     *         on the clearing even though no tree came down
+     */
+    private static boolean crossOffOpenGround(ServerLevel level, Settlement settlement,
+                                              Worksite work) {
+        int crossed = 0;
+        while (crossed < CELLS_CROSSED_AT_ONCE) {
+            SimPos cell = work.nextStation(settlement);
+            if (cell == null) {
+                break;
+            }
+            BlockPos at = new BlockPos(cell.x(), cell.y(), cell.z());
+            if (!level.isLoaded(at) || Woodcut.anythingStandingIn(level, settlement, cell)) {
+                break;   // unread ground, or a tree that is a job for somebody
+            }
+            work.completeOne(settlement, false);
+            crossed++;
+        }
+        return crossed > 0;
+    }
+
+    /** Cells of open ground crossed off in one pass. */
+    private static final int CELLS_CROSSED_AT_ONCE = 8;
+
+    /**
      * The platform half of a public work: what a swing at a station actually does.
      *
      * <p>{@link Worksite} says where the next job is, what it costs and how to
@@ -302,7 +347,44 @@ public final class Foreman {
         if (work instanceof PublicWorks.RoadWork road) {
             return new Swing(paveOne(level, settlement, carrier, road), true);
         }
+        if (work instanceof PublicWorks.LightWork) {
+            return raiseLamp(level, settlement, station);
+        }
+        if (work instanceof PublicWorks.ClearingWork) {
+            Woodcut.Swing cut = Woodcut.fellOneIn(level, settlement, carrier, station);
+            return new Swing(cut.done(), cut.worked());
+        }
         return new Swing(true, true);
+    }
+
+    /**
+     * One block of a street lamp, planted by hand.
+     *
+     * <p>The wall's {@link #plantPost} in every particular, which is the point of
+     * both of them going through {@link Worksite}: a course at a time, read off the
+     * ground rather than counted, so a standard interrupted halfway is resumed at
+     * the course that is missing. See {@code LightLayer}.
+     *
+     * @return whether nothing more is owed at this verge, and whether a block
+     *         actually went into the ground for it
+     */
+    private static Swing raiseLamp(ServerLevel level, Settlement settlement,
+                                   SimPos station) {
+        List<LightLayer.Course> plan =
+                LightLayer.planAt(level, settlement, settlement.lightsRaised());
+        LightLayer.Course owed = LightLayer.owed(level, plan);
+        if (owed == null) {
+            // The lamp stands, or the ground would not answer. Either way there
+            // was nothing to do and nothing was spent doing it.
+            return new Swing(true, false);
+        }
+        if (!LightLayer.layByHand(level, owed)) {
+            // A course the column refuses is a course nothing can lay -- the verge
+            // turns out to be a wall, or water. Standing here swinging at it for
+            // ever is the one outcome that helps nobody.
+            return new Swing(true, false);
+        }
+        return new Swing(LightLayer.owed(level, plan) == null, true);
     }
 
     // --- roads ---
@@ -607,6 +689,22 @@ public final class Foreman {
      */
     private static boolean isUntouched(ServerLevel level, Settlement settlement,
                                        Worksite work) {
+        if (work instanceof PublicWorks.LightWork) {
+            // The same question and the same reason: a builder who arrives to find
+            // the standard half up is finishing a lamp the town has already paid
+            // the light for, and charging again would take two lanterns off the
+            // shelves for one lamp post. Asked of the column rather than of the
+            // plan, because a lamp's position is derived from a town that grows
+            // under it -- an infill house shifts every index past it by one, so the
+            // lamp a builder is sent to may be one that is already standing.
+            List<com.civilization.sim.work.LightPlanner.Lamp> lamps =
+                    com.civilization.sim.work.LightPlanner.lamps(settlement);
+            int raised = settlement.lightsRaised();
+            if (raised < 0 || raised >= lamps.size()) {
+                return false;
+            }
+            return !LightLayer.oursStandsAt(level, settlement, lamps.get(raised).at());
+        }
         if (!(work instanceof PublicWorks.WallWork)) {
             return true;   // nothing else has a part-done state to find
         }

@@ -17,9 +17,12 @@ import java.util.List;
 /**
  * Every public work a settlement currently has, in the order it cares about them.
  *
- * <p>Three so far — the line the wall replaced, the wall, and the roads — and
- * the point of the list is that a fourth is an entry here rather than a new
- * worker, a new tick pass and a new set of rules about who is free to build it.
+ * <p>Five so far — the line the wall replaced, the street lighting, the wall,
+ * the roads, and the wood inside them — and the point of the list is that a sixth
+ * is an entry here rather than a new worker, a new tick pass and a new set of
+ * rules about who is free to build it. Two of the five were added in one
+ * afternoon, on the strength of one night's casualty list, and neither needed a
+ * line of new machinery to be built by hand or by the clock.
  *
  * <p>The order is the priority, and it is the only priority there is. All of it
  * comes after the build queue, which the foreman checks before it asks this at
@@ -49,12 +52,36 @@ public final class PublicWorks {
      * pulled up is a swing and half a plank back on the shelf — and while it
      * stands there are two walls round one town, which is the fence line through
      * the middle of a settlement that the whole concave-hull argument was about.
+     *
+     * <p><strong>The lighting comes after the roads, and it has to.</strong> A lamp
+     * stands on the verge of an <em>opened</em> street, so the street is not merely
+     * more important, it is the thing the lamp is a function of — and the first
+     * arrangement of this list had the lighting first, on the strength of the
+     * measurement that produced it, which is a powerful argument for the wrong
+     * order. What it produced was a town that paved twenty-eight streets of
+     * fifty-eight in three hundred steps instead of all of them: the lighting of a
+     * growing town is never finished, because every street it opens wants ten more
+     * lamps, so a work above the roads holds the one spared hand for ever and the
+     * roads it feeds on stop arriving. The lamps starved themselves.
+     *
+     * <p>Where the lighting is genuinely ahead of the wall is in
+     * {@link #availableTo}, which is the list that runs nearly all the time — a
+     * town's build queue is empty for about one step in ten. So in practice the
+     * lamps go up alongside the roads and only a settlement with nothing queued and
+     * an unfinished ring defers them, which is the same bargain the roads have
+     * always had with the wall.
+     *
+     * <p><strong>The clearing comes after the lighting</strong> and is last of the
+     * five, because it is the slowest, it is free, and it is the one a town can be
+     * behind on for a season without anybody dying of it once the lamps are up.
      */
     public static List<Worksite> of(Settlement settlement) {
-        List<Worksite> works = new ArrayList<>(3);
+        List<Worksite> works = new ArrayList<>(5);
         works.add(new DismantleWork());
         works.add(new WallWork());
         works.add(new RoadWork());
+        works.add(new LightWork(settlement));
+        works.add(new ClearingWork());
         return works;
     }
 
@@ -95,7 +122,19 @@ public final class PublicWorks {
         if (settlement.buildQueue().isEmpty()) {
             return of(settlement);
         }
-        return List.of(new RoadWork());
+        // The lighting interleaves with building for the same reason the roads do,
+        // and with a better one: a lamp is a plank and an afternoon, and a town
+        // that would not spare a hand for one until its queue emptied is a town
+        // that is dark on every night it is growing -- which is every night.
+        //
+        // Behind the roads, though, and not in front of them. A lamp is planned
+        // onto the verge of an opened street, so a lighting crew that outranked
+        // the paving crew would be waiting on streets that were no longer being
+        // opened -- measured, and it cost a village thirty of its fifty-eight
+        // stretches. Roads first is also self-limiting in a way the other order is
+        // not: a network is a finite thing a town finishes, and from the day it
+        // does, every spare hand this list has goes to the lamps.
+        return List.of(new RoadWork(), new LightWork(settlement));
     }
 
     /**
@@ -469,6 +508,133 @@ public final class PublicWorks {
                 // reached has its own way of arriving at the same conclusion.
                 perimeter.forgetRetired();
             }
+        }
+    }
+
+    /**
+     * Raising the street lighting, one lamp at a time and in the order it was
+     * planned.
+     *
+     * <p>The wall's shape exactly, and deliberately: a lamp is a post somebody
+     * carries out of the storehouse and plants on a verge, and the only differences
+     * are where the positions come from ({@code LightPlanner} rather than
+     * {@code Perimeter}) and what is hung on top of it. Same seam, same loader,
+     * same charge-at-the-station rule.
+     *
+     * <p>Costs the standard and the light — see {@code LightStyle}, which is where
+     * a people's idiom and its price live together. The standard is the carried
+     * material and leaves the books at the shelves; the light is charged at the
+     * verge, which is the wall's arrangement with its coin.
+     */
+    public static final class LightWork implements Worksite {
+
+        /**
+         * What this people's lamp standard is made of, resolved when the work is
+         * handed out.
+         *
+         * <p>{@link Worksite#material} takes no settlement, because for every other
+         * work what a station is made of is a constant — a plank, or nothing. A
+         * lamp's standard is not: it is whatever this people build posts out of, and
+         * the burgher's is stone where everybody else's is timber. Rather than widen
+         * the interface for one case and make every other work, the loader and the
+         * foreman carry an argument none of them wants, the style travels with the
+         * work. {@link PublicWorks#of} and {@link PublicWorks#availableTo} both have
+         * the settlement in hand already.
+         */
+        private final LightStyle style;
+
+        /** The lighting of a particular town, in that town's own idiom. */
+        public LightWork(Settlement settlement) {
+            this(LightPlanner.styleOf(settlement));
+        }
+
+        public LightWork(LightStyle style) {
+            this.style = style;
+        }
+
+        /** The plainest lamp there is, for a caller with no town to ask. */
+        public LightWork() {
+            this(LightStyle.FENCE_TORCH);
+        }
+
+        @Override
+        public String name() {
+            return "lights";
+        }
+
+        @Override
+        public SimPos nextStation(Settlement settlement) {
+            LightPlanner.Lamp lamp = LightPlanner.next(settlement);
+            return lamp == null ? null : lamp.at();
+        }
+
+        /** The standard: a plank, or a block of stone for a people who build in it. */
+        @Override
+        public String material() {
+            return style.postResource();
+        }
+
+        /**
+         * The light itself. The post is already in the builder's hands.
+         *
+         * <p>{@code LightPlanner.payForLamp} is the whole price and is what the
+         * clock pays; this is what is left of it once the standard has come off the
+         * books at the storehouse.
+         */
+        @Override
+        public boolean pay(Settlement settlement) {
+            return LightPlanner.payForTheLightOnly(settlement);
+        }
+
+        @Override
+        public void completeOne(Settlement settlement, boolean worked) {
+            // Whether or not a block went in, exactly as the wall does. A verge
+            // that refuses a post -- a lamp planned onto somebody's new doorstep,
+            // a column that turned out to be water -- is a lamp the town is not
+            // going to have, and a crew that would not count it would stand there
+            // for ever.
+            settlement.setLightsRaised(settlement.lightsRaised() + 1);
+        }
+
+        @Override
+        public boolean isWorthStarting(Settlement settlement) {
+            return LightPlanner.worthStarting(settlement);
+        }
+    }
+
+    /**
+     * Taking the wood down inside the town's own streets.
+     *
+     * <p>Free, and that is not a shortcut. A tree is felled with an axe and the
+     * logs go on the shelves, so the work pays for itself: the only thing it takes
+     * from the town is somebody's afternoon, exactly as a road does. See
+     * {@code InteriorClearing} for which ground, and {@code Woodcut} for what a
+     * swing at a cell actually brings down.
+     *
+     * <p>A station is a cell of ground rather than a tree, because the simulation
+     * does not know where trees are and must not guess. The platform finds what is
+     * standing in the cell; a cell with nothing left in it is a station done.
+     */
+    public static final class ClearingWork implements Worksite {
+
+        @Override
+        public String name() {
+            return "clearing";
+        }
+
+        @Override
+        public SimPos nextStation(Settlement settlement) {
+            return InteriorClearing.next(settlement);
+        }
+
+        @Override
+        public boolean pay(Settlement settlement) {
+            return true;   // an axe and an afternoon; the logs come back
+        }
+
+        @Override
+        public void completeOne(Settlement settlement, boolean worked) {
+            settlement.setInteriorCleared(settlement.interiorCleared() + 1);
         }
     }
 }

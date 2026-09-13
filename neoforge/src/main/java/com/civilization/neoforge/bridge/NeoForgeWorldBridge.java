@@ -64,6 +64,21 @@ public final class NeoForgeWorldBridge implements WorldBridge {
     }
 
     /**
+     * The world's clock, for the one thing the simulation keeps hours for.
+     *
+     * <p>{@code getDefaultClockTime} rather than {@code getDayTime}, and the same
+     * one {@code PersonEntityManager.isBedtime} reads: 26.2 gives each dimension a
+     * clock of its own and a town in the Nether would otherwise keep Nether hours,
+     * which is to say none. A curfew the town's bodies and the town's books
+     * disagreed about would be people walking home at one hour and the ledger
+     * idling at another.
+     */
+    @Override
+    public long dayTime() {
+        return level.getDefaultClockTime();
+    }
+
+    /**
      * Who, by name, rather than whether.
      *
      * <p>A quest given to one person is finished by that person walking to the
@@ -934,7 +949,17 @@ public final class NeoForgeWorldBridge implements WorldBridge {
                         return -1;   // half a count is worse than no count
                     }
                     BlockState state = level.getBlockState(cursor);
-                    if (!state.isAir() && state.getFluidState().isEmpty()) {
+                    // Street furniture is not masonry. The census is what decides
+                    // whether a building has been demolished, and a lantern on a
+                    // post counted as part of the house would have the town go on
+                    // sparing a crater because there was a lamp standing in it.
+                    // LightPlanner refuses to plan a lamp inside anybody's
+                    // footprint, so this should never fire -- and the wall spent
+                    // a playtest counting a hundred and eighty-one tree trunks as
+                    // palisade on exactly that kind of "should never".
+                    if (!state.isAir() && state.getFluidState().isEmpty()
+                            && !com.civilization.neoforge.world.LightLayer
+                                    .isStreetFurniture(state)) {
                         standing++;
                     }
                 }

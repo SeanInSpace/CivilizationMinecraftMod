@@ -15,6 +15,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import com.civilization.neoforge.world.Excavation;
+import com.civilization.neoforge.world.LightLayer;
+import com.civilization.neoforge.world.Woodcut;
 import com.civilization.neoforge.world.PathLayer;
 import com.civilization.neoforge.world.PerimeterLayer;
 import com.civilization.neoforge.world.StoreSync;
@@ -60,6 +62,8 @@ import com.civilization.sim.settlement.RoadUpkeep;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.settlement.Stock;
 import com.civilization.sim.view.EmbodimentPlanner;
+import com.civilization.sim.person.Curfew;
+import com.civilization.sim.combat.Beat;
 import com.civilization.sim.work.PublicWorks;
 import com.civilization.sim.work.Spoil;
 import com.civilization.sim.work.Worksite;
@@ -472,7 +476,16 @@ public final class PersonEntityManager {
                 changed |= workMiners(settlement);
                 changed |= workShepherds(settlement);
                 changed |= layPaths(settlement);
-                PerimeterLayer.draw(level, settlement, workWall(settlement));
+                // One pair of hands, one public work, and which work it is decides
+                // which of the three sweeps below stands aside. Where there is a
+                // hand there is no clock -- and the hand is on exactly one of
+                // them, so the other two carry on.
+                Worksite handed = workPublic(settlement);
+                PerimeterLayer.draw(level, settlement,
+                        handed instanceof PublicWorks.DismantleWork);
+                LightLayer.draw(level, settlement, handed instanceof PublicWorks.LightWork);
+                Woodcut.draw(level, settlement, handed instanceof PublicWorks.ClearingWork,
+                        world.settings().observedRadius());
                 StoreSync.reconcile(level, settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);
@@ -1909,7 +1922,7 @@ public final class PersonEntityManager {
     private boolean workShepherds(Settlement settlement) {
         // The pens are on a ring plot, behind the wall. A shepherd only comes in
         // when everybody does.
-        if (settlement.alarm().callsIn(Profession.SHEPHERD)) {
+        if (settlement.alarm().callsIn(Profession.SHEPHERD) || underCurfew()) {
             return false;
         }
         boolean changed = false;
@@ -1932,7 +1945,7 @@ public final class PersonEntityManager {
 
     private boolean workMiners(Settlement settlement) {
         if (settlement.mineArea() == null
-                || settlement.alarm().callsIn(Profession.MINER)) {
+                || settlement.alarm().callsIn(Profession.MINER) || underCurfew()) {
             return false;
         }
         boolean changed = false;
@@ -1955,6 +1968,12 @@ public final class PersonEntityManager {
 
     /** Every embodied farmer works their field: harvest, tend, plant. */
     private void workFarmers(Settlement settlement) {
+        if (underCurfew()) {
+            // Nobody is sent out to a row at dusk. The farmers already standing in
+            // one are walked home by dailyRoutine, on their own lead -- the far
+            // fields first, because they have the furthest to come.
+            return;
+        }
         boolean starving = settlement.isStarving();
         for (Person person : settlement.residents()) {
             if (!settlement.laborsAs(person, Profession.FARMER) || !person.isEmbodied()
@@ -1972,7 +1991,7 @@ public final class PersonEntityManager {
 
     private boolean workLumberjacks(Settlement settlement) {
         if (settlement.lumberArea() == null || level.isDarkOutside()
-                || settlement.alarm().callsIn(Profession.LUMBERJACK)) {
+                || settlement.alarm().callsIn(Profession.LUMBERJACK) || underCurfew()) {
             return false;
         }
         boolean changed = false;
@@ -3303,15 +3322,20 @@ public final class PersonEntityManager {
      * <p>Which work, and in what order, is the settlement's own opinion — see
      * {@code PublicWorks}. This only finds somebody free to go and do it.
      */
-    private boolean workWall(Settlement settlement) {
+    private Worksite workPublic(Settlement settlement) {
         UUID town = settlement.id().value();
         boolean raising = !settlement.buildQueue().isEmpty();
         if (!raising) {
             sparedForWorks.remove(town);   // everybody is free; nobody is "the one"
         }
-        if (!PublicWorks.canSpareAHand(settlement)) {
+        if (!PublicWorks.canSpareAHand(settlement) || underCurfew()) {
+            // Under curfew nobody is walked out to a verge or a cell either. A
+            // public work is the longest walk in the town -- the far end of a run,
+            // a lamp on an outlying lane -- so it is the first thing a town under
+            // curfew stops offering, and the builder is released to the routine
+            // that walks him home.
             sparedForWorks.remove(town);
-            return false;   // shelter and stores before roads and walls
+            return null;   // shelter and stores before roads and walls
         }
         UUID spared = sparedForWorks.get(town);
         boolean starving = settlement.isStarving();
@@ -3343,11 +3367,16 @@ public final class PersonEntityManager {
                 // over a retired stretch nobody can see or path to and gives the
                 // builder the palisade instead, and a sweep suppressed on the
                 // strength of that would leave the old wall standing for ever.
-                return handed instanceof PublicWorks.DismantleWork;
+                //
+                // Returned rather than reduced to a flag, because there are three
+                // sweeps to stand down now and not one. The lighting and the
+                // clearing have exactly the old line's problem -- a lamp raised
+                // twice, a cell cleared by both -- and exactly its answer.
+                return handed;
             }
         }
         sparedForWorks.remove(town);   // nothing to go to; they are builders again
-        return false;
+        return null;
     }
 
     /** How close a settler has to pass to notice something on the ground. */
@@ -3577,6 +3606,58 @@ public final class PersonEntityManager {
     }
 
     /**
+     * The roof this person walks to when the curfew rings.
+     *
+     * <p>Three answers in order, and the third is the one that makes the curfew a
+     * promise rather than a preference. Their own household's home if the town has
+     * housed them; the bunkhouse if it has not, which is what a settlement builds
+     * precisely so that its unhoused have somewhere to be; and failing both, the
+     * nearest standing building with a door — because a newcomer who arrived this
+     * afternoon into a town whose bunkhouse burned down still has to be somewhere
+     * at dusk, and "the middle of town" is a point on the map rather than a
+     * doorway.
+     *
+     * <p>{@link #nearestBuilding} already falls back to the center, so this cannot
+     * answer null for a town with anything standing in it at all.
+     */
+    private SimPos shelterFor(Settlement settlement, Person person, SimPos home) {
+        if (home != null) {
+            return home;
+        }
+        for (Building building : settlement.buildings()) {
+            if (BuildPlanner.baseIdOf(building.blueprintId()).endsWith("bunkhouse")
+                    && building.isMaterialized()) {
+                return building.doorstep();
+            }
+        }
+        return nearestBuilding(settlement, "", person.position());
+    }
+
+    /**
+     * Everybody in the town, longest walk home first.
+     *
+     * <p>Only used while the curfew is on, and only to decide who is steered first
+     * in one pass. What actually staggers the departures is each person's own lead
+     * — see {@code Curfew.leadFor} — so this changes no decision, only the order in
+     * which they are taken. It is worth the sort all the same: a pass is a tick, a
+     * tick is a step of navigation, and the person with a hundred and sixty-five
+     * blocks to cover is the one who can least afford to lose one.
+     */
+    private List<Person> inDepartureOrder(Settlement settlement, Map<UUID, SimPos> homes) {
+        List<Curfew.Walk<Person>> walks = new ArrayList<>();
+        for (Person person : settlement.residents()) {
+            SimPos shelter = shelterFor(settlement, person, homes.get(person.id().value()));
+            walks.add(new Curfew.Walk<>(person,
+                    shelter == null ? 0 : person.position().horizontalDistance(shelter)));
+        }
+        List<Person> ordered = new ArrayList<>(walks.size());
+        for (Curfew.Walk<Person> walk : Curfew.departureOrder(walks)) {
+            ordered.add(walk.who());
+        }
+        return ordered;
+    }
+
+    /**
      * Whether anything the town is afraid of is within notice of this body.
      *
      * <p>The same question the sighting sweep and the guards' target choice ask
@@ -3616,9 +3697,37 @@ public final class PersonEntityManager {
         return level.isDarkOutside() && NightRest.isNight(level.getDefaultClockTime());
     }
 
+    /**
+     * The clock the curfew and the night beat are read off.
+     *
+     * <p>The same one {@link #isBedtime} uses, deliberately: a curfew whose notion
+     * of dusk differed from the bedtime's by so much as a tick would have the town
+     * walking home at one hour and going to bed at another, and the gap between
+     * them would be people standing about outdoors in the dark.
+     */
+    private long clock() {
+        return level.getDefaultClockTime();
+    }
+
+    /**
+     * Whether the town has stopped handing out civilian work for the night.
+     *
+     * <p>The gate on every {@code work*} pass below and on the public works. It is
+     * a decision about the <em>town</em> rather than about one person — see
+     * {@code Curfew.isCurfew} — because an errand is not where somebody already is,
+     * and how far they would have to walk for it is not known until it is given
+     * out. A farmer already on a far field walks home on his own lead; nobody is
+     * sent out to a new one at dusk.
+     */
+    private boolean underCurfew() {
+        return Curfew.isCurfew(clock(), Curfew.LEAD_TICKS);
+    }
+
     private void dailyRoutine(Settlement settlement) {
         boolean night = level.isDarkOutside();
         boolean bedtime = isBedtime();
+        long clock = clock();
+        boolean curfew = underCurfew();
         Alarm alarm = settlement.alarm();
         // The town's answer, asked once for the whole pass, exactly as
         // FoodPlanner.advance asks it once for the whole step: a harvest that
@@ -3635,7 +3744,13 @@ public final class PersonEntityManager {
             }
         }
 
-        for (Person person : settlement.residents()) {
+        // The furthest from home first while the curfew is on. It changes nothing
+        // about who is sent where -- everybody's lead is their own, and the
+        // outlying workers are already leaving earliest because of it -- and it
+        // does decide who is steered first within one pass, which is the pass a
+        // long walk can least afford to lose. See Curfew.departureOrder.
+        for (Person person : curfew ? inDepartureOrder(settlement, homes)
+                : settlement.residents()) {
             if (!person.isEmbodied()) {
                 continue;
             }
@@ -3647,6 +3762,23 @@ public final class PersonEntityManager {
             boolean guard = person.profession() == Profession.GUARD;
             SimPos home = homes.get(person.id().value());
             boolean called = alarm.callsIn(person.profession());
+            // Whether this person in particular should be walking rather than
+            // working. Their own lead, off their own distance: the miller over the
+            // road works until ninety ticks before dusk and the forester on the
+            // far belt set off eight minutes ago, and both are indoors when the
+            // light goes. Guards are exempt -- they keep the night.
+            //
+            // Where they are walking to: their household's home, the bunkhouse if
+            // the town never housed them, and failing both the middle of town,
+            // which is what homeOf already answers and is a door either way.
+            SimPos shelter = shelterFor(settlement, person, home);
+            boolean goHome = !guard && Curfew.sendsHome(clock,
+                    shelter == null ? 0 : person.position().horizontalDistance(shelter),
+                    Curfew.LEAD_TICKS);
+            // What every gate below used to call "night". A person under curfew is
+            // off work exactly as a person after dark is, and the only difference
+            // between the two is that the sun is still up for the walk.
+            boolean offWork = night || goHome;
 
             // Turning in, and being turned out again. Ranked above every errand
             // on the list because a sleeping body takes no orders at all: it is
@@ -3702,7 +3834,7 @@ public final class PersonEntityManager {
             // from anybody -- which is a builder standing still on a finished
             // roof, exactly as reported.
             if (settlement.laborsAs(person, Profession.BUILDER)
-                    && !alarm.callsIn(person.profession()) && !night
+                    && !alarm.callsIn(person.profession()) && !offWork
                     // An errand outranks the site, exactly as it does for a
                     // lumberjack and a farmer below. A builder walking a load of
                     // dug timber to the storehouse is not on the site, and left
@@ -3716,14 +3848,14 @@ public final class PersonEntityManager {
                 continue;
             }
             if (person.profession() == Profession.LUMBERJACK
-                    && !alarm.callsIn(Profession.LUMBERJACK) && !night
+                    && !alarm.callsIn(Profession.LUMBERJACK) && !offWork
                     && person.haul() == null
                     && settlement.lumberArea() != null
                     && !FoodPlanner.heldBackByHunger(settlement, person, starving)) {
                 continue;   // steered tree by tree in workLumberjacks
             }
             if (settlement.laborsAs(person, Profession.FARMER)
-                    && !alarm.callsIn(person.profession()) && !night
+                    && !alarm.callsIn(person.profession()) && !offWork
                     && person.haul() == null
                     && !FoodPlanner.heldBackByHunger(settlement, person, starving)) {
                 continue;   // steered row by row in workFarmers
@@ -3788,14 +3920,13 @@ public final class PersonEntityManager {
                 // granary keeps no hours.
                 target = person.haul().target();
                 speed = WALK_SPEED;
-            } else if (night && !guard) {
+            } else if (offWork && !guard) {
                 // Their own bed if the town has one for them, the doorway if it
                 // has not: an idler with no home still turns in at the center,
                 // and somebody in a house more crowded than it has beds for
                 // still sleeps under its roof, standing. So does somebody whose
                 // bed is there and cannot be got to.
-                target = turningIn && !outOfReach ? bed
-                        : home != null ? home : settlement.center();
+                target = turningIn && !outOfReach ? bed : shelter;
                 speed = WALK_SPEED;
             } else if (view.isThreatened()) {
                 // Something hostile is inside the notice radius. The workplace is
@@ -3822,8 +3953,15 @@ public final class PersonEntityManager {
             // right for a workplace and useless for a mattress: a body that
             // stopped walking eight blocks short would stand in the street all
             // night with its bed made.
+            // Eight blocks is "somewhere about the place", which is right for a
+            // workplace and wrong for a door: somebody who stopped eight blocks
+            // short of home at dusk spends the night standing in the street, which
+            // is the outcome this whole curfew exists to prevent. So a walk home
+            // arrives at the doorstep whether or not there is a bed at the end of
+            // it.
             double arrive = alarm == Alarm.ALARMED && !guard ? 2.0
-                    : turningIn && !outOfReach ? BED_REACH : ARRIVE_RADIUS;
+                    : turningIn && !outOfReach ? BED_REACH
+                    : goHome ? BED_REACH : ARRIVE_RADIUS;
             if (dx * dx + dz * dz > arrive * arrive) {
                 // The target's own Y, never the surface heightmap: a building's
                 // "surface" is its ROOF, and routing people there is what put
@@ -4041,7 +4179,7 @@ public final class PersonEntityManager {
             case MILLER -> nearestBuilding(settlement, "mill", person.position());
             case CARPENTER -> nearestBuilding(settlement, "carpentry", person.position());
             case SHEPHERD -> nearestBuilding(settlement, "animal_farm", person.position());
-            case GUARD -> patrolPost(settlement, person);
+            case GUARD -> guardStation(settlement, person);
             // A pioneer's workplace is whatever the camp is doing: the build
             // site while anything is queued, the fields otherwise, and
             // nearestBuilding already falls back to the camp center before
@@ -4076,6 +4214,76 @@ public final class PersonEntityManager {
      * next one along, otherwise for the nearest, which resolves to a steady
      * clockwise round without any patrol state to persist.
      */
+    /**
+     * Where a guard is wanted: his post by day, his beat by night.
+     *
+     * <p>The whole of the third cure. A guard's day is the ring, because the ring
+     * is where something coming at the town arrives. His night is the streets,
+     * because after dark the town is not being approached — it is spawning inside
+     * itself, and the measurement found the creeper and four of the spiders on the
+     * ring road and at houses well within the claim. A watch standing on a wall
+     * while that happens behind it is a watch facing the wrong way.
+     *
+     * <p>Nothing about how he fights changes: {@link #guardCombat} is untouched,
+     * the ranges are untouched, the creeper band is untouched. What changes is
+     * where he is standing when something appears, which is the only variable the
+     * measurement left open — the guards killed thirteen of the seventeen things
+     * that came, so the watch works; there was simply one of him for every street
+     * in the town and he was on the wall.
+     *
+     * <p>Falls back to the day post whenever there is no beat to walk: a town with
+     * no opened streets, a town whose streets are all outside its own claim. See
+     * {@code Beat}.
+     */
+    private SimPos guardStation(Settlement settlement, Person person) {
+        if (!isBedtime()) {
+            return patrolPost(settlement, person);
+        }
+        List<SimPos> loop = beatLoopOf(settlement);
+        if (loop.isEmpty()) {
+            return patrolPost(settlement, person);
+        }
+        List<Person> watch = new ArrayList<>();
+        for (Person resident : settlement.residents()) {
+            if (resident.profession() == Profession.GUARD) {
+                watch.add(resident);
+            }
+        }
+        int which = watch.indexOf(person);
+        if (which < 0) {
+            return patrolPost(settlement, person);
+        }
+        SimPos next = Beat.nextNode(
+                Beat.shareOf(loop, which, Math.max(1, watch.size())), person.position());
+        return next != null ? next : patrolPost(settlement, person);
+    }
+
+    /**
+     * The town's whole night round, recomputed when its streets change.
+     *
+     * <p>Cached on how many stretches are open, which is the only thing that can
+     * change the answer. Without the cache this walks every run of the network once
+     * per guard per pass, which on a grown town is a few thousand segment walks a
+     * second to decide which lamp post a man strolls past next.
+     */
+    private List<SimPos> beatLoopOf(Settlement settlement) {
+        int opened = settlement.paths() == null ? 0 : settlement.paths().openedCount();
+        Beats cached = beats.get(settlement.id().value());
+        if (cached != null && cached.opened() == opened) {
+            return cached.loop();
+        }
+        List<SimPos> loop = Beat.loop(settlement.paths(), settlement.center(),
+                settlement.claimRadius());
+        beats.put(settlement.id().value(), new Beats(opened, loop));
+        return loop;
+    }
+
+    /** A town's night round, and the street count it was worked out from. */
+    private record Beats(int opened, List<SimPos> loop) { }
+
+    /** Each town's night round. Not saved: a beat is derived, and cheap to derive once. */
+    private final Map<UUID, Beats> beats = new HashMap<>();
+
     private static SimPos patrolPost(Settlement settlement, Person person) {
         var perimeter = settlement.perimeter();
         if (perimeter == null || perimeter.laid() <= 0) {
