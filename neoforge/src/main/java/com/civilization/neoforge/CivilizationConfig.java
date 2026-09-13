@@ -173,11 +173,36 @@ public final class CivilizationConfig {
      * <p>The orcs' two <em>rectangles</em> stay at zero. They are a garrison and
      * a gridiron, and they read as what the orcs were before they had anywhere
      * to live.
+     *
+     * <p><strong>And the goblin camp, which is the first hostile entry.</strong>
+     * A hundred and fifty against a friendly total of six hundred and ten, so
+     * about one region in five <em>draws</em> a camp — which is what the user
+     * asked for, and is not the same as one region in five holding one. Two
+     * things thin it afterwards, both deliberately:
+     *
+     * <ul>
+     *   <li>A camp only stands in a swamp, a mangrove swamp, a dark forest or an
+     *       old-growth taiga. A region that drew a camp anywhere else gets an
+     *       ordinary town instead — see {@code WorldgenSettlements.inGoblinCountry},
+     *       which re-draws rather than leaving the region empty, so the site
+     *       density a world was configured for is unchanged. The realized share is
+     *       therefore a fifth of however much of a world is swamp and dark wood,
+     *       which on an ordinary overworld is a handful of camps in a few thousand
+     *       blocks rather than one on every horizon.</li>
+     *   <li>The spawn region never draws one at all. A player's first town must
+     *       not shoot at them — see {@code SettlementSites.siteIn}.</li>
+     * </ul>
+     *
+     * <p>The warren stays at zero beside it, for the reason every lattice does: it
+     * has no roads. A world that wants settled goblins rather than raiders can turn
+     * it on, and gets goblin camps that farm and trade, because everything hostile
+     * about them is read off the race and not the shape.
      */
     private static final Map<String, Integer> STARTING_WEIGHTS = Map.of(
             Culture.LAYOUT_GREEN, 100,
             Culture.LAYOUT_CROSSROADS, 100,
             Culture.LAYOUT_ORC_RING, 100,
+            Culture.LAYOUT_GOBLIN_CAMP, 150,
             Culture.LAYOUT_THORP, 70,
             Culture.LAYOUT_RING_STREETS, 70,
             Culture.LAYOUT_RADIAL_CONCENTRIC, 60,

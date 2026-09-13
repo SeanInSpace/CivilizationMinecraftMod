@@ -1,6 +1,7 @@
 package com.civilization.neoforge.bridge;
 
 import com.civilization.neoforge.entity.PersonEntity;
+import com.civilization.sim.culture.Race;
 import com.civilization.sim.settlement.Danger;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
@@ -284,9 +285,54 @@ public final class Menace {
         return provoked ? Math.max(of(creature, kind), Danger.ROUTINE) : Danger.NONE;
     }
 
-    /** {@link #inSight} about a creature that is standing there. */
+    /**
+     * {@link #inSight} about a creature that is standing there.
+     *
+     * <p>One family is answered before the table is consulted at all, and it is
+     * the first entry in this file that is not a vanilla creature: a settler.
+     * Every settler in the world is a {@link PersonEntity} of the same registered
+     * type, so the class and the type say nothing about whose side he is on — what
+     * says it is his race, which he carries on his own body. See {@link #ofPerson}.
+     */
     public static int inSight(Entity creature) {
+        if (creature instanceof PersonEntity settler) {
+            return ofPerson(settler);
+        }
         return inSight(creature.getClass(), creature.getType(), provoked(creature));
+    }
+
+    /**
+     * What one of somebody else's settlers is worth to a town looking at him.
+     *
+     * <p>Nothing at all, for a human or an orc. Those peoples keep a watch, walk
+     * their own claim and leave the neighbours alone, and a village that put its
+     * alarm up because an orc trader walked past would never finish a building.
+     *
+     * <p><strong>A goblin is worth a skeleton.</strong> {@link Danger#AWKWARD} —
+     * two — which is the floor for anything hostile and nobody has named, and that
+     * is the right rung for a goblin honestly: still one guard's job, and not a
+     * comfortable one, because the thing shoots back. Three of them in sight reach
+     * {@code Alarm.ALARMED_AT} and put a village indoors, which is what a raiding
+     * party arriving ought to do.
+     *
+     * <p><strong>And a chieftain is worth a witch.</strong>
+     * {@link Danger#FULL_ATTENTION} — three, a guard doing nothing else until it
+     * is dealt with — because he stands at half again his people's health and the
+     * party he is in fights harder for his being in it. Read off the crown he is
+     * actually wearing rather than off a flag, exactly as {@code provoked} is read
+     * off what a mob is doing: {@code PersonEntity.wearCrown} raises his max
+     * health when he is crowned and lowers it when he is not, so the body is the
+     * record.
+     *
+     * <p>This is asked of every settler and not only of goblins, which is what
+     * makes it safe to widen later: a people that turns hostile gets a number by
+     * being hostile.
+     */
+    public static int ofPerson(PersonEntity settler) {
+        if (settler.race() != Race.GOBLIN) {
+            return Danger.NONE;
+        }
+        return settler.isCrowned() ? Danger.FULL_ATTENTION : Danger.AWKWARD;
     }
 
     /**

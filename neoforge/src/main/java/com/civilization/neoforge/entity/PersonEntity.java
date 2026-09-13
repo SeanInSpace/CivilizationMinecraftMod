@@ -309,6 +309,20 @@ public final class PersonEntity extends PathfinderMob {
     }
 
     /**
+     * Whether this body is wearing a title.
+     *
+     * <p>Read off the crown itself rather than off a flag beside it, which is the
+     * same discipline {@link #wearCrown} already keeps in the other direction: the
+     * helmet <em>is</em> the record, so there is nothing for a second copy to drift
+     * from. It also means the client knows — equipment is synced and a boolean on
+     * the server is not — which matters because the one thing that reads this is a
+     * danger table, and a danger table has to give the same answer everywhere.
+     */
+    public boolean isCrowned() {
+        return getItemBySlot(EquipmentSlot.HEAD).is(Items.GOLDEN_HELMET);
+    }
+
+    /**
      * Advances the swing timer, which vanilla does not do for peaceful mobs.
      *
      * <p>In 26.2 only {@code Player}, {@code RemotePlayer}, {@code Mannequin} and

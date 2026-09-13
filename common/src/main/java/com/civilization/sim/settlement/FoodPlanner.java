@@ -1053,17 +1053,28 @@ public final class FoodPlanner {
      * income is imaginary have no business with food that is not.
      */
     private static void forage(Settlement settlement, SimContext ctx) {
-        if (!StagePlanner.pioneersLabor(settlement.stage())) {
+        // A people who never farm never stop picking. The gate was "below
+        // VILLAGE", which is right for a founding party on its way to a field and
+        // wrong for a camp that will never have one -- see GoblinCamp.
+        if (!StagePlanner.pioneersLabor(settlement.stage())
+                && !GoblinCamp.foragesForever(settlement)) {
             return;
         }
         if (totalFood(settlement)
-                >= settlement.population() * FORAGE_CEILING_PER_MOUTH) {
+                >= settlement.population() * GoblinCamp.forageCeilingPerMouth(settlement)) {
             return;
         }
+        // Foragers as well as farmers. A camp's food supply is a trade of its own
+        // -- see Profession.FORAGER -- and while the camp is young its pioneers
+        // are still doing it, which is what laborsAs answers.
         int hands = (int) settlement.residents().stream()
-                .filter(p -> settlement.laborsAs(p, Profession.FARMER))
+                .filter(p -> settlement.laborsAs(p, Profession.FARMER)
+                        || p.profession() == Profession.FORAGER)
                 .count();
         int byHand = (hands + FORAGERS_PER_MEAL - 1) / FORAGERS_PER_MEAL;
+        if (GoblinCamp.hasShaman(settlement)) {
+            byHand += GoblinCamp.SHAMAN_FORAGE_BONUS;
+        }
         int gathered = Math.min(byHand, settlement.forageAllowance(ctx));
         if (gathered > 0) {
             settlement.recordForaged(gathered);

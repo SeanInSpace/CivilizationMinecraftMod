@@ -50,6 +50,64 @@ public final class PerimeterLayer {
     /** What the wall is made of. Two of these stand three high to anything jumping. */
     private static final Block POST = Blocks.OAK_FENCE;
 
+    /**
+     * What a people's wall is made of, and whether they light it.
+     *
+     * <p>The wall was one wall for everybody, which was right while every people
+     * in the mod built villages. A goblin camp does not build a palisade — it
+     * drives a ring of sharpened stakes into a bog — and the difference has to be
+     * visible or the camp reads as a hamlet with green beds in it.
+     *
+     * <p>Deliberately three fields and no geometry. Where the ring runs, how much
+     * of it is standing, where the gates are and how it is paced are all the same
+     * for everybody, because those are facts about defending a place rather than
+     * about who is doing it. What differs is the timber, the point on top and
+     * whether anybody bothers with a lamp.
+     *
+     * @param post the two courses the line is made of
+     * @param tip  what goes on top of a post, or null for a flat one
+     * @param lit  whether a lamp goes up every {@link #LAMP_EVERY} posts
+     */
+    private record WallStyle(Block post, Block tip, boolean lit) {
+    }
+
+    /**
+     * The ordinary palisade: oak fence, flat-topped, lit every eight posts.
+     *
+     * <p>What every town in the mod has always built, written down.
+     */
+    private static final WallStyle PALISADE = new WallStyle(POST, null, true);
+
+    /**
+     * A goblin stockade: spruce stakes, sharpened, and nobody lights it.
+     *
+     * <p>Three differences and each of them says something. <strong>Spruce</strong>
+     * because a camp cuts what is standing in the bog it is sitting in.
+     * <strong>A point on every stake</strong>, which is the whole of what makes
+     * this read as a stockade rather than as a garden fence — and it is a real
+     * block on the line rather than a texture, so it is in {@link #isOurs} with
+     * everything else the wall lays; a block the wall puts down and does not
+     * recognize is how this file grew hundred-block towers once already.
+     * <strong>Unlit</strong>, because a camp that lit its own perimeter would be
+     * a camp telling you where it is. A goblin can see in the dark and would
+     * rather you could not.
+     */
+    private static final WallStyle STOCKADE =
+            new WallStyle(Blocks.SPRUCE_FENCE, Blocks.POINTED_DRIPSTONE, false);
+
+    /**
+     * How this people wall a place, or the ordinary palisade if nobody has said.
+     *
+     * <p>Read off {@code Culture.isHostile} rather than off a list of ids, so a
+     * second hostile people somebody writes down drives stakes by being hostile.
+     * Null-safe for the reason every culture lookup in the mod is: a settlement
+     * saved before cultures had names carries no id.
+     */
+    private static WallStyle styleFor(String cultureId) {
+        return com.civilization.sim.culture.Culture.of(cultureId).isHostile()
+                ? STOCKADE : PALISADE;
+    }
+
     /** A light every so many posts, so the wall reads at night. */
     private static final int LAMP_EVERY = 8;
 
@@ -453,8 +511,25 @@ public final class PerimeterLayer {
      */
     public static List<Course> plan(Perimeter perimeter, SimPos pos, int index,
                                     BlockPos footing) {
+        return plan(perimeter, pos, index, footing, null);
+    }
+
+    /**
+     * The same, in the idiom of the people whose wall it is.
+     *
+     * <p>The old four-argument form is kept and answers in the ordinary palisade,
+     * which is what every caller outside this file wanted and still wants: the
+     * plan test builds a ring without a settlement behind it, and a test that had
+     * to invent a culture to ask what a wall lays would be measuring the wrong
+     * thing. {@code null} means "whoever, drawn the ordinary way".
+     *
+     * @param cultureId whose wall this is, or null for the ordinary palisade
+     */
+    public static List<Course> plan(Perimeter perimeter, SimPos pos, int index,
+                                    BlockPos footing, String cultureId) {
+        WallStyle style = cultureId == null ? PALISADE : styleFor(cultureId);
         if (!perimeter.isGateway(pos)) {
-            return postAt(footing, index);
+            return postAt(footing, index, style);
         }
         for (SimPos gate : perimeter.gates()) {
             if (pos.x() == gate.x() && pos.z() == gate.z()) {
@@ -477,10 +552,19 @@ public final class PerimeterLayer {
      * and a zombie could climb the slope beside them and step in. It also reads
      * as a wall somebody built rather than a row of trees somebody left.
      */
-    private static List<Course> postAt(BlockPos footing, int index) {
-        Course lower = new Course(footing, POST.defaultBlockState());
-        Course upper = new Course(footing.above(), POST.defaultBlockState());
-        if (!isLit(index)) {
+    private static List<Course> postAt(BlockPos footing, int index, WallStyle style) {
+        Course lower = new Course(footing, style.post().defaultBlockState());
+        Course upper = new Course(footing.above(), style.post().defaultBlockState());
+        // Two courses, then whatever goes above them: a lamp on every eighth for a
+        // people who light their wall, a point on every stake for a people who
+        // sharpen theirs, and nothing at all for a plain one. The two courses are
+        // the signature the demolition sweep and the crew both read, and they are
+        // the same whatever is on top -- see standsAsOurWall.
+        if (style.tip() != null) {
+            return List.of(lower, upper,
+                    new Course(footing.above(2), style.tip().defaultBlockState()));
+        }
+        if (!style.lit() || !isLit(index)) {
             return List.of(lower, upper);
         }
         return List.of(lower, upper,
@@ -536,13 +620,27 @@ public final class PerimeterLayer {
 
     /** What the wall lays at one position on the standing ring, footing and all. */
     public static List<Course> planAt(ServerLevel level, Perimeter perimeter, int index) {
+        return planAt(level, perimeter, index, null);
+    }
+
+    /**
+     * The same, in the idiom of the people whose wall it is.
+     *
+     * <p>What a crew laying the wall by hand asks, so that the stretch somebody
+     * builds and the stretch the sweep builds are the same wall — which is the
+     * whole doctrine this file runs on. The old three-argument form answers in the
+     * ordinary palisade and is what a caller with no settlement in hand wants.
+     */
+    public static List<Course> planAt(ServerLevel level, Perimeter perimeter, int index,
+                                      String cultureId) {
         List<SimPos> ring = perimeter.ringPositions();
         if (index < 0 || index >= ring.size()) {
             return List.of();
         }
         SimPos pos = ring.get(index);
         BlockPos footing = surface(level, pos);
-        return footing == null ? List.of() : plan(perimeter, pos, index, footing);
+        return footing == null
+                ? List.of() : plan(perimeter, pos, index, footing, cultureId);
     }
 
     /**
@@ -567,10 +665,16 @@ public final class PerimeterLayer {
         if (ground == null) {
             return 0;
         }
+        WallStyle style = styleFor(settlement.cultureId());
         clearGrowth(level, settlement, ground);
-        takeDownWhatIsHanging(level, ground, isLit(index));
+        // What stands above the two courses: a lamp on some posts of a lit wall, a
+        // point on every stake of a sharpened one. The sweep that takes down
+        // whatever is hanging over a re-founded post has to know which, or it tears
+        // down the block it just put there and puts it back every second.
+        takeDownWhatIsHanging(level, ground,
+                style.tip() != null || (style.lit() && isLit(index)));
         boolean placed = false;
-        for (Course course : postAt(ground, index)) {
+        for (Course course : postAt(ground, index, style)) {
             placed |= put(level, course.pos(), course.state());
         }
         return placed ? 1 : 0;
@@ -764,10 +868,14 @@ public final class PerimeterLayer {
      * walls came straight back. The two predicates now read the same
      * {@link #POST} constant so they cannot drift apart again — which is the
      * actual fix; adding one block id would only have postponed it.
+     *
+     * <p>The same reasoning is why {@link #isPostBlock} answers for every people's
+     * post rather than for the one this town builds, and why a goblin stockade's
+     * point is in here beside the lamp. Both are blocks the wall lays.
      */
     private static boolean isOurs(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        return isPostBlock(state) || isLamp(state)
+        return isPostBlock(state) || isLamp(state) || isStakeTip(state)
                 || state.is(Blocks.OAK_FENCE_GATE);
     }
 
@@ -801,7 +909,18 @@ public final class PerimeterLayer {
      * reaches it — which is the outcome wanted in both cases anyway.
      */
     private static boolean isPostBlock(BlockState state) {
-        return state.is(POST);
+        // Every people's post, not only the one this town builds. The recognizing
+        // side is deliberately culture-blind while the placing side is not: a
+        // demolition sweep asking "is this ours" has a column of blocks and no
+        // settlement, and a town re-badged from goblin to human would otherwise
+        // stop recognizing its own standing wall -- which is how this file grew
+        // hundred-block towers the first time, from exactly one unrecognized block.
+        return state.is(PALISADE.post()) || state.is(STOCKADE.post());
+    }
+
+    /** Whether this is the point a people drives onto the top of its stakes. */
+    private static boolean isStakeTip(BlockState state) {
+        return STOCKADE.tip() != null && state.is(STOCKADE.tip());
     }
 
     /**

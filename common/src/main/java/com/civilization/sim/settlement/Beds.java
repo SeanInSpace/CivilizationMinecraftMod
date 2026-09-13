@@ -194,6 +194,36 @@ public final class Beds {
                 southward(-3, 3),
                 southward(3, 3)));
 
+        // The goblin hovel. Five by five, so three by three indoors -- the
+        // smallest room in the mod, and the reason every bed here runs north
+        // rather than one of them running east as a cottage's third does: a
+        // three-wide room has one spare cell after two beds, not a second wall.
+        // The hovel post stands at (0,-1) and the lantern at the origin, which
+        // leaves seven cells; three beds take six of them and a barrel the last.
+        table.put("hovel", List.of(
+                northward(-1, 0),
+                northward(1, 0),
+                eastward(0, 1)));
+
+        // The tent. The same pad and half the beds, which is what a tent is: two
+        // bedrolls under hide, with the pole at (0,-1) and room to sit up by the
+        // door. Two rather than three because the third cell a hovel uses is
+        // where a tent's guy ropes come down.
+        table.put("tent", List.of(
+                northward(-1, 0),
+                northward(1, 0)));
+
+        // The chieftain's hut: nine across, four beds, and the chief in the first
+        // of them by {@code GoblinCamp}'s rule rather than by anything here. Four
+        // in a rank along the back wall with a bay apiece, exactly as a house
+        // ranks its four -- the chief, the shaman, and two of whoever is in
+        // favour this week.
+        table.put("chieftain_hut", List.of(
+                northward(-3, -2),
+                northward(-1, -2),
+                northward(1, -2),
+                northward(3, -2)));
+
         return Map.copyOf(table);
     }
 

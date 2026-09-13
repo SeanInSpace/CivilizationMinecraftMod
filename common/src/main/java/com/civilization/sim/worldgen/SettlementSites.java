@@ -347,9 +347,18 @@ public final class SettlementSites {
                 }
             }
             SimPos center = new SimPos(x, UNRESOLVED_Y, z);
-            String layout = arrangementFor(worldSeed, regionX, regionZ, weights);
+            // The one region in the world whose people are decided rather than
+            // drawn. The town a player spawns looking at must not be a goblin
+            // camp: a first settlement that shoots at you on sight is not an
+            // introduction to the mod, it is a death screen, and the whole reason
+            // the nine anchored sites exist is that somebody should meet a town in
+            // their first minute. Everywhere else the draw stands.
+            boolean mustBeFriendly = isHome(regionX, regionZ);
+            String layout = arrangementFor(worldSeed, regionX, regionZ, weights,
+                    mustBeFriendly);
             return Optional.of(new Site(center,
-                    peopleWhoBuild(layout, worldSeed, regionX, regionZ), layout));
+                    peopleWhoBuild(layout, worldSeed, regionX, regionZ, mustBeFriendly),
+                    layout));
         }
 
         /** @see SettlementSites#near(long, SimPos, int, Map) */
@@ -504,16 +513,37 @@ public final class SettlementSites {
      */
     private static String arrangementFor(long worldSeed, int regionX, int regionZ,
                                          Map<String, Integer> weights) {
+        return arrangementFor(worldSeed, regionX, regionZ, weights, false);
+    }
+
+    /**
+     * The same, optionally refusing every arrangement only hostiles build in.
+     *
+     * <p>The filter is on the <em>builders</em> rather than on a list of shapes,
+     * so a shape a goblin camp and a human village both build in is still drawn
+     * for the spawn region and lands on the village — see
+     * {@link #peopleWhoBuild}, which is filtered the same way and is what decides
+     * which of them gets it.
+     *
+     * <p>Falls back to the unfiltered draw when the filter leaves nothing, which
+     * can only happen in a world whose weights name goblin shapes and nothing
+     * else. A world configured that way asked for goblins everywhere and gets
+     * them; an empty spawn region would be worse than a hostile one.
+     */
+    private static String arrangementFor(long worldSeed, int regionX, int regionZ,
+                                         Map<String, Integer> weights,
+                                         boolean friendlyOnly) {
         List<String> wanted = new ArrayList<>();
         long total = 0;
         for (Map.Entry<String, Integer> entry : new TreeMap<>(weights).entrySet()) {
-            if (entry.getValue() != null && entry.getValue() > 0) {
+            if (entry.getValue() != null && entry.getValue() > 0
+                    && (!friendlyOnly || somebodyFriendlyBuilds(entry.getKey()))) {
                 wanted.add(entry.getKey());
                 total += entry.getValue();
             }
         }
         if (wanted.isEmpty()) {
-            return anyArrangement(worldSeed, regionX, regionZ);
+            return anyArrangement(worldSeed, regionX, regionZ, friendlyOnly);
         }
         long draw = Long.remainderUnsigned(
                 hash(worldSeed, regionX, regionZ, SALT_ARRANGEMENT), total);
@@ -550,8 +580,15 @@ public final class SettlementSites {
      * {@code Map.of}, whose order is randomized per JVM.
      */
     private static String anyArrangement(long worldSeed, int regionX, int regionZ) {
+        return anyArrangement(worldSeed, regionX, regionZ, false);
+    }
+
+    /** The same, optionally drawing only from peoples who are not hostile. */
+    private static String anyArrangement(long worldSeed, int regionX, int regionZ,
+                                         boolean friendlyOnly) {
         List<Culture> peoples = Culture.all().stream()
                 .filter(culture -> !culture.id().equals(Culture.DEFAULT.id()))
+                .filter(culture -> !friendlyOnly || !culture.isHostile())
                 .sorted(java.util.Comparator.comparing(Culture::id))
                 .toList();
         if (peoples.isEmpty()) {
@@ -580,6 +617,27 @@ public final class SettlementSites {
      */
     private static String peopleWhoBuild(String layoutId, long worldSeed,
                                          int regionX, int regionZ) {
+        return peopleWhoBuild(layoutId, worldSeed, regionX, regionZ, false);
+    }
+
+    /**
+     * Whether any people who are not hostile lay a town out this way.
+     *
+     * <p>Asked of {@link Culture#isHostile}, so a second hostile people somebody
+     * writes down is kept out of the spawn region by being hostile rather than by
+     * being added to a list here.
+     */
+    private static boolean somebodyFriendlyBuilds(String layoutId) {
+        return Culture.all().stream()
+                .filter(culture -> !culture.id().equals(Culture.DEFAULT.id()))
+                .filter(culture -> culture.layouts().contains(layoutId))
+                .anyMatch(culture -> !culture.isHostile());
+    }
+
+    /** @see #peopleWhoBuild(String, long, int, int) */
+    private static String peopleWhoBuild(String layoutId, long worldSeed,
+                                         int regionX, int regionZ,
+                                         boolean friendlyOnly) {
         // Never the sentinel. Culture.of maps every unknown and null id onto
         // civilization:default, so a town wearing it cannot be told from a town whose
         // people failed to load -- and it builds rings, so a layout-first draw
@@ -587,6 +645,7 @@ public final class SettlementSites {
         List<String> builders = Culture.all().stream()
                 .filter(culture -> !culture.id().equals(Culture.DEFAULT.id()))
                 .filter(culture -> culture.layouts().contains(layoutId))
+                .filter(culture -> !friendlyOnly || !culture.isHostile())
                 .map(Culture::id)
                 .sorted()
                 .toList();

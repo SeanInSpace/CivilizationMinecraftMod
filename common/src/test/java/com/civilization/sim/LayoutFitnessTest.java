@@ -116,6 +116,17 @@ class LayoutFitnessTest {
             // wants a grown town by step four hundred can afford to wait for.
             town.stores().add(TownStores.WOOD, 8);
             town.stores().add(TownStores.STONE, 6);
+            // And dinner, for the peoples who do not grow it. Everybody else
+            // raises a field and feeds itself; a goblin camp forages, and what a
+            // forager may pick is capped by what is actually growing within
+            // FORAGE_RADIUS -- which on a fixture terrain is nothing at all, so
+            // the camp starved to nobody by step two hundred and this suite
+            // reported it as a layout fault. The shape of a town is what is
+            // measured here, not the pace of its larder, which is exactly the
+            // argument the timber above is stocked on.
+            if (com.civilization.sim.settlement.GoblinCamp.foragesForever(town)) {
+                town.stores().add(TownStores.FOOD, 2);
+            }
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
         }
         return town;

@@ -480,6 +480,9 @@ public final class PersonEntityManager {
                 tendCrown(settlement);
                 guardCombat(settlement);
                 civilianDefense(settlement);
+                // And, for a hostile people, the thing neither of those two does:
+                // going for somebody who has not touched you. See campHostility.
+                campHostility(settlement);
             }
         }
         reapOrphans();
@@ -2318,20 +2321,27 @@ public final class PersonEntityManager {
     /**
      * What somebody who is not of the watch carries here, or nothing.
      *
-     * <p>Nothing, for every people but one. <strong>An orc is armed all the
-     * time</strong> — a cleaver or a hand axe, dealt by who he is and kept for
-     * as long as he lives in the town, whether he is a farmer, a hauler or the
-     * miller. It is not the watch's kit, the town never bought it and the rack
-     * never sees it back; it is his, the way a scythe is.
+     * <p>Nothing, for the humans. <strong>An orc is armed all the time</strong> —
+     * a cleaver or a hand axe, dealt by who he is and kept for as long as he lives
+     * in the town, whether he is a farmer, a hauler or the miller. It is not the
+     * watch's kit, the town never bought it and the rack never sees it back; it is
+     * his, the way a scythe is.
+     *
+     * <p><strong>And so is a goblin</strong>, out of his own camp's armory: a shiv
+     * or a sling. That is why a camp is dangerous to walk into rather than a
+     * hamlet with two guards in it — there is no unarmed goblin anywhere in it.
      *
      * <p>Main hand only, and never a bow. A civilian who drew a bow would be a
-     * guard nobody posted, and the off hand is where his load rides.
+     * guard nobody posted, and the off hand is where his load rides. A goblin's
+     * sling is not a bow: it is a one-handed weapon that happens to look like one,
+     * and it swings.
      */
     private Item civilianWeapon(Settlement settlement, UUID personId) {
-        if (!Weaponry.armsEveryone(raceOf(settlement))) {
+        Race race = raceOf(settlement);
+        if (!Weaponry.armsEveryone(race)) {
             return null;
         }
-        return CivilizationItems.orcWeapon(Weaponry.forCivilian(personId), false);
+        return CivilizationItems.orcWeapon(Weaponry.forCivilian(race, personId), false);
     }
 
     /**
@@ -2370,13 +2380,19 @@ public final class PersonEntityManager {
      * rack upgrade swaps the crude one for the forged one of the same shape
      * rather than handing him somebody else's weapon.
      *
+     * <p><strong>A camp's fighters are dealt from a third armory</strong> — a club
+     * or a spear — and every weapon in it is one-handed, so every goblin in the
+     * line has a bow. That is deliberate and it is how a camp answers a creeper:
+     * see {@code Weaponry.CAMP_KIT}, where the argument is made.
+     *
      * <p>The two-handers carry no bow, which is the whole cost of carrying one:
      * see {@link #guardCombat} for what that means when a creeper turns up.
      */
     private Kit kitFor(Settlement settlement, UUID guardId) {
         boolean forged = issuedIron.contains(guardId);
-        if (Weaponry.armsEveryone(raceOf(settlement))) {
-            Weaponry dealt = Weaponry.forGuard(guardId);
+        Race race = raceOf(settlement);
+        if (Weaponry.armsEveryone(race)) {
+            Weaponry dealt = Weaponry.forGuard(race, guardId);
             Item weapon = CivilizationItems.orcWeapon(dealt, forged);
             if (weapon != null) {
                 return new Kit(weapon, dealt.carriesBow());
@@ -2658,6 +2674,99 @@ public final class PersonEntityManager {
             if (wasAlive && !aggressor.isAlive()) {
                 settlement.tallies().record(Tallies.MOBS_SLAIN);
             }
+        }
+    }
+
+    /**
+     * How far into a camp a player may walk before the camp comes for them.
+     *
+     * <p>Sixteen blocks, or the camp's own claim, whichever reaches further. The
+     * claim is the honest boundary — it is the ground the camp believes is its
+     * own, and it is what the wall goes round — and the sixteen is a floor for the
+     * case a claim is tighter than that: a camp with eight goblins in it and a
+     * player standing among the tents is not a camp minding its own business.
+     *
+     * <p>Deliberately a line you can be outside of. A pillager stalks you across
+     * a continent; a goblin camp defends a swamp. Walk out and they stop, which is
+     * the difference between a place on the map and a mob.
+     */
+    public static final double CAMP_ANGER_RANGE = 16.0;
+
+    /**
+     * A hostile people goes for anybody in its claim who is not one of them.
+     *
+     * <p>The third combat pass, and the only one that starts a fight.
+     * {@link #guardCombat} answers what the danger table calls hostile —
+     * zombies, and now somebody else's goblins — and {@link #civilianDefense}
+     * answers whatever just hit you. Neither of them will ever attack a
+     * <em>player</em>, and deliberately so: every settler in the mod until now
+     * belonged to a people who had no quarrel with anybody.
+     *
+     * <p>So this is what makes a camp a place rather than a diorama: step inside
+     * {@link #CAMP_ANGER_RANGE} of the fire and every goblin who can walk comes at
+     * you, like a pillager outpost and unlike a village.
+     *
+     * <p>Five things it will not do, and each of them is the difference between a
+     * camp and a nuisance:
+     *
+     * <ul>
+     *   <li><strong>Only hostile peoples.</strong> Read off
+     *       {@code Culture.isHostile}, so a village never does this and a people
+     *       who turn hostile later do it by turning hostile.</li>
+     *   <li><strong>Not a player who cannot be fought.</strong> Creative and
+     *       spectator are skipped: a camp that mobbed a builder in creative mode
+     *       would make the camp impossible to look at.</li>
+     *   <li><strong>Not the weak.</strong> A goblin past the hunger line is not
+     *       charging anybody, the same rule every other kind of work here keeps.
+     *       </li>
+     *   <li><strong>Not the shaman.</strong> He keeps the camp. He is the one
+     *       goblin in it who stays by the fire, which is also what makes killing
+     *       him a deliberate act rather than something that happens in the
+     *       scrum.</li>
+     *   <li><strong>It does not follow you home.</strong> Out of range and the
+     *       navigation is left alone, so whatever the day's routine was steering
+     *       them toward resumes. There is no aggro that outlives the claim.</li>
+     * </ul>
+     *
+     * <p>What a goblin hits for is a civilian's base plus his race plus his
+     * weapon, out of the same two tables everybody else's blow comes out of —
+     * {@link Weaponry#CIVILIAN_BASE_DAMAGE} and {@link #armedBonus} — with the
+     * chieftain alone striking at a guard's. A camp is dangerous because there are
+     * eight of them and they all have something sharp, not because each of them
+     * hits like a ravager.
+     */
+    private void campHostility(Settlement settlement) {
+        if (!com.civilization.sim.settlement.GoblinCamp.isCamp(settlement)) {
+            return;
+        }
+        double reach = Math.max(CAMP_ANGER_RANGE, settlement.claimRadius());
+        for (Person person : settlement.residents()) {
+            if (!person.isEmbodied() || person.isTooWeakToWork()
+                    || person.profession() == Profession.SHAMAN) {
+                continue;
+            }
+            PersonEntity goblin = tracked.get(person.id().value());
+            if (goblin == null || goblin.isRemoved()) {
+                continue;
+            }
+            net.minecraft.world.entity.player.Player quarry =
+                    level.getNearestPlayer(goblin, reach);
+            if (quarry == null || quarry.isCreative() || quarry.isSpectator()
+                    || !quarry.isAlive()) {
+                continue;
+            }
+            goblin.getLookControl().setLookAt(quarry, 30.0F, 30.0F);
+            double range = goblin.distanceTo(quarry);
+            if (range > GUARD_STRIKE_RANGE) {
+                goblin.getNavigation().moveTo(quarry, GUARD_CHARGE_SPEED);
+                continue;
+            }
+            goblin.getNavigation().stop();
+            goblin.swing(InteractionHand.MAIN_HAND);
+            float base = person.profession() == Profession.KING
+                    ? GUARD_DAMAGE : Weaponry.CIVILIAN_BASE_DAMAGE;
+            quarry.hurtServer(level, level.damageSources().mobAttack(goblin),
+                    base + raceOf(settlement).attackBonus() + armedBonus(goblin));
         }
     }
 
@@ -3882,6 +3991,16 @@ public final class PersonEntityManager {
             // the great hut, on the middle of the muster yard, which is also
             // where the town rallies when the bell goes.
             case KING -> KingPlanner.rallyPoint(settlement);
+            // A shaman's is the same idea in a camp: his own doorstep, which is
+            // the chieftain's hut, because that is where the camp is drawn and
+            // where anybody looking for him would look.
+            case SHAMAN -> KingPlanner.rallyPoint(settlement);
+            // A forager's workplace is the wood. There is no building to walk to
+            // -- that is the whole difference between him and a farmer -- so he
+            // works the lumber claim if the camp has marked one out and mills
+            // about the middle otherwise, which is where a camp's people are.
+            case FORAGER -> settlement.lumberArea() != null
+                    ? settlement.lumberArea().center() : settlement.center();
         };
     }
 

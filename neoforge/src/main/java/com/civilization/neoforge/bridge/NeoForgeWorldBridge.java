@@ -1,7 +1,10 @@
 package com.civilization.neoforge.bridge;
 
+import com.civilization.neoforge.CivilizationEntities;
+import com.civilization.neoforge.CivilizationItems;
 import com.civilization.neoforge.CivilizationMod;
 import com.civilization.neoforge.world.BlueprintPlacer;
+import com.civilization.sim.culture.Race;
 import com.civilization.neoforge.world.TerrainOracle;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.settlement.BuildCatalog;
@@ -1041,6 +1044,17 @@ public final class NeoForgeWorldBridge implements WorldBridge {
             }
             int worth = Menace.inSight(creature);
             for (PersonEntity citizen : citizens) {
+                // Nobody fears his own kind, and this is where that has to be
+                // said. The sweep collects every Mob in the claim and a settler is
+                // a Mob, so the moment the danger table learned to score a goblin
+                // -- see Menace.ofPerson -- a goblin camp began reporting its own
+                // eight residents as eight hostiles and sat behind its own alarm
+                // forever. Same race, no alarm; a human citizen who can see a
+                // goblin still counts him, which is the whole point of scoring one.
+                if (creature instanceof PersonEntity settler
+                        && settler.race() == citizen.race()) {
+                    continue;
+                }
                 if (citizen.distanceToSqr(creature) <= CITIZEN_SIGHT * CITIZEN_SIGHT
                         && citizen.hasLineOfSight(creature)) {
                     seen++;
@@ -1084,6 +1098,87 @@ public final class NeoForgeWorldBridge implements WorldBridge {
             }
         }
         CivilizationMod.LOGGER.info("Raid: {} hostiles spawned around {}", spawned, around);
+    }
+
+    /**
+     * The observed half of a raid that came out of somewhere.
+     *
+     * <p>{@link #spawnHostiles} spawns zombies, which is the honest picture of a
+     * raid whose whole existence is a hash of a step number. A goblin camp is not
+     * that — it has a name, a position and a chieftain — so a player watching its
+     * party arrive sees goblins.
+     *
+     * <p>They are real settler bodies with the goblin race stamped on them, armed
+     * out of the camp's own armory, walked at the middle of the town. From there
+     * entity combat decides it: the guards engage them because
+     * {@code Menace.ofPerson} scores a goblin, and they fight back because
+     * {@code PersonEntityManager.campHostility} has them attack anything of another
+     * people inside reach.
+     *
+     * <p><strong>What a watched party does not do is carry anything home.</strong>
+     * The unwatched arithmetic moves a share of the town's stores to the loot pile
+     * on a breakthrough; a watched party fights and, whichever way it goes, the
+     * pile is unchanged. That is a real gap and it is named in
+     * {@code docs/GOBLINS.md} rather than papered over — the honest alternative
+     * would have been to move the stores when the party spawns, which would pay a
+     * camp for a raid it might lose.
+     *
+     * <p>Not persistence-required, exactly as the zombies are not: raiders who
+     * outlive the raid despawn rather than accumulating into a permanent horde.
+     * And these carry no {@code Person} behind them, so they are not town
+     * residents and nothing in the simulation counts them.
+     */
+    @Override
+    public void spawnRaiders(int count, SimPos around, String cultureId) {
+        Race race = com.civilization.sim.culture.Culture.of(cultureId).race();
+        if (race == Race.HUMAN || !level.isLoaded(toBlockPos(around))) {
+            // Nobody has bodies for this people, or there is nothing loaded to put
+            // them in. Fall through to the old picture rather than to nothing: a
+            // raid a player can see is worth more than a log line.
+            spawnHostiles(count, around);
+            return;
+        }
+        double distance = 32.0;
+        int spawned = 0;
+        for (int i = 0; i < count; i++) {
+            double angle = (2 * Math.PI * i) / count;
+            int x = around.x() + (int) Math.round(distance * Math.cos(angle));
+            int z = around.z() + (int) Math.round(distance * Math.sin(angle));
+            SimPos ringPos = new SimPos(x, around.y(), z);
+            if (!level.isLoaded(toBlockPos(ringPos))) {
+                continue;
+            }
+            PersonEntity raider = CivilizationEntities.PERSON.get().create(
+                    level, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+            if (raider == null) {
+                continue;
+            }
+            raider.setPos(x + 0.5, surfaceHeight(ringPos), z + 0.5);
+            raider.applyRace(race, java.util.UUID.randomUUID());
+            raider.setCustomName(net.minecraft.network.chat.Component.literal(
+                    race.word() + " raider"));
+            // The camp's own weapon, dealt the way the camp deals it, so a party
+            // that walks out of the trees is holding what the goblins in the camp
+            // are holding.
+            net.minecraft.world.item.Item weapon = CivilizationItems.orcWeapon(
+                    com.civilization.sim.combat.Weaponry.forGuard(race, raider.getUUID()),
+                    false);
+            if (weapon != null) {
+                raider.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,
+                        new net.minecraft.world.item.ItemStack(weapon));
+                raider.setDropChance(net.minecraft.world.entity.EquipmentSlot.MAINHAND, 0.0F);
+            }
+            if (level.addFreshEntity(raider)) {
+                raider.getNavigation().moveTo(
+                        around.x() + 0.5, around.y(), around.z() + 0.5, 1.0);
+                spawned++;
+            }
+        }
+        CivilizationMod.LOGGER.info("Raid: {} {} raiders spawned around {}",
+                spawned, race.word(), around);
+        if (spawned == 0) {
+            spawnHostiles(count, around);
+        }
     }
 
     /**

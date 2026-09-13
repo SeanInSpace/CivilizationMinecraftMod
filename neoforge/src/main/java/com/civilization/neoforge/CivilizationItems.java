@@ -134,10 +134,13 @@ public final class CivilizationItems {
             ITEMS.registerSimpleBlockItem(CivilizationBlocks.QUEST_BOARD, () -> new Item.Properties());
 
     /**
-     * The orcs' armory: five weapons, each forged twice.
+     * The armories: nine weapons, each forged twice — five orc and four goblin.
      *
      * <p>Registered from the table in {@code :common} rather than written out
-     * ten times, so a sixth weapon is one line there and nothing here. The map
+     * eighteen times, so a tenth weapon is one line there and nothing here. Which
+     * people a weapon belongs to is in its own registered name and nowhere else,
+     * which is what let the goblins' four arrive without this loop changing at
+     * all. The map
      * is keyed by the registered name — {@code orc_falchion},
      * {@code orc_falchion_forged} — because that is the key the simulation
      * side speaks in and it cannot see an {@code Item} to speak in any other.
@@ -174,9 +177,18 @@ public final class CivilizationItems {
      * name the one settler entity type; the race is what differs, and it travels
      * in the egg's own entity-data component.
      *
-     * <p>A goblin egg is missing on purpose: the goblins have exactly one culture
-     * and no town in an ordinary world is of it, so the egg's only possible
-     * answer today would be "no goblin settlement here to join".
+     * <p><strong>Three now.</strong> The goblin egg was missing on the honest
+     * ground that no town in an ordinary world was goblin, so its only possible
+     * answer would have been "no goblin settlement here to join". Ordinary worlds
+     * hold goblin camps now, so the egg has somewhere to put one — and it does
+     * exactly what the other two do: it recruits into the nearest camp rather than
+     * spawning a loose goblin, because a settler body with no person behind it is
+     * culled the instant it joins the world and a goblin is no exception.
+     *
+     * <p>That it recruits into a <em>hostile</em> settlement is the point of it
+     * rather than a hole in it. A player who drops a goblin into a camp has made
+     * that camp one goblin stronger, which is a thing somebody might do on purpose
+     * and is in any case what the item says on the tin.
      *
      * <p>One wrinkle in sharing a type, now answered: vanilla's
      * {@code SpawnEggItem.byId} looks an egg up <em>by</em> entity type and takes
@@ -197,19 +209,24 @@ public final class CivilizationItems {
             properties -> new PersonSpawnEggItem(Race.ORC, properties),
             () -> PersonSpawnEggItem.properties(Race.ORC));
 
+    public static final DeferredItem<Item> GOBLIN_SPAWN_EGG = ITEMS.registerItem(
+            "goblin_spawn_egg",
+            properties -> new PersonSpawnEggItem(Race.GOBLIN, properties),
+            () -> PersonSpawnEggItem.properties(Race.GOBLIN));
+
     /**
      * The egg that recruits one race, or null if that race has no egg.
      *
-     * <p>The goblins have none — see above — and a race added tomorrow will not
-     * have one until somebody registers it, so this is nullable rather than
-     * falling back to the human egg: handing a player the wrong egg is the fault
-     * being fixed here, and handing them none is honest.
+     * <p>All three races have one now. Still nullable rather than falling back to
+     * the human egg, because a race added tomorrow will not have one until
+     * somebody registers it — and handing a player the wrong egg is the fault this
+     * method exists to fix, while handing them none is merely honest.
      */
     public static Item eggFor(Race race) {
         return switch (race) {
             case HUMAN -> HUMAN_SPAWN_EGG.get();
             case ORC -> ORC_SPAWN_EGG.get();
-            default -> null;
+            case GOBLIN -> GOBLIN_SPAWN_EGG.get();
         };
     }
 

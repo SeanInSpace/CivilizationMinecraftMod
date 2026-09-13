@@ -1760,6 +1760,10 @@ public final class BlueprintPlacer {
             case "cottage" -> CivilizationBlocks.COTTAGE.get();
             case "hut" -> CivilizationBlocks.HUT.get();
             case "great_hut" -> CivilizationBlocks.GREAT_HUT.get();
+            case "hovel" -> CivilizationBlocks.HOVEL.get();
+            case "tent" -> CivilizationBlocks.TENT.get();
+            case "loot_pile" -> CivilizationBlocks.LOOT_PILE.get();
+            case "chieftain_hut" -> CivilizationBlocks.CHIEFTAIN_HUT.get();
             case "longhouse" -> CivilizationBlocks.LONGHOUSE.get();
             case "croft" -> CivilizationBlocks.CROFT.get();
             case "library" -> CivilizationBlocks.LIBRARY.get();
@@ -1817,6 +1821,10 @@ public final class BlueprintPlacer {
             case "cottage" -> cottage(site, blocks, base);
             case "hut" -> hut(site, blocks, base);
             case "great_hut" -> greatHut(site, blocks, base);
+            case "hovel" -> hovel(site, blocks, base);
+            case "tent" -> tent(site, blocks, base);
+            case "loot_pile" -> lootPile(site, blocks, base);
+            case "chieftain_hut" -> chieftainHut(site, blocks, base);
             case "longhouse" -> longhouse(site, blocks, base);
             case "croft" -> croft(site, blocks, base);
             case "library" -> library(site, blocks, base);
@@ -2682,6 +2690,214 @@ public final class BlueprintPlacer {
         add(blocks, base.offset(0, GREAT_HUT_WALL + 1, -6), HUT_TRIM);
         add(blocks, base.offset(-4, 1, 4), Blocks.BARREL);
         add(blocks, base.offset(4, 1, 4), Blocks.BARREL);
+        return measured(blocks, base, size, from);
+    }
+
+    // --- the camp ------------------------------------------------------------
+
+    /*
+     * On the four goblin buildings below.
+     *
+     * They share the machinery every other building here uses -- cabin walls,
+     * Parts.dress, the bed table, the foundation -- and that is the point of
+     * them: a camp is a settlement, so a hovel is a home the same way a cottage
+     * is, and nothing in the placer had to learn what a goblin was.
+     *
+     * What makes them read as a camp rather than as a small village is two
+     * things, neither of which is a new part. The palette is the goblins' own
+     * HouseStyle column -- mud brick on packed mud, with a hip that gives up after
+     * two courses -- and the wall heights below are the lowest in the file. A
+     * goblin building is not a small building, it is a LOW one: dug in rather than
+     * raised, and roofed as flatly as a roof can be while still being a roof.
+     *
+     * The two stake blocks are placeholders in the sense the orc palette's are:
+     * a sharpened stake is a fence with something pointed on top, and a pointed
+     * dripstone is the nearest thing the block list has to a point.
+     */
+
+    /** What a sharpened stake is: a post, with a point on it. */
+    private static final Block STAKE = Blocks.SPRUCE_FENCE;
+
+    /** And the point. Placeholder — see the note above. */
+    private static final Block STAKE_TIP = Blocks.POINTED_DRIPSTONE;
+
+    /** How high a hovel's wall stands. The lowest in the mod, and deliberately. */
+    private static final int HOVEL_WALL = 2;
+
+    /** And the chieftain's, which is two courses more because he is the chieftain. */
+    private static final int CHIEFTAIN_WALL = 4;
+
+    /**
+     * A hovel: packed mud over a stick frame, and three goblins in it.
+     *
+     * <p>What a cottage is to a village. Five across so three by three indoors —
+     * the smallest room in the mod — with a bed in each free corner and a barrel
+     * in the fourth. Two courses of wall, which is the whole of the difference
+     * between this and a cabin: a goblin ducks going in.
+     */
+    private static int[] hovel(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = home(site, blocks, base, "hovel", HOVEL_WALL);
+        add(blocks, base.offset(0, 1, -1), CivilizationBlocks.HOVEL.get());
+        beds(site, blocks, base, "hovel");
+        add(blocks, base.offset(-1, 1, 1), Blocks.BARREL);
+        return measured(blocks, base, size, from);
+    }
+
+    /**
+     * A tent: hide stretched over poles, with two bedrolls under it.
+     *
+     * <p>The one building in the mod with no walls at all — which is what a tent
+     * is, and is also why it is drawn here rather than through {@link #home}. Four
+     * corner poles, a sheet of wool over them and the ground trampled underneath.
+     *
+     * <p>The wool is the culture's own bed color, which is the same trick the
+     * supply cache's tarpaulin plays: the one piece of a camp a player sees at a
+     * distance is the color of the cloth on it.
+     */
+    private static int[] tent(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("tent");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int rx = size.width() / 2;
+        int rz = size.depth() / 2;
+        foundation(site, blocks, base, size.width(), size.depth());
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                add(blocks, base.offset(dx, 0, dz),
+                        Math.abs(dx) <= 1 && Math.abs(dz) <= 1
+                                ? style.plinth() : Blocks.DIRT_PATH);
+            }
+        }
+        // Poles at the corners, and the sheet over them. Two courses only: a tent
+        // you have to stoop into is a tent.
+        CivicParts.canopy(blocks, base, size, TENT_POLE, style.post());
+        Block hide = Blocks.WOOL.pick(bedColor(site.culture()));
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                add(blocks, base.offset(dx, TENT_POLE + 1, dz), hide);
+            }
+        }
+        // Guy ropes: a stake at the middle of each of the four sides, which is what
+        // stops the sheet reading as a table.
+        for (int side = -1; side <= 1; side += 2) {
+            add(blocks, base.offset(side * rx, 1, 0), STAKE);
+            add(blocks, base.offset(0, 1, side * rz), STAKE);
+        }
+        add(blocks, base.offset(0, 1, -1), CivilizationBlocks.TENT.get());
+        beds(site, blocks, base, "tent");
+        // The way in, which the guy ropes would otherwise have closed.
+        CivicParts.keepClear(blocks, CivicParts.box(base, 0, 0, rz, rz, 1, TENT_POLE));
+        return measured(blocks, base, size, from);
+    }
+
+    /** How high a tent's corner poles stand, under its sheet. */
+    private static final int TENT_POLE = 2;
+
+    /**
+     * The loot pile: everything the camp owns, heaped inside a ring of stakes.
+     *
+     * <p>A camp's storehouse, and pointedly not a building. There is no roof and
+     * there are no walls — what there is, is a ring of sharpened stakes round a
+     * heap of barrels and chests, with a cage or two beside it. That reads from
+     * outside as a thing somebody is guarding rather than as a room, which is the
+     * whole of what a loot pile is: nine blocks by seven of other people's
+     * property.
+     *
+     * <p>Nine by seven is the storehouse's own footprint, deliberately — it does
+     * the storehouse's job, and a plan that reserved less ground for it would be a
+     * camp that outgrows its own shelves. Four courses, which makes it the flattest
+     * thing in the camp and the one you can see over.
+     */
+    private static int[] lootPile(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size = sized("loot_pile");
+        HouseStyle style = HouseStyle.forCulture(site.culture().id());
+        int rx = size.width() / 2;
+        int rz = size.depth() / 2;
+        foundation(site, blocks, base, size.width(), size.depth());
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                add(blocks, base.offset(dx, 0, dz), style.plinth());
+            }
+        }
+        // The stockade: two courses of stake round the edge, pointed on top, with
+        // a gap in the south side to get a sack through.
+        for (int dx = -rx; dx <= rx; dx++) {
+            for (int dz = -rz; dz <= rz; dz++) {
+                if (Math.abs(dx) != rx && Math.abs(dz) != rz) {
+                    continue;
+                }
+                if (dz == rz && Math.abs(dx) <= 1) {
+                    continue;   // the way in
+                }
+                add(blocks, base.offset(dx, 1, dz), STAKE);
+                add(blocks, base.offset(dx, 2, dz), STAKE);
+                add(blocks, base.offset(dx, 3, dz), STAKE_TIP);
+            }
+        }
+        // The heap itself: barrels along the back wall, chests stacked in the
+        // middle, and the whole thing two deep where it is highest.
+        for (int dx = -rx + 1; dx <= rx - 1; dx++) {
+            add(blocks, base.offset(dx, 1, -rz + 1),
+                    Math.floorMod(dx, 2) == 0 ? Blocks.CHEST : Blocks.BARREL);
+        }
+        for (int dx = -1; dx <= 1; dx++) {
+            add(blocks, base.offset(dx, 1, 0), Blocks.BARREL);
+        }
+        add(blocks, base.offset(0, 2, 0), Blocks.CHEST);
+        // A cage either side of the heap. Dressing, and the one thing in a camp
+        // that says out loud what the goblins do with what they catch.
+        for (int side = -1; side <= 1; side += 2) {
+            for (int y = 1; y <= 2; y++) {
+                add(blocks, base.offset(side * (rx - 1), y, rz - 1), Blocks.IRON_BARS);
+                add(blocks, base.offset(side * (rx - 2), y, rz - 1), Blocks.IRON_BARS);
+            }
+            add(blocks, base.offset(side * (rx - 1), 3, rz - 1), Blocks.IRON_BARS);
+            add(blocks, base.offset(side * (rx - 2), 3, rz - 1), Blocks.IRON_BARS);
+        }
+        add(blocks, base.offset(0, 1, -1), CivilizationBlocks.LOOT_PILE.get());
+        return measured(blocks, base, size, from);
+    }
+
+    /**
+     * The chieftain's hut: the biggest roof in the camp, and who is under it.
+     *
+     * <p>What the great hut is to a warband, in a camp's proportions. Nine across
+     * against the great hut's thirteen and four courses of wall against its five,
+     * because a goblin chieftain is a bigger goblin in a bigger hovel and not an
+     * orc king in a hall — and it is still four blocks wider than anything else in
+     * the camp, which is how you tell it from the air.
+     *
+     * <p>Four beds, and the first of them is the chieftain's by {@code GoblinCamp}'s
+     * rule rather than by anything drawn here: a bed is a bed, and which one is his
+     * is decided by who lives under the roof. The second is the shaman's.
+     *
+     * <p><strong>No chieftain is crowned until this stands</strong>, which is the
+     * one thing about it that is not decoration — see
+     * {@code KingPlanner.CAMP_SEAT}.
+     */
+    private static int[] chieftainHut(Site site, List<Placement> blocks, BlockPos base) {
+        int from = blocks.size();
+        BuildingSizes.Size size =
+                home(site, blocks, base, "chieftain_hut", CHIEFTAIN_WALL);
+        add(blocks, base.offset(0, 1, -1), CivilizationBlocks.CHIEFTAIN_HUT.get());
+        beds(site, blocks, base, "chieftain_hut");
+        // The fire he sits at, off the origin so it is clear of the lantern the
+        // cabin hangs there.
+        add(blocks, base.offset(0, 1, 2), Blocks.CAMPFIRE);
+        add(blocks, base.offset(-3, 1, 3), Blocks.BARREL);
+        add(blocks, base.offset(3, 1, 3), Blocks.BARREL);
+        // Stakes at the four corners with something on the points of them. It is
+        // the camp's one boast, and it is the reason a player can pick the
+        // chieftain's roof out of eight others without walking up to it.
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sz = -1; sz <= 1; sz += 2) {
+                add(blocks, base.offset(sx * 4, CHIEFTAIN_WALL + 2, sz * 4), STAKE);
+                add(blocks, base.offset(sx * 4, CHIEFTAIN_WALL + 3, sz * 4),
+                        Blocks.SKELETON_SKULL);
+            }
+        }
         return measured(blocks, base, size, from);
     }
 

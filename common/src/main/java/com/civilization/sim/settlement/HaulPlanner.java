@@ -154,8 +154,9 @@ public final class HaulPlanner {
             case IDLER, PIONEER -> false;
             // A king has no work in front of him by definition, and that is
             // exactly what this question is asking. He is never claimed as a
-            // courier either -- carrying a sack is work.
-            case KING -> false;
+            // courier either -- carrying a sack is work. The shaman is the same
+            // case in a camp: both are idle by right, and neither is ever asked.
+            case KING, SHAMAN -> false;
             case BUILDER, GUARD -> true;
             // Deliberately coarse: any field, every farmer, even past the
             // FARMERS_PER_FARM the clock will actually pay for. Watched, the
@@ -165,6 +166,13 @@ public final class HaulPlanner {
             // is the reported bug, not a saving. Erring the other way has cost
             // this project a town already.
             case FARMER -> settlement.buildingWithRole(BuildingRole.CROP_FARM) != null;
+            // A forager's field is the wood, and there is no building to check
+            // for. He is busy whenever the camp is still short of its ceiling,
+            // which is the same question FoodPlanner.forage asks before it sends
+            // anybody out -- so a camp with a full larder will carry, and a camp
+            // living hand to mouth keeps its hands in the bushes.
+            case FORAGER -> FoodPlanner.totalFood(settlement)
+                    < settlement.population() * GoblinCamp.forageCeilingPerMouth(settlement);
             case LUMBERJACK -> settlement.buildingWithRole(BuildingRole.LUMBER_CAMP) != null
                     && LumberPlanner.wantsMoreTimber(settlement);
             case MINER -> settlement.buildingWithRole(BuildingRole.MINE) != null

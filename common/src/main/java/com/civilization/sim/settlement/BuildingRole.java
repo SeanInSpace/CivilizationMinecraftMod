@@ -55,6 +55,13 @@ public enum BuildingRole {
     private static final Map<String, BuildingRole> BY_NAME = Map.ofEntries(
             Map.entry("storehouse", STORE),
             Map.entry("warehouse", STORE),
+            // The goblin camp's store. It is a heap of stolen goods with barrels
+            // in it rather than a building with shelves, and it is a STORE for
+            // exactly the same reason a warehouse is: everything that asks "where
+            // does this town keep its things" has to find one answer. A camp with
+            // a loot pile the store machinery could not see would hold its goods
+            // in a ledger nothing reads and show them in no chest.
+            Map.entry("loot_pile", STORE),
             Map.entry("lumber_camp", LUMBER_CAMP),
             Map.entry("mine", MINE),
             Map.entry("farm", CROP_FARM),
@@ -64,6 +71,9 @@ public enum BuildingRole {
             Map.entry("market", MARKET),
             Map.entry("smith", SMITH),
             Map.entry("town_hall", HALL),
+            // The chieftain's seat. A camp's hall, and the building whose standing
+            // is what lets a chieftain be crowned at all -- see GoblinCamp.
+            Map.entry("chieftain_hut", HALL),
             Map.entry("inn", INN),
             Map.entry("mill", MILL),
             Map.entry("carpentry", CARPENTRY));

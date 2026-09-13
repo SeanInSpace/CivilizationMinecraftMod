@@ -66,12 +66,106 @@ public final class Homes {
             "civilization:longhouse", "civilization:great_hut",
             "civilization:croft", "civilization:great_hut");
 
+    /**
+     * What the mire goblins throw up in place of anything anybody else builds.
+     *
+     * <p>Wider than the orcs' four rows, and it has to be: a war camp is a
+     * settlement with different houses in it, and a goblin camp is a different
+     * kind of settlement. Nine substitutions, in three groups.
+     *
+     * <ul>
+     *   <li><strong>Shelter.</strong> A cottage becomes a tent and everything
+     *       larger becomes a hovel — including the bunkhouse, so a camp's first
+     *       roof is a mud hut for three rather than a dormitory for six. There is
+     *       no ladder: a hovel is what a goblin lives in, and a goblin who wants
+     *       a bigger one wants the chief's.</li>
+     *   <li><strong>The store.</strong> Granary, storehouse and warehouse all
+     *       become the loot pile, which is capped at one by its own catalog row.
+     *       So a camp has exactly one place where everything it owns is, which is
+     *       what a heap of stolen goods with a fence round it actually is — and
+     *       what makes burning it a raid worth making.</li>
+     *   <li><strong>The seat.</strong> A town hall becomes the chieftain's hut.
+     *       Nothing else does: the two big human homes go to hovels, because a
+     *       camp does not raise its chief a second roof by accident.</li>
+     * </ul>
+     */
+    private static final Map<String, String> MIRE = Map.ofEntries(
+            Map.entry("civilization:cottage", "civilization:tent"),
+            Map.entry("civilization:bunkhouse", "civilization:hovel"),
+            Map.entry("civilization:house", "civilization:hovel"),
+            Map.entry("civilization:longhouse", "civilization:hovel"),
+            Map.entry("civilization:croft", "civilization:hovel"),
+            Map.entry("civilization:granary", "civilization:loot_pile"),
+            Map.entry("civilization:storehouse", "civilization:loot_pile"),
+            Map.entry("civilization:warehouse", "civilization:loot_pile"),
+            Map.entry("civilization:town_hall", "civilization:chieftain_hut"));
+
+    /**
+     * What a people will not build at all, having nothing to build instead.
+     *
+     * <p>The other half of the table, and the half the orcs never needed. A
+     * substitution says "this people build that differently"; this says "this
+     * people do not do that", and the difference is the whole of what makes a
+     * goblin camp an economy rather than a village with mud walls.
+     *
+     * <p><strong>The field is the one that matters.</strong> Goblins do not farm,
+     * ever, at any size — they forage and they steal. So the farm is refused, and
+     * with it the whole apparatus a farm is the front of: a mill grinds a harvest
+     * nobody cut, a granary is somebody else's word for the heap, and an animal
+     * farm is a promise to feed something. Three lines of the shipped stage
+     * programs name a farm, a mill and a market, and not one of them has to know
+     * about goblins, because {@code StagePlanner} asks this before it asks the
+     * catalog whether the thing exists.
+     *
+     * <p>The rest is what a camp is too small and too transient to want. A market
+     * needs somebody to trade with, an inn needs travellers, a carpentry is a
+     * trade rather than a scavenge, and a library in a swamp is a joke. What is
+     * <em>not</em> here is deliberate: goblins keep the lumber camp, the mine, the
+     * smith, the watchtower and the workshop, because stripping a wood, digging a
+     * hole and beating a shiv out over a fire are exactly what scavengers do.
+     */
+    private static final Map<String, java.util.Set<String>> REFUSED = refused();
+
+    private static Map<String, java.util.Set<String>> refused() {
+        Map<String, java.util.Set<String>> table = new LinkedHashMap<>();
+        table.put("civilization:goblin/mire", java.util.Set.of(
+                "civilization:farm",
+                "civilization:animal_farm",
+                "civilization:mill",
+                "civilization:carpentry",
+                "civilization:market",
+                "civilization:inn",
+                "civilization:library",
+                "civilization:grand_library"));
+        return Map.copyOf(table);
+    }
+
     private static final Map<String, Map<String, String>> INSTEAD = instead();
 
     private static Map<String, Map<String, String>> instead() {
         Map<String, Map<String, String>> table = new LinkedHashMap<>();
         table.put("civilization:orc/warhost", WARHOST);
+        table.put("civilization:goblin/mire", MIRE);
         return Map.copyOf(table);
+    }
+
+    /**
+     * Whether this people flatly refuse to build this, substitution or no.
+     *
+     * <p>Separate from {@link #buildableBy} by name so that callers who mean
+     * "they have nothing like this" can say it. The farm lane in
+     * {@code BuildPlanner} and the famine rescue in {@code Settlement} both ask
+     * this rather than the general question, because the general answer for a
+     * goblin camp and a cottage is also no and the two nos want different
+     * handling — a camp builds a hovel instead of a cottage and builds
+     * <em>nothing</em> instead of a field.
+     */
+    public static boolean refuses(String cultureId, String blueprintId) {
+        if (cultureId == null || blueprintId == null) {
+            return false;
+        }
+        return REFUSED.getOrDefault(cultureId, java.util.Set.of())
+                .contains(BuildPlanner.baseIdOf(blueprintId));
     }
 
     /**
@@ -116,6 +210,10 @@ public final class Homes {
      * somebody else's replacement — a Norman village never raises a hut, because
      * a hut is what the warhost builds instead of a house.
      *
+     * <p>Three refusals now rather than two: a people also does not build what
+     * {@link #refuses} says they have nothing like. Goblins never raise a field,
+     * and unlike their houses there is nothing they raise instead.
+     *
      * <p>Everything not in the table is buildable by everybody, which is the
      * honest default: a granary is a granary.
      */
@@ -124,6 +222,9 @@ public final class Homes {
             return true;
         }
         String base = BuildPlanner.baseIdOf(blueprintId);
+        if (refuses(cultureId, base)) {
+            return false;
+        }
         if (cultureId != null
                 && INSTEAD.getOrDefault(cultureId, Map.of()).containsKey(base)) {
             return false;

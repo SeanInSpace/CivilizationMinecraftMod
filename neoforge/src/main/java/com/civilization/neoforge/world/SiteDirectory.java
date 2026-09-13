@@ -89,9 +89,22 @@ public final class SiteDirectory {
      * yet would be a lie that a player walks eight hundred blocks to catch.
      */
     public static String line(String what, boolean standing, int dx, int dz) {
+        return line(what, standing, dx, dz, false);
+    }
+
+    /**
+     * The same, saying so when the place will shoot at you.
+     *
+     * <p>Last on the line and in one word, because it is the only thing here a
+     * player has to act on before they start walking: everything else on the line
+     * tells you where to go, and this tells you whether to.
+     */
+    public static String line(String what, boolean standing, int dx, int dz,
+                              boolean hostile) {
         long blocks = Math.round(Math.sqrt((double) dx * dx + (double) dz * dz));
         return "  " + what + " — " + blocks + " blocks " + bearing(dx, dz)
-                + (standing ? "" : " (not raised yet)");
+                + (standing ? "" : " (not raised yet)")
+                + (hostile ? " — hostile" : "");
     }
 
     /**
@@ -133,6 +146,15 @@ public final class SiteDirectory {
                 : people.substring(0, 1).toUpperCase(Locale.ROOT) + people.substring(1);
         Race race = Culture.of(cultureId).race();
         String kind = race == Race.HUMAN ? "" : race.word() + " ";
+        // A shape that already names its people does not get them twice. The
+        // goblin camp is the first arrangement whose id carries a race in it, and
+        // the general rule produced "a goblin Mire goblin camp" -- three words of
+        // which two are the same word. The people's own name is dropped rather
+        // than the race's, because "a goblin camp" is what somebody would say and
+        // "a Mire camp" is what a gazetteer would.
+        if (shape.startsWith(race.word())) {
+            return (startsWithVowel(shape) ? "an " : "a ") + shape;
+        }
         String noun = (kind + capitalized + " " + shape).trim();
         return (startsWithVowel(noun) ? "an " : "a ") + noun;
     }
@@ -155,7 +177,7 @@ public final class SiteDirectory {
         List<String> out = new ArrayList<>();
         for (Near near : near(level, from)) {
             out.add(line(near.what(), near.standing(),
-                    near.at().x() - from.x(), near.at().z() - from.z()));
+                    near.at().x() - from.x(), near.at().z() - from.z(), near.hostile()));
         }
         return out;
     }
@@ -166,8 +188,16 @@ public final class SiteDirectory {
      * @param at       where the town is, or where the site says it will be
      * @param what     its name, or a description of what will be built there
      * @param standing whether it has actually been raised
+     * @param hostile  whether the people there are at war with everybody, which
+     *                 a named goblin camp cannot otherwise say — "Gritmaw, 340
+     *                 blocks NE" reads exactly like a village
      */
-    public record Near(SimPos at, String what, boolean standing) {
+    public record Near(SimPos at, String what, boolean standing, boolean hostile) {
+
+        /** A place nobody has a quarrel with, which is most of them. */
+        public Near(SimPos at, String what, boolean standing) {
+            this(at, what, standing, false);
+        }
     }
 
     /**
@@ -190,7 +220,8 @@ public final class SiteDirectory {
             for (Kingdom kingdom : world.kingdoms()) {
                 for (Settlement settlement : kingdom.settlements()) {
                     if (settlement.center().horizontalDistanceSq(from) <= earshot) {
-                        found.add(new Near(settlement.center(), settlement.name(), true));
+                        found.add(new Near(settlement.center(), settlement.name(), true,
+                                Culture.of(settlement.cultureId()).isHostile()));
                     }
                 }
             }
@@ -210,7 +241,8 @@ public final class SiteDirectory {
                 if (alreadyListed(found, at)) {
                     continue;   // it is standing, and was named a moment ago
                 }
-                found.add(new Near(at, describe(site.cultureId(), site.layoutId()), false));
+                found.add(new Near(at, describe(site.cultureId(), site.layoutId()), false,
+                        Culture.of(site.cultureId()).isHostile()));
             }
         }
         found.sort(java.util.Comparator.comparingLong(

@@ -135,6 +135,44 @@ public final class JobPlanner {
     );
 
     /**
+     * What a people who never farm want instead of farmers.
+     *
+     * <p>One row, swapped for one row. The farmer row answers to the ground —
+     * hands per field standing — so a people with no fields wants no farmers, and
+     * the wild food that carried the camp through its first stages stopped the step
+     * it graduated out of pioneers. The forager row answers to the census instead:
+     * one pair of hands to start with and another for every four mouths, at the
+     * farmer's own priority, because bringing dinner in is exactly as urgent for a
+     * camp as it is for a village.
+     *
+     * <p>Four rather than the farmer's five, and no building requirement at all: a
+     * forager needs a wood, not a shed. {@code FoodPlanner.FORAGERS_PER_MEAL} is
+     * three, so a camp of eight fields three foragers and turns up a meal a step —
+     * which with the shaman's armful is about what eight goblins eat.
+     */
+    private static final ProfessionNeed FORAGERS =
+            new ProfessionNeed(Profession.FORAGER, 1, 4, 70);
+
+    /**
+     * The staffing table this settlement is read against.
+     *
+     * <p>{@link #DEFAULT_NEEDS} for everybody who farms, and the same table with
+     * the farmer row replaced for everybody who does not. One method rather than a
+     * second table, so a row added to the default is a row every people gets —
+     * which is the fault a duplicated table would have shipped eventually.
+     */
+    public static List<ProfessionNeed> needsFor(Settlement settlement) {
+        if (!GoblinCamp.foragesForever(settlement)) {
+            return DEFAULT_NEEDS;
+        }
+        List<ProfessionNeed> swapped = new java.util.ArrayList<>();
+        for (ProfessionNeed need : DEFAULT_NEEDS) {
+            swapped.add(need.profession() == Profession.FARMER ? FORAGERS : need);
+        }
+        return List.copyOf(swapped);
+    }
+
+    /**
      * Farmers a starving town insists on, whatever the staffing table says.
      *
      * <p>One, because one is the whole difference. A single field hand brings in
@@ -147,6 +185,20 @@ public final class JobPlanner {
     public static final int FARMERS_WHILE_STARVING = 1;
 
     private JobPlanner() {
+    }
+
+    /**
+     * The trade that brings this settlement's dinner in.
+     *
+     * <p>A farmer everywhere but a goblin camp, where it is a forager. Asked by
+     * name wherever a lane reaches past the table for the one job a settlement
+     * cannot do without — the famine rescue, and the rule that the last of these
+     * is never spare — because those lanes each named FARMER outright, and in a
+     * camp that meant making somebody a farmer with no field to send them to.
+     */
+    public static Profession foodTrade(Settlement settlement) {
+        return GoblinCamp.foragesForever(settlement)
+                ? Profession.FORAGER : Profession.FARMER;
     }
 
     public static int count(Settlement settlement, Profession profession) {
@@ -168,7 +220,7 @@ public final class JobPlanner {
      * so the answer is deterministic.
      */
     public static Optional<Profession> mostNeeded(Settlement settlement) {
-        return DEFAULT_NEEDS.stream()
+        return needsFor(settlement).stream()
                 .filter(need -> shortfall(settlement, need) > 0)
                 .max(Comparator
                         .comparingInt(ProfessionNeed::priority)
@@ -210,11 +262,12 @@ public final class JobPlanner {
      * @return true if somebody changed jobs
      */
     public static boolean retrainOne(Settlement settlement) {
+        Profession dinner = foodTrade(settlement);
         if (settlement.isStarving()
-                && count(settlement, Profession.FARMER) < FARMERS_WHILE_STARVING) {
+                && count(settlement, dinner) < FARMERS_WHILE_STARVING) {
             Person hand = spareHandsForTheFields(settlement);
             if (hand != null) {
-                hand.setProfession(Profession.FARMER);
+                hand.setProfession(dinner);
                 return true;
             }
         }
@@ -269,7 +322,8 @@ public final class JobPlanner {
         Profession fullest = null;
         int most = 0;
         for (Profession trade : Profession.values()) {
-            if (trade == Profession.FARMER || trade == Profession.IDLER) {
+            if (trade == Profession.FARMER || trade == Profession.FORAGER
+                    || trade == Profession.IDLER) {
                 continue;
             }
             // The king is the one person a starving town may not put in the
@@ -339,13 +393,14 @@ public final class JobPlanner {
         }
         Profession donorProfession = null;
         int bestSpare = 0;
-        for (ProfessionNeed need : DEFAULT_NEEDS) {
+        for (ProfessionNeed need : needsFor(settlement)) {
             Profession trade = need.profession();
             if (trade == Profession.GUARD) {
                 continue;
             }
             int heads = count(settlement, trade);
-            if ((trade == Profession.FARMER || trade == Profession.BUILDER) && heads <= 1) {
+            if ((trade == foodTrade(settlement) || trade == Profession.BUILDER)
+                    && heads <= 1) {
                 continue;   // the last one of these is not spare, ever
             }
             int spare = heads - need.base();
@@ -367,7 +422,7 @@ public final class JobPlanner {
     private static Person biggestSurplusDonor(Settlement settlement) {
         Profession donorProfession = null;
         int bestSurplus = 0;
-        for (ProfessionNeed need : DEFAULT_NEEDS) {
+        for (ProfessionNeed need : needsFor(settlement)) {
             int surplus = count(settlement, need.profession()) - need.desiredCount(settlement);
             if (surplus > bestSurplus) {
                 bestSurplus = surplus;

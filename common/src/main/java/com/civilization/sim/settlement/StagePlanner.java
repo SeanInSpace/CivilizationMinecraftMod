@@ -83,6 +83,9 @@ public final class StagePlanner {
         List<Want> program = PROGRAMS.getOrDefault(settlement.stage(), List.of());
         for (Want want : program) {
             String wanted = homeFor(settlement, want.blueprintId());
+            if (theseHandsRefuse(settlement, wanted)) {
+                continue;   // not a building this people has any version of
+            }
             Optional<BuildingType> type = typeOf(settlement, wanted);
             if (type.isEmpty()) {
                 continue;   // content not in this catalog yet; the machine moves on
@@ -115,10 +118,32 @@ public final class StagePlanner {
         return Homes.instead(settlement.cultureId(), blueprintId);
     }
 
+    /**
+     * Whether this people will not build this at all, so the program passes it by.
+     *
+     * <p>The one line that lets a stage program name a farm without every people
+     * having to own one. A program is a claim about what a <em>settlement</em>
+     * needs — shelter, then food, then somewhere to keep it — and
+     * {@link #homeFor} already answers "which building" for a people who build it
+     * differently. This answers the other case, which the orcs never raised:
+     * a people who do not do that at all.
+     *
+     * <p>Skipped rather than failed, which is why {@link #programComplete} asks
+     * the same question. A camp that will never build a field must not be a camp
+     * whose HOMESTEAD program can never complete, or it stalls at that stage
+     * forever and never posts a sentry.
+     */
+    private static boolean theseHandsRefuse(Settlement settlement, String blueprintId) {
+        return Homes.refuses(settlement.cultureId(), blueprintId);
+    }
+
     /** Whether every known entry of the stage's program stands. */
     public static boolean programComplete(Settlement settlement) {
         for (Want want : PROGRAMS.getOrDefault(settlement.stage(), List.of())) {
             String wanted = homeFor(settlement, want.blueprintId());
+            if (theseHandsRefuse(settlement, wanted)) {
+                continue;   // nothing to wait for
+            }
             if (typeOf(settlement, wanted).isEmpty()) {
                 continue;
             }
@@ -188,7 +213,7 @@ public final class StagePlanner {
                     && JobPlanner.count(settlement, Profession.GUARD) >= 1;
             case VILLAGE -> programComplete(settlement)
                     && familyHoused(settlement) * 2 >= settlement.population()
-                    && workshopCount(settlement) >= 2;
+                    && workshopCount(settlement) >= workshopsWanted(settlement);
             case TOWN -> false;   // the road ends here
         };
     }
@@ -278,6 +303,29 @@ public final class StagePlanner {
             }
         }
         return count;
+    }
+
+    /**
+     * How many of the three workshops this people has to stand up to graduate.
+     *
+     * <p>Two, for everybody who can build two. Was a bare two, which was the same
+     * statement while every people built all three — and became a locked stage the
+     * moment one did not: a goblin camp raises neither a mill nor a carpentry, so
+     * the bar was two out of a possible one and no camp could ever leave VILLAGE.
+     *
+     * <p>Capped at what the people actually has rather than lowered for them.
+     * A village still needs two of its three; a camp needs the one it can have,
+     * which is its smithy — and a camp with a smithy has genuinely done the thing
+     * the gate was asking about.
+     */
+    private static int workshopsWanted(Settlement settlement) {
+        int possible = 0;
+        for (String workshop : WORKSHOPS) {
+            if (Homes.buildableBy(settlement.cultureId(), workshop)) {
+                possible++;
+            }
+        }
+        return Math.min(2, possible);
     }
 
     private static Optional<BuildingType> typeOf(Settlement settlement, String blueprintId) {

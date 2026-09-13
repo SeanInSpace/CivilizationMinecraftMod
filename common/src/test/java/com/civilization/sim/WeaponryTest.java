@@ -137,8 +137,12 @@ final class WeaponryTest {
             assertEquals(weapon.crudeName() + "_forged", weapon.forgedName());
             assertEquals(weapon.crudeName(), weapon.nameAt(false));
             assertEquals(weapon.forgedName(), weapon.nameAt(true));
-            assertTrue(weapon.crudeName().startsWith("orc_"),
-                    weapon.crudeName() + " is not obviously an orc's");
+            // Every weapon says whose it is in its own name, which is what keeps
+            // a goblin's shiv out of an orc's hand when the registry is read back
+            // by name -- and what makes two armories one enum safely.
+            assertTrue(weapon.crudeName().startsWith("orc_")
+                            || weapon.crudeName().startsWith("goblin_"),
+                    weapon.crudeName() + " does not say whose weapon it is");
         }
         assertEquals(Weaponry.values().length * 2, Weaponry.everyName().size());
         assertEquals(Weaponry.everyName().size(), Set.copyOf(Weaponry.everyName()).size(),
@@ -166,26 +170,54 @@ final class WeaponryTest {
     }
 
     @Test
-    void orcsAreTheOnlyRaceThatArmsEverybody() {
+    void humansAreTheOnlyRaceThatArmsOnlyItsWatch() {
+        // Both of the non-human races arm everybody, and from opposite
+        // directions: an orc because everybody in a warhost is a warrior, a
+        // goblin because there is nobody in a camp who will not have to run. The
+        // humans post a watch and let the miller mill.
         assertTrue(Weaponry.armsEveryone(Race.ORC));
+        assertTrue(Weaponry.armsEveryone(Race.GOBLIN));
         assertFalse(Weaponry.armsEveryone(Race.HUMAN));
-        assertFalse(Weaponry.armsEveryone(Race.GOBLIN));
     }
 
     @Test
-    void everyOrcCultureArmsEverybodyAndNoOtherCultureDoes() {
+    void everyCultureArmsItsPeopleTheWayItsRaceDoes() {
         // Asked of the race rather than the culture id on purpose, so the orcs'
         // second and third cultures arm their millers without anybody editing
         // this. The ids are here to catch a culture landing on the wrong body.
         for (Culture culture : Culture.all()) {
-            assertEquals(culture.race() == Race.ORC,
+            assertEquals(culture.race() != Race.HUMAN,
                     Weaponry.armsEveryone(culture.race()),
                     culture.id() + " disagrees with its own race about arming its people");
         }
         assertTrue(Weaponry.armsEveryone(Culture.of("civilization:orc/warhost").race()),
                 "the warhost does not arm its own people");
+        assertTrue(Weaponry.armsEveryone(Culture.of("civilization:goblin/mire").race()),
+                "the mire camps do not arm their own people");
         assertFalse(Weaponry.armsEveryone(Culture.of("civilization:human/norman").race()));
-        assertFalse(Weaponry.armsEveryone(Culture.of("civilization:goblin/mire").race()));
+    }
+
+    @Test
+    void eachRaceReachesIntoItsOwnArmoryAndNobodyElses() {
+        // The one thing two armories in one enum must never do: hand a goblin an
+        // orc's morningstar. Both kits are dealt from the same hash of the same
+        // id, so the only thing keeping them apart is which list is indexed.
+        for (int step = 0; step < 40; step++) {
+            UUID id = new UUID(0L, step);
+            assertTrue(Weaponry.forGuard(Race.ORC, id).crudeName().startsWith("orc_"));
+            assertTrue(Weaponry.forCivilian(Race.ORC, id).crudeName().startsWith("orc_"));
+            assertTrue(Weaponry.forGuard(Race.GOBLIN, id).crudeName().startsWith("goblin_"));
+            assertTrue(Weaponry.forCivilian(Race.GOBLIN, id).crudeName()
+                    .startsWith("goblin_"));
+        }
+        // And every goblin has a hand free, which is the whole of how a camp
+        // answers a creeper -- there is no two-hander in the camp's armory.
+        for (Weaponry weapon : Weaponry.CAMP_KIT) {
+            assertTrue(weapon.carriesBow(), weapon + " leaves a goblin no hand for a sling");
+        }
+        for (Weaponry weapon : Weaponry.CAMP_CIVILIAN_KIT) {
+            assertTrue(weapon.carriesBow(), weapon + " leaves a goblin no hand for a sling");
+        }
     }
 
     @Test

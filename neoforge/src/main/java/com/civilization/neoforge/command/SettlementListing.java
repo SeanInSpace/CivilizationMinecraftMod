@@ -41,10 +41,25 @@ public final class SettlementListing {
     /**
      * One settlement, as the listing cares about it.
      *
-     * @param away blocks from whoever asked, on the horizontal
+     * @param away    blocks from whoever asked, on the horizontal
+     * @param hostile whether this is a place that will shoot at you — a goblin
+     *                camp. The one thing on this row that is not a measurement,
+     *                and the only one a player needs before they set off walking.
      */
     public record Row(String name, String stage, int population, int x, int y, int z,
-                      double away, String wall, int coin, int food) {
+                      double away, String wall, int coin, int food, boolean hostile) {
+
+        /**
+         * The old shape, for a settlement nobody has a quarrel with.
+         *
+         * <p>Kept so that adding the flag did not mean editing every fixture that
+         * builds one of these — the same reason {@code Culture} kept its
+         * three-field constructor when it grew names.
+         */
+        public Row(String name, String stage, int population, int x, int y, int z,
+                   double away, String wall, int coin, int food) {
+            this(name, stage, population, x, y, z, away, wall, coin, food, false);
+        }
     }
 
     /**
@@ -76,13 +91,21 @@ public final class SettlementListing {
         return out.toString();
     }
 
-    /** One settlement's row, in the columns the report is aligned on. */
+    /**
+     * One settlement's row, in the columns the report is aligned on.
+     *
+     * <p>A hostile settlement says so at the end of its line rather than in a
+     * column of its own. Every other field here is a number a player might
+     * compare down the list; this one is a warning about one row, and a column
+     * that is blank on eight lines out of nine is a column that reads as noise.
+     */
     public static String line(Row row) {
         return String.format(
                 "  %-22s %-10s pop %-4d  at %6d %4d %6d  %5.0fm away"
-                        + "  wall %-9s coin %-6d food %d",
+                        + "  wall %-9s coin %-6d food %d%s",
                 row.name(), row.stage(), row.population(),
                 row.x(), row.y(), row.z(), row.away(),
-                row.wall(), row.coin(), row.food());
+                row.wall(), row.coin(), row.food(),
+                row.hostile() ? "  — HOSTILE" : "");
     }
 }

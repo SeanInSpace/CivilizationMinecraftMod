@@ -90,7 +90,14 @@ class LayoutTest {
                 Layouts.CROSSROADS, Layouts.BASTIDE,
                 Layouts.THORP,
                 Layouts.CRESCENTS,
-                Layouts.GREEN)) {
+                Layouts.GREEN,
+                // The camp packs its plots against each other at exactly this
+                // separation and no further, so it is the one arrangement here
+                // whose whole geometry is this rule. A goblin camp that broke it
+                // would have half its offers thrown away and sprawl looking for
+                // ground, which is the warren's old fault in a shape that has no
+                // room to sprawl into.
+                Layouts.GOBLIN_CAMP)) {
             SimPos[] plots = new SimPos[MANY];
             for (int i = 0; i < MANY; i++) {
                 plots[i] = layout.plotFor(CENTER, i);
@@ -320,7 +327,8 @@ class LayoutTest {
 
         // The ones with no counterpart answer with themselves, so a caller can
         // swap a whole table over without special-casing them.
-        for (Layout alone : List.of(Layouts.WARREN, Layouts.ORGANIC)) {
+        for (Layout alone : List.of(Layouts.WARREN, Layouts.ORGANIC,
+                Layouts.GOBLIN_CAMP)) {
             assertSame(alone, Layouts.streetsFirst(alone),
                     alone.id() + " invented streets it has no business having");
             assertSame(alone, Layouts.lattice(alone));
@@ -487,7 +495,12 @@ class LayoutTest {
     @Test
     void aCulturePicksItsOwnArrangement() {
         assertSame(Layouts.RING, Layouts.of(Culture.NORMAN.layouts().get(0)));
-        assertSame(Layouts.WARREN, Culture.GOBLIN.arrangementFor(CENTER));
+        // The goblins build in two now and the camp leads, for the same reason the
+        // orcs' camp leads below: a warren is a settled shape and these goblins
+        // are not settled. The warren is still in the list.
+        assertSame(Layouts.GOBLIN_CAMP, Layouts.of(Culture.GOBLIN.layouts().get(0)));
+        assertTrue(Culture.GOBLIN.layouts().contains(Culture.LAYOUT_WARREN),
+                "the warren was dropped rather than demoted");
         // The orcs build in three now, so this asks for the head of their list
         // rather than for whatever this center happens to choose. The camp leads
         // it: a people whose only shapes were rectangles read as a garrison and
@@ -565,10 +578,14 @@ class LayoutTest {
         // A town with nothing recorded reads its arrangement off its people, so
         // re-badging it re-reads. The cached answer has to go with it, which is
         // the only reason setCultureId touches the layout at all.
+        SimPos where = new SimPos(512, 72, 512);
         Settlement town = new Settlement(
-                Settlement.Id.random(), "Rebadged", new SimPos(512, 72, 512), 256);
+                Settlement.Id.random(), "Rebadged", where, 256);
         town.setCultureId(Culture.GOBLIN.id());
-        assertSame(Layouts.WARREN, town.arrangement());
+        // Asked of the people rather than named, because the goblins build in two
+        // arrangements now and which of them a town gets is decided by where it
+        // stands. Naming one here would pin the hash rather than the rule.
+        assertSame(Culture.GOBLIN.arrangementFor(where), town.arrangement());
 
         town.setCultureId(Culture.VALE.id());
         assertSame(Layouts.RING_STREETS, town.arrangement(),
@@ -582,8 +599,8 @@ class LayoutTest {
         // arrangement the town was actually built in and answer with something
         // plausible instead, which is the failure the recorded id exists to
         // prevent. /civ culture asks for the old shape to go, in as many words.
-        Settlement town = new Settlement(
-                Settlement.Id.random(), "Kept", new SimPos(-3_200, 72, 96), 256);
+        SimPos where = new SimPos(-3_200, 72, 96);
+        Settlement town = new Settlement(Settlement.Id.random(), "Kept", where, 256);
         town.setLayoutId(Culture.LAYOUT_STRONGHOLD_STREETS);
         town.setCultureId(Culture.GOBLIN.id());
 
@@ -591,7 +608,7 @@ class LayoutTest {
                 "stamping a culture threw away the arrangement on the ground");
 
         town.setLayoutId(null);
-        assertSame(Layouts.WARREN, town.arrangement(),
+        assertSame(Culture.GOBLIN.arrangementFor(where), town.arrangement(),
                 "asked outright to forget it, the town kept it anyway");
     }
 

@@ -106,6 +106,26 @@ public final class CivilizationBlocks {
             "great_hut",
             properties -> new BuildingPostBlock("Great Hut", "the chief's roof, on the middle of the yard — the king lives here, and while he does the warband fights harder.", properties),
             CivilizationBlocks::postProperties);
+    /** Hovel: mud, sticks and three goblins. What a camp lives in. */
+    public static final DeferredBlock<BuildingPostBlock> HOVEL = BLOCKS.registerBlock(
+            "hovel",
+            properties -> new BuildingPostBlock("Hovel", "packed mud over a stick frame, dug a course into the ground; three goblins sleep here.", properties),
+            CivilizationBlocks::postProperties);
+    /** Tent: hide over fence poles, two bedrolls, and down again in a morning. */
+    public static final DeferredBlock<BuildingPostBlock> TENT = BLOCKS.registerBlock(
+            "tent",
+            properties -> new BuildingPostBlock("Tent", "hide stretched over poles with two bedrolls under it — what a camp pitches for whoever has not got into a hovel.", properties),
+            CivilizationBlocks::postProperties);
+    /** Loot pile: the camp's store, and everything in it was somebody else's. */
+    public static final DeferredBlock<BuildingPostBlock> LOOT_PILE = BLOCKS.registerBlock(
+            "loot_pile",
+            properties -> new BuildingPostBlock("Loot Pile", "the camp's whole store: barrels and chests heaped inside a ring of stakes, with cages beside it. Everything here was carried in from somewhere else.", properties),
+            CivilizationBlocks::postProperties);
+    /** Chieftain's hut: the biggest roof in the camp, and who is in charge of it. */
+    public static final DeferredBlock<BuildingPostBlock> CHIEFTAIN_HUT = BLOCKS.registerBlock(
+            "chieftain_hut",
+            properties -> new BuildingPostBlock("Chieftain's Hut", "the biggest roof in the camp; the chieftain lives here, and until it stands the camp follows nobody.", properties),
+            CivilizationBlocks::postProperties);
     /** Croft: a house wrapped round its own yard, six under the roof. */
     public static final DeferredBlock<BuildingPostBlock> CROFT = BLOCKS.registerBlock(
             "croft",
@@ -194,7 +214,7 @@ public final class CivilizationBlocks {
 
     /** Every post the mod registers, in build order. */
     public static List<DeferredBlock<? extends BuildingPostBlock>> posts() {
-        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, LUMBER_CAMP, CAMP_POST, CACHE, BUNKHOUSE, HEARTH, COTTAGE, MILL, CARPENTRY, INN, HUT, GREAT_HUT, LONGHOUSE, CROFT, LIBRARY, GRAND_LIBRARY);
+        return List.of(WAREHOUSE, SMITH, ANIMAL_FARM, QUEST_BOARD, TOWN_HALL, HOUSE, GRANARY, FARM, MARKET, STOREHOUSE, WORKSHOP, WATCHTOWER, MINE, LUMBER_CAMP, CAMP_POST, CACHE, BUNKHOUSE, HEARTH, COTTAGE, MILL, CARPENTRY, INN, HUT, GREAT_HUT, HOVEL, TENT, LOOT_PILE, CHIEFTAIN_HUT, LONGHOUSE, CROFT, LIBRARY, GRAND_LIBRARY);
     }
 
     private CivilizationBlocks() {

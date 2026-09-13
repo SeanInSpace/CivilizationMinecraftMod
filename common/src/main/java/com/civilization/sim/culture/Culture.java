@@ -83,6 +83,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     public static final String LAYOUT_CRESCENTS = "crescents";
     public static final String LAYOUT_GREEN = "green";
     public static final String LAYOUT_ORC_RING = "orc_ring";
+    public static final String LAYOUT_GOBLIN_CAMP = "goblin_camp";
 
     /**
      * Which of this people's arrangements a town centered here is laid out in.
@@ -270,13 +271,20 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
                     "Hilda", "Leofa", "Mildred"));
 
     /**
-     * The mire goblins, who do not build towns so much as accumulate them.
+     * The mire goblins, who do not build towns at all — they make camps.
      *
-     * <p>The first entry that proved the type was worth having. Everything that
-     * makes a goblin settlement a goblin settlement is filled in here — the
-     * beasts, the names, and above all the arrangement. A warren grows by
-     * digging in wherever the digging is good and budding a new knot off the
-     * last one; it has no high street and never did.
+     * <p>The first entry that proved the type was worth having, and now the one
+     * entry whose people are nobody's neighbours. Mire goblins are hostile
+     * scavengers: they camp in swamps and dark woods, they forage and they raid,
+     * and they never farm. See {@code docs/GOBLINS.md} for what that means in
+     * play and {@link #isHostile} for what it means to the rest of the code.
+     *
+     * <p>{@link #LAYOUT_GOBLIN_CAMP} leads the list, and the warren stays behind
+     * it. A warren grows by digging in wherever the digging is good and budding a
+     * new knot off the last one; it is a fine shape and it is a <em>settled</em>
+     * one — its first knot is fifty-two blocks out, which is further than a whole
+     * camp. So the camp is what these goblins build now and the warren is what
+     * the ones who stayed put built.
      *
      * <p>The one goblin culture, for now. Goblins are a race like the humans and
      * will hold more than one people eventually; the mire folk are simply the
@@ -286,7 +294,7 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "civilization:goblin/mire",
             List.of("minecraft:chicken", "minecraft:pig", "minecraft:rabbit",
                     "minecraft:chicken"),
-            List.of(LAYOUT_WARREN),
+            List.of(LAYOUT_GOBLIN_CAMP, LAYOUT_WARREN),
             List.of("Gritmaw", "Snagholt", "Murkdig", "Rotcrag", "Slugwarren",
                     "Cinderhole", "Grubfen", "Thistlemire"),
             List.of("Snag", "Grib", "Mulch", "Skarn", "Wretch", "Gnash", "Bogle", "Nix"),
@@ -423,5 +431,39 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     /** How many pens the animal farm needs to hold this culture's beasts. */
     public int penCount() {
         return pennedAnimals.size();
+    }
+
+    /**
+     * Whether this people are at war with everybody who is not this people.
+     *
+     * <p>Read off the race, deliberately, and it is the second thing in the mod
+     * that does so — see {@code KingPlanner.crownsAKing} for the first and the
+     * argument for why a fact about a whole people belongs on the body rather
+     * than on the culture. Goblins are hostile the way orcs arm everybody:
+     * whatever a mire goblin's neighbours do, a goblin of any culture somebody
+     * adds later raids them.
+     *
+     * <p>What it decides: a goblin settlement is called a camp and reported
+     * hostile, its people attack a player who walks into the claim, the danger
+     * table scores them, the guards of everybody else engage them, and the
+     * worldgen draw keeps them out of the town a new player sees first. What it
+     * does <em>not</em> decide is anything about how they build: that is the
+     * layout, the homes table and the catalog, exactly as it is for everybody.
+     */
+    public boolean isHostile() {
+        return race() == Race.GOBLIN;
+    }
+
+    /**
+     * What one of this people's settlements is: a town, a camp, a warren.
+     *
+     * <p>One word, because four places want the same word and were each about to
+     * pick their own — {@code /civ info}, {@code /civ list}, the login greeting
+     * and the wayfinder. A goblin settlement is a camp and a human one is a town,
+     * and a mod where three of those four agree is a mod where the fourth reads
+     * as a bug.
+     */
+    public String settlementWord() {
+        return isHostile() ? "camp" : "town";
     }
 }

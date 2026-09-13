@@ -251,6 +251,40 @@ public final class BuildingSizes {
         table.put("hut", Size.round(7, 7, 8, 2));
         table.put("great_hut", Size.round(13, 13, 13, 3));
 
+        // The goblin camp. Everything here is smaller than the thing it stands
+        // in for in anybody else's settlement, which is the point of a camp:
+        // a hovel is two courses shorter than a cottage on two blocks less
+        // ground, and the chieftain's seat is the smallest hall in the mod.
+        //
+        // The heights are ceilings and not what a camp draws -- see Size. Both of
+        // the roofed ones here are measured against the HIGHLAND style, which
+        // pitches the steepest roof in the mod and puts a chimney over it; a mire
+        // goblin's own hip gives up after two courses, so a hovel in an actual
+        // camp stands at five where this says eight. The two unroofed ones are
+        // exact, because a sheet of wool and a ring of stakes have no pitch.
+        //
+        // Both spans odd, always. The user asked for a hovel about five across and
+        // a tent about four, and four is not a number a building drawn about its
+        // own origin can be: an even span puts the origin off center and a quarter
+        // turn moves the building half a block. So both are five, and what tells
+        // them apart is the height, the palette and how many sleep in them. A tent
+        // is four courses of wool over poles; a hovel is mud with a roof on it.
+        table.put("hovel", new Size(5, 5, 8));
+        table.put("tent", new Size(5, 5, 4));
+        // The loot pile: the camp's store, and deliberately the flattest thing
+        // in it. Nine by seven is the storehouse's own footprint, because it does
+        // the storehouse's job and a plan that reserved less ground for it would
+        // be a camp that outgrows its own shelves. Four courses, which is a heap
+        // and a fence round it rather than a building -- the same height the
+        // market gets, and for the same reason.
+        table.put("loot_pile", new Size(9, 7, 4));
+        // The chieftain's hut. Nine across against the great hut's thirteen: a
+        // goblin chief is a bigger goblin in a bigger hovel, not an orc king in a
+        // hall. Still the largest roof in a camp by four blocks, which is how you
+        // tell it from the air. Twelve is again the highland ceiling; the camp's
+        // own comes out at seven.
+        table.put("chieftain_hut", new Size(9, 9, 12));
+
         // Trades. Seven is a workshop with room to swing in; nine is a trade
         // with stock to keep.
         //

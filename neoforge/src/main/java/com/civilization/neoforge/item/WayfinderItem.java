@@ -102,7 +102,7 @@ public final class WayfinderItem extends Item {
         player.sendSystemMessage(Component.literal(SiteDirectory.line(
                 chosen.what(), chosen.standing(),
                 chosen.at().x() - player.getBlockX(),
-                chosen.at().z() - player.getBlockZ()).trim()));
+                chosen.at().z() - player.getBlockZ(), chosen.hostile()).trim()));
         return InteractionResult.SUCCESS;
     }
 

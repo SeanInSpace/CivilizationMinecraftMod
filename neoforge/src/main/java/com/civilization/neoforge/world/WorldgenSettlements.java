@@ -242,6 +242,87 @@ public final class WorldgenSettlements {
     private static final SettlementStage STAGE = SettlementStage.VILLAGE;
 
     /**
+     * What a goblin camp is worth, which is as much as a camp ever gets.
+     *
+     * <p>TOWN rather than VILLAGE, and it is not a camp being flattered. A
+     * settlement's stage is how far up the founding ladder it has climbed, and the
+     * ladder's last two rungs are the ones a camp actually wants: nothing in this
+     * mod stakes a palisade before TOWN ({@code PerimeterPlanner}), and the TOWN
+     * program is what raises the hall — which for these people is the chieftain's
+     * hut, and no chieftain is crowned until it stands.
+     *
+     * <p>So a village found in the world is a village still growing and a camp
+     * found in the world is finished, which is the truthful pair: a camp is not a
+     * town that has not got going yet. It is the whole of what a band of goblins
+     * ever builds, and what it does from there is raid.
+     */
+    private static final SettlementStage CAMP_STAGE = SettlementStage.TOWN;
+
+    /**
+     * Goblins in a camp the world wrote down.
+     *
+     * <p>Eight, which is the number the user asked for and also what the camp's own
+     * TOWN program houses: a hovel for three, two tents for two, and the chieftain's
+     * hut for three, less the one bed the plan leaves spare. Passed outright rather
+     * than derived from the beds, so a camp is eight goblins whatever the housing
+     * table does next — a camp of five reads as a camp that has already lost a
+     * fight.
+     */
+    private static final int CAMP_GOBLINS = 8;
+
+    /**
+     * Where a goblin camp is allowed to stand.
+     *
+     * <p>Swamp, mangrove swamp, dark forest and both old-growth taigas — bog and
+     * deep wood, which is where everybody has always put goblins and, more to the
+     * point, is terrain a player crosses rather than settles. A camp in a plains
+     * biome would be a camp in somebody's front garden.
+     *
+     * <p><strong>The biome is read here and not in the site chooser.</strong>
+     * {@code SettlementSites} is arithmetic on a seed with no world behind it —
+     * that is the whole reason a world's towns can be enumerated without loading a
+     * chunk — and a biome needs a level. So the draw is blind and this is where it
+     * is checked, on ground that has just been generated for the purpose.
+     */
+    private static final Set<ResourceKey<net.minecraft.world.level.biome.Biome>>
+            GOBLIN_COUNTRY = Set.of(
+                    net.minecraft.world.level.biome.Biomes.SWAMP,
+                    net.minecraft.world.level.biome.Biomes.MANGROVE_SWAMP,
+                    net.minecraft.world.level.biome.Biomes.DARK_FOREST,
+                    net.minecraft.world.level.biome.Biomes.OLD_GROWTH_PINE_TAIGA,
+                    net.minecraft.world.level.biome.Biomes.OLD_GROWTH_SPRUCE_TAIGA);
+
+    /** Whether this ground is bog or deep wood enough for a camp. */
+    private static boolean inGoblinCountry(ServerLevel level, SimPos at) {
+        return level.getBiome(new BlockPos(at.x(), at.y(), at.z()))
+                .unwrapKey()
+                .map(GOBLIN_COUNTRY::contains)
+                .orElse(false);
+    }
+
+    /**
+     * The same site, with the hostile arrangements taken out of the draw.
+     *
+     * <p>What a region that drew a camp on the wrong ground gets instead. Re-drawn
+     * rather than rejected, and that is the interesting half: rejecting would have
+     * made the goblin weight a hole in the map, so a world configured for one camp
+     * in five regions would have had a fifth of its regions empty wherever the
+     * ground was not boggy. The jitter that places a site reads its own hash stream
+     * and not the weights, so the town lands on exactly the same spot — only the
+     * people change.
+     */
+    private static Optional<SettlementSites.Site> withoutTheGoblins(
+            SettlementSites.Grid grid, long seed, int regionX, int regionZ,
+            Map<String, Integer> weights) {
+        Map<String, Integer> friendly = new java.util.LinkedHashMap<>();
+        weights.forEach((layoutId, weight) -> friendly.put(layoutId,
+                Culture.all().stream()
+                        .filter(culture -> culture.layouts().contains(layoutId))
+                        .allMatch(Culture::isHostile) ? 0 : weight));
+        return grid.siteIn(seed, regionX, regionZ, friendly);
+    }
+
+    /**
      * Looks for a site near each player and raises at most one town.
      *
      * <p>Overworld only. The site grid is dimension-agnostic — it is arithmetic
@@ -324,6 +405,21 @@ public final class WorldgenSettlements {
             return true;
         }
 
+        // Goblins belong in a bog or a deep wood and nowhere else. The draw is
+        // blind to biome -- it has no world behind it -- so this is where a camp
+        // that landed in a wheat field becomes an ordinary town instead. Re-drawn
+        // on the same ground, so the region keeps its site.
+        if (Culture.of(site.cultureId()).isHostile() && !inGoblinCountry(level, chosen)) {
+            Optional<SettlementSites.Site> instead = withoutTheGoblins(
+                    gridFor(level), level.getSeed(), regionX, regionZ,
+                    CivilizationConfig.arrangementWeights());
+            if (instead.isEmpty()) {
+                ledger.reject(regionX, regionZ);
+                return true;
+            }
+            site = instead.get();
+        }
+
         String name = Culture.of(site.cultureId()).townNames().isEmpty()
                 ? "Wayside"
                 : pickName(site);
@@ -343,9 +439,12 @@ public final class WorldgenSettlements {
         // put to the same terrain test the player's arrival will apply, on ground
         // that has just been read, so a town that looks right from above is right
         // from the ground as well. See Founding.seeded's bridge overload.
-        Settlement settlement = Founding.seeded(chosen, name, STAGE,
+        boolean camp = Culture.of(site.cultureId()).isHostile();
+        Settlement settlement = Founding.seeded(chosen, name,
+                camp ? CAMP_STAGE : STAGE,
                 BuildCatalog.DEFAULT, site.cultureId(),
-                Founding.AS_THE_STAGE_HOUSES, site.layoutId(), world.bridge());
+                camp ? CAMP_GOBLINS : Founding.AS_THE_STAGE_HOUSES,
+                site.layoutId(), world.bridge());
         kingdom.addSettlement(settlement);
 
         world.addKingdom(kingdom);

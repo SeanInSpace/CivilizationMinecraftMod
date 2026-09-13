@@ -92,6 +92,34 @@ public final class BuildCatalog {
             //
             // Six beds, and the first of them is the king's. See KingPlanner.
             new BuildingType("civilization:great_hut",      70,     14,     1,            0,       79,        6,       0, plot("civilization:great_hut")),
+            // The goblin camp's own four. Same argument as the orc homes: these
+            // are rows every settlement can see, and the filter that keeps a
+            // hovel out of a Norman village and a cottage out of a goblin camp is
+            // one table -- Homes -- rather than a column on every row.
+            //
+            // A hovel stands exactly where a house would: same priority, same one
+            // per three residents, because it IS their house. Sixteen work
+            // against a cottage's twenty-eight -- mud and sticks over a five-block
+            // pad is the cheapest roof in the mod, which is what lets a camp house
+            // eight goblins out of nothing.
+            new BuildingType("civilization:hovel",          16,      1,     1,            3,       80,        3,       0, plot("civilization:hovel")),
+            // A tent is cheaper still and holds two. Base nought and one per five
+            // residents, so it is the overflow rather than the standard: a camp
+            // raises hovels and pitches a tent for whoever has not got into one.
+            new BuildingType("civilization:tent",            8,      1,     0,            5,       79,        2,       0, plot("civilization:tent")),
+            // The loot pile: the camp's store, and the only one it ever has. Base
+            // one and nothing per resident, so a camp that grows keeps piling onto
+            // the same heap rather than starting a second. Priority fifty-five,
+            // which is the storehouse's own -- it is standing in for one.
+            new BuildingType("civilization:loot_pile",      30,      1,     1,            0,       55,        0,       0, plot("civilization:loot_pile")),
+            // The chieftain's seat, capped at one by its own row exactly as the
+            // great hut is, and gated at six rather than the great hut's fourteen:
+            // a camp of six has a chieftain because a camp of six is already a
+            // band with somebody in charge of it, and a warband of six is not yet
+            // a warband. Ranked just under the hovel, so shelter comes before a
+            // seat -- and it carries the camp's only defense bonus, because a
+            // camp fights from round the chief's roof.
+            new BuildingType("civilization:chieftain_hut",  45,      6,     1,            0,       78,        4,       2, plot("civilization:chieftain_hut")),
             new BuildingType("civilization:granary",        40,      4,     1,           20,       75,        0,       0, plot("civilization:granary")),
             // The farm row is a ceiling on wanting, not the floor. The floor is
             // BuildPlanner.farmsWanted -- one field per MOUTHS_PER_FARM mouths,

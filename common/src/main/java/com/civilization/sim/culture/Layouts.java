@@ -622,6 +622,17 @@ public final class Layouts {
      */
     public static final Layout ORC_RING = new OrcRingLayout();
 
+    /**
+     * The goblin camp: a huddle of hovels and tents round a trampled middle.
+     *
+     * <p>The other camp in the table, and the small one. Where the orc ring is a
+     * camp drawn round a chief by people who count, this is what a band of
+     * scavengers throws up in a swamp: no streets, nothing on a pitch, and the
+     * whole of it inside a shout of the fire. See {@link GoblinCampLayout} for
+     * the numbers and for why it is not the warren.
+     */
+    public static final Layout GOBLIN_CAMP = new GoblinCampLayout();
+
     private static final Map<String, Layout> KNOWN = new LinkedHashMap<>();
 
     /**
@@ -633,11 +644,12 @@ public final class Layouts {
      * keeps them by naming the lattice, and no save has to be migrated for either
      * choice — the id in the save resolves to whatever it always did.
      *
-     * <p>WARREN and ORGANIC are deliberately absent. A warren is knots of huts
-     * with open ground between them and an organic town is a scatter round a
-     * well; neither has streets, and that is what they <em>are</em> rather than
-     * something not got round to yet. Giving them a high street would not improve
-     * them, it would delete them.
+     * <p>WARREN, ORGANIC and GOBLIN_CAMP are deliberately absent. A warren is
+     * knots of huts with open ground between them, an organic town is a scatter
+     * round a well, and a goblin camp is a huddle round a fire; none of them has
+     * streets, and that is what they <em>are</em> rather than something not got
+     * round to yet. Giving them a high street would not improve them, it would
+     * delete them.
      */
     private static final Map<String, String> STREETS_FIRST = new LinkedHashMap<>();
     private static final Map<String, String> LATTICE = new LinkedHashMap<>();
@@ -645,7 +657,8 @@ public final class Layouts {
     static {
         for (Layout layout : new Layout[]{RING, WARREN, STRONGHOLD, ORGANIC,
                 HIGH_STREET, RING_STREETS, STRONGHOLD_STREETS, RADIAL_CONCENTRIC,
-                CROSSROADS, BASTIDE, THORP, CRESCENTS, GREEN, ORC_RING}) {
+                CROSSROADS, BASTIDE, THORP, CRESCENTS, GREEN, ORC_RING,
+                GOBLIN_CAMP}) {
             KNOWN.put(layout.id(), layout);
         }
         STREETS_FIRST.put(RING.id(), RING_STREETS.id());

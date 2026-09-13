@@ -42,7 +42,36 @@ public enum Weaponry {
     AXE("orc_axe", Grip.ONE_HANDED),
 
     /** Both hands, slowest in the table, and the hardest single blow. */
-    MORNINGSTAR("orc_morningstar", Grip.TWO_HANDED);
+    MORNINGSTAR("orc_morningstar", Grip.TWO_HANDED),
+
+    /*
+     * The goblin armory. Four, and every one of them is one-handed -- which is
+     * not a coincidence and not a shortcut. A goblin is fourteen health against
+     * an orc's thirty and gets no damage bonus at all from his body (see Race),
+     * so the whole of a goblin's answer to being hit is not being where the blow
+     * lands. Nothing in a camp is a two-hander, so every goblin in the line has a
+     * hand free for a sling -- which is the ranged kit the user asked for, arrived
+     * at through the machinery that was already there rather than through a fifth
+     * weapon slot. See carriesBow().
+     */
+
+    /** One hand, the quickest thing in either armory, and barely a weapon. */
+    SHIV("goblin_shiv", Grip.ONE_HANDED),
+
+    /** One hand, a lump of bog oak with a nail in it. Slow for what it is. */
+    CLUB("goblin_club", Grip.ONE_HANDED),
+
+    /** One hand, reach instead of weight: the thing a goblin holds a guard off with. */
+    SPEAR("goblin_spear", Grip.ONE_HANDED),
+
+    /**
+     * One hand, and the reason the camp can hit a creeper.
+     *
+     * <p>Held like a weapon and swung like one when something is in reach, but its
+     * bearer has a hand free like every other goblin, so the bow machinery picks it
+     * up and he shoots. A sling is what a camp has instead of a bowyer.
+     */
+    SLING("goblin_sling", Grip.ONE_HANDED);
 
     /** Whether a weapon leaves a hand free. */
     public enum Grip {
@@ -138,6 +167,28 @@ public enum Weaponry {
             List.of(GREATSWORD, FALCHION, AXE, MORNINGSTAR);
 
     /**
+     * What a camp's fighters carry, in a fixed order.
+     *
+     * <p>The club and the spear, which are the two things in the goblin armory a
+     * band would arm somebody with on purpose. The shiv is not in it for the same
+     * reason the cleaver is not in the orcs' — it is a tool that happens to cut —
+     * and the sling is not in it either, because a sling is what the <em>rest</em>
+     * of the camp turns up holding and a fighter with one is a fighter with no
+     * weapon.
+     */
+    public static final List<Weaponry> CAMP_KIT = List.of(CLUB, SPEAR);
+
+    /**
+     * And what everybody else in a camp has by them.
+     *
+     * <p>The shiv and the sling. Both plausible as things a goblin already owned
+     * for another reason, which is the same test the orcs' civilian kit passes, and
+     * between them they are why a camp is dangerous to walk into: there is no
+     * unarmed goblin, and about half of them can hit you from across the yard.
+     */
+    public static final List<Weaponry> CAMP_CIVILIAN_KIT = List.of(SHIV, SLING);
+
+    /**
      * What everybody else carries, in a fixed order.
      *
      * <p>Both one-handed, because a farmer with a greatsword is not a farmer,
@@ -145,14 +196,43 @@ public enum Weaponry {
      */
     public static final List<Weaponry> CIVILIAN_KIT = List.of(CLEAVER, AXE);
 
+    /**
+     * What this race's fighters are issued from.
+     *
+     * <p>Asked of the race for the same reason {@link #armsEveryone} is: an armory
+     * is a fact about a people, and the culture is how they lay their streets out.
+     * Humans are not in it — their watch carries a wooden sword and then an iron
+     * one, which is vanilla's own two rungs and needs no table.
+     */
+    public static List<Weaponry> guardKit(Race race) {
+        return race == Race.GOBLIN ? CAMP_KIT : GUARD_KIT;
+    }
+
+    /** And what everybody who is not of the watch has by them. */
+    public static List<Weaponry> civilianKit(Race race) {
+        return race == Race.GOBLIN ? CAMP_CIVILIAN_KIT : CIVILIAN_KIT;
+    }
+
     /** Which weapon the watch deals this person. */
     public static Weaponry forGuard(UUID personId) {
-        return GUARD_KIT.get(Math.floorMod(spread(personId), GUARD_KIT.size()));
+        return forGuard(Race.ORC, personId);
+    }
+
+    /** Which weapon this race's watch deals this person. */
+    public static Weaponry forGuard(Race race, UUID personId) {
+        List<Weaponry> kit = guardKit(race);
+        return kit.get(Math.floorMod(spread(personId), kit.size()));
     }
 
     /** Which weapon this person owns when he is not of the watch. */
     public static Weaponry forCivilian(UUID personId) {
-        return CIVILIAN_KIT.get(Math.floorMod(spread(personId), CIVILIAN_KIT.size()));
+        return forCivilian(Race.ORC, personId);
+    }
+
+    /** The same, for a race with its own armory. */
+    public static Weaponry forCivilian(Race race, UUID personId) {
+        List<Weaponry> kit = civilianKit(race);
+        return kit.get(Math.floorMod(spread(personId), kit.size()));
     }
 
     /** The weapon of that registered name at either tier, or null for anything else. */
@@ -187,9 +267,14 @@ public enum Weaponry {
      * is how they lay their streets out. Orcs have one culture today and will
      * have four, and every one of them will arm everybody without this line
      * being touched.
+     *
+     * <p>Goblins joined them, and from the other direction: an orc arms everybody
+     * because everybody in a warhost is a warrior, and a goblin camp arms everybody
+     * because there is nobody in it who is not going to have to run. Which armory
+     * each of them reaches into is {@link #guardKit}.
      */
     public static boolean armsEveryone(Race race) {
-        return race == Race.ORC;
+        return race == Race.ORC || race == Race.GOBLIN;
     }
 
     /**

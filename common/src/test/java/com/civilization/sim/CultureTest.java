@@ -159,7 +159,14 @@ class CultureTest {
         assertEquals(Culture.LAYOUT_ORGANIC, Culture.HIGHLAND.layouts().get(0));
         assertEquals(Culture.LAYOUT_HIGH_STREET, Culture.BURGHER.layouts().get(0));
         assertEquals(Culture.LAYOUT_RING_STREETS, Culture.VALE.layouts().get(0));
-        assertEquals(Culture.LAYOUT_WARREN, Culture.GOBLIN.layouts().get(0));
+        // The goblins are the second deliberate exception, and for the same
+        // reason as the orcs below: what save compatibility was protecting here
+        // was the very thing being replaced. A warren is a settled shape — its
+        // first knot sits fifty-two blocks out, which is further across than a
+        // whole camp — and these goblins are not settled any more. The warren is
+        // still in the list.
+        assertEquals(Culture.LAYOUT_GOBLIN_CAMP, Culture.GOBLIN.layouts().get(0));
+        assertTrue(Culture.GOBLIN.layouts().contains(Culture.LAYOUT_WARREN));
 
         // The orcs are the exception, and a deliberate one. Their war camp took
         // the head of the list from the stronghold, which rearranges every orc

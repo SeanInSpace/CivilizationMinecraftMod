@@ -81,6 +81,15 @@ public final class OrcWeapons {
             case CLEAVER -> 4.0F;
             case AXE -> 6.0F;
             case MORNINGSTAR -> 8.0F;
+            // The camp's four, and every one of them under the orcs' weakest. A
+            // goblin weapon is a thing somebody made out of what was lying about,
+            // and the table says so rather than a comment saying so: a shiv is a
+            // flint and a bit of cord, and the spear buys its two points of reach
+            // by being the only thing here anybody had to shape twice.
+            case SHIV -> 2.0F;
+            case SLING -> 2.0F;
+            case CLUB -> 3.0F;
+            case SPEAR -> 4.0F;
         };
     }
 
@@ -92,6 +101,14 @@ public final class OrcWeapons {
             case CLEAVER -> -2.4F;
             case AXE -> -3.1F;
             case MORNINGSTAR -> -3.4F;
+            // Quick, because quick is the whole of what a goblin has. The shiv at
+            // -1.8 is the fastest thing in either armory -- faster than vanilla's
+            // own dagger-shaped sword -- and it still does less damage over time
+            // than an orc's falchion, which is the trade the two peoples are.
+            case SHIV -> -1.8F;
+            case SLING -> -2.0F;
+            case CLUB -> -2.6F;
+            case SPEAR -> -2.8F;
         };
     }
 

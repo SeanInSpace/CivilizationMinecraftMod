@@ -516,7 +516,8 @@ public final class CivilizationMod {
         for (com.civilization.neoforge.world.SiteDirectory.Near town : near) {
             said.append("\n").append(com.civilization.neoforge.world.SiteDirectory.line(
                     town.what(), town.standing(),
-                    town.at().x() - here.x(), town.at().z() - here.z()));
+                    town.at().x() - here.x(), town.at().z() - here.z(),
+                    town.hostile()));
         }
         player.sendSystemMessage(net.minecraft.network.chat.Component.literal(said.toString()));
 
@@ -529,9 +530,18 @@ public final class CivilizationMod {
                 new net.minecraft.world.item.ItemStack(CivilizationItems.WAYFINDER.get());
         // Already aimed. A compass that has to be clicked before it does
         // anything is a compass that looks broken.
-        if (!near.isEmpty()) {
-            com.civilization.neoforge.item.WayfinderItem.aimAt(wayfinder, level, near.get(0).at());
-        }
+        //
+        // At the nearest place that will not shoot at you, which is not always the
+        // nearest place. A goblin camp cannot be the spawn town -- the site chooser
+        // sees to that -- but it can perfectly well be the nearest thing to a
+        // player who spawned near a swamp, and a wayfinder handed out on login
+        // pointing at one is the mod's first act being to walk somebody into a
+        // fight. Clicking it still reaches the camp: the needle walks the whole
+        // list, and the line it prints says "hostile".
+        near.stream().filter(town -> !town.hostile()).findFirst()
+                .or(() -> near.stream().findFirst())
+                .ifPresent(town -> com.civilization.neoforge.item.WayfinderItem.aimAt(
+                        wayfinder, level, town.at()));
         if (!player.getInventory().add(wayfinder)) {
             player.drop(wayfinder, false);
         }

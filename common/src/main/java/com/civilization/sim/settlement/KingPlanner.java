@@ -60,6 +60,39 @@ public final class KingPlanner {
     /** The building a king sits in, and the one a warband is drawn round. */
     public static final String SEAT = "civilization:great_hut";
 
+    /** And the goblin chieftain's, which is the same rule in a smaller roof. */
+    public static final String CAMP_SEAT = "civilization:chieftain_hut";
+
+    /**
+     * The building this people's leader sits in, or null if they crown nobody.
+     *
+     * <p>Read off the culture rather than kept on the settlement, for the reason
+     * every other derived thing in this codebase is: a settlement carrying its own
+     * idea of where its chief lives could disagree with the table that says what
+     * its people build, and the disagreement would be a chief with no seat and no
+     * way to see why.
+     */
+    public static String seatFor(Settlement settlement) {
+        return switch (Culture.of(settlement.cultureId()).race()) {
+            case ORC -> SEAT;
+            case GOBLIN -> CAMP_SEAT;
+            case HUMAN -> null;
+        };
+    }
+
+    /**
+     * What this people call the one who wears it.
+     *
+     * <p>In the event log, and that is exactly where it matters: a goblin camp
+     * whose own history says "the king is dead" is a camp being reported in
+     * somebody else's words. One word, read off the race, so a people added later
+     * gets a title by being added rather than by this line being remembered.
+     */
+    public static String titleFor(Settlement settlement) {
+        return Culture.of(settlement.cultureId()).race() == Race.GOBLIN
+                ? "chieftain" : "king";
+    }
+
     /**
      * What a living king is worth to the watch.
      *
@@ -100,15 +133,27 @@ public final class KingPlanner {
      */
     public static final int MOURNING_STEPS = 100;
 
-    /** Whether this people crown anybody at all. */
+    /**
+     * Whether this people crown anybody at all.
+     *
+     * <p>Two races now. A human village has a town hall and a population; a
+     * warband has a chief and a goblin camp has a chieftain, and both of those are
+     * the same political fact in two sizes of roof. This is still the one place in
+     * the mod that reads {@link Race} to decide behavior rather than to set a
+     * number on a body, and it is still deliberate.
+     */
     public static boolean crownsAKing(Settlement settlement) {
-        return Culture.of(settlement.cultureId()).race() == Race.ORC;
+        return seatFor(settlement) != null;
     }
 
-    /** The great hut, if one stands, or null. */
+    /** The leader's seat, if one stands, or null. */
     public static Building seat(Settlement settlement) {
+        String wanted = seatFor(settlement);
+        if (wanted == null) {
+            return null;
+        }
         for (Building standing : settlement.buildings()) {
-            if (BuildPlanner.baseIdOf(standing.blueprintId()).equals(SEAT)) {
+            if (BuildPlanner.baseIdOf(standing.blueprintId()).equals(wanted)) {
                 return standing;
             }
         }
@@ -190,8 +235,9 @@ public final class KingPlanner {
         if (settlement.reigningKing() != null) {
             settlement.setReigningKing(null);
             settlement.setMourningUntil(ctx.step() + MOURNING_STEPS);
-            settlement.logEvent(ctx.step(),
-                    "The king is dead — the warband mourns and follows nobody");
+            settlement.logEvent(ctx.step(), "The " + titleFor(settlement)
+                    + " is dead — " + settlement.name()
+                    + " mourns and follows nobody");
             return;
         }
         if (ctx.step() < settlement.mourningUntil()) {
@@ -209,8 +255,13 @@ public final class KingPlanner {
         }
         heir.setProfession(Profession.KING);
         settlement.setReigningKing(heir.id());
-        settlement.logEvent(ctx.step(),
-                heir.name() + " takes the great hut and the warband follows him");
+        settlement.logEvent(ctx.step(), heir.name() + " takes the "
+                + readable(seatFor(settlement)) + " and is followed");
+    }
+
+    /** A blueprint id as a couple of words: {@code civilization:great_hut}. */
+    private static String readable(String blueprintId) {
+        return blueprintId.substring(blueprintId.indexOf(':') + 1).replace('_', ' ');
     }
 
     /**
@@ -231,7 +282,11 @@ public final class KingPlanner {
      */
     private static Person oldest(Settlement settlement, Profession trade) {
         for (Person person : settlement.residents()) {
-            if (person.profession() == Profession.KING) {
+            // Nobody who already holds a title. The king was always skipped; the
+            // shaman joined him when the goblins arrived, because a camp that
+            // crowned its shaman would come out of the succession with a leader
+            // and no keeper — and the keeper is half of what stops it scattering.
+            if (person.profession().isIdleByRight()) {
                 continue;
             }
             if (trade == null || person.profession() == trade) {

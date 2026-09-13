@@ -478,6 +478,27 @@ public interface WorldBridge {
     }
 
     /**
+     * The same, for a raid that came out of a settlement somebody could walk to.
+     *
+     * <p>{@link #spawnHostiles} spawns zombies, which is the honest picture of a
+     * raid whose only existence is a hash of a step number. A goblin camp is not
+     * that: it has a name, a position, a chieftain and a heap of stolen goods, and
+     * a player who watches its raid arrive should see goblins.
+     *
+     * <p>So the raider's own name is handed over and the platform spawns whatever
+     * it stands for. Defaulting to {@link #spawnHostiles} rather than to nothing is
+     * deliberate: a platform that has not learned about goblins yet still puts a
+     * fight in front of the player, which is very much better than a raid that is
+     * logged and invisible.
+     *
+     * @param cultureId whose party this is, as {@code Culture} names it, so the
+     *                  platform knows what body to give it
+     */
+    default void spawnRaiders(int count, SimPos around, String cultureId) {
+        spawnHostiles(count, around);
+    }
+
+    /**
      * Which players are standing near this point, by id.
      *
      * <p>{@link #playerWithin} answers whether <em>anybody</em> is about, which

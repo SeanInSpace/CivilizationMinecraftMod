@@ -326,6 +326,107 @@ public final class RaidPlanner {
     }
 
     /**
+     * A raid by somebody who actually exists, and what it carried off.
+     *
+     * <p>Every raid until now came from nowhere: {@link #raidStrength} hashes the
+     * settlement's id and {@link #execute} resolves it. A goblin camp is the first
+     * raider in the mod with a name, a home and a heap to put the takings in — see
+     * {@link GoblinCamp} — so this is {@link #advance}'s own arithmetic with the
+     * strength handed in instead of hashed, and the outcome handed back instead of
+     * only logged.
+     *
+     * <p><strong>Everything the town is owed still applies, unchanged.</strong>
+     * That is the whole reason this lives here rather than in the raider: the
+     * grace a new town gets, the cap that keeps an early raid a probe, the margin
+     * under which nobody dies, the order casualties are picked in, and the switch
+     * to real entities when somebody is watching are all rules about being
+     * <em>raided</em>, and a second copy of them written from the attacker's side
+     * would be a second set of numbers to drift. A camp says how hard it hits; the
+     * town decides what that costs it.
+     *
+     * @param strength what the raiding party is worth, before the town's own caps
+     * @param raider   where the party came from, which is what puts a name in the
+     *                 town's history and a people on the bodies when somebody is
+     *                 watching
+     * @return what the raid achieved, for the raider to act on
+     */
+    public static Outcome raidBy(Settlement target, SimContext ctx, int strength,
+                                 Settlement raider) {
+        String raiderName = raider.name();
+        if (!ctx.settings().raidsEnabled()) {
+            return Outcome.NOTHING_HAPPENED;
+        }
+        if (withinGrace(target, ctx.step())) {
+            // The town is too new to have been noticed, and that is a rule about
+            // the town rather than about who is looking at it. A party that walks
+            // up to one turns round again.
+            return Outcome.NOTHING_HAPPENED;
+        }
+        int pressed = Math.min(strength, earlyStrengthCap(target, ctx.step()));
+        if (pressed <= 0) {
+            return Outcome.NOTHING_HAPPENED;
+        }
+        if (pressed > target.threatLevel()) {
+            target.setThreatLevel(pressed);
+        }
+        if (ctx.bridge().playerWithin(target.center(), ctx.settings().observedRadius())) {
+            // Somebody is watching, so the fight is real and the arithmetic has no
+            // business deciding it. The party is spawned as bodies at the edge of
+            // town and entity combat takes over from there.
+            ctx.bridge().spawnRaiders(pressed, target.center(), raider.cultureId());
+            target.logEvent(ctx.step(), raiderName + " is at the gate — "
+                    + pressed + " raiders approach " + target.name());
+            return new Outcome(pressed, defensePower(target), false, true);
+        }
+        int defense = defensePower(target);
+        if (defense >= pressed) {
+            target.logEvent(ctx.step(), "A raid of " + pressed + " out of " + raiderName
+                    + " was repelled by the garrison (defense " + defense + "), no losses");
+            target.tallies().record(Tallies.RAIDS_REPELLED);
+            return new Outcome(pressed, defense, false, false);
+        }
+        if (pressed - defense < UNWATCHED_CASUALTY_MARGIN) {
+            // Over the line by one. Nobody dies -- see UNWATCHED_CASUALTY_MARGIN --
+            // and the raiders get in, take what they can carry and leave, which
+            // for the first time in this mod is a thing that actually happens to
+            // somebody's stores rather than a phrase in a log line.
+            target.logEvent(ctx.step(), "A raid of " + pressed + " out of " + raiderName
+                    + " broke through the defenses (" + defense
+                    + ") and was driven off — nobody lost");
+            target.tallies().record(Tallies.RAIDS_REPELLED);
+            return new Outcome(pressed, defense, true, false);
+        }
+        List<Person> fallen = pickCasualties(target, pressed - defense);
+        for (Person person : fallen) {
+            target.removePerson(person.id());
+        }
+        target.logEvent(ctx.step(), "A raid of " + pressed + " out of " + raiderName
+                + " overran the defenses (" + defense + ") — " + fallen.size()
+                + " lost: " + names(fallen));
+        return new Outcome(pressed, defense, true, false);
+    }
+
+    /**
+     * What a raid did, from the raider's side.
+     *
+     * @param strength  what the party was actually worth after the town's caps
+     * @param defense   what the town fielded against it
+     * @param brokeIn   whether the line gave, which is what decides the loot
+     * @param fought    whether real bodies were spawned and the outcome is the
+     *                  world's to decide rather than this arithmetic's
+     */
+    public record Outcome(int strength, int defense, boolean brokeIn, boolean fought) {
+
+        /** A raid that never happened: a grace, or raids switched off. */
+        public static final Outcome NOTHING_HAPPENED = new Outcome(0, 0, false, false);
+
+        /** Whether anything at all took place. */
+        public boolean happened() {
+            return strength > 0;
+        }
+    }
+
+    /**
      * Who falls when the line breaks: guards first — they are the line — then
      * others in roster order. Embodied people are never chosen: what a player can
      * see must never die invisibly, and statistical resolution only runs when the

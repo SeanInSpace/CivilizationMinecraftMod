@@ -575,7 +575,8 @@ public final class Foreman {
             return new Swing(true, false);
         }
         List<PerimeterLayer.Course> plan =
-                PerimeterLayer.planAt(level, perimeter, perimeter.laid());
+                PerimeterLayer.planAt(
+                        level, perimeter, perimeter.laid(), settlement.cultureId());
         PerimeterLayer.Course owed = PerimeterLayer.owed(level, plan);
         if (owed == null) {
             // The post stands, or this position is a gate's opening. Either way
@@ -614,7 +615,8 @@ public final class Foreman {
             return true;
         }
         SimPos station = perimeter.ringPositions().get(perimeter.laid());
-        if (PerimeterLayer.planAt(level, perimeter, perimeter.laid()).isEmpty()) {
+        if (PerimeterLayer.planAt(level, perimeter, perimeter.laid(),
+                settlement.cultureId()).isEmpty()) {
             return false;   // an opening costs nothing to leave open
         }
         return !PerimeterLayer.oursStandsAt(level, station);

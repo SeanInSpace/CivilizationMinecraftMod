@@ -2483,6 +2483,10 @@ public final class Settlement {
         // table, which has no opinion about kings and must not be handed one
         // halfway through its own pass.
         KingPlanner.advance(this, ctx);
+        // And the camp's own titles, straight after the crown: a chieftain named
+        // this step counts as leadership this step, so a camp does not spend one
+        // step scattering and then crown somebody out of the people who left.
+        GoblinCamp.advance(this, ctx);
         trackFedStreak();
         decayThreat();
         // After decay so a sustained hostile presence holds threat at its level
@@ -2651,6 +2655,9 @@ public final class Settlement {
         if (!stage.atLeast(SettlementStage.HOMESTEAD)) {
             return false;
         }
+        if (Homes.refuses(cultureId, BuildPlanner.FARM)) {
+            return false;   // a people who never farm are never short of fields
+        }
         if (countBuildings(BuildPlanner.FARM) >= BuildPlanner.farmsWanted(population())) {
             return false;
         }
@@ -2740,6 +2747,15 @@ public final class Settlement {
      */
     private String survivalRoleWanted() {
         for (String role : FoodPlanner.SURVIVAL_ROLES) {
+            // A people with no version of this has nothing to be short of. A
+            // goblin camp never raises a field, so a famine there is not a
+            // building problem and the lane must not name one -- left in, it
+            // returned "farm" every step of every famine and the whole rescue
+            // did nothing but log a town changing its mind.
+            if (catalog.stream().noneMatch(type -> FoodPlanner.namesRole(type.id(), role)
+                    && Homes.buildableBy(cultureId, type.id()))) {
+                continue;
+            }
             if (buildings.stream().noneMatch(b -> FoodPlanner.namesRole(b.blueprintId(), role))) {
                 return role;
             }
@@ -2767,7 +2783,12 @@ public final class Settlement {
             return null;   // already ordered; ordering the next one too would only queue-jump itself
         }
         for (BuildingType type : catalog) {
-            if (FoodPlanner.namesRole(type.id(), role)) {
+            // Whose building it is, asked here as well as in the catalog scan.
+            // The rescue lane reaches past chooseNext straight into the catalog,
+            // so without this a starving goblin camp would shove a field to the
+            // head of a queue it can never build and starve behind it.
+            if (FoodPlanner.namesRole(type.id(), role)
+                    && Homes.buildableBy(cultureId, type.id())) {
                 return type;
             }
         }

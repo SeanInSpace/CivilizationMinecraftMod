@@ -100,7 +100,32 @@ public final class SimWorld {
         for (Kingdom kingdom : kingdoms.values()) {
             kingdom.step(ctx);
         }
+        // And then the one pass that needs two settlements at once. A kingdom steps
+        // its own towns and a town steps itself, so neither of them can see a
+        // neighbour -- and a goblin camp raiding somebody is by construction a
+        // thing that happens between two settlements. See GoblinRaids, which is
+        // handed the list rather than this world so it stays testable without one.
+        //
+        // After the kingdoms, so a camp that crowned a chieftain this step raids
+        // with him and a town that recruited a guard this step is defended by him.
+        com.civilization.sim.settlement.GoblinRaids.advance(settlements(), ctx);
         stepsElapsed++;
+    }
+
+    /**
+     * Every settlement in the world, in a stable order.
+     *
+     * <p>Flat, because the one thing that reaches across settlements does not care
+     * which kingdom holds which — a goblin camp raids the nearest village and has
+     * no notion of a realm. Kingdom order then settlement order, both of which are
+     * insertion order, so the list is the same on every step and on every reload.
+     */
+    public java.util.List<Settlement> settlements() {
+        java.util.List<Settlement> all = new java.util.ArrayList<>();
+        for (Kingdom kingdom : kingdoms.values()) {
+            all.addAll(kingdom.settlements());
+        }
+        return all;
     }
 
     /** The settlement this person lives in, if any. */

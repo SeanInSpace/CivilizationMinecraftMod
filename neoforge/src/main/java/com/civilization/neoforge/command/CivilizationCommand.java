@@ -25,6 +25,7 @@ import com.civilization.sim.settlement.Seam;
 import com.civilization.sim.settlement.Stand;
 import com.civilization.sim.settlement.FoodPlanner;
 import com.civilization.sim.settlement.Garrison;
+import com.civilization.sim.settlement.GoblinCamp;
 import com.civilization.sim.settlement.KingPlanner;
 import com.civilization.sim.settlement.JobPlanner;
 import com.civilization.sim.settlement.LumberPlanner;
@@ -690,6 +691,12 @@ public final class CivilizationCommand {
             for (Settlement s : kingdom.settlements()) {
                 sb.append("\n  - ").append(s.name())
                         .append(" [").append(s.stage().pretty()).append("]")
+                        // What kind of place this is, on the one line somebody
+                        // skimming the report reads. A goblin camp is a camp and
+                        // it is hostile, and both of those belong beside the name
+                        // rather than eight lines down beside the culture id.
+                        .append(Culture.of(s.cultureId()).isHostile()
+                                ? " a goblin camp — HOSTILE" : "")
                         .append(": pop ").append(s.population())
                         .append("/").append(PopulationPlanner.totalHousingCapacity(s)).append(" housed")
                         .append(", threat ").append(s.threatLevel())
@@ -719,16 +726,35 @@ public final class CivilizationCommand {
                 // one thing about kings that is worth being able to see.
                 if (KingPlanner.crownsAKing(s)) {
                     Person crowned = KingPlanner.king(s);
-                    sb.append("\n      king: ");
+                    sb.append("\n      ").append(KingPlanner.titleFor(s)).append(": ");
                     if (crowned != null) {
                         sb.append(crowned.name()).append(" (+")
                                 .append(KingPlanner.KING_GUARD_BONUS)
-                                .append(" to the watch), great hut at ")
+                                .append(" to the watch), seat at ")
                                 .append(KingPlanner.rallyPoint(s));
                     } else if (KingPlanner.seat(s) == null) {
-                        sb.append("none — no great hut stands yet");
+                        sb.append("none — no ")
+                                .append(KingPlanner.seatFor(s)
+                                        .substring(KingPlanner.seatFor(s).indexOf(':') + 1)
+                                        .replace('_', ' '))
+                                .append(" stands yet");
                     } else {
-                        sb.append("none — the warband is still mourning");
+                        sb.append("none — still mourning");
+                    }
+                }
+                // And the camp's second title, which is half of what keeps it from
+                // walking away. A camp with neither is a camp coming apart, and
+                // that is the one thing about a goblin settlement worth seeing at
+                // a glance — see GoblinCamp.isScattering.
+                if (GoblinCamp.isCamp(s)) {
+                    Person keeper = GoblinCamp.shaman(s);
+                    sb.append("\n      shaman: ")
+                            .append(keeper == null ? "none" : keeper.name() + " (+"
+                                    + GoblinCamp.SHAMAN_FORAGE_BONUS + " forage a step)");
+                    if (GoblinCamp.isScattering(s)) {
+                        sb.append("\n      SCATTERING — no chieftain and no shaman; ")
+                                .append(GoblinCamp.SCATTER_PER_STEP)
+                                .append(" goblins leave every step");
                     }
                 }
                 sb.append("\n      defense ").append(RaidPlanner.defensePower(s))
@@ -1084,7 +1110,8 @@ public final class CivilizationCommand {
                 rows.add(new SettlementListing.Row(settlement.name(),
                         settlement.stage().pretty(), settlement.population(),
                         at.x(), at.y(), at.z(), away, wall,
-                        settlement.treasury(), settlement.foodStock()));
+                        settlement.treasury(), settlement.foodStock(),
+                        Culture.of(settlement.cultureId()).isHostile()));
                 CivilizationMod.LOGGER.info(
                         "LIST {} kingdom={} stage={} pop={} at={} {} {} wall={} coin={} food={}",
                         settlement.name(), kingdom.name(), settlement.stage().name(),
