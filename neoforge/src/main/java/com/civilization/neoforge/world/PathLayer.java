@@ -426,7 +426,7 @@ public final class PathLayer {
                 Overgrowth.woodlandOf(town))) {
             BlockState growth = level.getBlockState(above);
             level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-            Yield.keep(town, hands, growth, above);
+            Yield.keep(town, hands, growth, above, Yield.Cause.CLEARING);
         }
     }
 

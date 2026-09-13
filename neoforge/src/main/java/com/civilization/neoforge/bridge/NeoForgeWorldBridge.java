@@ -182,10 +182,22 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         // begun by hand — two copies of it, a block apart.
         //
         // An unsurveyed origin carries a planning estimate, so it does get snapped
-        // — through the same floorFor the builders would have used, not the raw
+        // — through the same survey the builders would have used, not the raw
         // surface, or the two paths disagree again.
+        //
+        // They did disagree, and this line was the disagreement. It read
+        // baseFor(surfaceHeight(origin)): the origin column and nothing else, where
+        // a crew surveys the whole plot and takes its median, held down to what the
+        // underpinning can reach. On a hillside those are different numbers, and an
+        // origin column that happens to sit in a dip sets a floor its own plot
+        // stands three courses above — which is the audit's "buried — the ground
+        // stands up to 3 above its floor on every side", reported for the hearth,
+        // the lumber camp and the mine of a seeded town and for two more in the town
+        // next door. Every seeded building comes down this path, because a seeded
+        // building is by definition one nobody watched being built.
         int y = surveyed ? origin.y()
-                : BlueprintPlacer.baseFor(blueprintId, surfaceHeight(origin));
+                : BlueprintPlacer.surveyBase(level, blueprintId, origin.x(), origin.z(),
+                        origin.y());
         BlockPos base = new BlockPos(origin.x(), y, origin.z());
         Footprint placed = BlueprintPlacer.place(level, blueprintId, base, facing, spoil);
         // Logs the base actually used, not the requested origin. A mismatch

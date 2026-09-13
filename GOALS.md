@@ -44,13 +44,43 @@ it. Design questions and rebalances live under the next heading, not here.*
       forest inside the ring stands, and people are outdoors at dusk. Wants a
       decision on the cure — street lamps, everyone home by dusk, patrols — and
       then a fix; the outcome is wrong whichever is chosen.
-- [ ] **Buildings materialize whole in plain view.** The town hall, mine and
+- [x] **Buildings materialize whole in plain view.** The town hall, mine and
       mill of Millbrook were placed by the clock ("Materialized … surveyed
       false") while the player stood at the town center 109 blocks off,
       outside the 96-block `observed_radius` judged at the site. The player
       watched a building appear in the distance. Judge the whole claim watched
       when a player is within the radius of any part of it, or use the view
       distance; a decision, then a fix.
+- [x] **Two spawn towns are both called Bellbrook.** The hash now chooses where
+      in the pool to start looking rather than what the answer is; the pool is
+      walked until a free name turns up, and past the end of it a place-name
+      qualifier goes in front. Wants playing.
+- [x] **Seeded buildings are buried or open onto air.** Two halves. The
+      unwatched placement pass took its floor from the origin column where a
+      crew takes the median across the whole plot — one function now, in
+      `Grade.floorAcross` — and the seeded siting now applies the auditor's own
+      shelf geometry rather than only the fall across a plot's bulk. Measured
+      nought shelf faults before and after on the recorded ground, which cannot
+      produce one: the probe radius already covers the shelf of everything up to
+      a thirteen-wide hall, so the gap is the farm and the compound, and
+      `GradeTest` builds the hollow that shows it (one farm buried before, none
+      after). Wants playing, and wants the residual in the next item read:
+      the audit reported ground standing exactly 3 above a floor, which the
+      apron cut should have taken off, so either the cut is not reaching those
+      columns or `WorldView.groundLevel` reads back over an air pocket it made.
+      That needs real blocks to settle.
+- [x] **Four of fourteen seeded buildings still move on arrival.** The claim was
+      read to sixty-four blocks and the plan reaches a hundred and thirty, so the
+      outer plots were sited against the generator's noise and re-judged on
+      arrival. Read to the plan's reach instead: 19 of 394 moved to 0 of 375 on
+      thirty towns of the recorded ground. A site a building is moved off is
+      refused for twenty steps for the whole town, and a relocation is bounded to
+      one move per building — moved-twice 9 to 0. Wants playing.
+- [ ] **The forester's stand is stripped by the town's own building.** 57
+
+      distance; a decision, then a fix. *Decided: the claim. A player within
+      `observed_radius` of any part of a town's claim makes the whole town
+      watched, and a watched town has no clock at all.*
 - [ ] **Two spawn towns are both called Bellbrook.** `WorldgenSettlements.pickName`
       hashes the site position into the culture's name pool and never checks
       what is taken.
@@ -64,12 +94,17 @@ it. Design questions and rebalances live under the next heading, not here.*
       blocks, and the carpentry and market swapped sites twice — a site
       refused for one was accepted for the other a step later. Bounded now,
       not zero; a no-swap rule is the obvious next constraint.
-- [ ] **The forester's stand is stripped by the town's own building.** 57
+- [x] **The forester's stand is stripped by the town's own building.** 57
       trees standing became 4 in 218 steps, trees felled 962, timber swinging
-      from 1072 to 1. Clearing plots in a forest counts as felling, and a camp
-      moved on arrival re-claims its belt in the woods. Plot clearing should
-      not count against the stand, and the belt should be claimed away from
-      planned plots.
+      from 1072 to 1. Fixed, and it was two faults meeting. Clearing a plot, a
+      wall line or a road was charged to the camp's ledger: clearing is spoil and
+      never a tree off the stand now, and the two reasons are told apart at every
+      call site by `Yield.Cause`. And the belt was staked on the ground the town's
+      own plan had set aside, so the camp watched its wood be built on: the belt is
+      chosen away from every plot and street of the plan the town was seeded with
+      (`ForesterStand.PlannedGround`), not merely away from what stands. A camp
+      that relocates also re-stakes its claim round where it ended up, which it
+      never did.
 - [x] **Guard counts disagree in one report.** The same `/civ info` block
       said "jobs: guard x6", "defense 15 (guards x2 + structures)" and
       "garrison: 3 of 4 guards needed"; "equipped 0/17" counts tools and reads
@@ -137,6 +172,8 @@ it. Design questions and rebalances live under the next heading, not here.*
       loaded on its own. What is still unproven is the force-load box this
       item was measured in.
 
+- [ ] **The simulation's clock is not saved, and four things are compared
+
 - [ ] **One wall post in 986 will not go up.** Stable across every report,
       at a footing reading air — where `put` would succeed, so it is not a
       refusal. It was 3, then 8, then 6 on earlier rings: always under half a
@@ -153,6 +190,20 @@ it. Design questions and rebalances live under the next heading, not here.*
       restarted clock and runs from the reload; nothing else does. Persisting the
       counter is one field and its own unit, and it wants doing before the next
       thing is measured against age.
+
+- [ ] **The watched loop asks the wrong hunger question in nine places.**
+      `PersonEntityManager` gates on `isTooWeakToWork()` where the clock asks
+      `heldBackByHunger(person, starving)`, so a watched town's fields empty in a
+      famine while an unwatched town's keep working. One predicate substituted;
+      written up in docs/CITIZENS.md section 7.
+
+- [ ] **The lumber camp's post is not a post.** `LumberCampBlock` does not
+      extend `BuildingPostBlock`, so `isPost` does not recognize the camp's own
+      marker: it is neither laid first at the site nor withheld from the
+      excavation that follows, and a digger will happily level it. A fault in
+      the block hierarchy rather than in the geometry, found while building the
+      drawn-size check and left alone so that the check could be pointed at
+      `postFor` instead.
 
 - [ ] **A booked repair shields a ruin even when nothing is working on it.**
       The auditor spares a building with a repair in the queue, and the queue is
@@ -195,52 +246,56 @@ it. Design questions and rebalances live under the next heading, not here.*
       `BlueprintPlacerSizeTest.everyBuildingStandsItsOwnPostRatherThanSomebodyElsesShape`
       now refuses any `postFor` answer that is not a `BuildingPostBlock`.
 
-- [ ] **Two things the siting work measured and could not explain.** Both are
-      recorded rather than resolved, because a hunch dressed as a fix is worse
-      than an open question.
+- [x] **Two things the siting work measured and could not explain.** Both are
+      resolved now; what was found is written under each.
 
       - **The plan cache answers differently depending on how far it has been
         grown.** The same three figures off the same run read 39/41/2 from a
-        fresh JVM and 32/32/1 from a warm one, before the plot-cursor fix. The
-        cursor fix stabilized it and nothing is known to be wrong now, but a
-        cache that depended on history was really there and nobody found out
-        why.
+        fresh JVM and 32/32/1 from a warm one, before the plot-cursor fix.
+        Found, and it was three faults rather than one.
+        `PlannedLayout.planFor` laid its plan at `max(asked, PLAN_SIZE)`, so
+        the first ask past plot 255 re-designed the whole town and moved plot
+        five — and `chooseSite` walks 96 slots from the cursor while its
+        give-up loops walk 512, so a cursor in the hundreds asks past 255 as a
+        matter of course. That is why the cursor fix appeared to stabilize it:
+        it brought the cursor back under the threshold rather than removing the
+        dependence. `Layouts.ORGANIC` re-seeded its dart stream by hashing the
+        plots already placed and rebuilt its active list from scratch on every
+        call, so a town asked one plot at a time threw different darts from the
+        same town asked for forty at once. And both caches were keyed on x and
+        z but not y, so one settlement could be answered with another's plots.
+        Plans are laid once at `WHOLE_PLAN` and grown from there; the scatter
+        keeps its stream, its active list and its restart count; both caches
+        key on the whole center. Asking twice in a row, which is all the
+        determinism rule ever did, cannot see any of it — see
+        `LayoutTest.noLayoutAnswersDifferentlyForHavingBeenAskedBefore`, which
+        asks in three orders across a cache flush.
       - **`relocatePending` still spends a ring slot when it decides not to
-        move.** A relocation check that declines to move has not used a plot,
-        and leaving the cursor past it costs the town a slot every step it sits
-        on unfit ground. Handing it back in `relocateIfUnsuitable` measured
-        better on seed 8675309 — 47 buildings against 46, cursor 166 against
-        195, three stranded doors against four. The identical edit in
-        `relocatePending` measured worse, three stranded doors to five. Left
-        alone, and the disagreement written down.
-
-- [ ] **The concave hull never checks its own starting legs against a plot.**
-      `Hull.concave` begins from the convex hull and tests keepouts only on the
-      two legs of a dig-in split; `pushOut` and `relax` refuse a move that would
-      cross a plot but neither repairs a crossing that is already there. So a
-      building — or a plot the town has ordered — lying under a convex-hull leg
-      shorter than `MAX_STRAIGHT_RUN` is crossed with nothing to correct it.
-      Measured over 117 grown towns after the walk and the ordered-ground
-      keepout landed: **68 buildings with a post inside their walls, 63 of them
-      ordered when the ring was staked and 5 standing**, against 738 before.
-      Left open rather than fixed because the obvious repair — dig any crossing
-      leg regardless of its length — puts a keepout scan on every edge visit of
-      the loop `RESTAKE_REVIEW` already measures at a second and a half on a
-      town of two hundred, and that is a cost to weigh in a world rather than
-      guess at. Queued plots are also deliberately not hull *points*: obliging
-      the ring to enclose every order the moment it is made would drive a
-      re-staking off one shed and undo `RESTAKE_GROWTH`.
-
-- [ ] **A retired line's posts are not consulted when a plot is chosen.**
-      `Settlement.standsOnTheWall` asks the standing ring only, so a town that
-      has just moved its wall will happily site a building on the old line's
-      raised posts. In a world it mostly heals — the excavation clears the
-      building's own footprint and the demolition sweeps the rest — but nothing
-      guarantees the order, and in the simulation nothing sweeps at all, so the
-      fixtures count 695 of these across 117 towns and cannot tell which would
-      survive contact with a player. Worth watching in a world before refusing
-      the ground, which would sterilize a band right through the middle of a
-      town for as long as the demolition takes.
+        move.** One rule now: both paths hand it back. Why they seemed to
+        disagree, instrumented: on the recorded ground `relocatePending` never
+        actually relocates anything — nought moves in 500 steps in all four
+        combinations — so its whole effect on the world is where it leaves the
+        cursor, and the cursor's walk is **not monotone in where it starts**,
+        because a search refused near falls out of the ordinary 96 into the
+        give-up loops that advance it by 128 or 512 at a stroke. Handing the
+        slot back therefore *raised* the final cursor on that one town, 164 to
+        204, with the building count unchanged. Measured across all fourteen
+        arrangements instead, by `relocatePending / relocateIfUnsuitable`:
+        back/back 448 buildings, cursor sum 1720, 44 stranded doors;
+        spend/back 446, 1797, 48; back/spend and spend/spend both 443, 1911,
+        34. Handing it back in both is the larger, tighter town and costs ten
+        doorsteps of 448; it is chosen on the rule — a check that declines to
+        move has not used a plot — rather than on a downstream number no
+        version of the rule controls. The vale town the road fixture measures
+        reads three either way.
+      - **And a third, now closed, but it belongs beside them.** "A refused site
+        is burned" was `nextPlotIndex++`, and the cursor is left at the first
+        *free* slot a search saw rather than at the one it took — so a plot taken
+        from further along the ring stayed ahead of the cursor and was offered
+        again on the next step. What made the two tests that assert this pass was
+        an incidental palisade refusing that ground, which is how the wall work
+        found it: change the shape of a wall and a claim about plot cursors goes
+        red. `abandonBuild` remembers the column now.
 
 - [x] **An authored blueprint is never measured against the ground reserved for
       it.** Fixed 2026-09-12. The size half had landed with the authored-structures
@@ -269,9 +324,36 @@ it. Design questions and rebalances live under the next heading, not here.*
 - [ ] **A hall never lands on the middle.** The plan reserves plot 0 for the
       great hut, and for every other arrangement's hall, but the camp post
       takes plot 0 on step one and the hall is raised a hundred blocks out.
-      Fixing it means letting a building reserve a plot: a siting change.
+      Attempted 2026-09-13 and backed out; the attempt is in the commit
+      "Two Bellbrooks, a town that stops rearranging itself…" and the findings
+      are these. Freeing the camp post from plot 0 — a marker claims no plot —
+      is the easy half and not enough: reserving the *index* reserves no
+      *ground*, because `Layout.MIN_PLOT_SEPARATION` is eleven and stated for
+      two plots of the default span, so a thirteen-wide hall does not fit
+      between plot 0's neighbours in any arrangement in the mod. Reserving the
+      hall's whole square does work — eleven of the fourteen arrangements then
+      put the hall on plot 0, from none of them — and costs two plots near the
+      middle, which pushed one building in one arrangement onto ground its lane
+      cannot reach. Judging the reservation on walls rather than plots fits
+      without that cost and breaks the plot-overlap invariant `PlotOverlapTest`
+      and `SeededSettlementTest` hold. And in every lattice arrangement the
+      camp post is the road hub, so the town's lanes converge on the middle and
+      the middle reads back as carriageway: the hall needs the hub moved off it,
+      or those lanes dropped from a network whose stretches are keyed by index.
+      **Wants a decision about the roads**, not more siting: either the hub is
+      the settlement center offset clear of plot 0, or the marker's lanes are
+      superseded with the marker.
+      Three of the fourteen arrangements also have no plot near the middle at
+      all — `ring_streets`, `crossroads` and `bastide` draw their innermost
+      frontage 30 to 49 blocks out — so "plot 0" and "the middle" are not the
+      same claim for them, and the test has to say which it means.
 
-- [ ] **A war camp still raises a town hall beside its great hut.**
+- [x] **A war camp still raises a town hall beside its great hut.** The great
+      hut is a `HALL` by role now, and `Homes` substitutes it wherever a program
+      asks this people for a hall — so the want is satisfied by the hut already
+      standing and a `town_hall` is not buildable by a warhost at all. The roads
+      radiate from it too; the hub was matched by the text "town_hall", so an orc
+      camp had none. Wants playing.
 
 - [x] **A queued plot draws at a stand-in height of six.** Fixed 2026-09-12:
       `BuildingSizes.Size` carries a height, declared per kind as the tallest any
@@ -281,10 +363,28 @@ it. Design questions and rebalances live under the next heading, not here.*
       nothing is drawn taller than its declaration and every declaration is one
       some culture reaches.
 
-- [ ] **A cut-out mine is a dead end.** requestProducer refuses a second mine
-      while any stands, exhausted or not; the seam of 2000 is gone by step 1500.
-      Proposed: skip producers that are visibly spent (Seam.isExhausted,
-      Stand.isBare with nothing planted).
+- [x] **A cut-out mine is a dead end.** requestProducer refused a second mine
+      while any stood, exhausted or not; the seam of 2000 is gone by step 1500.
+      Fixed for the mine: a producer whose seam is out no longer blocks the order
+      and no longer employs anybody, and `BuildPlanner.MOST_SPENT_PRODUCERS`
+      bounds it at one replacement so a superflat cannot spam shafts. The camp
+      half of the proposal was built, measured and refused — see below.
+
+- [ ] **A town in bare country can never get its timber back, and nobody has
+      decided what it should do instead.** The mine fix was proposed for the camp
+      too: skip a camp whose stand is bare with nothing coming up, so the town
+      goes and finds new woodland. Built and measured, it builds sheds. A camp
+      ordered onto a ring slot with no trees on it reads as bare the moment it is
+      counted, so the next shortage orders another, and a high-street town of
+      eight buildings grown 400 steps came out with **fourteen lumber camps and
+      not one extra log** — with four grown-town fixtures changing towns for it,
+      two of them for the worse. The reason is the one difference the two trades
+      are built around: a seam does not grow back and a stand does, so a bare camp
+      is a camp waiting for seed rather than a camp on dead ground, and another
+      shed does not make saplings. So only the mine is treated as spent.
+      What is actually wanted is a decision rather than a fix: should a town
+      prospect — send a camp to woodedness it has surveyed, rather than to the next
+      ring slot — and how far may it send one?
 
 ---
 
@@ -631,6 +731,53 @@ work has landed, which changes what a street looks like from the middle of it.
 *Newest first. Everything older has been dropped -- it was proven by the
 endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
+
+- [x] **One wall post in 986 would not go up, and the cause was the gate.** A
+      gateway is three positions wide and the drawing pulls up any post standing
+      in the two beside its middle, because an opening is the point of a gate --
+      and `resiteGates` moves the gates every twenty steps while the wall is
+      going up, following the streets as they appear. The columns a gate has left
+      are ordinary wall again with nothing in them, and the only thing that would
+      put a post back was the sweep's cursor coming round a lap later: a handful
+      of columns at any moment, never none and never many, laid and paid for, no
+      post, nothing in the way, air at the footing. `PerimeterLayer` remembers the
+      gates it last drew with and plants those posts first on the next sweep.
+      Instrumented rather than argued about, as the item asked: `Hole` records,
+      per column, what the drawing answered there and how many consecutive visits
+      have left it empty, and `/civ wall` prints it -- so a column the cursor has
+      visited twice and still not planted is a fault, and one visited once is not.
+      A world run is what will confirm the count is zero.
+- [x] **Both holes in the demolition sweep.** The `WAS_A_BUILDING` mark is taken
+      where the structure is drawn -- `TownAuditor.sawDrawn`, called from
+      `BlueprintPlacer.place` for the whole-structure stamp and from
+      `markIfDrawn` when a crew lays the last block of a plan -- and what it
+      records is the share actually measured, so nothing whose ring was always
+      air is enrolled by having been built. `TownAuditor.LAST_UNDRAWN` is per
+      settlement, so the two-sweep rule fires in a kingdom of more than one town.
+- [x] **The concave hull checks its own starting legs against a plot.** A leg
+      drawn across a plot is repaired at any length: by digging in where the town
+      owns a point to dig in to, and otherwise by taking the line out round the
+      crossed plot's own corners, which is the only repair available for ground
+      the town has merely ordered -- an order is a keepout and not a hull point,
+      so it offers nothing to dig in to. Measured over the grown fixtures, plots
+      with a post inside them: 36 to 1, and that one is ordered ground. The cost the
+      item was worried about did not appear: staking a town of two hundred
+      measured 216 ms before and 212 ms after, the hull 6 ms of it, because a
+      leg's answer about the plots is remembered between passes and a plot whose
+      box the leg never enters is settled by four comparisons.
+- [x] **A retired line's standing posts are consulted when a plot is chosen.**
+      `Settlement.standsOnTheWall` asks the retired loop from `Perimeter.pulled()`
+      onward -- the part the demolition has not taken up yet -- so the refusal
+      band narrows as the old wall comes down and is gone when the last post is
+      out. Fixtures: 347 buildings on retired posts to 23, and the 23 predate the
+      re-staking rather than being ground the siting has just chosen. In the
+      simulation nothing sweeps, so that is the pessimistic reading.
+- [x] **A booked repair no longer shields a ruin nobody is working on.** A repair
+      shields its building while it is at the head of the build queue or has moved
+      in the last `TownAuditor.STALLED_REPAIR_STEPS` (100, about two minutes and
+      longer than the gap between two sweeps). Otherwise the auditor writes the
+      shell off, and `removeBuilding` cancels the repair booked on it, so the
+      head-stall goes with the ruin.
 
 - [x] **A worldgen town is laid out in the arrangement it was dealt.**
       `Founding.seeded` takes the layout id beside the culture id, so the

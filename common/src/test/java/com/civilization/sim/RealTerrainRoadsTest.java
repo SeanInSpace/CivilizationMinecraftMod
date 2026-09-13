@@ -116,6 +116,17 @@ class RealTerrainRoadsTest {
      * ground the layer cannot always grade a track to. That is the doctrine
      * working and paid for, which is what its own commit says it costs. One
      * house over a one-seed ceiling is the same distance the last move was.
+     *
+     * <p><strong>Three now, and the ceiling stays at five.</strong> The two
+     * relocation checks used to disagree about whether a check that declines to move
+     * hands its ring slot back, and the disagreement was kept because this one town
+     * said so. They are one rule now -- both hand it back -- and this town reads the
+     * same three doors off a road either way, so nothing here had to move for it.
+     * The four-way measurement across every arrangement is on
+     * {@code Settlement.giveTheSlotBack}, together with what the rule costs.
+     *
+     * <p>Left at five for the reason it was set there: three is measured on one seed
+     * and the distance between them is a single house.
      */
     private static final int STRANDED_CEILING = 5;
 

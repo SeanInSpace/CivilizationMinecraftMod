@@ -1113,8 +1113,12 @@ public final class FoodPlanner {
         // watch the other two stand ripe.
         int strokes = hands * Field.BLOCKS_PER_FARMER_PER_STEP;
         for (Building farm : farms) {
-            boolean watched = ctx.bridge().playerWithin(
-                    farm.origin(), ctx.settings().observedRadius());
+            // Asked of the town, not of the field. A player at the square is
+            // near enough to the claim to be watching, and a farm inside the
+            // ring he cannot make out is still his town's field: the clock does
+            // not reap it for him. An outlying field beyond the ring answers for
+            // itself — see Settlement.isWatched(ctx, site).
+            boolean watched = settlement.isWatched(ctx, farm.origin());
             if (watched && !farm.wasWatched()) {
                 ctx.bridge().setFieldRipeness(farm.origin(), farm.footprint(),
                         Field.ripeBlocks(farm));

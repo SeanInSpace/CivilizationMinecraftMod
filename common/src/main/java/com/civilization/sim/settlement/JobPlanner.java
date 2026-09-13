@@ -84,12 +84,22 @@ public final class JobPlanner {
          * residents — the population row still wins.
          */
         public int desiredCount(Settlement settlement) {
+            if (everyOneOfThemIsSpent(settlement)) {
+                // None wanted at all, rather than the population row's number with
+                // a separate guard somewhere else. {@link #shortfall} reads nought
+                // here through appliesTo; the surplus arithmetic did not, so a town
+                // whose mine was cut out went on wanting its miners and left them
+                // standing at a dead face forever. Saying nought here says it to
+                // both -- and a trade nobody wants is then pure surplus, which is
+                // exactly what biggestSurplusDonor draws from.
+                return 0;
+            }
             int byPopulation = desiredCount(settlement.population());
             if (staffs == null || staffPerBuilding == 0) {
                 return byPopulation;
             }
             int buildings = (int) settlement.buildings().stream()
-                    .filter(b -> b.role() == staffs)
+                    .filter(b -> b.role() == staffs && !BuildPlanner.isSpentProducer(b))
                     .count();
             return Math.max(byPopulation, buildings * staffPerBuilding);
         }
@@ -101,13 +111,55 @@ public final class JobPlanner {
          * not spend one of its four people on the job. Once the camp stands the
          * need switches on — which is what makes a town staff its own production
          * the moment it can, without starving its building crew before then.
+         *
+         * <p><strong>A building that can still be worked, not merely one that
+         * stands.</strong> A mine whose seam is cut out is a mine in every way
+         * except the one that matters: there is nothing in it to cut. The table
+         * went on wanting a miner per twelve residents at a dead face, which is a
+         * town paying wages into a hole — and a seam of two thousand is gone by
+         * step 1500, so this is the ordinary end of every mine rather than an edge
+         * case. See {@link BuildPlanner#isSpentProducer}.
          */
         public boolean appliesTo(Settlement settlement) {
             if (requiresBuilding == null) {
                 return true;
             }
             return settlement.buildings().stream()
-                    .anyMatch(b -> b.role() == requiresBuilding);
+                    .anyMatch(b -> b.role() == requiresBuilding
+                            && !BuildPlanner.isSpentProducer(b));
+        }
+
+        /**
+         * Whether this town has buildings of this trade and all of them are spent.
+         *
+         * <p><strong>Deliberately narrower than {@code !appliesTo}</strong>, and the
+         * difference is measured. Returning nought for every trade whose building is
+         * merely <em>absent</em> also reads sensibly — a lumberjack with no camp is
+         * wanted nought — but it changes who {@link #biggestSurplusDonor} draws
+         * from: a trade with one head and no building went from a surplus of nought
+         * to a surplus of one, so retraining fired where it used to find nobody, and
+         * four grown-town fixtures came out with different towns. A town that never
+         * built the thing is a case {@code appliesTo} already answers where it is
+         * asked; this is about the building that stands and is finished.
+         *
+         * <p>Every one of them, not any: a town with a cut-out mine and a working
+         * one still wants its miners.
+         */
+        private boolean everyOneOfThemIsSpent(Settlement settlement) {
+            if (requiresBuilding == null) {
+                return false;
+            }
+            boolean any = false;
+            for (Building standing : settlement.buildings()) {
+                if (standing.role() != requiresBuilding) {
+                    continue;
+                }
+                if (!BuildPlanner.isSpentProducer(standing)) {
+                    return false;
+                }
+                any = true;
+            }
+            return any;
         }
     }
 

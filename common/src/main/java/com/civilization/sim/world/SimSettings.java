@@ -10,7 +10,9 @@ import com.civilization.sim.settlement.PopulationPlanner;
  *
  * @param simIntervalTicks        game ticks between simulation steps (100 = every 5s)
  * @param stepsPerBirth           simulation steps a housed family needs per child
- * @param observedRadius          distance (blocks) at which people become visible entities
+ * @param observedRadius          distance (blocks) at which people become visible entities,
+ *                                and at which a whole claim counts as watched — see
+ *                                {@code Settlement.isWatched}
  * @param embodyCapPerSettlement  most view entities one settlement may have at once
  * @param raidIntervalSteps       simulation steps between raid checks per settlement
  * @param raidsEnabled            master switch for hostile pressure

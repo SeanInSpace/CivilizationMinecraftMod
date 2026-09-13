@@ -96,6 +96,351 @@ Four things were wrong and all four are fixed.
   place; this is the second lock, of the kind the wall needed after it spent a
   playtest counting a hundred and eighty-one tree trunks as palisade.
 
+## Two Bellbrooks, a town that stops rearranging itself, and a warhost with one hall
+
+### Fixed
+
+- **No two towns are called the same thing.** A spawn town's name was the site
+  position hashed into its culture's pool, and nothing asked what was already
+  settled — with nine towns drawn from a pool of a dozen, two of them both being
+  called Bellbrook is the likely outcome and not the unlucky one. The hash still
+  chooses, because the hash is what makes a seed give the same world twice; it just
+  no longer gets the last word. The pool is walked from the hashed name until a
+  free one turns up, and once the whole pool is spoken for a place-name qualifier
+  goes in front of it — Upper Bellbrook, then Lower, then Little, in that order, so
+  the overflow is deterministic and reads like an English map rather than a counter.
+  Every name standing in the world counts, whoever settled it: two Bellbrooks are
+  two Bellbrooks on a map whichever culture got there first.
+
+- **A seeded town stops rearranging itself when you walk up to it.** The platform
+  reads the ground under a new town's claim before raising it, and it was reading
+  the claim radius — sixty-four blocks. A village's plan reaches ninety to a
+  hundred and thirty. So the outer plots of every generated town were chosen
+  against the generator's smoothed noise and judged by the loose allowance an
+  estimate gets, and then the player arrived, the real chunks came in, they were
+  judged strictly, and they moved. That was never a relocation fault; it was a
+  reading fault, in exactly the buildings nobody had looked at the ground under.
+  What is read now is what the plan can reach, plus the probe radius the siting
+  judges a plot by and half the widest plot it may put there.
+
+- **No two buildings trade sites, and none moves twice.** A relocation used to ask
+  whether a plot was *better than where this building stands* rather than whether
+  it was any good, so "refused" was never a fact about the ground — it was a
+  comparison against whoever happened to be asking, and one step later the same
+  ground was the best thing on offer to somebody else. The playtest's carpentry and
+  market traded plots twice over doing precisely that. A site a building has been
+  moved off is now written down as refused for twenty steps and no building in that
+  town may walk onto it; both relocation paths ask one question about the site
+  instead of two different questions about themselves; and a relocation is bounded
+  to one move per building, so a building that has moved once and is refused again
+  stays, and has the ground cut in under it instead.
+
+- **A war camp raises one hall, and it is the great hut.** The TOWN program wants a
+  hall and nothing told it the orcs already have one, so a warhost stood a human
+  town hall beside its own chief's seat. The great hut is now a `HALL` by role — it
+  is what `KingPlanner` names as the seat and it stands on the muster yard, so every
+  rule ever written about "the hall" has always meant it and none of them could see
+  it — and `Homes` substitutes it wherever a program asks this people for a hall.
+  That answers both halves at once: the want is satisfied by the hut already
+  standing, and a `town_hall` is not buildable by a warhost at all. The roads
+  radiate from it too, which they did not before: the hub was found by matching the
+  text "town_hall", so an orc camp had no hub and ran its lanes from the middle of
+  the claim instead of from the chief's door.
+
+- **The two placement paths agree about where a floor goes.** A crew surveys a whole
+  plot and sets the floor at its median, held down to what the underpinning can
+  reach. The unwatched pass — which is every seeded building, by definition — took
+  the origin column and nothing else. On a hillside those are different numbers, and
+  an origin column sitting in a dip sets a floor the building's own plot stands
+  courses above: "buried — the ground stands up to 3 above its floor on every side",
+  in the audit's words, reported for a hearth, a lumber camp and a mine. One
+  function now, and the arithmetic of it lives in the simulation so the siting can
+  ask what floor a plot will be given before there is a world to place anything in.
+
+- **Seeded siting asks the question the auditor asks.** Siting asked how far the
+  ground falls across the bulk of a plot; the auditor asks whether the ring of
+  ground one step outside the walls can be brought to the floor once the floor is
+  set. Those are different questions, and a plot can pass the first and fail the
+  second. The new rule is the placer's own reach stated as arithmetic — three
+  courses off with the apron cut, three on with the doorstep course — and one side
+  the ground can be brought to is enough, which is the auditor's own tolerance for a
+  hillside build.
+
+### Measurements
+
+- Seeded towns on the recorded ground of seed 8675309, thirty centers across the
+  field, seeded against a claim read the way the platform reads it and then walked
+  up to a chunk at a time:
+
+  | | moved on arrival | moved twice | swaps | furthest |
+  |---|---|---|---|---|
+  | before | 19 of 394 | 9 | 0 | 178 blocks |
+  | one move, no swap | 19 of 394 | 0 | 0 | 152 blocks |
+  | and the claim read to the plan's reach | **0 of 375** | 0 | 0 | 0 |
+
+- The auditor's shelf geometry over the same thirty towns: nought faults before and
+  nought after. The recorded ground cannot produce one, which is worth knowing
+  rather than worth celebrating — see the notes.
+- On ground built to exhibit it, one farm of fourteen buildings was left buried
+  before and none after.
+- Names: thirty towns out of a pool of three, all called something nobody else is;
+  and every culture's real pool drawn down twice over with nothing handed out twice.
+
+### Notes
+
+- Save compatibility is waived, so a building gained a key rather than a migration:
+  `relocated`, optional and false when absent, which is what a world written before
+  this loaded with anyway. It has to survive a save because a claim loads over
+  several steps and a player can walk away in the middle of one — without it the
+  town wakes up with a fresh allowance of moves for buildings it has already
+  rearranged.
+- Reading more ground per town costs world-start time and nothing else: the claim is
+  generated to the carvers at eight chunks a tick and resumed on the next, with
+  nobody in the world to feel it. A sixty-four block claim is about sixty-five
+  chunks; the plan's reach is roughly twice that radius, so about four times the
+  chunks, and the nine spawn towns take a few seconds rather than under one.
+- The towns are very slightly smaller: 375 buildings across the thirty against 394.
+  That is the same strictness working — plots beyond sixty-four blocks used to be
+  chosen against an estimate that knows nothing about water or ravines, and a
+  program that now runs short is one that used to place a building it would have had
+  to move. A "Seeded short" line goes in the town's own history when it happens.
+- **Why the recorded ground shows nought shelf faults, before and after.** The
+  siting probes six blocks round a plot and the shelf a nine-wide building is judged
+  by is its ring at four, so for everything up to a thirteen-wide hall the rule
+  siting already had was looking at the ground the auditor judges. The gap is the
+  two widest things a town builds — the farm at fifteen and the compound at
+  seventeen, whose shelves stand at seven and eight — and a flat-bottomed hollow
+  exactly thirteen across is the shape that falls in it: every sample the probe takes
+  lands on its floor, so it scores a perfect nought, and it buries a farm five
+  courses deep on every side. `GradeTest` builds that hollow rather than looking for
+  one in the recording, because the recording is sampled at a grain of two and
+  smooths it away.
+- **The hall still does not land on the middle, and this does not fix it.** Freeing
+  the camp post from plot zero is only the first half; reserving the index reserves
+  no ground, because a plan keeps its plots eleven apart and that figure is stated
+  for two plots of the default span — a thirteen-wide hall does not fit between them
+  in any arrangement in the mod. Reserving the hall's whole square instead does work
+  (eleven of the fourteen arrangements put the hall on plot zero, from none of them)
+  and costs two plots near the middle, which pushed one building in one arrangement
+  onto ground its lane cannot reach; judging the reservation on walls instead of
+  plots breaks the plot-overlap invariant two other suites hold; and either way the
+  road hub has to move off the middle or the marker's lanes have to be dropped from
+  an index-keyed network. That is a road-planning decision rather than a siting one,
+  so the attempt is written up in the commit and the bug stays open.
+
+## A town is watched all at once
+
+### Fixed
+
+- **Nothing is built by the clock in a town you are standing in.** "Where there is
+  a hand there is no clock" was asked at each work site, and a claim is wider than
+  the 96 blocks a site could see: Millbrook's town hall, mine and mill were all
+  stamped in whole while the player stood at the town center 109 blocks off and
+  watched them appear in the distance. Every one of those sites was honestly
+  unwatched at the site, which is why the rule held and the town still cheated in
+  plain view. Watchedness now belongs to the town. A player within
+  `view.observed_radius` of any part of a claim makes the whole town watched, and
+  a watched town has no clock anywhere in it — every building is raised block by
+  block by its builders, every street is walked out, the wall goes up post by
+  post, repairs are laid by hand, and the fields, the mine and the stand are
+  worked by the people who work them or not at all. Work with nobody at it waits,
+  which is the honest outcome and always was. A field, mine or camp sited out past
+  the ring still answers for its own ground, so somebody standing in an outlying
+  field is watching it whatever the town is doing.
+
+- **A raid on a town you are standing at the edge of is fought, not totted up.**
+  It was resolved as arithmetic unless somebody was within 96 blocks of the town
+  center, so a player inside the claim but out by the fields had his town's battle
+  decided in a log line. The same claim-wide question decides it now.
+
+### Changed
+
+- **Bodies stay out at the far work they were sent to.** A watched claim is more
+  than twice as wide as the radius that makes somebody an entity, so the crew for
+  a plot on the far side used to be discarded on the walk out — and the work, which
+  the clock is no longer allowed to touch, would have waited on hands it was never
+  going to be allowed to have. A watched town's builders, haulers, field hands,
+  miners, lumberjacks, shepherds and guards are now embodied anywhere in the claim
+  and are not discarded while it stays watched. Anybody the town is not waiting on
+  — a child, an idler, somebody too weak to work — is still judged by distance and
+  still stays a record, and an unwatched town embodies nobody, exactly as before.
+
+- **`/civ info` says where a stalled site is.** A plot waiting on hands that
+  nobody can see now reads "waiting for hands at (x, z), out of sight" instead of
+  "no builder has reached the site", which was true and unreadable when the plot
+  in question was over the ridge.
+
+## The forester keeps his wood, and a spent mine is not the end of the stone
+
+### Fixed
+
+- **The town no longer strips its own forester bare.** Millbrook's 57 standing
+  trees became 4 in 218 steps while its camp's timber swung from 1072 down to 1,
+  and neither number was about the wood. Two separate faults met: every trunk the
+  town cleared off a building plot, a wall line or a road was charged to the lumber
+  camp's ledger, and the camp's woodland belt was staked on the very ground the
+  town's own plan had set aside to build on. So the clock read a stand it believed
+  had been felled, stopped paying the camp for wood it actually had, and the town
+  ran out of timber standing in a forest. Clearing is now spoil and nothing more —
+  the timber still goes to the town, because it always does — and the belt is
+  chosen away from every plot and street of the plan the town was seeded with,
+  not merely away from what happens to be standing.
+
+- **A camp that moves takes its wood with it.** A lumber camp relocated on arrival
+  used to leave its claim behind at the plot it had left, so it stood in one wood
+  and counted, felled and replanted in another — and nothing ever put it right,
+  because a claim that is not centered on its camp reads as one a player aimed
+  deliberately. Mines do the same thing now for the same reason.
+
+- **A cut-out mine is no longer the end of a town's stone.** A default seam of two
+  thousand blocks is gone by about step 1500, and a town would not order a second
+  mine while the first one still *stood* — which a building does forever. It orders
+  one now, and the miners at the dead face are handed to whatever trade the town is
+  actually short of instead of drawing wages into a hole. The spent mine stays
+  standing; it is a building the town raised, and a player may point its block at
+  fresh ground.
+
+- **A town's layout no longer depends on what anybody has asked it about.** Three
+  separate caches answered differently depending on their own call history, which
+  is how the same run read 39/41/2 from a fresh server and 32/32/1 from a warm one.
+  The planned layouts re-designed the whole town the first time anything asked
+  about a plot past the two hundred and fifty-sixth — routine on rough ground,
+  where the plot cursor runs into the hundreds — and plot five moved under the
+  house already standing on it. The organic scatter re-seeded its dart throws from
+  the plots already placed, so a town asked for its plots one at a time came out a
+  different town from the same town asked for forty at once. And both caches were
+  keyed on a town's x and z but not its height, so one settlement could be answered
+  with another's plots. None of it was visible by asking twice in a row, which is
+  the only way anything had ever checked.
+
+- **A relocation check that decides to stay put no longer costs the town a plot.**
+  Both checks spend a ring slot to ask whether there is better ground, and only one
+  of them handed it back. They are one rule now. Measured across every arrangement
+  on the recorded rough ground: 448 buildings against 443 and eleven per cent less
+  ring walked, at a cost of ten more doorsteps off a road out of 448.
+
+### Notes
+
+- The goal this came from also proposed treating a lumber camp with a bare stand as
+  spent, so a town would go and find new woodland. Built and measured, it builds
+  sheds: a camp ordered onto a ring slot with no trees on it reads as bare the
+  moment it is counted, and a town of eight buildings came out with fourteen lumber
+  camps and not one extra log. A seam does not grow back and a stand does — a bare
+  camp is waiting for seed, and another shed does not make saplings — so only the
+  mine is treated as spent, and a town will stand at most one spent producer of a
+  kind before it stops sinking shafts. How a town in genuinely bare country ever
+  gets its timber back is left open rather than guessed at.
+
+- Organic towns are shaped differently now, because the scatter that was fixed was
+  the scatter that was wrong. One seeded building of fourteen in one arrangement
+  arrives with no lane, on a plot the town has itself ordered — the road keepout
+  refusing a door instead of a wall, which is a fault already on the list.
+
+## The wall gives back the posts it takes, and a ruin stops hiding behind a note
+
+### Fixed
+
+- **The gate stops leaving a hole where it used to be.** A gateway is three
+  positions wide and the two beside its middle are an opening, so the drawing
+  pulls up any post standing in them — and the gates follow the streets while the
+  wall is going up, hopping to the next junction every twenty steps. The columns
+  the gate used to stand in were ordinary wall again with nothing in them, and the
+  only thing that would ever put a post back was the sweep's cursor coming round a
+  whole lap later. That is the "one wall post in 986 will not go up": a handful of
+  columns, never none and never many, laid and paid for, no post, nothing in the
+  way, air at the footing. A gate that moves now hands the posts back on the very
+  next sweep, out of the same budget.
+
+- **`/civ wall` says whether the drawing has actually been there.** The report
+  could count the positions with no post and name the block standing in each; what
+  it could not say was whether the sweep had ever visited that column, and without
+  that every explanation of the count was a guess — five of them, all wrong. It
+  now lists each column the drawing has been to and left empty, with the footing
+  it found, what is in the ground there, whether anything is growing across the
+  line, and how many consecutive visits have read it that way. One visit is a
+  sweep that was somewhere else. Two is a fault.
+
+- **A building drawn and destroyed inside one minute is written off.** The town may
+  not call a building demolished unless something saw it standing, and that mark
+  was only ever taken by the auditor's own sweep, once a minute. So a cottage drawn
+  as a player walked into town and blown up half a minute later was never recorded
+  standing, the reading of the wreck became its own high-water mark, and the ruin
+  stayed on the books for the rest of the world's life. The mark is taken where the
+  structure is drawn now, at both fidelities — the whole-structure stamp and the
+  last block a crew lays by hand. What is recorded is the share actually measured,
+  never a presumed hundred, so a field, a pen and a platform are still exempt from
+  a check about walls they never had.
+
+- **A kingdom of two towns can write off a building the world never drew.** The
+  "recorded here, but nothing stands" rule wants two sweeps running before it
+  complains, and the record of what was undrawn last time was one set for the whole
+  world, cleared and refilled by every town's sweep. With two settlements the
+  second wiped the first's evidence and neither ever reached two. It was not
+  weakened, it was inert, and it had been inert in every kingdom that ever
+  expanded. The record is per settlement.
+
+- **A booked repair stops shielding a ruin nobody is working on.** The auditor
+  spares a building with a repair on the books, and the queue is worked from the
+  front: a more urgent job can push the repair off the head, and a stalled head
+  then shielded the ruin indefinitely. A repair shields its building while it is at
+  the head of the queue, or while it has actually moved in the last hundred steps
+  — about two minutes, and longer than the gap between two sweeps, so a crew
+  genuinely laying blocks never loses the shield between them. Otherwise the shell
+  is written off, and writing it off cancels the repair booked on it, so the stall
+  goes with it.
+
+- **The wall is no longer staked across ground the town has already ordered.** The
+  concave hull starts from the convex hull and only ever split a leg that was too
+  long, so a plot lying under a short starting leg was crossed with nothing able to
+  correct it — every other keepout rule refuses a *move* across a plot and none of
+  them repairs a crossing that was there first. A crossed leg is now repaired at
+  any length: by digging in to a point the town owns where there is one, and
+  otherwise by bulging the line out round the plot's own corners, which is the
+  repair a dig-in cannot make at all for ordered ground — an order is a keepout and
+  deliberately not a point the ring must enclose, so it offers no corner to dig in
+  to. Measured over the grown fixtures: **36 plots with a post inside them fell to
+  1**, and that one is ordered ground rather than a standing building. It costs nothing: the staking of a town
+  of two hundred measured 216 ms before and 212 ms after, and the hull itself 6 ms
+  of that, because a leg's answer about the plots is now remembered between passes
+  and a plot whose box the leg never enters is settled by four comparisons.
+
+- **A building is not sited on the posts of the wall the town has just replaced.**
+  Siting asked the standing ring and nothing else, so a settlement that had moved
+  its line would put a house straight onto the old one's raised posts. What is
+  refused is the part of the old line that physically still stands — the retired
+  loop from the point the demolition has pulled up to — so the band narrows as the
+  posts come out and is gone the moment the last one does. Refusing the whole
+  retired loop instead would sterilize a strip through the middle of a town for as
+  long as the demolition takes, which on an unloaded stretch is for ever. Measured
+  over the grown fixtures: **347 buildings standing on a retired line's posts fell
+  to 23**.
+
+- **A plot the town gave up on is not offered again.** Found by the wall work
+  rather than looked for: two tests about plot cursors went red when the shape of a
+  wall changed, and the reason was that "the plot is burned" meant "the cursor
+  moves on one slot" — and the cursor is left at the first *free* slot a search
+  saw, not at the one it took, so a plot chosen from further along the ring sat
+  ahead of the cursor still and came round again on the very next step. What kept
+  the promise was an incidental palisade refusing that ground. The town now
+  remembers the last sixty-four plots it has given up on, by column, and will not
+  be offered them again; the memory is not saved, because it describes what the
+  builders found in the ground this session and a reload has gone back to look.
+
+### Notes
+
+- The fixtures behind those two numbers are the grown towns the wall work has
+  always been measured on — every arrangement on eight sandbox seeds and on the
+  recorded ground of seed 8675309, 126 towns of about 84 buildings each, grown
+  1400 steps so that a wall has time to be moved once. The probe that grows them
+  is `common/src/test/java/com/civilization/sim/WallProbe.java`, which is a
+  `main` rather than a test on purpose: it takes four and a half minutes and the
+  suite should not pay for that. The cheap regression detectors for the same
+  faults are in `HullTest`, `WallRestakeTest` and `PerimeterLayerPlanTest`.
+- The residual 23 buildings on retired posts are ones that predate the re-staking
+  — the old line was staked around them — rather than ground the siting has just
+  chosen. In the simulation nothing ever sweeps a post up, so that count is the
+  pessimistic reading; in a world the band lifts as the demolition works round.
+
 ## The report stops contradicting itself, and the clock is saved
 
 ### Fixed

@@ -767,6 +767,8 @@ public final class Foreman {
      */
     private static void keep(Settlement settlement, Person carrier,
                              BlockState broken, BlockPos at) {
-        Yield.keep(settlement, carrier, broken, at);
+        // Clearing: a crew taking an oak off the palisade's route is not the
+        // forester working his wood, and the camp's ledger does not move for it.
+        Yield.keep(settlement, carrier, broken, at, Yield.Cause.CLEARING);
     }
 }

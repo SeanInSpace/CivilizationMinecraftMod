@@ -264,18 +264,27 @@ public final class Stand {
     /**
      * One log off the camp's ledger, but only if it stood in the camp's wood.
      *
-     * <p>For every axe that is not a lumberjack's. A site crew clearing a plot,
-     * a wall crew taking a tree off the line and a road crew driving through one
-     * all fell real trunks, and a trunk that came out of the camp's
-     * {@link WorkArea} is one trunk fewer standing there whoever took it — leave
-     * it on the books and the clock pays the town for it again the moment
-     * everybody walks away.
+     * <p>For every axe that is working the wood and is not a lumberjack's. A
+     * trunk that came out of the camp's {@link WorkArea} is one trunk fewer
+     * standing there whoever took it for timber — leave it on the books and the
+     * clock pays the town for it again the moment everybody walks away.
      *
      * <p>And only then. A tree on a house plot in the middle of the village is
      * not the forester's, so felling it must not make the camp any poorer: the
      * town gets the timber and the stand is untouched. Same argument for the
      * mine, which is why nothing anywhere debits a {@link Seam} for a foundation
      * — the rock under somebody's floor was never part of the workings.
+     *
+     * <p><strong>Clearing is not felling, and conflating the two stripped a
+     * town's stand bare.</strong> A site crew levelling a plot, a wall crew
+     * taking a tree off the line and a road crew driving through one all fell
+     * real trunks and all hand the timber to the town — and none of them is the
+     * forester at work, so none of them moves this ledger. Millbrook went from
+     * 57 trees standing to 4 in 218 steps because the ground its own plots were
+     * cleared off was inside the camp's claim, and the clock then read a stand
+     * it believed had been felled. See {@code Yield.Cause}, which is where the
+     * two reasons are told apart, and {@link ForesterStand#candidates}, which
+     * keeps the belt off the plan's ground so the question rarely arises.
      *
      * @return the logs actually taken off the ledger, zero when the tree was not
      *         the camp's

@@ -473,6 +473,47 @@ class WallRestakeTest {
                 "a wall pulled down is still being carried");
     }
 
+    @Test
+    void groundARetiredPostStillStandsOnIsRefusedUntilThePostComesUp() {
+        // A town that has just moved its wall used to site buildings straight
+        // onto the old line's raised posts: standsOnTheWall asked the standing
+        // ring and nothing else. In a world it mostly heals, because the
+        // excavation clears the footprint and the demolition sweeps the rest --
+        // but nothing guarantees the order, and in the simulation nothing sweeps
+        // at all, so the fixtures counted 347 of these across 126 grown towns.
+        //
+        // What is refused is what physically still stands: the retired line from
+        // the point the crew has pulled up to, so the band narrows as the old
+        // wall comes down and is gone the moment the last post is out. Refusing
+        // the whole old loop for as long as it is remembered would sterilize a
+        // band through the middle of a town for as long as the demolition takes,
+        // which on an unloaded stretch is for ever.
+        Settlement town = new Settlement(Settlement.Id.random(), "Moved", CENTER, 512);
+        town.setCatalog(BuildCatalog.DEFAULT);
+        town.setCultureId("civilization:human/burgher");
+        List<SimPos> old = box(-30, 30);
+        int wholeOldRing = new Perimeter(old, List.of(), 0).length();
+        Perimeter ring = new Perimeter(box(-60, 60), List.of(), 0,
+                List.of(new Perimeter.Retired(old, wholeOldRing)));
+        town.setPerimeter(ring);
+
+        SimPos onTheOldLine = new SimPos(30, 72, 0);
+        assertTrue(ring.retiredPositions().contains(onTheOldLine),
+                "fixture: that column is a post of the line that was replaced");
+        assertFalse(town.isPlotFree(onTheOldLine, 9, null),
+                "a plot was offered ground with the old wall still standing on it");
+
+        // Well clear of both lines, so the refusal is about the old wall and not
+        // about walls in general.
+        assertTrue(town.isPlotFree(new SimPos(0, 72, 0), 9, null),
+                "ground nowhere near either line was refused");
+
+        // And the band lifts as the crew works down the line.
+        ring.setPulled(ring.retiredPositions().size());
+        assertTrue(town.isPlotFree(onTheOldLine, 9, null),
+                "the old wall is out of the ground and the ground is still refused");
+    }
+
     /** Whether every corner of this building's reserved plot is inside the line. */
     private static boolean whollyInside(Building building, List<SimPos> loop) {
         int half = BuildPlanner.plotSpanOf(

@@ -358,7 +358,9 @@ public final class Excavation {
      * what each block is worth.
      */
     private void yieldTo(Settlement settlement, Person hands, BlockState broken, BlockPos at) {
-        Yield.keep(settlement, hands, broken, at);
+        // Clearing. An excavation is the town making room for a building, so a
+        // trunk standing on the plot is spoil and never a tree off the stand.
+        Yield.keep(settlement, hands, broken, at, Yield.Cause.CLEARING);
     }
 
     /** The middle of a job, which is where a digger walks before choosing a face. */

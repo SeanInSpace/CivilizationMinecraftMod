@@ -369,8 +369,8 @@ public final class Layouts {
 
         @Override
         public SimPos plotFor(SimPos center, int index) {
-            List<SimPos> seq = sequenceFor(center, Math.max(0, index) + 1);
-            return seq.get(Math.max(0, index));
+            int at = Math.max(0, index);
+            return sequenceFor(center, at + 1).get(at);
         }
 
         /**
@@ -382,20 +382,23 @@ public final class Layouts {
          * settlement weighs would be the same work a hundred times over.
          */
         private List<SimPos> sequenceFor(SimPos center, int wanted) {
-            String key = center.x() + ":" + center.z();
+            // The whole center, y included: a cache keyed on part of its input
+            // answers one town with another town's plots. See PlannedLayout's
+            // note, which is the same fault in the other cache in this package.
+            String key = center.x() + ":" + center.y() + ":" + center.z();
             synchronized (REMEMBERED) {
-                List<SimPos> seq = REMEMBERED.get(key);
-                if (seq == null) {
-                    seq = new ArrayList<>();
-                    REMEMBERED.put(key, seq);
+                Scatter scatter = REMEMBERED.get(key);
+                if (scatter == null) {
+                    scatter = new Scatter(center);
+                    REMEMBERED.put(key, scatter);
                     if (REMEMBERED.size() > TOWNS_REMEMBERED) {
                         Iterator<String> it = REMEMBERED.keySet().iterator();
                         it.next();
                         it.remove();
                     }
                 }
-                extend(center, seq, wanted);
-                return seq;
+                extend(center, scatter, wanted);
+                return scatter.plots;
             }
         }
 
@@ -415,16 +418,9 @@ public final class Layouts {
          * so the town packs instead of spreading, and a plot that runs out of
          * room around it retires rather than pushing the whole town outward.
          */
-        private void extend(SimPos center, List<SimPos> seq, int wanted) {
-            long seed = (long) center.x() * 0x9E3779B97F4A7C15L
-                    ^ (long) center.z() * 0xC2B2AE3D27D4EB4FL;
-            for (SimPos placed : seq) {
-                seed ^= (long) placed.x() * 31 + placed.z();   // resume where we left off
-            }
-            List<Integer> active = new ArrayList<>();
-            for (int i = 0; i < seq.size(); i++) {
-                active.add(i);
-            }
+        private void extend(SimPos center, Scatter scatter, int wanted) {
+            List<SimPos> seq = scatter.plots;
+            List<Integer> active = scatter.active;
             if (seq.isEmpty()) {
                 seq.add(new SimPos(center.x() + HEART, center.y(), center.z()));
                 active.add(0);
@@ -435,28 +431,31 @@ public final class Layouts {
             // forever, if that plot happened to be hemmed in. A layout that can
             // spin is worse than one that spreads: this one takes the honest way
             // out and starts a fresh knot beyond everything placed so far.
-            int stuck = 0;
             while (seq.size() < wanted) {
                 if (active.isEmpty()) {
-                    if (++stuck > RESTARTS) {
+                    if (++scatter.stuck > RESTARTS) {
                         seq.add(beyond(center, seq));
                         active.add(seq.size() - 1);
-                        stuck = 0;
+                        scatter.stuck = 0;
                         continue;
                     }
                     // Everybody is hemmed in. Try again from the newest plot,
                     // whose darts are thrown fresh each time.
                     active.add(seq.size() - 1);
                 }
-                seed = seed * 6364136223846793005L + 1442695040888963407L;
-                int pick = (int) Math.floorMod(seed >>> 17, active.size());
+                scatter.seed = scatter.seed * 6364136223846793005L + 1442695040888963407L;
+                int pick = (int) Math.floorMod(scatter.seed >>> 17, active.size());
                 SimPos from = seq.get(active.get(pick));
                 SimPos found = null;
                 for (int attempt = 0; attempt < THROWS && found == null; attempt++) {
-                    seed = seed * 6364136223846793005L + 1442695040888963407L;
-                    double angle = ((seed >>> 11) / (double) (1L << 53)) * Math.PI * 2;
-                    seed = seed * 6364136223846793005L + 1442695040888963407L;
-                    double away = MIN_SEP + ((seed >>> 11) / (double) (1L << 53)) * MIN_SEP;
+                    scatter.seed = scatter.seed * 6364136223846793005L
+                            + 1442695040888963407L;
+                    double angle = ((scatter.seed >>> 11) / (double) (1L << 53))
+                            * Math.PI * 2;
+                    scatter.seed = scatter.seed * 6364136223846793005L
+                            + 1442695040888963407L;
+                    double away = MIN_SEP
+                            + ((scatter.seed >>> 11) / (double) (1L << 53)) * MIN_SEP;
                     SimPos dart = new SimPos(
                             from.x() + (int) Math.round(away * Math.cos(angle)),
                             center.y(),
@@ -482,6 +481,50 @@ public final class Layouts {
                 }
                 seq.add(found);
                 active.add(seq.size() - 1);
+            }
+        }
+
+        /**
+         * One town's scatter, mid-throw: the plots, who can still be thrown from,
+         * and where the dart stream had got to.
+         *
+         * <p><strong>All three, because a resumption that keeps only the plots is
+         * not a resumption.</strong> This class held the plots alone and rebuilt
+         * the other two from them on every ask, which made the scatter a function
+         * of <em>how it had been asked for</em> rather than of the town:
+         *
+         * <ul>
+         *   <li>The dart stream was re-seeded by hashing every plot placed so far,
+         *       so a town asked for its plots one at a time threw a different
+         *       sequence of darts from the same town asked for forty at once.</li>
+         *   <li>Every plot was put back on the active list, undoing the retirement
+         *       of the ones the single-pass run had found hemmed in — so which
+         *       plot a dart was thrown from differed too.</li>
+         *   <li>{@code stuck} restarted at nought, so the restart bound counted
+         *       per call rather than per town.</li>
+         * </ul>
+         *
+         * <p>Every one of those is a layout that answers differently depending on
+         * its call history, against the determinism rule {@link Layout} states
+         * first. It is the sort of fault that hides: asking twice in a row gives
+         * the same answer, so the rule's own test passed, and it only showed as
+         * three figures off one recorded run reading 39/41/2 from a fresh JVM and
+         * 32/32/1 from a warm one.
+         *
+         * <p>With the state kept, extending the sequence is exactly the tail of
+         * the one long run — which is what makes the prefix of a big plan the
+         * whole of a small one, and what lets the cache be dropped and rebuilt
+         * without the town changing shape.
+         */
+        static final class Scatter {
+            private final List<SimPos> plots = new ArrayList<>();
+            private final List<Integer> active = new ArrayList<>();
+            private long seed;
+            private int stuck;
+
+            Scatter(SimPos center) {
+                this.seed = (long) center.x() * 0x9E3779B97F4A7C15L
+                        ^ (long) center.z() * 0xC2B2AE3D27D4EB4FL;
             }
         }
 
@@ -515,7 +558,7 @@ public final class Layouts {
                     center.z() + (int) Math.round(out * Math.sin(angle)));
         }
 
-        private final Map<String, List<SimPos>> REMEMBERED = new LinkedHashMap<>();
+        private final Map<String, Scatter> REMEMBERED = new LinkedHashMap<>();
     };
 
     /** A town laid along a street, with the street known first. */

@@ -41,9 +41,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * have never visited still grows, because that is what makes it a world rather
  * than a stage set.
  *
- * <p>And "looking" is judged at the work, not at the town. A player in the
- * square is not watching a plot two hundred blocks out over the ridge, and the
- * clock is welcome to raise it.
+ * <p>And "looking" is judged for the whole claim, not at each piece of work.
+ * That is the correction: a player in the square used to count as not watching a
+ * plot a hundred blocks out over the ridge, and Millbrook's hall, mine and mill
+ * were duly stamped in front of somebody standing at the town center. A town is
+ * watched when a player is within the observed radius of any part of its claim,
+ * and then all of it is — every site, every post, every stretch, every repair.
+ * A site out past the claim still answers for its own ground, which is the only
+ * thing the claim circle cannot speak for.
  */
 class WatchedWorkTest {
 
@@ -152,10 +157,12 @@ class WatchedWorkTest {
     }
 
     @Test
-    void asiteOverTheRidgeIsUnwatchedEvenWhenTheSquareIsNot() {
-        // The subtlety the whole rule turns on. Watched is a property of the
-        // work, not of the town: judging it at the center would freeze every
-        // outlying plot of every town anybody ever walked into.
+    void asiteOverTheRidgeIsWatchedBecauseItsTownIs() {
+        // The bug this rule was rewritten for. Judged at the plot, a player in
+        // the square is "not watching" anything more than a hundred blocks out —
+        // and Millbrook's hall, mine and mill were stamped in whole while he
+        // stood at the town center and watched them appear in the distance. The
+        // claim is the unit now: he is in the town, so the town is watched.
         Settlement town = townWithBuilders(false);
         SimPos faraway = new SimPos((int) RADIUS * 3, 64, 0);
         BuildTask task = surveyed(faraway);
@@ -163,14 +170,18 @@ class WatchedWorkTest {
         Bridge bridge = inTheSquare();
 
         assertTrue(bridge.playerWithin(town.center(), RADIUS), "the square is watched...");
-        assertFalse(bridge.playerWithin(faraway, RADIUS), "...and the plot is not");
+        assertFalse(bridge.playerWithin(faraway, RADIUS),
+                "...and nobody is standing at the plot itself");
+        assertTrue(faraway.horizontalDistance(town.center()) <= town.claimRadius(),
+                "but the plot is inside the claim, which is what decides it");
 
         for (int step = 0; step < 500; step++) {
             town.step(new SimContext(bridge, step, SimSettings.SANDBOX));
         }
 
-        assertFalse(town.buildQueue().contains(task),
-                "so the clock raised it, with nobody there to be fooled");
+        assertTrue(town.buildQueue().contains(task),
+                "so the clock does not raise it; it waits for hands");
+        assertEquals(0, bridge.stamped, "and nothing appeared in the distance");
     }
 
     @Test

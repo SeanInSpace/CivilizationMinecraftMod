@@ -22,7 +22,7 @@ who moves them.
 |---|---|---|
 | Driver | `Settlement.step`, from the slow scheduler | `PersonEntityManager.tick`, from the game tick |
 | Cadence | every `SimWorld.SIM_INTERVAL_TICKS` = 100 ticks (5 s) | every `PersonEntityManager.TICK_INTERVAL` = 20 ticks (1 s); construction every 5 |
-| Who is in it | everyone | everyone within `observedRadius` (96 blocks), up to `embodyCapPerSettlement` (64) |
+| Who is in it | everyone | everyone within `observedRadius` (96 blocks), plus anybody a watched town's work waits on, up to `embodyCapPerSettlement` (64) |
 | Movement | `HaulPlanner.stepToward`, `ABSTRACT_TRAVEL_BLOCKS` = 12 per step | real mob navigation |
 | Production | arithmetic: rate × heads | real blocks broken and placed |
 
@@ -47,6 +47,16 @@ anyway. They are all the same number for the same reason:
 
 `EmbodimentPlanner.RELEASE_MARGIN` (32 blocks) is the hysteresis that stops
 somebody standing on the radius flickering in and out of existence.
+
+**Which of the two is running is a question about the town, not about the work.**
+See `Settlement.isWatched`: a player within `observedRadius` of any part of a
+claim makes the whole town watched, decided once a step, and then the clock does
+none of that town's work anywhere in it. Asking at each site instead is how
+Millbrook's hall, mine and mill came to be stamped in whole while somebody stood
+at the town center 109 blocks off. Because a claim is wider than the radius, the
+release rule bends for the people such a town is waiting on —
+`Settlement.needsHandsFrom` — or a far plot would wait forever on hands that were
+discarded on the walk out to it.
 
 ---
 

@@ -448,6 +448,32 @@ public final class Building {
         this.seeded = seeded;
     }
 
+    /** Whether the ground has already moved this building once. */
+    private boolean relocated;
+
+    /**
+     * Whether this building has been moved off ground that turned out unfit.
+     *
+     * <p>A relocation is bounded to one per building, and this is the bound. The
+     * playtest that prompted it moved a carpentry twice and a market twice, and
+     * the second move of each was onto the site the other had just been refused
+     * at — two buildings trading ground the town had condemned for both of them.
+     * A building whose town has nowhere better for it stays where it is and has
+     * the ground cut in under it instead, which is what the placer does with a
+     * slope anyway.
+     *
+     * <p>Persisted, because a player can walk away mid-arrival: the claim loads
+     * over several steps and a save in the middle of that must not hand the town a
+     * fresh allowance of moves for buildings it has already rearranged.
+     */
+    public boolean hasRelocated() {
+        return relocated;
+    }
+
+    public void setRelocated(boolean relocated) {
+        this.relocated = relocated;
+    }
+
     public int foodStored() {
         return foodStored;
     }
