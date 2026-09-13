@@ -6,6 +6,48 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town is watched all at once
+
+### Fixed
+
+- **Nothing is built by the clock in a town you are standing in.** "Where there is
+  a hand there is no clock" was asked at each work site, and a claim is wider than
+  the 96 blocks a site could see: Millbrook's town hall, mine and mill were all
+  stamped in whole while the player stood at the town center 109 blocks off and
+  watched them appear in the distance. Every one of those sites was honestly
+  unwatched at the site, which is why the rule held and the town still cheated in
+  plain view. Watchedness now belongs to the town. A player within
+  `view.observed_radius` of any part of a claim makes the whole town watched, and
+  a watched town has no clock anywhere in it — every building is raised block by
+  block by its builders, every street is walked out, the wall goes up post by
+  post, repairs are laid by hand, and the fields, the mine and the stand are
+  worked by the people who work them or not at all. Work with nobody at it waits,
+  which is the honest outcome and always was. A field, mine or camp sited out past
+  the ring still answers for its own ground, so somebody standing in an outlying
+  field is watching it whatever the town is doing.
+
+- **A raid on a town you are standing at the edge of is fought, not totted up.**
+  It was resolved as arithmetic unless somebody was within 96 blocks of the town
+  center, so a player inside the claim but out by the fields had his town's battle
+  decided in a log line. The same claim-wide question decides it now.
+
+### Changed
+
+- **Bodies stay out at the far work they were sent to.** A watched claim is more
+  than twice as wide as the radius that makes somebody an entity, so the crew for
+  a plot on the far side used to be discarded on the walk out — and the work, which
+  the clock is no longer allowed to touch, would have waited on hands it was never
+  going to be allowed to have. A watched town's builders, haulers, field hands,
+  miners, lumberjacks, shepherds and guards are now embodied anywhere in the claim
+  and are not discarded while it stays watched. Anybody the town is not waiting on
+  — a child, an idler, somebody too weak to work — is still judged by distance and
+  still stays a record, and an unwatched town embodies nobody, exactly as before.
+
+- **`/civ info` says where a stalled site is.** A plot waiting on hands that
+  nobody can see now reads "waiting for hands at (x, z), out of sight" instead of
+  "no builder has reached the site", which was true and unreadable when the plot
+  in question was over the ridge.
+
 ## The wall gives back the posts it takes, and a ruin stops hiding behind a note
 
 ### Fixed

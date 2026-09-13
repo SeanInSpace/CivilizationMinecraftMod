@@ -284,17 +284,19 @@ public final class PerimeterPlanner {
      * town whose crew was capped, hungry or simply elsewhere had its palisade
      * assemble itself while a player stood in the gateway.
      *
-     * <p>Judged at the post, not at the town: a ring stretch out behind the hill
-     * is unwatched even when the square is full of people.
+     * <p>Judged at the town and not at the post. The ring <em>is</em> the claim's
+     * edge, so a stretch behind the hill is never further from the square than
+     * the claim is wide — and a player on the square is watching the town, wall
+     * included. The old per-post reading is what let a ring assemble itself a
+     * hundred blocks off while somebody stood in the gateway.
      */
     private static boolean watchedAtTheWall(Settlement settlement, SimContext ctx,
                                             Perimeter perimeter) {
         if (perimeter.laid() >= perimeter.length()) {
             return false;
         }
-        return ctx.bridge().playerWithin(
-                perimeter.ringPositions().get(perimeter.laid()),
-                ctx.settings().observedRadius());
+        return settlement.isWatched(ctx,
+                perimeter.ringPositions().get(perimeter.laid()));
     }
 
     /**

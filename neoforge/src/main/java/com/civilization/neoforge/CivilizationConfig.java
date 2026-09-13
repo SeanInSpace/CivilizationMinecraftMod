@@ -44,7 +44,14 @@ public final class CivilizationConfig {
                     SimSettings.DEFAULT_MAX_SETTLEMENT_POPULATION, 4, Integer.MAX_VALUE);
 
     public static final ModConfigSpec.DoubleValue OBSERVED_RADIUS = BUILDER
-            .comment("Distance (blocks) from a player at which simulated people appear as villagers.")
+            .comment("Distance (blocks) from a player at which simulated people appear as villagers,",
+                    "and at which a town counts as watched. Watchedness is judged for the whole",
+                    "claim, not for each site: a player within this distance of any part of a",
+                    "town's claim makes the whole town watched, and then nothing there is done",
+                    "by the clock — every building is raised by hand, the roads are walked out,",
+                    "the wall goes up post by post, and work with nobody at it simply waits.",
+                    "Raising this widens that circle and means more of the world is built in",
+                    "front of you and less of it while you were away.")
             .defineInRange("view.observed_radius", 96.0, 16.0, 512.0);
 
     public static final ModConfigSpec.IntValue MAX_VILLAGERS_PER_SETTLEMENT = BUILDER

@@ -44,13 +44,15 @@ it. Design questions and rebalances live under the next heading, not here.*
       forest inside the ring stands, and people are outdoors at dusk. Wants a
       decision on the cure — street lamps, everyone home by dusk, patrols — and
       then a fix; the outcome is wrong whichever is chosen.
-- [ ] **Buildings materialize whole in plain view.** The town hall, mine and
+- [x] **Buildings materialize whole in plain view.** The town hall, mine and
       mill of Millbrook were placed by the clock ("Materialized … surveyed
       false") while the player stood at the town center 109 blocks off,
       outside the 96-block `observed_radius` judged at the site. The player
       watched a building appear in the distance. Judge the whole claim watched
       when a player is within the radius of any part of it, or use the view
-      distance; a decision, then a fix.
+      distance; a decision, then a fix. *Decided: the claim. A player within
+      `observed_radius` of any part of a town's claim makes the whole town
+      watched, and a watched town has no clock at all.*
 - [ ] **Two spawn towns are both called Bellbrook.** `WorldgenSettlements.pickName`
       hashes the site position into the culture's name pool and never checks
       what is taken.
