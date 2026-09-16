@@ -449,6 +449,33 @@ work has landed, which changes what a street looks like from the middle of it.
 endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **The living-town batch, 2026-09-16.** From the screenshot of a ring
+      town that was a road around grass. Dressing: yards behind family homes,
+      woodpiles, haystacks, crates, a well and a paved square with benches at
+      the heart, orchards, hedges, avenue trees, signposts, in each culture's
+      idiom, raised after roads and lights (81 pieces on a radial town of 15
+      buildings). Streets open only where fronted, on the way to the square,
+      or to close a full ring (55-86% of the plan paved at 15 buildings, from
+      100%); the hub is the square, the camp post stands at its edge, and the
+      hall takes plot 0 in 9 of 15 arrangements. Idle life: pastimes at the
+      well, square, inn, hearth, doorways, benches and fences; pairs talk;
+      guards lean; chimney smoke; a dawn bell; ambient voices per race.
+      Animals: a herd ledger per compound (10 head per pen, breeding at
+      vanilla pace, fed 2 grain a birth), real livestock reconciled to it,
+      loose fowl, a cat, a dog, stable horses, meat roasted into the larder,
+      wool and hides banked. Ring towns build on their own green: the inner
+      face of the first ring was refused 100% of the time by spoke clearance
+      (ring_streets 0 of its first 20 plots inside 40 blocks, now 2 inside the
+      ring; radial 1 to 5). None of it has been seen in a world yet.
+- [ ] **Left by the living-town batch.** Twenty plots within 40 blocks is
+      unreachable for any streets-first plan (a road forbids a 26-block band
+      and carries one rank per edge); `LightPlanner.lamps` is asked every tick
+      at 10-14 ms on a 60-building town; signpost boards are blank; smiths,
+      millers, carpenters and the king never take a pastime; a hamlet keeps an
+      empty 15-block square for a hall it cannot afford; wool comes only from
+      a cull; roast meat lands in the bread pool because the larder is not
+      typed; an avenue on a 60-building ring wants 140 saplings; a crash
+      mid-sit leaves an invisible seat (`/kill @e[tag=civilization_seat]`).
 - [x] **A hall never lands on the middle, and a town paves a plan it has not
       grown into.** One screenshot, two faults. **Built 2026-09-16, not yet
       watched.** The road hub is now the square — a fixed point at the plan's
