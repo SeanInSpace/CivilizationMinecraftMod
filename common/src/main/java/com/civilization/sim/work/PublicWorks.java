@@ -17,12 +17,13 @@ import java.util.List;
 /**
  * Every public work a settlement currently has, in the order it cares about them.
  *
- * <p>Five so far — the line the wall replaced, the street lighting, the wall,
- * the roads, and the wood inside them — and the point of the list is that a sixth
- * is an entry here rather than a new worker, a new tick pass and a new set of
- * rules about who is free to build it. Two of the five were added in one
- * afternoon, on the strength of one night's casualty list, and neither needed a
- * line of new machinery to be built by hand or by the clock.
+ * <p>Six so far — the line the wall replaced, the street lighting, the wall, the
+ * roads, the wood inside them, and the ground between the houses — and the point
+ * of the list is that a seventh is an entry here rather than a new worker, a new
+ * tick pass and a new set of rules about who is free to build it. Three of the six
+ * were added in as many afternoons, two on the strength of one night's casualty
+ * list and one on the strength of a screenshot of an empty field, and none of them
+ * needed a line of new machinery to be built by hand or by the clock.
  *
  * <p>The order is the priority, and it is the only priority there is. All of it
  * comes after the build queue, which the foreman checks before it asks this at
@@ -71,17 +72,25 @@ public final class PublicWorks {
      * an unfinished ring defers them, which is the same bargain the roads have
      * always had with the wall.
      *
-     * <p><strong>The clearing comes after the lighting</strong> and is last of the
-     * five, because it is the slowest, it is free, and it is the one a town can be
-     * behind on for a season without anybody dying of it once the lamps are up.
+     * <p><strong>The clearing comes after the lighting</strong> because it is the
+     * slowest, it is free, and it is the one a town can be behind on for a season
+     * without anybody dying of it once the lamps are up. <strong>And the dressing
+     * comes after the clearing</strong>, last of all, because it is the only work
+     * on the list nobody needs at all.
      */
     public static List<Worksite> of(Settlement settlement) {
-        List<Worksite> works = new ArrayList<>(5);
+        List<Worksite> works = new ArrayList<>(6);
         works.add(new DismantleWork());
         works.add(new WallWork());
         works.add(new RoadWork());
         works.add(new LightWork(settlement));
         works.add(new ClearingWork());
+        // And last of all, the dressing. It is last because it is the only work
+        // on this list that nobody needs: a town with no wall is raided, a town
+        // with no lamps is a spawner, a town with no roads never gets anywhere,
+        // and a town with no kitchen gardens is merely a town nobody believes
+        // anybody lives in. See Furnishings, and the screenshot that produced it.
+        works.add(new DressingWork());
         return works;
     }
 
@@ -635,6 +644,58 @@ public final class PublicWorks {
         @Override
         public void completeOne(Settlement settlement, boolean worked) {
             settlement.setInteriorCleared(settlement.interiorCleared() + 1);
+        }
+    }
+
+    /**
+     * Standing the town's own dressing on its free ground.
+     *
+     * <p>The yards, the hedges, the woodpiles, the square: everything in
+     * {@code Furnishings}, worked through one piece at a time by exactly the
+     * machinery the lamps go up by. {@code FurnishingLayer} is its platform half.
+     *
+     * <p><strong>It carries nothing.</strong> {@link Worksite#material} is null,
+     * which for every other work means "this costs only labor" and here means
+     * something slightly different: a piece of dressing costs three resources at
+     * once — fence timber, paving stone and saplings, in proportions that differ
+     * from one kind of piece to the next — and there is no single load a builder
+     * could fetch that would cover a square and
+     * an orchard both. So the whole price is charged at the piece, with somebody
+     * standing there ready to raise it, which is where the wall charges its coin.
+     * The cost of that choice is that a dressing crew walks back to the storehouse
+     * for nothing; they do not, because they were never sent for anything.
+     */
+    public static final class DressingWork implements Worksite {
+
+        @Override
+        public String name() {
+            return "dressing";
+        }
+
+        @Override
+        public SimPos nextStation(Settlement settlement) {
+            Furnishings.Furnishing piece = Furnishings.next(settlement);
+            return piece == null ? null : piece.at();
+        }
+
+        @Override
+        public boolean pay(Settlement settlement) {
+            Furnishings.Furnishing piece = Furnishings.next(settlement);
+            return piece != null && Furnishings.payFor(settlement, piece.piece());
+        }
+
+        @Override
+        public void completeOne(Settlement settlement, boolean worked) {
+            // Whether or not a block went in, exactly as the wall and the lamps
+            // do. A patch of ground that refuses a fence -- a yard planned onto
+            // what turned out to be a pond -- is a yard the town is not going to
+            // have, and a crew that would not count it would stand there for ever.
+            settlement.setPiecesRaised(settlement.piecesRaised() + 1);
+        }
+
+        @Override
+        public boolean isWorthStarting(Settlement settlement) {
+            return Furnishings.worthStarting(settlement);
         }
     }
 }

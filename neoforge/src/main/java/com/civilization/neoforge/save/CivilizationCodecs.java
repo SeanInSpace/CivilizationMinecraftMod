@@ -712,14 +712,15 @@ public final class CivilizationCodecs {
      */
     private record Works(List<BuildTask> buildQueue, List<Building> buildings, int nextPlot,
                          Optional<PathNetwork> paths, Optional<WorkArea> lumberArea,
-                         Optional<WorkArea> mineArea, int lightsRaised, int interiorCleared) {
+                         Optional<WorkArea> mineArea, int lightsRaised, int interiorCleared,
+                         int piecesRaised) {
         static Works of(Settlement s) {
             return new Works(s.buildQueue(), s.buildings(), s.nextPlotIndex(),
                     s.paths().isEmpty() && s.paths().joined().isEmpty()
                             ? Optional.empty() : Optional.of(s.paths()),
                     Optional.ofNullable(s.lumberArea()),
                     Optional.ofNullable(s.mineArea()),
-                    s.lightsRaised(), s.interiorCleared());
+                    s.lightsRaised(), s.interiorCleared(), s.piecesRaised());
         }
     }
 
@@ -744,7 +745,11 @@ public final class CivilizationCodecs {
             // and will start doing both on its next step.
             Codec.INT.optionalFieldOf("lights_raised", 0).forGetter(Works::lightsRaised),
             Codec.INT.optionalFieldOf("interior_cleared", 0)
-                    .forGetter(Works::interiorCleared)
+                    .forGetter(Works::interiorCleared),
+            // And the third of the same shape: how many pieces of dressing the
+            // town has stood. See Furnishings, which derives where they go from
+            // the buildings and the streets so that none of it is written twice.
+            Codec.INT.optionalFieldOf("pieces_raised", 0).forGetter(Works::piecesRaised)
     ).apply(i, Works::new));
 
     /**
@@ -810,6 +815,7 @@ public final class CivilizationCodecs {
         works.mineArea().ifPresent(settlement::setMineArea);
         settlement.setLightsRaised(works.lightsRaised());
         settlement.setInteriorCleared(works.interiorCleared());
+        settlement.setPiecesRaised(works.piecesRaised());
         residents.forEach(settlement::addResident);
         works.buildQueue().forEach(settlement::enqueueBuild);
         works.buildings().forEach(settlement::addBuilding);

@@ -490,7 +490,14 @@ class PublicWorksTest {
         assertEquals("lights", works.get(3).name(),
                 "and a lamp stands on the verge of a street that has to exist first");
         assertEquals("clearing", works.get(4).name(),
-                "and the wood between the streets last, being slow and free");
+                "and the wood between the streets, being slow and free");
+        assertEquals("dressing", works.get(5).name(),
+                "and the dressing last of all, because a town with no kitchen"
+                        + " gardens is merely a town nobody believes anybody"
+                        + " lives in");
+        assertEquals(6, works.size(),
+                "a work added without a line here is a work whose place in the"
+                        + " priority nobody has had to argue for");
     }
 
     @Test

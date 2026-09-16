@@ -136,6 +136,7 @@ public final class CivilizationMod {
         // same pair of notes for the same reason.
         com.civilization.neoforge.world.LightLayer.forget();
         com.civilization.neoforge.world.Woodcut.forget();
+        com.civilization.neoforge.world.FurnishingLayer.forget();
         // And where each paving crew had got along its run, which is a place in
         // a network that is going away with the world it belonged to.
         com.civilization.neoforge.view.Foreman.forget();

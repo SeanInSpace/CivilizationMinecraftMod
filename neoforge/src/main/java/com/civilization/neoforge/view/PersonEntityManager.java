@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import com.civilization.neoforge.world.Excavation;
+import com.civilization.neoforge.world.FurnishingLayer;
 import com.civilization.neoforge.world.LightLayer;
 import com.civilization.neoforge.world.Woodcut;
 import com.civilization.neoforge.world.PathLayer;
@@ -477,15 +478,17 @@ public final class PersonEntityManager {
                 changed |= workShepherds(settlement);
                 changed |= layPaths(settlement);
                 // One pair of hands, one public work, and which work it is decides
-                // which of the three sweeps below stands aside. Where there is a
+                // which of the four sweeps below stands aside. Where there is a
                 // hand there is no clock -- and the hand is on exactly one of
-                // them, so the other two carry on.
+                // them, so the other three carry on.
                 Worksite handed = workPublic(settlement);
                 PerimeterLayer.draw(level, settlement,
                         handed instanceof PublicWorks.DismantleWork);
                 LightLayer.draw(level, settlement, handed instanceof PublicWorks.LightWork);
                 Woodcut.draw(level, settlement, handed instanceof PublicWorks.ClearingWork,
                         world.settings().observedRadius());
+                FurnishingLayer.draw(level, settlement,
+                        handed instanceof PublicWorks.DressingWork);
                 StoreSync.reconcile(level, settlement);
                 freeStrandedPeople(settlement);
                 applyHungerEffects(settlement);

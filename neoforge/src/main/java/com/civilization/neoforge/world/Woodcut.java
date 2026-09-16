@@ -3,6 +3,7 @@ package com.civilization.neoforge.world;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.settlement.Settlement;
+import com.civilization.sim.work.Furnishings;
 import com.civilization.sim.work.InteriorClearing;
 
 import java.util.List;
@@ -86,7 +87,14 @@ public final class Woodcut {
      */
     public static Swing fellOneIn(ServerLevel level, Settlement settlement, Person hands,
                                   SimPos cell) {
-        BlockPos trunk = trunkIn(level, settlement, cell);
+        return fellOneIn(level, settlement, hands, cell,
+                Furnishings.plantings(settlement));
+    }
+
+    /** The same, with the town's own trees handed in. See {@link #trunkIn}. */
+    public static Swing fellOneIn(ServerLevel level, Settlement settlement, Person hands,
+                                  SimPos cell, List<Furnishings.Furnishing> plantings) {
+        BlockPos trunk = trunkIn(level, settlement, cell, plantings);
         if (trunk == null) {
             // Either the cell is open ground, or none of it is loaded. Both are a
             // station the crew is finished with: standing over unread chunks
@@ -108,7 +116,7 @@ public final class Woodcut {
         }
         // Done when nothing else is standing in it. Asked again rather than
         // assumed, so a cell with two trees in it is not written off after one.
-        return new Swing(trunkIn(level, settlement, cell) == null, true);
+        return new Swing(trunkIn(level, settlement, cell, plantings) == null, true);
     }
 
     /**
@@ -123,6 +131,28 @@ public final class Woodcut {
      * line are the forester's however the cell was numbered.
      */
     public static BlockPos trunkIn(ServerLevel level, Settlement settlement, SimPos cell) {
+        return trunkIn(level, settlement, cell, Furnishings.plantings(settlement));
+    }
+
+    /**
+     * The same, with the town's own trees handed in.
+     *
+     * <p>Handed in rather than derived here because {@code Furnishings.plantings}
+     * walks the whole dressing plan, and a sweep asks this once a cell: deriving
+     * it inside would be that walk a few dozen times a tick on a grown town. Every
+     * caller that has a loop already computes it once outside the loop.
+     *
+     * <p><strong>The town's own trees are spared, and that is not a nicety.</strong>
+     * An orchard is planted on a cell of the very ground this work clears, and an
+     * avenue tree stands on the verge of a street that runs through it. Their
+     * saplings become trunks, and a sweep that could not tell the town's own trees
+     * from the wood it stands in would fell every one of them on the pass after it
+     * took. The dressing would then plant them again, and the town would spend the
+     * rest of its life cutting down and replanting the same trees — exactly the
+     * shape of the torch-on-a-fence fault, one work along and slower.
+     */
+    public static BlockPos trunkIn(ServerLevel level, Settlement settlement, SimPos cell,
+                                   List<Furnishings.Furnishing> plantings) {
         Overgrowth.Spared belt = Overgrowth.woodlandOf(settlement);
         int half = InteriorClearing.CELL / 2;
         BlockPos best = null;
@@ -133,6 +163,9 @@ public final class Woodcut {
                 int z = cell.z() + dz;
                 if (belt.covers(x, z)) {
                     continue;   // the forester's, and never this work's
+                }
+                if (Furnishings.inAPlanting(plantings, x, z)) {
+                    continue;   // the town's own, and never this work's either
                 }
                 BlockPos found = trunkAt(level, x, z);
                 if (found == null) {
@@ -176,7 +209,15 @@ public final class Woodcut {
      */
     public static boolean anythingStandingIn(ServerLevel level, Settlement settlement,
                                              SimPos cell) {
-        return trunkIn(level, settlement, cell) != null;
+        return anythingStandingIn(level, settlement, cell,
+                Furnishings.plantings(settlement));
+    }
+
+    /** The same, with the town's own trees handed in. See {@link #trunkIn}. */
+    public static boolean anythingStandingIn(ServerLevel level, Settlement settlement,
+                                             SimPos cell,
+                                             List<Furnishings.Furnishing> plantings) {
+        return trunkIn(level, settlement, cell, plantings) != null;
     }
 
     /**
@@ -208,6 +249,8 @@ public final class Woodcut {
             return;
         }
         List<SimPos> cells = InteriorClearing.cells(settlement);
+        // Once, outside the loop: see trunkIn.
+        List<Furnishings.Furnishing> plantings = Furnishings.plantings(settlement);
         int limit = Math.min(cleared, cells.size());
         if (limit <= 0) {
             return;
@@ -229,7 +272,7 @@ public final class Woodcut {
             BlockPos column = new BlockPos(cell.x(), cell.y(), cell.z());
             if (level.isLoaded(column)
                     && !playerNear(level, cell, observedRadius)) {
-                if (fellOneIn(level, settlement, null, cell).worked()) {
+                if (fellOneIn(level, settlement, null, cell, plantings).worked()) {
                     felled++;
                 }
                 looked++;

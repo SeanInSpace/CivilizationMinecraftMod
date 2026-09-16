@@ -325,7 +325,12 @@ class StreetLightsTest {
     void theLightingIsAPublicWorkBehindTheRoadsItStandsBeside() {
         Settlement town = crossroads();
         List<String> order = PublicWorks.of(town).stream().map(w -> w.name()).toList();
-        assertEquals(List.of("dismantle", "wall", "road", "lights", "clearing"), order);
+        assertEquals(
+                List.of("dismantle", "wall", "road", "lights", "clearing", "dressing"),
+                order,
+                "the lighting sits between the roads it stands beside and the wood it"
+                        + " cannot light through, and the dressing is last of all"
+                        + " because it is the only one of the six nobody needs");
     }
 
     @Test

@@ -2344,6 +2344,63 @@ public final class Settlement {
     }
 
     /**
+     * How many pieces of dressing this town has stood on its own free ground.
+     *
+     * <p>An index into {@code Furnishings.pieces}, on exactly the terms
+     * {@link #lightsRaised} is one: the yards, hedges and woodpiles are a function
+     * of the buildings and the streets, both of which are saved already, so the
+     * only thing that has to be written down is how far along them the work has
+     * got.
+     */
+    private int piecesRaised;
+
+    public int piecesRaised() {
+        return piecesRaised;
+    }
+
+    public void setPiecesRaised(int piecesRaised) {
+        this.piecesRaised = Math.max(0, piecesRaised);
+    }
+
+    /**
+     * The last dressing plan worked out for this town, and a number naming the
+     * shape of the town it was worked out for.
+     *
+     * <p>Not saved, and it must not be: it is derived from the buildings and the
+     * streets, both of which are, so writing it down would be writing the town's
+     * shape twice — the thing {@code Furnishings} exists to avoid. It is here
+     * rather than in a static table keyed by settlement id because a table like
+     * that outlives the world it belonged to and needs somebody to remember to
+     * empty it; a field on the town goes when the town does.
+     *
+     * <p><strong>Why there is a memo at all.</strong> Working out a town's dressing
+     * is the most expensive planning pass in the mod — 16.5 milliseconds for a town
+     * of sixty buildings, ten of them inside {@code LightPlanner.lamps}, which it
+     * has to consult because a hedge may not swallow a lamp. A tick is fifty
+     * milliseconds and the plan is wanted by the clock, by the foreman and by the
+     * drawing sweep, so the honest version of this cost a grown town most of its
+     * frame budget three times over. With this it costs 17 microseconds to be told
+     * the plan still stands. Keyed on the shape rather than on a clock, so a town
+     * that changes gets a new plan on the step it changes and a town that does not
+     * pays for one once. {@code FurnishingsTest} reports all three numbers.
+     */
+    private long dressingStamp;
+
+    private List<com.civilization.sim.work.Furnishings.Furnishing> dressingPlan;
+
+    /** The plan worked out for this shape of town, or null if none has been. */
+    public List<com.civilization.sim.work.Furnishings.Furnishing> cachedDressing(long stamp) {
+        return dressingPlan != null && dressingStamp == stamp ? dressingPlan : null;
+    }
+
+    /** Keeps a plan against the shape of town it was worked out for. */
+    public void cacheDressing(long stamp,
+                              List<com.civilization.sim.work.Furnishings.Furnishing> plan) {
+        this.dressingStamp = stamp;
+        this.dressingPlan = plan;
+    }
+
+    /**
      * Whether this person does this kind of labor here, today.
      *
      * <p>The seam the pioneer works through: below VILLAGE a pioneer is every
@@ -2587,6 +2644,11 @@ public final class Settlement {
         PerimeterPlanner.advance(this, ctx);
         // And the wood between the streets, last of the public works.
         com.civilization.sim.work.InteriorClearing.advance(this, ctx);
+        // And then, after all of it, the dressing: the yards, hedges, woodpiles
+        // and the square. Last because it is the only work on the list nobody
+        // needs -- see Furnishings.worthStarting, which will not spend a plank on
+        // a flower bed while anything at all is queued.
+        com.civilization.sim.work.Furnishings.advance(this, ctx);
         InnPlanner.advance(this, ctx);
         advanceBuildQueue(ctx);
         materializePending(ctx);
