@@ -584,6 +584,86 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         return Math.min(meals, FORAGE_MEALS_CAP);
     }
 
+    /**
+     * The benches, fences and gates within reach of a point.
+     *
+     * <p>Looked for rather than looked up, because nothing writes them down: a
+     * bench is whatever stair the civic drawings, the dressing planner or a
+     * player happened to leave with air over it, and there is no table in the
+     * mod that could know. The sweep is deliberately shallow — {@link
+     * #SPOT_PROBE_DOWN} below the surface and {@link #SPOT_PROBE_UP} above it —
+     * so a cellar full of stairs under the square is not a row of benches.
+     *
+     * <p>Nearest first, so the answer is stable between calls: the choosing on
+     * the other end hashes a position out of a list, and a list that reordered
+     * would have somebody change their mind about which bench once a second.
+     *
+     * <p>A stair only counts with its tall half at the bottom and clear air over
+     * it. An upside-down stair is a ceiling and a stair under a roof beam is a
+     * step; neither is somewhere to sit.
+     */
+    @Override
+    public List<SimPos> leisureSpots(SimPos center, int radius,
+                                     com.civilization.sim.person.Leisure.Pastime kind,
+                                     int limit) {
+        BlockPos at = toBlockPos(center);
+        if (limit <= 0 || !level.isLoaded(at)) {
+            return List.of();
+        }
+        int reach = Math.min(radius, SPOT_MAX_RADIUS);
+        List<SimPos> found = new java.util.ArrayList<>();
+        // Rings outward from the middle, so what comes back is sorted by
+        // distance without anything having to sort it.
+        for (int ring = 0; ring <= reach && found.size() < limit; ring++) {
+            for (int dx = -ring; dx <= ring && found.size() < limit; dx++) {
+                for (int dz = -ring; dz <= ring && found.size() < limit; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) {
+                        continue;   // already walked by an inner ring
+                    }
+                    BlockPos column = at.offset(dx, 0, dz);
+                    if (!level.isLoaded(column)) {
+                        continue;
+                    }
+                    for (int dy = -SPOT_PROBE_DOWN; dy <= SPOT_PROBE_UP; dy++) {
+                        BlockPos spot = column.above(dy);
+                        if (isLeisureSpot(spot, kind)) {
+                            found.add(toSimPos(spot));
+                            break;   // one seat to a column
+                        }
+                    }
+                }
+            }
+        }
+        return List.copyOf(found);
+    }
+
+    /** Whether this exact block is the furnishing that was asked for. */
+    private boolean isLeisureSpot(BlockPos spot,
+                                  com.civilization.sim.person.Leisure.Pastime kind) {
+        BlockState state = level.getBlockState(spot);
+        return switch (kind) {
+            case BENCH -> state.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+                    && state.getValue(net.minecraft.world.level.block.StairBlock.HALF)
+                        == net.minecraft.world.level.block.state.properties.Half.BOTTOM
+                    && level.getBlockState(spot.above()).isAir();
+            case FARM_GATE -> state.getBlock()
+                    instanceof net.minecraft.world.level.block.FenceGateBlock;
+            case FENCE -> state.is(net.minecraft.tags.BlockTags.FENCES)
+                    && !(state.getBlock()
+                        instanceof net.minecraft.world.level.block.FenceGateBlock);
+            default -> false;
+        };
+    }
+
+    /** However wide a caller asks, a search for a stool stops here. */
+    private static final int SPOT_MAX_RADIUS = 10;
+
+    /** How far below the asking point a bench may still be the same bench. */
+    private static final int SPOT_PROBE_DOWN = 2;
+
+    /** And how far above. A square on a slope is still one square. */
+    private static final int SPOT_PROBE_UP = 2;
+
     /** Every sixth column: enough to tell a berry wood from a lawn. */
     private static final int FORAGE_SAMPLE_STEP = 6;
 

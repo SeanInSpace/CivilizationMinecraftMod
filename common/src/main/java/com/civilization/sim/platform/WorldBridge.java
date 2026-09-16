@@ -462,6 +462,38 @@ public interface WorldBridge {
         return 0L;
     }
 
+    /**
+     * Where somebody could sit, lean, or stand about, near here.
+     *
+     * <p>The simulation has no idea what is on the ground — the same fact
+     * {@link #woodedness} and {@link #forageableNear} exist for — and a bench is
+     * a stair block somebody put down. It is not in any table: the civic
+     * drawings leave stairs round a square, the dressing planner leaves more,
+     * and a player leaves their own. So the only honest way to find one is to
+     * look, and only the platform can.
+     *
+     * <p>A position is where the <em>furniture</em> is, not where the person
+     * stands: a bench is the stair itself, because somebody sits on it, and a
+     * fence is the fence, because somebody leans on it from whichever side they
+     * arrive at. The caller walks to it and works the last block out for itself.
+     *
+     * <p>Answers in a stable order — nearest first — because the choosing on the
+     * other end is a hash over a list and a list that reshuffled would have
+     * people changing their minds about which bench every second.
+     *
+     * <p>Empty by default, and empty is a perfectly good answer rather than a
+     * stub: a town with no benches has people who stand, which is what
+     * {@code Leisure} does with an offer it is not given.
+     *
+     * @param kind  which of the furnishings is wanted
+     * @param limit how many to stop at, so nobody scans a town for a stool
+     */
+    default java.util.List<SimPos> leisureSpots(
+            SimPos center, int radius,
+            com.civilization.sim.person.Leisure.Pastime kind, int limit) {
+        return java.util.List.of();
+    }
+
     /** Structured logging that does not depend on a specific logging backend. */
     void log(String message);
 

@@ -422,9 +422,29 @@ public final class PersonEntityManager {
      */
     private final TickRate rate = new TickRate(System::nanoTime);
 
+    /**
+     * What the town does when it is not working, and what it sounds like.
+     *
+     * <p>Two passengers on this manager rather than two more sections of it. Both
+     * are purely for the person standing in the town — no ledger, no store, no
+     * decision the simulation can see — and holding them apart is what lets
+     * anybody reading this file for the cause of an economic fault skip them
+     * outright. See {@link Pastimes} and {@link Ambience}.
+     *
+     * <p>Built in the constructor rather than at the field, because both close
+     * over maps declared above them and a field initializer would capture them
+     * before they exist.
+     */
+    private final Pastimes pastimes;
+
+    private final Ambience ambience;
+
     public PersonEntityManager(ServerLevel level, SimWorld world) {
         this.level = Objects.requireNonNull(level, "level");
         this.world = Objects.requireNonNull(world, "world");
+        this.pastimes = new Pastimes(level, world, tracked::get,
+                id -> steeredByBuild.contains(id) || sparedForWorks.containsValue(id));
+        this.ambience = new Ambience(level, world, tracked::get);
     }
 
     /**
@@ -470,6 +490,12 @@ public final class PersonEntityManager {
                 ringTheBell(settlement);
                 markPeril(settlement);
                 dailyRoutine(settlement);
+                // Deliberately here and not later. Everything below this line
+                // that steers anybody steers them for work, and by running
+                // first, leisure loses every argument with work without either
+                // half having to know the other exists.
+                pastimes.tend(settlement);
+                ambience.tend(settlement);
                 checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
                 workFarmers(settlement);
@@ -2219,6 +2245,7 @@ public final class PersonEntityManager {
             PersonEntity view = entry.getValue();
             tracked.remove(entry.getKey());
             forgetDigger(entry.getKey());
+            pastimes.stop(entry.getKey(), view);
             // No refund: the settlement that would take the sword back is the one
             // that has just stopped having this person in it.
             issuedIron.remove(entry.getKey());
@@ -3209,6 +3236,13 @@ public final class PersonEntityManager {
                     .append(", hunger ").append(person.hunger())
                     .append(" ").append(Appetite.of(person.hunger()).word())
                     .append(", errand ").append(errandOf(person));
+            // Standing still on purpose is not the fault this report hunts, and
+            // a line that could not tell the two apart would make the report
+            // useless the day leisure was added. See Pastimes.
+            String pastime = pastimes.reportFor(person.id().value());
+            if (pastime != null) {
+                line.append(", at leisure (").append(pastime).append(")");
+            }
             if (settlement.laborsAs(person, Profession.BUILDER)) {
                 line.append(steeredByBuild.contains(person.id().value())
                         ? ", site has them" : ", SITE STEERING NOBODY");
@@ -3274,6 +3308,11 @@ public final class PersonEntityManager {
 
     private void release(Settlement settlement, Person person) {
         forgetDigger(person.id().value());
+        // Out of the chair before the body goes, for the same reason they are
+        // got out of bed below: the seat is an entity of our own making and a
+        // person whose body is discarded while riding one leaves it in the
+        // square forever, invisible, with nothing left that remembers it.
+        pastimes.stop(person.id().value(), tracked.get(person.id().value()));
         // Whatever they were carrying goes back on the town's books. It came off
         // them at the warehouse, and the clock that is about to take over pays
         // out of the pooled ledger and cannot see a load in somebody's arms — so
@@ -4362,6 +4401,7 @@ public final class PersonEntityManager {
                 }
             }
         }
+        pastimes.stopAll();
         tracked.clear();
         CivilizationSavedData.get(level).setDirty();
     }

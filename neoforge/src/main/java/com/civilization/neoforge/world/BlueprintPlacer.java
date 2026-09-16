@@ -294,6 +294,116 @@ public final class BlueprintPlacer {
     }
 
     /**
+     * Where this building's chimney pots are, read back off its own plan.
+     *
+     * <p>Nothing records a chimney. {@code Parts.dress} draws one when the style
+     * asks for one, at a column decided by {@code HouseStyle.Variation} from the
+     * building's own coordinates, up to two courses clear of whatever height the
+     * roof happened to come out at — so there is no table to look it up in and no
+     * constant to read. The plan is the only place the answer exists, so the plan
+     * is what is asked.
+     *
+     * <p>The rule is the one thing a chimney is: a stack of masonry sticking out
+     * of a roof. A column qualifies when its topmost block clears every one of
+     * its eight neighbours by {@link #CHIMNEY_CLEARANCE}, and when the course
+     * below the top is the same block — which is what tells a chimney from a
+     * lantern on a post. A ridge is rejected because a ridge's neighbours along
+     * the ridge are the same height; a merlon is rejected because battlements
+     * only rise one course above their gaps.
+     *
+     * <p>Not cheap: it rebuilds the whole plan. Callers derive this once per
+     * building and remember it, which is safe — a chimney does not move, and a
+     * building that is rebuilt is a different building at a different origin.
+     *
+     * @return the pot positions in world coordinates, lowest-then-north first so
+     *         two calls agree, and empty for a building with no chimney
+     */
+    static List<BlockPos> chimneyTops(ServerLevel level, String blueprintId, BlockPos base,
+                                      int facing) {
+        StructurePlan plan = planFor(level, blueprintId, base, facing);
+        Map<Long, Integer> top = new HashMap<>();
+        Map<Long, Block> crown = new HashMap<>();
+        for (Step step : plan.steps()) {
+            if (step.state().isAir()) {
+                continue;
+            }
+            long key = columnKey(step.pos());
+            Integer standing = top.get(key);
+            if (standing == null || step.pos().getY() > standing) {
+                top.put(key, step.pos().getY());
+                crown.put(key, step.state().getBlock());
+            }
+        }
+        Set<Long> stacked = new HashSet<>();
+        for (Step step : plan.steps()) {
+            long key = columnKey(step.pos());
+            Integer standing = top.get(key);
+            if (standing != null && step.pos().getY() == standing - 1
+                    && step.state().getBlock() == crown.get(key)) {
+                stacked.add(key);
+            }
+        }
+        List<BlockPos> pots = new ArrayList<>();
+        for (Map.Entry<Long, Integer> column : top.entrySet()) {
+            long key = column.getKey();
+            int high = column.getValue();
+            if (!stacked.contains(key) || high < base.getY() + CHIMNEY_MIN_RISE) {
+                continue;
+            }
+            if (!clearsNeighbours(top, key, high)) {
+                continue;
+            }
+            pots.add(new BlockPos((int) (key >> 32), high, (int) key));
+        }
+        pots.sort(Comparator.<BlockPos>comparingInt(pot -> pot.getY())
+                .thenComparingInt(pot -> pot.getX())
+                .thenComparingInt(pot -> pot.getZ()));
+        return List.copyOf(pots.size() > CHIMNEY_CAP ? pots.subList(0, CHIMNEY_CAP) : pots);
+    }
+
+    /** Whether nothing next to this column comes within a chimney's clearance of it. */
+    private static boolean clearsNeighbours(Map<Long, Integer> top, long key, int high) {
+        int x = (int) (key >> 32);
+        int z = (int) key;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                Integer near = top.get(columnKey(x + dx, z + dz));
+                if (near != null && high - near < CHIMNEY_CLEARANCE) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static long columnKey(BlockPos pos) {
+        return columnKey(pos.getX(), pos.getZ());
+    }
+
+    private static long columnKey(int x, int z) {
+        return ((long) x << 32) | (z & 0xFFFFFFFFL);
+    }
+
+    /**
+     * How far a chimney has to stand clear of what is around it: two courses.
+     *
+     * <p>Exactly what {@code Parts.dress} builds — the pot goes to {@code top + 2}
+     * so the smoke does not blow back down it — and stated as its own number here
+     * because this is a reading rather than a drawing. One would let a merlon
+     * through; three would miss any chimney that ever gets shortened.
+     */
+    private static final int CHIMNEY_CLEARANCE = 2;
+
+    /** Below this above its own floor, a stack of masonry is a post, not a flue. */
+    private static final int CHIMNEY_MIN_RISE = 4;
+
+    /** Nothing in the catalog has more than this, so a plan that seems to is wrong. */
+    private static final int CHIMNEY_CAP = 4;
+
+    /**
      * Measures a structure without placing anything.
      *
      * <p>For buildings that were raised before their size was recorded: the plan

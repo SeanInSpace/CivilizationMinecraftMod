@@ -6,6 +6,83 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The town does something besides work
+
+A settler worked their trade, hauled, fled, fought, walked home under the curfew
+and slept — and in every hour that was none of those, stood on the exact block
+the steering had last left them on, in silence, until something claimed them
+again. Nothing was broken; there was simply no third state, and a village whose
+idle people are switched off reads as a village nobody lives in.
+
+### Added
+
+- **People have somewhere to be when there is nothing to do.** An idle settler —
+  an idler by trade, somebody off shift, a builder waiting for hands, anyone too
+  weak to work who is not walking to a meal — is given a *pastime*: a place and a
+  while to be there. The well in the market square, the middle of town, the inn,
+  the family hearth, a neighbor's doorway, a bench, a fence to lean on, the gate
+  of the field. Which one is a hash of the person and the moment, so it is varied,
+  it repeats exactly on a reload, and nothing about it is written to the save. A
+  stay lasts between 200 and 600 ticks.
+
+- **The evening is the inn or your own fire, and nothing outdoors.** From the
+  moment the curfew starts — the same moment, read off `Curfew` rather than a
+  clock hour of its own — the only pastimes on offer are the inn's common room
+  and the hearth. A settler walked indoors by the curfew and then back out to the
+  well by this would have undone the curfew, and seventeen people died of that
+  once. A town with neither an inn nor a hearth simply has no evening, and its
+  people walk home exactly as they did before.
+
+- **Two people at the same place fall into conversation.** Same pastime, within
+  three blocks, for 100–300 ticks: they turn to face each other and one of them
+  gestures every three seconds. Same pastime, because two settlers who pass within
+  three blocks on separate errands are not talking; each person is in at most one
+  conversation, so three at a well are a pair and an onlooker.
+
+- **A settler sits on a bench.** Vanilla has no sitting pose for a mob, so the
+  seat is a vehicle nobody can see: a zero-sized block display showing air, which
+  the humanoid model draws the rider of with its legs bent. An armor stand cannot
+  be made a marker from code in 26.2 and would leave a real hitbox in the square;
+  a `Marker` is never sent to a client at all, so nobody would see the rider ride.
+  The seat is discarded the moment anything reclaims the person.
+
+- **Chimneys smoke in the evening and at night.** Every house, hearth, inn and
+  smithy that is actually standing. Nothing records where a chimney came out, so
+  it is read back off the building's own plan the first time anybody looks and
+  remembered by the plan it was read from: a stack of masonry that clears
+  everything around it by two courses is a flue, which a ridge and a merlon are
+  not.
+
+- **A town murmurs, in its own voices.** Vanilla villager chatter at about one
+  utterance per settler per seven seconds, pitched by race — the orcs low, the
+  goblins high, humans at vanilla's own pitch, all of it off the one pace factor
+  the races already have. Silent while the alarm is up.
+
+- **The bell rings at dawn.** Once a day, from the hall if the town has a bell on
+  one and the watchtower otherwise. The alarm keeps its own narrower search: what
+  rings for danger is still the watch's bell.
+
+- **Guards off alarm lean on their post.** No walk and no place — a sentry is
+  already where the town wants him. He simply turns to face outward once he has
+  finished his round, and the moment the alarm rises he is not at leisure at all.
+
+### Notes
+
+- **Leisure has no economy and never will.** A pastime moves a body and turns a
+  head. It touches no store, no ledger and no yield, because it only exists where
+  there is a body — and a thing that only happens while somebody is watching must
+  not be worth anything, or a watched town and an unwatched one stop agreeing.
+- The costs: one assignment pass per settlement per second, at most six people
+  walking to a pastime at a time per town, the town's furniture looked for once
+  every ten seconds within ten blocks of the square, and smoke drawn every other
+  pass and only within 64 blocks of a player. Nothing at all for a person nobody
+  can see.
+- What the tests cover is the arithmetic: the chooser's determinism and variety,
+  the evening's preference for the inn, the three-block pairing, and that a
+  working person, an unwatched person or a guard on alarm is never given a
+  pastime. The platform half needs a level and is untested — the walk, the seat,
+  the smoke, the sounds and the bell were read rather than measured.
+
 ## A watched town survives the night
 
 One Normal-difficulty night in Millbrook — a burgher town of seventeen in a
