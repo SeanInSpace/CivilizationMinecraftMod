@@ -3,8 +3,10 @@ package com.civilization.sim.settlement;
 import com.civilization.sim.geom.SimPos;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -469,6 +471,81 @@ public final class PathNetwork {
             return;
         }
         segments.add(segment);
+    }
+
+    /**
+     * Which planned stretch each run was routed for, by its index in the network.
+     *
+     * <p>A run has always been anonymous once it was added: a street was routed
+     * into segments and the segments forgot which street they were. That was
+     * enough while every run was opened in turn, and is not enough to say "this
+     * circuit has filled up" — a rule about a <em>street</em> cannot be enforced
+     * over a list that no longer knows what a street is.
+     *
+     * <p>The value is {@code PathPlanner}'s stretch key, which carries the street
+     * and the piece within it. A run with no entry is a lane: a track run to one
+     * door, belonging to no street at all.
+     */
+    private final Map<Integer, Integer> streetOfRun = new LinkedHashMap<>();
+
+    /** Adds a run laid for a planned stretch, remembering which one. */
+    public void addForStreet(Segment segment, int streetKey) {
+        int before = segments.size();
+        add(segment);
+        if (segments.size() > before) {
+            streetOfRun.put(segments.size() - 1, streetKey);
+        }
+    }
+
+    /** The planned stretch this run was laid for, or -1 for a lane. */
+    public int streetOf(int index) {
+        Integer key = streetOfRun.get(index);
+        return key == null ? -1 : key;
+    }
+
+    /**
+     * Every run that belongs to a street, and which, for saving.
+     *
+     * <p>A flat run of pairs — index, then key — rather than a map, because a
+     * list of numbers is the cheapest thing a save format has and this is one
+     * entry per stretch of carriageway in the town.
+     */
+    public List<Integer> runStreetPairs() {
+        List<Integer> out = new ArrayList<>(streetOfRun.size() * 2);
+        streetOfRun.forEach((index, key) -> {
+            out.add(index);
+            out.add(key);
+        });
+        return out;
+    }
+
+    /** Restores the street each run belongs to from a save. */
+    public void restoreRunStreets(List<Integer> pairs) {
+        streetOfRun.clear();
+        if (pairs == null) {
+            return;
+        }
+        for (int i = 0; i + 1 < pairs.size(); i += 2) {
+            streetOfRun.put(pairs.get(i), pairs.get(i + 1));
+        }
+    }
+
+    /**
+     * What this town owes in road, remembered between askings.
+     *
+     * <p>Not saved and not meant to be: it is derived from the network, the
+     * buildings and the plan, all of which a reload has. Held on the network
+     * because the network is the thing it is about, and because the question is
+     * asked several times a step — by the clock, by the foreman, and by the crew
+     * when it finishes a stretch.
+     */
+    private StreetDemand demand;
+
+    StreetDemand demand() {
+        if (demand == null) {
+            demand = new StreetDemand();
+        }
+        return demand;
     }
 
     /**

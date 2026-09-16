@@ -282,8 +282,15 @@ class SeededSettlementTest {
             TownPlan plan = town.arrangement().planFor(town.center(), PLAN_LOOKUP);
             for (Building standing : town.buildings()) {
                 int index = plotIndexOf(plan, standing.origin());
-                assertTrue(index >= 0,
-                        standing.blueprintId() + " stands somewhere the plan never offered");
+                if (index < 0) {
+                    // A camp post is a marker: it stands at the square's edge, on
+                    // no plot at all, and spends none. See Heart. Anything ELSE
+                    // off the plan is the fault this used to catch.
+                    assertTrue(standing.blueprintId().endsWith("camp_post"),
+                            standing.blueprintId()
+                                    + " stands somewhere the plan never offered");
+                    continue;
+                }
                 assertTrue(index < town.nextPlotIndex(),
                         stage.pretty() + " would offer plot " + index + " again, and "
                                 + standing.blueprintId() + " is already on it");

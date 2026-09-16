@@ -6,6 +6,77 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The streets open with the town, and the hall takes the middle
+
+A screenshot: a seeded village of about fifteen buildings standing inside a
+complete three-hundred-block ring road, empty grass inside it and out. Both
+halves of that picture were deliberate and neither was right. The road, because a
+town's *whole plan* of streets was owed the day it was founded. The empty middle,
+because the camp post took plot 0 on step one and was also what every lane in the
+town radiated from, so the ground the arrangement was drawn around held a signpost
+and a crossroads, and the hall went up a hundred blocks away.
+
+### Changed
+
+- **A street is opened when it is needed.** A stretch of the plan is paved when it
+  fronts a standing building or a plot already in the build queue, when it lies on
+  the shortest way along the network from such a stretch back to the square, or
+  when it closes a circuit whose every piece of planned frontage has filled up.
+  Nothing else. The plan is unchanged and a stretch keeps its place in it — this is
+  about which of them the town has *paid for* — and opened streets stay opened, so
+  no road a town has ever built is taken away from it. Measured at fifteen
+  buildings on seed 8675309, carriageway opened of carriageway planned: thorp and
+  radial_concentric 55%, bastide 58%, ring_streets 64%, crescents 67%,
+  stronghold_streets 73%, orc_ring 79%, green 84%, high_street and crossroads 86%.
+  Every one of them was **100%** before. The high street and the crossroads stay
+  high because they *are* two enormous spines through the middle of town, so nearly
+  every stretch of them is on somebody's way to the square, which is the second
+  reason a street is owed.
+
+- **A town the world wrote down arrives with the roads it would have built.** A
+  seeded town used to pay for every stretch its plan drew, in one pass, before its
+  first step: "the streets of Millbrook run 85 ways deep" at step 0. It now owes
+  exactly what a town that grew to that size would have opened, and the rest opens
+  as it orders the buildings that front them. Measured on a seeded village across
+  all fifteen arrangements, stretches left unopened on arrival: 0 to 8 of a network
+  of 24 to 58, with the crescents leaving 6 and the grid 8. Modest, and honestly so — a seeded village's buildings take the
+  plots nearest the middle, and the streets its own reach pulls in are mostly ones
+  it fronts. What was wrong was not the size of the debt but that the debt was
+  never judged at all: the plan was paid for whatever the town was.
+
+- **The road hub is the square, not a building.** Roads used to radiate from the
+  hall when there was one and from the camp post before that, which meant the hub
+  *moved* the day a town raised its hall and, worse, sat on plot 0 — the very
+  ground the plan reserves for the hall — for every day before that. The hub is
+  now a fixed point at the plan's centre, which is not a plot and never becomes
+  one. The camp post and the hall are joined to the network like any other
+  building. A town that has somehow built on its own middle aims its roads at the
+  nearest clear column instead, so one badly placed marker cannot leave a
+  settlement with no roads at all.
+
+- **A camp post is a marker, not a building.** It stands at the square's edge, on
+  no plot, clear of the carriageways the plan has drawn but not yet laid. It used
+  to take plot 0 on step one of every settlement in the mod, which is the single
+  reason no town has ever had its hall in the middle of it.
+
+### Fixed
+
+- **A hall lands on the middle.** Plot 0's ground is held at the hall's own square
+  — fifteen blocks, not the plan's eleven — against every other building until a
+  hall is ordered, because reserving the *index* reserves no ground: separations
+  are stated for two plots of the default span, so a hall does not fit between plot
+  0's neighbours in any arrangement in the mod. The hall is then sited from plot 0
+  outward rather than from the plot cursor, and the ground still gets a veto: a
+  hall on a cliff is worse than a hall a plot off the middle. It costs the two or
+  three nearest plots in most arrangements, which is the price of a town with a
+  hall in the middle of it. Measured on seed 8675309, halls in grown towns: **9 of
+  15 arrangements on plot 0 exactly, from none of them**, and the furthest any hall
+  now stands from its square is 63 blocks against 106, 108 and 139 before.
+  `ring_streets`, `crossroads` and `bastide` draw a circus, a crossing and a market
+  place — all open ground, 30 to 46 blocks across before any frontage is offered —
+  so for those the square is the open middle and the hall takes the nearest plot to
+  it, which is what plot 0 already is.
+
 ## A ring town builds on its own green
 
 A village of twenty buildings laid out as ring roads stood entirely outside its

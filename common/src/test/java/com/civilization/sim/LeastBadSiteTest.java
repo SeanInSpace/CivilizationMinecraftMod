@@ -236,11 +236,17 @@ class LeastBadSiteTest {
         // found, and the whole of this machinery stays out of the way.
         Settlement s = town();
         GradedGround ground = new GradedGround(s.arrangement());
-        ground.fault(0, 0);
+        // Plot three, not plot nought. The middle of a town is the hall's ground
+        // now and is held against everybody until a hall is ordered -- see Heart
+        // -- and on the ring that reserve covers the first three slots. Which
+        // slot is the first one on offer is beside the point of this test: what
+        // it is about is that ground the plan accepts is taken where it is found
+        // rather than weighed against the refusals.
+        ground.fault(3, 0);
 
         s.step(new SimContext(ground, 0, SimSettings.SANDBOX));
 
-        assertPlot(s, 0, sited(s), "sound ground was passed over");
+        assertPlot(s, 3, sited(s), "sound ground was passed over");
     }
 
     @Test

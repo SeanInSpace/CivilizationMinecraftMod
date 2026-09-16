@@ -29,10 +29,10 @@ import java.util.List;
  *       wall.</li>
  * </ol>
  *
- * <p>The hub is the hall when there is one and the camp post before that. That
- * matters more than it sounds: the hall is the TOWN capstone now, so a hub that
- * insisted on it meant no camp, homestead, fortified settlement or village had
- * any roads at all.
+ * <p>The hub is the square — a fixed point at the plan's center, and not a
+ * building. It used to be the hall when there was one and the camp post before
+ * that, which put the middle of every town under a signpost and moved the hub
+ * the day a hall went up. See {@link Heart}.
  */
 public final class PathPlanner {
 
@@ -243,8 +243,12 @@ public final class PathPlanner {
                     continue;
                 }
                 for (int step = 1; step < routed.size(); step++) {
-                    network.add(new PathNetwork.Segment(
-                            routed.get(step - 1), routed.get(step), street.width()));
+                    // Added WITH its stretch key rather than anonymously. A run
+                    // that has forgotten which street it belongs to cannot be
+                    // part of a rule about a street -- see StreetDemand, which
+                    // closes a circuit when the circuit has filled up.
+                    network.addForStreet(new PathNetwork.Segment(
+                            routed.get(step - 1), routed.get(step), street.width()), key);
                 }
                 network.markStreetRouted(key);
             }
@@ -365,6 +369,13 @@ public final class PathPlanner {
         for (SimPos trunk : stand) {
             claim(blocked, trunk, keepoutRound(TRUNK_SPAN));
         }
+        // And the hall's ground, which is wider than the plan drew plot zero and
+        // is therefore not covered by the loop above. A carriageway laid across
+        // the middle of town before the hall is built is a hall that can never
+        // be built there -- and the roads go down first.
+        for (SimPos held : Heart.heldFor(settlement)) {
+            claim(blocked, held, keepoutRound(Heart.SPAN));
+        }
         return (x, z) -> blocked.contains(cell(x, z));
     }
 
@@ -408,8 +419,16 @@ public final class PathPlanner {
 
     /** Joins one more building to the network, if any is waiting. */
     public static void advance(Settlement settlement, SimContext ctx) {
-        Building hubBuilding = hubBuilding(settlement);
-        SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.center();
+        // The hub is the square, and it is not a building.
+        //
+        // It used to be the hall when there was one and the camp post before
+        // that, and the camp post took plot zero on step one -- so in every
+        // lattice arrangement the town's lanes converged on a signpost and the
+        // middle of the settlement read back as carriageway. A fixed point at
+        // the plan's center is what a road should aim at when it has nothing
+        // nearer to join, and it frees the marker and the hall to be joined to
+        // the network like anything else. See Heart.
+        SimPos hub = Heart.square(settlement);
         PathNetwork network = settlement.paths();
         StandGround stand = new StandGround(settlement);
 
@@ -422,20 +441,6 @@ public final class PathPlanner {
             }
             if (network.hasJoined(building.origin())) {
                 continue;
-            }
-            if (building == hubBuilding) {
-                // The hub used to be marked joined and given nothing, on the
-                // reasoning that roads radiate FROM it so it needs none. That
-                // was true when every road ran to the hub and is false now that
-                // the streets are drawn from a plan the hub knows nothing about:
-                // a measured town left its camp post twenty-five blocks from the
-                // nearest road and its town hall fourteen, which is a town whose
-                // two most important doors open onto a field.
-                if (!network.isEmpty()) {
-                    join(settlement, network, building, hub, stand);
-                }
-                network.markJoined(building.origin());
-                return;
             }
             if (join(settlement, network, building, hub, stand)) {
                 network.markJoined(building.origin());
@@ -516,15 +521,13 @@ public final class PathPlanner {
         }
         layPlannedStreets(settlement, network, ctx, stand);
 
-        Building hubBuilding = hubBuilding(settlement);
-        SimPos hub = hubBuilding != null ? hubBuilding.doorstep() : settlement.center();
-        com.civilization.sim.geom.TerrainSense ground = groundUnder(ctx);
+        SimPos hub = Heart.square(settlement);
 
         boolean joinedAny = true;
         while (joinedAny) {
             joinedAny = false;
             for (Building building : settlement.buildings()) {
-                if (building == hubBuilding || !building.footprint().isKnown()
+                if (!building.footprint().isKnown()
                         || network.hasJoined(building.origin())) {
                     continue;
                 }
@@ -534,28 +537,38 @@ public final class PathPlanner {
                 }
             }
         }
-        // The hub last, and for the reason advance gives: roads no longer
-        // radiate from it, so a hub joined while the network was still empty is
-        // a town whose most important door opens onto a field.
-        if (hubBuilding != null && !network.hasJoined(hubBuilding.origin())) {
-            if (!network.isEmpty()) {
-                join(settlement, network, hubBuilding, hub, stand);
-            }
-            network.markJoined(hubBuilding.origin());
-        }
 
-        for (int i = 0; i < network.segments().size(); i++) {
-            if (network.isOpened(i) || network.isUnwalkable(i)) {
-                continue;
+        // Only the streets the town has actually earned.
+        //
+        // A seeded village used to be handed its whole plan of roads on day one,
+        // which is how fifteen buildings came to sit inside a complete ring road
+        // with empty grass on both sides of it -- a road around nothing. What a
+        // town that was written into existence owes is what a town that grew
+        // would have built by now: the stretches its buildings front, the ways
+        // from those back to the square, and a circuit that has filled up. The
+        // rest is still planned, still in the network at the same indices, and
+        // opens as the town orders the buildings that front it.
+        //
+        // To a fixed point, because the third rule reads what is open: a circuit
+        // whose last fronted stretch is opened in this very pass is a circuit
+        // that has closed, and one sweep would leave the gap for another day.
+        boolean openedAny = true;
+        while (openedAny) {
+            openedAny = false;
+            for (int i : network.demand().owed(settlement)) {
+                if (network.isOpened(i) || network.isUnwalkable(i)) {
+                    continue;
+                }
+                if (unwalkable(network.segments().get(i), ctx)) {
+                    network.markUnwalkable(i);
+                    continue;
+                }
+                network.markOpened(i);
+                openedAny = true;
             }
-            if (unwalkable(network.segments().get(i), ctx)) {
-                network.markUnwalkable(i);
-                continue;
-            }
-            network.markOpened(i);
         }
         settlement.logEvent(ctx.step(), "The streets of " + settlement.name()
-                + " run " + network.segments().size() + " ways deep");
+                + " run " + network.openedCount() + " ways deep");
     }
 
     /**
@@ -569,11 +582,20 @@ public final class PathPlanner {
     private static void openNextUnwatched(Settlement settlement, SimContext ctx,
                                           PathNetwork network) {
         List<PathNetwork.Segment> segments = network.segments();
+        java.util.Set<Integer> owed = network.demand().owed(settlement);
         for (int i = 0; i < segments.size(); i++) {
             if (network.isOpened(i)) {
                 continue;
             }
             if (network.isUnwalkable(i)) {
+                continue;
+            }
+            if (!owed.contains(i)) {
+                // Planned and not yet owed. A stretch fronting nothing, off
+                // every route to the square, on a circuit that has not filled
+                // up, is a line on a drawing -- and a town that paved it anyway
+                // is the ring road round fifteen houses. It keeps its index and
+                // opens on the step the town orders something beside it.
                 continue;
             }
             if (unwalkable(segments.get(i), ctx)) {
@@ -988,25 +1010,47 @@ public final class PathPlanner {
     }
 
     /**
-     * What the roads radiate from: the hall, else the camp post, else nothing —
-     * in which case the settlement's own center stands in.
+     * Whether this stretch is one the town has earned the right to open.
+     *
+     * <p>The one door onto {@link StreetDemand} for callers outside the planner
+     * — the crew that walks stretches out asks it before picking up a shovel, so
+     * the clock and the hands agree about what is owed. See that class for the
+     * three rules.
      */
-    private static Building hubBuilding(Settlement settlement) {
-        Building campPost = null;
-        for (Building building : settlement.buildings()) {
-            // By role rather than by the id spelling. A warhost's hall is its great
-            // hut and never a town_hall — see Homes and BuildingRole — so a text
-            // match found no hub at all in an orc camp and the roads fell back on
-            // radiating from the settlement's own center, which is not where the
-            // chief's seat stands.
-            if (building.role() == BuildingRole.HALL) {
-                return building;
-            }
-            if (campPost == null
-                    && BuildPlanner.baseIdOf(building.blueprintId()).endsWith("camp_post")) {
-                campPost = building;
-            }
-        }
-        return campPost;
+    public static boolean owesStretch(Settlement settlement, int index) {
+        return owedStretches(settlement).contains(index);
     }
+
+    /**
+     * Every stretch the town owes, for a caller walking the whole network.
+     *
+     * <p>Asked once rather than once per stretch. {@link StreetDemand} memoizes,
+     * so either way is correct; a set lookup per index and a set <em>built</em>
+     * per index are not the same cost, and the crew's "which run am I on" runs
+     * down the whole network every step.
+     */
+    public static java.util.Set<Integer> owedStretches(Settlement settlement) {
+        PathNetwork network = settlement.paths();
+        return network == null ? java.util.Set.of() : network.demand().owed(settlement);
+    }
+
+    /*
+     * On what the roads used to radiate from, which is worth keeping.
+     *
+     * The hub was a BUILDING: the hall when a town had one, the camp post before
+     * that, and the settlement's own center only when it had neither. Two things
+     * were wrong with it and they compounded.
+     *
+     * The camp post takes plot zero on step one. So in every lattice
+     * arrangement the hub was a signpost standing on the ground the plan had
+     * drawn the whole town around, every lane in the settlement converged on it,
+     * and the middle of the town read back as carriageway -- which is why the
+     * hall could never be put there afterwards.
+     *
+     * And it moved. The day a town raised its hall, the hub stopped being the
+     * post and became the hall, so roads planned before and after that day aimed
+     * at different places for no reason a player could see.
+     *
+     * A fixed point at the plan's center is neither. See Heart.square.
+     */
 }
