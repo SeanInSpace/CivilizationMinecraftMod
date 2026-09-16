@@ -477,6 +477,18 @@ public final class Founding {
                 if (want.isEmpty()) {
                     break;
                 }
+                // The marker and the hall take their own ground and spend no
+                // plot. A seeded town has to have the middle a founded one has,
+                // or a village the world wrote down arrives with a signpost on
+                // the square and its hall a hundred blocks out -- which is the
+                // fault this was, seen from the other side. See Heart.
+                TownPlan.Plot fixed = theMiddlesOwn(town, want.get(), ground);
+                if (fixed != null) {
+                    town.addBuilding(standing(town, want.get(),
+                            onTheGround(fixed, ground)));
+                    town.tallies().record(Tallies.BUILDINGS_RAISED);
+                    continue;
+                }
                 taken = roomFor(town, want.get(), plan, taken, ground);
                 if (taken >= plan.size()) {
                     // The plan ran out before the program did. Nothing today
@@ -576,6 +588,41 @@ public final class Founding {
             }
         }
         return leastBadAt >= 0 ? leastBadAt : plan.size();
+    }
+
+    /**
+     * Ground a seeded building takes without spending a plot off the plan.
+     *
+     * <p>Two of them, and they are the middle of the town. A camp post is a
+     * marker, so it stands at the square's edge and claims nothing; the hall
+     * stands on plot zero, which {@code Settlement.isPlotFree} has been holding
+     * against everybody else since the plan was drawn.
+     *
+     * <p>Null for everything else, which is every other building in every
+     * program and goes on walking the plan exactly as it did.
+     */
+    private static TownPlan.Plot theMiddlesOwn(Settlement town, BuildingType type,
+                                               com.civilization.sim.platform.WorldBridge
+                                                       ground) {
+        int span = BuildPlanner.plotSpanOf(type.id(), town.catalog());
+        if (BuildPlanner.baseIdOf(type.id()).endsWith("camp_post")) {
+            SimPos post = Heart.marker(town, span, ground);
+            return post == null ? null : new TownPlan.Plot(post, span,
+                    com.civilization.sim.culture.Layout.facingToward(post, town.center()),
+                    com.civilization.sim.culture.Layout.NO_STREET);
+        }
+        if (BuildingRole.of(type.id()) == BuildingRole.HALL) {
+            SimPos middle = Heart.hallGround(town);
+            if (!town.isPlotFree(middle, span, null, true)
+                    || !Heart.theGroundWillTakeIt(middle, span,
+                            Grade.isField(type.id()), ground)) {
+                return null;   // the middle will not take it; the plan walk decides
+            }
+            return new TownPlan.Plot(middle, span,
+                    town.arrangement().facingFor(town.center(), middle),
+                    com.civilization.sim.culture.Layout.NO_STREET);
+        }
+        return null;
     }
 
     /** A plot standing at its own ground rather than at the middle of the town. */

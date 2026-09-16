@@ -306,10 +306,19 @@ public final class PublicWorks {
                 return -1;
             }
             List<PathNetwork.Segment> segments = paths.segments();
+            // Only the stretches the town owes. A planned street that fronts
+            // nothing, carries nobody to the square, and closes no circuit that
+            // has filled up is a line on a drawing -- sending a crew to pave it
+            // is how a ring road came to be finished before the fifteen houses
+            // inside it. Asked once for the whole network rather than per run:
+            // this loop runs every step of every settlement.
+            java.util.Set<Integer> owed = com.civilization.sim.settlement.PathPlanner
+                    .owedStretches(settlement);
             for (int i = 0; i < segments.size(); i++) {
-                if (!paths.isOpened(i) && !paths.isUnwalkable(i)) {
-                    return i;
+                if (paths.isOpened(i) || paths.isUnwalkable(i) || !owed.contains(i)) {
+                    continue;
                 }
+                return i;
             }
             return -1;
         }

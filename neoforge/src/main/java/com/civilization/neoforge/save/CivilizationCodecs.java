@@ -349,13 +349,23 @@ public final class CivilizationCodecs {
             // sweep's memory, so every server start forgot that the roads had
             // ever been drawn and re-laid the lot -- which for a town with
             // nobody left in it is a road crew nobody could have hired.
-            Codec.INT.fieldOf("laid_through").forGetter(PathNetwork::laidThrough)
-    ).apply(i, (segments, joined, opened, streetsLaidFor, routed, refused, laidThrough) -> {
+            Codec.INT.fieldOf("laid_through").forGetter(PathNetwork::laidThrough),
+            // Which planned stretch each run was laid for, as index-then-key
+            // pairs. A run that has forgotten its street cannot take part in a
+            // rule about a street, and the rule that says a circuit opens when
+            // its frontage has filled up is exactly such a rule -- so a reload
+            // that dropped this would leave a completed ring with gaps in it
+            // for as long as the town stood.
+            Codec.INT.listOf().optionalFieldOf("run_streets", List.of())
+                    .forGetter(PathNetwork::runStreetPairs)
+    ).apply(i, (segments, joined, opened, streetsLaidFor, routed, refused, laidThrough,
+                runStreets) -> {
         PathNetwork network = new PathNetwork(segments, joined);
         network.restoreOpened(opened);
         network.setStreetsLaidFor(streetsLaidFor);
         network.restoreStreets(routed, refused);
         network.setLaidThrough(laidThrough);
+        network.restoreRunStreets(runStreets);
         return network;
     }));
 

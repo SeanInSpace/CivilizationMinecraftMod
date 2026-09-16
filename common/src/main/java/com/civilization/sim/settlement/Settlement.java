@@ -364,6 +364,43 @@ public final class Settlement {
      * squares about their origin and are never allowed to touch.
      */
     private SimPos chooseSite(SimContext ctx, BuildingType type) {
+        // The hall takes the middle, which is the whole of what the plan
+        // reserved plot zero for. It does not go through the cursor at all: by
+        // the time a town can afford a hall the cursor is a hundred blocks out,
+        // and a scan from nought would find the ground and then have to be
+        // trusted to prefer it. See Heart.
+        if (BuildingRole.of(type.id()) == BuildingRole.HALL) {
+            // Plot zero first, and then the plan outward from it.
+            //
+            // The ground gets a veto, because a hall on a cliff is worse than a
+            // hall a plot off the middle. What it does NOT get is the cursor: a
+            // plan's offers are taken nearest-first, so walking them from nought
+            // is walking outward from the square, and the first one the ground
+            // will take is the nearest ground in the town. Falling through to
+            // the ordinary siting instead put the hall wherever the cursor had
+            // reached, which on a rough seed was two hundred blocks out.
+            for (int index = 0; index < BuildPlanner.PLOT_ATTEMPTS; index++) {
+                SimPos candidate = index == 0
+                        ? Heart.hallGround(this) : arrangement().plotFor(center, index);
+                if (!isPlotFree(candidate, type.plotSpan(), null, true)) {
+                    continue;
+                }
+                if (!ctx.bridge().isSiteSuitable(candidate, BuildPlanner.PLOT_PROBE_RADIUS)
+                        && !worthLeveling(candidate, type.plotSpan(), ctx)) {
+                    continue;   // a hall is worth leveling a dip for; not a hillside
+                }
+                return candidate;
+            }
+        }
+        // And a camp post is a marker, not a building: it stands at the square's
+        // edge and takes no plot. It used to take plot ZERO, on step one, which
+        // is why no town in the mod has ever had its hall in the middle.
+        if (BuildPlanner.baseIdOf(type.id()).endsWith("camp_post")) {
+            SimPos post = Heart.marker(this, type.plotSpan(), ctx.bridge());
+            if (post != null) {
+                return post;
+            }
+        }
         // Behind the wall when there is a wall. The spiral cursor only ever
         // moves outward, so by the time a village orders its market the cursor
         // is past the palisade and every forward candidate is outside it --
@@ -813,8 +850,31 @@ public final class Settlement {
      * @param ignore a building origin to skip, for an improvement raised in place
      */
     public boolean isPlotFree(SimPos candidate, int span, SimPos ignore) {
+        return isPlotFree(candidate, span, ignore, false);
+    }
+
+    /**
+     * The same, for the hall, which the middle is being reserved <em>for</em>.
+     *
+     * <p>The reserve has to be blind to what is asking or it is not a reserve —
+     * every other siting path in this class comes through the three-argument form
+     * and is refused. The hall is the exception by definition, and it has to be
+     * stated rather than inferred: a croft and a longhouse are also fifteen wide,
+     * so "anything big enough" would hand the town square to a farmhouse.
+     *
+     * @param forTheHall true only on the path that sites the hall itself
+     */
+    public boolean isPlotFree(SimPos candidate, int span, SimPos ignore,
+                              boolean forTheHall) {
         if (hasGivenUpOn(candidate)) {
             return false;   // the ground itself refused a build here; see abandonBuild
+        }
+        if (!forTheHall && Heart.onTheHallsGround(this, candidate, span)) {
+            // The middle is the hall's until the hall is ordered. Reserving the
+            // plot INDEX reserves no ground, so this reserves the ground; see
+            // Heart. It costs the two nearest plots in most arrangements, and
+            // that is the price of a town with a hall in the middle of it.
+            return false;
         }
         for (Building standing : buildings) {
             if (!BuildPlanner.holdsGround(standing.blueprintId())

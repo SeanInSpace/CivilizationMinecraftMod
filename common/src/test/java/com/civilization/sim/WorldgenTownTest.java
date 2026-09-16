@@ -14,6 +14,7 @@ import com.civilization.sim.settlement.Footprint;
 import com.civilization.sim.settlement.ForesterStand;
 import com.civilization.sim.settlement.Founding;
 import com.civilization.sim.settlement.PathNetwork;
+import com.civilization.sim.settlement.PathPlanner;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.settlement.SettlementStage;
 import com.civilization.sim.settlement.Stand;
@@ -160,8 +161,21 @@ class WorldgenTownTest {
         }
     }
 
-    /** Stretches planned, opened, and refused as too steep to walk. */
-    private record Network(int planned, int opened, int unwalkable) {
+    /**
+     * Stretches planned, opened, refused as too steep — and owed but not opened.
+     *
+     * <p>{@code outstanding} used to be everything planned and not yet opened,
+     * and a seeded town was asserted to have none of it. That assertion was the
+     * bug: a town that was written into existence paid for its <em>whole</em>
+     * plan of streets, so fifteen buildings arrived inside a finished ring road
+     * with empty grass on both sides of it.
+     *
+     * <p>What a seeded town owes is what a town that grew would have built by
+     * now — see {@code StreetDemand} — so the debt is measured against that
+     * instead, and the stretches the plan drew for buildings nobody has ordered
+     * are expected to be sitting there unopened.
+     */
+    private record Network(int planned, int opened, int unwalkable, int owedAndShut) {
 
         int outstanding() {
             return planned - opened - unwalkable;
@@ -170,7 +184,8 @@ class WorldgenTownTest {
         @Override
         public String toString() {
             return planned + " planned, " + opened + " opened, " + unwalkable
-                    + " too steep, " + outstanding() + " untrodden";
+                    + " too steep, " + outstanding() + " untrodden of which "
+                    + owedAndShut + " owed";
         }
     }
 
@@ -178,14 +193,17 @@ class WorldgenTownTest {
         PathNetwork paths = town.paths();
         int opened = 0;
         int unwalkable = 0;
+        int owedAndShut = 0;
         for (int i = 0; i < paths.segments().size(); i++) {
             if (paths.isOpened(i)) {
                 opened++;
             } else if (paths.isUnwalkable(i)) {
                 unwalkable++;
+            } else if (PathPlanner.owesStretch(town, i)) {
+                owedAndShut++;
             }
         }
-        return new Network(paths.segments().size(), opened, unwalkable);
+        return new Network(paths.segments().size(), opened, unwalkable, owedAndShut);
     }
 
     // --- the roads ---
@@ -201,8 +219,8 @@ class WorldgenTownTest {
         Network roads = networkOf(town);
         assertTrue(roads.planned() > 0,
                 "a town the world put there arrives with its roads planned");
-        assertEquals(0, roads.outstanding(),
-                "and with them walked out, not waiting on a crew: " + roads);
+        assertEquals(0, roads.owedAndShut(),
+                "and with the ones it owes walked out, not waiting on a crew: " + roads);
         for (Building standing : town.buildings()) {
             assertTrue(town.paths().hasJoined(standing.origin()),
                     "every standing building is on the network, and "
@@ -244,8 +262,8 @@ class WorldgenTownTest {
             Network roads = networkOf(town);
             assertTrue(roads.planned() > 0,
                     layout.id() + " arrived with no roads planned at all");
-            assertEquals(0, roads.outstanding(),
-                    layout.id() + " arrived with roads nobody had walked: " + roads);
+            assertEquals(0, roads.owedAndShut(),
+                    layout.id() + " arrived owing roads nobody had walked: " + roads);
             List<String> adrift = new ArrayList<>();
             for (Building standing : town.buildings()) {
                 if (!town.paths().hasJoined(standing.origin())) {

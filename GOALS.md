@@ -85,33 +85,6 @@ it. Design questions and rebalances live under the next heading, not here.*
       loaded on its own. What is still unproven is the force-load box this
       item was measured in.
 
-- [ ] **A hall never lands on the middle.** The plan reserves plot 0 for the
-      great hut, and for every other arrangement's hall, but the camp post
-      takes plot 0 on step one and the hall is raised a hundred blocks out.
-      Attempted 2026-09-13 and backed out; the attempt is in the commit
-      "Two Bellbrooks, a town that stops rearranging itself…" and the findings
-      are these. Freeing the camp post from plot 0 — a marker claims no plot —
-      is the easy half and not enough: reserving the *index* reserves no
-      *ground*, because `Layout.MIN_PLOT_SEPARATION` is eleven and stated for
-      two plots of the default span, so a thirteen-wide hall does not fit
-      between plot 0's neighbours in any arrangement in the mod. Reserving the
-      hall's whole square does work — eleven of the fourteen arrangements then
-      put the hall on plot 0, from none of them — and costs two plots near the
-      middle, which pushed one building in one arrangement onto ground its lane
-      cannot reach. Judging the reservation on walls rather than plots fits
-      without that cost and breaks the plot-overlap invariant `PlotOverlapTest`
-      and `SeededSettlementTest` hold. And in every lattice arrangement the
-      camp post is the road hub, so the town's lanes converge on the middle and
-      the middle reads back as carriageway: the hall needs the hub moved off it,
-      or those lanes dropped from a network whose stretches are keyed by index.
-      **Wants a decision about the roads**, not more siting: either the hub is
-      the settlement center offset clear of plot 0, or the marker's lanes are
-      superseded with the marker.
-      Three of the fourteen arrangements also have no plot near the middle at
-      all — `ring_streets`, `crossroads` and `bastide` draw their innermost
-      frontage 30 to 49 blocks out — so "plot 0" and "the middle" are not the
-      same claim for them, and the test has to say which it means.
-
 - [ ] **A town in bare country can never get its timber back, and nobody has
       decided what it should do instead.** The mine fix was proposed for the camp
       too: skip a camp whose stand is bare with nothing coming up, so the town
@@ -475,6 +448,32 @@ work has landed, which changes what a street looks like from the middle of it.
 *Newest first. Everything older has been dropped -- it was proven by the
 endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
+
+- [x] **A hall never lands on the middle, and a town paves a plan it has not
+      grown into.** One screenshot, two faults. **Built 2026-09-16, not yet
+      watched.** The road hub is now the square — a fixed point at the plan's
+      centre, not a building — so it no longer sits on plot 0 and no longer moves
+      the day a hall goes up; the camp post is a marker at the square's edge on no
+      plot at all; plot 0's ground is held at the hall's own fifteen-block square
+      until a hall is ordered; and the hall is sited from plot 0 outward rather
+      than from the plot cursor, with the ground keeping its veto. Measured on seed
+      8675309, grown towns across all fifteen arrangements: **9 on plot 0 exactly,
+      from none**, and the furthest hall from its square is 63 blocks against 106,
+      108 and 139 before. `ring_streets`, `crossroads` and `bastide` are the three
+      that cannot be on plot 0 *and* in the middle — a circus, a crossing and a
+      market place are open ground, 30 to 46 blocks across — and for those the
+      square is the open middle and plot 0 is the nearest ground the arrangement
+      has. The reserve costs the two or three nearest plots, as the earlier attempt
+      predicted, and `LayoutTest`'s 95% frontage is untouched because the reserve
+      is a siting rule rather than a change to the plan.
+      The streets half: a stretch is opened only when it fronts something standing
+      or ordered, lies on the shortest way along the network from such a stretch to
+      the square, or closes a circuit whose planned frontage has filled up. At
+      fifteen buildings, carriageway opened of carriageway planned went from 100%
+      in every arrangement to 55–86%. `OpenStreetsTest` holds all of it.
+      What wants eyes: whether a town of fifteen now reads as a village with roads
+      rather than as a ring road with houses in it, and whether the hall on the
+      middle reads as a square.
 
 - [x] **A watched town does not survive a Normal-difficulty night.** Seed
       8675309, 2026-09-12: 17 of Millbrook's people died in one night
