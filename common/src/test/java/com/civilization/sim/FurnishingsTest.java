@@ -1,0 +1,558 @@
+package com.civilization.sim;
+
+import com.civilization.sim.culture.Culture;
+import com.civilization.sim.geom.SimPos;
+import com.civilization.sim.person.Person;
+import com.civilization.sim.person.Profession;
+import com.civilization.sim.platform.WorldBridge;
+import com.civilization.sim.settlement.BuildCatalog;
+import com.civilization.sim.settlement.Building;
+import com.civilization.sim.settlement.Footprint;
+import com.civilization.sim.settlement.Homes;
+import com.civilization.sim.settlement.PathNetwork;
+import com.civilization.sim.settlement.Settlement;
+import com.civilization.sim.settlement.SettlementStage;
+import com.civilization.sim.settlement.TownStores;
+import com.civilization.sim.settlement.WorkArea;
+import com.civilization.sim.work.FurnishingStyle;
+import com.civilization.sim.work.Furnishings;
+import com.civilization.sim.work.InteriorClearing;
+import com.civilization.sim.work.LightPlanner;
+import com.civilization.sim.world.SimContext;
+import com.civilization.sim.world.SimSettings;
+import org.junit.jupiter.api.Test;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeMap;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * The ground between a town's buildings.
+ *
+ * <p>The fault this work exists for is a picture rather than a casualty list: a
+ * finished ring town of fifteen buildings and fifteen people is a wide loop of
+ * dirt road around a field of empty grass. So what has to be pinned is that the
+ * dressing <em>arrives</em> — every home has a garden, the square lands where the
+ * town's heart is — and that it arrives on ground nothing else has a claim to,
+ * which is the half that can do damage. A fence post through somebody's wall is
+ * worse than an undressed town.
+ *
+ * <p>Measured on the recorded ground of seed 8675309 across every arrangement any
+ * people build in, because a rule tested on flat ground is a rule that has not
+ * been tested: see {@code RecordedTerrain}, which is here for exactly this reason.
+ */
+class FurnishingsTest {
+
+    private static final SimPos CENTER = new SimPos(0, 72, 0);
+
+    /**
+     * How far a town is grown for the siting tests: enough that the streets are
+     * out and the plan has had to make hard choices, and not so far that the
+     * suite pays four minutes for it.
+     */
+    private static final int STEPS = 600;
+
+    // --- fixtures ------------------------------------------------------------
+
+    private static class QuietBridge implements WorldBridge {
+        @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
+        @Override public boolean isLoaded(SimPos pos) { return false; }
+        @Override public int surfaceHeight(SimPos pos) { return pos.y(); }
+        @Override public Footprint materializeBlueprint(String blueprintId, SimPos origin,
+                                                        boolean surveyed, int facing) {
+            return new Footprint(origin.y(), 5, 5, 4);
+        }
+        @Override public void log(String message) { }
+    }
+
+    private static final SimContext CTX =
+            new SimContext(new QuietBridge(), 0, SimSettings.SANDBOX);
+
+    /** Every arrangement any people in the mod builds in. */
+    private static List<String> layouts() {
+        Set<String> named = new LinkedHashSet<>();
+        for (Culture culture : Culture.all()) {
+            named.addAll(culture.layouts());
+        }
+        return List.copyOf(named);
+    }
+
+    private static Culture cultureFor(String layout) {
+        for (Culture culture : Culture.all()) {
+            if (culture.layouts().contains(layout)) {
+                return culture;
+            }
+        }
+        return Culture.DEFAULT;
+    }
+
+    /**
+     * A town grown on real ground until it has at least this many buildings.
+     *
+     * <p>{@code WallProbe.grow} in miniature: stocked every step so that the
+     * building is never the thing being measured, and stepped until the town has
+     * the size asked for or the steps run out.
+     */
+    private static Settlement grown(String layout, WorldBridge ground, int buildings) {
+        Settlement town = new Settlement(Settlement.Id.random(), "Dressing", CENTER, 256);
+        town.setCatalog(BuildCatalog.DEFAULT);
+        town.setStage(SettlementStage.CAMP);
+        Culture culture = cultureFor(layout);
+        town.setCultureId(culture.id());
+        town.setLayoutId(layout);
+        for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
+            town.addResident(new Person(Person.Id.random(), name, Profession.PIONEER, CENTER));
+        }
+        for (int step = 1; step <= STEPS; step++) {
+            town.stores().add(TownStores.WOOD, 24);
+            town.stores().add(TownStores.STONE, 18);
+            town.stores().add(TownStores.SAPLINGS, 2);
+            town.step(new SimContext(ground, step, SimSettings.SANDBOX));
+            if (town.buildings().size() >= buildings) {
+                break;
+            }
+        }
+        return town;
+    }
+
+    /** A ring road of four opened sides, which is what the screenshot showed. */
+    private static Settlement ringTown() {
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Millbrook", new SimPos(0, 64, 0), 128);
+        town.setCultureId("civilization:human/norman");
+        PathNetwork paths = new PathNetwork();
+        List<SimPos> corners = List.of(
+                new SimPos(-48, 64, -48), new SimPos(48, 64, -48),
+                new SimPos(48, 64, 48), new SimPos(-48, 64, 48));
+        for (int i = 0; i < corners.size(); i++) {
+            paths.add(new PathNetwork.Segment(
+                    corners.get(i), corners.get((i + 1) % corners.size()), 8));
+        }
+        for (int i = 0; i < paths.segments().size(); i++) {
+            paths.markOpened(i);
+        }
+        town.setPaths(paths);
+        town.addResident(new Person(
+                Person.Id.random(), "Mason", Profession.BUILDER, town.center()));
+        return town;
+    }
+
+    private static Building house(Settlement town, String id, int x, int z, int facing) {
+        Building building = new Building(id, new SimPos(x, 64, z), 1, true);
+        building.setFootprint(new Footprint(64, 7, 7, 4));
+        building.setFacing(facing);
+        town.addBuilding(building);
+        return building;
+    }
+
+    // --- the invariant that can do damage ------------------------------------
+
+    @Test
+    void everyPieceStandsOnGroundNothingElseHasAClaimTo() {
+        RecordedTerrain ground = RecordedTerrain.of(RecordedTerrain.SEED_8675309);
+        for (String layout : layouts()) {
+            Settlement town = grown(layout, ground, 30);
+            assertTrue(Furnishings.standOnFreeGround(town),
+                    layout + " plans a piece on ground somebody else has: a fence"
+                            + " through a wall is worse than an undressed town");
+
+            for (Furnishings.Furnishing piece : Furnishings.pieces(town)) {
+                for (Building building : town.buildings()) {
+                    if (!building.footprint().isKnown()) {
+                        continue;
+                    }
+                    for (int dx = -piece.reach(); dx <= piece.reach(); dx++) {
+                        for (int dz = -piece.reach(); dz <= piece.reach(); dz++) {
+                            assertFalse(building.footprint().covers(
+                                            building.origin().x(), building.origin().z(),
+                                            piece.at().x() + dx, piece.at().z() + dz),
+                                    layout + ": a " + piece.piece() + " at " + piece.at()
+                                            + " stands inside " + building.blueprintId()
+                                            + " at " + building.origin());
+                        }
+                    }
+                }
+                assertFalse(LightPlanner.standsInTheRoad(town, piece.at()),
+                        layout + ": a " + piece.piece() + " at " + piece.at()
+                                + " stands in the carriageway");
+            }
+
+            // The lamps and the forester's belt, on the same grown town rather
+            // than on a second one: growing every arrangement on recorded ground
+            // is most of what this file costs to run, and the two questions are
+            // asked of the same plan.
+            List<LightPlanner.Lamp> lamps = LightPlanner.lamps(town);
+            WorkArea belt = town.lumberArea();
+            for (Furnishings.Furnishing piece : Furnishings.pieces(town)) {
+                for (LightPlanner.Lamp lamp : lamps) {
+                    assertFalse(Math.abs(lamp.at().x() - piece.at().x()) <= piece.reach()
+                                    && Math.abs(lamp.at().z() - piece.at().z())
+                                            <= piece.reach(),
+                            layout + ": a " + piece.piece() + " swallows the lamp at "
+                                    + lamp.at() + ", and a hedge round a lamp is a"
+                                    + " dark street");
+                }
+                if (belt != null) {
+                    assertTrue(piece.at().horizontalDistance(new SimPos(
+                                    belt.center().x(), piece.at().y(), belt.center().z()))
+                                    > belt.radius(),
+                            layout + ": a " + piece.piece() + " stands in the"
+                                    + " forester's belt, which is the town's timber");
+                }
+            }
+        }
+    }
+
+    // --- the thing the screenshot was missing --------------------------------
+
+    @Test
+    void everyFamilyHomeGetsAGardenWhenThereIsRoomForOne() {
+        Settlement town = ringTown();
+        // Four houses well apart on the open ground inside the ring, each facing
+        // the middle, which is what BuildPlanner.facingToward produces.
+        house(town, "civilization:house", -24, -24, 0);
+        house(town, "civilization:house", 24, -24, 0);
+        house(town, "civilization:house", -24, 24, 2);
+        house(town, "civilization:house", 24, 24, 2);
+
+        List<Furnishings.Furnishing> pieces = Furnishings.pieces(town);
+        for (Building building : town.buildings()) {
+            if (!Homes.isFamilyHome(building.blueprintId())) {
+                continue;
+            }
+            boolean hasOne = false;
+            for (Furnishings.Furnishing piece : pieces) {
+                hasOne |= piece.piece() == Furnishings.Piece.YARD
+                        && piece.at().horizontalDistance(building.origin()) <= 12;
+            }
+            assertTrue(hasOne, "the house at " + building.origin() + " has open grass"
+                    + " on all four sides and no kitchen garden, which is the"
+                    + " screenshot this whole work is about");
+        }
+    }
+
+    @Test
+    void theSquareLandsAtTheHeart() {
+        Settlement town = ringTown();
+        house(town, "civilization:house", -24, -24, 0);
+        house(town, "civilization:house", 24, 24, 2);
+
+        Furnishings.Furnishing square = null;
+        for (Furnishings.Furnishing piece : Furnishings.pieces(town)) {
+            if (piece.piece() == Furnishings.Piece.SQUARE) {
+                square = piece;
+            }
+        }
+        assertNotNull(square, "a town with open ground at its middle has a square");
+        assertTrue(square.at().horizontalDistance(town.center()) <= 24,
+                "the square is at " + square.at() + " and the heart of the town is "
+                        + town.center() + ": a square on the edge is a yard");
+        assertTrue(square.reach() >= Furnishings.SMALLEST_SQUARE,
+                "nine blocks across is the smallest thing worth calling a square");
+    }
+
+    @Test
+    void aWellStandsAtTheHeartUntilAMarketDrawsItsOwn() {
+        Settlement town = ringTown();
+        assertTrue(countOf(town, Furnishings.Piece.WELL) > 0,
+                "a town with no market has nowhere to draw water at all");
+
+        Building market = new Building("civilization:market", new SimPos(8, 64, 8), 1, true);
+        market.setFootprint(new Footprint(64, 9, 9, 4));
+        town.addBuilding(market);
+        assertEquals(0, countOf(town, Furnishings.Piece.WELL),
+                "the market square draws its own well, and a second one twenty"
+                        + " blocks away is a town that dug twice");
+    }
+
+    // --- the index has to keep meaning the same piece ------------------------
+
+    @Test
+    void theCountIsAppendOnlyWhenATownGrowsOutward() {
+        // Open ground and no streets, deliberately. A house raised beside a street
+        // takes the verge a hedge was standing on, which is a real thing that
+        // happens and is not what is being stated here: what is stated is that the
+        // ORDER appends, so a piece already raised keeps its index. The other case
+        // is survivable for the reason LightPlanner gives — a shifted index sends
+        // a builder to a piece that is already there, and the layer reads the
+        // ground before it charges for anything.
+        Settlement town = new Settlement(
+                Settlement.Id.random(), "Outward", new SimPos(0, 64, 0), 160);
+        town.setCultureId("civilization:human/norman");
+        town.addResident(new Person(
+                Person.Id.random(), "Mason", Profession.BUILDER, town.center()));
+        house(town, "civilization:house", -24, -24, 0);
+        house(town, "civilization:house", 24, -24, 0);
+        List<Furnishings.Furnishing> before = Furnishings.pieces(town);
+        assertFalse(before.isEmpty());
+
+        // A new house further out than anything standing, which is how a town
+        // grows: every piece it brings with it sorts after everything already
+        // planned, so nothing already raised changes its index.
+        house(town, "civilization:house", 60, 60, 2);
+        List<Furnishings.Furnishing> after = Furnishings.pieces(town);
+        assertTrue(after.size() > before.size(),
+                "the new house brought no dressing with it at all");
+        for (int i = 0; i < before.size(); i++) {
+            assertEquals(before.get(i), after.get(i),
+                    "piece " + i + " moved when the town grew outward, so every"
+                            + " builder already sent to it is at the wrong place");
+        }
+    }
+
+    @Test
+    void theListIsOrderedCenterOutward() {
+        RecordedTerrain ground = RecordedTerrain.of(RecordedTerrain.SEED_8675309);
+        Settlement town = grown(Culture.LAYOUT_RADIAL_CONCENTRIC, ground, 30);
+        long previous = -1;
+        for (Furnishings.Furnishing piece : Furnishings.pieces(town)) {
+            long out = piece.at().horizontalDistanceSq(town.center());
+            assertTrue(out >= previous,
+                    "the dressing is not ordered center-outward, so the count the"
+                            + " town saves stops naming the same piece as it grows");
+            previous = out;
+        }
+    }
+
+    // --- who dresses, and when ----------------------------------------------
+
+    @Test
+    void goblinsGetNoKitchenGarden() {
+        assertFalse(FurnishingStyle.MIRE.raises(Furnishings.Piece.YARD));
+        assertFalse(FurnishingStyle.MIRE.raises(Furnishings.Piece.SQUARE));
+        assertFalse(FurnishingStyle.MIRE.raises(Furnishings.Piece.HEDGE));
+        assertTrue(FurnishingStyle.MIRE.raises(Furnishings.Piece.WOODPILE));
+        assertTrue(FurnishingStyle.MIRE.raises(Furnishings.Piece.CAGE));
+
+        assertTrue(FurnishingStyle.WARHOST.raises(Furnishings.Piece.STAKES));
+        assertFalse(FurnishingStyle.WARHOST.raises(Furnishings.Piece.ORCHARD),
+                "a war camp does not plant a thing it will not be here to pick");
+
+        assertFalse(FurnishingStyle.HIGHLAND.raises(Furnishings.Piece.HEDGE),
+                "a hedge is a thing you plant where a thing you plant will grow");
+        assertEquals(FurnishingStyle.NORMAN, FurnishingStyle.of("nobody/has/drawn/this"),
+                "an undressed town is the outcome this whole work exists to prevent");
+    }
+
+    @Test
+    void nothingIsDressedWhileAnythingAtAllIsQueued() {
+        Settlement town = dressableTown();
+        assertTrue(Furnishings.worthStarting(town));
+
+        town.enqueueBuild(new com.civilization.sim.settlement.BuildTask(
+                "civilization:house", new SimPos(40, 64, 0), 100));
+        assertFalse(Furnishings.worthStarting(town),
+                "a village that fenced a kitchen garden while its bunkhouse waited"
+                        + " would be a village with a very pretty famine");
+    }
+
+    @Test
+    void nothingIsDressedBeforeTheLampsAreUp() {
+        Settlement town = dressableTown();
+        assertTrue(Furnishings.worthStarting(town));
+        town.setLightsRaised(0);
+        assertFalse(Furnishings.worthStarting(town),
+                "the lamps keep people alive and the flowers do not");
+    }
+
+    @Test
+    void theClockRaisesAPieceAndPaysForIt() {
+        Settlement town = dressableTown();
+        int wood = town.stores().get(TownStores.WOOD);
+        Furnishings.advance(town, CTX);
+        assertEquals(1, town.piecesRaised());
+        assertTrue(town.stores().get(TownStores.WOOD) <= wood,
+                "a piece raised for nothing is a town minting fence posts");
+    }
+
+    @Test
+    void theClockStandsAsideForSomebodyWatching() {
+        Settlement town = dressableTown();
+        SimContext watched = new SimContext(new QuietBridge() {
+            @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
+        }, 0, SimSettings.SANDBOX);
+        Furnishings.advance(town, watched);
+        assertEquals(0, town.piecesRaised(),
+                "a flower bed that plants itself in front of a player is the one"
+                        + " thing this must never look like");
+    }
+
+    @Test
+    void aDeadTownDressesNothing() {
+        Settlement town = dressableTown();
+        for (Person person : List.copyOf(town.residents())) {
+            town.removeResident(person.id());
+        }
+        Furnishings.advance(town, CTX);
+        assertEquals(0, town.piecesRaised(),
+                "raising a hedge is work, and there is nobody left to do it");
+    }
+
+    @Test
+    void aPieceIsNotMendedInATownWithNobodyLeft() {
+        Settlement town = dressableTown();
+        Furnishings.advance(town, CTX);
+        assertTrue(Furnishings.mayDraw(town, 0));
+        assertTrue(Furnishings.mayMend(town, 0));
+        for (Person person : List.copyOf(town.residents())) {
+            town.removeResident(person.id());
+        }
+        assertTrue(Furnishings.mayDraw(town, 0),
+                "the gardens a town kept while it lived stay standing");
+        assertFalse(Furnishings.mayMend(town, 0),
+                "and putting one back is a morning with a spade, which needs hands");
+    }
+
+    /** A town that has finished everything and is entitled to dress itself. */
+    private static Settlement dressableTown() {
+        Settlement town = ringTown();
+        house(town, "civilization:house", -24, -24, 0);
+        house(town, "civilization:house", 24, 24, 2);
+        // The roads are open and the lamps are all up: the two works that come
+        // before this one.
+        town.setLightsRaised(LightPlanner.wanted(town));
+        town.stores().add(TownStores.WOOD, 512);
+        town.stores().add(TownStores.STONE, 512);
+        town.stores().add(TownStores.SAPLINGS, 64);
+        return town;
+    }
+
+    private static int countOf(Settlement town, Furnishings.Piece kind) {
+        int found = 0;
+        for (Furnishings.Furnishing piece : Furnishings.pieces(town)) {
+            found += piece.piece() == kind ? 1 : 0;
+        }
+        return found;
+    }
+
+    // --- the numbers the brief asked for -------------------------------------
+
+    /**
+     * How much dressing a town of each size calls for, and how much of its own
+     * ground it covers.
+     *
+     * <p>Printed rather than only asserted, because the question the brief asks —
+     * "is fifteen buildings' worth of town dressed enough to look lived in, and
+     * sixty not so dressed it looks like a garden center" — is a judgement
+     * somebody has to make off a number, and a number nobody can find again is
+     * not evidence. The assertion under it is the only part that can fail: a town
+     * whose dressing covered most of its own interior would have paved the place.
+     */
+    @Test
+    void reportsWhatATownOfEachSizeCallsFor() {
+        RecordedTerrain ground = RecordedTerrain.of(RecordedTerrain.SEED_8675309);
+        int[] marks = {15, 30, 60};
+        for (String layout : List.of(Culture.LAYOUT_RADIAL_CONCENTRIC,
+                Culture.LAYOUT_RING_STREETS, Culture.LAYOUT_GREEN)) {
+            // Grown once and read at three sizes rather than grown three times:
+            // a town of sixty passes through fifteen and thirty on its way, and
+            // growing it again to stop earlier is the same two thousand steps
+            // paid for twice.
+            Settlement town = new Settlement(Settlement.Id.random(), "Report", CENTER, 256);
+            town.setCatalog(BuildCatalog.DEFAULT);
+            town.setStage(SettlementStage.CAMP);
+            town.setCultureId(cultureFor(layout).id());
+            town.setLayoutId(layout);
+            for (String name : new String[] {"Ada", "Bruno", "Cass", "Dov", "Eda", "Finn"}) {
+                town.addResident(new Person(
+                        Person.Id.random(), name, Profession.PIONEER, CENTER));
+            }
+            int next = 0;
+            for (int step = 1; step <= REPORT_STEPS && next < marks.length; step++) {
+                town.stores().add(TownStores.WOOD, 24);
+                town.stores().add(TownStores.STONE, 18);
+                town.stores().add(TownStores.SAPLINGS, 2);
+                town.step(new SimContext(ground, step, SimSettings.SANDBOX));
+                if (town.buildings().size() >= marks[next]) {
+                    report(layout, town);
+                    next++;
+                }
+            }
+            // Whatever it reached, if it stopped growing before sixty. A town that
+            // stops is itself a number worth having, and a silently missing row is
+            // not.
+            if (next < marks.length) {
+                report(layout, town);
+            }
+        }
+    }
+
+    /** How far the report grows a town: far enough for sixty buildings. */
+    private static final int REPORT_STEPS = 2000;
+
+    private static void report(String layout, Settlement town) {
+        List<Furnishings.Furnishing> pieces = Furnishings.pieces(town);
+        // And what the plan costs, which matters as much as what is in it: this is
+        // derived rather than stored, so it is wanted by the clock, by the foreman
+        // and by the drawing sweep, several times a tick on a town somebody is
+        // standing in. Three numbers rather than one, best of five each.
+        //
+        // COLD is working it out from nothing, which happens once per change to the
+        // town's shape. WARM is what every other caller pays: the walk of the
+        // buildings, streets and wall that decides the plan is still the right one.
+        // LAMPS is how much of COLD is LightPlanner's rather than this work's — the
+        // siting has to ask where the lamps are, because a hedge may not swallow
+        // one, and on a grown town that question is two thirds of the whole bill.
+        long cold = Long.MAX_VALUE;
+        for (int run = 0; run < 5; run++) {
+            town.cacheDressing(0L, null);   // forget the plan, so the next one is real
+            long began = System.nanoTime();
+            Furnishings.pieces(town);
+            cold = Math.min(cold, System.nanoTime() - began);
+        }
+        long warm = Long.MAX_VALUE;
+        for (int run = 0; run < 5; run++) {
+            long began = System.nanoTime();
+            Furnishings.pieces(town);
+            warm = Math.min(warm, System.nanoTime() - began);
+        }
+        long lamps = Long.MAX_VALUE;
+        for (int run = 0; run < 5; run++) {
+            long began = System.nanoTime();
+            LightPlanner.lamps(town);
+            lamps = Math.min(lamps, System.nanoTime() - began);
+        }
+        long covered = 0;
+        TreeMap<String, Integer> byKind = new TreeMap<>();
+        for (Furnishings.Furnishing piece : pieces) {
+            long side = 2L * piece.reach() + 1;
+            covered += side * side;
+            byKind.merge(piece.piece().name(), 1, Integer::sum);
+        }
+        long interior = interiorArea(town);
+        double share = interior <= 0 ? 0 : 100.0 * covered / interior;
+        System.out.printf(
+                "FURNISHINGS %s buildings=%d people=%d pieces=%d covered=%d"
+                        + " interior=%d share=%.1f%% coldMicros=%d warmMicros=%d"
+                        + " lampsMicros=%d %s%n",
+                layout, town.buildings().size(), town.residents().size(),
+                pieces.size(), covered, interior, share,
+                cold / 1000, warm / 1000, lamps / 1000, byKind);
+        assertTrue(share < 50.0,
+                layout + " at " + town.buildings().size() + " buildings dresses "
+                        + String.format("%.1f", share) + "% of its own interior,"
+                        + " which is not a town with gardens in it, it is a"
+                        + " garden with a town in it");
+    }
+
+    /** The ground the town's opened streets enclose, by the shoelace formula. */
+    private static long interiorArea(Settlement town) {
+        List<SimPos> hull = InteriorClearing.outline(town);
+        if (hull.size() < 3) {
+            return 0;
+        }
+        long twice = 0;
+        for (int i = 0; i < hull.size(); i++) {
+            SimPos a = hull.get(i);
+            SimPos b = hull.get((i + 1) % hull.size());
+            twice += (long) a.x() * b.z() - (long) b.x() * a.z();
+        }
+        return Math.abs(twice) / 2;
+    }
+}

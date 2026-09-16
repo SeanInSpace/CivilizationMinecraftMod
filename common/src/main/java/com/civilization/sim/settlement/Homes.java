@@ -253,4 +253,30 @@ public final class Homes {
     public static boolean isSomebodysOwnHome(String blueprintId) {
         return blueprintId != null && BELONGS_TO.containsKey(BuildPlanner.baseIdOf(blueprintId));
     }
+
+    /**
+     * The dwellings one household keeps to itself, as opposed to a dormitory or a
+     * chief's hall.
+     *
+     * <p>Named here because this is where the mod already knows what a home is,
+     * and because the two questions next door to it answer something else.
+     * {@link #isSomebodysOwnHome} means "is this <em>some particular people's</em>
+     * home" — it is true of an orc hut and false of a cottage, which is exactly
+     * right for keeping a hut out of a Norman village and exactly wrong for
+     * anybody asking which buildings have a family in them. {@code Beds.isHome}
+     * means "does anybody sleep here", which is true of the bunkhouse the whole
+     * founding party shares and of the great hut a warband's chief holds court in.
+     *
+     * <p>The distinction is load-bearing for {@code Furnishings}: a kitchen garden
+     * belongs to a household, and a row of them behind a dormitory is a village
+     * pretending to a domesticity it has not got yet.
+     */
+    private static final java.util.Set<String> FAMILY_HOMES = java.util.Set.of(
+            "cottage", "house", "longhouse", "croft", "hut", "hovel", "tent");
+
+    /** Whether one household keeps this building to itself. */
+    public static boolean isFamilyHome(String blueprintId) {
+        return blueprintId != null
+                && FAMILY_HOMES.contains(BuildingRole.bareName(blueprintId));
+    }
 }

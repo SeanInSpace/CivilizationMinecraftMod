@@ -5,6 +5,7 @@ import com.civilization.neoforge.entity.PersonEntity;
 import com.civilization.neoforge.world.Bridge;
 import com.civilization.neoforge.world.Felling;
 import com.civilization.neoforge.world.HandDig;
+import com.civilization.neoforge.world.FurnishingLayer;
 import com.civilization.neoforge.world.LightLayer;
 import com.civilization.neoforge.world.Woodcut;
 import com.civilization.neoforge.world.PathLayer;
@@ -303,13 +304,18 @@ public final class Foreman {
     private static boolean crossOffOpenGround(ServerLevel level, Settlement settlement,
                                               Worksite work) {
         int crossed = 0;
+        // Once, outside the loop: the town's own trees are not the wood this
+        // work is for, and asking which they are costs a walk of the dressing plan.
+        List<com.civilization.sim.work.Furnishings.Furnishing> plantings =
+                com.civilization.sim.work.Furnishings.plantings(settlement);
         while (crossed < CELLS_CROSSED_AT_ONCE) {
             SimPos cell = work.nextStation(settlement);
             if (cell == null) {
                 break;
             }
             BlockPos at = new BlockPos(cell.x(), cell.y(), cell.z());
-            if (!level.isLoaded(at) || Woodcut.anythingStandingIn(level, settlement, cell)) {
+            if (!level.isLoaded(at)
+                    || Woodcut.anythingStandingIn(level, settlement, cell, plantings)) {
                 break;   // unread ground, or a tree that is a job for somebody
             }
             work.completeOne(settlement, false);
@@ -354,7 +360,40 @@ public final class Foreman {
             Woodcut.Swing cut = Woodcut.fellOneIn(level, settlement, carrier, station);
             return new Swing(cut.done(), cut.worked());
         }
+        if (work instanceof PublicWorks.DressingWork) {
+            return raisePiece(level, settlement);
+        }
         return new Swing(true, true);
+    }
+
+    /**
+     * One block of a yard, a hedge or the square, put down by hand.
+     *
+     * <p>{@link #raiseLamp} exactly, one layer along: the course that is missing is
+     * read off the ground rather than counted, so a builder interrupted halfway
+     * round a garden fence comes back to the post that is not there. See
+     * {@code FurnishingLayer}.
+     *
+     * @return whether nothing more is owed at this piece, and whether a block
+     *         actually went into the ground for it
+     */
+    private static Swing raisePiece(ServerLevel level, Settlement settlement) {
+        List<FurnishingLayer.Course> plan =
+                FurnishingLayer.planAt(level, settlement, settlement.piecesRaised());
+        FurnishingLayer.Course owed = FurnishingLayer.owed(level, plan);
+        if (owed == null) {
+            // It stands, or the ground would not answer. Either way there was
+            // nothing to do and nothing was spent doing it.
+            return new Swing(true, false);
+        }
+        if (!FurnishingLayer.layByHand(level, owed)) {
+            // A cell that takes a block and then spits it out again. Rare -- the
+            // cells that were never going to take one are skipped by owed itself
+            // -- and the answer is the lamp's: standing here swinging at it for
+            // ever is the one outcome that helps nobody.
+            return new Swing(true, false);
+        }
+        return new Swing(FurnishingLayer.owed(level, plan) == null, true);
     }
 
     /**
@@ -704,6 +743,14 @@ public final class Foreman {
                 return false;
             }
             return !LightLayer.oursStandsAt(level, settlement, lamps.get(raised).at());
+        }
+        if (work instanceof PublicWorks.DressingWork) {
+            // The same question and the same double charge behind it. A piece's
+            // position is derived from a town that grows under it, so a builder
+            // can be sent to a garden that is already fenced; charging again would
+            // take a second garden's worth of timber off the shelves for it.
+            return !FurnishingLayer.oursStandsAt(level, settlement,
+                    settlement.piecesRaised());
         }
         if (!(work instanceof PublicWorks.WallWork)) {
             return true;   // nothing else has a part-done state to find

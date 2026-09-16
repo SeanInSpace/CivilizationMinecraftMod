@@ -6,6 +6,86 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The ground between the houses
+
+A screenshot of a finished ring town — fifteen buildings, fifteen people, the
+radial plan opened and paved from end to end — is a wide loop of dirt road round
+a field of empty grass with a few houses standing on it. Every building in that
+picture is dressed, inside and out; nothing at all was ever placed *between*
+them, so a town read as a set of models on a table rather than as a place people
+live in.
+
+### Added
+
+- **A town dresses its own ground, and does it by hand.** Yards, woodpiles,
+  haystacks, crates, a well, a paved square, orchards, hedges, avenue trees and
+  signposts are a public work now — the sixth, and the last on the list, below
+  even the clearing. A builder lays each piece course by course where somebody is
+  watching; the clock draws one where nobody is; a broken hedge is a repair; a
+  town with nobody left in it makes none. The cost is real and comes out of the
+  shelves: fence timber, paving stone and saplings. A rick of hay is the one piece
+  that is free, because hay is the straw left over from a harvest the farm has
+  already taken — charging it in grain was written and taken back out, since grain
+  is what a town turns into bread and paying for scenery out of the food ledger is
+  how a village starves prettily.
+  - A **fenced kitchen garden** behind every family home — crop rows in the
+    people's own crop, a bed of flowers along the back rail, and the gate on the
+    side the house is on. A bunkhouse gets none: it is where a founding party
+    sleeps before anybody has a family.
+  - A **woodpile** by every lumber camp and hearth, a **rick of hay** by every
+    farm, **crates and barrels** outside every store and market.
+  - A **paved square** at the heart, thirteen blocks across where there is room
+    for it and nine where there is not, with stair benches facing in, flower
+    boxes at the corners and a board on a post. A **well** on the heart of any
+    town that has no market, because a market draws its own.
+  - An **orchard** for every ten residents, **hedges** along the stretches of
+    street that have something built on them, an **avenue tree** every twelve
+    blocks on the outer verge, and a **signpost** at every crossing worth one.
+  - Each people dress in their own idiom, off the same palette their houses come
+    from: the Normans in oak and cobble round a carrot patch, the hill folk in
+    spruce on stone growing potatoes, the burghers masoning what everybody else
+    nails together, the vale folk in pale oak with cornflowers. A warhost gets
+    log piles, stakes, crates and a fire and nothing that implies it will be here
+    next spring; the mire goblins get woodpiles, cages by the chieftain's hut and
+    heaps of somebody else's crates, and no garden at all. A fire pit only goes up
+    where no hearth already stands, so the goblins — who cook on one in the middle
+    of the camp — do not get a second.
+
+  Where it goes is derived from the standing buildings and the opened streets
+  rather than written down — the same arrangement the lamps and the clearing
+  have, and for the same reason — so what the save carries is one number: how
+  many pieces the town has raised. Nothing is ever planned on a plot standing or
+  planned, on a carriageway, on the wall line, in the forester's belt, on a lamp,
+  or across a doorway, and that is asserted about whole towns grown on the
+  recorded ground of seed 8675309 in every arrangement anybody builds in rather
+  than about the one position somebody thought to check.
+
+  What a town of each size calls for, on that ground: a **radial** town of 15
+  buildings plans **81** pieces covering 3.9% of the ground its streets enclose,
+  at 30 buildings **136** (4.1%), and at 60 buildings **251** (2.4%); a
+  **ring-streets** town **104**, **169** and **284**; a **green** — which is a
+  much smaller town for the same building count — **25**, **56** and **146**.
+  The share of the interior falls as a town grows, which is right: the dressing
+  belongs to the buildings and the streets, and a big town has more open middle.
+
+  Working the plan out is the most expensive planning pass in the mod — **16.5ms**
+  for a radial town of sixty, of which **10ms** is `LightPlanner` being asked
+  where the lamps are, which it has to be asked because a hedge may not swallow
+  one. Three callers want that plan several times a tick, so each town keeps its
+  last one against a number naming its own shape: after the first, a caller pays
+  **17 microseconds** to be told the plan still stands. Nothing is written to the
+  save for it.
+
+### Fixed
+
+- **The interior clearing no longer fells the town's own trees.** An orchard is
+  planted on a cell of the very ground the clearing works and an avenue tree
+  stands on the verge of a street through it, so a sweep that could not tell the
+  town's trees from the wood it stands in would have cut down every one of them
+  on the pass after it took root — and the dressing would have planted them
+  again, for ever. Caught before it shipped, and it is the torch-on-a-fence fault
+  in a slower form.
+
 ## The streets open with the town, and the hall takes the middle
 
 A screenshot: a seeded village of about fifteen buildings standing inside a

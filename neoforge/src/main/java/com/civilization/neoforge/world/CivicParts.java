@@ -1090,7 +1090,7 @@ final class CivicParts {
     }
 
     /** A plain stair, tall half on the given side, sitting on the floor of its cell. */
-    private static BlockState stair(Block stairs, Direction facing) {
+    static BlockState stair(Block stairs, Direction facing) {
         return stairs.defaultBlockState()
                 .setValue(StairBlock.FACING, facing)
                 .setValue(StairBlock.HALF, Half.BOTTOM)
