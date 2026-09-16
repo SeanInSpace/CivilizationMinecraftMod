@@ -229,9 +229,7 @@ public final class RadialStreetLayout extends PlannedLayout {
                 if (face < SPOKE_START) {
                     continue;   // inside the green, where nothing is offered
                 }
-                int around = Math.max(8, (int) (2 * Math.PI * face / ARC_PITCH));
-                for (int i = 0; i < around; i++) {
-                    double angle = i * 2 * Math.PI / around;
+                for (double angle : aroundTheFace(face, outer + RING_SPACING / 2)) {
                     double bent = radius + how.offsetAt(angle * radius);
                     SimPos where = round(center, bent + side * SETBACK, angle);
                     SimPos onRoad = round(center, bent, angle);
@@ -264,7 +262,7 @@ public final class RadialStreetLayout extends PlannedLayout {
             double outZ = Math.sin(angle);
             int along = (int) Math.ceil(
                     MIN_PLOT_SEPARATION / Math.max(Math.abs(outX), Math.abs(outZ)));
-            for (int t = FIRST_RING; t < outer + RING_SPACING / 2; t += along) {
+            for (int t = SPOKE_START; t < outer + RING_SPACING / 2; t += along) {
                 for (int side : new int[] {-1, 1}) {
                     SimPos where = new SimPos(
                             center.x() + (int) Math.round(t * outX - side * SETBACK * outZ),
@@ -278,6 +276,77 @@ public final class RadialStreetLayout extends PlannedLayout {
                 }
             }
         }
+    }
+
+    /**
+     * How far a plot's middle has to stand off a spoke to be allowed to exist.
+     *
+     * <p>Rule R7, and the same sum {@link OrcRingLayout}'s ring setback is: the
+     * plan refuses a plot whose square comes within a half-carriageway of a road,
+     * and a square reaches {@link Layout#onACurve} of its half-width at the
+     * corners. A spoke is a road like any other, so a plot standing beside one
+     * needs exactly what a plot standing beside a ring needs.
+     */
+    private static final int SPOKE_CLEARANCE =
+            ROAD_HALF + Layout.onACurve(Layout.DEFAULT_SPAN / 2 + CURB);
+
+    /**
+     * Where the offers on a ring face go, sector by sector between the spokes.
+     *
+     * <p><strong>The innermost ring of a ring town had nothing on it at all, and
+     * this is why.</strong> A face was offered at an even count round the whole
+     * circle, and the count was worked out from the arc pitch alone — which is
+     * the right rule for the neighbours a plot has along its own face and says
+     * nothing about the six roads crossing it. At the first ring those two
+     * spacings beat against each other: nine offers at forty degrees against six
+     * spokes at sixty puts every single offer within twenty degrees of a spoke,
+     * and twenty degrees at a radius of twenty-seven is nine blocks, which is
+     * inside {@link #SPOKE_CLEARANCE}. All nine were refused, every time, in
+     * every ring town ever laid. The inner face of the first ring — the frontage
+     * a young town is supposed to fill first — was empty ground, and the plan
+     * reported full frontage the whole time, because frontage counts the plots
+     * that were <em>taken</em> and a refused offer is invisible to it.
+     *
+     * <p>So the face is not offered round the circle. It is offered in the
+     * {@link #SPOKES} sectors <em>between</em> the spokes, each sector inset by
+     * the angle {@link #SPOKE_CLEARANCE} subtends at this radius and filled at
+     * the arc pitch. A tight face gets one plot in the middle of each gap, a
+     * roomier one gets as many as the pitch allows, and a face that cannot hold
+     * even one gets none rather than a ring of offers that will all be thrown
+     * away.
+     *
+     * <p>It costs nothing further out, where it reproduces what the even count
+     * was already getting after refusals: the outer face of the first ring
+     * carried twelve plots of the eighteen it offered, and carries twelve now.
+     *
+     * @param face  the radius the plots themselves stand on
+     * @param spoke how far out the spokes run, past which nothing has to be
+     *              cleared and the whole circle is free
+     */
+    private static List<Double> aroundTheFace(int face, int spoke) {
+        List<Double> angles = new ArrayList<>();
+        double sector = 2 * Math.PI / SPOKES;
+        double margin = face > spoke || face <= SPOKE_CLEARANCE
+                ? 0 : Math.asin(Math.min(1, (double) SPOKE_CLEARANCE / face));
+        double usable = sector - 2 * margin;
+        if (usable <= 0) {
+            return angles;
+        }
+        int per = Math.max(1, 1 + (int) (usable * face / ARC_PITCH));
+        for (int s = 0; s < SPOKES; s++) {
+            double from = s * sector + margin;
+            for (int i = 0; i < per; i++) {
+                // A gap has two ends and a whole circle has none, so an unclipped
+                // face steps by a full share and a clipped one lands a plot on
+                // each end of the gap. Stepping by a share on a clipped face
+                // wastes the far end of every gap; spreading to the ends of an
+                // unclipped one puts two plots on the same spot at every seam.
+                angles.add(margin <= 0 ? from + i * usable / per
+                        : per == 1 ? from + usable / 2
+                                : from + i * usable / (per - 1));
+            }
+        }
+        return angles;
     }
 
     /** One ring, as the run of points a road round the green passes through. */
