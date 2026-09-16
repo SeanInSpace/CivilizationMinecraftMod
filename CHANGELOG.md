@@ -6,6 +6,53 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A ring town builds on its own green
+
+A village of twenty buildings laid out as ring roads stood entirely outside its
+own first ring road: not one of its first twenty houses was within forty blocks
+of the middle, and the nearest of them was fifty-three blocks out. From the air
+that is the fault somebody photographed — a ring of houses with nothing but grass
+inside it.
+
+### Fixed
+
+- **The frontage on the inside of a ring town's first ring road is built on.** It
+  never had been, in any ring town ever laid, at any size. The plan offered that
+  frontage evenly round the circle at a count worked out from how much room a
+  house takes along the arc, which is the right rule for the neighbours a house
+  has on its own ring and says nothing about the six lanes crossing it: nine
+  offers at forty degrees against six lanes at sixty put every single offer within
+  twenty degrees of a lane, and twenty degrees at that radius is nine blocks,
+  where a road demands thirteen. Every one was refused, silently, every time —
+  frontage counts the houses that were *taken*, so a refused offer was invisible
+  and the plan reported a fully fronted town that simply began fifty-three blocks
+  out. Ring frontage is now laid in the gaps *between* the lanes, as many to a gap
+  as the room allows, and a gap too tight to hold one gets none rather than a ring
+  of offers that will all be thrown away. It costs nothing further out, where it
+  reproduces what the even count was already getting after the refusals.
+
+- **The lanes leaving a ring town's green carry frontage from the green
+  outward.** They used to offer their first house only where they met the first
+  ring road, so the whole length of lane crossing the green was a road with
+  nothing on it.
+
+Together these put buildings on a ring village's green for the first time:
+`radial_concentric` stands five of its first twenty inside its own first ring
+against one before, and `ring_streets` two against none. The green only holds so
+many — the ring road forbids a band twenty-six blocks wide around itself and each
+of the six lanes forbids thirteen either side of it all the way in, which leaves
+six thin slivers — so a ring town of twenty still reaches further than a grid
+town of twenty. What it no longer does is leave its middle empty.
+
+### Added
+
+- **A young town is measured.** Every other measure in the suite is taken at a
+  hundred and forty buildings or at the whole plan of two hundred and fifty-six,
+  and all of them were passing while a town of twenty read as a ring of sheds in a
+  field. The reach of the first twenty is now measured for every arrangement, and
+  a ring town that stops building on its own green fails a test rather than being
+  noticed from the air in six months.
+
 ## A watched town survives the night
 
 One Normal-difficulty night in Millbrook — a burgher town of seventeen in a
