@@ -40,6 +40,39 @@ public final class TownStores implements Stock {
      * the whole map.
      */
     public static final String GRAIN = "grain";
+
+    /**
+     * Meat off a culled beast, before anybody has cooked it.
+     *
+     * <p>Grain's exact twin, one pen over, and it exists for the same reason:
+     * the shepherd's trade used to yield nothing at all, and the first thing it
+     * could have yielded — a joint of beef — is not dinner. A cull puts this on
+     * the compound's own shelf, somebody carries it to wherever the town cooks,
+     * and only at the fire does it become {@link #FOOD}. See {@link Herd}.
+     *
+     * <p>Nobody eats it raw. The nutrition table has no entry for it on purpose:
+     * a town with a full meat safe and no hearth starves beside it, exactly as a
+     * town with full grain sacks and no oven does, and {@code /civ info} says so.
+     */
+    public static final String MEAT = "meat";
+
+    /**
+     * Fleece off a sheep.
+     *
+     * <p>Nothing spends it yet, and it is kept all the same: the whole argument
+     * for the honest economy is that a town's books say what is standing in the
+     * world, and a town that keeps sheep has wool whether or not anything has
+     * been written that wants it. A dyer, a weaver or a bed is what spends it,
+     * and none of those exist.
+     */
+    public static final String WOOL = "wool";
+
+    /** Hide off a cow or a rabbit. Banked for the same reason {@link #WOOL} is. */
+    public static final String LEATHER = "leather";
+
+    /** Feathers off a fowl. Banked for the same reason {@link #WOOL} is. */
+    public static final String FEATHERS = "feathers";
+
     public static final String WOOD = "wood";
     public static final String STONE = "stone";
     public static final String SAPLINGS = "saplings";

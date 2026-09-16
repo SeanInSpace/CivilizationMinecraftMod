@@ -16,6 +16,7 @@ import com.civilization.sim.settlement.BuildingRole;
 import com.civilization.sim.settlement.BuildingSizes;
 import com.civilization.sim.settlement.Field;
 import com.civilization.sim.settlement.FoodPlanner;
+import com.civilization.sim.settlement.Herd;
 import com.civilization.sim.settlement.Footprint;
 import com.civilization.sim.settlement.ForesterStand;
 import com.civilization.sim.settlement.Garrison;
@@ -761,14 +762,25 @@ public record TownMapPayload(String town, BlockPos origin, int claimRadius, bool
         return plots;
     }
 
+    /**
+     * What a building holds, as a tooltip can read it.
+     *
+     * <p>The compound's herd rides in the same map as everything else it owns —
+     * see {@link Herd}, which keeps its ledger there so the codecs need no line —
+     * which means the panel lists the beasts for free and would list the
+     * bookkeeping beside them if nothing stopped it. Two of those entries are
+     * not goods: the part-grown calf's remainder and the flag saying the pens
+     * have been stocked. They are dropped, and a head count is renamed to the
+     * beast so the line reads "cow 4" rather than "herd:cow 4".
+     */
     private static List<Line> storesOf(Building building) {
         if (!building.hasStores()) {
             return List.of();
         }
         List<Line> lines = new ArrayList<>();
         building.stores().all().forEach((resource, amount) -> {
-            if (lines.size() < MAX_STORE_LINES) {
-                lines.add(new Line(resource, amount));
+            if (lines.size() < MAX_STORE_LINES && !Herd.isInternal(resource)) {
+                lines.add(new Line(Herd.headWord(resource), amount));
             }
         });
         return lines;

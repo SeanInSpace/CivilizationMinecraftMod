@@ -6,6 +6,103 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The pens hold animals, and the shepherd's trade yields something
+
+The animal farm has been drawn since the compound was added and has produced
+nothing in all that time. Its fences were real, its byre was real, a shepherd was
+staffed to it — and `ANIMAL_FARM` sat outside the food chain entirely, `Foods`
+listed cooked beef and pork with nothing anywhere making them, and the only beast
+that ever appeared in a pen was one the shepherd summoned out of thin air. It is
+a working trade now, on the same terms as the fields, the woods and the mine: a
+countable stock that stands in the world and is worked by real hands where
+somebody is watching and by arithmetic where nobody is.
+
+### Added
+
+- **A herd, per compound, counted by species.** Each animal farm keeps a head
+  count of whatever its people pen — cattle, sheep, pigs and fowl for the
+  lowlanders, goats and rabbits for the hill folk, wolves for the orcs — and the
+  count is the same ledger whether a player is at the gate or a thousand blocks
+  away. A pen holds **ten head**: seven by three of grass at **two square blocks
+  a beast**, counted off what the placer actually lays rather than declared. A
+  compound arrives with a **breeding pair of each kind**, driven in off the
+  countryside, and a seeded town's pens are stocked the same way its fields
+  arrive sown.
+
+- **Nothing breeds unfed, which is not a balance knob but vanilla.** Two animals
+  breed when somebody feeds them and never otherwise, so a compound with no
+  shepherd — or no grain on its shelf — keeps the beasts it has and gets no more.
+  A fed pair is worth one grown beast per **30,000 ticks**, which is vanilla's
+  own arithmetic added up: a five-minute breeding cooldown plus twenty minutes for
+  the calf to grow up. It costs **two sheaves a head**, charged at the birth, and
+  the grain has to be carried out to the pens by somebody — the shepherd walks it
+  from a field rather than robbing the oven, and a compound wants **sixteen** on
+  its shelf.
+
+- **A cull, and it is where the town's meat comes from.** A full pen is culled,
+  and a starving town opens its herd, and neither ever takes the last breeding
+  pair — a town that ate its way down to one cow can never breed its way back, so
+  the answer to that famine is no. A cow gives two beef and a hide, a pig two
+  porkchops, a sheep one mutton and its fleece, a fowl one and a feather. A goat
+  gives nothing, because vanilla drops nothing whatever for killing one and a
+  ledger that paid mutton for a goat would be minting it; the hill folk keep goats
+  for the milk and the company, and the orcs' wolves are never touched.
+
+- **Raw meat is not dinner.** It lands on the compound's shelf, the shepherd
+  carries it to wherever the town cooks, and only at the fire does it become food
+  — one meal a joint, **four a step**, exactly the rate the same hearth bakes
+  bread at. A town with a full meat safe and no hearth starves beside it, the way
+  a town with full grain sacks and no oven already did, and `/civ info` says so.
+  Wool, hides and feathers are banked on the compound's shelf; nothing spends them
+  yet, and they are kept because a town that keeps sheep has wool whether or not
+  anything has been written that wants it.
+
+- **Real animals, reconciled to the books.** When a player is near enough to see
+  them the pens are stocked with real vanilla livestock matching the ledger —
+  spawned inside the pen, never on a road, pinned against despawning, two a pass
+  so a town coming back after a week does not land forty entities in one frame.
+  The missing are spawned and the extra are never deleted: an unloaded chunk
+  throws its animals away on its own schedule, and anything a player drove in
+  there is their business.
+
+- **The shepherd does the work with his hands.** He feeds by hand out of the
+  compound's own sacks, kills by hand when a pen is full or the town is hungry,
+  and gathers the drops off the grass onto the compound's shelf. Nothing is
+  credited at the swing, so what the books show after a watched cull is what
+  actually fell — which is the whole reason a watched cull and an unwatched one
+  cannot pay differently.
+
+- **Loose life.** Three fowl scratching in the yard of every compound, a cat at
+  the storehouse, a dog about the town and a horse or two under the inn's stable
+  roof. All capped, all pinned against despawning, and all put down on grass or
+  dirt and nothing else — every road this mod lays is gravel, path or masonry, so
+  a chicken cannot end up standing in the carriageway.
+
+- **`/civ info` prints the herd**, compound by compound, with the cap beside the
+  count and a note when there is nothing to feed them with; the town map's tooltip
+  for the compound lists the beasts as part of what the building holds.
+
+### Fixed
+
+- **The pens are audited.** GOALS has been asking "are the animal pens actually
+  separated, and do the beasts stay in them?" and nothing could answer it without
+  a player walking out and counting cows in the road. The audit now walks the
+  fence ring of every compound and reports a gap. It judges by collision rather
+  than by which block is there, which is the honest test: what stops a cow is a
+  thing it cannot walk through, so a wall counts, a shut gate counts, and an open
+  gate is the fault. A test draws every culture's compound through the level-free
+  site seam and asserts the ring is unbroken.
+
+- **The compound's geometry is one number instead of three.** How deep a pen is,
+  how many pens fit and where each one starts were written down separately in the
+  placer, in the view layer's bounding boxes and in the ledger — which is how the
+  fences and the beasts come to disagree about where a pen is. It lives in `Herd`
+  now, and the other two read it.
+
+- **A shepherd's grain no longer shuts the farmers out of the bakery.** Grain in
+  transit was counted town-wide against the oven's headroom, which was right while
+  the oven was the only place grain went.
+
 ## The town does something besides work
 
 A settler worked their trade, hauled, fled, fought, walked home under the curfew

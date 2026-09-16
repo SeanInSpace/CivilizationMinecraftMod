@@ -421,10 +421,15 @@ public final class FoodPlanner {
 
         forage(settlement, ctx);
         growHarvest(settlement, ctx, starving);
+        // The pens, between the field and the fire because that is where they
+        // sit in the chain: they eat the grain that was cut this morning and
+        // what they give goes to the same hearth the bread does.
+        Herd.advance(settlement, ctx, starving);
         // The oven runs on whatever reached it before today, which is why the
         // grain has to be hauled: cutting wheat this step feeds nobody this
         // step, and a town that has not built an oven is never fed by it at all.
         bake(settlement);
+        Herd.roast(settlement);
         // Dinner before the day's errands, because that is the whole rule: a
         // person past the weak line is going to eat, and assignHauls skips
         // anybody who already has somewhere to be.
@@ -724,7 +729,7 @@ public final class FoodPlanner {
         Building oven = bakery(settlement);
         int ovenSpace = oven == null ? 0
                 : BAKERY_GRAIN_CAP - oven.stores().get(TownStores.GRAIN)
-                        - grainOnTheRoad(settlement);
+                        - grainOnTheRoad(settlement, oven.origin());
 
         for (Person person : settlement.residents()) {
             if (person.haul() != null || heldBackByHunger(settlement, person, starving)) {
@@ -758,6 +763,35 @@ public final class FoodPlanner {
                         ovenSpace -= FARMER_CARRY;
                     }
                 }
+                // The shepherd walks the other half of the same road the farmer
+                // does, and in both directions. Out to a field for the feed the
+                // pens run on, because nothing breeds unfed and the compound's
+                // shelf is where the grain has to be; and in to the oven with
+                // whatever the culling put on that shelf, because raw meat is
+                // not dinner any more than a sheaf is bread.
+                case SHEPHERD -> {
+                    Building compound = wantsFeed(settlement, spokenFor);
+                    if (compound != null) {
+                        Building field = fullestUnspoken(settlement, spokenFor, worthTheWalk);
+                        if (field != null) {
+                            person.setHaul(new HaulTask(TownStores.GRAIN,
+                                    HaulTask.Store.STORE, field.origin(),
+                                    HaulTask.Store.STORE, compound.origin(),
+                                    Herd.SHEPHERD_CARRY));
+                            spokenFor.merge(field.origin(), Herd.SHEPHERD_CARRY, Integer::sum);
+                            continue;
+                        }
+                    }
+                    if (oven == null) {
+                        continue;   // nowhere to cook it, so nothing to carry
+                    }
+                    Building larder = fullestMeat(settlement);
+                    if (larder != null) {
+                        person.setHaul(new HaulTask(TownStores.MEAT,
+                                HaulTask.Store.STORE, larder.origin(),
+                                HaulTask.Store.STORE, oven.origin(), Herd.SHEPHERD_CARRY));
+                    }
+                }
                 case TRADER -> {
                     if (granaryStock < TRADER_CARRY) {
                         continue;
@@ -776,12 +810,26 @@ public final class FoodPlanner {
         assignPantryRuns(settlement, granary, starving);
     }
 
-    /** Sheaves already on somebody's back or promised to a shoulder, town-wide. */
-    private static int grainOnTheRoad(Settlement settlement) {
+    /**
+     * Sheaves already on somebody's back or promised to a shoulder, bound for
+     * one particular door.
+     *
+     * <p>It used to count every grain errand in town, which was right while the
+     * oven was the only place grain went. The pens eat grain too now — see
+     * {@link Herd#FEED_PER_HEAD} — and a load walking out to the sheep is not a
+     * load the oven has to make room for. Counted town-wide, a shepherd's
+     * errand would have shut the farmers out of the bakery for the whole of his
+     * walk.
+     */
+    private static int grainOnTheRoad(Settlement settlement, SimPos to) {
         int moving = 0;
         for (Person person : settlement.residents()) {
             HaulTask errand = person.haul();
-            if (errand == null || !TownStores.GRAIN.equals(errand.resource())) {
+            // By where it is going rather than by where it is, because a load
+            // walking out to a field is still bound for the oven: an errand's
+            // target() is its source until it is picked up.
+            if (errand == null || !TownStores.GRAIN.equals(errand.resource())
+                    || !to.equals(errand.toPos())) {
                 continue;
             }
             moving += errand.isLoaded() ? errand.carried() : errand.requested();
@@ -1007,6 +1055,46 @@ public final class FoodPlanner {
             if (left >= minimum && left > most) {
                 most = left;
                 best = field;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * The compound shortest of feed that nobody is already carrying feed to.
+     *
+     * <p>Counted against what is walking toward it as well as what is on its
+     * shelf, for the reason every other destination here is: a compound that
+     * offered the same empty shelf to three shepherds would get three loads and
+     * spoil two of them at the gate.
+     */
+    private static Building wantsFeed(Settlement settlement, Map<SimPos, Integer> spokenFor) {
+        for (Building compound : buildingsOf(settlement, BuildingRole.ANIMAL_FARM)) {
+            int coming = 0;
+            for (Person person : settlement.residents()) {
+                HaulTask errand = person.haul();
+                if (errand != null && TownStores.GRAIN.equals(errand.resource())
+                        && compound.origin().equals(errand.toPos())) {
+                    coming += errand.isLoaded() ? errand.carried() : errand.requested();
+                }
+            }
+            if (compound.stores().get(TownStores.GRAIN) + coming < Herd.FEED_STOCK
+                    && fullestUnspoken(settlement, spokenFor, WORTH_LEAVING_THE_ROWS) != null) {
+                return compound;
+            }
+        }
+        return null;
+    }
+
+    /** The compound with the most raw meat on its shelf, or null if none is worth the walk. */
+    private static Building fullestMeat(Settlement settlement) {
+        Building best = null;
+        int most = Herd.WORTH_LEAVING_THE_PENS - 1;
+        for (Building compound : buildingsOf(settlement, BuildingRole.ANIMAL_FARM)) {
+            int meat = compound.stores().get(TownStores.MEAT);
+            if (meat > most) {
+                most = meat;
+                best = compound;
             }
         }
         return best;

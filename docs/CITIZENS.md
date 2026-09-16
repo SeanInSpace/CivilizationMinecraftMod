@@ -417,10 +417,15 @@ than to the bill, so one lever covers both fidelities.
 
 | # | Trigger | Clock | Watched | Gate |
 |---|---|---|---|---|
-| 1 | animal farm stands | *nothing* — livestock is world-only | `ShepherdWorker` stocks each pen to 4 of its kind | `PER_PEN` = 4, `Culture.pennedAnimals` |
-| 2 | pens full | — | leaves them; vanilla breeds them | |
-| 3 | alarm **ALARMED** | — | goes home (the pens are on a ring plot, not beyond the walls) | `Alarm.callsIn` |
-| 4 | no animal farm | — | — | eligible as a bulk courier (tier 2) |
+| 1 | a compound with no beasts on its books | stocked with a breeding pair of each kind | same | `Herd.stock`, `STARTER_HEAD` = 2, `Culture.pennedAnimals` |
+| 2 | feed on the compound's shelf | `Herd.feed`: 4 turns a step, 2 to a pair, one grown beast per 30,000 ticks at 2 sheaves a head | `ShepherdWorker` feeds by hand and advances the same ledger | `BREEDING_TICKS`, `FEED_PER_HEAD`, `TURNS_PER_SHEPHERD_PER_STEP` |
+| 3 | nothing on the shelf, or nobody staffed | *nothing breeds* — vanilla animals breed only when fed | same | `Herd.feed` |
+| 4 | a pen at its cap, or the town starving | `Herd.cullOnTheClock`: one head off, the table's average onto the shelf | kills by hand; vanilla's own drops are gathered off the grass | `HEAD_PER_PEN` = 10, `BREEDING_PAIR` = 2 |
+| 5 | the compound short of feed | errand: fullest field → compound, 12 | same errand, walked | `FEED_STOCK` = 16, `SHEPHERD_CARRY` = 12 |
+| 6 | meat worth the walk on the shelf | errand: compound → oven, 12 | same errand, walked | `WORTH_LEAVING_THE_PENS` = 12 |
+| 7 | a player is near | — | `Pens.reconcile` puts real livestock in the pens to match the books, 2 a pass, never deleting extras | `Pens` |
+| 8 | alarm **ALARMED** | — | goes home (the pens are on a ring plot, not beyond the walls) | `Alarm.callsIn` |
+| 9 | no animal farm | — | — | eligible as a bulk courier (tier 2) |
 
 ### TRADER
 

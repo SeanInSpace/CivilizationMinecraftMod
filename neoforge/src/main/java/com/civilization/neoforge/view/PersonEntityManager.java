@@ -501,6 +501,7 @@ public final class PersonEntityManager {
                 workFarmers(settlement);
                 changed |= workMiners(settlement);
                 changed |= workShepherds(settlement);
+                keepTheBeasts(settlement);
                 changed |= layPaths(settlement);
                 // One pair of hands, one public work, and which work it is decides
                 // which of the three sweeps below stands aside. Where there is a
@@ -1945,6 +1946,19 @@ public final class PersonEntityManager {
     private static final int PAVE_AT_ONCE = 64;
 
 
+    /**
+     * The pens hold what the books say they hold, and the town has life in it.
+     *
+     * <p>One line in the pass, because the whole of it is {@code Pens}' business:
+     * a compound short of its ledger gets its beasts back, and the loose fowl,
+     * the storehouse cat, the inn's horses and the town's dog are topped up on
+     * a far slower beat. Nothing here is gated on a shepherd being on shift —
+     * the cows are in the field whether or not anybody is looking after them.
+     */
+    private void keepTheBeasts(Settlement settlement) {
+        Pens.tend(level, settlement);
+    }
+
     private boolean workShepherds(Settlement settlement) {
         // The pens are on a ring plot, behind the wall. A shepherd only comes in
         // when everybody does.
@@ -1963,7 +1977,8 @@ public final class PersonEntityManager {
             PersonEntity view = tracked.get(person.id().value());
             if (view != null && !view.isRemoved() && !view.isInDanger()
                     && !view.isSleeping()) {
-                changed |= ShepherdWorker.work(level, settlement, view);
+                changed |= ShepherdWorker.work(level, settlement, view,
+                        world.settings().simIntervalTicks());
             }
         }
         return changed;
