@@ -14,6 +14,7 @@ import com.civilization.neoforge.save.SiteLedger;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.worldgen.SettlementSites;
 import com.civilization.sim.kingdom.Kingdom;
+import com.civilization.sim.person.Foods;
 import com.civilization.sim.person.Household;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
@@ -25,6 +26,8 @@ import com.civilization.sim.settlement.Seam;
 import com.civilization.sim.settlement.Stand;
 import com.civilization.sim.settlement.FoodPlanner;
 import com.civilization.sim.settlement.Garrison;
+import com.civilization.sim.settlement.Herd;
+import com.civilization.sim.settlement.TownStores;
 import com.civilization.sim.settlement.GoblinCamp;
 import com.civilization.sim.settlement.KingPlanner;
 import com.civilization.sim.settlement.JobPlanner;
@@ -57,6 +60,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import com.civilization.sim.settlement.Founding;
@@ -785,6 +789,32 @@ public final class CivilizationCommand {
                         .append(FoodPlanner.bakery(s) == null
                                 ? " at no bakery (NOBODY BAKES)" : " at the mill/granary")
                         .append(" · bread: ").append(s.foodStock());
+                // The pens, compound by compound. A herd is the one stock in the
+                // town whose size is also the reason it stops growing -- a full
+                // pen is culled and a pen of two is not -- so the cap goes on
+                // the line beside the count or the number reads as a mystery.
+                for (Building compound : s.buildingsWithRole(BuildingRole.ANIMAL_FARM)) {
+                    sb.append("\n      herd @ ").append(compound.origin()).append(":");
+                    Culture people = Culture.of(s.cultureId());
+                    for (Map.Entry<String, Integer> kind
+                            : Herd.census(compound, people).entrySet()) {
+                        sb.append(" ").append(Foods.displayName(kind.getKey()))
+                                .append(" ").append(kind.getValue())
+                                .append("/").append(Herd.capacity(people, kind.getKey()));
+                    }
+                    sb.append(" · feed ").append(compound.stores().get(TownStores.GRAIN))
+                            .append("/").append(Herd.FEED_STOCK)
+                            .append(", meat ").append(compound.stores().get(TownStores.MEAT))
+                            .append(", wool ").append(compound.stores().get(TownStores.WOOL));
+                    if (compound.stores().get(TownStores.GRAIN) < Herd.FEED_PER_HEAD) {
+                        sb.append(" (NOTHING TO FEED THEM — nothing breeds)");
+                    }
+                }
+                if (Herd.meatAtTheOven(s) > 0) {
+                    sb.append("\n      meat: ").append(Herd.meatAtTheOven(s))
+                            .append(" at the fire, ").append(Herd.meatOnFarms(s))
+                            .append(" still in the pens");
+                }
                 // What the trades are standing on. A town short of timber or
                 // stone used to give no reason for it anywhere, and the reason
                 // is now a countable thing: the trees left in the claim, the

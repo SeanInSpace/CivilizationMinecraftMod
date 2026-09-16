@@ -7,7 +7,9 @@ import com.civilization.sim.settlement.BuildTask;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.settlement.Building;
 import com.civilization.sim.settlement.BuildingRole;
+import com.civilization.sim.culture.Culture;
 import com.civilization.sim.settlement.FoodPlanner;
+import com.civilization.sim.settlement.Herd;
 import com.civilization.sim.settlement.Footprint;
 import com.civilization.sim.settlement.RepairPlanner;
 import com.civilization.sim.settlement.Settlement;
@@ -396,6 +398,7 @@ public final class TownAuditor {
             auditOne(world, building, origin, faults, lastUndrawn, undrawnThisSweep);
         }
         auditOverlaps(present, faults);
+        auditPens(world, settlement, faults);
         auditTown(world, settlement, faults);
         // Only the buildings this sweep actually looked at. A building in an
         // unloaded chunk is not evidence of anything either way, and letting it
@@ -1192,6 +1195,66 @@ public final class TownAuditor {
      * <p>Reads no blocks, so this is the one check that still runs for a town
      * nobody is watching — which is exactly the town that starves unnoticed.
      */
+    /**
+     * Do the pens hold?
+     *
+     * <p>GOALS has been asking this in as many words — "Are the animal pens
+     * actually separated, and do the beasts stay in them?" — and until now
+     * nothing could answer it without a player walking out to the compound and
+     * counting cows on the road. The whole worth of a pen is one property: the
+     * run of fence around it is unbroken. A single missing post and the ledger
+     * says four sheep while the sheep are in the wheat.
+     *
+     * <p>Judged by <strong>collision</strong> rather than by which block is
+     * there, and that is the honest test rather than a lazy one: what stops a
+     * cow is a thing it cannot walk through. A fence stops it, a wall stops it, a
+     * <em>shut</em> gate stops it — and an open gate does not, which is exactly
+     * the fault a player would find by leaving one open. A rule written against
+     * a list of fence blocks would have passed the open gate and failed every
+     * culture that fenced its compound in something this file had not heard of.
+     *
+     * <p>One fault per compound however many holes are in it. A wall knocked
+     * through by a creeper is one event and reading forty lines about it tells
+     * nobody anything the first line did not.
+     */
+    private static void auditPens(WorldView world, Settlement settlement,
+                                  List<Fault> faults) {
+        int pens = Herd.penCount(Culture.of(settlement.cultureId()));
+        int rx = Herd.compoundSize().width() / 2;
+        int rz = Herd.compoundDepth(pens) / 2;
+        for (Building compound : settlement.buildingsWithRole(BuildingRole.ANIMAL_FARM)) {
+            BlockPos origin = new BlockPos(compound.origin().x(),
+                    compound.origin().y(), compound.origin().z());
+            if (!compound.isMaterialized() || !world.isLoaded(origin)) {
+                continue;
+            }
+            int gaps = 0;
+            BlockPos first = null;
+            for (int dx = -rx; dx <= rx; dx++) {
+                for (int dz = -rz; dz <= rz; dz++) {
+                    boolean edge = Math.abs(dx) == rx || Math.abs(dz) == rz;
+                    boolean divider = Math.floorMod(dz + rz, Herd.PEN_DEPTH + 1) == 0;
+                    if (!edge && !divider) {
+                        continue;   // open ground inside a pen, as it should be
+                    }
+                    BlockPos post = origin.offset(dx, 1, dz);
+                    if (world.isPassable(post)) {
+                        gaps++;
+                        if (first == null) {
+                            first = post;
+                        }
+                    }
+                }
+            }
+            if (gaps > 0) {
+                faults.add(new Fault(compound.blueprintId(), origin,
+                        "the pens leak — " + gaps + " gap" + (gaps == 1 ? "" : "s")
+                                + " in the fence, the first at " + first.toShortString()
+                                + ". Anything in there can walk out"));
+            }
+        }
+    }
+
     private static void auditTown(WorldView world, Settlement settlement,
                                   List<Fault> faults) {
         int worstHunger = 0;

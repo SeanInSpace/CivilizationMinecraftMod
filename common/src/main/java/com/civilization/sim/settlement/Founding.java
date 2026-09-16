@@ -833,6 +833,15 @@ public final class Founding {
         for (Building field : fields) {
             field.stores().set(TownStores.GRAIN, FoodPlanner.FARM_GRAIN_CAP);
         }
+        // And the pens, for the same reason and with the same caveat. A seeded
+        // town's compound was written into existence complete and empty: fences,
+        // a byre, a trough and not one beast standing in any of it. It arrives
+        // with its breeding pairs and a shelf of feed, which is what a compound
+        // somebody has been working looks like on an ordinary Tuesday.
+        for (Building compound : roleOf(town, BuildingRole.ANIMAL_FARM)) {
+            Herd.stock(compound, Culture.of(town.cultureId()));
+            compound.stores().set(TownStores.GRAIN, Herd.FEED_STOCK);
+        }
         town.putAwayLoosePile();
         // The fed streak is deliberately NOT set here. It looked like something
         // a settled town should arrive holding, and it is inert: the only

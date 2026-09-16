@@ -21,6 +21,7 @@ import com.civilization.sim.settlement.BuildPlanner;
 import com.civilization.sim.settlement.BlueprintCheck;
 import com.civilization.sim.settlement.BuildingSizes;
 import com.civilization.sim.settlement.Grade;
+import com.civilization.sim.settlement.Herd;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -2384,11 +2385,16 @@ public final class BlueprintPlacer {
         BuildingSizes.Size size = sized("animal_farm");
         HouseStyle style = HouseStyle.forCulture(site.culture().id());
         Block fence = style.post();
-        int penDepth = 3;
-        int room = (size.depth() - 1) / (penDepth + 1);
-        int pens = Math.min(room, Math.max(1, site.culture().penCount()));
+        // The pen geometry comes out of Herd now rather than being written down
+        // again here. It was written down in three places -- this method,
+        // ShepherdWorker's bounding boxes and the ledger that says how many
+        // beasts a pen holds -- and three copies of a number is how the fences
+        // and the beasts come to disagree about where a pen is. Herd owns it,
+        // because the ledger is the one of the three that cannot see a block.
+        int penDepth = Herd.PEN_DEPTH;
+        int pens = Herd.penCount(site.culture());
         int width = size.width();
-        int depth = pens * penDepth + pens + 1;
+        int depth = Herd.compoundDepth(pens);
         int rx = width / 2;
         int rz = depth / 2;
 
@@ -2404,10 +2410,13 @@ public final class BlueprintPlacer {
                 }
             }
         }
-        // One gate per pen, all down the same side, so every pen can be walked into.
+        // One gate per pen, all down the same side, so every pen can be walked
+        // into. A gate is part of the ring and not a hole in it -- it is shut,
+        // and a shut gate holds a cow exactly as well as a fence does. See
+        // TownAuditor.auditPens, which will not accept anything else in the run.
         for (int pen = 0; pen < pens; pen++) {
-            int dz = -rz + 1 + pen * (penDepth + 1);
-            add(blocks, base.offset(-rx, 1, dz), TradeParts.gateFor(fence));
+            add(blocks, base.offset(-rx, 1, Herd.penFirstRow(pens, pen)),
+                    TradeParts.gateFor(fence));
         }
         add(blocks, base.offset(0, 1, -rz + 1), CivilizationBlocks.ANIMAL_FARM.get());
         // A byre at the head of the first pen: feed, a trough, and a roof over
