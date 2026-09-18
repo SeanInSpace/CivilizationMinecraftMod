@@ -270,6 +270,67 @@ class SignageTest {
         }
     }
 
+    // --- the one board that is not about the town ----------------------------
+
+    /**
+     * A headstone says who lies under it, what they did, and when.
+     *
+     * <p>{@code Settlement.Grave.epitaph} is the same sentence on one line —
+     * "Ada Baker, Farmer" — and seventeen characters do not go on a fifteen-glyph
+     * line without the game squeezing them. So the epitaph is set <em>across</em>
+     * the board instead of onto it.
+     */
+    @Test
+    void aHeadstoneSaysWhoLiesUnderIt() {
+        List<String> lines = Signage.headstone(new Settlement.Grave(
+                "Ada Baker", com.civilization.sim.person.Profession.FARMER, 11));
+        assertEquals("Ada Baker", lines.get(0));
+        assertEquals("Farmer", lines.get(1));
+        assertEquals("died day 12", lines.get(2),
+                "day one, not day zero: the first day of a world is Day 1"
+                        + " everywhere a player is shown one");
+        assertEquals(Signage.LINES, lines.size());
+        for (String line : lines) {
+            assertTrue(line.length() <= Signage.LINE_WIDTH,
+                    "\"" + line + "\" is " + line.length() + " glyphs, and a line"
+                            + " that overflows is squeezed rather than cut");
+        }
+    }
+
+    /** Somebody who never had a trade gets a name and a date and no insult. */
+    @Test
+    void anIdlerGetsNoTradeLine() {
+        assertEquals("", Signage.headstone(new Settlement.Grave(
+                "Ada Baker", com.civilization.sim.person.Profession.IDLER, 3)).get(1),
+                "\"Ada Baker / Idler\" is not an epitaph, it is an insult");
+    }
+
+    /** A very long name is cut to what a board draws rather than squeezed into it. */
+    @Test
+    void aLongNameIsCutToTheBoard() {
+        List<String> lines = Signage.headstone(new Settlement.Grave(
+                "Bartholomew Fitzwilliam",
+                com.civilization.sim.person.Profession.LUMBERJACK, 0));
+        assertEquals(Signage.LINE_WIDTH, lines.get(0).length());
+        assertTrue("Bartholomew Fitzwilliam".startsWith(lines.get(0)));
+    }
+
+    /**
+     * A grave asks nothing of the plaque, which is what makes it the one board
+     * legible in a town with no name recorded.
+     */
+    @Test
+    void aHeadstoneNeedsNoPlaque() {
+        Settlement.Grave whose = new Settlement.Grave(
+                "Ada Baker", com.civilization.sim.person.Profession.FARMER, 4);
+        assertEquals(Signage.headstone(whose),
+                Signage.linesFor(Furnishings.Piece.GRAVE, Signage.Plaque.NONE, 0, whose));
+        assertEquals(Signage.BLANK,
+                Signage.linesFor(Furnishings.Piece.GRAVE, Signage.Plaque.NONE, 0, null),
+                "a stone the roster has no name for keeps whatever is cut into it,"
+                        + " and an empty line list is what leaves a board alone");
+    }
+
     /**
      * A plan drawn without a town — which is what every size test does — writes
      * nothing at all rather than writing four empty lines, so those tests go on

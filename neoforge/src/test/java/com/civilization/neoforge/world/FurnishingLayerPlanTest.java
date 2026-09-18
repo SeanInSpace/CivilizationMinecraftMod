@@ -337,6 +337,106 @@ class FurnishingLayerPlanTest {
         }
     }
 
+    /**
+     * A town that has buried three people stands three stones, and each one says
+     * who it is for.
+     *
+     * <p>The pairing is the thing being stated, not the lettering. Nothing writes
+     * a name into the plan: {@code Furnishings.graves} lists the stones in the
+     * order {@code Settlement.dead} lists the people, and
+     * {@link FurnishingLayer#graveAt} is nothing but an index into that. So the
+     * way this can break is silent and total — every stone in the churchyard
+     * carrying the wrong name, or all three carrying the same one — and neither
+     * would look like anything until somebody read a board.
+     */
+    @Test
+    void everyStoneSaysWhoLiesUnderIt() {
+        com.civilization.sim.settlement.Settlement town = buriedThree();
+        List<Furnishings.Furnishing> stones = Furnishings.graves(town);
+        assertEquals(3, stones.size(),
+                "a town with three dead planned " + stones.size() + " stones");
+
+        Culture norman = Culture.of(town.cultureId());
+        List<String> wanted = List.of("Ada Baker", "Bren Smith", "Cass Fletcher");
+        for (int stone = 0; stone < stones.size(); stone++) {
+            List<FurnishingLayer.Course> plan = FurnishingLayer.plan(flatFor(norman),
+                    stones.get(stone), com.civilization.sim.work.Signage.Plaque.NONE,
+                    FurnishingLayer.graveAt(town, stones.get(stone)));
+            List<String> written = boardOf(plan);
+            assertFalse(written.isEmpty(),
+                    "stone " + stone + " carries no writing at all");
+            assertEquals(wanted.get(stone), written.get(0),
+                    "stone " + stone + " is for " + written.get(0) + " and the"
+                            + " town buried " + wanted.get(stone) + " in that"
+                            + " place: the row and the roster have come apart");
+            assertEquals("Miller", written.get(1),
+                    "and the trade under the name");
+        }
+    }
+
+    /**
+     * A headstone is legible in a town with no name, which is the one board that
+     * has to be.
+     *
+     * <p>Every other board is composed from a plaque and says nothing without
+     * one. A grave says a person's name, and a person is dead whether or not the
+     * settlement they died in has a name recorded — so a stone planned against
+     * {@code Plaque.NONE} still reads.
+     */
+    @Test
+    void aHeadstoneNeedsNoPlaque() {
+        com.civilization.sim.settlement.Settlement town = buriedThree();
+        Furnishings.Furnishing stone = Furnishings.graves(town).getFirst();
+        assertEquals("Ada Baker",
+                boardOf(FurnishingLayer.plan(flatFor(Culture.of(town.cultureId())),
+                        stone, com.civilization.sim.work.Signage.Plaque.NONE,
+                        FurnishingLayer.graveAt(town, stone))).getFirst());
+    }
+
+    /** The lines on the one sign block in a plan, or none if there is none. */
+    private static List<String> boardOf(List<FurnishingLayer.Course> plan) {
+        for (FurnishingLayer.Course course : plan) {
+            if (!course.lines().isEmpty()) {
+                return course.lines();
+            }
+        }
+        return List.of();
+    }
+
+    /** A ring town with an opened street round it and three people buried. */
+    private static com.civilization.sim.settlement.Settlement buriedThree() {
+        SimPos center = new SimPos(0, 64, 0);
+        com.civilization.sim.settlement.Settlement town =
+                new com.civilization.sim.settlement.Settlement(
+                        com.civilization.sim.settlement.Settlement.Id.random(),
+                        "Millbrook", center, 128);
+        town.setCultureId("civilization:human/norman");
+        com.civilization.sim.settlement.PathNetwork paths =
+                new com.civilization.sim.settlement.PathNetwork();
+        List<SimPos> corners = List.of(
+                new SimPos(-48, 64, -48), new SimPos(48, 64, -48),
+                new SimPos(48, 64, 48), new SimPos(-48, 64, 48));
+        for (int i = 0; i < corners.size(); i++) {
+            paths.add(new com.civilization.sim.settlement.PathNetwork.Segment(
+                    corners.get(i), corners.get((i + 1) % corners.size()), 8));
+        }
+        for (int i = 0; i < paths.segments().size(); i++) {
+            paths.markOpened(i);
+        }
+        town.setPaths(paths);
+        // Everybody a miller, so the trade line is the same on all three and the
+        // assertion above is about the name rather than about the trade.
+        for (String name : List.of("Ada Baker", "Bren Smith", "Cass Fletcher")) {
+            com.civilization.sim.person.Person lost =
+                    new com.civilization.sim.person.Person(
+                            com.civilization.sim.person.Person.Id.random(), name,
+                            com.civilization.sim.person.Profession.MILLER, center);
+            town.addResident(lost);
+            town.bury(lost.id(), 12);
+        }
+        return town;
+    }
+
     /** Which way the one sign block in this plan is looking. */
     private static net.minecraft.core.Direction boardFace(
             List<FurnishingLayer.Course> plan) {

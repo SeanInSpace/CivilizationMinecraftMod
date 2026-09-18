@@ -269,6 +269,37 @@ public final class Signage {
     }
 
     /**
+     * The board at the foot of a grave: who lies here, what they did, and when.
+     *
+     * <p>{@code Settlement.Grave.epitaph} is the same sentence — "Ada Baker,
+     * Farmer" — and it is one line where a board has four. Seventeen characters
+     * do not fit in {@link #LINE_WIDTH}, and a line that overflows is squeezed
+     * rather than cut, so the epitaph is set across the board instead of onto it:
+     * the name, then the trade, then the day. A reader gets the same sentence; a
+     * board gets lines it can draw.
+     *
+     * <p>The trade line is left empty for somebody who never had one, which is
+     * {@code Grave.epitaph}'s own rule said again: "Ada Baker / Idler" is not an
+     * epitaph, it is an insult.
+     *
+     * <p>Day one, not day zero, for the reason {@link #foundedDay} gives and
+     * against the same clock a player reads: the first day of a world is Day 1
+     * everywhere it is shown, and a stone saying "died day 0" reads as a stone
+     * that does not know.
+     */
+    public static List<String> headstone(Settlement.Grave whose) {
+        if (whose == null) {
+            return BLANK;
+        }
+        List<String> lines = new ArrayList<>();
+        lines.add(fit(whose.name()));
+        lines.add(fit(whose.profession() == com.civilization.sim.person.Profession.IDLER
+                ? "" : whose.profession().pretty()));
+        lines.add(whose.day() < 0 ? "" : fit("died day " + (whose.day() + 1)));
+        return pad(lines);
+    }
+
+    /**
      * What one piece of the dressing has written on it, or nothing.
      *
      * <p>The one entry point the drawing uses, so that adding a piece that
@@ -276,7 +307,32 @@ public final class Signage {
      */
     public static List<String> linesFor(Furnishings.Piece piece, Plaque plaque,
                                         int facing) {
-        if (piece == null || plaque == null || plaque.isBlank()) {
+        return linesFor(piece, plaque, facing, null);
+    }
+
+    /**
+     * The same, for a town that has buried somebody.
+     *
+     * <p>A grave is the one board whose words are not a fact about the town. A
+     * notice board, a signpost and an inn sign all say the same thing on every
+     * stone in the settlement and are composed from one {@link Plaque} read off
+     * it once; a headstone says a name, and which name depends on <em>which
+     * stone</em>. So the grave travels beside the plaque rather than in it, and
+     * it is null for the forty-nine pieces out of fifty that are not one.
+     *
+     * <p>A headstone asks nothing of the plaque, deliberately: it is legible in a
+     * town with no name and it is the one board a size test — which plans against
+     * {@link Plaque#NONE} — can still be handed something to write.
+     */
+    public static List<String> linesFor(Furnishings.Piece piece, Plaque plaque,
+                                        int facing, Settlement.Grave whose) {
+        if (piece == null) {
+            return BLANK;
+        }
+        if (piece == Furnishings.Piece.GRAVE) {
+            return headstone(whose);
+        }
+        if (plaque == null || plaque.isBlank()) {
             return BLANK;
         }
         return switch (piece) {

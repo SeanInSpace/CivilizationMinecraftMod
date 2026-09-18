@@ -54,6 +54,7 @@ had the day before.
   where nobody was watching; it never stands on a plot, a carriageway, the wall
   line, a lamp or a doorway; and it grows outward from its first stone a slot
   either side at a time, so a row hemmed in at one end still gets its full dozen.
+  Each stone's board says who lies under it: the name, the trade, and the day.
   Older dead fall off the list and are remembered in the event log only — a
   village remembers its dead for a while and then remembers that it had some.
 
@@ -73,19 +74,31 @@ had the day before.
   and compatibility was waived on 2026-09-11. A save with no list in it reads as a
   town that has never lost anybody, and one carrying more than a dozen is trimmed
   on the way in as well as on the way out.
-- **The headstones' boards are blank.** They should read "<name>, <trade>" and
-  the sentence is written and tested; putting text on a sign means a sign block
-  entity and a payload this seam does not carry yet. When the sign-text work
-  lands, the line to write is `Furnishings.graves` zipped against
-  `Settlement.dead()` — the two are in the same order on purpose.
-- The trader stands in the inn yard rather than taking a seat at a table. Sitting
-  a stranger down means the leisure machinery, which is keyed to a town's own
-  residents, and a visitor is not one.
-- Half of this needs a level to check and is a playtest item: the walk itself,
+- **Each headstone reads its person**, now that the boards carry words at all.
+  The name, the trade under it, and the day — the same sentence the town's own
+  records keep, set across the board rather than onto one line, because
+  "Ada Baker, Farmer" is seventeen characters and a line wider than the board is
+  squeezed rather than cut. Somebody who never had a trade gets a name and a date
+  and no second line, because "Ada Baker / Idler" is not an epitaph. Nothing
+  carries a name through the plan to get there: the row of stones and the list of
+  the dead are in the same order, so the third stone is for the third of them and
+  an index is the whole of the lookup.
+- **The trader still stands in the inn yard rather than sitting down at a table**,
+  and on inspection that is the right call rather than a shortcut. The leisure
+  machinery is keyed to a town's own people from end to end — it walks the roster,
+  reads professions, beds and hunger, and seats somebody by making them ride an
+  invisible display entity it holds in a map keyed by person id. That map is
+  emptied when a person's body is released or reaped, and neither of those knows
+  a caravan exists. A visitor given a seat and then sent on his way would leave
+  the seat behind him, invisible, in the inn yard, for ever — which is the exact
+  fault the seating code was written to avoid. Sitting a stranger down means
+  teaching leisure about somebody who is not a resident, and that is a bigger
+  change than the thing it buys.
+- What is left needs a level to check and is a playtest item: the walk itself,
   whether the llamas keep up on a leash over a hill, and whether the graves read
   as a churchyard rather than as a wall somebody abandoned. The schedule, the
-  entry point, where the stones go, and the promise that none of it moves the
-  books are all stated in `common/src/test`.
+  entry point, where the stones go, what is cut into them, and the promise that
+  none of it moves the books are all stated in the test suites.
 ## The town says its own name, and its trades are audible
 
 Two silences, and both of them were the same shape: a thing the town knows

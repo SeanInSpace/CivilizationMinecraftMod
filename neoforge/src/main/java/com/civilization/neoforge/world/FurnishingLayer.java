@@ -200,9 +200,28 @@ public final class FurnishingLayer {
     public static List<Course> plan(BlueprintPlacer.Site site,
                                     Furnishings.Furnishing piece,
                                     Signage.Plaque plaque) {
+        return plan(site, piece, plaque, null);
+    }
+
+    /**
+     * The same, for a headstone, which is the one board whose words are not a
+     * fact about the town.
+     *
+     * <p>A notice board says the town's name and a signpost says which way the
+     * hall is; both come out of the one {@link Signage.Plaque} read off the
+     * settlement. A grave says a person's name, and which name depends on which
+     * stone — so whose grave this is travels beside the plaque rather than in it,
+     * and is null for every piece that is not one. {@link #graveAt} is what works
+     * it out, and it works it out from the two lists being in the same order
+     * rather than from anything written down.
+     */
+    public static List<Course> plan(BlueprintPlacer.Site site,
+                                    Furnishings.Furnishing piece,
+                                    Signage.Plaque plaque,
+                                    Settlement.Grave whose) {
         FurnishingStyle style = FurnishingStyle.of(site.culture());
         Palette palette = paletteOf(style);
-        List<String> lines = Signage.linesFor(piece.piece(), plaque, piece.facing());
+        List<String> lines = Signage.linesFor(piece.piece(), plaque, piece.facing(), whose);
         List<Course> courses = new ArrayList<>();
         switch (piece.piece()) {
             case YARD -> yard(site, courses, piece, palette);
@@ -219,7 +238,7 @@ public final class FurnishingLayer {
             case FIRE_PIT -> firePit(site, courses, piece, palette);
             case CAGE -> cage(site, courses, piece, palette);
             case STAKES -> stakes(site, courses, piece, palette);
-            case GRAVE -> grave(site, courses, piece, palette);
+            case GRAVE -> grave(site, courses, piece, palette, lines);
         }
         return List.copyOf(courses);
     }
@@ -602,15 +621,17 @@ public final class FurnishingLayer {
      * every sweep for ever. The signpost gets away with a wall sign because it
      * has a solid post; this has not.
      *
-     * <p><strong>The board is blank.</strong> It should read "<name>,
-     * <profession>" — {@code Settlement.Grave.epitaph} is that sentence and is
-     * written already — but putting text on a sign means a sign block entity and
-     * a text payload, and this seam carries neither yet. When it does, the line
-     * to write is {@code Furnishings.graves(settlement)} zipped against
-     * {@code settlement.dead()}: the two are in the same order on purpose.
+     * <p><strong>The board says who lies here.</strong> The name, the trade and
+     * the day, which is {@code Settlement.Grave.epitaph} set across a board
+     * rather than onto one — see {@code Signage.headstone} for why seventeen
+     * characters do not go on a fifteen-character line. Which grave this stone is
+     * for is {@link #graveAt}'s answer, and it comes from
+     * {@code Furnishings.graves} and {@code Settlement.dead} being in the same
+     * order rather than from anything written down beside the stone.
      */
     private static void grave(BlueprintPlacer.Site site, List<Course> out,
-                              Furnishings.Furnishing piece, Palette palette) {
+                              Furnishings.Furnishing piece, Palette palette,
+                              List<String> lines) {
         SimPos at = piece.at();
         int ground = site.groundLevel(at.x(), at.z());
         // The turned earth under the stone, laid as soil so it takes the place of
@@ -623,7 +644,8 @@ public final class FurnishingLayer {
         BlockPos board = new BlockPos(at.x(), ground, at.z()).relative(foot);
         out.add(new Course(board.below(), Blocks.COARSE_DIRT.defaultBlockState(), true));
         out.add(new Course(board, palette.board().defaultBlockState()
-                .setValue(StandingSignBlock.ROTATION, signRotation(piece.facing()))));
+                .setValue(StandingSignBlock.ROTATION, signRotation(piece.facing())),
+                false, lines));
     }
 
     /**
@@ -683,7 +705,36 @@ public final class FurnishingLayer {
             return List.of();
         }
         return plan(siteFor(level, settlement), pieces.get(index),
-                plaqueFor(level, settlement));
+                plaqueFor(level, settlement),
+                graveAt(settlement, pieces.get(index)));
+    }
+
+    /**
+     * Whose grave this stone is, or null when the piece is not one.
+     *
+     * <p>Worked out rather than written down, and it is worked out from one
+     * fact: {@code Furnishings.graves} lists the planned stones in the order
+     * {@code Settlement.dead} lists the people they are for. That is a property
+     * the siting is written to have — the row is dug outward from its first
+     * stone in exactly the order the center-outward sort will put it in — so the
+     * <em>i</em>th stone is for the <em>i</em>th of the dead and nothing has to
+     * carry a name through the plan to say so.
+     *
+     * <p>Null for a stone the plan has and the roster has not, which is the state
+     * between a town burying its twelfth person and the oldest falling off the
+     * list. A board with nothing on it is left exactly as it stands — see
+     * {@link #inscribe}, which does nothing at all with an empty line list — so a
+     * stone whose name has aged out keeps the name it was cut with rather than
+     * being scrubbed blank.
+     */
+    static Settlement.Grave graveAt(Settlement settlement, Furnishings.Furnishing piece) {
+        if (settlement == null || piece == null
+                || piece.piece() != Furnishings.Piece.GRAVE) {
+            return null;
+        }
+        int stone = Furnishings.graves(settlement).indexOf(piece);
+        List<Settlement.Grave> dead = settlement.dead();
+        return stone < 0 || stone >= dead.size() ? null : dead.get(stone);
     }
 
     /**
@@ -889,7 +940,7 @@ public final class FurnishingLayer {
             Furnishings.Furnishing piece = pieces.get(i);
             BlockPos column = new BlockPos(piece.at().x(), piece.at().y(), piece.at().z());
             if (level.isLoaded(column)) {
-                placed += raise(level, site, piece, plaque) ? 1 : 0;
+                placed += raise(level, site, settlement, piece, plaque) ? 1 : 0;
                 looked++;
             }
             examined++;
@@ -921,9 +972,10 @@ public final class FurnishingLayer {
 
     /** Stands one whole piece, and says whether anything went in. */
     private static boolean raise(ServerLevel level, BlueprintPlacer.Site site,
-                                 Furnishings.Furnishing piece, Signage.Plaque plaque) {
+                                 Settlement settlement, Furnishings.Furnishing piece,
+                                 Signage.Plaque plaque) {
         boolean placed = false;
-        for (Course course : plan(site, piece, plaque)) {
+        for (Course course : plan(site, piece, plaque, graveAt(settlement, piece))) {
             placed |= put(level, course);
         }
         return placed;
