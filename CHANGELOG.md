@@ -6,6 +6,66 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Somebody lives here
+
+Standing in a finished town, nobody read as a person. Every human wore Steve, so
+thirty residents were one man copied thirty times. Every citizen floated a
+permanent nameplate, which is exactly what a diorama does to its figures: it
+labels them, and a town seen from the wall was a field of white text nobody
+could read anyway. And a right-click got one of six lines picked off the
+*entity's* uuid — which is thrown away and made afresh every time you walk out
+of town and back, so the same settler greeted you differently on every visit.
+
+### Added
+
+- **Settlers have faces.** Humans are drawn with vanilla's nine default player
+  skins — alex, ari, efe, kai, makena, noor, steve, sunny, zuri — instead of Steve
+  alone. Which one somebody wears is fixed by their own record, so a face survives
+  a re-embody, a reload, and walking out of sight and back; it is not a fact about
+  the body, which is disposable. Each human people draws from six of the nine, so
+  a lowland town and a burgher town are not the same crowd twice, and every one of
+  the nine is worn by at least two of the four. Orcs keep their plain and painted
+  pair and goblins their one.
+- **Settlers have something of their own to say.** The six generic lines are
+  replaced by a pool per people — eleven each for the lowlanders, the hill folk,
+  the burghers and the vale folk, ten each for the warhost and the mire goblins —
+  in each people's own register, mentioning the town by its own name where that
+  reads naturally. The pick is seeded from the person and the in-game day, so a
+  settler says the same thing all day and something else tomorrow.
+  - **And it is about what they are doing.** Eight situations outrank the pool
+    outright, in this order: the alarm ("Get indoors!"), hunger ("Have you any
+    bread?"), the king, a builder with a job and empty arms, a farmer with ripe
+    ground, a guard on post, the inn of an evening, and the walk home ahead of
+    dusk. A hungry king is a hungry man.
+  - A settlement that is not a village yet says so, and one with anything in its
+    history passes on the last thing that happened in it.
+
+### Changed
+
+- **Nameplates only within about eight blocks.** Beyond that a settler's name is
+  off, which does not make them anonymous: the game still draws a name when your
+  crosshair is on somebody, so it is there for anyone you actually look at, and
+  gone for the twenty-nine you are not. The name itself is unchanged —
+  `<name> — <Profession>`.
+
+### Notes
+
+- **None of this is worth anything.** A face, a nameplate and a greeting touch no
+  store, no ledger and no yield — they exist only where somebody is watching, and
+  the rule for those is the one leisure already keeps below: a watched town and an
+  unwatched one have to agree about everything that matters.
+- The costs: one extra nearest-player lookup per embodied settler per pass, on a
+  loop that was already walking all of them; and a handful of reads on the single
+  tick somebody right-clicks. Nothing at all for a person nobody can see.
+- What the tests cover is the arithmetic: that a face and a line are the same for
+  the same person twice and different tomorrow, that thirty people do not speak in
+  unison or share a face, that every people has a pool and a palette, that each
+  situation fires on its own condition and beats the pool, and that the town's own
+  name is what gets substituted. The platform half needs a level and is untested —
+  that the nine textures actually draw on the settler model, that a nameplate
+  fades at eight blocks and comes back under the crosshair, and that the right
+  line arrives in chat were reasoned about rather than watched.
+
 ## The ground between the houses
 
 A screenshot of a finished ring town — fifteen buildings, fifteen people, the

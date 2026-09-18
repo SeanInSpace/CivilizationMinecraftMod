@@ -586,10 +586,19 @@ final class Pastimes {
 
     /** What somebody is doing with their afternoon, for {@code /civ info}, or null. */
     String reportFor(UUID id) {
+        Leisure.Pastime what = pastimeOf(id);
+        return what == null ? null : what.name().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * The same fact, unworded, for anything that wants to branch on it.
+     *
+     * <p>{@link #reportFor} is a line of a report and returns a word; a greeting
+     * has to know whether this is the inn in particular, and parsing a lowercased
+     * enum name back into an enum would be a round trip nobody should make.
+     */
+    Leisure.Pastime pastimeOf(UUID id) {
         Sitting held = at.get(id);
-        if (held == null) {
-            return null;
-        }
-        return held.what().name().toLowerCase(Locale.ROOT);
+        return held == null ? null : held.what();
     }
 }

@@ -4,14 +4,24 @@ import com.civilization.neoforge.CivilizationAttachments;
 import com.civilization.neoforge.CivilizationItems;
 import com.civilization.neoforge.CivilizationMod;
 import com.civilization.neoforge.net.PersonInventoryPayload;
+import com.civilization.sim.culture.Culture;
+import com.civilization.sim.culture.Faces;
 import com.civilization.sim.culture.Race;
 import com.civilization.sim.person.Appetite;
+import com.civilization.sim.person.Curfew;
 import com.civilization.sim.person.Foods;
+import com.civilization.sim.person.Greetings;
 import com.civilization.sim.person.Inventory;
+import com.civilization.sim.person.Leisure;
+import com.civilization.sim.person.NightRest;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
+import com.civilization.sim.settlement.Building;
+import com.civilization.sim.settlement.BuildingRole;
+import com.civilization.sim.settlement.Field;
 import com.civilization.sim.settlement.KingPlanner;
 import com.civilization.sim.settlement.Settlement;
+import com.civilization.sim.settlement.SettlementStage;
 import com.civilization.sim.world.SimWorld;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -40,7 +50,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -61,14 +70,6 @@ import java.util.UUID;
  * PopulationPlanner our beds-and-breeding, the settlement event log our gossip.
  */
 public final class PersonEntity extends PathfinderMob {
-
-    private static final List<String> GREETINGS = List.of(
-            "Fine day for it.",
-            "The town grows, doesn't it?",
-            "Plenty of work to be done.",
-            "Have you seen the walls? Sturdy work.",
-            "We manage, raids and all.",
-            "New faces are always welcome.");
 
     public PersonEntity(EntityType<? extends PersonEntity> type, Level level) {
         super(type, level);
@@ -162,6 +163,26 @@ public final class PersonEntity extends PathfinderMob {
      * for why the choice cannot be left to the client.
      */
     public void applyRace(Race race, UUID personId) {
+        applyRace(race, null, personId);
+    }
+
+    /**
+     * The same, for a settler who has a people as well as a body.
+     *
+     * <p>The culture only changes the face: each human people draws from six of
+     * vanilla's nine default skins, so two towns do not look like the same crowd
+     * twice (see {@link Faces}). It changes nothing about the health or the pace,
+     * which are facts about the body and belong to the race — a burgher and a
+     * hill man are the same animal.
+     *
+     * <p>A raider out of the trees answers to nobody's town and goes through the
+     * two-argument door above, which draws from the whole nine.
+     */
+    public void applyRace(Culture culture, UUID personId) {
+        applyRace(culture.race(), culture, personId);
+    }
+
+    private void applyRace(Race race, Culture culture, UUID personId) {
         AttributeInstance health = getAttribute(Attributes.MAX_HEALTH);
         if (health != null) {
             health.setBaseValue(race.maxHealth());
@@ -172,29 +193,7 @@ public final class PersonEntity extends PathfinderMob {
         }
         setHealth(getMaxHealth());
         entityData.set(DATA_RACE, (byte) race.ordinal());
-        entityData.set(DATA_SKIN, (byte) skinFor(personId));
-    }
-
-    /**
-     * How many skins a race may have. Two: plain, and war-painted.
-     *
-     * <p>Not a per-race count on purpose. A race with one skin simply ignores
-     * the second index — the renderer's table decides how many of these it can
-     * actually honor, and a race that grows a third variant is a row there and
-     * nothing here.
-     */
-    public static final int SKINS_PER_RACE = 2;
-
-    /**
-     * Which skin a person wears, spread evenly and the same every time.
-     *
-     * <p>{@code floorMod} rather than {@code %} because a UUID's hash is as
-     * often negative as not, and a negative index would put half a warband in
-     * no skin at all.
-     */
-    public static int skinFor(UUID personId) {
-        return personId == null ? 0
-                : Math.floorMod(personId.hashCode(), SKINS_PER_RACE);
+        entityData.set(DATA_SKIN, (byte) Faces.faceFor(race, culture, personId));
     }
 
     /** The race this body wears, as the client sees it. Never null. */
@@ -204,7 +203,7 @@ public final class PersonEntity extends PathfinderMob {
         return ordinal < races.length ? races[ordinal] : Race.HUMAN;
     }
 
-    /** Which of that race's skins this body wears; see {@link #SKINS_PER_RACE}. */
+    /** Which of that race's skins this body wears; see {@link Faces}. */
     public int skin() {
         return entityData.get(DATA_SKIN) & 0xFF;
     }
@@ -398,7 +397,9 @@ public final class PersonEntity extends PathfinderMob {
      *   <li><strong>Sneak right-click</strong> — read their pockets and how
      *       hungry they are. In creative that opens a screen; in survival it is
      *       a line of chat, as it has always been.</li>
-     *   <li><strong>Right-click</strong> — a word in passing.</li>
+     *   <li><strong>Right-click</strong> — a word in passing: their own, their
+     *       people's, and about whatever they are in the middle of. See
+     *       {@link #greeting}.</li>
      * </ul>
      */
     @Override
@@ -450,9 +451,109 @@ public final class PersonEntity extends PathfinderMob {
             return InteractionResult.SUCCESS;
         }
 
-        String line = GREETINGS.get(Math.floorMod(getUUID().hashCode(), GREETINGS.size()));
-        player.sendSystemMessage(Component.literal(name + ": \"" + line + "\""));
+        player.sendSystemMessage(Component.literal(
+                name + ": \"" + greeting(person) + "\""));
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * A word in passing, chosen in {@code common} and only gathered here.
+     *
+     * <p>Everything this does is fetch: who the person is, what their town is
+     * called and how far along it is, what their people are, and what is going on
+     * around them right now. {@link Greetings} does the deciding, because the
+     * deciding is arithmetic over a record and a table and nothing about it wants
+     * a level.
+     *
+     * <p>A body the simulation cannot place still answers — it just answers as a
+     * lowlander in an unnamed camp, which is what it is.
+     */
+    private String greeting(Person person) {
+        if (person == null) {
+            return "I'm nobody's, and nowhere's.";
+        }
+        Settlement settlement = settlement();
+        Culture culture = settlement == null ? Culture.DEFAULT
+                : Culture.of(settlement.cultureId());
+        Greetings.Town town = settlement == null
+                ? new Greetings.Town("nowhere", SettlementStage.CAMP, null)
+                : Greetings.Town.of(settlement.name(), settlement.stage(), settlement.events());
+        long clock = level().getDefaultClockTime();
+        return Greetings.lineFor(momentOf(person, settlement, clock), town, culture,
+                Math.floorDiv(clock, NightRest.DAY));
+    }
+
+    /**
+     * What is going on around one settler, as far as a body can tell.
+     *
+     * <p>Every field is read rather than remembered — the alarm off the town, the
+     * ripe ground off its farms, the pastime off the manager that handed it out.
+     * A greeting is worth nothing (no ledger, no store, no yield), so it may cost
+     * a few lookups on the one tick somebody right-clicks and must not cost
+     * anything on the thousand ticks nobody does.
+     */
+    private Greetings.Moment momentOf(Person person, Settlement settlement, long clock) {
+        boolean curfew = Curfew.isCurfew(clock, Curfew.LEAD_TICKS);
+        boolean evening = NightRest.isNight(clock) || curfew;
+        Leisure.Pastime pastime = leisure();
+        boolean alarm = settlement != null && settlement.alarm().isRaised();
+        // At work means exactly what the routine means by it: the town is still
+        // handing out work, nothing hostile is in view, and this is a trade that
+        // has somewhere to be. The watch is the exception the routine already
+        // makes — a guard's work is the night.
+        boolean atWork = settlement != null && pastime == null && !isInDanger()
+                && !isSleeping()
+                && (person.profession() == Profession.GUARD || (!evening && !curfew));
+        return new Greetings.Moment(person.id(), person.profession(), person.hunger(),
+                atWork, pastime != null, pastime == Leisure.Pastime.INN,
+                evening, curfew && person.profession() != Profession.GUARD, alarm,
+                awaitingMaterials(person, settlement), harvestIn(settlement));
+    }
+
+    /**
+     * A builder with a job on the books and nothing in his arms.
+     *
+     * <p>Not "the stores are empty" — that is the town's problem and the town
+     * reports it. This is the thing a player standing next to him can see: the
+     * plot is queued, he is one of the crew, and he is carrying no stone.
+     */
+    private static boolean awaitingMaterials(Person person, Settlement settlement) {
+        return settlement != null
+                && person.profession() == Profession.BUILDER
+                && !settlement.buildQueue().isEmpty()
+                && person.carriedLoad() <= 0
+                && person.haul() == null;
+    }
+
+    /**
+     * What this settler is at leisure doing, or null if they are not.
+     *
+     * <p>Asked of the manager because the manager is what handed the pastime out
+     * — it owns the seat, the timer and the place. A body carries no memory of
+     * being at the inn, and a second copy of that fact on the entity would be a
+     * second thing to keep in step with the first.
+     */
+    private Leisure.Pastime leisure() {
+        if (!(level() instanceof ServerLevel serverLevel)
+                || !hasData(CivilizationAttachments.PERSON_ID.get())) {
+            return null;
+        }
+        var manager = CivilizationMod.managerFor(serverLevel);
+        return manager == null ? null
+                : manager.leisureOf(getData(CivilizationAttachments.PERSON_ID.get()));
+    }
+
+    /** Whether anything in this settlement's fields is standing ripe. */
+    private static boolean harvestIn(Settlement settlement) {
+        if (settlement == null) {
+            return false;
+        }
+        for (Building farm : settlement.buildingsWithRole(BuildingRole.CROP_FARM)) {
+            if (Field.ripeBlocks(farm) > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Pockets, appetite, and whatever load they are carrying. */
@@ -567,6 +668,15 @@ public final class PersonEntity extends PathfinderMob {
 
     /** The record this body stands for, if the simulation still knows them. */
     private Person person() {
+        Settlement settlement = settlement();
+        if (settlement == null) {
+            return null;
+        }
+        return settlement.resident(new Person.Id(getData(CivilizationAttachments.PERSON_ID.get())));
+    }
+
+    /** The town this body answers to, if the simulation still knows of one. */
+    private Settlement settlement() {
         if (!(level() instanceof ServerLevel serverLevel)
                 || !hasData(CivilizationAttachments.PERSON_ID.get())) {
             return null;
@@ -576,8 +686,7 @@ public final class PersonEntity extends PathfinderMob {
             return null;
         }
         UUID id = getData(CivilizationAttachments.PERSON_ID.get());
-        Person.Id personId = new Person.Id(id);
-        Optional<Settlement> settlement = world.settlementOf(personId);
-        return settlement.map(s -> s.resident(personId)).orElse(null);
+        Optional<Settlement> settlement = world.settlementOf(new Person.Id(id));
+        return settlement.orElse(null);
     }
 }

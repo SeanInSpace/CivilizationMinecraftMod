@@ -1,5 +1,7 @@
 package com.civilization.neoforge.entity;
 
+import com.civilization.sim.culture.Culture;
+import com.civilization.sim.culture.Faces;
 import com.civilization.sim.culture.Race;
 import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.DisplayName;
@@ -106,31 +108,52 @@ class PersonSkinTest {
     }
 
     @Test
-    @DisplayName("humans still wear Steve, on purpose")
-    void humansStillWearSteve() {
-        assertEquals(List.of(PersonSkins.STEVE), PersonSkins.of(Race.HUMAN));
-        assertEquals("minecraft", PersonSkins.STEVE.getNamespace());
+    @DisplayName("humans wear vanilla's nine, in vanilla's own order")
+    void humansWearVanillasNine() {
+        List<Identifier> humans = PersonSkins.of(Race.HUMAN);
+        assertEquals(Faces.HUMAN_FACES.size(), humans.size(),
+                "the nine default player skins were promised; the table holds " + humans);
+
+        // The order is load-bearing and is the whole reason the choosing can sit
+        // in common while the art sits here: Faces picks index n out of its own
+        // list of names and this list has to be the same n.
+        for (int i = 0; i < humans.size(); i++) {
+            Identifier sheet = humans.get(i);
+            assertEquals("minecraft", sheet.getNamespace(),
+                    "a default player skin in our own namespace: " + sheet);
+            assertEquals("textures/entity/player/wide/" + Faces.HUMAN_FACES.get(i) + ".png",
+                    sheet.getPath(),
+                    "face " + i + " is " + sheet + " here and "
+                            + Faces.HUMAN_FACES.get(i) + " in Faces");
+        }
+
+        // Wide, never slim. The renderer bakes ModelLayers.PLAYER's wide build,
+        // and a slim sheet drawn on it puts the sleeve texture off the arm.
+        for (Identifier sheet : humans) {
+            assertFalse(sheet.getPath().contains("/slim/"),
+                    sheet + " is a slim sheet on a wide model");
+        }
+        assertTrue(humans.contains(PersonSkins.STEVE), "Steve is still one of the nine");
     }
 
     @Test
-    @DisplayName("a person's skin is stable for their life and spread across the variants")
-    void aPersonsSkinIsStableAndSpread() {
-        UUID one = UUID.fromString("0b2f7a6e-1c4d-4f8a-9b3e-5d6c7a8b9c0d");
-        assertEquals(PersonEntity.skinFor(one), PersonEntity.skinFor(one),
-                "the same person got two different faces");
-
-        Set<Integer> seen = new HashSet<>();
+    @DisplayName("every face a person can be handed lands on a real human sheet")
+    void everyFaceLandsOnARealSheet() {
+        Set<Identifier> worn = new HashSet<>();
         for (int i = 0; i < 400; i++) {
-            int variant = PersonEntity.skinFor(new UUID(i * 2654435761L, i));
-            assertTrue(variant >= 0 && variant < PersonEntity.SKINS_PER_RACE,
-                    "variant " + variant + " is outside the table");
-            seen.add(variant);
+            UUID id = new UUID(i * 2654435761L, i);
+            for (Culture culture : Culture.humans()) {
+                Identifier sheet = PersonSkins.sheetFor(Race.HUMAN,
+                        Faces.faceFor(Race.HUMAN, culture, id));
+                assertNotNull(sheet);
+                assertTrue(PersonSkins.of(Race.HUMAN).contains(sheet),
+                        culture.id() + " asked for " + sheet + ", which is not one of the nine");
+                worn.add(sheet);
+            }
         }
-        assertEquals(PersonEntity.SKINS_PER_RACE, seen.size(),
-                "four hundred orcs only produced " + seen + " between them");
-
-        // A body with no person behind it is not a crash.
-        assertEquals(0, PersonEntity.skinFor(null));
+        assertEquals(PersonSkins.of(Race.HUMAN).size(), worn.size(),
+                "four hundred settlers across every people wore only " + worn.size()
+                        + " of the nine faces");
     }
 
     /** Width, height and color type, read straight out of a PNG's IHDR. */

@@ -36,6 +36,7 @@ import com.civilization.sim.person.Appetite;
 import com.civilization.sim.person.BuildLoad;
 import com.civilization.sim.person.HaulTask;
 import com.civilization.sim.person.Household;
+import com.civilization.sim.person.Leisure;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
 import com.civilization.sim.settlement.BuildPlanner;
@@ -3305,12 +3306,15 @@ public final class PersonEntityManager {
      */
     private boolean embody(Settlement settlement, Person person) {
         PersonEntity view = new PersonEntity(CivilizationEntities.PERSON.get(), level);
-        view.applyRace(Culture.of(settlement.cultureId()).race(), person.id().value());
+        view.applyRace(Culture.of(settlement.cultureId()), person.id().value());
         SimPos pos = person.position();
         int y = standableY(pos);
         view.setPos(pos.x() + 0.5, y, pos.z() + 0.5);
         view.setCustomName(Component.literal(person.name() + " — " + pretty(person)));
-        view.setCustomNameVisible(true);
+        // Named, but not labelled from across the valley. See nameplate below:
+        // the routine turns this on for anybody a player is actually standing
+        // near, and a body is embodied long before that is true.
+        view.setCustomNameVisible(false);
         view.setPersistenceRequired();
         view.setData(CivilizationAttachments.PERSON_ID.get(), person.id().value());
 
@@ -3780,6 +3784,43 @@ public final class PersonEntityManager {
         return Curfew.isCurfew(clock(), Curfew.LEAD_TICKS);
     }
 
+    /**
+     * How near a player has to be for a settler's name to float over them.
+     *
+     * <p>Eight blocks: conversational distance, and about the range at which you
+     * could read the plate anyway. The number is small on purpose — see
+     * {@link #nameplate}.
+     */
+    public static final double NAMEPLATE_RANGE = 8.0;
+
+    /**
+     * Shows a settler's name only to somebody standing next to them.
+     *
+     * <p>Every citizen used to float a permanent nameplate, which is precisely
+     * what a diorama does to its figures: it labels them. A town seen from the
+     * wall was a field of white text, and none of it was information — you cannot
+     * read a name at forty blocks and you did not want thirty of them at once.
+     *
+     * <p>Turning the flag off does not make a settler anonymous. Vanilla draws a
+     * custom name regardless of this flag when the player's crosshair is on the
+     * entity, so the name is still there for anybody who looks at somebody in
+     * particular — which is the only time it was ever worth having.
+     *
+     * <p>Here rather than in the entity's own tick for two reasons: it is per
+     * manager pass rather than per tick, which is twenty times less work for a
+     * question whose answer changes at walking pace; and the routine is already
+     * walking every embodied settler in the town, so this costs the loop nothing
+     * but the lookup.
+     */
+    private void nameplate(PersonEntity view) {
+        view.setCustomNameVisible(level.getNearestPlayer(view, NAMEPLATE_RANGE) != null);
+    }
+
+    /** What this person is at leisure doing, or null. Read by the greeting. */
+    public Leisure.Pastime leisureOf(UUID personId) {
+        return pastimes.pastimeOf(personId);
+    }
+
     private void dailyRoutine(Settlement settlement) {
         boolean night = level.isDarkOutside();
         boolean bedtime = isBedtime();
@@ -3815,6 +3856,7 @@ public final class PersonEntityManager {
             if (view == null || view.isRemoved()) {
                 continue;
             }
+            nameplate(view);
 
             boolean guard = person.profession() == Profession.GUARD;
             SimPos home = homes.get(person.id().value());
