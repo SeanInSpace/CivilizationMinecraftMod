@@ -133,6 +133,21 @@ public final class Furnishings {
         /** A post and a board at a junction, pointing at the hall. */
         SIGNPOST(1, 1, new Cost(4, 0, 0)),
 
+        /**
+         * The inn's own board, on a post on its frontage.
+         *
+         * <p>Shaped exactly like a {@link #SIGNPOST} and costed like one,
+         * because it is one: the difference between the two is entirely what is
+         * written on the board and which way round it hangs — a signpost faces
+         * the middle of the town, and an inn board faces the street, because
+         * nobody reads an inn sign from inside the inn.
+         *
+         * <p>Its own kind rather than a signpost planted by the inn, so that
+         * {@code Signage} can tell them apart without having to work out which
+         * building a post happens to be standing beside.
+         */
+        INN_SIGN(1, 1, new Cost(4, 0, 0)),
+
         /** A ring of stones round a fire, which is what a camp has instead of a hearth. */
         FIRE_PIT(1, 3, new Cost(4, 6, 0)),
 
@@ -399,6 +414,7 @@ public final class Furnishings {
         theHedges(settlement, style, ground, kept);
         theVergeTrees(settlement, style, ground, kept);
         theSignposts(settlement, style, ground, kept);
+        theInnBoard(settlement, style, ground, kept);
         SimPos center = settlement.center();
         // Center-outward, so the index means the same piece as the town grows,
         // with the tie broken on the position rather than left to the order the
@@ -1120,6 +1136,31 @@ public final class Furnishings {
                 }
             }
         }
+    }
+
+    /**
+     * A board on a post outside the inn, with the inn's own name on it.
+     *
+     * <p>{@code besideEach}, and so sited the same way every woodpile and every
+     * rick is: behind the building first, then its flanks, then its frontage,
+     * with the doorway itself kept absolutely clear. That puts most inn boards
+     * round the back, which sounds wrong and is not — "behind" is measured from
+     * the door, so the first side it tries is the one away from the street, and
+     * it only lands there when the street side is somebody else's ground. Given
+     * a choice this piece would rather stand on the frontage, and the ordinary
+     * case is that nothing else wants the frontage of an inn.
+     *
+     * <p>Nobody dresses one but the peoples who build inns. A warhost and a
+     * mire camp have no inn to sign, and {@code FurnishingStyle.raises} already
+     * says so for both without a word having to be added to it — which is what
+     * the table being a shape rather than a flag per piece buys.
+     */
+    private static void theInnBoard(Settlement settlement, FurnishingStyle style,
+                                    Keepouts ground, List<Furnishing> out) {
+        if (!style.raises(Piece.INN_SIGN)) {
+            return;
+        }
+        besideEach(settlement, ground, out, Piece.INN_SIGN, BuildingRole.INN);
     }
 
     /**

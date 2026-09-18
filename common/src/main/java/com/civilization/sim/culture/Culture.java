@@ -272,6 +272,75 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Tob", "Ubb", "Vug", "Wubb", "Xip", "Yig", "Zog", "Blent", "Crud",
             "Drib", "Fenk", "Glop");
 
+    /*
+     * ---- The inn boards ----
+     *
+     * Twelve apiece, and every one of them eleven characters or fewer. That is
+     * not a stylistic limit, it is the sign: a vanilla board is ninety pixels
+     * wide, which is fifteen characters of the default font, and the line the
+     * board carries is "The " and then this. A thirteenth name that did not fit
+     * would be a board reading "The Wheatshea".
+     *
+     * Same idiom rule as the families. A Norman inn is a heraldic beast on a
+     * post because that is what an illiterate country signs itself with; a
+     * burgher's is the guild's own trade; a warhost's is not an inn at all but
+     * the place the host drinks, and a goblin's is a hole somebody named after
+     * what it smells of. See {@code Signage.innNameFor}, which is the only
+     * caller and picks by the settlement rather than at random -- a town whose
+     * inn was called something new every reload would be a town with no inn.
+     */
+
+    static final List<String> NORMAN_INNS = List.of(
+            "Red Lion", "Green Man", "White Hart", "Ox & Cart", "Old Bell",
+            "Boar's Head", "Gold Fleece", "Black Swan",
+            "Plough", "Anchor", "Wheatsheaf", "Falcon");
+
+    static final List<String> HIGHLAND_INNS = List.of(
+            "Drover's", "Grey Cairn", "Stag's Rest", "Peat Fire", "Glen Head",
+            "Rowan Tree", "Shieling", "Tarbert Inn", "Corrie", "Thistle",
+            "Heather Ale", "Lochside");
+
+    static final List<String> BURGHER_INNS = List.of(
+            "Gilded Cup", "Guildhouse", "Weighhouse", "Merchant", "Three Keys",
+            "Silver Ell", "Toll Board", "Counting", "Salt Cellar", "Draper",
+            "Black Eagle", "Zeeman's");
+
+    static final List<String> VALE_INNS = List.of(
+            "Green Ring", "Hollybush", "Shepherd", "Old Oak", "Hayward's",
+            "Mead Bench", "Combe End", "Bramble", "Ringwell", "Oxlease",
+            "Lammas Inn", "Longmead");
+
+    static final List<String> ORC_INNS = List.of(
+            "Broken Tusk", "Skull & Axe", "Bloody Maul", "Iron Horn", "Warmoot",
+            "Redhand", "Gorepost", "Bone Yard", "Black Pyre", "Ashfang",
+            "Splitjaw", "Doomhorn");
+
+    static final List<String> GOBLIN_INNS = List.of(
+            "Rotgut", "Bogwattle", "Mucky Nix", "Reekmaw", "Toadwallow",
+            "Grubhole", "Sludge Pot", "Leechbite", "Fenscrape", "Wormrot",
+            "Scumtooth", "Peatbelly");
+
+    /**
+     * What this people call the place their travellers drink.
+     *
+     * <p>Keyed off {@link #style()} in {@code FurnishingStyle.of}'s own manner
+     * rather than stored as a seventh column of the record, and deliberately: a
+     * datapack culture nobody has written an inn board for still gets one, and
+     * adding the column would have meant editing every culture and every test
+     * that builds one for the sake of a list only the signwriter reads.
+     */
+    public List<String> innNames() {
+        return switch (style()) {
+            case "highland" -> HIGHLAND_INNS;
+            case "burgher" -> BURGHER_INNS;
+            case "vale" -> VALE_INNS;
+            case "warhost" -> ORC_INNS;
+            case "mire" -> GOBLIN_INNS;
+            // "norman", "default", and anybody a datapack names.
+            default -> NORMAN_INNS;
+        };
+    }
+
     public static final Culture DEFAULT = new Culture(
             "civilization:default",
             List.of("minecraft:cow", "minecraft:sheep", "minecraft:pig", "minecraft:chicken"),

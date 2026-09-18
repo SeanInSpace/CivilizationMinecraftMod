@@ -6,6 +6,89 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The town says its own name, and its trades are audible
+
+Two silences, and both of them were the same shape: a thing the town knows
+perfectly well and had no way of telling anybody standing in it. Every board in
+every settlement was blank — the notice board in the paved square, the posts at
+the crossings — because the drawing seam carried blocks and not words, and said
+so in as many words. And the indoor trades made no noise at all: felling a tree
+and cutting a seam are audible by accident, because they go through the block
+breaking that vanilla already makes a sound for, so a lumberjack read as
+working and a smith standing in a room with an anvil in it read as switched off.
+
+### Added
+
+- **Boards have writing on them.** The notice board on the post in the square
+  reads the town's name, what it has grown into — camp, homestead, fortified,
+  village, town — and the day it was founded. A post at a crossroads reads the
+  town's name, an arrow to the hall and the compass word for which way that is.
+  All of it is worked out fresh from the standing town every time the dressing is
+  swept, so a village that became a town has the new word on its board by the next
+  sweep, and a board somebody scrubbed is rewritten the way a broken fence post is
+  put back. Nothing is written down; the save still carries only a count of pieces
+  raised.
+- **Inns have names, and a board to hang them on.** A new piece of the dressing:
+  a post and a board on the inn's frontage, reading "The Red Lion / inn /
+  Millbrook". Twelve names per people, in each people's own idiom — a Norman inn
+  is a heraldic beast, a burgher's is the guild's trade, a goblin's is a hole
+  named after what it smells of. A town keeps its inn's name for as long as the
+  town exists, because the name is drawn from the settlement rather than rolled.
+  Warhosts and mire camps get none: they have no inn to sign.
+- **The smithy rings, the bench cuts, the millstone turns.** A smith at his anvil
+  swings, strikes a quiet anvil and throws sparks; a carpenter at his bench saws
+  and strips; a miller grinds and raises flour off the stone. Once every two to
+  four seconds apiece, only within 32 blocks of somebody, only while they are
+  actually standing at the building, and — the one that matters — only while that
+  building's own books say there is work in front of it. A forge with no iron in it
+  is silent. A player who learns to read the hammering as "the smithy is working"
+  has learned something true.
+
+### Changed
+
+- **The smith, the miller, the carpenter and the king take an afternoon.** They
+  were the four stiffest figures in any town, and not because anybody decided they
+  should be: the rule that decides whether somebody is working was a switch whose
+  last arm said yes, so every trade nobody had thought about was permanently at
+  work. They now answer off the same ledgers everyone else does — a cold forge, an
+  empty hopper, an empty build queue — and go and stand in the square, lean on a
+  neighbour's door or sit on a bench like anybody else. A forge with iron in it
+  still keeps its smith: work outranks leisure exactly as before.
+- **The king keeps his hall.** He gets an offer of his own — his own hall doorway,
+  the square and the inn, weighted so that about three afternoons in five he is at
+  the hall, which is where anybody looking for him would look. In the evening he
+  walks to the inn with everybody else. The chieftain of a camp gets the same.
+
+### Notes
+
+- **None of this is worth anything, and it cannot become worth anything.** Every
+  sound, swing, spark and word of sign text is theatre: nothing here takes
+  anything off a shelf, adds anything to a yield or touches a ledger in any
+  direction. The gate that decides whether a smith strikes *reads* the forge's own
+  "is there work in front of it" and never writes to it. A watched town and an
+  unwatched town produce identical books, which is the same promise the chimney
+  smoke and the pastimes make and the one asymmetry between the two fidelities
+  this mod does not allow.
+- **What is measured and what is read.** The arithmetic is under test: what a
+  board says and that every line of it fits the fifteen characters a vanilla sign
+  will draw without squeezing, that every people's inn names are non-empty and fit
+  with "The " in front of them, that the theatre fires only when watched *and* at
+  the workplace *and* with the building's books non-empty, and that a smith rests
+  at a cold forge and never at a hot one. The platform half — putting a
+  `SignText` onto a `SignBlockEntity`, playing the anvil, sending the sparks —
+  needs a running level and is read rather than measured, as the leisure and
+  ambience halves already were.
+- **The woodpile and the rick still do not track their stores.** The stretch on
+  this unit was to have a lumber camp's woodpile stand at three heights by the
+  timber ledger and a farm's rick by the grain. It was not done, and the reason is
+  the dressing's own design rather than the time: the drawing sweep is additive
+  and repairing only — it lays what is missing and has no path that takes a block
+  back out. A pile that grew to full could therefore never return to half, so
+  "three heights" would in practice mean "grows once and stays", which is worse
+  than the fixed prop it replaced. Giving the sweep a removal path is a real piece
+  of work with a real hazard attached — it would be the one place in the dressing
+  that can delete a block near somebody's own building — and it belongs in its own
+  unit.
 ## Somebody lives here
 
 Standing in a finished town, nobody read as a person. Every human wore Steve, so

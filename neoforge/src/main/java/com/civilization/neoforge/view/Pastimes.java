@@ -14,8 +14,10 @@ import com.civilization.sim.settlement.Beds;
 import com.civilization.sim.settlement.Building;
 import com.civilization.sim.settlement.BuildingRole;
 import com.civilization.sim.settlement.FoodPlanner;
+import com.civilization.sim.settlement.KingPlanner;
 import com.civilization.sim.settlement.MarketPlanner;
 import com.civilization.sim.settlement.Settlement;
+import com.civilization.sim.settlement.SmithPlanner;
 import com.civilization.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -156,6 +158,7 @@ final class Pastimes {
         // only reason the night offers anything.
         boolean bedtime = level.isDarkOutside() && NightRest.isNight(clock);
         Offer offer = offerIn(settlement, now);
+        Leisure.Openings town = openingsIn(settlement, clock);
         int walking = walkersIn(settlement, now);
         List<Leisure.Attendee<UUID>> present = new ArrayList<>();
 
@@ -174,7 +177,8 @@ final class Pastimes {
                     bodied && view.isInDanger(),
                     bodied && view.isSleeping(),
                     person.haul() != null || FoodPlanner.isGoingToEat(person),
-                    hasWork(settlement, person, hour, clock));
+                    Leisure.hasWork(person.profession(), hour,
+                            person.isTooWeakToWork(), openingsFor(town, person)));
             if (!Leisure.mayRest(who)) {
                 stop(id, view);
                 continue;
@@ -198,11 +202,26 @@ final class Pastimes {
                 if (walking >= Leisure.WALKS_AT_ONCE) {
                     continue;   // the town has enough people crossing it already
                 }
-                Leisure.Rest rest = Leisure.restFor(id, now, hour, offer.places());
+                // The one man in the town with an offer of his own. A king is
+                // not steered anywhere by his profession — his workplace is his
+                // own doorstep — so left on the town's offer he would wander to
+                // the well like anybody, which is not what a hall is for.
+                boolean crowned = person.profession() == Profession.KING
+                        || person.profession() == Profession.SHAMAN;
+                List<Leisure.Place> offered = crowned
+                        ? Leisure.forKing(KingPlanner.rallyPoint(settlement), offer.places())
+                        : offer.places();
+                Leisure.Rest rest = Leisure.restFor(id, now, hour, offered);
                 if (rest == null) {
                     continue;   // nothing on offer at this hour; stand as before
                 }
-                SimPos where = placeFor(settlement, person, rest, offer);
+                // His hall is already the particular place rather than a
+                // representative of a kind, so it goes through untouched.
+                // placeFor would swap a DOORWAY for a neighbour's door, which is
+                // right for everybody whose doorway was a stand-in and wrong for
+                // the one whose was not.
+                SimPos where = crowned ? rest.where()
+                        : placeFor(settlement, person, rest, offer);
                 held = new Sitting(rest.what(),
                         new BlockPos(where.x(), where.y(), where.z()), now + rest.ticks());
                 at.put(id, held);
@@ -217,45 +236,44 @@ final class Pastimes {
     }
 
     /**
-     * Whether the town has this person's hands on something right now.
+     * What this town has on offer for each trade, gathered once a pass.
      *
-     * <p>The one judgment here that is not {@code Leisure}'s, because it is
-     * entirely about this settlement's own state: whether a field has been
-     * ploughed, whether the wood has been claimed, whether the stalls are open.
-     * Everything outside the working day answers no, which is the whole of
-     * "off-shift" — and so does anybody too weak to work, who is the
-     * "weak-but-fed" case: a settler the hunger rules have taken off the job but
-     * who is not walking to a meal is somebody sitting down, not somebody frozen
-     * at their workplace.
+     * <p>The judging moved to {@code Leisure.hasWork}, which can be tested
+     * without a world; what is left here is the gathering, which cannot. Every
+     * line quotes somebody else's ledger rather than forming an opinion —
+     * {@code SmithPlanner} on the forge, {@code FoodPlanner} on the mill,
+     * {@code MarketPlanner} on the stall — so the answer to "is the smith busy"
+     * is the same answer the haul planner gets when it asks whether he can be
+     * spared to carry something.
+     *
+     * <p>Gathered per settlement rather than per person because none of it
+     * varies by person: a town has one forge and one mill, and asking them once
+     * for the whole pass is the difference between three lookups and sixty.
      */
-    private boolean hasWork(Settlement settlement, Person person, Leisure.Hour hour,
-                            long clock) {
-        if (hour != Leisure.Hour.DAY || person.isTooWeakToWork()) {
-            return false;
-        }
-        if (busyBuilding.test(person.id().value())) {
-            return true;
-        }
-        return switch (person.profession()) {
-            // Nothing to be waiting for, by definition.
-            case IDLER -> false;
-            // Asked and answered above: a builder with a site is busy on it, and
-            // a builder without one is precisely the person waiting for hands.
-            case BUILDER, PIONEER -> false;
-            // The watch's leisure is its post; see leanOnPost.
-            case GUARD -> false;
-            case FARMER -> settlement.buildingWithRole(BuildingRole.CROP_FARM) != null;
-            case LUMBERJACK -> settlement.lumberArea() != null;
-            case MINER -> settlement.mineArea() != null;
-            case SHEPHERD -> settlement.buildingWithRole(BuildingRole.ANIMAL_FARM) != null;
-            // A trader is at the stall while the stall is open and is somebody
-            // with an afternoon when it is not. See MarketPlanner.
-            case TRADER -> MarketPlanner.isOpen(clock);
-            // The trades with a building to stand in — the smith, the miller, the
-            // carpenter — and the two who hold an office. They keep their posts;
-            // a forge nobody is ever at is a worse picture than a quiet one.
-            default -> true;
-        };
+    private Leisure.Openings openingsIn(Settlement settlement, long clock) {
+        return new Leisure.Openings(false,
+                settlement.buildingWithRole(BuildingRole.CROP_FARM) != null,
+                settlement.lumberArea() != null,
+                settlement.mineArea() != null,
+                settlement.buildingWithRole(BuildingRole.ANIMAL_FARM) != null,
+                MarketPlanner.isOpen(clock),
+                SmithPlanner.hasWorkInFront(settlement),
+                FoodPlanner.millHasWork(settlement),
+                settlement.buildingWithRole(BuildingRole.CARPENTRY) != null
+                        && !settlement.buildQueue().isEmpty());
+    }
+
+    /**
+     * The same, for one person: the one opening that is theirs alone.
+     *
+     * <p>Whether the construction pass or the public works already have this
+     * person's hands, which outranks every trade and is the only thing in the
+     * record that has to be asked per settler.
+     */
+    private Leisure.Openings openingsFor(Leisure.Openings town, Person person) {
+        return new Leisure.Openings(busyBuilding.test(person.id().value()),
+                town.field(), town.wood(), town.stone(), town.pens(), town.stall(),
+                town.forge(), town.mill(), town.bench());
     }
 
     /** How many of this town's people are already walking to a pastime. */
