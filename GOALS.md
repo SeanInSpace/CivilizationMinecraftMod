@@ -449,6 +449,44 @@ work has landed, which changes what a street looks like from the middle of it.
 endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
 
+- [x] **The immersion batch, 2026-09-18.** From the question "what part of
+      the mod fails at immersiveness": after the living-town batch, the town
+      had idle life and animals but nobody in it was a person, nothing in it
+      was written, nothing ever arrived, and its trades were mute. People:
+      humans draw one of the nine vanilla faces, six per culture, fixed per
+      person across re-embody and reload; nameplates show only within eight
+      blocks (the crosshair still names anybody); right-click gives a stable,
+      situated line — eleven per human culture, ten each for orc and goblin,
+      eight situation overrides (alarm, hunger, king, waiting on stone,
+      harvest, on post, at the inn, curfew) — seeded by person and day, with
+      the town's name and last event in it. Writing: the square's board reads
+      name / stage / founded day, crossing posts point at the hall, every inn
+      has a named sign (twelve names per culture), and each headstone reads
+      name / trade / died day; text is derived and rewritten on repair. Trades
+      aloud, where watched, off the building's own ledger: anvil at the smithy,
+      wood at the carpentry, grindstone at the mill, 2-4 s apart within 32
+      blocks; smiths, millers, carpenters and the king now take pastimes, the
+      king three afternoons in five at the hall. Arrivals: the inn's caravan
+      is a body — trader and two chested llamas walk in from the gate or the
+      longest opened street, stand at the inn, walk out — keyed off the trade
+      it never alters; a newcomer walks in from the edge; a death raises a
+      stone in a churchyard row beyond the last house, twelve at most, and the
+      dead are the one thing in the dressing the save now carries. **None of
+      it has been seen in a world yet**; every platform half (faces on the
+      model, the nameplate fade, sounds, sign writes, the walk, the llamas on a
+      leash over a hill, whether twelve cobble walls read as a churchyard) is
+      read rather than measured.
+- [ ] **Left by the immersion batch.** The caravan trader stands in the inn
+      yard rather than sitting: `Pastimes` seats only residents and its seat
+      map is emptied by release/reap, neither of which knows a visitor exists,
+      so a seated stranger would leave an invisible seat behind. The woodpile
+      and the rick stay one-shot props: the dressing sweep has no path that
+      removes a block, so a pile that tracked the timber ledger could grow and
+      never shrink. Signposts point at the hall, not at a gate. Rain and night
+      still change the people and not the town: lamps burn all day, doors are
+      never shut for the night, no weather response. `atWork` for a greeting is
+      reconstructed on the entity from clock and pastime rather than read from
+      the routine's own `offWork`.
 - [x] **The living-town batch, 2026-09-16.** From the screenshot of a ring
       town that was a road around grass. Dressing: yards behind family homes,
       woodpiles, haystacks, crates, a well and a paved square with benches at
