@@ -62,6 +62,7 @@ import com.civilization.sim.settlement.PathNetwork;
 import com.civilization.sim.settlement.RoadUpkeep;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.settlement.Stock;
+import com.civilization.sim.settlement.TownEdge;
 import com.civilization.sim.view.EmbodimentPlanner;
 import com.civilization.sim.person.Curfew;
 import com.civilization.sim.combat.Beat;
@@ -497,6 +498,10 @@ public final class PersonEntityManager {
                 // half having to know the other exists.
                 pastimes.tend(settlement);
                 ambience.tend(settlement);
+                // A stranger on the road, which is the one thing that has ever
+                // walked into a town here that was not a raider. Theatre over a
+                // ledger InnPlanner has already settled: see Caravans.
+                Caravans.tend(level, world, settlement);
                 checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
                 workFarmers(settlement);
@@ -3306,7 +3311,7 @@ public final class PersonEntityManager {
     private boolean embody(Settlement settlement, Person person) {
         PersonEntity view = new PersonEntity(CivilizationEntities.PERSON.get(), level);
         view.applyRace(Culture.of(settlement.cultureId()).race(), person.id().value());
-        SimPos pos = person.position();
+        SimPos pos = walkInFrom(settlement, person);
         int y = standableY(pos);
         view.setPos(pos.x() + 0.5, y, pos.z() + 0.5);
         view.setCustomName(Component.literal(person.name() + " — " + pretty(person)));
@@ -3322,6 +3327,50 @@ public final class PersonEntityManager {
         }
         person.setEmbodied(true);
         return true;
+    }
+
+    /**
+     * Where a body goes down: at the edge of town for somebody who has just
+     * arrived, and where they were standing for everybody else.
+     *
+     * <p><strong>The fault this fixes.</strong> Nothing in this mod ever arrived.
+     * Raiders walk in from the edge and everybody else materializes — and that
+     * includes the one case where somebody genuinely is new to the town, which
+     * read as a stranger blinking into existence in the middle of the square. A
+     * newcomer now goes down at the gate, or at the far end of the longest
+     * street if there is no wall, and the ordinary steering walks them the rest
+     * of the way: nobody is pushed anywhere, the routine that finds them a bed
+     * and the planner that finds them a trade both run exactly as they did, and
+     * the only difference is which block they were standing on when they started.
+     *
+     * <p><strong>And it is theatre, so it may fail.</strong> A town with no
+     * opened street answers null from {@code TownEdge} and the arrival stands
+     * where they were put — which is a newcomer at a camp with no roads, and a
+     * camp with no roads has no edge to walk in from. The flag is cleared either
+     * way: an arrival is new exactly once, and one that stayed new would walk in
+     * from the gate again every time a player came back over the hill.
+     *
+     * <p>A birth is untouched, and untouched by construction rather than by a
+     * test here: {@code PopulationPlanner} makes children directly and only
+     * {@code Newcomer.arrive} sets the flag, so a newborn appears at home
+     * because nobody ever said otherwise.
+     */
+    private SimPos walkInFrom(Settlement settlement, Person person) {
+        if (!person.hasJustArrived()) {
+            return person.position();
+        }
+        person.setJustArrived(false);
+        SimPos edge = TownEdge.of(settlement);
+        if (edge == null) {
+            return person.position();
+        }
+        // The record moves with the body. The simulation is the authority on
+        // where somebody is and a person whose books said one thing while their
+        // feet said another is the bug every sync pass in this file exists to
+        // prevent.
+        SimPos at = new SimPos(edge.x(), world.bridge().surfaceHeight(edge), edge.z());
+        person.setPosition(at);
+        return at;
     }
 
     private void release(Settlement settlement, Person person) {
@@ -4399,7 +4448,18 @@ public final class PersonEntityManager {
 
         Person.Id id = new Person.Id(personId);
         world.settlementOf(id).ifPresent(settlement -> {
-            Person fallen = settlement.removePerson(id);
+            // Buried rather than merely removed, and on exactly the same terms a
+            // starvation or a raid is: the town raises a stone for them out on
+            // the verge. A death somebody watched and a death nobody did have to
+            // leave the same mark, or the graveyard becomes a record of who
+            // happened to be looked at.
+            // The same clock the bridge reads, so a watched death and an
+            // unwatched one are dated by the same day. See
+            // NeoForgeWorldBridge.dayTime: 26.2 gives every dimension a clock of
+            // its own and a town in the Nether would otherwise keep no days.
+            Person fallen = settlement.bury(id, Math.floorDiv(
+                    level.getDefaultClockTime(),
+                    com.civilization.sim.person.NightRest.DAY));
             if (fallen != null) {
                 settlement.logEvent(world.stepsElapsed(), fallen.name() + " was killed");
                 CivilizationMod.LOGGER.info("{} of {} was killed", fallen.name(), settlement.name());

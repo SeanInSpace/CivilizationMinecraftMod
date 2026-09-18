@@ -102,6 +102,12 @@ public final class Newcomer {
     public static Person arrive(Settlement town, SimPos spot, long step) {
         Person person = new Person(Person.Id.random(), Names.forNewcomer(town, step),
                 Profession.IDLER, spot);
+        // Marked as new, which is the one thing the view layer cannot work out
+        // for itself: an arrival and a settler being re-embodied because a player
+        // came back over the hill look identical from that side. An arrival walks
+        // in at the edge of town; a resident appears where they were. See
+        // Person.hasJustArrived, and TownEdge for where the edge is.
+        person.setJustArrived(true);
         town.addResident(person);
         town.logEvent(step, person.name() + " arrived in " + town.name());
         return person;

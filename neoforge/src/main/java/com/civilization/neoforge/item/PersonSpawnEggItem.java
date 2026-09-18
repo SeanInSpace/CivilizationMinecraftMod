@@ -183,8 +183,14 @@ public final class PersonSpawnEggItem extends SpawnEggItem {
         if (!player.isCreative()) {
             egg.shrink(1);
         }
+        // Where they will actually be seen, which is no longer where the egg was
+        // used: an arrival walks in at the edge of town. Said out loud, because a
+        // settler who appeared sixty blocks up the road with no explanation reads
+        // as the egg having missed.
         player.sendSystemMessage(Component.literal(
-                arrival.name() + " joins " + town.name() + "."));
+                com.civilization.sim.settlement.TownEdge.hasAWayIn(town)
+                        ? arrival.name() + " is on the road to " + town.name() + "."
+                        : arrival.name() + " joins " + town.name() + "."));
         return InteractionResult.SUCCESS;
     }
 }

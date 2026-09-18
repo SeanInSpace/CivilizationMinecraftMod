@@ -10,6 +10,7 @@ import com.civilization.sim.settlement.Homes;
 import com.civilization.sim.settlement.PathNetwork;
 import com.civilization.sim.settlement.Perimeter;
 import com.civilization.sim.settlement.Settlement;
+import com.civilization.sim.settlement.TownEdge;
 import com.civilization.sim.settlement.TownStores;
 import com.civilization.sim.settlement.WorkArea;
 import com.civilization.sim.world.SimContext;
@@ -140,7 +141,25 @@ public final class Furnishings {
         CAGE(1, 3, new Cost(8, 0, 0)),
 
         /** Sharpened stakes driven into the verge, which is how a warhost decorates. */
-        STAKES(1, 1, new Cost(6, 0, 0));
+        STAKES(1, 1, new Cost(6, 0, 0)),
+
+        /**
+         * One stone for one of the town's dead, in a row on the outer verge.
+         *
+         * <p>The only piece on this list that is not a function of the buildings
+         * and the streets alone: there is one for each entry in
+         * {@code Settlement.dead}, so a town that has never lost anybody has no
+         * graveyard and a town that has lost twelve has twelve stones. Where the
+         * row goes is derived like everything else here — see {@code theGraves} —
+         * which is what lets a town bury somebody who starved while nobody was
+         * looking and have the grave be there when somebody comes back.
+         *
+         * <p>A block of stone and a plank for the board, which is what a marker
+         * costs, and the clearance of a thing in its own right rather than of a
+         * verge piece: a row of graves is a churchyard and a churchyard is not on
+         * the pavement.
+         */
+        GRAVE(1, 3, new Cost(1, 2, 0));
 
         private final int reach;
         private final int roadClearance;
@@ -320,6 +339,11 @@ public final class Furnishings {
         h = mix(h ^ settlement.claimRadius());
         h = mix(h ^ (settlement.cultureId() == null ? 0 : settlement.cultureId().hashCode()));
         h = mix(h ^ settlement.residents().size());
+        // The one input to this plan that is not the town's shape. A grave is
+        // planned per entry in the dead, so a death has to move the memo or a
+        // town would bury somebody and grow no churchyard until the next house
+        // went up. See Piece.GRAVE.
+        h = mix(h ^ settlement.dead().size());
         for (Building building : settlement.buildings()) {
             h = mix(h ^ building.origin().x());
             h = mix(h ^ building.origin().z());
@@ -399,6 +423,10 @@ public final class Furnishings {
         theHedges(settlement, style, ground, kept);
         theVergeTrees(settlement, style, ground, kept);
         theSignposts(settlement, style, ground, kept);
+        // Last, and it is a pass order rather than a build order: the graveyard
+        // stands further out than anything else in the town, so it wins no
+        // ground anybody else wanted and loses none it needed.
+        theGraves(settlement, style, ground, kept);
         SimPos center = settlement.center();
         // Center-outward, so the index means the same piece as the town grows,
         // with the tie broken on the position rather than left to the order the
@@ -1120,6 +1148,234 @@ public final class Furnishings {
                 }
             }
         }
+    }
+
+    // --- the graveyard -------------------------------------------------------
+
+    /**
+     * Blocks between two stones in the row: three.
+     *
+     * <p>A grave's own box is one either side, so three is the box plus a pace,
+     * which is what {@link #crowds} demands of any two pieces and is also simply
+     * what a row of headstones looks like. Two would be refused by the siting
+     * rule that placed them; four is a row you have to walk between.
+     */
+    public static final int GRAVES_APART = 3;
+
+    /**
+     * How far past the last house the row begins: eight blocks.
+     *
+     * <p>Far enough to read as <em>outside</em> the town — the whole point of a
+     * graveyard on the verge is that it is past where people live — and near
+     * enough that it is still inside the claim of any settlement big enough to
+     * have lost anybody. It is measured off the outermost standing building
+     * rather than off the claim radius, because a claim is a circle drawn by a
+     * charter and the edge of a town is where its last roof is.
+     */
+    public static final int BEYOND_THE_LAST_HOUSE = 8;
+
+    /**
+     * A row of stones on the outer verge, one for each of the town's dead.
+     *
+     * <p><strong>Why it is here at all.</strong> A settler starved, or was killed
+     * in a raid resolved as arithmetic while the chunks were unloaded, and the
+     * whole of what happened was a line in a log nobody reads. A town that loses
+     * a third of its people to a bad winter should look different afterwards, and
+     * this is the cheapest true way for it to: the dead are on the settlement,
+     * the row is derived from them, and it is drawn where nobody was watching
+     * exactly as a hedge is.
+     *
+     * <p><strong>Where.</strong> Out past the last house, along the way the
+     * longest opened street runs — which is a way out of town that already
+     * exists, so the churchyard is somewhere people walk past rather than in the
+     * middle of a field. The row itself is laid across that bearing so it reads
+     * as a row from the road rather than as a line going away from you.
+     *
+     * <p>Every stone goes through {@link #isFree} like everything else, so a
+     * grave is never on a plot, a carriageway, the wall line, a lamp, a doorway
+     * or the forester's belt; a stone that cannot be placed is skipped and the
+     * row goes on past it, because a churchyard with a gap in it is a churchyard
+     * and a churchyard that stopped at the first boulder is nothing.
+     */
+    private static void theGraves(Settlement settlement, FurnishingStyle style,
+                                  Keepouts ground, List<Furnishing> out) {
+        int buried = settlement.dead().size();
+        if (buried <= 0 || !style.raises(Piece.GRAVE)) {
+            return;
+        }
+        int[] bearing = outwardBearing(settlement);
+        if (bearing == null) {
+            return;   // no opened street: no way out of town, and so no verge
+        }
+        SimPos center = settlement.center();
+        SimPos head = theHeadOfTheRow(settlement, ground, out, bearing);
+        if (head == null) {
+            return;
+        }
+        // Across the bearing, so the row faces whoever is coming up the road.
+        int acrossX = -bearing[1];
+        int acrossZ = bearing[0];
+        int facing = facingToward(head, center);
+        out.add(new Furnishing(head, Piece.GRAVE, facing));
+        // Grown outward from the first stone, a slot either side at a time,
+        // rather than run off in one direction. A row laid one way runs into
+        // whatever is at that end of it -- the verge of the next street, a
+        // lamp, the corner of the claim -- and stops there with half its stones
+        // unplaced; grown from the middle it has two ends to lose and needs only
+        // one of them. A refused slot is skipped and the row goes on past it,
+        // because a churchyard with a plot nobody has used yet is a churchyard
+        // and one that stopped at the first boulder is nothing.
+        // Which side of the row is dug first, and it is decided once rather than
+        // fixed. Both slots of a pair are the same distance from the middle of
+        // the town, so the center-outward sort that follows breaks the tie on
+        // their coordinates — and a row dug in the other order than the one it
+        // sorts into would have each new burial insert a stone in the middle of
+        // the list rather than append one, which moves the index of every stone
+        // past it. Digging in the order the list will end up in keeps the index
+        // of a stone that is already standing meaning that stone.
+        int[] sides = earlierOfThePair(head, acrossX, acrossZ)
+                ? new int[] {1, -1} : new int[] {-1, 1};
+        int stood = 1;
+        for (int slot = 1; slot <= buried * ROW_TRIES && stood < buried; slot++) {
+            for (int side : sides) {
+                if (stood >= buried) {
+                    break;
+                }
+                SimPos at = head.offset(acrossX * GRAVES_APART * slot * side, 0,
+                        acrossZ * GRAVES_APART * slot * side);
+                if (isFree(ground, out, at, Piece.GRAVE, Piece.GRAVE.reach())) {
+                    out.add(new Furnishing(at, Piece.GRAVE, facing));
+                    stood++;
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether the slot on the {@code +1} side of a pair sorts before its twin.
+     *
+     * <p>The plan's own tie-break, asked of one pair and true of every pair: the
+     * row runs along a fixed axis, so whichever of the two sides has the smaller
+     * coordinate at one slot has it at all of them.
+     */
+    private static boolean earlierOfThePair(SimPos head, int acrossX, int acrossZ) {
+        SimPos plus = head.offset(acrossX * GRAVES_APART, 0, acrossZ * GRAVES_APART);
+        SimPos minus = head.offset(-acrossX * GRAVES_APART, 0, -acrossZ * GRAVES_APART);
+        return plus.x() != minus.x() ? plus.x() < minus.x() : plus.z() < minus.z();
+    }
+
+    /**
+     * How many slots each way the row will try per stone it has to stand: three.
+     *
+     * <p>So a dozen dead get thirty-six slots either side of the first stone to
+     * find room in, which is a hundred blocks of verge and is enough for every
+     * arrangement anybody builds in on the recorded ground of seed 8675309. A
+     * budget rather than an open walk because this runs inside the most expensive
+     * planning pass in the mod and an unbounded row on a town hemmed in on both
+     * sides would walk to the edge of the claim testing every position on the way.
+     */
+    private static final int ROW_TRIES = 3;
+
+    /**
+     * The first stone: straight out along the bearing until the ground is free.
+     *
+     * <p>Walked outward rather than searched in rings, and the difference is the
+     * whole of whether this works. {@link #nearestFree} takes the <em>nearest</em>
+     * free ground to a point, and the nearest free ground to a spot on a ring road
+     * is the inside of the ring — so a graveyard sited that way lands back among
+     * the houses, on the same verge the hedges are on, and half the row is refused
+     * by the hedges. Walking out keeps the one property a churchyard needs: every
+     * step is further from the middle of the town than the last, so the first spot
+     * that is free is past everything the town has put down.
+     */
+    private static SimPos theHeadOfTheRow(Settlement settlement, Keepouts ground,
+                                          List<Furnishing> out, int[] bearing) {
+        SimPos center = settlement.center();
+        int edge = settlement.claimRadius() - Piece.GRAVE.reach() - 1;
+        for (int away = beyondTheLastHouse(settlement); away <= edge; away++) {
+            SimPos at = center.offset(bearing[0] * away, 0, bearing[1] * away);
+            if (isFree(ground, out, at, Piece.GRAVE, Piece.GRAVE.reach())) {
+                return at;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The graves this town's plan calls for, one per entry in its dead and in
+     * the same order.
+     *
+     * <p>So the layer that draws a stone can say whose it is: grave <em>i</em> is
+     * for the <em>i</em>th of {@code Settlement.dead}, oldest first. That pairing
+     * is not a coincidence and is not re-derived here — it is a property
+     * {@code theGraves} is written to have. The row is dug outward from its first
+     * stone in exactly the order the center-outward sort will put it in, so
+     * filtering the finished plan in plan order recovers the order the stones
+     * were dug in, and that is the order the dead are listed in.
+     *
+     * <p>It follows that a burial appends rather than inserts: a new stone stands
+     * further out along the row than every stone already there, so every index
+     * already drawn still names the stone it named. That is the same promise the
+     * whole dressing list makes about a town growing outward, said again about a
+     * churchyard growing along a verge.
+     */
+    public static List<Furnishing> graves(Settlement settlement) {
+        List<Furnishing> row = new ArrayList<>();
+        for (Furnishing piece : pieces(settlement)) {
+            if (piece.piece() == Piece.GRAVE) {
+                row.add(piece);
+            }
+        }
+        return List.copyOf(row);
+    }
+
+    /**
+     * How far out the graveyard begins: past the outermost standing building.
+     *
+     * <p>Clamped inside the claim, because a town whose outermost building sits
+     * on its own boundary has nowhere further out to bury anybody and a row
+     * planned outside the claim would be refused stone by stone by
+     * {@code Keepouts.freeFor} — which is a correct refusal and an entirely
+     * silent one.
+     */
+    private static int beyondTheLastHouse(Settlement settlement) {
+        SimPos center = settlement.center();
+        double furthest = 0;
+        for (Building building : settlement.buildings()) {
+            double out = building.origin().horizontalDistance(center);
+            if (building.footprint().isKnown()) {
+                out += Math.max(building.footprint().width(),
+                        building.footprint().depth()) / 2.0;
+            }
+            furthest = Math.max(furthest, out);
+        }
+        int wanted = (int) Math.ceil(furthest) + BEYOND_THE_LAST_HOUSE;
+        return Math.min(wanted, Math.max(0, settlement.claimRadius() - Piece.GRAVE.reach() - 1));
+    }
+
+    /**
+     * Which way out of town the longest opened street points, as a unit step.
+     *
+     * <p>{@code TownEdge}'s question with a different answer wanted: the edge
+     * wants the column somebody walks in at, and this wants the direction, so the
+     * two share the reasoning rather than the code. Snapped to one of the four
+     * compass steps, because a row laid along a diagonal is a row the spacing
+     * arithmetic has to do trigonometry for and gains nothing by.
+     */
+    private static int[] outwardBearing(Settlement settlement) {
+        SimPos edge = TownEdge.of(settlement);
+        if (edge == null) {
+            return null;
+        }
+        SimPos center = settlement.center();
+        int dx = edge.x() - center.x();
+        int dz = edge.z() - center.z();
+        if (dx == 0 && dz == 0) {
+            return new int[] {1, 0};
+        }
+        return Math.abs(dx) >= Math.abs(dz)
+                ? new int[] {dx >= 0 ? 1 : -1, 0}
+                : new int[] {0, dz >= 0 ? 1 : -1};
     }
 
     /**

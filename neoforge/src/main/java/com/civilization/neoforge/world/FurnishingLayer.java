@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.SaplingBlock;
+import net.minecraft.world.level.block.StandingSignBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -103,7 +104,7 @@ public final class FurnishingLayer {
      */
     record Palette(Block fence, Block gate, Block post, Block paving, Block pavingStairs,
                    Block hedge, Block log, Block crop, Block flower, Block sapling,
-                   Block rim, Block sign) {
+                   Block rim, Block sign, Block headstone, Block board) {
     }
 
     /** What this people build their dressing out of. */
@@ -113,36 +114,39 @@ public final class FurnishingLayer {
             case NORMAN -> new Palette(Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
                     Blocks.OAK_LOG, Blocks.COBBLESTONE, Blocks.COBBLESTONE_STAIRS,
                     Blocks.OAK_LEAVES, Blocks.OAK_LOG, Blocks.CARROTS, Blocks.POPPY,
-                    Blocks.OAK_SAPLING, Blocks.COBBLESTONE, Blocks.OAK_WALL_SIGN);
+                    Blocks.OAK_SAPLING, Blocks.COBBLESTONE, Blocks.OAK_WALL_SIGN,
+                    Blocks.MOSSY_COBBLESTONE_WALL, Blocks.OAK_SIGN);
             // Highland: spruce on stone, and potatoes, which is what grows up there.
             case HIGHLAND -> new Palette(Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE,
                     Blocks.STRIPPED_SPRUCE_LOG, Blocks.STONE, Blocks.STONE_STAIRS,
                     Blocks.SPRUCE_LEAVES, Blocks.SPRUCE_LOG, Blocks.POTATOES,
                     Blocks.OXEYE_DAISY, Blocks.SPRUCE_SAPLING, Blocks.STONE,
-                    Blocks.SPRUCE_WALL_SIGN);
+                    Blocks.SPRUCE_WALL_SIGN, Blocks.ANDESITE_WALL, Blocks.SPRUCE_SIGN);
             // Burgher: everything masoned, and beetroot, which is a town crop.
             case BURGHER -> new Palette(Blocks.DARK_OAK_FENCE, Blocks.DARK_OAK_FENCE_GATE,
                     Blocks.STONE_BRICKS, Blocks.STONE_BRICKS, Blocks.STONE_BRICK_STAIRS,
                     Blocks.OAK_LEAVES, Blocks.DARK_OAK_LOG, Blocks.BEETROOTS,
                     Blocks.ALLIUM, Blocks.OAK_SAPLING, Blocks.STONE_BRICKS,
-                    Blocks.DARK_OAK_WALL_SIGN);
+                    Blocks.DARK_OAK_WALL_SIGN, Blocks.STONE_BRICK_WALL,
+                    Blocks.DARK_OAK_SIGN);
             // Vale: pale oak, wheat, and cornflowers on the green.
             case VALE -> new Palette(Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
                     Blocks.STRIPPED_OAK_LOG, Blocks.COBBLESTONE, Blocks.COBBLESTONE_STAIRS,
                     Blocks.OAK_LEAVES, Blocks.OAK_LOG, Blocks.WHEAT, Blocks.CORNFLOWER,
-                    Blocks.OAK_SAPLING, Blocks.MOSSY_COBBLESTONE, Blocks.OAK_WALL_SIGN);
+                    Blocks.OAK_SAPLING, Blocks.MOSSY_COBBLESTONE, Blocks.OAK_WALL_SIGN,
+                    Blocks.MOSSY_COBBLESTONE_WALL, Blocks.OAK_SIGN);
             // Warhost: stone and spruce, and nothing that grows.
             case WARHOST -> new Palette(Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE,
                     Blocks.STONE, Blocks.COBBLESTONE, Blocks.COBBLESTONE_STAIRS,
                     Blocks.SPRUCE_LEAVES, Blocks.SPRUCE_LOG, Blocks.WHEAT,
                     Blocks.DANDELION, Blocks.SPRUCE_SAPLING, Blocks.COBBLESTONE,
-                    Blocks.SPRUCE_WALL_SIGN);
+                    Blocks.SPRUCE_WALL_SIGN, Blocks.COBBLESTONE_WALL, Blocks.SPRUCE_SIGN);
             // Mire: dark oak and mud, which is what a goblin has.
             case MIRE -> new Palette(Blocks.DARK_OAK_FENCE, Blocks.DARK_OAK_FENCE_GATE,
                     Blocks.PACKED_MUD, Blocks.MUD_BRICKS, Blocks.MUD_BRICK_STAIRS,
                     Blocks.DARK_OAK_LEAVES, Blocks.DARK_OAK_LOG, Blocks.WHEAT,
                     Blocks.BROWN_MUSHROOM, Blocks.DARK_OAK_SAPLING, Blocks.MUD_BRICKS,
-                    Blocks.DARK_OAK_WALL_SIGN);
+                    Blocks.DARK_OAK_WALL_SIGN, Blocks.MUD_BRICK_WALL, Blocks.DARK_OAK_SIGN);
         };
     }
 
@@ -175,6 +179,7 @@ public final class FurnishingLayer {
             case FIRE_PIT -> firePit(site, courses, piece, palette);
             case CAGE -> cage(site, courses, piece, palette);
             case STAKES -> stakes(site, courses, piece, palette);
+            case GRAVE -> grave(site, courses, piece, palette);
         }
         return List.copyOf(courses);
     }
@@ -515,6 +520,62 @@ public final class FurnishingLayer {
         }
     }
 
+    /**
+     * One grave: turned earth, a stone, and a board at the foot of it.
+     *
+     * <p>Three blocks, and the restraint is the point. A churchyard of twelve of
+     * these is what a town that lost half its people to a winter looks like from
+     * the road, and twelve of anything more elaborate would be a monument rather
+     * than a village burying somebody. The stone is a low wall block — a
+     * headstone is exactly the shape of one — in whatever masonry this people
+     * already builds with, so the mire's dead get mud brick and the burghers' get
+     * dressed stone off the same palette their houses come from.
+     *
+     * <p>A <em>standing</em> sign at the foot rather than a board hung on the
+     * stone, and that is not a style choice. A wall sign needs a face to hang on
+     * and a wall block has not got one — {@code WallSignBlock.canSurvive} refuses
+     * it — so a board nailed to the headstone would pop off the moment it was
+     * placed, and {@link #put} would report the course not done and try again
+     * every sweep for ever. The signpost gets away with a wall sign because it
+     * has a solid post; this has not.
+     *
+     * <p><strong>The board is blank.</strong> It should read "<name>,
+     * <profession>" — {@code Settlement.Grave.epitaph} is that sentence and is
+     * written already — but putting text on a sign means a sign block entity and
+     * a text payload, and this seam carries neither yet. When it does, the line
+     * to write is {@code Furnishings.graves(settlement)} zipped against
+     * {@code settlement.dead()}: the two are in the same order on purpose.
+     */
+    private static void grave(BlueprintPlacer.Site site, List<Course> out,
+                              Furnishings.Furnishing piece, Palette palette) {
+        SimPos at = piece.at();
+        int ground = site.groundLevel(at.x(), at.z());
+        // The turned earth under the stone, laid as soil so it takes the place of
+        // the grass rather than standing on it.
+        out.add(new Course(new BlockPos(at.x(), ground - 1, at.z()),
+                Blocks.COARSE_DIRT.defaultBlockState(), true));
+        out.add(new Course(new BlockPos(at.x(), ground, at.z()),
+                palette.headstone().defaultBlockState()));
+        Direction foot = towardTheGate(piece.facing());
+        BlockPos board = new BlockPos(at.x(), ground, at.z()).relative(foot);
+        out.add(new Course(board.below(), Blocks.COARSE_DIRT.defaultBlockState(), true));
+        out.add(new Course(board, palette.board().defaultBlockState()
+                .setValue(StandingSignBlock.ROTATION, signRotation(piece.facing()))));
+    }
+
+    /**
+     * A standing sign's rotation for one of the four facings.
+     *
+     * <p>Sixteen positions round the circle against {@code Building.facing}'s
+     * four, so each quarter turn is four steps: 0 south, 4 west, 8 north, 12
+     * east, which is vanilla's own numbering of the same circle. A grave faces
+     * the middle of the town — see {@code Furnishings.theGraves} — so the board
+     * reads to somebody walking out of it.
+     */
+    static int signRotation(int facing) {
+        return Math.floorMod(facing, 4) * 4;
+    }
+
     // --- turning a piece to face its building --------------------------------
 
     /**
@@ -791,7 +852,13 @@ public final class FurnishingLayer {
             Palette palette = paletteOf(style);
             if (state.is(palette.fence()) || state.is(palette.gate())
                     || state.is(palette.hedge()) || state.is(palette.sapling())
-                    || state.is(palette.flower()) || state.is(palette.sign())) {
+                    || state.is(palette.flower()) || state.is(palette.sign())
+                    // A headstone is a wall block standing on open ground, which
+                    // is exactly what anything counting masonry inside a plot is
+                    // looking for. The graveyard is out past the last house so it
+                    // should never be inside one — "should never" being how the
+                    // wall came to count tree trunks as palisade.
+                    || state.is(palette.headstone()) || state.is(palette.board())) {
                 return true;
             }
         }

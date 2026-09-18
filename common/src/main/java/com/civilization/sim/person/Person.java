@@ -201,6 +201,37 @@ public final class Person {
         this.embodied = embodied;
     }
 
+    /**
+     * Whether this person has never had a body yet — whether they are new.
+     *
+     * <p>The minimum signal the view layer needed, and it is a distinction it
+     * genuinely cannot make for itself. Embodying somebody is asked of the
+     * manager constantly: every time a player walks back over the hill, every
+     * settler in the town is embodied again, and from the manager's side that
+     * looks exactly like the one case that is different — somebody who has just
+     * this moment joined the town and should be seen walking in at the edge
+     * rather than appearing on their doorstep. So the fact is recorded where it
+     * is known, which is where the person was made.
+     *
+     * <p>Not saved, on purpose. It is true for the handful of seconds between
+     * {@code Newcomer.arrive} and the next pass of the entity manager; a save
+     * written in that window and loaded a week later would walk somebody in from
+     * the edge of town for an arrival that happened before the world was closed,
+     * which is a stranger sight than the one this exists to fix. A load makes
+     * residents, not newcomers.
+     */
+    private boolean justArrived;
+
+    /** @see #justArrived */
+    public boolean hasJustArrived() {
+        return justArrived;
+    }
+
+    /** @see #justArrived */
+    public void setJustArrived(boolean justArrived) {
+        this.justArrived = justArrived;
+    }
+
     public int hunger() {
         return hunger;
     }

@@ -1455,7 +1455,9 @@ public final class FoodPlanner {
         }
 
         for (Person person : starved) {
-            settlement.removePerson(person.id());
+            // Buried rather than merely removed: the town raises a stone for
+            // them out on the verge, watched or not. See Settlement.bury.
+            settlement.bury(person.id(), ctx.day());
             settlement.logEvent(ctx.step(), person.name() + " starved");
         }
     }
