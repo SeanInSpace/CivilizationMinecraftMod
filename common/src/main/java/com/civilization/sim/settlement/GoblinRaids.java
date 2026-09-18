@@ -336,7 +336,10 @@ public final class GoblinRaids {
             lost.add(goblin);
         }
         for (Person goblin : lost) {
-            camp.removePerson(goblin.id());
+            // A camp buries its own too. The mire dresses nothing else a village
+            // would recognize, and it still puts a stone up for the party that
+            // did not come back.
+            camp.bury(goblin.id(), ctx.day());
         }
         if (!lost.isEmpty()) {
             camp.logEvent(ctx.step(), lost.size()

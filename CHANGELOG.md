@@ -6,6 +6,86 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Somebody on the road, and a stone for the ones who are gone
+
+Nothing arrived at a town and nothing left one. The only body that ever walked
+in from outside was a raider; everybody else appeared where they were standing,
+and the caravan the inn traded with every forty-eight steps was a line in a log
+nobody reads. Death was the same: a settler starved, or was killed in a raid
+resolved as arithmetic in an unloaded chunk, and the town looked exactly as it
+had the day before.
+
+### Added
+
+- **A caravan you can watch come up the road.** While an inn stands and a wagon
+  is due, a trader walks into town at the gate — or, where there is no wall, at
+  the far end of the longest opened street — with two pack llamas on a lead
+  behind it, stands about in the inn yard for a while, and walks back out the way
+  it came. The nameplate says where it came from: the nearest neighbouring town
+  it could plausibly have set out from, or "the road" for a village with no
+  neighbours, which is the honest answer rather than a town invented to blame it
+  on. One wagon to a town, ever; it is gone the moment the visit is over, the
+  chunks go away or the last player leaves.
+
+  **The wagon is worth nothing.** The inn's trade is booked by the same clock it
+  always was, watched or not — so many loaves off the shelf, so much iron onto
+  it, one line in the log — and the visit is theatre over a ledger that was
+  already settled. Two towns stepped side by side, one with every question the
+  visit asks asked of it and one left alone, come out with identical stores and
+  an identical history. A town with no opened street gets no wagon at all,
+  because a trader put down at a road-less camp is a man standing in a field.
+
+- **A newcomer walks in.** Somebody joining a town that already stands is now put
+  down at the edge of it and walks to wherever the town has a place for them,
+  instead of appearing on the spot. Nobody is pushed: the ordinary steering that
+  finds them a bed and the planner that gives them a trade both run exactly as
+  they did. A newborn still appears at home, and a settler being given a body
+  again because a player came back over the hill still appears where they were
+  standing — only a genuine arrival gets the walk. Migration still does not
+  exist, so the only arrival in the game today is a settler egg.
+
+- **A death leaves a mark.** A town remembers its last twelve dead — name, trade,
+  and the day — and stands a headstone apiece in a row out past its last house,
+  on the verge of the way its longest street runs. Every people raises them,
+  including the two that dress nothing else: a warhost plants nothing it will not
+  be here to pick and a goblin camp is furnished with what was dragged back to
+  it, and both of them still put a stone up. The row is derived from the dead and
+  the town's own shape, exactly as the hedges and the lamps are, so it appears
+  where nobody was watching; it never stands on a plot, a carriageway, the wall
+  line, a lamp or a doorway; and it grows outward from its first stone a slot
+  either side at a time, so a row hemmed in at one end still gets its full dozen.
+  Older dead fall off the list and are remembered in the event log only — a
+  village remembers its dead for a while and then remembers that it had some.
+
+### Changed
+
+- Starvation, the raid arithmetic, a goblin party that did not come back, and a
+  body cut down in front of a player all now go through one seam, and it is the
+  seam that buries somebody. Walking away to found another village still does
+  not: a settler who emigrated is not dead, and a stone with their name on it
+  would be a lie the town tells for ever.
+
+### Notes
+
+- **This is a save change, and it is allowed.** The dead are the one thing in the
+  dressing that cannot be derived — a name is not a function of a town's shape —
+  so a bounded list of them is written to the settlement. Old worlds do not load
+  and compatibility was waived on 2026-09-11. A save with no list in it reads as a
+  town that has never lost anybody, and one carrying more than a dozen is trimmed
+  on the way in as well as on the way out.
+- **The headstones' boards are blank.** They should read "<name>, <trade>" and
+  the sentence is written and tested; putting text on a sign means a sign block
+  entity and a payload this seam does not carry yet. When the sign-text work
+  lands, the line to write is `Furnishings.graves` zipped against
+  `Settlement.dead()` — the two are in the same order on purpose.
+- The trader stands in the inn yard rather than taking a seat at a table. Sitting
+  a stranger down means the leisure machinery, which is keyed to a town's own
+  residents, and a visitor is not one.
+- Half of this needs a level to check and is a playtest item: the walk itself,
+  whether the llamas keep up on a leash over a hill, and whether the graves read
+  as a churchyard rather than as a wall somebody abandoned. The schedule, the
+  entry point, where the stones go, and the promise that none of it moves the
+  books are all stated in `common/src/test`.
 ## The town says its own name, and its trades are audible
 
 Two silences, and both of them were the same shape: a thing the town knows

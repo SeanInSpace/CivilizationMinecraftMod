@@ -158,6 +158,15 @@ class FurnishingsTest {
         RecordedTerrain ground = RecordedTerrain.of(RecordedTerrain.SEED_8675309);
         for (String layout : layouts()) {
             Settlement town = grown(layout, ground, 30);
+            // A full churchyard before anything is asked, so the graves are in
+            // the plan this whole assertion is about. A grave is the one piece
+            // that is not a function of the buildings and the streets — there is
+            // one per entry in the town's dead — and a row of twelve stones
+            // planned out past the last house has every chance of landing on a
+            // plot, a carriageway or the wall line that the rest of the dressing
+            // has. It was worth extending the existing sweep rather than writing
+            // a second one, because what is being stated is the same sentence.
+            fillTheChurchyard(town);
             assertTrue(Furnishings.standOnFreeGround(town),
                     layout + " plans a piece on ground somebody else has: a fence"
                             + " through a wall is worse than an undressed town");
@@ -421,6 +430,200 @@ class FurnishingsTest {
         town.stores().add(TownStores.STONE, 512);
         town.stores().add(TownStores.SAPLINGS, 64);
         return town;
+    }
+
+    // --- the churchyard ------------------------------------------------------
+
+    /**
+     * Buries a full row without changing how many people the town has.
+     *
+     * <p>Each of the dead is added and then buried, so the roster comes out
+     * exactly as it went in. That matters: an orchard is counted off the
+     * residents, so killing the town's people to give it a graveyard would
+     * quietly be testing a different plan.
+     */
+    private static void fillTheChurchyard(Settlement town) {
+        for (int i = 0; i < Settlement.DEAD_REMEMBERED; i++) {
+            Person lost = new Person(
+                    Person.Id.random(), "Lost " + i, Profession.FARMER, town.center());
+            town.addResident(lost);
+            town.bury(lost.id(), i);
+        }
+    }
+
+    @Test
+    void aTownThatHasLostNobodyHasNoGraveyard() {
+        Settlement town = dressableTown();
+        assertEquals(0, countOf(town, Furnishings.Piece.GRAVE),
+                "a town with no dead standing a row of headstones would be a"
+                        + " memorial to nobody");
+    }
+
+    @Test
+    void oneStoneForEachOfTheDead() {
+        Settlement town = dressableTown();
+        for (int buried = 1; buried <= 4; buried++) {
+            Person lost = new Person(
+                    Person.Id.random(), "Lost " + buried, Profession.MINER, town.center());
+            town.addResident(lost);
+            town.bury(lost.id(), buried);
+            assertEquals(buried, countOf(town, Furnishings.Piece.GRAVE),
+                    "the town has buried " + buried + " and the plan says"
+                            + " otherwise — the dressing memo has not noticed a"
+                            + " death, which is the one input to it that is not"
+                            + " the town's shape");
+        }
+    }
+
+    /**
+     * The row lies out past the last roof, which is what "on the outer verge"
+     * means and is the whole of why a graveyard reads as one.
+     */
+    @Test
+    void theGravesLieBeyondTheLastHouse() {
+        Settlement town = dressableTown();
+        fillTheChurchyard(town);
+        double lastRoof = 0;
+        for (Building building : town.buildings()) {
+            lastRoof = Math.max(lastRoof,
+                    building.origin().horizontalDistance(town.center()));
+        }
+        int stones = 0;
+        for (Furnishings.Furnishing piece : Furnishings.pieces(town)) {
+            if (piece.piece() != Furnishings.Piece.GRAVE) {
+                continue;
+            }
+            stones++;
+            assertTrue(piece.at().horizontalDistance(town.center()) > lastRoof,
+                    "a headstone at " + piece.at() + " stands nearer the middle"
+                            + " than the outermost house, which is a grave in"
+                            + " somebody's front garden");
+        }
+        assertTrue(stones > 0, "a town with twelve dead planned no stones at all");
+    }
+
+    /**
+     * A burial appends a stone rather than moving the ones already standing.
+     *
+     * <p>Which is what makes the count the town saves keep meaning the same
+     * piece: a churchyard that reshuffled itself every time somebody died would
+     * send a builder to a stone that is already up and leave the newest grave
+     * unmarked for ever.
+     */
+    @Test
+    void aBurialAppendsAStoneRatherThanMovingTheOnesAlreadyStanding() {
+        Settlement town = dressableTown();
+        List<Furnishings.Furnishing> before = List.of();
+        for (int buried = 1; buried <= 6; buried++) {
+            Person lost = new Person(
+                    Person.Id.random(), "Lost " + buried, Profession.IDLER, town.center());
+            town.addResident(lost);
+            town.bury(lost.id(), buried);
+            List<Furnishings.Furnishing> now = Furnishings.graves(town);
+            for (int i = 0; i < before.size(); i++) {
+                assertEquals(before.get(i), now.get(i),
+                        "stone " + i + " moved when the town buried somebody"
+                                + " else, so it is no longer the stone the count"
+                                + " already standing named");
+            }
+            before = now;
+        }
+    }
+
+    /** A row: laid on one line, evenly, rather than scattered over a field. */
+    @Test
+    void theStonesStandInARow() {
+        Settlement town = dressableTown();
+        fillTheChurchyard(town);
+        List<Furnishings.Furnishing> row = Furnishings.graves(town);
+        assertTrue(row.size() >= 2, "too few stones to be a row");
+        boolean sameX = true;
+        boolean sameZ = true;
+        for (Furnishings.Furnishing stone : row) {
+            sameX &= stone.at().x() == row.getFirst().at().x();
+            sameZ &= stone.at().z() == row.getFirst().at().z();
+        }
+        assertTrue(sameX || sameZ,
+                "the stones are scattered rather than laid in a line, so what the"
+                        + " town has out past its last house is not a churchyard");
+        for (int i = 1; i < row.size(); i++) {
+            int apart = Math.abs(row.get(i).at().x() - row.get(i - 1).at().x())
+                    + Math.abs(row.get(i).at().z() - row.get(i - 1).at().z());
+            // On the row's own spacing, and a multiple of it rather than exactly
+            // it: a slot the siting refuses is skipped and the row goes on past
+            // it, so a plot nobody has used yet is allowed. What is not allowed
+            // is a stone off the line, or two in the same place.
+            assertTrue(apart > 0 && apart % Furnishings.GRAVES_APART == 0,
+                    "stone " + i + " is " + apart + " from the one before it,"
+                            + " which is not a slot in the row at all");
+        }
+    }
+
+    /** Everybody buries their dead, including the two peoples who dress nothing else. */
+    @Test
+    void evenAWarhostAndAGoblinCampRaiseAStone() {
+        for (FurnishingStyle style : FurnishingStyle.values()) {
+            assertTrue(style.raises(Furnishings.Piece.GRAVE),
+                    style + " leaves its dead where they fell, which is a claim"
+                            + " about them this mod has not earned");
+        }
+    }
+
+    // --- the one thing the dressing writes down ------------------------------
+
+    @Test
+    void theDeadAreBoundedAndTheOldestFallOff() {
+        Settlement town = ringTown();
+        for (int i = 0; i < Settlement.DEAD_REMEMBERED * 3; i++) {
+            Person lost = new Person(
+                    Person.Id.random(), "Lost " + i, Profession.IDLER, town.center());
+            town.addResident(lost);
+            town.bury(lost.id(), i);
+        }
+        assertEquals(Settlement.DEAD_REMEMBERED, town.dead().size(),
+                "a town that buried four hundred over a century would carry four"
+                        + " hundred names in its save");
+        assertEquals("Lost " + (Settlement.DEAD_REMEMBERED * 3 - 1),
+                town.dead().getLast().name(),
+                "the newest death is missing, so the row shows the wrong dozen");
+        assertEquals("Lost " + (Settlement.DEAD_REMEMBERED * 2),
+                town.dead().getFirst().name(),
+                "the oldest is what falls off, not the newest");
+    }
+
+    @Test
+    void restoringMoreDeadThanATownKeepsStillKeepsOnlyADozen() {
+        Settlement town = ringTown();
+        List<Settlement.Grave> tooMany = new java.util.ArrayList<>();
+        for (int i = 0; i < Settlement.DEAD_REMEMBERED * 2; i++) {
+            tooMany.add(new Settlement.Grave("Lost " + i, Profession.IDLER, i));
+        }
+        town.restoreDead(tooMany);
+        assertEquals(Settlement.DEAD_REMEMBERED, town.dead().size(),
+                "a save written by a build with a larger cap, or edited by hand,"
+                        + " must not stand a hundred stones round a village");
+    }
+
+    @Test
+    void aStoneSaysWhoItIsForAndWhatTheyDid() {
+        assertEquals("Ada Baker, Farmer",
+                new Settlement.Grave("Ada Baker", Profession.FARMER, 12).epitaph());
+        assertEquals("Ada Baker",
+                new Settlement.Grave("Ada Baker", Profession.IDLER, 12).epitaph(),
+                "\"Ada Baker, Idler\" is not an epitaph, it is an insult");
+    }
+
+    @Test
+    void aDeathIsWhatRaisesAStoneAndADepartureIsNot() {
+        Settlement town = ringTown();
+        Person gone = new Person(
+                Person.Id.random(), "Emigrant", Profession.PIONEER, town.center());
+        town.addResident(gone);
+        town.removeResident(gone.id());
+        assertTrue(town.dead().isEmpty(),
+                "a settler who walked away to found a village is not dead, and a"
+                        + " stone with their name on it would be a lie the town"
+                        + " tells for ever");
     }
 
     private static int countOf(Settlement town, Furnishings.Piece kind) {

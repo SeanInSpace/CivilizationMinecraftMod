@@ -203,8 +203,8 @@ Growth progress holds at the threshold while a town is full, so growth resumes t
 
 ## What this deliberately does not do
 
-- **Nobody dies of natural causes.** No age, no mortality. A person whose view entity is killed dies for real — removed from roster and family — and raid arithmetic kills people while unwatched. Nothing else does.
-- **Nobody arrives.** No migration between settlements or from outside.
+- **Nobody dies of natural causes.** No age, no mortality. A person whose view entity is killed dies for real — removed from roster and family — and raid arithmetic and starvation kill people while unwatched. Nothing else does. A death now leaves a mark either way: the town remembers its last twelve dead (name, trade, day) and stands a headstone apiece in a row out past the last house. Older dead fall off the list and survive only in the event log.
+- **Nobody arrives.** No migration between settlements or from outside. The one arrival there is — a settler egg — now walks in at the edge of town rather than appearing where it was used, but that is the body, not a new way of joining. Migration is still absent.
 - **No pairing.** There are no couples, no parents, no genealogy. A family of one can have a child.
 - **No age.** A newborn is immediately a full worker contributing to construction.
 - **Families never merge, and nobody moves house** except through the one-member split.

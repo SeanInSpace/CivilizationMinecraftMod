@@ -398,6 +398,25 @@ public final class CivilizationCodecs {
             Codec.STRING.fieldOf("message").forGetter(SettlementEvent::message)
     ).apply(i, SettlementEvent::new));
 
+    /**
+     * One of the town's dead, as the graveyard remembers them.
+     *
+     * <p>The one thing in the dressing that <em>is</em> written down, and it has
+     * to be: every other piece is derived from the buildings and the streets,
+     * which are saved, whereas a name is not derivable from anything. Bounded on
+     * the settlement at {@code Settlement.DEAD_REMEMBERED}, so the list a save
+     * carries is a dozen short strings rather than the whole history of a
+     * century. A profession this build does not know reads as an idler, exactly
+     * as a living person's does, and an epitaph reading only a name is better
+     * than a world that refuses to load.
+     */
+    public static final Codec<Settlement.Grave> GRAVE = RecordCodecBuilder.create(i -> i.group(
+            Codec.STRING.fieldOf("name").forGetter(Settlement.Grave::name),
+            PROFESSION.optionalFieldOf("profession", Profession.IDLER)
+                    .forGetter(Settlement.Grave::profession),
+            Codec.LONG.optionalFieldOf("day", 0L).forGetter(Settlement.Grave::day)
+    ).apply(i, Settlement.Grave::new));
+
     public static final Codec<Footprint> FOOTPRINT = RecordCodecBuilder.create(i -> i.group(
             Codec.INT.fieldOf("y").forGetter(Footprint::y),
             Codec.INT.fieldOf("w").forGetter(Footprint::width),
@@ -798,12 +817,15 @@ public final class CivilizationCodecs {
             PERSON.listOf().fieldOf("residents").forGetter(s -> List.copyOf(s.residents())),
             HOUSEHOLD.listOf().optionalFieldOf("households", List.of()).forGetter(Settlement::households),
             SETTLEMENT_EVENT.listOf().optionalFieldOf("events", List.of()).forGetter(Settlement::events),
+            // The dead. Absent reads as a town that has never lost anybody, which
+            // is the right answer for a save written before there were graves.
+            GRAVE.listOf().optionalFieldOf("dead", List.of()).forGetter(Settlement::dead),
             HOLDINGS.fieldOf("holdings").forGetter(Holdings::of),
             DEFENSE.fieldOf("defense").forGetter(Defense::of),
             WORKS.fieldOf("works").forGetter(Works::of),
             QUESTS.fieldOf("quests").forGetter(Quests::of)
     ).apply(i, (id, name, center, claimRadius, charter, residents, households, events,
-                holdings, defense, works, quests) -> {
+                dead, holdings, defense, works, quests) -> {
         Settlement settlement = new Settlement(id, name, center, claimRadius);
         settlement.setThreatLevel(defense.threatLevel());
         settlement.loosePile().restore(holdings.goods());
@@ -831,6 +853,7 @@ public final class CivilizationCodecs {
         works.buildings().forEach(settlement::addBuilding);
         households.forEach(settlement::addHousehold);
         events.forEach(e -> settlement.logEvent(e.step(), e.message()));
+        settlement.restoreDead(dead);
         settlement.quests().restore(quests.offered(), quests.done());
         settlement.standing().restore(quests.standing());
         // After the buildings, because adding one can push the cursor past it.

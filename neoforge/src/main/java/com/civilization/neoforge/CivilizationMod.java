@@ -137,6 +137,10 @@ public final class CivilizationMod {
         com.civilization.neoforge.world.LightLayer.forget();
         com.civilization.neoforge.world.Woodcut.forget();
         com.civilization.neoforge.world.FurnishingLayer.forget();
+        // And any wagon still standing in an inn yard. Its bodies belong to a
+        // level that is closing, and an entity id from a closed world would have
+        // the next session looking up something that cannot exist.
+        com.civilization.neoforge.view.Caravans.forget();
         // And where each paving crew had got along its run, which is a place in
         // a network that is going away with the world it belonged to.
         com.civilization.neoforge.view.Foreman.forget();

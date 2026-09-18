@@ -360,7 +360,7 @@ public final class RaidPlanner {
 
         List<Person> fallen = pickCasualties(settlement, strength - defense);
         for (Person person : fallen) {
-            settlement.removePerson(person.id());
+            settlement.bury(person.id(), ctx.day());
         }
         settlement.logEvent(ctx.step(),
                 "Raid of " + strength + " overran the defenses (" + defense + ") — "
@@ -440,7 +440,7 @@ public final class RaidPlanner {
         }
         List<Person> fallen = pickCasualties(target, pressed - defense);
         for (Person person : fallen) {
-            target.removePerson(person.id());
+            target.bury(person.id(), ctx.day());
         }
         target.logEvent(ctx.step(), "A raid of " + pressed + " out of " + raiderName
                 + " overran the defenses (" + defense + ") — " + fallen.size()

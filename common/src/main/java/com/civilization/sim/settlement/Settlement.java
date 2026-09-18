@@ -108,6 +108,58 @@ public final class Settlement {
     private final ArrayDeque<SettlementEvent> events = new ArrayDeque<>();
 
     /**
+     * One of the town's dead, as the graveyard remembers them.
+     *
+     * <p>Three facts and no more, because three facts are what goes on a stone:
+     * who it was, what they did, and when. Not the person — a {@link Person} is a
+     * live record with hunger and errands and a place in a household, and keeping
+     * one past the death it did not survive would be a body the planners could
+     * still be handed.
+     *
+     * @param day the world day they died on, which is what the sign says. Zero in
+     *            a simulation with no world behind it, which is the same answer
+     *            {@code WorldBridge.dayTime} gives and for the same reason.
+     */
+    public record Grave(String name, Profession profession, long day) {
+
+        public Grave {
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(profession, "profession");
+        }
+
+        /**
+         * The line cut into the stone: "Ada Baker, Baker".
+         *
+         * <p>Here rather than in the layer that draws it, because it is the same
+         * sentence whoever is reading it and the platform has no business
+         * deciding how a town words its own memorial. The profession is left off
+         * for somebody who never had one: "Ada Baker, Idler" is not an epitaph,
+         * it is an insult.
+         */
+        public String epitaph() {
+            return profession == Profession.IDLER ? name
+                    : name + ", " + profession.pretty();
+        }
+    }
+
+    /**
+     * How many of the dead a town keeps: twelve.
+     *
+     * <p>A graveyard is dressing and dressing is bounded, so the list is bounded
+     * with it — twelve stones is a row you can read walking past, and a town that
+     * has buried four hundred over a century would otherwise carry four hundred
+     * names in its save and stand a wall of cobble round its outskirts. What
+     * falls off the end is not forgotten so much as no longer marked: the death
+     * is in the event log where every other thing that happened to this town is,
+     * and the log is bounded too. A village remembers its dead for a while and
+     * then it remembers that it had some.
+     */
+    public static final int DEAD_REMEMBERED = 12;
+
+    /** The dead, oldest first, bounded at {@link #DEAD_REMEMBERED}. */
+    private final ArrayDeque<Grave> dead = new ArrayDeque<>();
+
+    /**
      * Steps the job at the head of the queue may sit without moving before a
      * starving town builds around it.
      *
@@ -2081,6 +2133,65 @@ public final class Settlement {
             }
         }
         return removed;
+    }
+
+    /**
+     * Removes a person and raises a stone for them.
+     *
+     * <p>{@link #removePerson} with the one thing a death has that a departure
+     * does not: somebody is left to be buried. The two are separate methods and
+     * not a flag, because the distinction is real and the mod has both —
+     * {@code ExpansionPlanner} takes people out of a town to found another one
+     * and a settler who walked away to build a village is not dead. Everything
+     * that kills somebody calls this: starvation, the raid arithmetic, a party
+     * that did not come back, and a body a player or a goblin cut down while
+     * somebody was watching. Everything that merely removes them calls the other.
+     *
+     * <p>Where the stone goes is not decided here. It is dressing, derived from
+     * the standing buildings and the opened streets like every other piece — see
+     * {@code Furnishings.theGraves} — so all that is written down is the list,
+     * and the row appears on the outer verge whether or not anybody was there to
+     * dig it.
+     *
+     * @param day the world day this happened on, for the sign
+     */
+    public Person bury(Person.Id personId, long day) {
+        Person gone = removePerson(personId);
+        if (gone == null) {
+            return null;
+        }
+        dead.addLast(new Grave(gone.name(), gone.profession(), day));
+        while (dead.size() > DEAD_REMEMBERED) {
+            dead.removeFirst();
+        }
+        return gone;
+    }
+
+    /** The town's dead, oldest first. One stone apiece, in this order. */
+    public List<Grave> dead() {
+        return List.copyOf(dead);
+    }
+
+    /**
+     * Puts the dead back when a world is loaded.
+     *
+     * <p>Bounded on the way in as well as on the way out, because a save written
+     * by a build with a larger cap — or edited by hand — must not be able to
+     * stand a hundred stones round a village.
+     */
+    public void restoreDead(List<Grave> graves) {
+        dead.clear();
+        if (graves == null) {
+            return;
+        }
+        for (Grave grave : graves) {
+            if (grave != null) {
+                dead.addLast(grave);
+            }
+        }
+        while (dead.size() > DEAD_REMEMBERED) {
+            dead.removeFirst();
+        }
     }
 
     public Person resident(Person.Id personId) {

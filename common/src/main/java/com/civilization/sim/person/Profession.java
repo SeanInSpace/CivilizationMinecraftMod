@@ -104,4 +104,20 @@ public enum Profession {
     public boolean worksBeyondTheWalls() {
         return this == LUMBERJACK || this == MINER;
     }
+
+    /**
+     * The trade as a person would write it: "Baker", not "BAKER".
+     *
+     * <p>Here rather than at each of the places that shows one, because a
+     * nameplate over a settler's head, a line in {@code /civ info} and the word
+     * cut into a gravestone are the same word and had begun to be three. Plain
+     * title case off the constant's own name, which is enough for every entry on
+     * this list and will stop being enough the day professions become
+     * data-driven — at which point the display name comes off the datapack and
+     * this method is where it arrives.
+     */
+    public String pretty() {
+        String word = name().toLowerCase(java.util.Locale.ROOT);
+        return Character.toUpperCase(word.charAt(0)) + word.substring(1);
+    }
 }

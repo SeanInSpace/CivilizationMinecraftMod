@@ -73,6 +73,15 @@ public enum FurnishingStyle {
      * them — and a reader should be able to see that in one place.
      */
     public boolean raises(Furnishings.Piece piece) {
+        // The one thing nobody is exempt from. A warhost plants nothing it will
+        // not be here to pick and a goblin camp is dressed with what was dragged
+        // back to it — and both of them still put a stone up for their dead,
+        // because burying somebody is not decoration and is not a claim about
+        // next spring. A people who left their dead where they fell would be a
+        // statement about them that this mod has not earned.
+        if (piece == Furnishings.Piece.GRAVE) {
+            return true;
+        }
         return switch (this) {
             case NORMAN, BURGHER, VALE -> piece != Furnishings.Piece.CAGE
                     && piece != Furnishings.Piece.STAKES;
