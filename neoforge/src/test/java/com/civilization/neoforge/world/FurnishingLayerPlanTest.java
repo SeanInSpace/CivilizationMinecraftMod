@@ -268,6 +268,88 @@ class FurnishingLayerPlanTest {
         assertEquals(1, FurnishingLayer.turn(0, 1, 3)[0], "facing east: +z becomes +x");
     }
 
+    // --- the boards ----------------------------------------------------------
+
+    /**
+     * A signpost's board hangs on the face toward the middle of the town and an
+     * inn's hangs on the face away from the inn.
+     *
+     * <p>The two pieces are the same three blocks and the only thing that
+     * distinguishes them on the ground is which way round the board is, so it is
+     * the one thing worth pinning. {@code Furnishing.facing} says where the thing
+     * a piece belongs to lies: for a signpost that is the middle of the town, and
+     * a board facing the middle is a board you read walking in; for an inn board
+     * that is the inn itself, and a board facing the inn is a board only the
+     * innkeeper can read.
+     */
+    @Test
+    void asignpostFacesTheMiddleAndAnInnBoardFacesTheStreet() {
+        Culture norman = Culture.of("civilization:human/norman");
+        // facing 0 means the thing this piece belongs to lies toward +z, which
+        // FurnishingLayer.towardTheGate reads as SOUTH.
+        assertEquals(net.minecraft.core.Direction.SOUTH,
+                boardFace(drawn(norman, Furnishings.Piece.SIGNPOST)));
+        assertEquals(net.minecraft.core.Direction.NORTH,
+                boardFace(drawn(norman, Furnishings.Piece.INN_SIGN)));
+    }
+
+    /**
+     * And the words go on with the board rather than beside it.
+     *
+     * <p>A course carries its own text, which is the whole of the widening this
+     * unit made to the seam — so a plan drawn for a named town has exactly one
+     * course with writing on it and every other course is bare.
+     */
+    @Test
+    void exactlyTheBoardCarriesTheWriting() {
+        Culture norman = Culture.of("civilization:human/norman");
+        com.civilization.sim.work.Signage.Plaque plaque =
+                new com.civilization.sim.work.Signage.Plaque("Millbrook", "town", 3,
+                        "Red Lion");
+        for (Furnishings.Piece kind : List.of(Furnishings.Piece.SIGNPOST,
+                Furnishings.Piece.INN_SIGN, Furnishings.Piece.SQUARE)) {
+            List<FurnishingLayer.Course> plan = FurnishingLayer.plan(flatFor(norman),
+                    new Furnishings.Furnishing(AT, kind, 0), plaque);
+            long written = plan.stream().filter(c -> !c.lines().isEmpty()).count();
+            assertEquals(1, written, kind + " wrote on " + written + " courses");
+            for (FurnishingLayer.Course course : plan) {
+                if (course.lines().isEmpty()) {
+                    continue;
+                }
+                assertTrue(course.state().getBlock()
+                                instanceof net.minecraft.world.level.block.SignBlock,
+                        kind + " wrote on something that is not a sign");
+                assertEquals(4, course.lines().size());
+            }
+        }
+    }
+
+    /** A plan with no town behind it writes nothing, which is what every size test draws. */
+    @Test
+    void apieceWithNoTownBehindItCarriesNoWriting() {
+        for (Culture culture : peoples()) {
+            for (Furnishings.Piece kind : Furnishings.Piece.values()) {
+                for (FurnishingLayer.Course course : drawn(culture, kind)) {
+                    assertTrue(course.lines().isEmpty(),
+                            culture.id() + " " + kind + " wrote on a blank plaque");
+                }
+            }
+        }
+    }
+
+    /** Which way the one sign block in this plan is looking. */
+    private static net.minecraft.core.Direction boardFace(
+            List<FurnishingLayer.Course> plan) {
+        for (FurnishingLayer.Course course : plan) {
+            if (course.state().getBlock()
+                    instanceof net.minecraft.world.level.block.SignBlock) {
+                return course.state().getValue(net.minecraft.world.level.block
+                        .HorizontalDirectionalBlock.FACING);
+            }
+        }
+        return null;
+    }
+
     private static boolean holds(List<FurnishingLayer.Course> plan,
                                  net.minecraft.world.level.block.Block block) {
         for (FurnishingLayer.Course course : plan) {

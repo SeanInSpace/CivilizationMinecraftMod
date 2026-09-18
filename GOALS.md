@@ -470,8 +470,7 @@ kept only until a run has been watched over it.*
 - [ ] **Left by the living-town batch.** Twenty plots within 40 blocks is
       unreachable for any streets-first plan (a road forbids a 26-block band
       and carries one rank per edge); `LightPlanner.lamps` is asked every tick
-      at 10-14 ms on a 60-building town; signpost boards are blank; smiths,
-      millers, carpenters and the king never take a pastime; a hamlet keeps an
+      at 10-14 ms on a 60-building town; a hamlet keeps an
       empty 15-block square for a hall it cannot afford; wool comes only from
       a cull; roast meat lands in the bread pool because the larder is not
       typed; an avenue on a 60-building ring wants 140 saplings; a crash

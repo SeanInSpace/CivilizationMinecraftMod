@@ -1297,6 +1297,49 @@ public final class FoodPlanner {
      * a hearth's or a granary's goes straight into the town's larder, because
      * that is the building the larder <em>is</em>.
      */
+    /**
+     * Whether the oven has anything to bake right now.
+     *
+     * <p>{@link SmithPlanner#hasWorkInFront}'s shape, said about the other trade
+     * that stands at a building all day: the three refusals {@link #bake} makes,
+     * phrased as a question, so the ceilings stay knowledge the oven owns and
+     * nobody outside it has to reconstruct them and get one of them wrong.
+     *
+     * <p>Two callers and both of them are about a person rather than about the
+     * books. {@code Pastimes.hasWork} asks it to decide whether a miller with an
+     * empty hopper may go and sit down — before this existed he could not, and
+     * was the stiffest figure in town for it. {@code WorkTheatre} asks it to
+     * decide whether the millstone is worth a sound. Neither of them may change
+     * the answer, and neither does: the baking itself is untouched, and a town
+     * nobody is watching bakes exactly the same bread.
+     */
+    public static boolean ovenHasWork(Settlement settlement) {
+        Building oven = bakery(settlement);
+        if (oven == null) {
+            return false;
+        }
+        if (oven.stores().get(TownStores.GRAIN) <= 0) {
+            return false;
+        }
+        return granaryCapacity(settlement) - settlement.foodStock() > 0;
+    }
+
+    /**
+     * Whether the <em>mill</em> in particular has grain to grind.
+     *
+     * <p>Narrower than {@link #ovenHasWork} and the difference is the whole
+     * point of it: a town whose oven of record is a hearth bakes at that hearth
+     * and its miller — if it somehow has one — is standing at a building that is
+     * not baking anything. {@link #bakery} already decides which of the two is
+     * the oven, so this asks it rather than re-deciding, which is what keeps the
+     * miller's afternoon and the town's bread reading off one rule.
+     */
+    public static boolean millHasWork(Settlement settlement) {
+        Building oven = bakery(settlement);
+        return oven != null && oven.role() == BuildingRole.MILL
+                && ovenHasWork(settlement);
+    }
+
     private static void bake(Settlement settlement) {
         Building oven = bakery(settlement);
         if (oven == null) {

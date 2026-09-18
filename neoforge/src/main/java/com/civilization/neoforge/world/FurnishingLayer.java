@@ -1,17 +1,21 @@
 package com.civilization.neoforge.world;
 
+import com.civilization.neoforge.CivilizationMod;
 import com.civilization.neoforge.world.BlueprintPlacer.Placement;
 import com.civilization.sim.culture.Culture;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.work.FurnishingStyle;
 import com.civilization.sim.work.Furnishings;
+import com.civilization.sim.work.Signage;
+import com.civilization.sim.world.SimWorld;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -21,6 +25,8 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.SaplingBlock;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -76,17 +82,33 @@ public final class FurnishingLayer {
     /**
      * One block of one piece.
      *
-     * @param soil whether this course replaces the ground rather than standing on
-     *             it. Paving and tilled earth do; a fence post does not. The
-     *             distinction has to be here rather than in {@link #put} because
-     *             the two want opposite answers to the same question: a fence may
-     *             never be driven through a wall somebody built, and a paving slab
-     *             has to be able to replace the grass it is laid over.
+     * @param soil  whether this course replaces the ground rather than standing on
+     *              it. Paving and tilled earth do; a fence post does not. The
+     *              distinction has to be here rather than in {@link #put} because
+     *              the two want opposite answers to the same question: a fence may
+     *              never be driven through a wall somebody built, and a paving slab
+     *              has to be able to replace the grass it is laid over.
+     * @param lines what is written on this course, empty for the forty-nine blocks
+     *              out of fifty that are not a board. This is the whole of the
+     *              widening the class comment used to refuse: a course already
+     *              carries a position and a state, so the text that goes with a
+     *              sign block travels beside the sign block rather than in a
+     *              second structure that could fall out of step with it. See
+     *              {@link #inscribe}, which is the only reader.
      */
-    public record Course(BlockPos pos, BlockState state, boolean soil) {
+    public record Course(BlockPos pos, BlockState state, boolean soil,
+                         List<String> lines) {
+
+        public Course {
+            lines = List.copyOf(lines);
+        }
 
         public Course(BlockPos pos, BlockState state) {
-            this(pos, state, false);
+            this(pos, state, false, List.of());
+        }
+
+        public Course(BlockPos pos, BlockState state, boolean soil) {
+            this(pos, state, soil, List.of());
         }
     }
 
@@ -158,8 +180,25 @@ public final class FurnishingLayer {
      */
     public static List<Course> plan(BlueprintPlacer.Site site,
                                     Furnishings.Furnishing piece) {
+        return plan(site, piece, Signage.Plaque.NONE);
+    }
+
+    /**
+     * The same, with the town's own words for whatever board this piece carries.
+     *
+     * <p>The plaque is handed in rather than read out of a settlement here,
+     * because the whole argument of the method above is that a piece can be
+     * checked on every culture without a running game — and a settlement is not
+     * a world but it is one more thing a size test would have to build. So
+     * {@link Signage} reads the town once, this turns three strings into four
+     * lines on a board, and the arithmetic of the two halves stays apart.
+     */
+    public static List<Course> plan(BlueprintPlacer.Site site,
+                                    Furnishings.Furnishing piece,
+                                    Signage.Plaque plaque) {
         FurnishingStyle style = FurnishingStyle.of(site.culture());
         Palette palette = paletteOf(style);
+        List<String> lines = Signage.linesFor(piece.piece(), plaque, piece.facing());
         List<Course> courses = new ArrayList<>();
         switch (piece.piece()) {
             case YARD -> yard(site, courses, piece, palette);
@@ -167,11 +206,12 @@ public final class FurnishingLayer {
             case HAYSTACK -> haystack(site, courses, piece);
             case CRATES -> crates(site, courses, piece, palette);
             case WELL -> well(site, courses, piece, palette);
-            case SQUARE -> square(site, courses, piece, palette);
+            case SQUARE -> square(site, courses, piece, palette, lines);
             case ORCHARD -> orchard(site, courses, piece, palette);
             case HEDGE -> hedge(site, courses, piece, palette);
             case AVENUE_TREE -> avenueTree(site, courses, piece, palette);
-            case SIGNPOST -> signpost(site, courses, piece, palette);
+            case SIGNPOST -> signpost(site, courses, piece, palette, lines, true);
+            case INN_SIGN -> signpost(site, courses, piece, palette, lines, false);
             case FIRE_PIT -> firePit(site, courses, piece, palette);
             case CAGE -> cage(site, courses, piece, palette);
             case STAKES -> stakes(site, courses, piece, palette);
@@ -314,9 +354,16 @@ public final class FurnishingLayer {
      *
      * <p>The paving is a soil course, so it replaces the turf rather than standing
      * a course proud of it. A square you step up onto is a plinth.
+     *
+     * <p>The board reads the town's name, what it has grown into and the day it
+     * began. See {@link Signage#board}, which composes it, and {@link #inscribe},
+     * which writes it and keeps writing it: the stage on that board changes under
+     * the town as it grows, so a board written once would be a board that lies
+     * about a village that became a town.
      */
     private static void square(BlueprintPlacer.Site site, List<Course> out,
-                               Furnishings.Furnishing piece, Palette palette) {
+                               Furnishings.Furnishing piece, Palette palette,
+                               List<String> lines) {
         SimPos at = piece.at();
         int reach = piece.reach();
         for (int dx = -reach; dx <= reach; dx++) {
@@ -358,7 +405,8 @@ public final class FurnishingLayer {
                 palette.post().defaultBlockState()));
         out.add(new Course(new BlockPos(boardX - 1, ground + 1, boardZ),
                 palette.sign().defaultBlockState()
-                        .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST)));
+                        .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
+                false, lines));
     }
 
     /**
@@ -424,25 +472,40 @@ public final class FurnishingLayer {
      *
      * <p>A solid post and a wall sign rather than a fence and a standing sign, for
      * the reason the lamps have a solid head: a sign wants a face to hang on, and
-     * a fence post has not got one. The board is left blank. Writing the town's
-     * name on it means a sign block entity and a text payload, which is a thing
-     * this seam does not carry and is not worth widening it for — a blank board on
-     * a post at a crossroads still reads as a signpost, and a wrong one would read
-     * as a bug.
+     * a fence post has not got one.
+     *
+     * <p>The board used to be left blank, and the note here said why: writing the
+     * town's name on it meant a sign block entity and a text payload, which was a
+     * thing this seam did not carry. It carries one now — a {@link Course} has
+     * lines on it — so a post at a crossroads says whose town this is and which
+     * way the hall lies, which is the question somebody standing at a crossroads
+     * is actually asking. The argument that replaced the old one is unchanged in
+     * kind: a <em>wrong</em> board would still read as a bug, which is why the
+     * text is derived on every sweep from the town rather than written down once.
+     *
+     * <p>The inn's own board is this shape and this cost, turned round.
+     * {@code towardTheGate} gives the way the thing the piece belongs to lies, and
+     * a signpost hangs its board on that face because the thing it belongs to is
+     * the middle of the town. An inn board hangs on the opposite face, because
+     * nobody reads an inn sign from inside the inn.
+     *
+     * @param inward whether the board faces the thing this piece belongs to
      */
     private static void signpost(BlueprintPlacer.Site site, List<Course> out,
-                                 Furnishings.Furnishing piece, Palette palette) {
+                                 Furnishings.Furnishing piece, Palette palette,
+                                 List<String> lines, boolean inward) {
         SimPos at = piece.at();
         int ground = site.groundLevel(at.x(), at.z());
         out.add(new Course(new BlockPos(at.x(), ground, at.z()),
                 palette.post().defaultBlockState()));
         out.add(new Course(new BlockPos(at.x(), ground + 1, at.z()),
                 palette.post().defaultBlockState()));
-        Direction looking = towardTheGate(piece.facing());
+        Direction looking = towardTheGate(inward ? piece.facing() : piece.facing() + 2);
         out.add(new Course(new BlockPos(at.x(), ground + 1, at.z())
                         .relative(looking),
                 palette.sign().defaultBlockState()
-                        .setValue(HorizontalDirectionalBlock.FACING, looking)));
+                        .setValue(HorizontalDirectionalBlock.FACING, looking),
+                false, lines));
     }
 
     /** A ring of stones round a fire, and two logs to sit on. */
@@ -558,7 +621,36 @@ public final class FurnishingLayer {
         if (index < 0 || index >= pieces.size()) {
             return List.of();
         }
-        return plan(siteFor(level, settlement), pieces.get(index));
+        return plan(siteFor(level, settlement), pieces.get(index),
+                plaqueFor(level, settlement));
+    }
+
+    /**
+     * What this town's boards say, read off it now.
+     *
+     * <p>Now, and not once: the name never changes but the stage does, and a
+     * village whose hall went up is a town the same step. Composing this on every
+     * call is a handful of string operations against a sweep that reads two dozen
+     * block states, and it is what makes the text obey the same rule as the
+     * dressing it is written on — derived from what is standing, never saved.
+     */
+    static Signage.Plaque plaqueFor(ServerLevel level, Settlement settlement) {
+        return Signage.of(settlement, simIntervalOf(level));
+    }
+
+    /**
+     * How many game ticks the simulation takes between steps, here.
+     *
+     * <p>Asked of the running world rather than of the default, because a server
+     * whose owner slowed the simulation down has longer days in steps and a board
+     * reading a founding day off the default would be out by whatever they
+     * changed. The default is the fallback for a level with no simulation on it
+     * yet, which is what a test fixture is.
+     */
+    private static int simIntervalOf(ServerLevel level) {
+        SimWorld world = CivilizationMod.simulationFor(level);
+        return world == null ? SimWorld.SIM_INTERVAL_TICKS
+                : world.settings().simIntervalTicks();
     }
 
     /**
@@ -719,6 +811,7 @@ public final class FurnishingLayer {
             return;
         }
         BlueprintPlacer.Site site = siteFor(level, settlement);
+        Signage.Plaque plaque = plaqueFor(level, settlement);
         long now = System.nanoTime();
         Long previous = LAST_DRAW.put(settlement.id(), now);
         long elapsed = previous == null ? DrawBudget.NANOS_PER_SECOND : now - previous;
@@ -735,7 +828,7 @@ public final class FurnishingLayer {
             Furnishings.Furnishing piece = pieces.get(i);
             BlockPos column = new BlockPos(piece.at().x(), piece.at().y(), piece.at().z());
             if (level.isLoaded(column)) {
-                placed += raise(level, site, piece) ? 1 : 0;
+                placed += raise(level, site, piece, plaque) ? 1 : 0;
                 looked++;
             }
             examined++;
@@ -767,9 +860,9 @@ public final class FurnishingLayer {
 
     /** Stands one whole piece, and says whether anything went in. */
     private static boolean raise(ServerLevel level, BlueprintPlacer.Site site,
-                                 Furnishings.Furnishing piece) {
+                                 Furnishings.Furnishing piece, Signage.Plaque plaque) {
         boolean placed = false;
-        for (Course course : plan(site, piece)) {
+        for (Course course : plan(site, piece, plaque)) {
             placed |= put(level, course);
         }
         return placed;
@@ -804,6 +897,10 @@ public final class FurnishingLayer {
             return false;
         }
         if (stands(level.getBlockState(course.pos()), course)) {
+            // Standing, but not necessarily saying the right thing. A board is
+            // the one course whose correctness is not settled by the block being
+            // there, so the repair sweep looks at the words as well.
+            inscribe(level, course);
             return false;
         }
         if (!replaceable(level, course)) {
@@ -813,7 +910,56 @@ public final class FurnishingLayer {
         // Only if it survived. A block that pops off the moment it is set is not
         // work done, and counting it as work is what let one bad choice of block
         // halt an entire wall -- see the class comment.
-        return level.getBlockState(course.pos()).is(course.state().getBlock());
+        boolean took = level.getBlockState(course.pos()).is(course.state().getBlock());
+        if (took) {
+            inscribe(level, course);
+        }
+        return took;
+    }
+
+    /**
+     * Writes a course's words on the board that is standing at it.
+     *
+     * <p>Three things this deliberately is not. It is not a placement: a board
+     * that had to be rewritten has cost the town nothing and is not counted
+     * against the drawing budget, or a town with three signs in it would spend
+     * every sweep on them and never finish a garden. It is not a save: nothing
+     * here is written down, and the words are composed again from the standing
+     * town on the next sweep. And it is not unconditional — the text is compared
+     * first, because {@code SignBlockEntity.setText} marks the block entity
+     * changed and re-sends it to every client in range, and doing that four times
+     * a second for every board in a town is a packet storm for no picture.
+     *
+     * <p>Front face only. Every board the dressing puts up is a wall sign hung on
+     * a post, so its back is inside the post.
+     */
+    private static void inscribe(ServerLevel level, Course course) {
+        if (course.lines().isEmpty()) {
+            return;
+        }
+        if (!(level.getBlockEntity(course.pos()) instanceof SignBlockEntity board)) {
+            return;   // somebody replaced the board with something that is not one
+        }
+        if (reads(board.getFrontText(), course.lines())) {
+            return;
+        }
+        SignText written = new SignText();
+        for (int i = 0; i < course.lines().size() && i < SignText.LINES; i++) {
+            written = written.setMessage(i, Component.literal(course.lines().get(i)));
+        }
+        board.setText(written, true);
+    }
+
+    /** Whether the board already says exactly this. */
+    private static boolean reads(SignText standing, List<String> lines) {
+        Component[] on = standing.getMessages(false);
+        for (int i = 0; i < SignText.LINES; i++) {
+            String wanted = i < lines.size() ? lines.get(i) : "";
+            if (!on[i].getString().equals(wanted)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

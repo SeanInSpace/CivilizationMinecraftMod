@@ -3,12 +3,17 @@ package com.civilization.neoforge.view;
 import com.civilization.neoforge.entity.PersonEntity;
 import com.civilization.neoforge.world.Chimneys;
 import com.civilization.sim.culture.Race;
+import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.person.Curfew;
 import com.civilization.sim.person.Leisure;
 import com.civilization.sim.person.NightRest;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.settlement.Building;
+import com.civilization.sim.settlement.BuildingRole;
+import com.civilization.sim.settlement.FoodPlanner;
 import com.civilization.sim.settlement.Settlement;
+import com.civilization.sim.settlement.SmithPlanner;
+import com.civilization.sim.view.WorkTheatre;
 import com.civilization.sim.world.SimWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -16,6 +21,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BellBlockEntity;
 
@@ -111,15 +117,178 @@ final class Ambience {
         this.chimneys = new Chimneys(level);
     }
 
-    /** One pass over one town: its smoke, its voices, and its morning. */
+    /** One pass over one town: its smoke, its voices, its trades and its morning. */
     void tend(Settlement settlement) {
         long clock = level.getDefaultClockTime();
         ringAtDawn(settlement, clock);
         voices(settlement);
+        trades(settlement);
         if (++beat % SMOKE_EVERY == 0) {
             smoke(settlement, clock);
         }
     }
+
+    // --- the trades ---------------------------------------------------------------
+
+    /**
+     * The smith strikes, the carpenter cuts, the miller grinds.
+     *
+     * <p>What the town's indoor work sounds like, and until this it sounded like
+     * nothing at all. Outdoor work is audible by accident — felling a tree and
+     * cutting a seam go through {@code destroyBlock} and vanilla makes the noise
+     * — so a lumberjack read as working and a smith standing in a room with an
+     * anvil in it read as switched off.
+     *
+     * <p><strong>It is worth nothing and must stay worth nothing.</strong> The
+     * whole of this method is a sound, an arm and a handful of particles;
+     * {@code WorkTheatre} is a gate rather than a step and every fact it reads is
+     * somebody else's ledger quoted, never written. A town with a player in it
+     * and a town without one make exactly the same tools, the same bread and the
+     * same pre-cut timber — which is the same promise the smoke above makes, said
+     * about the busy half of the town instead of the sleeping half.
+     *
+     * <p>Gated on the town's own books before it is gated on anything else: a
+     * forge with no iron in it is silent, and that matters more than the range
+     * check does. A player who learned to read the hammering as "the smithy is
+     * working" would have learned something true, and a hammer over an empty
+     * rack would make it false.
+     */
+    private void trades(Settlement settlement) {
+        if (settlement.alarm().isRaised()) {
+            return;   // nobody is at a bench during a raid
+        }
+        boolean forge = SmithPlanner.hasWorkInFront(settlement);
+        boolean mill = FoodPlanner.millHasWork(settlement);
+        boolean bench = settlement.buildingWithRole(BuildingRole.CARPENTRY) != null
+                && !settlement.buildQueue().isEmpty();
+        if (!forge && !mill && !bench) {
+            return;   // the whole town's indoor work is idle; nothing to draw
+        }
+        long now = level.getGameTime();
+        for (Person person : settlement.residents()) {
+            WorkTheatre.Trade trade = WorkTheatre.tradeOf(person.profession());
+            if (trade == null) {
+                continue;
+            }
+            boolean busy = switch (trade) {
+                case SMITH -> forge;
+                case MILLER -> mill;
+                case CARPENTER -> bench;
+            };
+            if (!busy) {
+                continue;
+            }
+            UUID id = person.id().value();
+            PersonEntity view = viewOf.apply(id);
+            boolean bodied = person.isEmbodied() && view != null && !view.isRemoved()
+                    && !view.isSleeping() && !view.isInDanger();
+            SimPos where = bodied
+                    ? new SimPos(view.getBlockX(), view.getBlockY(), view.getBlockZ())
+                    : settlement.center();
+            WorkTheatre.Scene work = new WorkTheatre.Scene(
+                    bodied && world.bridge().playerWithin(where, WorkTheatre.WATCH_RANGE),
+                    bodied && isAtBench(settlement, trade, view),
+                    true, bodied);
+            Long last = struckAt.get(id);
+            if (!WorkTheatre.strikes(work, last == null ? WorkTheatre.NEVER : last,
+                    now, WorkTheatre.gapFor(id))) {
+                continue;
+            }
+            struckAt.put(id, now);
+            strike(trade, view);
+        }
+    }
+
+    /**
+     * Whether this worker is standing at the building their trade is done in.
+     *
+     * <p>Measured against the building's origin rather than against the anvil,
+     * because the origin is the one position a {@code Building} is guaranteed to
+     * have and the furniture inside it is the blueprint's business. {@code AT_WORK}
+     * is four blocks, which is inside a workshop and outside the street.
+     */
+    private boolean isAtBench(Settlement settlement, WorkTheatre.Trade trade,
+                              PersonEntity view) {
+        Building shop = settlement.buildingWithRole(switch (trade) {
+            case SMITH -> BuildingRole.SMITH;
+            case MILLER -> BuildingRole.MILL;
+            case CARPENTER -> BuildingRole.CARPENTRY;
+        });
+        if (shop == null) {
+            return false;
+        }
+        double dx = view.getX() - (shop.origin().x() + 0.5);
+        double dz = view.getZ() - (shop.origin().z() + 0.5);
+        return dx * dx + dz * dz <= WorkTheatre.AT_WORK * WorkTheatre.AT_WORK;
+    }
+
+    /**
+     * One blow, one cut, one turn of the stone.
+     *
+     * <p>Vanilla's own sounds rather than a sound pack of ours, for the reason
+     * the voices use vanilla's villager murmur: a mod that ships its own noises
+     * has to ship a whole resource pack to go with them, and a player already
+     * reads an anvil as an anvil.
+     *
+     * <p>Quiet. The anvil at full volume is one of the loudest sounds in the
+     * game and a forge in the middle of a village would be unbearable within a
+     * minute; a third of it is somebody working in the next building.
+     */
+    private void strike(WorkTheatre.Trade trade, PersonEntity view) {
+        view.swing(InteractionHand.MAIN_HAND);
+        BlockPos at = view.blockPosition();
+        switch (trade) {
+            case SMITH -> {
+                level.playSound(null, at, SoundEvents.ANVIL_USE, SoundSource.BLOCKS,
+                        ANVIL_VOLUME, 0.9F + level.getRandom().nextFloat() * 0.2F);
+                // Sparks off the work, at chest height where the hammer is.
+                level.sendParticles(ParticleTypes.CRIT, view.getX(),
+                        view.getY() + SPARK_HEIGHT, view.getZ(), SPARKS,
+                        0.2, 0.1, 0.2, 0.02);
+                level.sendParticles(ParticleTypes.LAVA, view.getX(),
+                        view.getY() + SPARK_HEIGHT, view.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+            }
+            case CARPENTER -> {
+                level.playSound(null, at, SoundEvents.WOOD_HIT, SoundSource.BLOCKS,
+                        BENCH_VOLUME, 0.8F + level.getRandom().nextFloat() * 0.3F);
+                level.playSound(null, at, SoundEvents.AXE_STRIP, SoundSource.BLOCKS,
+                        BENCH_VOLUME * 0.5F, 1.1F);
+            }
+            case MILLER -> {
+                level.playSound(null, at, SoundEvents.GRINDSTONE_USE, SoundSource.BLOCKS,
+                        STONE_VOLUME, 0.7F + level.getRandom().nextFloat() * 0.2F);
+                // Flour off the stone, which is the only thing a mill produces
+                // that anybody can see.
+                level.sendParticles(ParticleTypes.SMOKE, view.getX(),
+                        view.getY() + SPARK_HEIGHT, view.getZ(), 2,
+                        0.2, 0.05, 0.2, 0.0);
+            }
+        }
+    }
+
+    /** How loud one blow of a hammer is. Vanilla's anvil is 1.0 and is far too much. */
+    private static final float ANVIL_VOLUME = 0.35F;
+
+    /** A saw and a mallet, quieter again: a bench is not a forge. */
+    private static final float BENCH_VOLUME = 0.4F;
+
+    /** The stone: a low grind, and the one that runs longest. */
+    private static final float STONE_VOLUME = 0.3F;
+
+    /** How high above the feet the work is: chest height. */
+    private static final double SPARK_HEIGHT = 1.1;
+
+    /** Sparks off one blow. */
+    private static final int SPARKS = 4;
+
+    /**
+     * When each worker last struck, by person.
+     *
+     * <p>Not saved, and there is nothing to save: the whole of it is "do not
+     * make this noise again for two seconds". A reload means one extra hammer
+     * blow, which is not a thing anybody can notice.
+     */
+    private final Map<UUID, Long> struckAt = new HashMap<>();
 
     // --- smoke -----------------------------------------------------------------
 

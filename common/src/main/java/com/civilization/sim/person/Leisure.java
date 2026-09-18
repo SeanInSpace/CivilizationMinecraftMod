@@ -247,6 +247,142 @@ public final class Leisure {
     }
 
     /**
+     * What the town's own ledgers say there is to do, one boolean per trade.
+     *
+     * <p>{@link Idleness}'s sibling and written for the same reason. "Has this
+     * person's hands on something" used to be a switch over every profession in
+     * the platform's steering loop, where it could not be tested and where the
+     * one branch that mattered most was a {@code default} arm reading
+     * <em>true</em> — so a smith, a miller, a carpenter and the king were
+     * permanently at work whatever their building had in it, and were the
+     * stiffest figures in any town. Gathering the answers the planners already
+     * hold into a record is what lets the rule below be read and be checked.
+     *
+     * <p>Every field is somebody else's judgment, quoted rather than re-derived:
+     * {@code SmithPlanner.hasWorkInFront}, {@code FoodPlanner.millHasWork},
+     * {@code MarketPlanner.isOpen}. A second opinion about whether the forge is
+     * cold is a second thing to get wrong.
+     *
+     * @param handsOnAWork the construction pass or the public works have this
+     *                     person already, which outranks every trade below
+     * @param field        a field stands for a farmer to work
+     * @param wood         a wood is claimed for a lumberjack
+     * @param stone        a seam is claimed for a miner
+     * @param pens         an animal farm stands for a shepherd
+     * @param stall        the market is open
+     * @param forge        the smithy has iron, fuel and something worth making
+     * @param mill         the mill has grain and the larder has room for the loaf
+     * @param bench        the carpentry stands and a build is queued for it
+     */
+    public record Openings(boolean handsOnAWork, boolean field, boolean wood,
+                           boolean stone, boolean pens, boolean stall,
+                           boolean forge, boolean mill, boolean bench) {
+    }
+
+    /**
+     * Whether the town has this person's hands on something right now.
+     *
+     * <p>Everything outside the working day answers no, which is the whole of
+     * "off-shift" — and so does anybody too weak to work, who is the
+     * "weak-but-fed" case: a settler the hunger rules have taken off the job but
+     * who is not walking to a meal is somebody sitting down, not somebody frozen
+     * at their workplace.
+     *
+     * <p>The four that used to fall through to <em>true</em> now answer off a
+     * ledger like everybody else. A smith at a forge with no iron in it, a
+     * miller at a mill with an empty hopper and a carpenter with nothing queued
+     * are all people waiting, and the town they are waiting in has a square and
+     * a doorway and a bench in it. The king answers no outright, because that is
+     * what a king is: {@code KingPlanner} puts him in the staffing table
+     * nowhere, and {@code HaulPlanner} already says he has no work in front of
+     * him by definition — this is the same fact, said where his afternoon is
+     * decided. The shaman is the same case in a camp.
+     *
+     * <p>What has <em>not</em> changed is that a forge with iron in it keeps its
+     * smith. A pastime never outbids work; it is only ever what is left when
+     * work has declined to claim somebody.
+     */
+    public static boolean hasWork(Profession what, Hour hour, boolean tooWeak,
+                                  Openings open) {
+        if (hour != Hour.DAY || tooWeak) {
+            return false;
+        }
+        if (open.handsOnAWork()) {
+            return true;
+        }
+        return switch (what) {
+            // Nothing to be waiting for, by definition.
+            case IDLER -> false;
+            // A builder with a site is busy on it and was caught above; a builder
+            // without one is precisely the person waiting for hands.
+            case BUILDER, PIONEER -> false;
+            // The watch's leisure is its post; see Pastimes.leanOnPost.
+            case GUARD -> false;
+            // Idle by right, both of them. See above.
+            case KING, SHAMAN -> false;
+            case FARMER -> open.field();
+            case LUMBERJACK -> open.wood();
+            case MINER -> open.stone();
+            case SHEPHERD -> open.pens();
+            // A trader is at the stall while the stall is open and is somebody
+            // with an afternoon when it is not. See MarketPlanner.
+            case TRADER -> open.stall();
+            case SMITH -> open.forge();
+            case MILLER -> open.mill();
+            case CARPENTER -> open.bench();
+            // A forager's field is the wood and there is no building to be short
+            // of: while a camp lives hand to mouth its hands are in the bushes,
+            // and a camp with a full larder has already been sent home by the
+            // hour. Left as it was, deliberately — this unit is about the four
+            // above it.
+            case FORAGER -> true;
+        };
+    }
+
+    /**
+     * Where the king spends a quiet hour: his own hall, mostly.
+     *
+     * <p>{@link #forGuard}'s idea for the other man the town has exactly one of,
+     * and the opposite answer. A guard's leisure is staying where the town put
+     * him, because the whole point of a sentry is where he is standing. A king
+     * has no post to hold, and the reason he had no pastime at all was simply
+     * that the rule above used to say he was working — so what he needs is not a
+     * special case but an offer, and this is it: his own hall, the square, and
+     * the inn.
+     *
+     * <p>Weighted by repetition rather than by a second weight table, because
+     * {@link #choose} already weighs one entry at a time and a table that had to
+     * know whose offer it was weighing would be a table with a person in it. The
+     * hall appears {@link #KING_HALL_SHARE} times, so at the day's weights it
+     * outdraws the square roughly three to two and the town's king is usually to
+     * be found at the town's hall — which is what anybody looking for him would
+     * expect, and is why the doorway is on the list at all.
+     *
+     * <p>Evening and night take care of themselves: the square weighs nothing
+     * after the curfew and the inn weighs seven, so the king walks in with
+     * everybody else and drinks where they drink.
+     */
+    public static List<Place> forKing(SimPos hallDoorstep, List<Place> townOffer) {
+        List<Place> mine = new ArrayList<>();
+        if (hallDoorstep != null) {
+            for (int i = 0; i < KING_HALL_SHARE; i++) {
+                mine.add(new Place(Pastime.DOORWAY, hallDoorstep));
+            }
+        }
+        if (townOffer != null) {
+            for (Place place : townOffer) {
+                if (place.what() == Pastime.SQUARE || place.what() == Pastime.INN) {
+                    mine.add(place);
+                }
+            }
+        }
+        return List.copyOf(mine);
+    }
+
+    /** How many entries of a king's offer are his own hall: three. */
+    public static final int KING_HALL_SHARE = 3;
+
+    /**
      * What one of the watch does with a quiet hour: leans on their post.
      *
      * <p>Not chosen from the offer and never one of the others. A guard who
