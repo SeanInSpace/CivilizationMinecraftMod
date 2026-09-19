@@ -6,6 +6,7 @@ import com.civilization.sim.settlement.BuildPlanner;
 import com.civilization.sim.settlement.BuildTask;
 import com.civilization.sim.settlement.Building;
 import com.civilization.sim.settlement.BuildingRole;
+import com.civilization.sim.settlement.Heart;
 import com.civilization.sim.settlement.Homes;
 import com.civilization.sim.settlement.PathNetwork;
 import com.civilization.sim.settlement.Perimeter;
@@ -97,8 +98,14 @@ public final class Furnishings {
          * then nine, and takes the first that fits. A hillside with a hall already
          * standing on it does not always have thirteen, and a town with no square
          * at all would be a worse answer than a small one.
+         *
+         * <p>Its full reach is {@link Heart#SQUARE_REACH} rather than a number of
+         * its own, because that is the ground {@code Settlement.isPlotFree} holds
+         * empty for it. A reserve and a piece of paving that disagreed about how
+         * big a square is would be a square somebody could build the corner of a
+         * house on.
          */
-        SQUARE(6, 3, new Cost(16, 96, 0)),
+        SQUARE(Heart.SQUARE_REACH, 3, new Cost(16, 96, 0)),
 
         /** A ring of stone with water in it, on the heart, where no market stands. */
         WELL(1, 3, new Cost(2, 12, 0)),
@@ -708,29 +715,37 @@ public final class Furnishings {
     // --- where they go -------------------------------------------------------
 
     /**
-     * The paved square at the heart of the plan.
+     * The paved square, on the ground the plan holds for it.
      *
-     * <p>The one piece that negotiates its own size. Thirteen blocks of clear
-     * ground in the middle of a town is a lot to ask of a hillside and of a plan
-     * that has already put a hall there, so it asks for thirteen, then eleven,
-     * then nine, and takes the first that fits. A town that cannot seat nine gets
-     * no square, which is the right answer: a five-block square is a gap between
-     * two houses.
+     * <p><strong>This used to go looking, and that was the fault.</strong> It
+     * walked out from the center a ring at a time and took the nearest ground
+     * nothing else had a claim to — which sounds reasonable and is the one thing
+     * a square must not do, because the middle of a town is never free. The plots
+     * fill it, and the roads <em>aim</em> at it, so every column round the hub is
+     * inside a carriageway's clearance and {@link Keepouts#freeFor} refuses it.
+     * The square therefore ran away from its own hub — measured on recorded ground
+     * at 31 blocks out in {@code ring}, 30 in {@code thorp}, 34 in
+     * {@code organic} — and it kept running: up to eight different places over one
+     * town's life, five of which ended with a building standing on the paving. A
+     * notice-board post walled in by cobblestone on all four faces is what that
+     * looks like from inside the game.
      *
-     * <p>Sited by walking out from the center a ring at a time, so "the heart"
-     * means the nearest clear ground to the middle rather than the middle exactly.
-     * The middle exactly is where the hall is.
+     * <p>So it does not look any more. {@link Heart#squareGround} is a fixed point
+     * known on step one and held against every plot from then on, and this lays
+     * the square on it. What is left of the negotiation is the size and only it:
+     * thirteen blocks, then eleven, then nine, because a town whose wall or
+     * forester's belt comes close to the middle may not seat the full thirteen. A
+     * town that cannot seat nine gets no square, which is still the right answer —
+     * a five-block square is a gap between two houses.
      */
     private static void theSquare(Settlement settlement, FurnishingStyle style,
                                   Keepouts ground, List<Furnishing> out) {
         if (!style.raises(Piece.SQUARE)) {
             return;
         }
-        SimPos center = settlement.center();
+        SimPos at = Heart.squareGround(settlement);
         for (int reach = Piece.SQUARE.reach(); reach >= SMALLEST_SQUARE; reach--) {
-            SimPos at = nearestFree(ground, out, center, Piece.SQUARE, reach,
-                    SQUARE_SEARCH);
-            if (at != null) {
+            if (isFree(ground, out, at, Piece.SQUARE, reach)) {
                 out.add(new Furnishing(at, Piece.SQUARE, 0, reach));
                 return;
             }
@@ -740,7 +755,7 @@ public final class Furnishings {
     /** The smallest square worth calling one: nine blocks across. */
     public static final int SMALLEST_SQUARE = 4;
 
-    /** How far from the middle the square may be pushed to find room. */
+    /** How far from the middle a well may be pushed to find room. */
     private static final int SQUARE_SEARCH = 24;
 
     /**
@@ -758,6 +773,8 @@ public final class Furnishings {
                 || !settlement.buildingsWithRole(BuildingRole.MARKET).isEmpty()) {
             return;
         }
+        // A well is not the square and does go looking: it has no ground held for
+        // it, and one twenty blocks off the middle is still the village well.
         SimPos at = nearestFree(ground, out, settlement.center(), Piece.WELL,
                 Piece.WELL.reach(), SQUARE_SEARCH);
         if (at != null) {
@@ -1721,7 +1738,7 @@ public final class Furnishings {
      * planned lamp; re-deriving the lamp list inside that loop would be
      * {@code LightPlanner.lamps} run a thousand times a step.
      */
-    private record Keepouts(SimPos center, int claimRadius, Boxes plots,
+    private record Keepouts(SimPos center, SimPos square, int claimRadius, Boxes plots,
                             Boxes roads, Grid wall,
                             Grid lamps, Grid doors, WorkArea belt) {
 
@@ -1834,7 +1851,8 @@ public final class Furnishings {
             for (LightPlanner.Lamp lamp : LightPlanner.lamps(settlement)) {
                 lamps.add(lamp.at());
             }
-            return new Keepouts(settlement.center(), settlement.claimRadius(), plots, roads,
+            return new Keepouts(settlement.center(), Heart.squareGround(settlement),
+                    settlement.claimRadius(), plots, roads,
                     Grid.of(wall), Grid.of(lamps), Grid.of(doors),
                     settlement.lumberArea());
         }
@@ -1861,13 +1879,44 @@ public final class Furnishings {
             if (plots.anyWithin(at.x(), at.z(), reach + 1)) {
                 return false;
             }
-            if (roads.anyWithin(at.x(), at.z(), piece.roadClearance() + reach)) {
-                return false;
-            }
-            if (wall.anyWithin(at, reach + WALL_CLEARANCE)
-                    || lamps.anyWithin(at, reach + LAMP_CLEARANCE)
-                    || doors.anyWithin(at, reach + DOOR_CLEARANCE)) {
-                return false;
+            // The square standing on its own reserved ground answers to none of
+            // the four below, and that exemption is the difference between a town
+            // with a square and a town whose square is thirty blocks out in a
+            // field.
+            //
+            // The roads AIM at this point — {@code Heart.squareGround} is what
+            // PathPlanner hands the router as its hub — so every column round it
+            // is inside a carriageway's clearance by construction, and the lamps
+            // and the doorsteps follow the roads. Refusing the square for being
+            // where the roads arrive is refusing it for being a square, and that
+            // is exactly what used to happen: measured on recorded ground, the
+            // square ended up 31 blocks from the hub in {@code ring} and 34 in
+            // {@code organic}.
+            //
+            // The wall line is here for a smaller and more specific reason. It
+            // keeps a piece of dressing out of the fence somebody has to stand up,
+            // which is right for a haystack and wrong for paving: the square is
+            // flat ground at the surface, and a wall crossing it crosses it. It
+            // costs a real town its square otherwise — {@code radial_concentric}
+            // puts its hall on the middle, so the square is held one hall's width
+            // out, and its perimeter runs three blocks from that point. With the
+            // clearance applied there is no reach down to nine that fits and the
+            // town has no square at all.
+            //
+            // What still applies: the claim, the plots and the forester's belt.
+            // Those are the things that would bury a square rather than cross it.
+            boolean onItsOwnGround = piece == Piece.SQUARE && at.equals(square);
+            if (!onItsOwnGround) {
+                if (wall.anyWithin(at, reach + WALL_CLEARANCE)) {
+                    return false;
+                }
+                if (roads.anyWithin(at.x(), at.z(), piece.roadClearance() + reach)) {
+                    return false;
+                }
+                if (lamps.anyWithin(at, reach + LAMP_CLEARANCE)
+                        || doors.anyWithin(at, reach + DOOR_CLEARANCE)) {
+                    return false;
+                }
             }
             if (belt != null) {
                 long dx = belt.center().x() - at.x();

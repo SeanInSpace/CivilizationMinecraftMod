@@ -11,6 +11,7 @@ import com.civilization.sim.culture.Culture;
 import com.civilization.sim.settlement.FoodPlanner;
 import com.civilization.sim.settlement.Herd;
 import com.civilization.sim.settlement.Footprint;
+import com.civilization.sim.settlement.Grade;
 import com.civilization.sim.settlement.RepairPlanner;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.world.SimWorld;
@@ -134,9 +135,6 @@ public final class TownAuditor {
 
     private record HeadState(String signature, long sinceStep) {
     }
-
-    /** A course of slack either way before a shelf reads as banked or hanging. */
-    private static final int SHELF_TOLERANCE = 1;
 
     /** Sample every other column on rings, so a big plot stays cheap to judge. */
     private static final int RING_STEP = 2;
@@ -889,35 +887,26 @@ public final class TownAuditor {
     private static void checkShelf(WorldView world, Building building, BlockPos origin,
                                    int floor, int wallHalfW, int wallHalfD,
                                    List<Fault> faults) {
-        int samples = 0;
-        int banked = 0;
-        int hanging = 0;
-        int worstAbove = 0;
-        int worstBelow = 0;
-        for (BlockPos spot : ring(origin, wallHalfW + 1, wallHalfD + 1, RING_STEP)) {
-            if (!world.isLoaded(spot)) {
-                continue;
-            }
-            int grade = world.groundLevel(spot.getX(), spot.getZ()) - 1;
-            samples++;
-            if (grade > floor + SHELF_TOLERANCE) {
-                banked++;
-                worstAbove = Math.max(worstAbove, grade - floor);
-            } else if (grade < floor - SHELF_TOLERANCE) {
-                hanging++;
-                worstBelow = Math.max(worstBelow, floor - grade);
-            }
-        }
-        if (samples == 0) {
-            return;
-        }
-        if (banked == samples) {
+        // The arithmetic is Grade's, not a copy of it. It used to be a copy, with
+        // a tolerance of its own — see Grade.CUT_REACH for the whole of that
+        // story — and the copy is why this audit reported buildings the crew had
+        // already levelled. Reading one column at a time is all Grade needs, so a
+        // level can be handed to it as easily as the simulation's own bridge can.
+        Grade.Reading reading = Grade.around(
+                // Asked at the origin's own height, which is where the ring this
+                // replaced asked it: the loaded test is about the chunk, and
+                // moving the y by a course would be a different question.
+                (x, z) -> world.isLoaded(new BlockPos(x, origin.getY(), z))
+                        ? world.groundLevel(x, z) : Grade.UNREAD,
+                new SimPos(origin.getX(), origin.getY(), origin.getZ()),
+                wallHalfW, wallHalfD, floor);
+        if (reading.shelf() == Grade.Shelf.BURIED) {
             faults.add(new Fault(building.blueprintId(), origin,
-                    "buried — the ground stands up to " + worstAbove
+                    "buried — the ground stands up to " + reading.worstAbove()
                             + " above its floor on every side"));
-        } else if (hanging == samples) {
+        } else if (reading.shelf() == Grade.Shelf.PERCHED) {
             faults.add(new Fault(building.blueprintId(), origin,
-                    "perched — its floor hangs up to " + worstBelow
+                    "perched — its floor hangs up to " + reading.worstBelow()
                             + " above the ground on every side"));
         }
     }

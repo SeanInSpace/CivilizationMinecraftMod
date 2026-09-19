@@ -228,12 +228,27 @@ class BuildPlannerTest {
 
     @Test
     void territoryDoesNotShrinkForNearbyPlots() {
-        Settlement s = settlement(4);
-        assertEquals(16, s.claimRadius());
+        // A claim wide enough that the first plot really is inside it, which the
+        // shared fixture's sixteen no longer is. The middle of a town is spoken
+        // for twice over now -- the hall's ground until a hall is ordered and the
+        // square's for ever, see Heart -- so the first plot a camp is offered
+        // stands about thirty-seven blocks out rather than about twelve. That is
+        // the reserve working; this test is about the claim not shrinking, so the
+        // fixture is widened rather than the rule loosened.
+        Settlement s = new Settlement(
+                Settlement.Id.random(), "Testburg", new SimPos(0, 64, 0), 64);
+        s.setCatalog(CATALOG);
+        for (int i = 0; i < 4; i++) {
+            s.addResident(new Person(Person.Id.random(), "Person " + i,
+                    Profession.BUILDER, new SimPos(0, 64, 0)));
+        }
+        assertEquals(64, s.claimRadius());
 
         s.step(new SimContext(new LoadedBridge(), 0));
 
-        assertEquals(16, s.claimRadius(), "a plot already inside the claim should not change it");
+        assertTrue(s.contains(s.buildQueue().getFirst().origin()),
+                "the fixture has to offer a plot inside the claim to say anything");
+        assertEquals(64, s.claimRadius(), "a plot already inside the claim should not change it");
     }
 
     @Test

@@ -49,20 +49,30 @@ public final class Grade {
     }
 
     /**
-     * Courses of slack the shelf check allows before it calls a building buried.
-     *
-     * <p>Mirrors {@code TownAuditor.SHELF_TOLERANCE}. One: a single course of
-     * ground standing proud of a doorstep is a step up, not a pit.
-     */
-    public static final int SHELF_TOLERANCE = 1;
-
-    /**
      * How far above a floor the apron cut can take the ground away.
      *
      * <p>Mirrors {@code BlueprintPlacer.APRON_HEADROOM}, which is the headroom
      * cleared over the doorstep ring — enough to walk the whole way round. Ground
      * standing higher than this is left exactly where it is, and the auditor then
      * reports the building as buried under it.
+     *
+     * <p><strong>There used to be a second number.</strong> {@code Grade} also
+     * declared a {@code SHELF_TOLERANCE} of one, documented as mirroring
+     * {@code TownAuditor.SHELF_TOLERANCE}, and read by nothing at all; the
+     * auditor's own copy was read and was one, over the same ring this is
+     * measured on. So the siting accepted ground three courses proud and the
+     * auditor called the building that went up on it buried, and both were
+     * behaving exactly as written. The playtest report is the shape of that
+     * disagreement: "buried — the ground stands up to <strong>3</strong> above
+     * its floor on every side", three being this number and not a coincidence.
+     *
+     * <p>Three is the right number and one was wrong, and the placer settles it.
+     * {@code BlueprintPlacer.finish} cuts the apron ring — the columns at
+     * {@code rx + APRON_MARGIN}, which with {@code BuildingSizes.APRON} at one is
+     * exactly the ring one step outside the walls that the auditor measures — for
+     * {@code APRON_HEADROOM} courses above the floor line. The crew really does
+     * take three courses off that exact ring. An auditor that tolerated one was
+     * condemning buildings its own colleagues had already levelled.
      */
     public static final int CUT_REACH = 3;
 
@@ -73,6 +83,13 @@ public final class Grade {
      * than free leveling — each course is masonry somebody lays and stone the
      * town pays for — which is what keeps "build it up" from being the cheap
      * answer to every slope, and what bounds it here.
+     *
+     * <p>Measured on the same ring as {@link #CUT_REACH} and by the same pass:
+     * {@code BlueprintPlacer.foundation} lays a doorstep on every apron column,
+     * dropping up to {@code FOUNDATION_DEPTH} to find something to stand it on
+     * and laying nothing at all if the ground is further down than that. Cut
+     * above, fill below, one block out — the placer's own words for it — and this
+     * is the "below" half of that sentence.
      */
     public static final int FILL_REACH = 3;
 
@@ -162,25 +179,101 @@ public final class Grade {
      */
     public static Shelf shelf(WorldBridge ground, SimPos plot, int span, int floor) {
         int wallHalf = Math.max(1, span / 2 - BuildingSizes.APRON);
+        return around(column(ground, plot.y()), plot, wallHalf, wallHalf, floor).shelf();
+    }
+
+    /** How far off the floor the ring is: the verdict, and the worst of it. */
+    public record Reading(Shelf shelf, int worstAbove, int worstBelow) {
+    }
+
+    /**
+     * A height field somebody can read one column off, however they hold it.
+     *
+     * <p>The siting holds a {@code WorldBridge} and the auditor holds a level; the
+     * rule below needs neither, only the first free block over a column. Narrowing
+     * it to that is what lets one piece of arithmetic serve both, which is the
+     * whole reason this class exists — see the note at the top about geometry
+     * written down twice.
+     */
+    @FunctionalInterface
+    public interface Columns {
+
+        /** The y of the first free block here, or {@link #UNREAD}. */
+        int firstFreeAt(int x, int z);
+    }
+
+    /** What a column nobody has loaded reads as. Not a fault; not knowing. */
+    public static final int UNREAD = Integer.MIN_VALUE;
+
+    /**
+     * A bridge read one column at a time, at the height the caller was working at.
+     *
+     * <p>The {@code y} is not decoration and leaving it at nought was a live fault
+     * for one afternoon: a {@code WorldBridge} is free to answer from the position
+     * it is handed — the test fixtures that model flat ground answer
+     * {@code pos.y()} outright — so a column asked at nought comes back at nought
+     * and every plot on such a world reads as perched over a void.
+     */
+    private static Columns column(WorldBridge ground, int y) {
+        return (x, z) -> ground.groundHeight(new SimPos(x, y, z));
+    }
+
+    /**
+     * The rule itself, over the rectangle one step outside a building's walls.
+     *
+     * <p><strong>Both readers come through here.</strong> {@link #shelf} above is
+     * the siting asking before it builds, with a square plot and a floor it works
+     * out from {@link #floorFor}; {@code TownAuditor.checkShelf} is the audit
+     * asking afterwards, with the footprint the placer actually reported and the
+     * floor it actually wrote. They used to be two copies of this arithmetic with
+     * two different tolerances — three courses here and one there — so a plot the
+     * siting had just accepted was a building the auditor called buried on the
+     * same ground the same afternoon. One copy now, and the tolerances are
+     * {@link #CUT_REACH} and {@link #FILL_REACH} because those are what the crew
+     * can reach.
+     *
+     * <p>Rectangular rather than square, which is the auditor's geometry and not
+     * the siting's: a building is thirteen by eleven as often as not, and a square
+     * ring round a rectangular building reads the ground at the corners of a box
+     * nobody built.
+     *
+     * <p>Partial banking is deliberately fine, and that is the auditor's own rule:
+     * a hillside build is banked uphill by nature and one open side is all an
+     * entrance needs.
+     */
+    public static Reading around(Columns ground, SimPos plot, int wallHalfW,
+                                 int wallHalfD, int floor) {
         int banked = 0;
         int hanging = 0;
         int samples = 0;
-        for (SimPos at : ring(plot, wallHalf + 1)) {
-            int grade = ground.groundHeight(at) - 1;
+        int worstAbove = 0;
+        int worstBelow = 0;
+        for (SimPos at : ring(plot, wallHalfW + 1, wallHalfD + 1)) {
+            int free = ground.firstFreeAt(at.x(), at.z());
+            if (free == UNREAD) {
+                continue;
+            }
+            int grade = free - 1;
             samples++;
             if (grade > floor + CUT_REACH) {
                 banked++;
+                worstAbove = Math.max(worstAbove, grade - floor);
             } else if (grade < floor - FILL_REACH) {
                 hanging++;
+                worstBelow = Math.max(worstBelow, floor - grade);
             }
         }
         if (samples == 0) {
-            return Shelf.LEVEL;   // nothing known; not knowing is not a fault
+            // Nothing known; not knowing is not a fault.
+            return new Reading(Shelf.LEVEL, 0, 0);
         }
         if (banked == samples) {
-            return Shelf.BURIED;
+            return new Reading(Shelf.BURIED, worstAbove, worstBelow);
         }
-        return hanging == samples ? Shelf.PERCHED : Shelf.LEVEL;
+        if (hanging == samples) {
+            return new Reading(Shelf.PERCHED, worstAbove, worstBelow);
+        }
+        return new Reading(Shelf.LEVEL, worstAbove, worstBelow);
     }
 
     /** Whether a building on this plot would have somewhere to open its door. */
@@ -218,16 +311,22 @@ public final class Grade {
         return BuildingRole.of(blueprintId) == BuildingRole.CROP_FARM;
     }
 
-    /** The rectangle of columns at this half-extent around a plot's middle. */
-    private static List<SimPos> ring(SimPos plot, int half) {
+    /**
+     * The rectangle of columns at these half-extents around a plot's middle.
+     *
+     * <p>The same walk {@code TownAuditor.ring} makes, at the same
+     * {@link #RING_STEP}: the two long sides whole, then the two short sides with
+     * the corners left off so no column is read twice.
+     */
+    private static List<SimPos> ring(SimPos plot, int halfW, int halfD) {
         List<SimPos> spots = new ArrayList<>();
-        for (int dx = -half; dx <= half; dx += RING_STEP) {
-            spots.add(new SimPos(plot.x() + dx, plot.y(), plot.z() - half));
-            spots.add(new SimPos(plot.x() + dx, plot.y(), plot.z() + half));
+        for (int dx = -halfW; dx <= halfW; dx += RING_STEP) {
+            spots.add(new SimPos(plot.x() + dx, plot.y(), plot.z() - halfD));
+            spots.add(new SimPos(plot.x() + dx, plot.y(), plot.z() + halfD));
         }
-        for (int dz = -half + 1; dz < half; dz += RING_STEP) {
-            spots.add(new SimPos(plot.x() - half, plot.y(), plot.z() + dz));
-            spots.add(new SimPos(plot.x() + half, plot.y(), plot.z() + dz));
+        for (int dz = -halfD + 1; dz < halfD; dz += RING_STEP) {
+            spots.add(new SimPos(plot.x() - halfW, plot.y(), plot.z() + dz));
+            spots.add(new SimPos(plot.x() + halfW, plot.y(), plot.z() + dz));
         }
         return spots;
     }

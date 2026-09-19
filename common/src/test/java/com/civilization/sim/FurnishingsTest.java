@@ -188,9 +188,18 @@ class FurnishingsTest {
                         }
                     }
                 }
-                assertFalse(LightPlanner.standsInTheRoad(town, piece.at()),
-                        layout + ": a " + piece.piece() + " at " + piece.at()
-                                + " stands in the carriageway");
+                if (piece.piece() != Furnishings.Piece.SQUARE) {
+                    // Every piece but the square, for the reason the lamp sweep
+                    // below gives at length: the square stands on ground the plan
+                    // holds for it and every lane in the town AIMS at that point,
+                    // so "is there a carriageway here" is true of the square's own
+                    // ground by construction. Refusing it for that is refusing it
+                    // for being the hub, which is what sent it thirty blocks out
+                    // into a field in six arrangements of eight.
+                    assertFalse(LightPlanner.standsInTheRoad(town, piece.at()),
+                            layout + ": a " + piece.piece() + " at " + piece.at()
+                                    + " stands in the carriageway");
+                }
             }
 
             // The lamps and the forester's belt, on the same grown town rather
@@ -201,6 +210,18 @@ class FurnishingsTest {
             WorkArea belt = town.lumberArea();
             for (Furnishings.Furnishing piece : Furnishings.pieces(town)) {
                 for (LightPlanner.Lamp lamp : lamps) {
+                    if (piece.piece() == Furnishings.Piece.SQUARE) {
+                        // Every piece but one. What this rule is about is a piece
+                        // of dressing CLOSING OVER a lamp — the wording is its own
+                        // argument, "a hedge round a lamp is a dark street" — and
+                        // the square is the one piece that encloses nothing. It is
+                        // paving, written a course below the surface, on ground the
+                        // plan holds empty and every lane in the town aims at. A
+                        // lamp post standing in a town square is a lamp post in a
+                        // town square, and refusing the square for having one is
+                        // how {@code crescents} came to have no square at all.
+                        continue;
+                    }
                     assertFalse(Math.abs(lamp.at().x() - piece.at().x()) <= piece.reach()
                                     && Math.abs(lamp.at().z() - piece.at().z())
                                             <= piece.reach(),

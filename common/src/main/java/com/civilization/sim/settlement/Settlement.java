@@ -1022,6 +1022,18 @@ public final class Settlement {
             // that is the price of a town with a hall in the middle of it.
             return false;
         }
+        if (Heart.onTheSquare(this, candidate, span)) {
+            // And the square, which is the same argument with no expiry on it.
+            // "It is not a plot and never becomes one" has been the first line of
+            // Heart since the class was written and was enforced by nothing at
+            // all, so a town paved its square and then built a cottage on it --
+            // the notice-board post walled in on four faces that the playtest
+            // photographed. The hall is not exempted here the way it is above,
+            // and does not need to be: Heart.square steps the square clear of the
+            // hall's own ground before anything is built, so the hall's plot has
+            // never overlapped this.
+            return false;
+        }
         for (Building standing : buildings) {
             if (!BuildPlanner.holdsGround(standing.blueprintId())
                     || (ignore != null && standing.origin().equals(ignore))) {

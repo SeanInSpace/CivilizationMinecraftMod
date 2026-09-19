@@ -24,10 +24,12 @@ import java.util.Map;
  * <p>Three claims, and they are deliberately separate things:
  *
  * <ul>
- *   <li><strong>The square</strong> is a fixed point at the plan's center. It is
- *       not a plot and never becomes one. It is what a road aims at when it has
- *       nothing nearer to join, which is what makes a town's ways converge on
- *       its middle instead of on whatever happened to be built first.</li>
+ *   <li><strong>The square</strong> is a fixed point at the plan's center,
+ *       holding {@link #SQUARE_HELD} of ground. It is not a plot and never
+ *       becomes one — see {@link #onTheSquare}, which is what finally makes that
+ *       sentence true rather than only meant. It is what a road aims at when it
+ *       has nothing nearer to join, which is what makes a town's ways converge
+ *       on its middle instead of on whatever happened to be built first.</li>
  *   <li><strong>The hall's ground</strong> is plot zero, held at the hall's own
  *       square rather than the plan's default, and held against everybody until
  *       the hall is ordered. Reserving the <em>index</em> reserves no ground:
@@ -100,23 +102,69 @@ public final class Heart {
     private static final int[][] SIDES = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
 
     /**
+     * How much ground the square holds, as a half-extent.
+     *
+     * <p>The size {@code Furnishings.Piece.SQUARE} is declared at, stated here
+     * because this is the class that holds the ground and a reserve that did not
+     * match what gets drawn on it would reserve the wrong ground. The paving runs
+     * from {@code -reach} to {@code +reach} about the point below, so thirteen
+     * blocks across.
+     */
+    public static final int SQUARE_REACH = 6;
+
+    /** The same as a span, for the overlap arithmetic every other claim uses. */
+    public static final int SQUARE_SPAN = 2 * SQUARE_REACH + 1;
+
+    /**
+     * The ground held empty for it: the paving, and room round the paving.
+     *
+     * <p>Wider than the paving rather than exactly as wide, and the difference is
+     * not slack. {@code Furnishings.Keepouts.freeFor} wants a clear block between
+     * a piece of dressing and the nearest wall, and it measures from the walls,
+     * while a plot claim is measured from the apron outside them. A reserve stated
+     * at exactly the paving's width therefore leaves room for a plot that the
+     * dressing will then refuse to lay the full square beside — which is not a
+     * hypothetical: on recorded ground {@code thorp} and {@code radial_concentric}
+     * both put a hall on the reserve's own edge and came up a course short, eleven
+     * blocks of square where thirteen had been held for it.
+     *
+     * <p>One block each side and no more, which is what that keepout asks for and
+     * is the whole of the padding. Two was tried and taken out again: it bought a
+     * guaranteed full-size square in the last two arrangements and cost the town
+     * plots it wanted, which is not a trade a square is worth. A hall standing
+     * exactly on the reserve's edge can still shave the square a course, because a
+     * hall is the one building whose reported footprint is as wide as its whole
+     * plot; an eleven-block square there is a square.
+     */
+    public static final int SQUARE_HELD = SQUARE_SPAN;
+
+    /**
      * The square: the fixed point at the plan's center that the roads run to.
      *
-     * <p>A method rather than a bare {@code center()} because it is a different
-     * claim, made in one place, and because what a road aims for is exactly the
-     * thing that used to be a building and should not be one.
+     * <p>Two claims live on this one point and they are not the same claim, which
+     * is why there are two methods. This one is the <strong>hub</strong>: what
+     * {@code PathPlanner.advance} hands the router as the thing a lane aims at
+     * when it has nothing nearer to join. {@link #squareGround} below is the
+     * <strong>ground held empty</strong> for the paving, and it is a fixed point
+     * known on step one. In a town grown under that reserve the two are the same
+     * column and the fallback here never fires.
+     *
+     * <p>The fallback stays because it is load-bearing and not decoration. A hub
+     * inside somebody's walls is a hub no lane may arrive at —
+     * {@code PathPlanner.Walls} refuses every run that would gravel a building —
+     * so a town that <em>has</em> something standing on its middle, whether from
+     * a fixture that raised it there by hand or from a save written before the
+     * reserve existed, would otherwise have no roads at all. Measured: a camp
+     * with its post on the center laid nothing whatsoever the one afternoon this
+     * was taken out.
      */
     public static SimPos square(Settlement town) {
-        SimPos heart = town.center();
+        SimPos heart = squareGround(town);
         if (!builtOver(town, heart)) {
             return heart;
         }
-        // Something is standing on the middle. A hub inside somebody's walls is
-        // a hub no lane may arrive at — PathPlanner.Walls refuses every run that
-        // would gravel a building — so a town that had built on its own center
-        // would have no roads at all. The nearest clear column out, in a fixed
-        // order, keeps the hub where it belongs without letting one badly placed
-        // marker take the whole network down with it.
+        // The nearest clear column out, in a fixed order, so one badly placed
+        // marker cannot take the whole network down with it.
         for (int out = 1; out <= MARKER_REACH; out++) {
             for (int[] side : SIDES) {
                 SimPos at = new SimPos(heart.x() + side[0] * out, heart.y(),
@@ -143,6 +191,105 @@ public final class Heart {
             }
         }
         return false;
+    }
+
+    /**
+     * The ground the plan holds for the paved square, and never lets go of.
+     *
+     * <p><strong>The fault this exists for.</strong> Nothing held it. The dressing
+     * sited the square on whatever was free <em>at that moment</em>, and the middle
+     * of a town is never free for long: the plots fill it, and the roads — which
+     * aim at this very point — put every column round the hub inside a
+     * carriageway's clearance. So the square ran away from its own hub and kept
+     * running. Measured over the whole life of a town on recorded ground, it was
+     * planned in up to <strong>eight different places</strong> in one arrangement,
+     * five of which ended with a building standing on the paving, and it finished
+     * 31 blocks from the middle in {@code ring}, 30 in {@code thorp} and 34 in
+     * {@code organic}. A playtest photographed the far end of it: a notice-board
+     * post in Wilbury walled in by cobblestone on all four faces from y=106 to
+     * y=110, because the town paved its square, built a cottage on it, and moved
+     * the square somewhere else.
+     *
+     * <p>So it is a fixed point now in fact and not only in the comment: pure
+     * arithmetic over the arrangement and the center, known on step one before
+     * there is anything to be pushed around by, and held against every plot from
+     * then on by {@code Settlement.isPlotFree} through {@link #onTheSquare}.
+     */
+    public static SimPos squareGround(Settlement town) {
+        return squareGround(town.arrangement(), town.center());
+    }
+
+    /** The same, for a plan nobody has founded a town on yet. */
+    public static SimPos squareGround(Layout arrangement, SimPos center) {
+        String key = arrangement.id() + "@" + center.x() + ":" + center.y()
+                + ":" + center.z();
+        synchronized (SQUARES) {
+            SimPos known = SQUARES.get(key);
+            if (known != null) {
+                return known;
+            }
+            SimPos found = squareOf(arrangement, center);
+            if (SQUARES.size() > TOWNS_REMEMBERED) {
+                SQUARES.clear();
+            }
+            SQUARES.put(key, found);
+            return found;
+        }
+    }
+
+    /** Squares worked out, kept for the reason {@link #MIDDLES} is kept. */
+    private static final Map<String, SimPos> SQUARES = new LinkedHashMap<>();
+
+    /**
+     * The middle, stepped aside only for the hall's own ground.
+     *
+     * <p><strong>A third rule was tried here and taken out again.</strong> Siting
+     * the square on the nearest column the arrangement offers no plot on, so that
+     * holding it would cost the town nothing, is tempting and is wrong: this point
+     * is also what the router is handed as its hub, and moving it off the middle
+     * to find a gap in the lattice moved the hub. A camp whose bunkhouse stood
+     * fourteen blocks from the center found its hub thirty blocks the other way
+     * and laid no roads at all. The hub is the middle.
+     *
+     * <p>So: the middle, and the one thing it steps aside for is the hall's own
+     * ground — which in {@code radial_concentric}, {@code orc_ring} and
+     * {@code goblin_camp} <em>is</em> the middle, plot zero being drawn there. It
+     * steps aside in the same fixed order a marker uses, so the answer is the same
+     * every time the same town is asked.
+     */
+    private static SimPos squareOf(Layout arrangement, SimPos center) {
+        SimPos hall = hallGround(arrangement, center);
+        if (!BuildPlanner.plotsOverlap(center, SQUARE_HELD, hall, SPAN)) {
+            return center;
+        }
+        for (int out = 1; out <= MARKER_REACH; out++) {
+            for (int[] side : SIDES) {
+                SimPos at = new SimPos(center.x() + side[0] * out, center.y(),
+                        center.z() + side[1] * out);
+                if (!BuildPlanner.plotsOverlap(at, SQUARE_HELD, hall, SPAN)) {
+                    return at;
+                }
+            }
+        }
+        return center;   // nowhere clear within reach; the hall wins the middle
+    }
+
+    /**
+     * Whether a plot of this width would stand on the square.
+     *
+     * <p>The mirror of {@code PathPlanner.heldGround}, which keeps a routed road
+     * off every plot the plan might still use. This keeps a plot off the one
+     * piece of ground the plan is not offering: "it is not a plot and never
+     * becomes one" was the intention from the first line of this class and was
+     * never actually enforced anywhere.
+     *
+     * <p>Unlike the hall's reserve this one never lapses. A hall's claim is
+     * handed over to the hall the moment one is ordered, because from then on the
+     * building itself is holding the ground; nothing is ever raised on the square,
+     * so nothing ever takes the holding over.
+     */
+    public static boolean onTheSquare(Settlement town, SimPos candidate, int span) {
+        return BuildPlanner.plotsOverlap(candidate, span, squareGround(town), SQUARE_HELD);
     }
 
     /**
