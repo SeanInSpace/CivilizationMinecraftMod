@@ -517,16 +517,108 @@ public final class FurnishingLayer {
         // stand in front of it.
         int boardX = at.x() + reach - 1;
         int boardZ = at.z();
-        int ground = site.groundLevel(boardX, boardZ);
-        out.add(new Course(new BlockPos(boardX, ground, boardZ),
-                palette.post().defaultBlockState()));
-        out.add(new Course(new BlockPos(boardX, ground + 1, boardZ),
-                palette.post().defaultBlockState()));
-        out.add(new Course(new BlockPos(boardX - 1, ground + 1, boardZ),
+        hangABoard(site, out, palette, lines, boardX, boardZ, Direction.WEST);
+    }
+
+    /**
+     * A post with a board on the face of it, standing up out of sloping ground.
+     *
+     * <p><strong>The fault this exists for.</strong> A board is a wall sign, so
+     * it does not stand in its own column — it hangs in the column <em>next</em>
+     * to the post, and that column has ground of its own. On the flat the two
+     * agree and nothing is wrong. On a hillside they do not: the playtested town
+     * stands on a slope that climbs five blocks across its own square, so the
+     * paving on the column the notice board hangs over was laid at exactly the
+     * height the board wanted, the cell was solid, {@link #replaceable} refused
+     * it, and the post went up every time with nothing on it. That is the whole
+     * of "no square board" — a post, correctly placed, holding nothing, in every
+     * town built on anything but a table.
+     *
+     * <p><strong>The fix is to hang it where it can hang.</strong> The board goes
+     * at the higher of the post's own first free course and the first free
+     * course of the column it faces, and the post is built up to meet it. So on
+     * the flat this is exactly what it always was — two courses of post and a
+     * board on the upper one — and on a slope the post is a course or two taller
+     * and the board is legible from the downhill side, which is the side anybody
+     * is standing on.
+     *
+     * <p>Capped, because a post is not a mast: a column whose neighbour is a cliff
+     * gets {@link #POST_MAX} courses and a board at the top of them rather than a
+     * ladder into the sky. Above that the board is simply not hung, which is the
+     * honest outcome for a notice board sited against a rock face.
+     */
+    private static void hangABoard(BlueprintPlacer.Site site, List<Course> out,
+                                   Palette palette, List<String> lines,
+                                   int postX, int postZ, Direction facing) {
+        int ground = site.groundLevel(postX, postZ);
+        Direction chosen = facing;
+        int hang = hangHeight(site, postX, postZ, ground, facing);
+        // The preferred face first, and it is preferred for a reason — a notice
+        // board faces into its square and a signpost faces the way it points. But
+        // a post can end up with its good side against something: the playtested
+        // town has a cottage wall standing four courses high one block west of
+        // its own square's board post, so the board was planned into the masonry
+        // and refused, every sweep, for ever. A board on the next face round is a
+        // board somebody can read; a board in a wall is not a board.
+        if (!clearAt(site, postX, postZ, hang, chosen)) {
+            for (Direction other : Direction.Plane.HORIZONTAL) {
+                if (other == facing) {
+                    continue;
+                }
+                int tryHang = hangHeight(site, postX, postZ, ground, other);
+                if (clearAt(site, postX, postZ, tryHang, other)) {
+                    chosen = other;
+                    hang = tryHang;
+                    break;
+                }
+            }
+        }
+        for (int y = ground; y <= hang; y++) {
+            out.add(new Course(new BlockPos(postX, y, postZ),
+                    palette.post().defaultBlockState()));
+        }
+        BlockPos board = new BlockPos(postX, hang, postZ).relative(chosen);
+        out.add(new Course(board,
                 palette.sign().defaultBlockState()
-                        .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
+                        .setValue(HorizontalDirectionalBlock.FACING, chosen),
                 false, lines));
     }
+
+    /**
+     * How high up the post a board facing this way has to hang.
+     *
+     * <p>At or above the first free course of the column it hangs over, so it is
+     * never inside that column's ground, and never more than {@link #POST_MAX}
+     * above its own footing so a post stays a post.
+     */
+    private static int hangHeight(BlueprintPlacer.Site site, int postX, int postZ,
+                                  int ground, Direction facing) {
+        BlockPos across = new BlockPos(postX, ground, postZ).relative(facing);
+        int over = site.groundLevel(across.getX(), across.getZ());
+        return Math.min(ground + POST_MAX, Math.max(ground + 1, over));
+    }
+
+    /**
+     * Whether a board may hang on this face at this height.
+     *
+     * <p>Asked of the site rather than of a level, because {@link #plan} is
+     * level-free and is going to stay that way. A column nobody has read answers
+     * "yes" — an unloaded chunk is not a reason to turn a signpost round, and the
+     * sweep will not lay anything there until it is read anyway.
+     */
+    private static boolean clearAt(BlueprintPlacer.Site site, int postX, int postZ,
+                                   int hang, Direction facing) {
+        BlockPos board = new BlockPos(postX, hang, postZ).relative(facing);
+        return !site.loaded(board) || site.unsupported(board);
+    }
+
+    /**
+     * How tall a board's post may grow to clear the ground beside it: four.
+     *
+     * <p>Two is a signpost on the flat and four is one at the foot of a bank. A
+     * post taller than a person can read from is not a signpost, it is scaffolding.
+     */
+    private static final int POST_MAX = 4;
 
     /**
      * A grid of the country's own saplings, two apart, on whatever ground is left.
@@ -614,17 +706,12 @@ public final class FurnishingLayer {
                                  Furnishings.Furnishing piece, Palette palette,
                                  List<String> lines, boolean inward) {
         SimPos at = piece.at();
-        int ground = site.groundLevel(at.x(), at.z());
-        out.add(new Course(new BlockPos(at.x(), ground, at.z()),
-                palette.post().defaultBlockState()));
-        out.add(new Course(new BlockPos(at.x(), ground + 1, at.z()),
-                palette.post().defaultBlockState()));
         Direction looking = towardTheGate(inward ? piece.facing() : piece.facing() + 2);
-        out.add(new Course(new BlockPos(at.x(), ground + 1, at.z())
-                        .relative(looking),
-                palette.sign().defaultBlockState()
-                        .setValue(HorizontalDirectionalBlock.FACING, looking),
-                false, lines));
+        // The same hanging as the square's notice board, and it matters here for
+        // the same reason: a crossing post on a hillside had its board planned
+        // into the bank it stands against, so the post went up and the board did
+        // not. See hangABoard.
+        hangABoard(site, out, palette, lines, at.x(), at.z(), looking);
     }
 
     /** A ring of stones round a fire, and two logs to sit on. */
@@ -833,7 +920,7 @@ public final class FurnishingLayer {
      * aged out keeps the name it was cut with, for ever, which is what a
      * headstone is.
      */
-    static Settlement.Grave graveAt(Settlement settlement, Furnishings.Furnishing piece) {
+    public static Settlement.Grave graveAt(Settlement settlement, Furnishings.Furnishing piece) {
         if (settlement == null || piece == null
                 || piece.piece() != Furnishings.Piece.GRAVE) {
             return null;
@@ -1114,6 +1201,31 @@ public final class FurnishingLayer {
      * is how the wall came to count a hundred and eighty-one tree trunks as
      * palisade.
      */
+    /**
+     * Whether this block is a post this people stands its boards on.
+     *
+     * <p>Narrower than {@link #isDressing} on purpose. Half the peoples in the
+     * mod cut their posts out of timber, and timber is in the logs tag — so the
+     * clearing crew walked up to a town's own crossing post, read a log, felled
+     * it as wild wood, and the dressing raised it again on the next sweep. That
+     * is the orchard fault said about the pieces that are made of wood rather
+     * than the ones that grow, and it is why the playtested square had a notice
+     * board planned, paid for and never standing.
+     *
+     * <p>Asked about <em>this settlement's</em> post and nothing else, because
+     * one people's post is plain stone and a rule that called every stone block
+     * dressing would have the wall stop counting its own masonry.
+     *
+     * @see Woodcut#trunkIn, the sweep that was felling them
+     */
+    public static boolean isAPost(Settlement settlement, BlockState state) {
+        if (settlement == null || state == null) {
+            return false;
+        }
+        return state.is(paletteOf(FurnishingStyle.of(Culture.of(settlement.cultureId())))
+                .post());
+    }
+
     public static boolean isDressing(BlockState state) {
         for (FurnishingStyle style : FurnishingStyle.values()) {
             Palette palette = paletteOf(style);
@@ -1150,7 +1262,7 @@ public final class FurnishingLayer {
         if (!replaceable(level, course)) {
             return false;
         }
-        level.setBlock(course.pos(), course.state(), Block.UPDATE_ALL);
+        TownBlocks.lay(level, course.pos(), course.state(), TownBlocks.QUIET);
         // Only if it survived. A block that pops off the moment it is set is not
         // work done, and counting it as work is what let one bad choice of block
         // halt an entire wall -- see the class comment.
@@ -1190,7 +1302,11 @@ public final class FurnishingLayer {
         if (level.getBlockState(course.pos()) != course.state()) {
             return false;
         }
-        level.removeBlock(course.pos(), false);
+        // Quietly. removeBlock's flag is "is this a piston move", not "drop
+        // nothing" — it sets air under the ordinary update flags, so the course
+        // came off silently while everything it was holding up popped as items.
+        // See TownBlocks.
+        TownBlocks.clear(level, course.pos());
         return level.getBlockState(course.pos()).isAir();
     }
 

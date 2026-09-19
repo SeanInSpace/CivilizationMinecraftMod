@@ -1,6 +1,7 @@
 package com.civilization.neoforge.view;
 
 import com.civilization.neoforge.entity.Pace;
+import com.civilization.neoforge.world.TownBlocks;
 import com.civilization.neoforge.entity.PersonEntity;
 import com.civilization.neoforge.world.BlueprintPlacer;
 import com.civilization.sim.geom.SimPos;
@@ -138,7 +139,8 @@ public final class FarmWorker {
             // the clock uses — so a watched cut and an unwatched cut put the
             // identical thing on the identical shelf, and somebody still has to
             // carry it to the oven before anybody eats.
-            level.setBlock(target, Blocks.WHEAT.defaultBlockState(), Block.UPDATE_CLIENTS);
+            TownBlocks.lay(level, target, Blocks.WHEAT.defaultBlockState(),
+                    Block.UPDATE_CLIENTS);
             Field.deliver(farm, 1);
             farm.touchRealHarvest(step);
             // A real cut block is a ripe block gone. Without this the ledger
@@ -147,12 +149,13 @@ public final class FarmWorker {
             Field.cut(farm, 1);
         } else if (target.equals(tend)) {
             BlockState standing = level.getBlockState(target);
-            level.setBlock(target,
+            TownBlocks.lay(level, target,
                     standing.setValue(CropBlock.AGE,
                             standing.getValue(CropBlock.AGE) + 1),
                     Block.UPDATE_CLIENTS);
         } else {
-            level.setBlock(target, Blocks.WHEAT.defaultBlockState(), Block.UPDATE_CLIENTS);
+            TownBlocks.lay(level, target, Blocks.WHEAT.defaultBlockState(),
+                    Block.UPDATE_CLIENTS);
         }
         return true;
     }

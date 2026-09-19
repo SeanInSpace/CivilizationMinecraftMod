@@ -1,6 +1,9 @@
 package com.civilization.neoforge.view;
 
+import com.civilization.neoforge.CivilizationConfig;
+import com.civilization.neoforge.CivilizationMod;
 import com.civilization.neoforge.entity.PersonEntity;
+import com.civilization.neoforge.world.Bells;
 import com.civilization.neoforge.world.Chimneys;
 import com.civilization.sim.culture.Race;
 import com.civilization.sim.geom.SimPos;
@@ -22,7 +25,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BellBlockEntity;
 
 import java.util.HashMap;
@@ -60,7 +62,17 @@ final class Ambience {
      */
     private static final int SMOKE_EVERY = 2;
 
-    /** How far a player has to be for a town's chimneys to be worth drawing. */
+    /**
+     * How near a <em>fire</em> a player has to be for its smoke to be drawn: 64.
+     *
+     * <p>Per building, not per town. This was once measured to the middle of the
+     * settlement, which made it a rule about town size rather than about
+     * eyesight: a town wider than a hundred and twenty-eight blocks had roofs
+     * that could never smoke no matter where anybody stood, and a player beside
+     * one of them was refused while a chimney they could not see was drawn.
+     * Sixty-four blocks is about where a campfire plume stops being legible, and
+     * that is a fact about the particle rather than about the settlement.
+     */
     private static final double SMOKE_RANGE = 64.0;
 
     /** How high above the pot the smoke starts, so it clears the masonry. */
@@ -88,14 +100,12 @@ final class Ambience {
      */
     private static final long DAWN_WINDOW_TICKS = 300L;
 
-    /** How far up a hall or a tower the bell might be. */
-    private static final int BELL_SEARCH_HEIGHT = 24;
-
     // --- state ----------------------------------------------------------------
 
     private final ServerLevel level;
     private final SimWorld world;
     private final Chimneys chimneys;
+    private final Bells bells;
     private final Function<UUID, PersonEntity> viewOf;
 
     /**
@@ -115,6 +125,12 @@ final class Ambience {
         this.world = Objects.requireNonNull(world, "world");
         this.viewOf = Objects.requireNonNull(viewOf, "viewOf");
         this.chimneys = new Chimneys(level);
+        this.bells = new Bells(level);
+    }
+
+    /** The bell finder, so the alarm rings the same bell the morning does. */
+    Bells bells() {
+        return bells;
     }
 
     /** One pass over one town: its smoke, its voices, its trades and its morning. */
@@ -305,11 +321,30 @@ final class Ambience {
         if (Leisure.hourOf(clock, Curfew.LEAD_TICKS) == Leisure.Hour.DAY) {
             return;
         }
-        if (!world.bridge().playerWithin(settlement.center(), SMOKE_RANGE)) {
+        // The cheap refusal first, and it is about the town rather than about
+        // any one roof: a town nobody is anywhere near is skipped without its
+        // buildings being walked at all. The claim radius plus a chimney's own
+        // range, so that it is wide enough to take in the whole of a sprawling
+        // town and can never itself be the thing that silences a roof — which
+        // is exactly what a bare sixty-four to the middle used to be.
+        if (!world.bridge().playerWithin(settlement.center(),
+                settlement.claimRadius() + SMOKE_RANGE)) {
             return;
         }
         for (Building building : settlement.buildings()) {
             if (!building.isMaterialized() || !Chimneys.hasAFire(settlement, building)) {
+                continue;
+            }
+            // And then per roof, which is the whole of the fix. Smoke was gated
+            // on the player being within sixty-four blocks of the town's
+            // *centre*, so in a town a hundred and seventy blocks across a
+            // player standing with their nose against an outlying cottage was
+            // outside the gate and that cottage could never smoke — while a
+            // chimney two hundred blocks away on the far side of the middle
+            // could. Distance to the fire is the only thing that decides
+            // whether its smoke is worth sending, because distance to the fire
+            // is the only thing that decides whether anybody can see it.
+            if (!world.bridge().playerWithin(building.origin(), SMOKE_RANGE)) {
                 continue;
             }
             for (BlockPos pot : chimneys.potsOf(building)) {
@@ -399,6 +434,17 @@ final class Ambience {
         }
         rungOn.put(settlement.id().value(), day);
         BlockPos bell = findBell(settlement);
+        // One line a morning, and it exists because the absence of one cost a
+        // playtest a bisecting search with `clone ... filtered minecraft:bell`
+        // to establish what the log could have said outright: the town has a
+        // bell, it is six blocks from where the search was looking, and the
+        // morning is silent. Debug-gated like every other diagnostic here.
+        if (CivilizationConfig.debugCommandsEnabled()) {
+            CivilizationMod.LOGGER.info("DAWNBELL {} day {} bell {}",
+                    settlement.name(), day,
+                    bell == null ? "NOT FOUND — the morning is silent"
+                            : bell.toShortString());
+        }
         if (bell == null) {
             return;   // no tower, no hall, no bell: the morning is silent
         }
@@ -411,40 +457,15 @@ final class Ambience {
     /**
      * The bell on this town's hall or its watchtower.
      *
-     * <p>Its own search rather than the alarm's, and it looks at the hall first:
-     * a settlement has a hall long before it has a tower, so a dawn that only
-     * rang from a watchtower would be a dawn no young town ever heard. The alarm
-     * keeps its own narrower search — what rings for danger is the watch's bell,
-     * and that is a decision rather than an oversight.
+     * <p>{@link Bells}, which searches the building's whole footprint rather
+     * than the column above its origin. This used to have a search of its own
+     * and the alarm had another, and both walked one column — so both missed a
+     * belfry that sits six blocks off the middle of a vale hall, which is where
+     * the blueprint puts it. One finder now, shared with the alarm, so a bell
+     * that can be rung for danger is a bell that can be rung for the morning.
      */
     private BlockPos findBell(Settlement settlement) {
-        BlockPos onHall = null;
-        for (Building building : settlement.buildings()) {
-            boolean hall = building.role() == com.civilization.sim.settlement.BuildingRole.HALL;
-            boolean tower = building.blueprintId().contains("watchtower");
-            if (!hall && !tower) {
-                continue;
-            }
-            BlockPos origin = new BlockPos(building.origin().x(), building.origin().y(),
-                    building.origin().z());
-            if (!level.isLoaded(origin)) {
-                continue;
-            }
-            for (int dy = 0; dy <= BELL_SEARCH_HEIGHT; dy++) {
-                BlockPos at = origin.above(dy);
-                if (!level.getBlockState(at).is(Blocks.BELL)) {
-                    continue;
-                }
-                if (hall) {
-                    return at;
-                }
-                if (onHall == null) {
-                    onHall = at;
-                }
-                break;
-            }
-        }
-        return onHall;
+        return bells.of(settlement);
     }
 
     /** The same mixer the rest of the mod uses; see {@code Leisure}. */

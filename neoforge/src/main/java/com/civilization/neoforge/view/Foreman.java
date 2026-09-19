@@ -793,7 +793,7 @@ public final class Foreman {
                         && level.getBlockState(at).is(net.minecraft.tags.BlockTags.LOGS);
         for (BlockPos log : Felling.treeAt(from, isLog)) {
             BlockState state = level.getBlockState(log);
-            level.destroyBlock(log, false, null, 512);
+            com.civilization.neoforge.world.TownBlocks.clear(level, log, true);
             keep(settlement, carrier, state, log);
         }
         // A lone leaf over the line belongs to a tree rooted somewhere else. It
@@ -801,7 +801,7 @@ public final class Foreman {
         // hangs on is left standing.
         if (!level.getBlockState(from).isAir()) {
             BlockState state = level.getBlockState(from);
-            level.destroyBlock(from, false, null, 512);
+            com.civilization.neoforge.world.TownBlocks.clear(level, from, true);
             keep(settlement, carrier, state, from);
         }
     }

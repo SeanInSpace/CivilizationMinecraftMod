@@ -255,7 +255,15 @@ class ProspectTest {
         assertEquals(1, sheds,
                 "the town built " + sheds + " lumber camps where the withdrawn fix"
                         + " built fourteen and the shipped rule built one");
-        assertTrue(timber > 1000,
+        // Eight hundred rather than a thousand since the public works stopped
+        // starving each other (see PublicWorks.keepingUp). The town now actually
+        // raises the street lamps it had always planned and never built, and a
+        // lamp costs two timber apiece — so a few hundred logs that used to sit
+        // on the shelves for ever are standing in the street instead. What this
+        // assertion is for is unchanged and is nowhere near the line: before the
+        // prospecting fix the same town finished with the eight logs it was
+        // founded with and never felled a trunk at all.
+        assertTrue(timber > 800,
                 "the camp came in with " + timber + " logs; before this change the"
                         + " same town had the 8 it was founded with and never felled"
                         + " a trunk");

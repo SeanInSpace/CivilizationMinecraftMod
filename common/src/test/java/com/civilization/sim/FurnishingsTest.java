@@ -18,6 +18,7 @@ import com.civilization.sim.work.FurnishingStyle;
 import com.civilization.sim.work.Furnishings;
 import com.civilization.sim.work.InteriorClearing;
 import com.civilization.sim.work.LightPlanner;
+import com.civilization.sim.work.PublicWorks;
 import com.civilization.sim.world.SimContext;
 import com.civilization.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
@@ -349,16 +350,62 @@ class FurnishingsTest {
                 "an undressed town is the outcome this whole work exists to prevent");
     }
 
+    /**
+     * A backlog of building does not stop the dressing; being buried does.
+     *
+     * <p>This test used to say "nothing is dressed while anything at all is
+     * queued", which was the rule and was the bug. A settlement queues a house
+     * every time a family outgrows one, so a growing town's queue is never
+     * empty, and a rule that waited for an empty one waited for ever: a
+     * playtested town of a hundred and forty-five people had five hundred and
+     * fifty-three pieces planned and not one raised, for its entire life. The
+     * sentence the old test was defending is still defended — at three — and
+     * the other half of the rule is stated here beside it, because "it starts
+     * when the town is keeping up" is the half that was missing and is the half
+     * that broke.
+     */
     @Test
-    void nothingIsDressedWhileAnythingAtAllIsQueued() {
+    void aBacklogOfBuildingDoesNotStopTheDressingButBeingBuriedDoes() {
         Settlement town = dressableTown();
         assertTrue(Furnishings.worthStarting(town));
 
+        for (int i = 0; i < PublicWorks.KEEPING_UP; i++) {
+            town.enqueueBuild(new com.civilization.sim.settlement.BuildTask(
+                    "civilization:house", new SimPos(40 + i, 64, 0), 100));
+        }
+        assertTrue(Furnishings.worthStarting(town),
+                "a town one or two plots behind is a town keeping up with itself,"
+                        + " and a dressing that waited for an empty queue waited"
+                        + " for the whole life of every town that was growing");
+
         town.enqueueBuild(new com.civilization.sim.settlement.BuildTask(
-                "civilization:house", new SimPos(40, 64, 0), 100));
+                "civilization:house", new SimPos(50, 64, 0), 100));
         assertFalse(Furnishings.worthStarting(town),
                 "a village that fenced a kitchen garden while its bunkhouse waited"
                         + " would be a village with a very pretty famine");
+    }
+
+    /**
+     * And the same about the lamps, which is where the starvation actually
+     * began: the lighting waited on the paving finishing, the dressing waited on
+     * the lighting finishing, and neither of those ever finishes.
+     */
+    @Test
+    void theDressingStartsOnceTheStreetsAreMostlyLit() {
+        Settlement town = dressableTown();
+        int lamps = LightPlanner.wanted(town);
+        assertTrue(lamps > 0, "a town with no lamps planned cannot test this");
+
+        town.setLightsRaised(0);
+        assertFalse(Furnishings.worthStarting(town),
+                "the lamps keep people alive and the flowers do not");
+
+        // Nine in ten standing is a lit town, whatever the tenth is doing.
+        town.setLightsRaised(lamps - Math.max(1, lamps / 20));
+        assertTrue(Furnishings.worthStarting(town),
+                "a town that plans a lamp beside every new door is never once"
+                        + " completely lit, so a dressing that waited for that"
+                        + " never ran at all");
     }
 
     @Test

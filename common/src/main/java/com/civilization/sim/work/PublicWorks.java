@@ -114,6 +114,70 @@ public final class PublicWorks {
     public static final int HANDS_KEPT_ON_BUILDINGS = 1;
 
     /**
+     * Items a leading work may be behind and still count as keeping up: two.
+     *
+     * <p>Applies as an absolute for a small work — a build queue is a handful of
+     * plots, and two outstanding is a town keeping pace with its own families.
+     * For a work counted in hundreds it is the floor under {@link #keepingUp},
+     * which also accepts a proportion.
+     */
+    public static final int KEEPING_UP = 2;
+
+    /**
+     * How much of a work has to be done before the work behind it may start:
+     * nine tenths.
+     *
+     * <p>A town plans a lamp beside every new door and a street every time a
+     * house goes up, so a settlement of two hundred and sixty people had
+     * fourteen hundred and ninety lamps planned. Asking for an absolute backlog
+     * of two out of fourteen hundred and ninety is asking for a coincidence; the
+     * question that was actually meant is whether the streets are lit, and they
+     * are when nine of every ten lamps are standing.
+     */
+    private static final int KEEPING_UP_TENTHS = 9;
+
+    /**
+     * Whether a work is keeping up well enough for the next one to proceed.
+     *
+     * <p><strong>What this replaces, and why.</strong> The mod's public works
+     * are a priority chain — the houses, then the paving, then the lamps, then
+     * the dressing — and every link in it was written as a test for
+     * <em>completion</em>: nothing queued, no owed run unopened, every planned
+     * lamp standing. Each of those reads like the right sentence and is the
+     * wrong test, because a settlement plans the next street and the next lamp
+     * out of the same growth that fills the queue. No living town is ever once
+     * in any of those states, so the chain did not prioritise — it starved,
+     * silently, from the far end inward.
+     *
+     * <p>The playtest measured the whole length of it. A vale town of a hundred
+     * and forty-five people had five hundred and fifty-three dressing pieces
+     * planned and <strong>zero</strong> raised at step fourteen hundred: no
+     * square, no signpost, no inn board, no garden, no orchard, no woodpile, in
+     * a town that had been standing for its entire life. Behind that, the
+     * lighting was two hundred and sixty-one lamps short for the same reason.
+     * The one sign anybody found in the town was the trade board the inn's own
+     * blueprint hangs, blank, because the board that was <em>meant</em> to carry
+     * the town's name had never been raised for anything to write on.
+     *
+     * <p><strong>The test that was meant.</strong> A work is keeping up when it
+     * is within {@link #KEEPING_UP} items of done, or when it is
+     * {@link #KEEPING_UP_TENTHS} tenths of the way there. The first is for the
+     * small works, the second for the ones counted in hundreds, and either is
+     * enough. A work further behind than both is genuinely losing ground, and
+     * then the chain does what it was always for and makes the next one wait.
+     *
+     * @param done   how many of this work's items are standing
+     * @param wanted how many its shape currently calls for
+     */
+    public static boolean keepingUp(int done, int wanted) {
+        int behind = wanted - done;
+        if (behind <= KEEPING_UP) {
+            return true;
+        }
+        return (long) done * 10L >= (long) wanted * KEEPING_UP_TENTHS;
+    }
+
+    /**
      * The works this town may put a spare hand on right now.
      *
      * <p>Everything it has outstanding when there is nothing to build, and the
@@ -330,6 +394,36 @@ public final class PublicWorks {
                 return i;
             }
             return -1;
+        }
+
+        /**
+         * How many runs the town still owes the paving.
+         *
+         * <p>{@link #nextRun}'s loop counted instead of stopped at the first
+         * hit. Asked by anything that has to know whether the paving is
+         * <em>behind</em> rather than whether it is finished — which turns out
+         * to be a different question, and one nobody was asking.
+         *
+         * <p>A growing town plans new streets as fast as it opens old ones, so
+         * "is there an unopened owed run" is true for the whole life of every
+         * healthy settlement. Anything that waited on that answer waited for
+         * ever; see {@code Furnishings.whyNotStarting}, whose dressing did.
+         */
+        public int owedRuns(Settlement settlement) {
+            PathNetwork paths = settlement.paths();
+            if (paths == null) {
+                return 0;
+            }
+            List<PathNetwork.Segment> segments = paths.segments();
+            java.util.Set<Integer> owed = com.civilization.sim.settlement.PathPlanner
+                    .owedStretches(settlement);
+            int behind = 0;
+            for (int i = 0; i < segments.size(); i++) {
+                if (!paths.isOpened(i) && !paths.isUnwalkable(i) && owed.contains(i)) {
+                    behind++;
+                }
+            }
+            return behind;
         }
 
         /**

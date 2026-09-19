@@ -61,6 +61,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Arrays;
+import com.civilization.sim.work.Furnishings;
+import com.civilization.neoforge.world.FurnishingLayer;
+import com.civilization.sim.work.Signage;
+import com.civilization.sim.work.LightPlanner;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Locale;
@@ -129,6 +134,9 @@ public final class CivilizationCommand {
                         .executes(CivilizationCommand::audit)
                         .then(Commands.literal("selftest")
                                 .executes(CivilizationCommand::auditSelfTest)))
+
+                .then(Commands.literal("dressing")
+                        .executes(CivilizationCommand::dressing))
 
                 .then(Commands.literal("populate")
                         .then(Commands.argument("count", IntegerArgumentType.integer(1, 200))
@@ -301,6 +309,64 @@ public final class CivilizationCommand {
         ctx.getSource().sendSuccess(() -> Component.literal(report), false);
         CivilizationMod.LOGGER.info("AUDITSELFTEST {}/{} passed", lines.size() - failed, lines.size());
         return failed == 0 ? 1 : 0;
+    }
+
+    /**
+     * Every piece of dressing a town has raised, with where it stands and what
+     * is written on it.
+     *
+     * <p>The report that did not exist when a playtest went looking for a
+     * town's signs and found one blank board at the inn. The count on
+     * {@code /civ info} says how many; this says <em>which</em> and
+     * <em>where</em>, so the next person can walk to a square board and read it,
+     * or put a {@code data get block} on it and see the exact four lines. The
+     * boards first, because those are the ones with words on them and the ones
+     * anybody is looking for.
+     */
+    private static int dressing(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        ServerLevel level = source.getLevel();
+        SimWorld world = CivilizationMod.simulationFor(level);
+        if (world == null) {
+            source.sendFailure(Component.literal("No simulation for this dimension."));
+            return 0;
+        }
+        StringBuilder sb = new StringBuilder("=== Dressing ===");
+        for (Kingdom kingdom : world.kingdoms()) {
+            for (Settlement s : kingdom.settlements()) {
+                List<Furnishings.Furnishing> planned = Furnishings.pieces(s);
+                int raised = Math.min(s.piecesRaised(), planned.size());
+                sb.append("\n").append(s.name()).append(": ")
+                        .append(raised).append(" of ").append(planned.size());
+                String stalled = Furnishings.whyNotStarting(s);
+                if (stalled != null) {
+                    sb.append(" (waiting: ").append(stalled).append(")");
+                }
+                for (int i = 0; i < raised; i++) {
+                    Furnishings.Furnishing piece = planned.get(i);
+                    if (!carriesABoard(piece.piece())) {
+                        continue;
+                    }
+                    sb.append("\n  #").append(i).append(" ")
+                            .append(piece.piece().name().toLowerCase(Locale.ROOT))
+                            .append(" at ").append(piece.at())
+                            .append(" facing ").append(piece.facing())
+                            .append(" reads ")
+                            .append(Signage.linesFor(piece.piece(),
+                                    Signage.of(s, world.settings().simIntervalTicks()),
+                                    piece.facing(),
+                                    FurnishingLayer.graveAt(s, piece)));
+                }
+            }
+        }
+        source.sendSuccess(() -> Component.literal(sb.toString()), false);
+        return 1;
+    }
+
+    /** Whether this kind of piece has a board on it with words. */
+    private static boolean carriesABoard(Furnishings.Piece piece) {
+        return piece == Furnishings.Piece.SQUARE || piece == Furnishings.Piece.SIGNPOST
+                || piece == Furnishings.Piece.INN_SIGN || piece == Furnishings.Piece.GRAVE;
     }
 
     private static int audit(CommandContext<CommandSourceStack> ctx) {
@@ -718,6 +784,45 @@ public final class CivilizationCommand {
                         // laid, and the town says so instead of quietly gravelling
                         // a kitchen. The pair of numbers is how that shows.
                         .append(s.buildings().size()).append(" buildings joined");
+                // What the town has dressed itself with, and what it has not.
+                // Added because a playtest found one sign in a whole town and
+                // had no way to tell whether the missing boards were never
+                // planned, never raised, or raised and invisible — three very
+                // different faults that look identical from the ground. The
+                // tally is planned-by-kind with the raised prefix beside it, so
+                // "SQUARE x0" and "SQUARE x1 (unraised)" are distinguishable
+                // without a debugger. See Furnishings, which owns the prefix.
+                // The lamps, on the same footing and for the same reason: the
+                // dressing waits on them, so a dressing line that said "lamps
+                // short" and nothing about why only moved the question along.
+                sb.append("\n      lamps: ").append(s.lightsRaised()).append(" of ")
+                        .append(LightPlanner.wanted(s)).append(" raised");
+                String dark = LightPlanner.whyNotStarting(s);
+                if (dark != null) {
+                    sb.append(" (waiting: ").append(dark).append(")");
+                }
+                sb.append("\n      dressing: ")
+                        .append(s.piecesRaised()).append(" of ")
+                        .append(Furnishings.wanted(s)).append(" raised");
+                String stalled = Furnishings.whyNotStarting(s);
+                if (stalled != null) {
+                    sb.append(" (waiting: ").append(stalled).append(")");
+                }
+                Map<Furnishings.Piece, int[]> tally = new EnumMap<>(Furnishings.Piece.class);
+                List<Furnishings.Furnishing> planned = Furnishings.pieces(s);
+                for (int p = 0; p < planned.size(); p++) {
+                    int[] pair = tally.computeIfAbsent(planned.get(p).piece(),
+                            k -> new int[2]);
+                    pair[0]++;
+                    if (p < s.piecesRaised()) {
+                        pair[1]++;
+                    }
+                }
+                for (Map.Entry<Furnishings.Piece, int[]> kind : tally.entrySet()) {
+                    sb.append("  ").append(kind.getKey().name().toLowerCase(Locale.ROOT))
+                            .append(" ").append(kind.getValue()[1])
+                            .append("/").append(kind.getValue()[0]);
+                }
                 sb.append("\n      jobs: ");
                 for (Profession p : Profession.values()) {
                     int n = JobPlanner.count(s, p);
