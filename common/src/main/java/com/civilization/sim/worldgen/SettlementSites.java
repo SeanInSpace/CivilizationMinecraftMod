@@ -339,11 +339,30 @@ public final class SettlementSites {
          */
         public int starterKeepOut(long worldSeed, int regionX, int regionZ) {
             int floor = starterMinFromSpawn();
-            int ceiling = Math.max(floor,
-                    Math.min(STARTER_MAX_FROM_SPAWN, region / 2));
+            int ceiling = starterMaxFromSpawn();
             return floor + (int) Long.remainderUnsigned(
                     hash(worldSeed, regionX, regionZ, SALT_STARTER_REACH),
                     ceiling - floor + 1L);
+        }
+
+        /**
+         * The far end of this world's starter band, in blocks.
+         *
+         * <p>{@link #STARTER_MAX_FROM_SPAWN} or half a region, whichever is less
+         * — a world with tight regions cannot be asked for a 512-block walk to a
+         * town that has to fit inside one. Never below
+         * {@link #starterMinFromSpawn}, so the band is never inside out.
+         *
+         * <p>Pulled out of {@link #starterKeepOut} because it is now two
+         * questions rather than one. That method asks where in the band this
+         * world's starter would like to stand; {@link #starterSites} asks what
+         * else in the band it could stand on instead when the ground says no,
+         * and {@code WorldgenSettlements.tickAnchor} asks whether the town it
+         * ended up raising is still inside the band at all.
+         */
+        public int starterMaxFromSpawn() {
+            return Math.max(starterMinFromSpawn(),
+                    Math.min(STARTER_MAX_FROM_SPAWN, region / 2));
         }
 
         /** Which region a block column belongs to. */
@@ -392,15 +411,20 @@ public final class SettlementSites {
             }
             // The one region in the world whose people are decided rather than
             // drawn. The town a player spawns looking at must not be a goblin
-            // camp: a first settlement that shoots at you on sight is not an
-            // introduction to the mod, it is a death screen, and the whole reason
-            // the starter site exists is that somebody should meet a town in
-            // their first minutes. Everywhere else the draw stands.
-            boolean mustBeFriendly = starter;
+            // camp or a war camp: a first settlement that shoots at you on sight
+            // is not an introduction to the mod, it is a death screen, and the
+            // whole reason the starter site exists is that somebody should meet a
+            // town in their first minutes. Everywhere else the draw stands.
+            //
+            // Asked of Culture.underArms and not Culture.isHostile, which is the
+            // fix for a playtest that drew orc/warhost orc_ring for a world's home
+            // region with this flag already set: isHostile means goblin, so the
+            // filter it drove let the warhost through untouched.
+            boolean mustBeAtPeace = starter;
             String layout = arrangementFor(worldSeed, regionX, regionZ, weights,
-                    mustBeFriendly);
+                    mustBeAtPeace);
             return Optional.of(new Site(center,
-                    peopleWhoBuild(layout, worldSeed, regionX, regionZ, mustBeFriendly),
+                    peopleWhoBuild(layout, worldSeed, regionX, regionZ, mustBeAtPeace),
                     layout));
         }
 
@@ -500,6 +524,114 @@ public final class SettlementSites {
             return new SimPos(cornerX, UNRESOLVED_Y, cornerZ);
         }
 
+        /**
+         * Every place in the band this world's starter town could stand, best
+         * first.
+         *
+         * <p>{@link #starterSite} answers where the starter <em>goes</em>. This
+         * answers where it could go instead, and it exists because the first
+         * answer is refused far more often than anybody assumed. The site is
+         * placed by arithmetic that has never seen the ground; a playtest of two
+         * fresh worlds had the spawn region's own site land inside the band —
+         * 387 blocks out on one seed, 346 on the other — and refused for its
+         * ground <em>both times</em>, whereupon the anchor gave up on the region
+         * entirely and took a scattered site 747 and 808 blocks away. Two of two
+         * is not bad luck; it is the ordinary path, and the band is the promise
+         * the world makes in {@code PLAYING.md}.
+         *
+         * <p>So one refusal is no longer the end of the band. The first entry is
+         * exactly what {@link #starterSite} returns, so a world whose ground
+         * accepts is placed where it always was and nothing measured about the
+         * shipped distribution moves. Everything after it is another column that
+         * satisfies the same two rules — inside the region's own jitter window,
+         * so the {@link #MIN_SEPARATION} guarantee is untouched, and between
+         * {@link #starterMinFromSpawn} and {@link #starterMaxFromSpawn} of the
+         * spawn point, so the walk is still the walk that was promised.
+         *
+         * <p>Ordered the way a surveyor would look: the rest of the ring this
+         * world drew first, since that distance is the one its seed asked for,
+         * and then rings spread across the band from the near edge out. Bearings
+         * start at the same hashed bearing {@link #starterSite} starts at and
+         * step round in {@link #ARCS} even strides, so the second place tried is
+         * most of a turn from the first rather than two blocks along from it.
+         *
+         * <p>Candidates are kept {@link #APART} blocks from each other. A town
+         * is moved onto better ground within {@code SITING_REACH} of wherever it
+         * is put, so two candidates closer than that are two names for one
+         * hillside and trying both only spends ticks.
+         *
+         * <p>May come back shorter than asked, and on a world whose spawn point
+         * sits far from its own region's window it comes back with one entry and
+         * that entry out of band — there is nowhere in the band to stand. That is
+         * the caller's cue that the promise cannot be kept; see
+         * {@code WorldgenSettlements.tickAnchor}, which says so in the log.
+         *
+         * @param most how many to bother computing; the sweep stops there
+         */
+        public List<SimPos> starterSites(long worldSeed, int regionX, int regionZ,
+                                         int most) {
+            List<SimPos> out = new ArrayList<>();
+            if (spawn.isEmpty() || most <= 0) {
+                return out;
+            }
+            out.add(starterSite(worldSeed, regionX, regionZ));
+            if (most == 1) {
+                return out;
+            }
+            SimPos at = spawn.orElseThrow();
+            int margin = edgeMargin();
+            long lowX = (long) regionX * region + margin;
+            long lowZ = (long) regionZ * region + margin;
+            long highX = lowX + jitterSpan();
+            long highZ = lowZ + jitterSpan();
+            int floor = starterMinFromSpawn();
+            int ceiling = starterMaxFromSpawn();
+            int from = (int) Long.remainderUnsigned(
+                    hash(worldSeed, regionX, regionZ, SALT_STARTER), BEARINGS);
+
+            for (int ring = 0; ring <= RINGS && out.size() < most; ring++) {
+                // Ring nought is the distance this world actually drew, which is
+                // the one its seed asked for; the rest walk the band evenly from
+                // the near edge to the far one.
+                int radius = ring == 0
+                        ? starterKeepOut(worldSeed, regionX, regionZ)
+                        : floor + (int) Math.round(
+                                (ceiling - floor) * (ring - 1) / (double) Math.max(1, RINGS - 1));
+                for (int arc = 0; arc < ARCS && out.size() < most; arc++) {
+                    // StrictMath for the same reason starterSite uses it: a
+                    // world's towns must not move when the game is relaunched on
+                    // another runtime.
+                    double turn = 2 * Math.PI
+                            * ((from + (long) arc * (BEARINGS / ARCS)) % BEARINGS) / BEARINGS;
+                    long x = at.x() + Math.round(StrictMath.cos(turn) * (radius + 2.0));
+                    long z = at.z() + Math.round(StrictMath.sin(turn) * (radius + 2.0));
+                    if (x < lowX || x > highX || z < lowZ || z > highZ) {
+                        continue;   // outside its own region; the spacing forbids it
+                    }
+                    SimPos candidate = new SimPos((int) x, UNRESOLVED_Y, (int) z);
+                    long reach = away(candidate.x(), candidate.z(), at);
+                    if (reach < (long) floor * floor || reach > (long) ceiling * ceiling) {
+                        continue;   // outside the band, which is the whole promise
+                    }
+                    if (crowds(out, candidate)) {
+                        continue;   // the same hillside under another name
+                    }
+                    out.add(candidate);
+                }
+            }
+            return out;
+        }
+
+        /** Whether a candidate stands too near one already on the list. */
+        private static boolean crowds(List<SimPos> found, SimPos candidate) {
+            for (SimPos taken : found) {
+                if (away(candidate.x(), candidate.z(), taken) < (long) APART * APART) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /** How far apart two coordinates are on one axis. */
         private static long away(long edge, int anchor) {
             return Math.abs(edge - anchor);
@@ -532,6 +664,44 @@ public final class SettlementSites {
      * throw the walk onto its corner fallback more often than it deserves.
      */
     private static final int BEARINGS = 720;
+
+    /**
+     * Bearings {@link Grid#starterSites} actually tries, over a full turn.
+     *
+     * <p>Twelve, thirty degrees apart. {@link #BEARINGS} is the resolution the
+     * placement is computed at and is far finer than the question here: two
+     * bearings half a degree apart at 380 blocks are three blocks apart on the
+     * ground, which is one hillside looked at twice. Thirty degrees at the near
+     * edge of the band is about 130 blocks of arc, which is different country.
+     *
+     * <p>Must divide {@link #BEARINGS}, since the sweep steps in whole bearings
+     * so that every candidate lands on the same lattice {@code starterSite}'s own
+     * walk would have found.
+     */
+    private static final int ARCS = 12;
+
+    /**
+     * Rings across the band {@link Grid#starterSites} tries, past the first.
+     *
+     * <p>Four, so the band is walked at its near edge, two places inside it and
+     * its far edge, after the ring this world's own draw asked for. Together with
+     * {@link #ARCS} that is sixty places looked at before the band is given up
+     * on, which at one refusal a tick is three seconds of world start — and the
+     * sweep stops the moment a candidate is accepted, which on ordinary ground is
+     * the first one.
+     */
+    private static final int RINGS = 4;
+
+    /**
+     * How far apart two starter candidates must stand, in blocks.
+     *
+     * <p>Sixty-four. A refused site is moved onto the best ground within
+     * {@code WorldgenSettlements.STARTER_SITING_REACH} of itself before it is
+     * judged, so two candidates nearer than that reach are the same search run
+     * twice — the second one walks onto the same hillside the first one just
+     * refused, pays for the same chunks, and gets the same answer.
+     */
+    private static final int APART = 64;
 
     private SettlementSites() {
     }
@@ -594,18 +764,18 @@ public final class SettlementSites {
      */
     private static String arrangementFor(long worldSeed, int regionX, int regionZ,
                                          Map<String, Integer> weights,
-                                         boolean friendlyOnly) {
+                                         boolean atPeaceOnly) {
         List<String> wanted = new ArrayList<>();
         long total = 0;
         for (Map.Entry<String, Integer> entry : new TreeMap<>(weights).entrySet()) {
             if (entry.getValue() != null && entry.getValue() > 0
-                    && (!friendlyOnly || somebodyFriendlyBuilds(entry.getKey()))) {
+                    && (!atPeaceOnly || somebodyAtPeaceBuilds(entry.getKey()))) {
                 wanted.add(entry.getKey());
                 total += entry.getValue();
             }
         }
         if (wanted.isEmpty()) {
-            return anyArrangement(worldSeed, regionX, regionZ, friendlyOnly);
+            return anyArrangement(worldSeed, regionX, regionZ, atPeaceOnly);
         }
         long draw = Long.remainderUnsigned(
                 hash(worldSeed, regionX, regionZ, SALT_ARRANGEMENT), total);
@@ -647,10 +817,10 @@ public final class SettlementSites {
 
     /** The same, optionally drawing only from peoples who are not hostile. */
     private static String anyArrangement(long worldSeed, int regionX, int regionZ,
-                                         boolean friendlyOnly) {
+                                         boolean atPeaceOnly) {
         List<Culture> peoples = Culture.all().stream()
                 .filter(culture -> !culture.id().equals(Culture.DEFAULT.id()))
-                .filter(culture -> !friendlyOnly || !culture.isHostile())
+                .filter(culture -> !atPeaceOnly || !culture.underArms())
                 .sorted(java.util.Comparator.comparing(Culture::id))
                 .toList();
         if (peoples.isEmpty()) {
@@ -683,23 +853,28 @@ public final class SettlementSites {
     }
 
     /**
-     * Whether any people who are not hostile lay a town out this way.
+     * Whether any people who are not under arms lay a town out this way.
      *
-     * <p>Asked of {@link Culture#isHostile}, so a second hostile people somebody
-     * writes down is kept out of the spawn region by being hostile rather than by
-     * being added to a list here.
+     * <p>Asked of {@link Culture#underArms}, so a second warlike people somebody
+     * writes down is kept out of the spawn region by the body they are born into
+     * rather than by being added to a list here.
+     *
+     * <p>{@link Culture#isHostile} is the wrong question and used to be the one
+     * asked. It means <em>goblin</em>, and the orc warhost is not one: a playtest
+     * drew {@code orc/warhost orc_ring} for a world's home region with this filter
+     * running and nothing stopped it.
      */
-    private static boolean somebodyFriendlyBuilds(String layoutId) {
+    private static boolean somebodyAtPeaceBuilds(String layoutId) {
         return Culture.all().stream()
                 .filter(culture -> !culture.id().equals(Culture.DEFAULT.id()))
                 .filter(culture -> culture.layouts().contains(layoutId))
-                .anyMatch(culture -> !culture.isHostile());
+                .anyMatch(culture -> !culture.underArms());
     }
 
     /** @see #peopleWhoBuild(String, long, int, int) */
     private static String peopleWhoBuild(String layoutId, long worldSeed,
                                          int regionX, int regionZ,
-                                         boolean friendlyOnly) {
+                                         boolean atPeaceOnly) {
         // Never the sentinel. Culture.of maps every unknown and null id onto
         // civilization:default, so a town wearing it cannot be told from a town whose
         // people failed to load -- and it builds rings, so a layout-first draw
@@ -707,7 +882,7 @@ public final class SettlementSites {
         List<String> builders = Culture.all().stream()
                 .filter(culture -> !culture.id().equals(Culture.DEFAULT.id()))
                 .filter(culture -> culture.layouts().contains(layoutId))
-                .filter(culture -> !friendlyOnly || !culture.isHostile())
+                .filter(culture -> !atPeaceOnly || !culture.underArms())
                 .map(Culture::id)
                 .sorted()
                 .toList();

@@ -640,6 +640,32 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
     }
 
     /**
+     * Whether a stranger who walked in would find everybody already armed.
+     *
+     * <p>Wider than {@link #isHostile} by exactly one people, and the difference
+     * is the whole reason it exists. {@code isHostile} means <em>goblin</em>: it
+     * decides that a settlement is called a camp, that it is reported hostile,
+     * that its people attack anyone in the claim and that the guards of everybody
+     * else engage them. An orc warhost is none of those — it keeps the word
+     * "town", it is nobody's declared enemy, and a player may walk through it.
+     * It is also a war camp in which every miller carries an axe, and the one
+     * thing a new world must not do is point a player at it and call it their
+     * introduction.
+     *
+     * <p>So the site draw asks this and not {@code isHostile}. It used to ask
+     * {@code isHostile}, and the answer for {@code civilization:orc/warhost} was
+     * no, so {@code mustBeFriendly} on the spawn region filtered out the goblins
+     * and let the warhost straight through: a playtest on seed 20260919 drew
+     * {@code orc/warhost orc_ring} for the region a player spawns in, and only
+     * the ground refusing it kept a warhost off the wayfinder.
+     *
+     * @see Race#underArms()
+     */
+    public boolean underArms() {
+        return race().underArms();
+    }
+
+    /**
      * What one of this people's settlements is: a town, a camp, a warren.
      *
      * <p>One word, because four places want the same word and were each about to

@@ -162,7 +162,12 @@ class WatchedProductionTest {
         for (int step = 1; step <= 6; step++) {
             LumberPlanner.advance(town, at(world, step));
         }
-        assertEquals(0, Stand.trees(only(town)), "the stand of twelve is down");
+        // The reserve, not nothing. See Stand.RESERVE_TREES: a camp that fells
+        // its claim to the last trunk is the playtest's "0 trees standing, 591
+        // coming up", and the point of this test — that a claim comes back out
+        // of its own saplings — is better made by a wood that never went away.
+        assertEquals(Stand.RESERVE_TREES, Stand.trees(only(town)),
+                "the stand of twelve is cut back to its reserve");
 
         for (int step = 7; step <= 400; step++) {
             LumberPlanner.advance(town, at(world, step));

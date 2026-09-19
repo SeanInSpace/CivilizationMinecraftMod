@@ -1,5 +1,6 @@
 package com.civilization.sim;
 
+import com.civilization.sim.culture.Culture;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.worldgen.SettlementSites;
 import org.junit.jupiter.api.DisplayName;
@@ -10,8 +11,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -114,6 +117,72 @@ class SettlementSitesSpawnTest {
         // have swallowed the spawn point outright.
         assertTrue(nearest >= SettlementSites.STARTER_MIN_FROM_SPAWN,
                 "a starter town landed " + nearest + " blocks away");
+    }
+
+    @Test
+    @DisplayName("nobody under arms holds the region a world spawns in")
+    void nobodyUnderArmsHoldsTheSpawnRegion() {
+        // The flag was already there and already set. Grid.siteIn has passed
+        // mustBeFriendly = starter to both halves of the draw since the starter
+        // site was written, and the comment beside it says a first settlement
+        // that shoots at you on sight is a death screen rather than an
+        // introduction. It filtered on Culture.isHostile, which means *goblin* —
+        // so it kept the mire goblins out and let the orc warhost straight
+        // through, and a playtest on seed 20260919 drew
+        // `civilization:orc/warhost orc_ring` for the very region the player
+        // spawns in. Only the ground refusing it kept a warhost off the
+        // wayfinder.
+        //
+        // Swept over a thousand seeds with the spawn thrown anywhere, and over
+        // both tables: the weighted draw a world actually runs, and the empty
+        // one that means "no preference at all" and takes the other branch.
+        for (long[] world : worlds()) {
+            SimPos at = new SimPos((int) world[1], 64, (int) world[2]);
+            SettlementSites.Grid grid = SettlementSites.Grid.DEFAULT.anchoredAt(at);
+            int[] home = grid.homeRegion().orElseThrow();
+            for (Map<String, Integer> table : List.of(ANY, everyArrangement())) {
+                SettlementSites.Site site =
+                        grid.siteIn(world[0], home[0], home[1], table).orElseThrow();
+                Culture people = Culture.of(site.cultureId());
+                assertFalse(people.underArms(),
+                        "seed " + world[0] + " spawning at " + at
+                                + " drew " + site.cultureId() + " " + site.layoutId()
+                                + " for its own spawn region");
+                assertFalse(people.isHostile(),
+                        "seed " + world[0] + " drew a hostile people for its spawn region");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("every arrangement a people builds is still drawn away from spawn")
+    void everyArrangementIsStillReachableAwayFromSpawn() {
+        // The other half of the same rule: the filter is on the spawn region and
+        // on nothing else. A world that never produced a war camp or a goblin
+        // camp anywhere would be a worse fix than the fault.
+        Set<String> seen = new java.util.HashSet<>();
+        SettlementSites.Grid grid = SettlementSites.Grid.DEFAULT;
+        for (int rz = -30; rz <= 30; rz++) {
+            for (int rx = -30; rx <= 30; rx++) {
+                grid.siteIn(8675309L, rx, rz, everyArrangement())
+                        .ifPresent(site -> seen.add(site.cultureId()));
+            }
+        }
+        assertTrue(seen.contains(Culture.ORC.id()),
+                "no orc warhost anywhere in a 61-region sweep: " + seen);
+        assertTrue(seen.contains(Culture.GOBLIN.id()),
+                "no mire goblins anywhere in a 61-region sweep: " + seen);
+    }
+
+    /** Every arrangement anybody builds in, evenly weighted. */
+    private static Map<String, Integer> everyArrangement() {
+        Map<String, Integer> weights = new java.util.LinkedHashMap<>();
+        for (Culture culture : Culture.all()) {
+            for (String layout : culture.layouts()) {
+                weights.put(layout, 1);
+            }
+        }
+        return weights;
     }
 
     @Test

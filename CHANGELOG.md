@@ -6,6 +6,100 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The walk to the first town, and the tick that killed the server
+
+Six faults off the 2026-09-19 playtest, and the two that matter most are the
+two a player meets first: how far they have to walk to the town the world
+promised them, and whether the server is still up when they get there.
+
+The walk was the headline. Both seeds in that playtest put the spawn region's
+own site inside the promised 256–512 band — 387 blocks on one, 346 on the other
+— and both had it refused for its ground, whereupon the anchor abandoned the
+whole region and took the nearest scattered site in the neighbouring three,
+with no distance cap at all. **747 and 808 blocks.** Two refusals out of two is
+not bad luck; it means the refusal was the ordinary path and the band was
+decorative. The placement arithmetic was never wrong and the test that measured
+it was never wrong either — it stopped one step short, at where the site is
+*put*, and never asked whether the ground there would hold a town.
+
+The crash was the other one. `/civ step 800` against a town of forty-seven took
+sixty seconds in a single tick and the watchdog killed the server outright. The
+stack was all layout, and there was a second, larger cost standing next to it
+that a stack taken at one instant could not show.
+
+### Fixed
+
+- **The town a world promises stays inside the band it promised it in.** A
+  refused starter site is no longer the end of its region. The anchor now walks
+  the rest of the band — twelve bearings on each of five rings, sixty places,
+  every one of them inside the region's own jitter window and between 256 and
+  512 blocks of the spawn point — and only leaves for the neighbours when all
+  sixty have been refused. It also looks twice as far for good ground at each of
+  them (96 blocks against 48), because this is the one site a world promises and
+  is worth more trouble than a site nobody has been told about. Re-run on the
+  two seeds the report came from: **747 → 365 blocks on seed 8675309, and
+  808 → 362 on seed 20260919.** Headless over a hundred worlds on the recorded
+  hillside, where the first candidate is refused in 63 of them: one candidate
+  kept the band 37 times, the whole band kept it 62. Where the band cannot be
+  kept at all the log now says so, with both numbers, instead of reporting a
+  750-block walk as a success.
+- **A settled town's step costs four milliseconds instead of seventeen.**
+  Measured on a forty-two building, fifty-nine person town grown on the recorded
+  ground of seed 8675309: **17.15 ms/step before, 3.84 after.** Two things were
+  being redone from nothing every step for a town whose streets had not moved in
+  hundreds of steps. The layout was regrown plot by plot whenever anything asked
+  about a plot past the settled plan — which a town with a moved-on plot cursor
+  does constantly, as the method's own note explained two paragraphs above the
+  line that assumed it was rare. And the street lighting, which a sampling
+  profile put at **86 per cent of the entire step**, more than half of it inside
+  one predicate that walks every run of the path network for every candidate
+  lamp. Both are memoized now on the shape stamp the furnishings already use, so
+  a town that changes gets a new plan on the step it changes and a town that does
+  not pays for one once.
+- **`/civ step N` cannot trip the watchdog, whatever N is.** The count is a
+  request rather than a loop: fifty steps run on the tick it was typed and the
+  rest are owed and drained at the same rate. A burst of eight hundred is sixteen
+  ticks — under a second of wall clock — and not one of them is long enough to be
+  noticed.
+- **No people under arms hold the region a world spawns in.** The flag was
+  already there and already set; it filtered on "is this people hostile", which
+  means *goblin*, so it kept the mire goblins out and let the orc warhost
+  straight through. Seed 20260919 drew `orc/warhost orc_ring` for the very region
+  the player spawns in, and only the ground refusing it kept a warhost off the
+  wayfinder. Whether a people goes about armed is a fact about the body now, not
+  the culture, so the armoury and the site draw ask one question; that seed's home
+  region draws a highland thorp. Pinned over a thousand seeds with the spawn
+  thrown anywhere, against both weight tables — and separately, that war camps and
+  goblin camps are still drawn everywhere else.
+- **`/civ sites` names the town that will actually be raised there.** A goblin
+  camp that did not land in bog or deep wood has always been re-drawn as an
+  ordinary town on the way up; the listing did not know, so the one description a
+  player gets of a place before walking to it promised a camp of goblins and
+  delivered a human village. Both now go through the same function.
+- **Buildings raised as a town grows are put to the shelf rule.** Every building
+  after a town's seeded plan is sited by a path that asked only how far the ground
+  falls across the bulk of a plot — and a plot in a shallow bowl falls hardly at
+  all across its bulk while standing three courses under the hillside on every
+  side. That is the whole of what "buried" means, and nothing on that path was
+  asking. A playtest's `/civ audit` found the hearth, the lumber camp and the mine
+  of a sixty-six building town all buried, the mine under six courses, and all
+  three were raised that way. (The mine is not a deliberate exception: there is no
+  mine-head allowance anywhere in the siting rules, and it was under six courses
+  for the same reason as the other two.)
+- **A lumber camp leaves six trees standing.** A playtest's town map read
+  **`0 trees standing, 591 coming up`** — the whole wood inside the claim gone and
+  the town a bowl of bare terraces. It was the lumberjacks, and not for the
+  reason it looked like: the rule meant to stop them is not broken and does gate
+  the felling rather than only the keeping. It is simply the wrong rule. It asks
+  whether the *stockpile* is full, and a town under construction spends wood as
+  fast as it is cut, so it essentially never engages. Nothing anywhere asked about
+  the wood. A camp now keeps half a forester's stand standing however much timber
+  the town wants, which settles the 591 as well — saplings come off felling at one
+  in four, so a camp that stops cutting stops making them and the seed box drains
+  back into the ground. Neither the interior clearing nor the road and plot
+  clearing was involved; both were already, and deliberately, kept off the camp's
+  books.
+
 ## A town's streets arrive together, and a town has the hall it claims
 
 Three faults, all of them things a player sees rather than things a test

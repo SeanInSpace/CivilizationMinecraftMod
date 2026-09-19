@@ -163,6 +163,48 @@ public abstract class PlannedLayout implements Layout {
     private final Map<String, TownPlan> planned = new LinkedHashMap<>();
 
     /**
+     * One town's plan grown past {@link #PLAN_SIZE}, and how far it was grown.
+     *
+     * @param want how many plots the growth was asked for; the plan itself may
+     *             hold fewer, where the extensions ran out before the count did
+     */
+    private record Grown(int want, TownPlan plan) {
+    }
+
+    /**
+     * The grown plans, beside the settled ones they were grown from.
+     *
+     * <p>Kept for the reason the note on {@link #planFor} gives for <em>not</em>
+     * keeping them, read the other way round. That note calls an ask past
+     * {@link #PLAN_SIZE} rare and declines to cache it, because "a second cache
+     * keyed by size is a second way for the answer to depend on what was asked
+     * first". The paragraph immediately above it establishes that the ask is not
+     * rare at all: {@code Settlement.chooseSite} walks {@code LAST_DITCH} — five
+     * hundred and twelve — slots from its cursor, so a town whose cursor has
+     * passed a hundred and sixty asks about plot four hundred as a matter of
+     * course, and every one of those asks re-ran {@link #finish} from scratch.
+     *
+     * <p>That is what killed a dedicated server. A playtest's {@code /civ step
+     * 800} took sixty seconds in one tick and the watchdog brought the server
+     * down; the stack was {@code Ways.pointToSegment} under {@code Street.touches}
+     * under {@code fits} under {@code finish} under {@code planFor} under
+     * {@code chooseSite} under {@code relocateIfUnsuitable} — a whole layout
+     * regrown, street by street, on every relocation check of a town that had
+     * settled hundreds of steps earlier.
+     *
+     * <p>And the dependence the note feared is not a risk here, it is the thing
+     * this removes. {@code finish} appends its extensions and outskirt rings in a
+     * fixed order and cuts off at the count, so the first n plots of a plan grown
+     * to m are the plan for a town of n for every m at least n — the note says so
+     * itself. Growing once to the largest count anybody has asked for and serving
+     * every smaller ask as a prefix of it is therefore not merely as correct as
+     * regrowing each time, it is <em>more</em> so: two asks for the same n now
+     * return the same list object rather than two lists that have to be argued
+     * about.
+     */
+    private final Map<String, Grown> grown = new LinkedHashMap<>();
+
+    /**
      * One piece of frontage on offer, before anybody has checked whether it fits.
      *
      * @param at     where the building would stand
@@ -263,10 +305,38 @@ public abstract class PlannedLayout implements Layout {
         }
         if (want > base.size()) {
             // Past the settled plan. Grown from it rather than designed afresh,
-            // so the plots it already has do not move -- and not cached, because
-            // this is rare and a second cache keyed by size is a second way for
-            // the answer to depend on what was asked first.
-            return finish(center, want, base.streets(), base.plots());
+            // so the plots it already has do not move -- and grown once and kept,
+            // because this is the ordinary case for any town whose plot cursor
+            // has got going and re-running it per ask is what took a server's
+            // tick to sixty seconds. See the note on `grown`.
+            synchronized (grown) {
+                String key = center.x() + ":" + center.y() + ":" + center.z();
+                Grown have = grown.get(key);
+                if (have == null || have.want() < want) {
+                    // Grown in whole plans rather than to the exact ask, and that
+                    // is the difference between a memo and a slower way of doing
+                    // the same work. The asks arrive from a cursor that moves one
+                    // plot at a time, so growing to exactly what was asked regrows
+                    // the entire plan on the next step and on every step after it
+                    // — measured at 33 ms a step against 17 for no memo at all.
+                    // Rounded up to the next whole PLAN_SIZE there are two or
+                    // three growths in a town's life.
+                    int reach = ((want + PLAN_SIZE - 1) / PLAN_SIZE) * PLAN_SIZE;
+                    have = new Grown(reach,
+                            finish(center, reach, base.streets(), base.plots()));
+                    if (grown.size() > TOWNS_REMEMBERED) {
+                        grown.clear();
+                    }
+                    grown.put(key, have);
+                }
+                TownPlan big = have.plan();
+                // Shorter than the ask means the extensions ran out before the
+                // count did, and regrowing at the smaller ask would run out in
+                // exactly the same place; hand it over whole.
+                return big.size() <= want ? big
+                        : new TownPlan(center, big.streets(),
+                                big.plots().subList(0, want));
+            }
         }
         if (base.size() == want) {
             return base;

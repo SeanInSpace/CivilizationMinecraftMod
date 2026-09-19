@@ -70,13 +70,19 @@ public final class LumberjackWorker {
         }
         BlockPos standing = worker.blockPosition();
 
-        if (LumberPlanner.wantsMoreTimber(settlement)) {
+        // Both halves, and the second one is new. The stores being hungry is not
+        // on its own a reason to cut: a camp keeps Stand.RESERVE_TREES standing
+        // whatever the town wants, or a claim is felled to the last trunk — which
+        // is what a playtest's "0 trees standing, 591 coming up" was.
+        if (LumberPlanner.wantsMoreTimber(settlement)
+                && LumberPlanner.anyStandWorthFelling(settlement)) {
             BlockPos log = findLog(level, settlement, area, standing);
             if (log != null) {
                 return approachAndFell(level, settlement, worker, log);
             }
         }
-        // No trunks left standing, or the stores are full: give the wood back.
+        // Down to the reserve, nothing left standing, or the stores are full:
+        // give the wood back.
         if (settlement.saplingStock() > 0) {
             BlockPos spot = findPlantingSpot(level, settlement, area, standing);
             if (spot != null) {

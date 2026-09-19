@@ -353,7 +353,7 @@ public final class Furnishings {
      * change under a running world. If datapack reloading ever changes that, this
      * is the line that has to change with it.
      */
-    private static long shapeOf(Settlement settlement) {
+    static long shapeOf(Settlement settlement) {
         long h = mix(settlement.center().x() * 31L + settlement.center().z());
         h = mix(h ^ settlement.claimRadius());
         h = mix(h ^ (settlement.cultureId() == null ? 0 : settlement.cultureId().hashCode()));

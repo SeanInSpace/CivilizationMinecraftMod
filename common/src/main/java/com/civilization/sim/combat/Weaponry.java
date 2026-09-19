@@ -274,7 +274,7 @@ public enum Weaponry {
      * each of them reaches into is {@link #guardKit}.
      */
     public static boolean armsEveryone(Race race) {
-        return race == Race.ORC || race == Race.GOBLIN;
+        return race.underArms();
     }
 
     /**

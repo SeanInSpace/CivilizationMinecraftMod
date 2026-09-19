@@ -178,7 +178,7 @@ public final class LumberPlanner {
             // A jack with nothing left to cut, or a town with nowhere to put
             // what he cuts, goes and puts the wood back — which is exactly what
             // LumberjackWorker does with the same two conditions.
-            if (!wantsTimber || Stand.trees(camp) <= 0) {
+            if (!wantsTimber || !Stand.worthFelling(camp)) {
                 replant(settlement, camp, share);
             }
         }
@@ -187,7 +187,14 @@ public final class LumberPlanner {
     /** One camp's felling for one step, and the saplings that come off the crowns. */
     private static void fell(Settlement settlement, Building camp, int jacks) {
         int room = Math.max(0, woodCapacity(settlement) - settlement.woodStock());
-        int logs = Stand.fell(camp, Math.min(jacks * Stand.LOGS_PER_JACK_PER_STEP, room));
+        // Three ceilings, and the third is the one that was missing: the jacks'
+        // own pace, the room left in the stores, and what the camp is allowed to
+        // take at all. See Stand.RESERVE_TREES — without it a claim is felled to
+        // the last trunk, because the stores of a building town are never full
+        // and so the second ceiling never bites.
+        int logs = Stand.fell(camp, Math.min(
+                Math.min(jacks * Stand.LOGS_PER_JACK_PER_STEP, room),
+                Stand.fellableLogs(camp)));
         if (logs <= 0) {
             return;
         }
@@ -282,6 +289,29 @@ public final class LumberPlanner {
     /** Whether felling is still worth doing, so lumberjacks idle instead of clear-cutting. */
     public static boolean wantsMoreTimber(Settlement settlement) {
         return settlement.woodStock() < woodCapacity(settlement);
+    }
+
+    /**
+     * Whether any camp in this town has timber it is allowed to take.
+     *
+     * <p>The other half of "should a jack be felling", and the half that was
+     * missing. {@link #wantsMoreTimber} asks about the stockpile and a building
+     * town's stockpile is never full, so that question alone let a claim be cut to
+     * the last trunk — see {@link Stand#RESERVE_TREES} for the measurement. This
+     * one asks about the wood.
+     *
+     * <p>Asked of the whole town rather than of one camp because that is the shape
+     * the watched path needs: {@code LumberjackWorker} is handed a settlement and a
+     * work area, not the camp building, and a jack with no stand worth cutting
+     * should go and plant rather than stand still.
+     */
+    public static boolean anyStandWorthFelling(Settlement settlement) {
+        for (Building camp : settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP)) {
+            if (Stand.worthFelling(camp)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static int clampRadius(int radius) {

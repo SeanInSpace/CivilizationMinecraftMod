@@ -263,8 +263,21 @@ public final class SiteDirectory {
                 if (alreadyListed(found, at)) {
                     continue;   // it is standing, and was named a moment ago
                 }
-                found.add(new Near(at, describe(site.cultureId(), site.layoutId()), false,
-                        Culture.of(site.cultureId()).isHostile()));
+                // What the raise will make of it, not what the draw said. A camp
+                // that did not land in goblin country is re-drawn as an ordinary
+                // town on the way up, and this row is the only description of the
+                // place a player gets before walking to it: a playtest listed "a
+                // goblin camp, not raised yet" on the site that came up as a human
+                // vale town in ring streets. Same arithmetic, same answer, one
+                // place to change it. See WorldgenSettlements.asItWillBeRaised.
+                SettlementSites.Site asRaised =
+                        WorldgenSettlements.asItWillBeRaised(level, site).orElse(null);
+                if (asRaised == null) {
+                    continue;   // nothing will ever be built here
+                }
+                found.add(new Near(at,
+                        describe(asRaised.cultureId(), asRaised.layoutId()), false,
+                        Culture.of(asRaised.cultureId()).isHostile()));
             }
         }
         found.sort(java.util.Comparator.comparingLong(

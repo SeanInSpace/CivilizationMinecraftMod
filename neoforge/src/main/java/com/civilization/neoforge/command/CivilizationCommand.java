@@ -2060,21 +2060,23 @@ public final class CivilizationCommand {
             source.sendFailure(Component.literal("No simulation for this dimension."));
             return 0;
         }
-        // Stepping passes no game ticks, so the view layer never runs on its own.
-        // Pump it after each step or the builders would be granted blocks they
-        // never lay, and the finished building would be stamped in whole on top
-        // of the half-built one standing at the site.
-        PersonEntityManager manager = CivilizationMod.managerFor(source.getLevel());
-        for (int i = 0; i < count; i++) {
-            world.step();
-            if (manager != null) {
-                manager.flushConstruction();
-            }
-        }
+        // Spread rather than poured. A count of up to ten thousand run inside the
+        // command is run inside a tick, and a playtest's `/civ step 800` was a
+        // sixty-second tick and a watchdog crash. See StepBurst.
+        int ran = StepBurst.request(source.getLevel(), count);
         markDirty(source);
 
-        source.sendSuccess(() -> Component.literal(
-                "Ran " + count + " simulation step(s); " + world.stepsElapsed() + " total"), true);
+        int owed = StepBurst.owed(source.getLevel());
+        if (owed <= 0) {
+            source.sendSuccess(() -> Component.literal(
+                    "Ran " + count + " simulation step(s); "
+                            + world.stepsElapsed() + " total"), true);
+        } else {
+            source.sendSuccess(() -> Component.literal(
+                    "Running " + count + " simulation step(s) at most "
+                            + StepBurst.MOST_PER_TICK + " a tick — " + ran + " done, "
+                            + owed + " to come; " + world.stepsElapsed() + " total"), true);
+        }
         return count;
     }
 

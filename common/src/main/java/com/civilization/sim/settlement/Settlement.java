@@ -666,6 +666,11 @@ public final class Settlement {
      */
     private static final double FACING_A_FIELD = 256;
 
+    /** A plan position at the height the ground actually stands there. */
+    private static SimPos onTheGround(SimPos at, SimContext ctx) {
+        return new SimPos(at.x(), ctx.bridge().groundHeight(at), at.z());
+    }
+
     private SimPos chooseSite(SimContext ctx, int span, BuildingRole role) {
         SimPos best = null;
         double bestCost = Double.MAX_VALUE;
@@ -683,6 +688,29 @@ public final class Settlement {
                 firstOffered = index;   // where the cursor stops if it has to settle
             }
             int fault = ctx.bridge().siteFault(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
+            // And the shelf, which siteFault does not ask about at all. The two
+            // are different questions about the same plot: siteFault measures how
+            // far the ground falls across the bulk of it, and a plot sitting in a
+            // shallow bowl falls hardly at all across its bulk while standing
+            // three courses under the hillside on every side. Founding.roomFor has
+            // asked both since Grade was written; this path — which sites every
+            // building a town raises after its seeded plan, and so most of the
+            // buildings in a grown town — asked only the first. A playtest's
+            // `/civ audit` found the hearth, the lumber camp and the mine of a
+            // sixty-six building town all "buried", the mine under six courses,
+            // and all three were raised by this method with nothing looking.
+            //
+            // Ranked rather than refused outright, in the same idiom roomFor uses:
+            // a town with nothing but bowls to build in must still build, and
+            // leastBad is what decides which bowl.
+            Grade.Shelf shelf = Grade.shelf(ctx.bridge(), onTheGround(candidate, ctx),
+                    span, role == BuildingRole.CROP_FARM);
+            if (shelf != Grade.Shelf.LEVEL) {
+                leastBad.offer(candidate, index,
+                        Math.max(fault, BuildPlanner.LEVELABLE_FALL + shelf.ordinal()),
+                        ctx.bridge());
+                continue;
+            }
             if (fault != WorldBridge.SITE_FAULT_NONE
                     && !worthLeveling(candidate, span, ctx)) {
                 // Refused, and remembered anyway. This is the whole of the fix:
@@ -2659,6 +2687,47 @@ public final class Settlement {
                               List<com.civilization.sim.work.Furnishings.Furnishing> plan) {
         this.dressingStamp = stamp;
         this.dressingPlan = plan;
+    }
+
+    /**
+     * The same memo again, for the lamps, and for the same reason twice over.
+     *
+     * <p>The note above already names {@code LightPlanner.lamps} as ten of the
+     * dressing's sixteen and a half milliseconds — but the dressing memo only ever
+     * saved the lamps that the dressing itself asked for. Everything else that
+     * wants them asked afresh: {@code LightPlanner.next}, {@code wanted},
+     * {@code isLit} and {@code worthStarting} each call {@code lamps} outright, and
+     * {@code advance} calls three of them in a step.
+     *
+     * <p>A sampling profile of a settled forty-two-building town on recorded
+     * ground put <strong>86 per cent</strong> of the whole simulation step inside
+     * {@code lamps}, and 56 per cent of it inside one predicate,
+     * {@code onACarriageway}, which walks every run of the path network for every
+     * candidate lamp. That is the cost that made {@code /civ step 800} a
+     * sixty-second tick and a dead server, next to the layout re-plan the crash
+     * stack happened to be standing in at the moment it was taken.
+     *
+     * <p>Keyed on the same stamp the dressing uses, which is the whole reason this
+     * is cheap and correct: {@code Furnishings.shapeOf} is already over-inclusive
+     * on purpose and already folds in the things "only {@code LightPlanner}
+     * touches" — every run of the path network with its opened and unwalkable
+     * flags, every building, the queue, the claim and the wall. A town that changes
+     * gets new lamps on the step it changes.
+     */
+    private long lampStamp;
+
+    private List<com.civilization.sim.work.LightPlanner.Lamp> lampPlan;
+
+    /** The lamps worked out for this shape of town, or null if none have been. */
+    public List<com.civilization.sim.work.LightPlanner.Lamp> cachedLamps(long stamp) {
+        return lampPlan != null && lampStamp == stamp ? lampPlan : null;
+    }
+
+    /** Keeps the lamps against the shape of town they were worked out for. */
+    public void cacheLamps(long stamp,
+                           List<com.civilization.sim.work.LightPlanner.Lamp> lamps) {
+        this.lampStamp = stamp;
+        this.lampPlan = lamps;
     }
 
     /**

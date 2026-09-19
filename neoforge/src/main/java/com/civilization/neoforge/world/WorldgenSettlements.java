@@ -87,9 +87,23 @@ public final class WorldgenSettlements {
      */
     private static final Set<ResourceKey<Level>> ANCHORED = new HashSet<>();
 
+    /**
+     * How far down its own band each level's starter has got, as a memo.
+     *
+     * <p>The ledger cannot hold this and should not: it records what became of a
+     * <em>region</em>, and every one of these candidates is the same region tried
+     * in a different spot. So the cursor lives here, and like {@link #ANCHORED}
+     * it is a memo rather than a record — losing it costs a world the ground it
+     * has already read, which a read chunk hands back for nothing, and the band
+     * is walked again from the top to the same answer.
+     */
+    private static final Map<ResourceKey<Level>, Integer> STARTER_AT =
+            new java.util.HashMap<>();
+
     /** Forgets the memo when the world it describes goes away. */
     public static void forget() {
         ANCHORED.clear();
+        STARTER_AT.clear();
     }
 
     /**
@@ -120,6 +134,26 @@ public final class WorldgenSettlements {
      * will hold a town. It may be a long walk. It is still a town.
      */
     private static final int FALLBACK_REGIONS = 3;
+
+    /**
+     * How many places in its own band the starter tries before it leaves it.
+     *
+     * <p>Sixty — {@code SettlementSites.ARCS} bearings on each of five rings.
+     * The number that matters is not this one but the one before it: it used to
+     * be <em>one</em>. The arithmetic put a site inside the promised band, the
+     * ground refused it, and the anchor gave up on the whole region and went
+     * shopping in the neighbours, which is how a playtest of two fresh worlds got
+     * towns 747 and 808 blocks from the spawn point against a band that ends at
+     * 512. Two refusals out of two says a refusal is the ordinary case, and one
+     * candidate is not a search.
+     *
+     * <p>Costs nothing when the ground says yes, which is the common case once
+     * there is more than one place to say yes to: the sweep stops at the first
+     * acceptance, and only a refusal moves the cursor on. A world that has to try
+     * all sixty spends sixty ticks — three seconds of level load, before anybody
+     * is in the world — and every one of those sixty is inside the band.
+     */
+    private static final int STARTER_TRIES = 60;
 
     /**
      * The site grid this level uses, anchored on its own spawn point.
@@ -168,18 +202,24 @@ public final class WorldgenSettlements {
         long seed = level.getSeed();
 
         // The one region a world is promised.
+        SimPos spawn = worldSpawn(level);
         Optional<int[]> home = grid.homeRegion();
         if (home.isPresent()) {
             int[] region = home.get();
             Optional<SiteLedger.Entry> decided = ledger.entry(region[0], region[1]);
             if (decided.isEmpty()) {
-                // A resolve that answers "still reading its ground" writes no
+                // A consider that answers "still reading its ground" writes no
                 // ledger entry, so the next tick comes back to this same region
                 // and pays for the next slice of chunks. Nine ticks a town rather
                 // than one, and the town that stands at the end of them is
                 // standing where it looks like it is.
-                grid.siteIn(seed, region[0], region[1], weights).ifPresent(site ->
-                        resolve(level, world, ledger, site, region[0], region[1]));
+                //
+                // And a refusal is no longer the end of the region. The band is
+                // the promise; one column in it having a cliff on it is not a
+                // reason to go and look in the next region along. See
+                // SettlementSites.Grid.starterSites for what is tried and in what
+                // order.
+                tryTheBand(level, world, ledger, grid, weights, seed, region, spawn);
                 return;
             }
             if (decided.get().accepted()) {
@@ -188,16 +228,21 @@ public final class WorldgenSettlements {
             }
         }
 
-        // Looked at and refused. Widen rather than break the promise: the
-        // ordinary scattered sites, nearest the spawn point first.
-        SimPos spawn = worldSpawn(level);
+        // Every place in the band looked at and refused. Widen rather than break
+        // the promise entirely: the ordinary scattered sites, nearest the spawn
+        // point first — so whatever this hands back is the shortest walk the
+        // world has left to offer, and anything of it past the band is reported
+        // as the broken promise it is.
         for (SettlementSites.Site site
                 : grid.near(seed, spawn, FALLBACK_REGIONS * grid.region(), weights)) {
             int regionX = grid.regionXOf(site);
             int regionZ = grid.regionZOf(site);
             Optional<SiteLedger.Entry> decided = ledger.entry(regionX, regionZ);
             if (decided.isEmpty()) {
-                resolve(level, world, ledger, site, regionX, regionZ);
+                if (consider(level, world, ledger, site, regionX, regionZ,
+                        SITING_REACH, true) == Outcome.RAISED) {
+                    reportTheWalk(ledger, grid, regionX, regionZ, spawn);
+                }
                 return;
             }
             if (decided.get().accepted()) {
@@ -209,6 +254,78 @@ public final class WorldgenSettlements {
         CivilizationMod.LOGGER.warn(
                 "WORLDGEN no ground for a town within {} blocks of the world spawn {}",
                 FALLBACK_REGIONS * grid.region(), spawn);
+    }
+
+    /**
+     * Tries the next place in the starter's own band, and moves on when it fails.
+     *
+     * <p>One candidate per call, because reading a claim is the expensive half
+     * and {@link #tickAnchor} runs every tick: a refusal costs one tick and the
+     * cursor, and the next tick picks the band up where this left it.
+     *
+     * <p>The rejection is written to the ledger only on the last candidate. That
+     * is the whole reason this is not a loop over {@link #consider}: a ledger
+     * entry closes a region forever, and closing the home region on the first
+     * cliff is exactly the fault being fixed.
+     */
+    private static void tryTheBand(ServerLevel level, SimWorld world, SiteLedger ledger,
+                                   SettlementSites.Grid grid, Map<String, Integer> weights,
+                                   long seed, int[] region, SimPos spawn) {
+        Optional<SettlementSites.Site> drawn =
+                grid.siteIn(seed, region[0], region[1], weights);
+        List<SimPos> band = grid.starterSites(seed, region[0], region[1], STARTER_TRIES);
+        if (drawn.isEmpty() || band.isEmpty()) {
+            return;   // no anchor on this grid; the fallback is the whole story
+        }
+        int at = Math.min(STARTER_AT.getOrDefault(level.dimension(), 0), band.size() - 1);
+        boolean last = at >= band.size() - 1;
+        // The people and the arrangement are the region's and do not move with
+        // the column: a site refused for its ground is the same town looked for
+        // a little further round, not a different one.
+        SettlementSites.Site here = new SettlementSites.Site(
+                band.get(at), drawn.get().cultureId(), drawn.get().layoutId());
+        Outcome outcome = consider(level, world, ledger, here,
+                region[0], region[1], STARTER_SITING_REACH, last);
+        if (outcome == Outcome.RAISED) {
+            reportTheWalk(ledger, grid, region[0], region[1], spawn);
+        } else if (outcome == Outcome.REFUSED && !last) {
+            STARTER_AT.put(level.dimension(), at + 1);
+            CivilizationMod.LOGGER.info(
+                    "WORLDGEN starter site {} of {} refused at {}; trying further round the band",
+                    at + 1, band.size(), band.get(at));
+        }
+    }
+
+    /**
+     * Says how long the walk to the world's one promised town turned out to be.
+     *
+     * <p>At INFO when the band held and WARN when it did not, and the warning
+     * names both numbers. A playtest found two worlds in two handing back a
+     * 750-block walk against a 512-block promise and nothing in the log said so
+     * — the fallback simply took the nearest ground that would hold a town and
+     * reported it as a success. A promise the code cannot keep on some seed is
+     * survivable; a promise it breaks silently is not.
+     */
+    private static void reportTheWalk(SiteLedger ledger, SettlementSites.Grid grid,
+                                      int regionX, int regionZ, SimPos spawn) {
+        Optional<SimPos> where = ledger.entry(regionX, regionZ)
+                .flatMap(SiteLedger.Entry::center);
+        if (where.isEmpty()) {
+            return;
+        }
+        long walk = Math.round(Math.sqrt(where.get().horizontalDistanceSq(spawn)));
+        int band = grid.starterMaxFromSpawn();
+        if (walk <= band) {
+            CivilizationMod.LOGGER.info(
+                    "WORLDGEN the starter town stands {} blocks from the world spawn",
+                    walk);
+        } else {
+            CivilizationMod.LOGGER.warn(
+                    "WORLDGEN the starter town stands {} blocks from the world spawn,"
+                            + " past the {}-block band this world promised —"
+                            + " no ground in the band would hold a town",
+                    walk, band);
+        }
     }
 
     /**
@@ -239,6 +356,23 @@ public final class WorldgenSettlements {
      * ground and break the separation the grid guarantees.
      */
     private static final int SITING_REACH = 48;
+
+    /**
+     * The same, for the one site a world promises.
+     *
+     * <p>Ninety-six. Wider than the ordinary reach for the same reason the
+     * ordinary reach is wider than a charter's twelve: nobody chose this spot and
+     * it may have landed on a cliff, and this is the site it is worth the most
+     * trouble to save — a refusal here does not cost a scattered town somewhere
+     * nobody has been, it costs the player the walk the world promised them.
+     *
+     * <p>Still far inside the region's 320-block margin, so a starter moved onto
+     * better ground cannot wander into its neighbour's and break the separation
+     * the grid guarantees. It can carry a town up to 96 blocks out of the band it
+     * was placed in, which is why {@link #reportTheWalk} measures where the town
+     * actually ended up rather than trusting where it was aimed.
+     */
+    private static final int STARTER_SITING_REACH = 96;
 
     /** What a town found this way is worth, before anybody has lived in it. */
     private static final SettlementStage STAGE = SettlementStage.VILLAGE;
@@ -313,7 +447,66 @@ public final class WorldgenSettlements {
      * and not the weights, so the town lands on exactly the same spot — only the
      * people change.
      */
-    private static Optional<SettlementSites.Site> withoutTheGoblins(
+    /**
+     * The site as the raise will actually take it, camp re-draw and all.
+     *
+     * <p>The one place that question is answered, and it is shared because it was
+     * being answered twice and differently. {@link #consider} re-draws a goblin
+     * camp that did not land in goblin country, and it has always done so; what
+     * it did not do was tell anybody, so {@code /civ sites} and the join greeting
+     * read the raw draw and advertised what the raise was about to override. A
+     * playtest saw {@code r(-1,-1) civilization:goblin/mire goblin_camp} listed as
+     * "not raised yet" on the very site that came up as {@code Wilbury}, a human
+     * vale town in ring streets. The row was not wrong about where; it was wrong
+     * about everything else, and it is the only description of that place a player
+     * gets before walking to it.
+     *
+     * <p>Empty means the region cannot be settled at all — a world whose weights
+     * name goblin shapes and nothing else, on ground no goblin would have.
+     *
+     * @param at where the town will actually stand, which is the column whose
+     *           biome decides; for a site nobody has resolved yet the caller
+     *           passes the site's own centre on the generator's surface, which is
+     *           the same ground to within the siting reach
+     */
+    public static Optional<SettlementSites.Site> asItWillBeRaised(
+            ServerLevel level, SettlementSites.Site site, SimPos at,
+            int regionX, int regionZ) {
+        if (!Culture.of(site.cultureId()).isHostile() || inGoblinCountry(level, at)) {
+            return Optional.of(site);
+        }
+        return withoutTheGoblins(gridFor(level), level.getSeed(), regionX, regionZ,
+                CivilizationConfig.arrangementWeights());
+    }
+
+    /**
+     * The same question for a site nobody has looked at, at the generator's own
+     * surface.
+     *
+     * <p>Costs no chunk generation. {@code Level.getBiome} asks for a chunk that
+     * has reached the biome stage without blocking, and falls through to the
+     * generator's biome source when there is none — which is the case for every
+     * site in a listing, by definition. The height comes from the generator the
+     * same way, so the column sampled is the surface rather than whatever cave
+     * biome sits at the unresolved y of nought.
+     */
+    public static Optional<SettlementSites.Site> asItWillBeRaised(
+            ServerLevel level, SettlementSites.Site site) {
+        SettlementSites.Grid grid = gridFor(level);
+        return asItWillBeRaised(level, site,
+                onTheGeneratorsSurface(level, site.center()),
+                grid.regionXOf(site), grid.regionZOf(site));
+    }
+
+    /** A site's own column, lifted to the surface the generator predicts. */
+    private static SimPos onTheGeneratorsSurface(ServerLevel level, SimPos at) {
+        int y = level.getChunkSource().getGenerator().getBaseHeight(
+                at.x(), at.z(), net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG,
+                level, level.getChunkSource().randomState());
+        return new SimPos(at.x(), y, at.z());
+    }
+
+    static Optional<SettlementSites.Site> withoutTheGoblins(
             SettlementSites.Grid grid, long seed, int regionX, int regionZ,
             Map<String, Integer> weights) {
         Map<String, Integer> friendly = new java.util.LinkedHashMap<>();
@@ -372,6 +565,16 @@ public final class WorldgenSettlements {
         }
     }
 
+    /** What came of looking at one site. */
+    private enum Outcome {
+        /** Its claim is still being generated; ask again next tick. */
+        READING,
+        /** The ground will not hold a town here. */
+        REFUSED,
+        /** A town is standing. */
+        RAISED
+    }
+
     /**
      * Settles one region, one way or the other.
      *
@@ -381,6 +584,26 @@ public final class WorldgenSettlements {
      */
     private static boolean resolve(ServerLevel level, SimWorld world, SiteLedger ledger,
                                    SettlementSites.Site site, int regionX, int regionZ) {
+        return consider(level, world, ledger, site, regionX, regionZ, SITING_REACH, true)
+                != Outcome.READING;
+    }
+
+    /**
+     * The same, told how far to look for ground and whether a refusal is final.
+     *
+     * <p>Two things the ordinary sweep never needs and the starter cannot do
+     * without. It may look further for ground, because it is the one site a world
+     * promises and is worth more trouble than a site nobody has been told about;
+     * and its refusals must <em>not</em> reach the ledger until its whole band has
+     * been tried, because a ledger entry closes a region for the life of the world
+     * and the starter wants to come back to the same region at a different column.
+     *
+     * @param sitingReach    how far the town may be moved onto better ground
+     * @param recordRefusal  whether a refusal closes the region in the ledger
+     */
+    private static Outcome consider(ServerLevel level, SimWorld world, SiteLedger ledger,
+                                    SettlementSites.Site site, int regionX, int regionZ,
+                                    int sitingReach, boolean recordRefusal) {
         // groundHeight, not surfaceHeight. surfaceHeight answers an unloaded
         // column with the y it was handed, and every column here is unloaded --
         // this runs before anybody has been near the place. The playtest's
@@ -388,13 +611,13 @@ public final class WorldgenSettlements {
         // one of its fourteen buildings.
         SimPos wanted = new SimPos(site.center().x(),
                 world.bridge().groundHeight(site.center()), site.center().z());
-        SimPos chosen = Founding.bestSiteNear(wanted, SITING_REACH, world.bridge());
+        SimPos chosen = Founding.bestSiteNear(wanted, sitingReach, world.bridge());
 
         // And now the ground, before a single plot is chosen. Bounded, and
         // resumed next tick when the budget runs out: see readClaim.
         if (!readClaim(world, chosen, Founding.groundToRead(chosen, site.layoutId(),
                 BuildCatalog.DEFAULT))) {
-            return false;   // still reading; the region is undecided, so come back
+            return Outcome.READING;   // the region is undecided, so come back
         }
         // Re-asked against read ground rather than the estimate it was asked
         // against a moment ago, and at the real height. A region whose middle
@@ -402,26 +625,27 @@ public final class WorldgenSettlements {
         // that scatters when somebody walks up to it.
         chosen = new SimPos(chosen.x(), world.bridge().groundHeight(chosen), chosen.z());
         if (!world.bridge().isSiteSuitable(chosen, TOWN_HEART)) {
-            ledger.reject(regionX, regionZ);
-            CivilizationMod.LOGGER.info("WORLDGEN region {},{} refused: no ground for a town near {}",
-                    regionX, regionZ, site.center());
-            return true;
+            if (recordRefusal) {
+                ledger.reject(regionX, regionZ);
+                CivilizationMod.LOGGER.info("WORLDGEN region {},{} refused: no ground for a town near {}",
+                        regionX, regionZ, site.center());
+            }
+            return Outcome.REFUSED;
         }
 
         // Goblins belong in a bog or a deep wood and nowhere else. The draw is
         // blind to biome -- it has no world behind it -- so this is where a camp
         // that landed in a wheat field becomes an ordinary town instead. Re-drawn
         // on the same ground, so the region keeps its site.
-        if (Culture.of(site.cultureId()).isHostile() && !inGoblinCountry(level, chosen)) {
-            Optional<SettlementSites.Site> instead = withoutTheGoblins(
-                    gridFor(level), level.getSeed(), regionX, regionZ,
-                    CivilizationConfig.arrangementWeights());
-            if (instead.isEmpty()) {
+        Optional<SettlementSites.Site> asDrawn =
+                asItWillBeRaised(level, site, chosen, regionX, regionZ);
+        if (asDrawn.isEmpty()) {
+            if (recordRefusal) {
                 ledger.reject(regionX, regionZ);
-                return true;
             }
-            site = instead.get();
+            return Outcome.REFUSED;
         }
+        site = asDrawn.get();
 
         String name = Culture.of(site.cultureId()).townNames().isEmpty()
                 ? pickName(world, site, List.of("Wayside"))
@@ -455,7 +679,7 @@ public final class WorldgenSettlements {
         ledger.accept(regionX, regionZ, chosen);
         CivilizationMod.LOGGER.info("WORLDGEN raised {} at {} — {} laid out as {}",
                 name, chosen, site.cultureId(), site.layoutId());
-        return true;
+        return Outcome.RAISED;
     }
 
     /**

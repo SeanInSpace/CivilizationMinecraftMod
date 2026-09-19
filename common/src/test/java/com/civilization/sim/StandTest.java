@@ -268,7 +268,14 @@ class StandTest {
             LumberPlanner.advance(town, new SimContext(world, step, SHIPPED));
         }
 
-        assertEquals(0, Stand.trees(only(town)), "the stand of twelve is down");
+        // Down to the reserve and no further. This read `assertEquals(0, ...)`
+        // and "the stand of twelve is down", which is the fault a playtest
+        // reported rather than the rule: the town map of a grown town read
+        // "0 trees standing, 591 coming up" and the claim was a bowl of bare
+        // terraces. A camp keeps Stand.RESERVE_TREES standing however much
+        // timber the town wants.
+        assertEquals(Stand.RESERVE_TREES, Stand.trees(only(town)),
+                "the stand of twelve is cut back to its reserve");
         assertTrue(Stand.growing(only(town)) > 0,
                 "and what the jacks saved off the crowns is in the ground again");
     }

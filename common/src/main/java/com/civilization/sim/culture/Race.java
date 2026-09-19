@@ -108,6 +108,31 @@ public enum Race {
         return paceFactor;
     }
 
+    /**
+     * Whether everybody born into this body goes about armed.
+     *
+     * <p>Orcs and goblins, and for opposite reasons: everybody in a warhost is a
+     * warrior, and everybody in a goblin camp is somebody who is going to have to
+     * run. Humans arm the watch and nobody else.
+     *
+     * <p>A fact about the body rather than the culture, which is the same
+     * argument {@link #attackBonus} makes and the same one
+     * {@code Weaponry.armsEveryone} used to make on its own — orcs have one
+     * culture today and will have four, and every one of them will arm everybody
+     * without this line being touched.
+     *
+     * <p>Two things read it. The armory asks it to decide who gets a weapon at
+     * all. The site draw asks it to decide who may hold the region a new world
+     * spawns beside: {@link Culture#isHostile} is narrower on purpose — it means
+     * <em>goblin</em>, and drives whether a settlement is called a camp and
+     * whether the guards of everybody else engage it — and a warhost is neither
+     * of those things and still not an introduction to the mod. See
+     * {@code SettlementSites.Grid.siteIn}.
+     */
+    public boolean underArms() {
+        return this == ORC || this == GOBLIN;
+    }
+
     /** The word for one of these in a chat line: {@code "orc"}. */
     public String word() {
         return name().toLowerCase(Locale.ROOT);

@@ -149,6 +149,9 @@ public final class CivilizationMod {
         // And whether this world's spawn towns are settled, which is a fact
         // about a ledger that is going away with the level that held it.
         com.civilization.neoforge.world.WorldgenSettlements.forget();
+        // And any steps a burst still owed, which belong to a world that has
+        // stopped existing.
+        com.civilization.neoforge.command.StepBurst.forget();
         // And anybody still waiting to be told where the towns are, since the
         // towns and the world they stand in are both going away.
         GREETINGS.clear();
@@ -165,6 +168,10 @@ public final class CivilizationMod {
             com.civilization.neoforge.world.BuildTest.tick(level);
         }
         tickCounter++;
+        // Whatever a `/civ step N` burst still owes, a tick's worth at a time.
+        // Before the simulation's own beat below, so a burst and the clock never
+        // run in the same tick and add up to a tick nobody survives.
+        com.civilization.neoforge.command.StepBurst.tick(event.getServer());
         // The towns around the world spawn, raised at world start rather than
         // on approach -- one a tick, so they are standing before the player has
         // finished loading in. Costs nothing the moment they are settled.

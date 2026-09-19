@@ -127,8 +127,33 @@ public final class LightPlanner {
      * <p>Only <em>opened</em> streets. A planned stretch nobody has walked out is
      * not a street yet, and lighting one would be lighting a line on paper — the
      * same mistake paving a stretch ahead of the crew was.
+     *
+     * <p><strong>Memoized, on the town's own shape.</strong> This is a function
+     * of the settlement and of nothing else — no clock, no die, no world — which
+     * is what makes a memo possible; what makes it necessary is that four public
+     * methods here call it outright ({@link #wanted}, {@link #isLit},
+     * {@link #next}, {@link #worthStarting}) and {@link #advance} reaches it
+     * several times in one step. A sampling profile of a settled forty-two
+     * building town on recorded ground spent 86 per cent of the entire
+     * simulation step in here, more than half of it inside
+     * {@link #onACarriageway}, which walks every run of the path network for
+     * every candidate lamp: the work is quadratic in a town's size and it was
+     * being redone from nothing several times a second for a town whose streets
+     * had not moved in hundreds of steps.
+     *
+     * <p>The stamp is {@code Furnishings.shapeOf}, deliberately rather than one
+     * of this class's own: that number is already over-inclusive on purpose and
+     * already folds in every field this planner reads — each run of the network
+     * with its opened and unwalkable flags, every building and its footprint, the
+     * queue, the claim, the culture and the wall. Two planners that read the same
+     * things should not keep two opinions about when those things have changed.
      */
     public static List<Lamp> lamps(Settlement settlement) {
+        long stamp = Furnishings.shapeOf(settlement);
+        List<Lamp> known = settlement.cachedLamps(stamp);
+        if (known != null) {
+            return known;
+        }
         List<Lamp> out = new ArrayList<>();
         PathNetwork paths = settlement.paths();
         if (paths != null) {
@@ -139,7 +164,9 @@ public final class LightPlanner {
         }
         besideTheDoors(settlement, out);
         onThePlotCorners(settlement, out);
-        return accept(settlement, out);
+        List<Lamp> planned = List.copyOf(accept(settlement, out));
+        settlement.cacheLamps(stamp, planned);
+        return planned;
     }
 
     /** How many lamps the town's shape currently calls for. */

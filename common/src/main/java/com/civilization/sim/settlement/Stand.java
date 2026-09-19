@@ -316,11 +316,62 @@ public final class Stand {
      *         stand runs out mid-step
      */
     public static int fell(Building camp, int logs) {
+        // What the axe took, and never an opinion about what it should have
+        // taken. The reserve that keeps a claim from being clear-cut is a rule
+        // about how much work to order, so it lives in LumberPlanner where the
+        // ordering happens — see Stand.RESERVE_TREES. Down here it would also
+        // have made the ledger lie about a tree a player felled by hand.
         int taken = Math.min(Math.max(0, logs), logs(camp));
         if (taken > 0) {
             camp.setStandThousandths(camp.standThousandths() - taken * PER_LOG);
         }
         return taken;
+    }
+
+    /**
+     * Trees a camp leaves standing however much timber the town wants.
+     *
+     * <p>Six, half of {@link ForesterStand#TREES_WANTED}. Before this there was no
+     * such number anywhere in the mod and a claim was felled to the last trunk: a
+     * playtest's town map read <strong>{@code 0 trees standing, 591 coming up}</strong>
+     * at step 1006, against 32 standing at step 392 in a younger town. The whole
+     * wood inside the claim was gone and the town stood in a bowl of bare terraces.
+     *
+     * <p>The rule that was supposed to prevent it is
+     * {@code LumberPlanner.wantsMoreTimber}, and it is not broken — it genuinely
+     * gates the felling rather than only the keeping, on both fidelities. It is
+     * simply the wrong rule. It asks whether the <em>stockpile</em> is full, and a
+     * town under construction spends wood as fast as it is cut, so
+     * {@code woodStock() < woodCapacity()} is true essentially for ever. Nothing
+     * asked about the wood.
+     *
+     * <p>So this asks about the wood. Half the forester's stand is enough that a
+     * claim still reads as woodland, enough seed to regrow from, and enough that a
+     * jack always has somewhere to walk; and a camp already under it fells nothing
+     * and lives on its own regrowth, which is what a camp in thin country ought to
+     * do rather than finish the job.
+     *
+     * <p>It also settles the other half of that report without a second rule.
+     * Saplings are produced at one per four logs felled, so a camp that stops
+     * felling stops making them, the seed box drains into the ground and
+     * {@link #grow} turns what is growing back into what is standing. The 591 was
+     * the same runaway seen from the other end.
+     */
+    public static final int RESERVE_TREES = ForesterStand.TREES_WANTED / 2;
+
+    /**
+     * Logs a camp may actually cut: what it holds, less {@link #RESERVE_TREES}.
+     *
+     * <p>Never negative, so a camp whose stand is already under the reserve is
+     * simply told there is nothing to cut.
+     */
+    public static int fellableLogs(Building camp) {
+        return Math.max(0, logs(camp) - RESERVE_TREES * LOGS_PER_TREE);
+    }
+
+    /** Whether this camp has any timber it is allowed to take. */
+    public static boolean worthFelling(Building camp) {
+        return fellableLogs(camp) > 0;
     }
 
     /**
