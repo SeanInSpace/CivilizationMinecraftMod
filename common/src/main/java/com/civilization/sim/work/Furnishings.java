@@ -264,13 +264,20 @@ public final class Furnishings {
     public static final int PIECES_PER_STEP = 1;
 
     /**
-     * Timber the dressing will not touch.
+     * Timber the dressing will not touch, at the least.
      *
      * <p>The same number the lighting keeps back, and for a stronger reason: a
      * lamp keeps people alive and a garden fence does not, so if either is going
-     * to starve a bunkhouse it had better not be this one. In practice the
-     * reserve almost never bites, because {@link #worthStarting} already refuses
-     * to dress a town whose build queue has anything in it at all.
+     * to starve a bunkhouse it had better not be this one.
+     *
+     * <p>It is a <strong>floor</strong> rather than the reserve, and it used not
+     * to matter which: {@link #worthStarting} once refused to dress a town whose
+     * build queue had anything in it at all, so the number was never reached.
+     * Now that the queue is a backlog rather than a veto — see
+     * {@link PublicWorks#keepingUp} — thirty-two planks is what stands between a
+     * hedge and a bunkhouse, and thirty-two planks is nothing beside a house. The
+     * reserve that actually applies is {@link PublicWorks#timberOwedToTheQueue},
+     * and this is what is kept back when the queue is owed less.
      */
     public static final int TIMBER_KEPT_FOR_BUILDING = LightPlanner.TIMBER_KEPT_FOR_BUILDING;
 
@@ -633,9 +640,20 @@ public final class Furnishings {
         if (piece == null) {
             return "nothing left to raise";
         }
-        int owed = TIMBER_KEPT_FOR_BUILDING + piece.piece().cost().wood();
+        // The flat reserve, or what the build queue is actually owed, whichever
+        // is larger, and then this piece's own price on top. See
+        // PublicWorks.timberOwedToTheQueue: a garden fence is the last thing on
+        // the list nobody needs, so it is the last thing that may dip into the
+        // timber a bunkhouse is waiting on.
+        int held = PublicWorks.timberOwedToTheQueue(settlement);
+        int owed = Math.max(TIMBER_KEPT_FOR_BUILDING, held) + piece.piece().cost().wood();
         if (settlement.woodStock() < owed) {
-            return "timber " + settlement.woodStock() + " under " + owed;
+            String reason = "timber " + settlement.woodStock() + " under " + owed;
+            if (held > TIMBER_KEPT_FOR_BUILDING) {
+                reason += " (" + held + " held for the build queue: "
+                        + PublicWorks.jobTheTimberIsHeldFor(settlement) + ")";
+            }
+            return reason;
         }
         return null;
     }

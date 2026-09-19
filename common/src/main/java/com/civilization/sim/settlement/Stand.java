@@ -216,6 +216,13 @@ public final class Stand {
      */
     public static void recount(Building camp, int trees) {
         camp.setStandThousandths(Math.max(0, trees) * PER_TREE);
+        if (camp.standFirstCountedTrees() == UNCOUNTED) {
+            // The wood as it was found, kept for as long as the camp stands.
+            // Every count after this one is a count of what the axes have left,
+            // and a reserve measured against that would shrink every time it
+            // bit. See reserveTrees.
+            camp.setStandFirstCountedTrees(Math.max(0, trees));
+        }
     }
 
     /**
@@ -233,6 +240,24 @@ public final class Stand {
      */
     public static void recount(Building camp, int trees, long step) {
         recount(camp, trees);
+        camp.setStandCountedStep(step);
+    }
+
+    /**
+     * Credit a camp with the stand its own siting implies, without calling it a
+     * count.
+     *
+     * <p>{@link #UNSURVEYED}'s route into the ledger, and the one place a number
+     * arrives here that nobody has actually looked at. It moves the ledger and
+     * the stamp exactly as {@link #recount} does and deliberately does <em>not</em>
+     * write the first-count mark: a guess that set the mark would fix this camp's
+     * reserve at a quarter of seventy-two for ever, so a camp guessed at
+     * seventy-two and then found standing in twelve would be forbidden to fell a
+     * single trunk. The guess is thrown away the day the ground can answer, and
+     * the reserve it implies goes with it.
+     */
+    public static void guess(Building camp, int trees, long step) {
+        camp.setStandThousandths(Math.max(0, trees) * PER_TREE);
         camp.setStandCountedStep(step);
     }
 
@@ -319,7 +344,7 @@ public final class Stand {
         // What the axe took, and never an opinion about what it should have
         // taken. The reserve that keeps a claim from being clear-cut is a rule
         // about how much work to order, so it lives in LumberPlanner where the
-        // ordering happens — see Stand.RESERVE_TREES. Down here it would also
+        // ordering happens — see Stand.reserveTrees. Down here it would also
         // have made the ledger lie about a tree a player felled by hand.
         int taken = Math.min(Math.max(0, logs), logs(camp));
         if (taken > 0) {
@@ -329,9 +354,9 @@ public final class Stand {
     }
 
     /**
-     * Trees a camp leaves standing however much timber the town wants.
+     * What share of a wood a camp leaves standing: one quarter.
      *
-     * <p>Six, half of {@link ForesterStand#TREES_WANTED}. Before this there was no
+     * <p>The denominator of {@link #reserveTrees}. Before any of this there was no
      * such number anywhere in the mod and a claim was felled to the last trunk: a
      * playtest's town map read <strong>{@code 0 trees standing, 591 coming up}</strong>
      * at step 1006, against 32 standing at step 392 in a younger town. The whole
@@ -345,7 +370,7 @@ public final class Stand {
      * {@code woodStock() < woodCapacity()} is true essentially for ever. Nothing
      * asked about the wood.
      *
-     * <p>So this asks about the wood. Half the forester's stand is enough that a
+     * <p>So this asks about the wood. A quarter left standing is enough that a
      * claim still reads as woodland, enough seed to regrow from, and enough that a
      * jack always has somewhere to walk; and a camp already under it fells nothing
      * and lives on its own regrowth, which is what a camp in thin country ought to
@@ -357,16 +382,72 @@ public final class Stand {
      * {@link #grow} turns what is growing back into what is standing. The 591 was
      * the same runaway seen from the other end.
      */
-    public static final int RESERVE_TREES = ForesterStand.TREES_WANTED / 2;
+    public static final int RESERVE_SHARE = 4;
 
     /**
-     * Logs a camp may actually cut: what it holds, less {@link #RESERVE_TREES}.
+     * Trees a camp leaves standing whatever share works out to: two.
+     *
+     * <p>The floor under {@link #reserveTrees}, and what a quarter means when the
+     * quarter is small. Two rather than one because a single tree is a stand that
+     * cannot seed itself in a hurry, and rather than three because three of a
+     * founding camp's dozen is already the share and a floor above the share is
+     * not a floor.
+     */
+    public static final int MIN_RESERVE_TREES = 2;
+
+    /**
+     * Trees this camp leaves standing however much timber the town wants.
+     *
+     * <p><strong>A share, and it has to be a share.</strong> This was six — half
+     * of {@link ForesterStand#TREES_WANTED} — and six is a good number for the
+     * wood the rule was written about and a ruinous one for the wood a town is
+     * founded in. A founding camp counts a dozen trees and needs every one of
+     * them: a reserve of six left it seven fellable trunks, which is one
+     * bunkhouse, and the measurement is two tests' worth. A party on real ground
+     * reached step fifteen hundred with one field, seven people and five logs in
+     * the stores; a town keeping the curfew stopped growing at four people and
+     * nine buildings. The camp was not short of wood. It was forbidden to cut the
+     * wood it had.
+     *
+     * <p>So the reserve is a quarter of the stand <em>as first counted</em> —
+     * {@link Building#standFirstCountedTrees} — and never fewer than
+     * {@link #MIN_RESERVE_TREES}. A thirteen-tree stand keeps three and a
+     * sixty-tree wood keeps fifteen, which is the intent the flat six was reaching
+     * for: the need is largest where the wood is smallest, and a big wood is the
+     * one that can actually afford to be told no.
+     *
+     * <p>What it keeps from the old rule is the whole of the fault it fixed. A
+     * playtest's town map read <strong>{@code 0 trees standing, 591 coming up}</strong>
+     * at step 1006 and the town stood in a bowl of bare terraces, because
+     * {@code LumberPlanner.wantsMoreTimber} asks whether the <em>stockpile</em> is
+     * full and a town under construction never is. A quarter is still a floor
+     * nothing may fell through, so a claim still reads as woodland, still has seed
+     * to regrow from, and still gives a jack somewhere to walk.
+     *
+     * <p>Measured against the first count and not the current one on purpose. A
+     * share of what is standing shrinks every time it bites — a quarter of eight
+     * is two, and a quarter of two is nothing — which is a reserve that ratchets
+     * itself down to the clear-cut it was written to forbid.
+     */
+    public static int reserveTrees(Building camp) {
+        int found = camp.standFirstCountedTrees();
+        if (found < 0) {
+            // A camp living on the stand its siting implies: nobody has ever
+            // counted this ground, so the reserve is a share of the same guess
+            // the ledger is. See guess and UNSURVEYED.
+            found = UNSURVEYED;
+        }
+        return Math.max(MIN_RESERVE_TREES, found / RESERVE_SHARE);
+    }
+
+    /**
+     * Logs a camp may actually cut: what it holds, less {@link #reserveTrees}.
      *
      * <p>Never negative, so a camp whose stand is already under the reserve is
      * simply told there is nothing to cut.
      */
     public static int fellableLogs(Building camp) {
-        return Math.max(0, logs(camp) - RESERVE_TREES * LOGS_PER_TREE);
+        return Math.max(0, logs(camp) - reserveTrees(camp) * LOGS_PER_TREE);
     }
 
     /** Whether this camp has any timber it is allowed to take. */

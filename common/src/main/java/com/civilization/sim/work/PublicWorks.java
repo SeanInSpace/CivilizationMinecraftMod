@@ -5,6 +5,9 @@ import com.civilization.sim.person.BuildLoad;
 import com.civilization.sim.person.Person;
 import com.civilization.sim.person.Profession;
 import com.civilization.sim.platform.WorldBridge;
+import com.civilization.sim.settlement.BuildPlanner;
+import com.civilization.sim.settlement.BuildTask;
+import com.civilization.sim.settlement.FoodPlanner;
 import com.civilization.sim.settlement.Perimeter;
 import com.civilization.sim.settlement.PerimeterPlanner;
 import com.civilization.sim.settlement.PathNetwork;
@@ -175,6 +178,83 @@ public final class PublicWorks {
             return true;
         }
         return (long) done * 10L >= (long) wanted * KEEPING_UP_TENTHS;
+    }
+
+    /**
+     * Timber a second job has to cost before it is worth holding for as well: 64.
+     *
+     * <p>Sixteen work units at {@link BuildPlanner#WOOD_PER_WORK}, which is about
+     * a hearth and comfortably under a cottage. The head of the queue is always
+     * held for; the one behind it only when holding for it costs the lamps
+     * nothing much, because a town that reserved two houses' worth of timber
+     * would be a town that never lit a street again — and the whole reason the
+     * chain was loosened is that it had starved itself from the far end inward.
+     */
+    public static final int CHEAP_ENOUGH_TO_HOLD_FOR = 64;
+
+    /**
+     * Timber the build queue is owed, which nothing below construction may spend.
+     *
+     * <p><strong>Construction outranks dressing for timber, and it did not.</strong>
+     * The chain in {@link #of} is a priority order over <em>hands</em>, and once
+     * {@link #keepingUp} let the lower works run in a living town it turned out
+     * that nothing anywhere was a priority order over <em>timber</em>. A lamp is
+     * a plank and a garden fence is four, and a town that raises them out of the
+     * same pile the bunkhouse is waiting on has spent the bunkhouse. Both works
+     * held a flat reserve of {@link LightPlanner#TIMBER_KEPT_FOR_BUILDING} against
+     * exactly this, and thirty-two planks is nothing beside a house: two founding
+     * parties were measured stalled — one at four people and nine buildings after
+     * a thousand steps, one at one field and seven people after fifteen hundred —
+     * with timber in single figures and fourteen hundred logs felled.
+     *
+     * <p>So the reserve is the job itself: what the head of the queue still owes,
+     * read off its remaining work at {@link BuildPlanner#WOOD_PER_WORK}, plus the
+     * job behind it when that one is {@link #CHEAP_ENOUGH_TO_HOLD_FOR}. A lamp or
+     * a hedge that would dip into it is refused, and {@code /civ info}'s lamps and
+     * dressing lines say so by name.
+     *
+     * <p>Nought for a job that is free to build — a producer, or a survival
+     * building in a famine — because the timber those never spend is timber
+     * nothing is waiting on. That is {@code Settlement.isFreeToBuild}'s rule,
+     * written out here rather than shared, because it is the only thing in the
+     * simulation outside the queue that has to ask.
+     */
+    public static int timberOwedToTheQueue(Settlement settlement) {
+        List<BuildTask> queue = settlement.buildQueue();
+        if (queue.isEmpty()) {
+            return 0;
+        }
+        int owed = timberOwedFor(settlement, queue.getFirst());
+        if (queue.size() > 1) {
+            int next = timberOwedFor(settlement, queue.get(1));
+            if (next <= CHEAP_ENOUGH_TO_HOLD_FOR) {
+                owed += next;
+            }
+        }
+        return owed;
+    }
+
+    /** What one queued job still owes the stores in timber. */
+    public static int timberOwedFor(Settlement settlement, BuildTask task) {
+        if (BuildPlanner.PRODUCER_OF.containsValue(task.blueprintId())
+                || (FoodPlanner.isSurvivalBuilding(task.blueprintId())
+                    && settlement.isStarving())) {
+            return 0;   // this one is free; see Settlement.isFreeToBuild
+        }
+        int left = Math.max(0, task.requiredWork() - task.progress());
+        return BuildPlanner.WOOD_PER_WORK * left;
+    }
+
+    /**
+     * What the timber is being held for, for the line in {@code /civ info}.
+     *
+     * <p>The head of the queue by name, because "timber 5 under 168" on its own
+     * is a number a player can do nothing with and "held for the bunkhouse" is a
+     * sentence they can go and look at.
+     */
+    public static String jobTheTimberIsHeldFor(Settlement settlement) {
+        List<BuildTask> queue = settlement.buildQueue();
+        return queue.isEmpty() ? null : queue.getFirst().blueprintId();
     }
 
     /**

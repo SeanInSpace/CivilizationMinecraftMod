@@ -483,11 +483,11 @@ public final class CivilizationCodecs {
      * bare" are opposite facts and zero is the second one.
      */
     private record Ledgers(int ripeHundredths, int stand, int growing, int seam,
-                           long standCounted) {
+                           long standCounted, int standFound) {
         static Ledgers of(Building building) {
             return new Ledgers(building.ripeHundredths(), building.standThousandths(),
                     building.growingThousandths(), building.stoneSeam(),
-                    building.standCountedStep());
+                    building.standCountedStep(), building.standFirstCountedTrees());
         }
     }
 
@@ -505,7 +505,13 @@ public final class CivilizationCodecs {
             // Optional and never-counted by default: a world saved before the
             // mark existed is a world where nobody has looked since.
             Codec.LONG.optionalFieldOf("stand_counted", Stand.NEVER_COUNTED)
-                    .forGetter(Ledgers::standCounted)
+                    .forGetter(Ledgers::standCounted),
+            // The wood as it was first found, which is what the camp's reserve
+            // is a quarter of. Saved rather than derived, because every count
+            // after the first is a count of what the axes have left. See
+            // Stand.reserveTrees.
+            Codec.INT.optionalFieldOf("stand_found", Stand.UNCOUNTED)
+                    .forGetter(Ledgers::standFound)
     ).apply(i, Ledgers::new));
 
     /**
@@ -583,6 +589,7 @@ public final class CivilizationCodecs {
         building.setGrowingThousandths(ledgers.growing());
         building.setStoneSeam(ledgers.seam());
         building.setStandCountedStep(ledgers.standCounted());
+        building.setStandFirstCountedTrees(ledgers.standFound());
         authored.ifPresent(building::setAuthored);
         if (!held.isEmpty()) {
             building.stores().restore(held);

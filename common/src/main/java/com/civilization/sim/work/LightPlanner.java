@@ -230,13 +230,20 @@ public final class LightPlanner {
     }
 
     /**
-     * Timber the lighting will not touch, so a building is never starved by lamps.
+     * Timber the lighting will not touch at the least, so a building is never
+     * starved by lamps.
      *
      * <p>Half what the wall keeps back. A lamp is one plank and a house is
      * hundreds, but the wall's reserve exists because a ring is a commitment of
      * hundreds of posts made all at once, and the lighting of a town of twenty
      * buildings is tens — and unlike the wall, it is the thing keeping the
      * people who would build the house alive.
+     *
+     * <p>A floor rather than the whole reserve. What the lighting actually keeps
+     * back is whatever the build queue is owed — see
+     * {@link PublicWorks#timberOwedToTheQueue} — and this is what it keeps when
+     * the queue is owed less than this, which includes the case of a town with
+     * nothing queued at all.
      */
     public static final int TIMBER_KEPT_FOR_BUILDING = 32;
 
@@ -291,9 +298,21 @@ public final class LightPlanner {
         if (!TownStores.WOOD.equals(style.postResource())) {
             return null;   // a stone post takes nothing the build queue is owed
         }
-        int owed = TIMBER_KEPT_FOR_BUILDING + 2;
+        // The flat reserve, or what the build queue is actually owed, whichever
+        // is larger. Thirty-two planks is nothing beside a house, and a town that
+        // lit its streets out of the pile its bunkhouse was waiting on stopped
+        // growing -- see PublicWorks.timberOwedToTheQueue, which holds the
+        // measurement. Construction outranks the lamps for timber the way it
+        // already outranks them for hands.
+        int held = PublicWorks.timberOwedToTheQueue(settlement);
+        int owed = Math.max(TIMBER_KEPT_FOR_BUILDING, held) + 2;
         if (settlement.woodStock() < owed) {
-            return "timber " + settlement.woodStock() + " under " + owed;
+            String reason = "timber " + settlement.woodStock() + " under " + owed;
+            if (held > TIMBER_KEPT_FOR_BUILDING) {
+                reason += " (" + held + " held for the build queue: "
+                        + PublicWorks.jobTheTimberIsHeldFor(settlement) + ")";
+            }
+            return reason;
         }
         return null;
     }

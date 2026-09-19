@@ -6,6 +6,63 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A founding camp is allowed to cut the wood it is standing in
+
+Two changes that were each right on their own and wrong together. The tree
+reserve — *never fell a claim to the last trunk* — was six trees, and the works
+below construction — the lamps and the dressing — were let off waiting for the
+build queue to empty. A founding camp counts twelve trees, so six of them was
+half the wood the party had on the day it needed all of it, and the newly
+unblocked lamps and hedges then spent the little that did come in. Two towns
+that had been growing stopped: one settled at four people and nine buildings
+after a thousand steps, the other reached step 1500 as a "town" of seven with
+one field and five logs in its stores, having felled 1,471 logs and never dug a
+second field.
+
+### Fixed
+
+- **The tree reserve is a share of the wood, not a flat six.** A camp keeps a
+  quarter of the stand *as it was first counted*, and never fewer than two: a
+  thirteen-tree stand keeps three where it used to keep six, and a sixty-tree
+  wood keeps fifteen. The intent is untouched — Wilbury's `0 trees standing,
+  591 coming up` is still forbidden, and a new test walks a sixty-tree wood
+  through four hundred steps and checks the stand never once reads below
+  fifteen. What changed is that the reserve now scales with the ground, which
+  is what "half the forester's stand" was reaching for: the need is largest
+  where the wood is smallest.
+
+  Measured, on the two runs that caught it. A founding party on real ground,
+  nobody watching, at step 1500: **pop 7, 16 buildings, 1 field, 1,471 logs
+  felled, 5 timber in store** before; **pop 20, 23 buildings, 3 fields, 2,456
+  logs felled** after. The same party keeping the curfew over 1,000 steps: **pop
+  4, 9 buildings, 132 logs** before; **pop 5, 10 buildings, 213 logs** after,
+  against a round-the-clock town of 7 and 13.
+
+  The share is of the wood as *found*, which is why a camp now remembers that
+  number across a save. A share of what is currently standing ratchets itself
+  down — a quarter of eight is two, a quarter of two is nothing — which is the
+  clear-cut the rule exists to forbid, arrived at one step at a time.
+
+### Changed
+
+- **Construction outranks the dressing for timber, not only for hands.** The
+  priority chain was always an order over *people*; nothing anywhere was an
+  order over *planks*, and both the lamps and the dressing held a flat reserve
+  of 32 against the build queue, which is nothing beside a house. The reserve is
+  now the job itself: whatever the head of the build queue still owes in timber,
+  read off its remaining work, plus the job behind it when that one is cheap (64
+  or under, about a hearth). A lamp or a hedge that would dip into it is
+  refused. The flat 32 stays as the floor for a town with an empty queue.
+
+  On its own this lever moved neither of the two stalled towns — the census is
+  identical to a log — so it is here as the rule that should have been there
+  rather than as the fix. It is what stops the same fault recurring the next
+  time a work below construction is unblocked.
+
+  `/civ info`'s `lamps:` and `dressing:` lines say so by name when it bites:
+  `waiting: timber 5 under 168 (166 held for the build queue:
+  civilization:bunkhouse)`.
+
 ## A town that dresses itself, rings, smokes, is called on, and stops littering
 
 Five faults from the 2026-09-19 playtest, all of them things a player standing

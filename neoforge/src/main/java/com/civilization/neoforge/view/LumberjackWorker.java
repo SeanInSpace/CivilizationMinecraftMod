@@ -71,7 +71,7 @@ public final class LumberjackWorker {
         BlockPos standing = worker.blockPosition();
 
         // Both halves, and the second one is new. The stores being hungry is not
-        // on its own a reason to cut: a camp keeps Stand.RESERVE_TREES standing
+        // on its own a reason to cut: a camp keeps Stand.reserveTrees standing
         // whatever the town wants, or a claim is felled to the last trunk — which
         // is what a playtest's "0 trees standing, 591 coming up" was.
         if (LumberPlanner.wantsMoreTimber(settlement)

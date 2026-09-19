@@ -189,7 +189,7 @@ public final class LumberPlanner {
         int room = Math.max(0, woodCapacity(settlement) - settlement.woodStock());
         // Three ceilings, and the third is the one that was missing: the jacks'
         // own pace, the room left in the stores, and what the camp is allowed to
-        // take at all. See Stand.RESERVE_TREES — without it a claim is felled to
+        // take at all. See Stand.reserveTrees — without it a claim is felled to
         // the last trunk, because the stores of a building town are never full
         // and so the second ceiling never bites.
         int logs = Stand.fell(camp, Math.min(
@@ -264,7 +264,7 @@ public final class LumberPlanner {
                 // and jams its build queue forever. So the camp is credited with
                 // the stand its own siting implies until the day somebody can
                 // count it. See Stand.UNSURVEYED.
-                Stand.recount(camp, Stand.UNSURVEYED, ctx.step());
+                Stand.guess(camp, Stand.UNSURVEYED, ctx.step());
             }
         }
         camp.setWatched(watched);
@@ -297,7 +297,7 @@ public final class LumberPlanner {
      * <p>The other half of "should a jack be felling", and the half that was
      * missing. {@link #wantsMoreTimber} asks about the stockpile and a building
      * town's stockpile is never full, so that question alone let a claim be cut to
-     * the last trunk — see {@link Stand#RESERVE_TREES} for the measurement. This
+     * the last trunk — see {@link Stand#reserveTrees} for the measurement. This
      * one asks about the wood.
      *
      * <p>Asked of the whole town rather than of one camp because that is the shape

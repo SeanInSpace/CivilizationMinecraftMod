@@ -168,6 +168,23 @@ public final class Building {
     private long standCountedStep = Stand.NEVER_COUNTED;
 
     /**
+     * Trees this camp held the first time anybody actually counted them.
+     *
+     * <p>The wood as it was found, which is a different fact from the wood as it
+     * stands and is the only one a reserve can honestly be a share of. See
+     * {@link Stand#reserveTrees}: a camp keeps a quarter of what it was founded
+     * on, so the number has to survive the felling that follows — measured
+     * against the current stand it would ratchet downwards every step until a
+     * quarter of nothing was nothing.
+     *
+     * <p>{@link Stand#UNCOUNTED} until a real count is taken, and the guess a
+     * camp on unloaded ground lives on never writes here; see
+     * {@link Stand#guess}, whose whole point is that it is thrown away the day
+     * the ground can answer.
+     */
+    private int standFirstCountedTrees = Stand.UNCOUNTED;
+
+    /**
      * A mine's remaining stone, in blocks. See {@link Seam}.
      *
      * <p>{@link Seam#UNCOUNTED} until the ground has been counted, for the same
@@ -544,6 +561,19 @@ public final class Building {
 
     public void setStandCountedStep(long step) {
         this.standCountedStep = step;
+    }
+
+    /**
+     * Trees counted here the first time anybody looked, or
+     * {@link Stand#UNCOUNTED}. See {@link Stand#reserveTrees}.
+     */
+    public int standFirstCountedTrees() {
+        return standFirstCountedTrees;
+    }
+
+    /** Deliberately not clamped at zero: {@link Stand#UNCOUNTED} lives here too. */
+    public void setStandFirstCountedTrees(int trees) {
+        this.standFirstCountedTrees = Math.max(Stand.UNCOUNTED, trees);
     }
 
     /** This mine's remaining stone, in blocks. See {@link Seam}. */

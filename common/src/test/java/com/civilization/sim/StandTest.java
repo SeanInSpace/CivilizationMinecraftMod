@@ -272,12 +272,80 @@ class StandTest {
         // and "the stand of twelve is down", which is the fault a playtest
         // reported rather than the rule: the town map of a grown town read
         // "0 trees standing, 591 coming up" and the claim was a bowl of bare
-        // terraces. A camp keeps Stand.RESERVE_TREES standing however much
+        // terraces. A camp keeps Stand.reserveTrees standing however much
         // timber the town wants.
-        assertEquals(Stand.RESERVE_TREES, Stand.trees(only(town)),
+        assertEquals(Stand.reserveTrees(only(town)), Stand.trees(only(town)),
                 "the stand of twelve is cut back to its reserve");
         assertTrue(Stand.growing(only(town)) > 0,
                 "and what the jacks saved off the crowns is in the ground again");
+    }
+
+    /**
+     * The reserve is a share, and the share is the whole point of it.
+     *
+     * <p>A flat six was the first shape of this rule, and it is the right number
+     * for the wood it was measured in and a ruinous one for the wood a town is
+     * founded in: six of a founding camp's twelve trees is half the claim locked
+     * up on the day the party most needs it, which cost two towns their growth —
+     * see the changelog. A quarter keeps the intent and moves with the ground.
+     */
+    @Test
+    void aBigWoodIsNeverFelledBelowAQuarterOfWhatWasFound() {
+        Settlement town = campTown(3);
+        Alone wood = new Alone();
+        wood.trees = 60;
+
+        int floor = 60 / Stand.RESERVE_SHARE;
+        int lowest = Integer.MAX_VALUE;
+        for (int step = 1; step <= 400; step++) {
+            LumberPlanner.advance(town, new SimContext(wood, step, SHIPPED));
+            lowest = Math.min(lowest, Stand.trees(only(town)));
+        }
+
+        assertEquals(floor, Stand.reserveTrees(only(town)),
+                "a sixty-tree wood keeps fifteen");
+        assertTrue(lowest >= floor,
+                "and is never cut below them on any step of four hundred: the"
+                        + " lowest the stand ever read was " + lowest);
+        assertTrue(town.stores().get(TownStores.WOOD) > 0
+                        || Stand.growing(only(town)) > 0,
+                "while still being a wood the town actually works");
+    }
+
+    /** And a founding camp's dozen keeps three rather than half of itself. */
+    @Test
+    void aSmallStandKeepsAQuarterAndNotAHalf() {
+        Building camp = camp();
+        Stand.recount(camp, 12);
+
+        assertEquals(3, Stand.reserveTrees(camp), "a quarter of the dozen it was found in");
+        assertEquals(9 * Stand.LOGS_PER_TREE, Stand.fellableLogs(camp),
+                "which leaves nine trees to build the town out of, not six");
+    }
+
+    /**
+     * And the reserve does not ratchet downwards as the axes work.
+     *
+     * <p>A share of what is <em>standing</em> would: a quarter of eight is two and
+     * a quarter of two is nothing, so the floor would walk itself down to the
+     * clear-cut it exists to forbid. The share is of the stand as first counted,
+     * which is why the camp carries the number.
+     */
+    @Test
+    void theShareIsOfTheWoodAsFoundAndNotOfWhatIsLeft() {
+        Building camp = camp();
+        Stand.recount(camp, 40);
+        int reserve = Stand.reserveTrees(camp);
+
+        Stand.fell(camp, 30 * Stand.LOGS_PER_TREE);
+        assertEquals(reserve, Stand.reserveTrees(camp),
+                "felling does not lower the floor felling is measured against");
+
+        // And a later count -- a player walks up and the trunks are counted for
+        // real -- is a count of what the axes have left, so it does not either.
+        Stand.recount(camp, 10);
+        assertEquals(reserve, Stand.reserveTrees(camp),
+                "nor does re-counting the wood that is left of it");
     }
 
     @Test
