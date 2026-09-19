@@ -3360,10 +3360,13 @@ public final class PersonEntityManager {
      * because nobody ever said otherwise.
      */
     private SimPos walkInFrom(Settlement settlement, Person person) {
-        if (!person.hasJustArrived()) {
+        if (!person.hasJustArrived(world.stepsElapsed())) {
+            // Either never new, or new so long ago that nobody saw it: a
+            // resident coming back into view, who appears where they were.
+            person.settleIn();
             return person.position();
         }
-        person.setJustArrived(false);
+        person.settleIn();
         SimPos edge = TownEdge.of(settlement);
         if (edge == null) {
             return person.position();

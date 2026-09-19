@@ -213,23 +213,41 @@ public final class Person {
      * rather than appearing on their doorstep. So the fact is recorded where it
      * is known, which is where the person was made.
      *
-     * <p>Not saved, on purpose. It is true for the handful of seconds between
-     * {@code Newcomer.arrive} and the next pass of the entity manager; a save
-     * written in that window and loaded a week later would walk somebody in from
-     * the edge of town for an arrival that happened before the world was closed,
-     * which is a stranger sight than the one this exists to fix. A load makes
-     * residents, not newcomers.
+     * <p>A step number rather than a flag, because the fact goes stale. An
+     * arrival is new for the handful of seconds between {@code Newcomer.arrive}
+     * and the next pass of the entity manager — and only if the town is being
+     * watched on that pass. A flag set for a newcomer nobody saw arrive would
+     * still be set when a player came over the hill an hour later, and a housed,
+     * employed resident would be walked in from the gate as a stranger, which is
+     * a stranger sight than the one this exists to fix. So the manager asks
+     * whether the arrival is within {@link #ARRIVAL_GRACE_STEPS} of now.
+     *
+     * <p>Not saved, on purpose, for the same reason: a load makes residents,
+     * not newcomers.
      */
-    private boolean justArrived;
+    private long arrivedOnStep = -1;
 
-    /** @see #justArrived */
-    public boolean hasJustArrived() {
-        return justArrived;
+    /**
+     * How many steps after arriving somebody still counts as arriving: two.
+     *
+     * <p>A step is five seconds and a manager pass is one, so the pass after the
+     * arrival is always inside this and the pass after a long absence never is.
+     */
+    public static final int ARRIVAL_GRACE_STEPS = 2;
+
+    /** Records that this person joined the town on this step. @see #arrivedOnStep */
+    public void arrivedOn(long step) {
+        this.arrivedOnStep = step;
     }
 
-    /** @see #justArrived */
-    public void setJustArrived(boolean justArrived) {
-        this.justArrived = justArrived;
+    /** Whether this person arrived within the last few steps. @see #arrivedOnStep */
+    public boolean hasJustArrived(long now) {
+        return arrivedOnStep >= 0 && now - arrivedOnStep <= ARRIVAL_GRACE_STEPS;
+    }
+
+    /** Forgets the arrival, so somebody is new exactly once. @see #arrivedOnStep */
+    public void settleIn() {
+        this.arrivedOnStep = -1;
     }
 
     public int hunger() {

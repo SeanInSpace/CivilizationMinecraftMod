@@ -1,5 +1,7 @@
 package com.civilization.sim.culture;
 
+import com.civilization.sim.geom.Mix;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -112,7 +114,7 @@ public final class Faces {
         if (personId == null) {
             return 0;
         }
-        long spread = avalanche(personId.getMostSignificantBits()
+        long spread = Mix.finish(personId.getMostSignificantBits()
                 ^ Long.rotateLeft(personId.getLeastSignificantBits(), 32));
         if (race != Race.HUMAN) {
             return (int) Math.floorMod(spread, VARIANTS_PER_RACE);
@@ -124,13 +126,6 @@ public final class Faces {
     /** The same question for somebody with no town behind them. */
     public static int faceFor(Race race, UUID personId) {
         return faceFor(race, null, personId);
-    }
-
-    /** SplitMix64's finalizer, for the reason {@code Culture.layoutFor} wants it. */
-    private static long avalanche(long h) {
-        h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
-        h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;
-        return h ^ (h >>> 31);
     }
 
     private Faces() {

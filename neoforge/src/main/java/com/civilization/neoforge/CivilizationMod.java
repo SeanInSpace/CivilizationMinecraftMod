@@ -582,6 +582,15 @@ public final class CivilizationMod {
         if (event.getEntity() instanceof Mob creature) {
             Quarry.teach(creature);
         }
+        // A caravan body that came off disk rather than out of Caravans: a
+        // trader or a pack llama saved with a chunk that unloaded mid-visit, or
+        // with a world closed while the wagon stood in the yard. The visit that
+        // made it is over and nothing remembers it, so it does not join.
+        if (com.civilization.neoforge.view.Caravans.isCaravanBody(event.getEntity())
+                && !com.civilization.neoforge.view.Caravans.owns(event.getEntity().getUUID())) {
+            event.setCanceled(true);
+            return;
+        }
         if (!(event.getEntity() instanceof LivingEntity living)) {
             return;
         }

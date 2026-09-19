@@ -1,6 +1,7 @@
 package com.civilization.sim.person;
 
 import com.civilization.sim.culture.Culture;
+import com.civilization.sim.geom.Mix;
 import com.civilization.sim.settlement.SettlementEvent;
 import com.civilization.sim.settlement.SettlementStage;
 
@@ -433,18 +434,15 @@ public final class Greetings {
      * seed landed on zero would say the first line of whichever list they were
      * handed, and the overrides would visibly march in step with the pool.
      *
-     * <p>SplitMix64's finalizer, for the reason {@code Culture.layoutFor} wants
-     * it: a day is a small number and a UUID hash is not random, so the low bits
-     * of either one raw would hand a whole town the same line.
+     * <p>Finished with {@link Mix}, for the reason {@code Culture.layoutFor}
+     * wants it: a day is a small number and a UUID hash is not random, so the
+     * low bits of either one raw would hand a whole town the same line.
      */
     private static long seedOf(Person.Id who, long day, Situation situation) {
-        long h = who.value().getMostSignificantBits() * 0x9E3779B97F4A7C15L
+        return Mix.finish(who.value().getMostSignificantBits() * 0x9E3779B97F4A7C15L
                 ^ Long.rotateLeft(who.value().getLeastSignificantBits(), 32)
                 ^ day * 0xC2B2AE3D27D4EB4FL
-                ^ (situation.ordinal() + 1L) * 0x2545F4914F6CDD1DL;
-        h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
-        h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;
-        return h ^ (h >>> 31);
+                ^ (situation.ordinal() + 1L) * 0x2545F4914F6CDD1DL);
     }
 
     private Greetings() {

@@ -6,6 +6,39 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Review of the immersion batch
+
+### Fixed
+
+- **A caravan no longer outlives its visit.** A trader and its llamas are saved
+  with their chunk like any entity, so a wagon caught by a chunk unloading
+  mid-visit, or by the world closing with it in the yard, came back next session
+  as a nameless ghost nothing steered or removed, beside the fresh wagon the next
+  window spawned. Every caravan body is now tagged, and a tagged body the running
+  visit does not own is refused the moment it tries to join the world.
+- **A settler who arrived while nobody was watching is not walked in from the
+  gate hours later.** The "just arrived" flag never cleared until somebody saw
+  them, so a housed resident could be teleported to the end of the longest street
+  and marched in as a stranger the next time a player came over the hill. An
+  arrival is now stamped with its step and counts as new for two steps only.
+- **Pack llamas get the same footing check as the trader** instead of being put
+  down a block south of the gate whatever stands there.
+
+### Changed
+
+- The caravan check runs for every town every pass; it now asks whether a player
+  is anywhere near before it walks the town's gates and streets, and walks them
+  once rather than twice.
+- One shared `Mix` helper replaces four hand-typed copies of the same hash; the
+  faces, greetings, inn names and smiths' rhythms it picks are unchanged.
+
+### Notes
+
+- Known and left: when a thirteenth person dies the oldest drops off the list of
+  twelve and every headstone is rewritten with the next name along. Fixing it
+  wants a running burial count in the save and a row that keeps its old stones,
+  which is a design change rather than a patch.
+
 ## Somebody on the road, and a stone for the ones who are gone
 
 Nothing arrived at a town and nothing left one. The only body that ever walked

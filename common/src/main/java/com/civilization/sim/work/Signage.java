@@ -1,6 +1,7 @@
 package com.civilization.sim.work;
 
 import com.civilization.sim.culture.Culture;
+import com.civilization.sim.geom.Mix;
 import com.civilization.sim.person.NightRest;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.settlement.SettlementStage;
@@ -179,7 +180,7 @@ public final class Signage {
         if (pool.isEmpty()) {
             return "";
         }
-        return pool.get((int) Math.floorMod(mix(seed), pool.size()));
+        return pool.get((int) Math.floorMod(Mix.of(seed), pool.size()));
     }
 
     // --- the boards ----------------------------------------------------------
@@ -379,13 +380,5 @@ public final class Signage {
             out.add("");
         }
         return List.copyOf(out);
-    }
-
-    /** SplitMix64's finalizer, the same one the rest of the mod picks with. */
-    private static long mix(long seed) {
-        long h = seed * 0x9E3779B97F4A7C15L ^ 0x2545F4914F6CDD1DL;
-        h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
-        h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;
-        return h ^ (h >>> 31);
     }
 }

@@ -53,16 +53,49 @@ import java.util.UUID;
  * the road is for, and putting it on the verge beside the gate would be a wagon
  * that came cross-country.
  *
- * <p>The bodies are not saved and are not meant to be. They carry no person id,
- * so {@code CivilizationMod.onEntityJoin} never refuses them and
- * {@code PersonEntityManager.reapOrphans} never sees them; and every one of them
- * is discarded the moment the visit ends, the chunks go away, or the last player
- * leaves. A world reloaded mid-visit has no caravan in it, which is right: the
- * wagon was never on the books in the first place.
+ * <p>The bodies are not on the books and are not meant to be. They carry no
+ * person id, so {@code PersonEntityManager.reapOrphans} never sees them, and
+ * every one of them is discarded the moment the visit ends. What they
+ * <em>are</em> is saved with their chunk like any other entity, which is the
+ * one way a wagon could outlive its visit: a chunk that unloaded mid-visit, or a
+ * world closed with a trader in the yard, would hand the next session a body
+ * nothing remembers. So every body is tagged {@link #CARAVAN_TAG}, and
+ * {@code CivilizationMod.onEntityJoin} refuses a tagged body that {@link #owns}
+ * does not know — which is every one that came off disk, since the map is
+ * emptied on close and cleared the moment a trader cannot be found. A world
+ * reloaded mid-visit therefore has no caravan in it, which is right: the wagon
+ * was never on the books in the first place.
  */
 public final class Caravans {
 
     private Caravans() {
+    }
+
+    /**
+     * The mark every caravan body carries, so a body that came off disk can be
+     * told from one this class put down. See the class comment.
+     */
+    public static final String CARAVAN_TAG = "civilization_caravan";
+
+    /** Whether this entity is one of a caravan's bodies, ours or a stale one. */
+    public static boolean isCaravanBody(Entity entity) {
+        return entity != null && entity.entityTags().contains(CARAVAN_TAG);
+    }
+
+    /**
+     * Whether a body with this id belongs to a wagon that is on the ground now.
+     *
+     * <p>The join hook's question. A tagged body that answers no here is one a
+     * chunk or a save handed back after the visit that made it was over, and it
+     * is refused rather than left to stand in an inn yard for ever.
+     */
+    public static boolean owns(UUID entityId) {
+        for (Visit visit : VISITING.values()) {
+            if (visit.trader().equals(entityId) || visit.pack().contains(entityId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Pack animals behind the trader: two, which is a wagon's worth and not a herd. */
@@ -131,14 +164,29 @@ public final class Caravans {
      */
     static void tend(ServerLevel level, SimWorld world, Settlement settlement) {
         Visit visit = VISITING.get(settlement.id());
-        boolean due = Caravan.isVisiting(world.stepsElapsed())
-                && Caravan.callsAt(settlement);
+        boolean due = Caravan.isVisiting(world.stepsElapsed());
         if (visit == null) {
-            if (due) {
-                arrive(level, world, settlement);
+            if (!due || !Caravan.hasAnInn(settlement)) {
+                return;
+            }
+            // The cheap question before the dear one. This runs for every town
+            // in the world every pass, and the edge is every gate against every
+            // opened run; a town with nobody anywhere near it is refused on a
+            // distance before its streets are walked at all. Generous on
+            // purpose: the edge can lie a claim's width from the middle.
+            if (!world.bridge().playerWithin(settlement.center(),
+                    world.settings().observedRadius() + settlement.claimRadius())) {
+                return;
+            }
+            SimPos edge = Caravan.entersAt(settlement);
+            if (edge != null) {
+                arrive(level, world, settlement, edge);
             }
             return;
         }
+        // A wagon on the ground is only kept while the town it is calling on
+        // can still be called on; a street built over mid-visit sends it home.
+        due = due && Caravan.callsAt(settlement);
         if (!alive(level, visit)) {
             // Something killed the trader, or its chunk went away and took it
             // with it. Either way the wagon is over; the books never knew.
@@ -161,11 +209,8 @@ public final class Caravans {
      * nobody has read is a body standing on nothing, and the point of the whole
      * feature is a wagon somebody watches come up the road.
      */
-    private static void arrive(ServerLevel level, SimWorld world, Settlement settlement) {
-        SimPos edge = Caravan.entersAt(settlement);
-        if (edge == null) {
-            return;   // a road-less town, which is a town no wagon can reach
-        }
+    private static void arrive(ServerLevel level, SimWorld world, Settlement settlement,
+                               SimPos edge) {
         BlockPos gate = footing(level, edge);
         if (gate == null || !level.isLoaded(gate)) {
             return;
@@ -189,10 +234,23 @@ public final class Caravans {
         if (!level.addFreshEntity(trader)) {
             return;
         }
+        // Tagged after it is in the world, not before: the join hook refuses a
+        // tagged body it does not own, and the wagon is not owned until the
+        // map entry below. The tag is saved with the entity, which is the point.
+        trader.addTag(CARAVAN_TAG);
         List<UUID> pack = new ArrayList<>();
         for (int beast = 0; beast < PACK_ANIMALS; beast++) {
-            Mob animal = packAnimal(level, gate.offset(0, 0, beast + 1), trader);
+            // Each animal gets the footing the trader got. A block south of the
+            // gate is as often a palisade post or a drop as it is road, and a
+            // llama put down inside a post is a llama that suffocates on a leash.
+            BlockPos spot = footing(level, new SimPos(gate.getX(), gate.getY(),
+                    gate.getZ() + beast + 1));
+            if (spot == null) {
+                continue;
+            }
+            Mob animal = packAnimal(level, spot, trader);
             if (animal != null) {
+                animal.addTag(CARAVAN_TAG);
                 pack.add(animal.getUUID());
             }
         }

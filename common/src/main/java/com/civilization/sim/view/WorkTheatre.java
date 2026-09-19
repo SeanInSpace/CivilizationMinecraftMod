@@ -1,5 +1,6 @@
 package com.civilization.sim.view;
 
+import com.civilization.sim.geom.Mix;
 import com.civilization.sim.person.Profession;
 
 import java.util.UUID;
@@ -171,15 +172,7 @@ public final class WorkTheatre {
             return MIN_GAP_TICKS;
         }
         int span = MAX_GAP_TICKS - MIN_GAP_TICKS + 1;
-        return MIN_GAP_TICKS + Math.floorMod(mix(
+        return MIN_GAP_TICKS + Math.floorMod(Mix.of(
                 who.getMostSignificantBits() ^ who.getLeastSignificantBits() * 31L), span);
-    }
-
-    /** SplitMix64's finalizer; see {@code Leisure.mix}. */
-    private static long mix(long seed) {
-        long h = seed * 0x9E3779B97F4A7C15L ^ 0x2545F4914F6CDD1DL;
-        h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
-        h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;
-        return h ^ (h >>> 31);
     }
 }

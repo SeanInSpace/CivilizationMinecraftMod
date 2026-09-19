@@ -168,4 +168,21 @@ class NewcomerTest {
         SimWorld world = worldOf(old);
         assertSame(old, Newcomer.townFor(world, Race.HUMAN, new SimPos(1, 64, 1)));
     }
+
+    @Test
+    @DisplayName("an arrival is new on the pass after it and not on a pass an hour later")
+    void anArrivalIsNewOnlyBriefly() {
+        Settlement camp = town(Culture.ORC.id(), new SimPos(0, 64, 0), 40);
+        Person arrival = Newcomer.arrive(camp, new SimPos(3, 64, 3), 1000);
+        assertTrue(arrival.hasJustArrived(1000), "on the step of arrival");
+        assertTrue(arrival.hasJustArrived(1000 + Person.ARRIVAL_GRACE_STEPS),
+                "within the grace, which covers the manager's next pass");
+        assertFalse(arrival.hasJustArrived(1000 + Person.ARRIVAL_GRACE_STEPS + 1),
+                "a town nobody watched arrive has a resident, not a newcomer");
+        arrival.settleIn();
+        assertFalse(arrival.hasJustArrived(1000), "new exactly once");
+        Person resident = new Person(Person.Id.random(), "Old Hand",
+                com.civilization.sim.person.Profession.IDLER, new SimPos(0, 64, 0));
+        assertFalse(resident.hasJustArrived(0), "somebody who never arrived is not arriving");
+    }
 }

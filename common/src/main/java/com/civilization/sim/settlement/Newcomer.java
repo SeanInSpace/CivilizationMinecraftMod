@@ -107,7 +107,7 @@ public final class Newcomer {
         // came back over the hill look identical from that side. An arrival walks
         // in at the edge of town; a resident appears where they were. See
         // Person.hasJustArrived, and TownEdge for where the edge is.
-        person.setJustArrived(true);
+        person.arrivedOn(step);
         town.addResident(person);
         town.logEvent(step, person.name() + " arrived in " + town.name());
         return person;

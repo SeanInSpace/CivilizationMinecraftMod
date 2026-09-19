@@ -79,10 +79,18 @@ public final class Caravan {
      * standing in a field, and the pack animals behind him would be in the trees.
      */
     public static boolean callsAt(Settlement settlement) {
-        if (settlement == null || settlement.countBuildings("civilization:inn") <= 0) {
-            return false;
-        }
-        return TownEdge.hasAWayIn(settlement);
+        return hasAnInn(settlement) && TownEdge.hasAWayIn(settlement);
+    }
+
+    /**
+     * The cheap half of {@link #callsAt}: whether there is an inn to call at.
+     *
+     * <p>On its own so the view layer can ask it before it asks the dear half —
+     * {@link TownEdge#of} walks every gate against every opened run, and the
+     * question is asked of every town in the world every pass.
+     */
+    public static boolean hasAnInn(Settlement settlement) {
+        return settlement != null && settlement.countBuildings("civilization:inn") > 0;
     }
 
     /** Where the wagon comes in, and goes back out by. @see TownEdge */
