@@ -51,7 +51,16 @@ class AbstractYieldTest {
     private static final com.civilization.sim.settlement.BuildingType FARM =
             new com.civilization.sim.settlement.BuildingType("test:farm", 5, 9999, 0, 0, 70, 0);
 
-    /** A world where nobody is standing anywhere. */
+    /**
+     * A world where nobody is standing anywhere, and nothing is loaded.
+     *
+     * <p>Both halves earn their keep now that the clock works watched ground
+     * too. Nothing loaded means no stand and no seam can be counted, so a camp
+     * and a mine here work the claim their own siting implies — see
+     * {@code Stand.UNSURVEYED} — which is why an unwatched camp in this file
+     * brings in timber while the {@link Watched} one does not. The difference is
+     * the ground, not the audience.
+     */
     private static final class Empty implements WorldBridge {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }
         @Override public boolean isLoaded(SimPos pos) { return false; }
@@ -63,7 +72,15 @@ class AbstractYieldTest {
         @Override public void log(String message) { }
     }
 
-    /** A world where somebody is always standing in the town. */
+    /**
+     * A world where somebody is always standing in the town, on ground that can
+     * be read — and that reads as empty: no trees, no stone.
+     *
+     * <p>The fields do not care, because a farm's crop blocks are its
+     * blueprint's rather than the terrain's, so this bridge is a fair
+     * unwatched-versus-watched comparison for wheat. For timber and stone it is
+     * a bare-claim fixture and is used as one.
+     */
     private static final class Watched implements WorldBridge {
         @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
         @Override public boolean isLoaded(SimPos pos) { return true; }
@@ -169,10 +186,24 @@ class AbstractYieldTest {
                 "and the ore comes up with it");
     }
 
-    // --- the watched floor ---
+    // --- what is left where the watched floor used to be ---
+    //
+    // There used to be a floor here: after a grace period the clock took a
+    // watched building back over, and a table of a hundred restored the old
+    // conjuring outright. The floor went, and then the rule it was propping up
+    // went after it — "where there is a hand there is no clock" starved the
+    // 2026-09-19 playtest's towns, and the clock settles up with the hands now
+    // instead of standing aside for them. See WatchedProductionTest.
+    //
+    // So the cases below are no longer about watching at all. The Watched bridge
+    // is ground somebody has looked at and found empty — no trees, no stone —
+    // and what they pin is that empty ground stays empty at every table setting
+    // there is. A camp standing on grass brings in nothing because there is
+    // nothing there, which is the honest answer and the only one the tables must
+    // never be able to overwrite.
 
     @Test
-    void aWatchedCampWithIdleAxesEarnsNothingByDefault() {
+    void aCampOnCountedBareGroundEarnsNothingByDefault() {
         Settlement town = townWith("civilization:lumber_camp", Profession.LUMBERJACK);
         SimSettings settings = with(YieldPolicy.DEFAULTS);
 
@@ -181,15 +212,12 @@ class AbstractYieldTest {
         }
 
         assertEquals(0, town.stores().get(TownStores.WOOD),
-                "in front of a player only real work counts");
+                "a claim somebody has walked and found bare yields nothing, and"
+                        + " the town can see that it is standing on nothing");
     }
 
     @Test
-    void noTablePutsTheClockBackIntoAWatchedCamp() {
-        // There used to be a floor, and a table of a hundred restored the old
-        // conjuring outright. It is gone at every setting there is, exactly as
-        // it went from the fields: a watched camp is worked by axes or it is not
-        // worked. See WatchedProductionTest.
+    void noTableConjuresATreeOntoBareGround() {
         Settlement town = townWith("civilization:lumber_camp", Profession.LUMBERJACK);
         SimSettings settings = with(YieldPolicy.uniform(70, 100));
 
@@ -198,11 +226,11 @@ class AbstractYieldTest {
         }
 
         assertEquals(0, town.stores().get(TownStores.WOOD),
-                "no table anywhere fells a tree in front of a player");
+                "no number in a config file is standing in the claim");
     }
 
     @Test
-    void aWatchedMineWithIdlePicksEarnsNothingByDefault() {
+    void aMineOverCountedEmptyRockEarnsNothingByDefault() {
         Settlement town = townWith("civilization:mine", Profession.MINER);
         SimSettings settings = with(YieldPolicy.DEFAULTS);
 
@@ -211,7 +239,7 @@ class AbstractYieldTest {
         }
 
         assertEquals(0, town.stores().get(TownStores.STONE),
-                "in front of a player only real work counts");
+                "a seam somebody has sounded and found empty is empty");
     }
 
     // --- rounding ---
@@ -268,21 +296,50 @@ class AbstractYieldTest {
                 "and at the shipped zeroes it still feeds the town");
     }
 
+    /**
+     * A watched field grows and is cut exactly as an unwatched one is.
+     *
+     * <p>This read {@code aWatchedFieldWithNobodyCuttingWheatGrowsNothing} and
+     * asserted a flat nought: "a watched field is farmed by hands, or it is not
+     * farmed". The playtest of 2026-09-19 took that rule out into a world and it
+     * killed the town. Same town, same three hundred steps, one difference —
+     * where the player stood: granary 0 to 449 with him six hundred blocks off,
+     * 467 down to 144 and still falling with him in the square, and the town gone
+     * at step 1213 with sixty people in it. Hands stop for reasons that have
+     * nothing to do with farming, and every step they are stopped for was a step
+     * the town ate through and did not earn.
+     *
+     * <p>The clock settles up with them now rather than standing aside — see
+     * {@code FoodPlanner.growHarvest} and {@code Building.creditByHand} — so what
+     * belongs here is the negative this whole file is about, stated across the
+     * fidelity line instead of along it: watching a field changes nothing about
+     * it, exactly as no number in a config file does.
+     */
     @Test
-    void aWatchedFieldWithNobodyCuttingWheatGrowsNothing() {
-        assertEquals(0, grownOver(10, new Watched(), YieldPolicy.DEFAULTS),
-                "a watched field is farmed by hands, or it is not farmed");
+    void aWatchedFieldGrowsExactlyWhatAnUnwatchedOneGrows() {
+        assertEquals(grownOver(10, new Empty(), YieldPolicy.DEFAULTS),
+                grownOver(10, new Watched(), YieldPolicy.DEFAULTS),
+                "a field is not a percentage of anything and it is not an"
+                        + " audience either");
+        assertTrue(grownOver(10, new Watched(), YieldPolicy.DEFAULTS) > 0,
+                "and it is a field that is actually feeding somebody, which is"
+                        + " what the old assertion of nought could not say");
     }
 
     @Test
-    void aWatchedFieldWithNobodyCuttingWheatGrowsNothingAtAnySetting() {
+    void noTableChangesWhatAWatchedFieldGrowsEither() {
         // There used to be a floor: after a grace period the clock took a
         // watched farm back over, and a table of a hundred restored the old
-        // conjuring outright. Both are gone, at every setting there is. A
-        // watched field of ripe wheat with nobody in it stays a field of ripe
-        // wheat, and the player can go and look at it.
-        assertEquals(0, grownOver(10, new Watched(), YieldPolicy.uniform(70, 100)),
-                "no table anywhere puts the clock back into a watched field");
+        // conjuring outright. The floor is gone and so is the rule it propped
+        // up — the clock never left the field in the first place now. What the
+        // tables do here is what they do everywhere else in this file, which is
+        // nothing at all, and they do it on both sides of the watched line.
+        assertEquals(grownOver(10, new Watched(), YieldPolicy.DEFAULTS),
+                grownOver(10, new Watched(), YieldPolicy.uniform(70, 100)),
+                "no table anywhere changes a watched field by a single sheaf");
+        assertEquals(grownOver(10, new Empty(), YieldPolicy.uniform(70, 100)),
+                grownOver(10, new Watched(), YieldPolicy.uniform(70, 100)),
+                "and the two fidelities stay level at that setting too");
     }
 
     // --- what the shipped defaults now are ---

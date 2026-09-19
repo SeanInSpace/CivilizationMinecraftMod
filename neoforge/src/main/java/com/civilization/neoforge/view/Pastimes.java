@@ -127,9 +127,17 @@ final class Pastimes {
     private final Map<UUID, UUID> talkingTo = new HashMap<>();
     private final Map<UUID, Long> talkUntil = new HashMap<>();
 
-    /** A town's places to be, and when they were last looked for. */
+    /**
+     * A town's places to be, and when they were last looked for.
+     *
+     * @param doors the front doors of the town's <em>housed</em> families, which
+     *              is the list a {@code DOORWAY} is drawn from. It is held here
+     *              rather than worked out at the moment of resolving because it
+     *              also decides whether the doorway is offered at all — see
+     *              {@link #offerIn}, and the rain fault it was written against
+     */
     private record Offer(long at, List<Leisure.Place> places, List<SimPos> benches,
-                         List<SimPos> fences, List<SimPos> gates) {
+                         List<SimPos> fences, List<SimPos> gates, List<SimPos> doors) {
     }
 
     private final Map<UUID, Offer> offers = new HashMap<>();
@@ -144,7 +152,28 @@ final class Pastimes {
 
     // --- the pass --------------------------------------------------------------------
 
-    /** One town's idle people, given somewhere to be. */
+    /**
+     * One town's idle people, given somewhere to be.
+     *
+     * <p><strong>In the rain this pass has an obligation it does not have on a
+     * dry day.</strong> The work sweeps take every outdoor trade off the roster
+     * the moment {@code skyOver} answers wet — {@code workFarmers} and its
+     * siblings return at their first line — so the people this pass is handed
+     * in a downpour are not people with an idle hour, they are people who have
+     * just put down a hoe in an open field. Standing where they are is the one
+     * outcome that is worse than the one before. A pass that finds them nowhere
+     * to go has half-worked: it stopped the work and left them in the weather,
+     * which is exactly what the census caught — the farm plot emptied, 3 people
+     * to 0, and the count under open sky rose, 9 to 12.
+     *
+     * <p>Three things follow, and all three are below. The offer must carry no
+     * shelter it has not got ({@link #offerIn}); a sheltered kind must resolve
+     * to a sheltered position ({@link #placeFor}); and the walk cap must know
+     * that turning somebody away from a roof is not the same as turning them
+     * away from the well ({@code Leisure.walkCap}). A town with genuinely
+     * nowhere dry still sends nobody anywhere — that is a real answer — but it
+     * no longer disguises its square as a porch to avoid giving it.
+     */
     void tend(Settlement settlement) {
         long now = level.getGameTime();
         long clock = level.getDefaultClockTime();
@@ -202,21 +231,46 @@ final class Pastimes {
                 held = null;
             }
             if (held == null) {
-                if (walking >= Leisure.WALKS_AT_ONCE) {
-                    continue;   // the town has enough people crossing it already
-                }
                 // The one man in the town with an offer of his own. A king is
                 // not steered anywhere by his profession — his workplace is his
                 // own doorstep — so left on the town's offer he would wander to
                 // the well like anybody, which is not what a hall is for.
                 boolean crowned = person.profession() == Profession.KING
                         || person.profession() == Profession.SHAMAN;
+                // His hall's doorstep, and only if he has a hall. KingPlanner's
+                // rallyPoint falls back to the middle of the town when there is
+                // no seat standing, which is the right answer for a muster and
+                // the rain fault's answer for a doorway: it would hand forKing
+                // an open square wearing the DOORWAY label, three times over,
+                // and stand the king in the weather. A seatless king simply has
+                // the town's offer like everybody else.
+                Building seat = crowned ? KingPlanner.seat(settlement) : null;
                 List<Leisure.Place> offered = crowned
-                        ? Leisure.forKing(KingPlanner.rallyPoint(settlement), offer.places())
+                        ? Leisure.forKing(seat == null ? null : seat.origin(),
+                                offer.places())
                         : offer.places();
+                // The sieve. In the wet nobody may be sent anywhere that is not
+                // under a roof, and the weight table says so already — this says
+                // it a second time, in terms of the offer rather than of the
+                // table, because the fault was never a weight. See
+                // Leisure.shelterIn.
+                if (sky.isWet()) {
+                    offered = Leisure.shelterIn(offered);
+                }
                 Leisure.Rest rest = Leisure.restFor(id, now, hour, sky, offered);
                 if (rest == null) {
                     continue;   // nothing on offer at this hour; stand as before
+                }
+                // Asked after the choosing and not before it, which is the whole
+                // of the second half of the rain fault. Choosing is a hash and a
+                // table; the cost the cap defends is the pathfinding, which has
+                // not happened yet. Asked first, the cap could not tell a
+                // stroll to the well from a run for a doorway, and when the rain
+                // took a dozen people off the rows in one pass it admitted six
+                // of them and left the rest standing in it — the 9 -> 12 under
+                // open sky. Asked here it knows which walk it is refusing.
+                if (walking >= Leisure.walkCap(rest.what(), sky)) {
+                    continue;   // the town has enough people crossing it already
                 }
                 // His hall is already the particular place rather than a
                 // representative of a kind, so it goes through untouched.
@@ -665,8 +719,39 @@ final class Pastimes {
         if (fire != null) {
             places.add(new Leisure.Place(Leisure.Pastime.HEARTH, fire));
         }
-        if (!settlement.households().isEmpty()) {
-            places.add(new Leisure.Place(Leisure.Pastime.DOORWAY, square));
+        // Every front door the town actually has. Housed only, and the list
+        // itself is the condition: a doorway is offered when there is a door,
+        // and not when there is merely a family.
+        //
+        // This line was the rain fault. It used to read "households is not
+        // empty" and offer the DOORWAY at `square` -- the open middle of the
+        // town -- as a representative of the kind, on the understanding that
+        // placeFor would swap in a real door before anybody walked anywhere. It
+        // does, when it can: neighbourDoor wants another *housed* family, and
+        // returns null when the town has none. Unhoused families count towards
+        // households() and contribute no door, so a young town, a founding camp
+        // and any town whose one housed family is the person standing there all
+        // took the null and fell back to the representative. In the dry that is
+        // a settler standing in the square, which is what SQUARE is for and
+        // costs nothing. In the wet it is the whole fault: DOORWAY weighs more
+        // in the rain than the inn and the hearth put together, so it is what
+        // most people draw, and every one of them was walked out of the rows
+        // and into the middle of the open square to stand in it. The census:
+        // cover flat at 14, people under open sky 9 -> 12, farm plot 3 -> 0.
+        // They downed tools and went outside.
+        //
+        // So the representative is now a door. If there are no doors there is
+        // no doorway on offer, the wet chooser is left with the inn and the
+        // hearth, and a town with neither of those either legitimately has
+        // nowhere dry -- see Leisure.shelterIn, and restFor answering null.
+        List<SimPos> doors = new ArrayList<>();
+        for (Household household : settlement.households()) {
+            if (household.isHoused()) {
+                doors.add(household.home());
+            }
+        }
+        if (!doors.isEmpty()) {
+            places.add(new Leisure.Place(Leisure.Pastime.DOORWAY, doors.getFirst()));
         }
         List<SimPos> benches = world.bridge().leisureSpots(square, FURNITURE_REACH,
                 Leisure.Pastime.BENCH, FURNITURE_KEPT);
@@ -685,7 +770,8 @@ final class Pastimes {
         if (!gates.isEmpty()) {
             places.add(new Leisure.Place(Leisure.Pastime.FARM_GATE, gates.getFirst()));
         }
-        Offer offer = new Offer(now, List.copyOf(places), benches, fences, gates);
+        Offer offer = new Offer(now, List.copyOf(places), benches, fences, gates,
+                List.copyOf(doors));
         offers.put(settlement.id().value(), offer);
         return offer;
     }
@@ -699,18 +785,46 @@ final class Pastimes {
      * offer carries a representative of each so that {@code Leisure.choose} can
      * weigh the kind; this is where the representative becomes a particular
      * place.
+     *
+     * <p><strong>Every fallback here has to be as sheltered as the kind it
+     * stands for.</strong> That is the rule the rain fault was a breach of, and
+     * it is a rule about this method rather than about the weather table: the
+     * table refuses to send anybody anywhere open while it is raining, and it
+     * does so by kind, so the moment a kind resolves to a position of a
+     * different sort the refusal has been walked round. The two that matter are
+     * below. A {@code HEARTH} falls back to the town's own fire — a hearth
+     * building's or the hall's interior, never bare ground — and a
+     * {@code DOORWAY} falls back to another of the town's real front doors,
+     * because {@link #offerIn} now only puts one on the table when the town has
+     * some. Neither may fall back to the square, whatever else changes here.
      */
     private SimPos placeFor(Settlement settlement, Person person, Leisure.Rest rest,
                             Offer offer) {
         UUID id = person.id().value();
         return switch (rest.what()) {
+            // Their own fire first; failing that the town's, which is what the
+            // offer's representative already is (hearthOf: the hearth building,
+            // or the hall). Both are rooms, so the unhoused settler this arm is
+            // for ends up at the town's fire rather than beside it.
             case HEARTH -> {
                 SimPos home = homeOf(settlement, person);
-                yield home != null ? home : rest.where();
+                SimPos fire = home != null ? home : hearthOf(settlement);
+                // rest.where() is that same town fire, because that is what the
+                // offer's HEARTH entry is built from; the arm is unreachable
+                // with no fire at all. Kept as the last link so no path through
+                // here can hand back null.
+                yield fire != null ? fire : rest.where();
             }
+            // Somebody else's door by preference -- leaning on your own is not
+            // what the pastime means. But the fallback is the town's own list of
+            // doors and not the square: a settler in a one-house town leans on
+            // the one house, under its eave, which is a slightly odd thing to be
+            // doing and a much better thing than standing in a downpour in the
+            // middle of the market. The list is non-empty whenever this arm is
+            // reachable at all, because the offer carries no DOORWAY otherwise.
             case DOORWAY -> {
                 SimPos neighbour = neighbourDoor(settlement, person);
-                yield neighbour != null ? neighbour : rest.where();
+                yield neighbour != null ? neighbour : pick(offer.doors(), id, rest.where());
             }
             case BENCH -> pick(offer.benches(), id, rest.where());
             case FENCE -> pick(offer.fences(), id, rest.where());

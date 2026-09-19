@@ -4012,7 +4012,7 @@ public final class Settlement {
             return;   // it moved; start on the new ground next step
         }
 
-        if (isWatched(ctx, current.site())) {
+        if (isOverlooked(ctx, current.site())) {
             // Somebody is here to watch, so the masonry is the truth: this step
             // clears the builders to lay their share, and progress is whatever
             // they actually get down. Nothing finishes until the last block does,
@@ -4844,17 +4844,21 @@ public final class Settlement {
      * Whether this <em>town</em> is watched, which is the only question that
      * decides whether the clock may do any of its work.
      *
-     * <p>Judged for the whole claim and never site by site. The per-site rule
-     * this replaced read well and was wrong in the one way that matters: the
-     * town hall, mine and mill of Millbrook were placed by the clock while a
-     * player stood at the town center 109 blocks off, because each site was
-     * unwatched <em>at the site</em> and the ring is wider than the observed
-     * radius. He watched three buildings appear in the distance. Where there is
-     * a hand there is no clock, and a hand on the square is a hand in the town:
-     * a player within {@code observed_radius} of any part of the claim makes the
-     * whole town watched, and then every site is raised by hand, the roads are
-     * walked out, the wall goes up post by post, repairs and hauls are carried,
-     * and the clock does nothing here at all.
+     * <p>Judged for the whole claim, and now asked by exactly one caller:
+     * {@code RaidPlanner}, for which it is the right question and the only one.
+     * A raid is a thing that happens to a <em>town</em> — if somebody is
+     * anywhere in the claim when the horn goes, the fight is fought by real
+     * hostiles against real guards rather than settled as arithmetic, whichever
+     * gate they came in at.
+     *
+     * <p>It is emphatically no longer the question the work asks. The claim-wide
+     * rule was written against Millbrook, where a player standing at the town
+     * centre watched the hall, mine and mill appear 109 blocks off; it made the
+     * whole town watched and had every site raised by hand. On a town that grows
+     * large that is ruinous — see {@link #isWatched(SimContext, SimPos)} for the
+     * 424 × 497-block town it stranded, and {@link #isOverlooked} for the sight
+     * question Millbrook was really about, which is what the building, paving
+     * and walling paths ask now.
      *
      * <p>The claim is a circle — center and {@link #claimRadius}, which
      * {@code BuildPlanner.claimRadiusFor} keeps wide enough to contain the
@@ -4895,17 +4899,75 @@ public final class Settlement {
     }
 
     /**
-     * Whether the clock may work at this particular spot.
+     * Whether anybody is standing near <em>this particular spot</em>.
      *
-     * <p>A site inside a watched town is watched, whatever its own distance from
-     * anybody. The site's own surroundings are still asked about, for the one
-     * case the claim does not cover: an outlying field, mine or stand sited
-     * beyond the ring, which a player can be standing in while the town itself
-     * is alone.
+     * <p>A per-site question, and it has to be. It used to widen the claim's
+     * answer — a site inside a watched town counted as watched whatever its own
+     * distance from anybody — and the 2026-09-19 playtest showed what that costs
+     * on a town that grows large. Run A ended 424 by 497 blocks across, with a
+     * maximum radius of 429 from the middle. A player in the square made the
+     * whole of it watched, so eight buildings four hundred blocks out were
+     * neither raised by hand (nobody could reach them) nor by the clock (the town
+     * counted as watched), and sat at {@code [PENDING placement]} for the rest of
+     * the run under the words <em>waiting for hands, out of sight</em>. Out of
+     * sight is precisely the case the clock exists for.
+     *
+     * <p>What made the old rule look necessary was Millbrook, where a player at
+     * the centre watched three buildings appear 109 blocks off because each was
+     * unwatched at its own site. That was never a question about <em>work</em>;
+     * it was a question about <em>sight</em>, and it has its own answer now — see
+     * {@link #isOverlooked}, which is what the building, paving and walling paths
+     * ask. This one decides where hands can be, and hands cannot be four hundred
+     * blocks away because somebody is standing in the square.
+     *
+     * <p>And it no longer decides what a site is worth. The clock settles up with
+     * whatever the hands did rather than standing aside for them — see
+     * {@code Building.creditByHand} — so a farm, a stand or a seam produces the
+     * same on either side of this line. What the line still decides is where the
+     * world's blocks have to be made to agree with the ledger, which only matters
+     * where somebody can see the blocks.
      */
     public boolean isWatched(SimContext ctx, SimPos site) {
-        return isWatched(ctx)
-                || ctx.bridge().playerWithin(site, ctx.settings().observedRadius());
+        return ctx.bridge().playerWithin(site, ctx.settings().observedRadius());
+    }
+
+    /**
+     * How far off a thing may appear and still be seen appearing: twice the
+     * observed radius, which at the shipped 96 is 192 blocks — twelve chunks, the
+     * view distance a dedicated server ships with.
+     *
+     * <p>The number is a render distance rather than a working distance on
+     * purpose. This is not asked about work; it is asked about <em>magic</em>. A
+     * building that rises with nobody laying it is only a problem where somebody
+     * would watch it rise, and past your own view distance there is nothing to
+     * watch.
+     */
+    public static final double SIGHT_RADII = 2.0;
+
+    /**
+     * Whether a player would see this spot change.
+     *
+     * <p>The question the build queue, the roads and the wall ask, and the one
+     * Millbrook was really about: a street must not pave itself, a wall must not
+     * stake itself and a cottage must not stand up out of bare ground while
+     * somebody is looking at that ground. Judged per site and generously — a
+     * whole view distance rather than the observed radius — because the cost of
+     * being wrong in the two directions is not symmetric. Too tight and a player
+     * watches masonry appear, which is the illusion broken. Too loose and the
+     * work waits for hands a little longer than it needed to, which is a town
+     * that builds slowly.
+     *
+     * <p>Deliberately not the claim. That is the whole of fault N6: a 429-block
+     * claim answered "watched" for ground nobody could see and no hand could
+     * reach, and the work there simply never happened.
+     */
+    public boolean isOverlooked(SimContext ctx, SimPos site) {
+        return isOverlooked(ctx.bridge(), ctx.settings(), site);
+    }
+
+    /** The same question, asked outside a step — for the view layer. */
+    public boolean isOverlooked(WorldBridge bridge, SimSettings settings, SimPos site) {
+        return bridge.playerWithin(site, settings.observedRadius() * SIGHT_RADII);
     }
 
     /**
@@ -4926,6 +4988,21 @@ public final class Settlement {
      * hands that were never allowed to arrive.
      */
     public boolean needsHandsFrom(Person person) {
+        return needsHandsFrom(person, null, null);
+    }
+
+    /**
+     * The same, told where the players are, so "needed" can mean needed
+     * <em>somewhere a hand could actually stand</em>.
+     *
+     * <p>Without the bridge this answers the old way — any builder while anything
+     * is queued — and the old way is what left run A's crew permanently summoned
+     * to a plot four hundred blocks off. A site nobody can see is built by the
+     * clock now (see {@link #isOverlooked}), so nobody has to be bent out of the
+     * distance rule to reach it, and the deadlock the bend existed to prevent
+     * cannot occur.
+     */
+    public boolean needsHandsFrom(Person person, WorldBridge bridge, SimSettings settings) {
         if (person.isTooWeakToWork()) {
             return false;
         }
@@ -4933,7 +5010,11 @@ public final class Settlement {
             return true;   // an errand already under way; nothing else will finish it
         }
         if (!buildQueue.isEmpty() && laborsAs(person, Profession.BUILDER)) {
-            return true;
+            // Only for a site the clock will not take. A queue head out past
+            // anybody's view distance is the clock's work, and summoning the
+            // whole crew across the claim to it strands them there instead.
+            return bridge == null || settings == null
+                    || isOverlooked(bridge, settings, buildQueue.getFirst().site());
         }
         return switch (person.profession()) {
             // The watch is the watch. A watched raid is fought by entities, so a

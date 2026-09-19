@@ -170,18 +170,47 @@ class StandTest {
                 Stand.logs(only(town)), "off the stand, log for log");
     }
 
+    /**
+     * A watched claim is worth exactly what an unwatched one is worth.
+     *
+     * <p>This read {@code aWatchedCampIsLeftToItsAxes} and asserted the opposite:
+     * twenty steps of clock beside a player brought in nought logs and left the
+     * stand of twelve entire, "for them to go and look at". That was the timber
+     * half of <em>where there is a hand there is no clock</em>, and the playtest
+     * of 2026-09-19 measured what it costs. The same town over the same three
+     * hundred steps kept a granary of 449 with the player six hundred blocks off
+     * and 144 and falling with him standing in the square; it died at step 1213
+     * with sixty people in it. Timber went the same way food did, and for the
+     * same reason: an axe swings only where a body is spawned, in reach, awake
+     * and given a game tick, and none of those is a fact about the wood.
+     *
+     * <p>So the jacks' pace for the step is worked out once and spent by
+     * whichever fidelity is in a position to spend it — see
+     * {@code Building.creditByHand} and {@code LumberPlanner.fell}. These two
+     * camps have no axes swinging at all (nothing here embodies anybody), which
+     * is precisely the case that used to yield nothing, and they must come out
+     * log for log.
+     */
     @Test
-    void aWatchedCampIsLeftToItsAxes() {
-        Settlement town = campTown(2);
+    void aWatchedCampFellsExactlyWhatAnUnwatchedOneFells() {
+        Settlement watched = campTown(2);
+        Settlement alone = campTown(2);
 
         for (int step = 1; step <= 20; step++) {
-            LumberPlanner.advance(town, new SimContext(new Standing(), step, SHIPPED));
+            LumberPlanner.advance(watched, new SimContext(new Standing(), step, SHIPPED));
+            LumberPlanner.advance(alone, new SimContext(new Alone(), step, SHIPPED));
         }
 
-        assertEquals(0, town.stores().get(TownStores.WOOD),
-                "the clock does not fell a tree somebody could be watching");
-        assertEquals(12 * Stand.LOGS_PER_TREE, Stand.logs(only(town)),
-                "and the wood is all still standing, for them to go and look at");
+        assertEquals(alone.stores().get(TownStores.WOOD),
+                watched.stores().get(TownStores.WOOD),
+                "one ground, one bit — and the bit is only whether somebody is"
+                        + " standing in the wood. It cannot change what the wood"
+                        + " is worth");
+        assertEquals(Stand.logs(only(alone)), Stand.logs(only(watched)),
+                "and the same trees came down out of the same claim");
+        assertTrue(watched.stores().get(TownStores.WOOD) > 0,
+                "which is a camp that is actually working, not two that are"
+                        + " identically idle");
     }
 
     @Test
@@ -242,6 +271,21 @@ class StandTest {
                 "the trees are their own truth, and the count on arrival wins");
     }
 
+    /**
+     * The recount happens on arrival and once, which is what keeps the scan off
+     * the busiest step in the mod.
+     *
+     * <p>Unchanged in subject and corrected in arithmetic. It used to read
+     * {@code assertEquals(5, Stand.trees(...))} after two watched steps, which
+     * worked only because a watched camp was felling nothing: the clock stood
+     * aside for hands that were never going to swing. The clock works a watched
+     * claim now — see {@code LumberPlanner.fell} and the fault it was written
+     * against — so the stand is two steps shorter by the end, and the thing to
+     * pin is the <em>ledger's provenance</em> rather than a frozen number. What
+     * is standing plus what came off it still adds up to the five trees counted
+     * on arrival, and not to the ninety-nine the world grew behind the camp's
+     * back.
+     */
     @Test
     void theCountIsTakenOnArrivalAndNotEveryStepAfterIt() {
         Settlement town = campTown(1);
@@ -252,9 +296,15 @@ class StandTest {
         world.trees = 99;   // the world moves on; nobody arrives again
         LumberPlanner.advance(town, new SimContext(world, 2, SHIPPED));
 
-        assertEquals(5, Stand.trees(only(town)),
+        assertEquals(5 * Stand.LOGS_PER_TREE,
+                Stand.logs(only(town)) + town.stores().get(TownStores.WOOD),
                 "counting the whole claim every step is a scan the busiest moment"
-                        + " in the mod cannot afford, and the ledger is running");
+                        + " in the mod cannot afford, so the ledger runs off the"
+                        + " count it was given — five trees' worth, standing or"
+                        + " stacked, and not a log of the ninety-nine");
+        assertTrue(town.stores().get(TownStores.WOOD) > 0,
+                "and the camp did work both steps, which is what makes the sum"
+                        + " above worth adding up");
     }
 
     // --- the woodland renewing itself ---

@@ -6,6 +6,150 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town no longer starves because somebody is standing in it
+
+Four faults from the 2026-09-19 playtest — N1, N2, N6 and N9 — and the first
+three are one fault seen from three angles. The mod has always promised that a
+watched town and an unwatched one come to the same place; it has never kept the
+promise, and the playtest finally measured the size of the lie.
+
+### Fixed
+
+- **A town no longer starves because a player is standing in it.** The same
+  town, the same three hundred steps, the only difference being where the player
+  stood:
+
+  | | granary | grain reaching the mill |
+  |---|---|---|
+  | player 600 blocks away | 0 → 157 → 329 → **449** | 12 |
+  | player standing in the square | 467 → 360 → 250 → **144** | **0** |
+
+  Under a player's eye the grain never left the field. Run A reached a
+  population of 60 and then `[step 1205] Steven Bergemann starved …
+  [step 1213] Ashmarch has no one left`. Run B, grown from step 0 with somebody
+  watching it properly, never passed a population of 12 and put
+  `THIS TOWN IS FAILING / The larder is empty` on its own town map. Walking away
+  was the cure. The whole of the first half of that playtest was accidentally
+  run with the player in spectator — who does not count as watching — which is
+  the only reason run A ever reached 60 people at all.
+
+  The cause was a rule that reads beautifully: **where there is a hand there is
+  no clock.** Near a player the abstract clock credited nothing and the real
+  bodies were to do all of it — cut every sheaf, fell every log, cut every block
+  of stone. But hands are not a second implementation of the ledger. A body is
+  out of reach, unspawned, walking, asleep, boxed in by the terrain the town was
+  built on, or simply never given a game tick to move in. Every one of those was
+  a step the town ate through and did not earn, and there was no floor under it
+  of any kind.
+
+  The rule is now stated the only way it can be stated and still be true:
+  **the ledger decides the step's yield, and the hands spend that same budget
+  where anybody can see them.** A farmer's sickle, a jack's axe and a miner's
+  pick each book their unit against the step's allowance (`Building.creditByHand`),
+  and the clock credits whatever is left of it. Where the crew keeps pace the
+  clock adds nothing and every sheaf in the granary was cut by somebody in front
+  of you — which is the show the hands were written for. Where the crew cannot,
+  the books still balance. Neither fidelity can outproduce the other in either
+  direction.
+
+  Measured headlessly on a fixture town of eight, over three hundred steps, on
+  the four ledgers a town lives on:
+
+  | | grain | bread | timber | stone |
+  |---|---|---|---|---|
+  | unwatched, before and after | 89 | 598 | 586 | 512 |
+  | watched, before | 0 | **0** | **0** | **0** |
+  | watched, after | 89 | 598 | 586 | 512 |
+
+  The watched row before is four zeroes by construction rather than by
+  measurement, and that is the point: the old code took the watched branch and
+  credited nothing at all, so a fixture with no bodies in it earned nothing at
+  all and ate its hundred starting loaves down to none. That is the same shape
+  the playtest saw in a town that did have bodies, because the bodies were not
+  keeping up. The watched row after is the unwatched row, to the unit, at every
+  hundred-step checkpoint. See `WatchedBooksTest`, which is the measurement and
+  which fails if the two columns ever part again.
+
+- **`/civ step N` no longer starves what it steps.** A burst advances the ledger
+  fifty steps a tick, so `/civ step 800` gives the town eight hundred steps of
+  eating and the crew about six seconds of walking. Run A's entire population
+  died inside that one command. This needed no change of its own: a step in
+  which no hand moved is exactly the case the reconciliation above covers, so
+  the burst inherits the fix rather than carrying a second copy of the rule.
+  Eight hundred stepped steps now leave the same books as eight hundred
+  unwatched ones.
+
+  Checked on a real dedicated server, seed 8675309, the playtest's own ground:
+  `/civ step 800` on the seeded Ashmarch drained cleanly to step 809 with no
+  `watchdog` line, no `single server tick took` line and no crash report. The
+  town it stepped went from pop 12 to **pop 60** — the same peak run A reached
+  just before it died at step 1213 — holding `granary 998/1000`, `345 on farms`
+  and **`178 at the mill/granary`**, against the playtest's nought. It is the
+  unwatched fidelity, since no client joined; what it demonstrates is that the
+  burst no longer produces a corpse.
+
+- **The far half of a large town gets built.** Run A ended 424 × 497 blocks
+  across, with buildings 429 blocks from its centre. Watchedness was judged for
+  the whole claim, so a player in the square made ground four hundred blocks
+  away count as watched: it was neither raised by hand (nobody could walk there)
+  nor by the clock (the town counted as watched). Eight buildings sat at
+  `[PENDING placement]` for the rest of the run, under the build queue's own
+  words — `WAITING ON HANDS: waiting for hands at (−206, 355), out of sight`.
+  Out of sight is precisely the case the clock exists for.
+
+  *Watched* is a per-site question now: a farm, camp, seam or plot answers for
+  its own ground and not for its town's. What the whole-claim rule was really
+  protecting is a different question, and it has its own name — `isOverlooked`,
+  a generous per-site sight test of one view distance (twice the observed
+  radius, 192 blocks at the shipped 96). A building, a street or a wall post
+  still never appears in front of somebody: that is the Millbrook rule and it is
+  unchanged. What no longer happens is a crew being summoned across four hundred
+  blocks to a plot no walk will ever finish, while the ground nobody can see
+  waits forever for them.
+
+- **Rain gets outdoor workers under a roof, instead of out into it.** The cover
+  census went the wrong way. Counted over a town in real rain: under cover 14 of
+  19 dry against 14 of 18 wet — no movement at all — while people standing under
+  **open sky rose from 9 to 12**. The rows did empty, so the "stop working" half
+  of the rule worked; nothing then handed anybody a doorway.
+
+  The weights were never wrong — in the wet, every open-air pastime already
+  weighed nothing and only the inn, a hearth and a doorway were on offer. **The
+  address was wrong.** The doorway offered to the whole town carried the market
+  square as its position, and the per-person step that was supposed to swap in
+  an actual neighbour's door fell back to that square whenever it could not find
+  one — which is any town whose only housed family is the settler standing
+  there. A doorway is the *likeliest* draw in the rain, so most of everybody the
+  weather took off the rows was walked into the middle of the market and left
+  standing in it. A seatless king got the same open square by a different route.
+
+  A doorway is now offered only when the town actually has housed doors, and it
+  is one of them; a hearth falls back to the hearth or the hall rather than to
+  the open; and an offer with no roof in it yields *no shelter* rather than a
+  bare square wearing the word "doorway". The walk cap that bounds how many
+  people cross a town at once was also asking before it knew where anybody was
+  going — six at a time, applied to a whole town going idle on the same tick, so
+  the overflow simply stayed where the work sweep had dropped them. It asks
+  after now, and a run for cover is capped more loosely than a stroll to the
+  well, because being refused a stroll costs nothing and being refused a roof
+  costs you the afternoon standing in the rain.
+
+### Changed
+
+- The two-fidelity doctrine, everywhere it is written down. "Where there is a
+  hand there is no clock" is gone from the production ledgers — fields, timber,
+  stone and the pens alike. It survives, as it should, wherever the question is
+  whether a player would *see* something happen: no building, street or wall
+  post appears in front of anybody. Sixteen tests that asserted the old rule
+  assert the new one, by name.
+
+- Work done by hand over a step's allowance is carried into the next step
+  instead of being dropped. A worker gets a swing every manager pass and a step
+  is about five of them against an allowance of four, so a busy site runs a
+  little ahead; carried, the clock pays that much less back afterwards and the
+  two fidelities converge rather than the watched one quietly earning a free
+  swing a step.
+
 ## The square stops running away, and the audit stops condemning level ground
 
 Two siting faults from the 2026-09-19 playtest. They look unrelated and they

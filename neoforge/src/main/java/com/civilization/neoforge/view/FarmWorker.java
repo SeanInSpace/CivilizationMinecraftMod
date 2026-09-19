@@ -147,6 +147,11 @@ public final class FarmWorker {
             // fills up behind a watched field and pays the whole of it out the
             // moment the player walks away.
             Field.cut(farm, 1);
+            // And a swing spent out of this step's allowance, so FoodPlanner's
+            // clock credits one sheaf fewer. This is what makes the field worth
+            // the same whether or not anybody is standing in it: the hands are
+            // not a second harvest, they are this one, done where it can be seen.
+            farm.creditByHand(1);
         } else if (target.equals(tend)) {
             BlockState standing = level.getBlockState(target);
             TownBlocks.lay(level, target,

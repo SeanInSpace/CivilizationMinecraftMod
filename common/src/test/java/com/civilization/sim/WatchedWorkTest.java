@@ -41,14 +41,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * have never visited still grows, because that is what makes it a world rather
  * than a stage set.
  *
- * <p>And "looking" is judged for the whole claim, not at each piece of work.
- * That is the correction: a player in the square used to count as not watching a
- * plot a hundred blocks out over the ridge, and Millbrook's hall, mine and mill
- * were duly stamped in front of somebody standing at the town center. A town is
- * watched when a player is within the observed radius of any part of its claim,
- * and then all of it is — every site, every post, every stretch, every repair.
- * A site out past the claim still answers for its own ground, which is the only
- * thing the claim circle cannot speak for.
+ * <p>And "looking" is judged generously and per site: a whole view distance —
+ * twice the observed radius — around the very ground that would change. See
+ * {@link Settlement#isOverlooked}. That number has been wrong in both directions
+ * and the history is worth keeping. Judged tightly at the plot, a player in the
+ * square counted as not watching a plot a hundred blocks out over the ridge, and
+ * Millbrook's hall, mine and mill were duly stamped in front of somebody standing
+ * at the town center. Judged for the whole claim — the fix that followed — run A
+ * of the 2026-09-19 playtest grew a town 424 by 497 blocks across, so a player in
+ * its square made ground four hundred blocks away "watched": no hand could walk
+ * there and the clock was forbidden to touch it, and eight buildings sat at
+ * {@code [PENDING placement]} for the rest of the run.
+ *
+ * <p>A render distance is the honest line, because this was never a question
+ * about work. It is a question about magic, and past your own view distance there
+ * is nothing to watch. What the tighter observed radius still decides is where
+ * the world's blocks must be made to agree with the ledger, and — since the clock
+ * settles up with the hands rather than standing aside for them — nothing at all
+ * about what a site produces. See {@code WatchedBooksTest}.
  */
 class WatchedWorkTest {
 
@@ -156,32 +166,70 @@ class WatchedWorkTest {
         assertEquals(1, town.countBuildings("test:house"));
     }
 
+    /**
+     * A plot over the ridge but inside a view distance waits for hands; a plot
+     * past one is the clock's again.
+     *
+     * <p>This was {@code asiteOverTheRidgeIsWatchedBecauseItsTownIs}, and it
+     * asserted that a plot three observed radii out — 288 blocks — waited for
+     * hands, because it was inside the claim and the claim was the unit. Both
+     * halves of the old reasoning are here, corrected: Millbrook's hundred-odd
+     * blocks are still hand-work, because a player at the square would watch that
+     * building rise, and 288 blocks is not, because he would not.
+     *
+     * <p>Fault N6 of the 2026-09-19 playtest is why the line moved. Run A's town
+     * ended 424 by 497 blocks across, with a maximum radius of 429 from the
+     * middle, so "inside the claim" stopped meaning anything a player could see.
+     * Eight of its buildings were stuck at {@code [PENDING placement]} under the
+     * words <em>waiting for hands, out of sight</em> — hands that could not walk
+     * there and a clock that was not allowed to.
+     */
     @Test
-    void asiteOverTheRidgeIsWatchedBecauseItsTownIs() {
-        // The bug this rule was rewritten for. Judged at the plot, a player in
-        // the square is "not watching" anything more than a hundred blocks out —
-        // and Millbrook's hall, mine and mill were stamped in whole while he
-        // stood at the town center and watched them appear in the distance. The
-        // claim is the unit now: he is in the town, so the town is watched.
-        Settlement town = townWithBuilders(false);
-        SimPos faraway = new SimPos((int) RADIUS * 3, 64, 0);
-        BuildTask task = surveyed(faraway);
-        town.enqueueBuild(task);
-        Bridge bridge = inTheSquare();
+    void aplotWithinAviewDistanceWaitsForHandsAndOneBeyondItDoesNot() {
+        // Millbrook's own distance: past the observed radius, well inside a view
+        // distance. Nothing may raise this but a builder.
+        Settlement millbrook = townWithBuilders(false);
+        SimPos overTheRidge = new SimPos(109, 64, 0);
+        BuildTask nearby = surveyed(overTheRidge);
+        millbrook.enqueueBuild(nearby);
+        Bridge watching = inTheSquare();
 
-        assertTrue(bridge.playerWithin(town.center(), RADIUS), "the square is watched...");
-        assertFalse(bridge.playerWithin(faraway, RADIUS),
-                "...and nobody is standing at the plot itself");
-        assertTrue(faraway.horizontalDistance(town.center()) <= town.claimRadius(),
-                "but the plot is inside the claim, which is what decides it");
+        assertFalse(watching.playerWithin(overTheRidge, RADIUS),
+                "nobody is standing at the plot itself...");
+        assertTrue(watching.playerWithin(overTheRidge, RADIUS * Settlement.SIGHT_RADII),
+                "...but he is looking straight at it, which is what decides it");
 
         for (int step = 0; step < 500; step++) {
-            town.step(new SimContext(bridge, step, SimSettings.SANDBOX));
+            millbrook.step(new SimContext(watching, step, SimSettings.SANDBOX));
         }
 
-        assertTrue(town.buildQueue().contains(task),
+        assertTrue(millbrook.buildQueue().contains(nearby),
                 "so the clock does not raise it; it waits for hands");
-        assertEquals(0, bridge.stamped, "and nothing appeared in the distance");
+        assertEquals(0, watching.stamped, "and nothing appeared in the distance");
+
+        // And the far side of a grown claim, which is the case that condemned the
+        // whole-claim rule: three observed radii out, past anybody's horizon, on
+        // ground no crew was ever going to walk to and back from.
+        Settlement sprawl = townWithBuilders(false);
+        SimPos faraway = new SimPos((int) RADIUS * 3, 64, 0);
+        BuildTask far = surveyed(faraway);
+        sprawl.enqueueBuild(far);
+        Bridge alsoWatching = inTheSquare();
+
+        assertTrue(faraway.horizontalDistance(sprawl.center()) <= sprawl.claimRadius(),
+                "still inside the claim, which used to be the whole argument");
+        assertFalse(alsoWatching.playerWithin(faraway, RADIUS * Settlement.SIGHT_RADII),
+                "and past a whole view distance, which is the argument now");
+
+        for (int step = 0; step < 500; step++) {
+            sprawl.step(new SimContext(alsoWatching, step, SimSettings.SANDBOX));
+        }
+
+        assertFalse(sprawl.buildQueue().contains(far),
+                "so the clock raises it — there is nobody out there to be fooled,"
+                        + " and a plot nobody can reach or see is exactly what the"
+                        + " clock is for");
+        assertEquals(1, sprawl.countBuildings("test:house"));
     }
 
     @Test

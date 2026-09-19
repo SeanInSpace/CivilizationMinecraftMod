@@ -145,6 +145,10 @@ public final class LumberjackWorker {
             // Without this the ledger stands full behind a watched camp and pays
             // the whole wood out the moment the player walks away.
             Stand.fell(campBuilding, 1);
+            // And a log off this step's allowance, so LumberPlanner's clock fells
+            // one fewer. The axe is not a second felling; it is this step's
+            // felling, done where somebody can watch it happen.
+            campBuilding.creditByHand(1);
         }
         SimPos camp = LumberPlanner.campPos(settlement);
         SimPos at = camp == null ? settlement.center() : camp;

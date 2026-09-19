@@ -27,17 +27,22 @@ import java.util.List;
  *       would flicker in and out of existence as the player shifts.</li>
  * </ul>
  *
- * <p>And one exception, which is the price of judging watchedness for the whole
- * claim. A watched town's work is all done by hand — see
- * {@code Settlement.isWatched} — and its claim is wider than the observed
- * radius, so the far half of it is work the clock will not do and distance alone
- * would never put a body near. Both rules therefore bend for the people such a
- * town is actually waiting on ({@code Settlement.needsHandsFrom}): they are
- * embodied anywhere in a watched town and not released while it stays watched.
- * Without that, a far plot inside a watched claim waits on hands that were
- * released the moment they walked out of sight to reach it, which is a deadlock
- * rather than a doctrine. Everybody else is still judged by distance: a child or
- * an idler two hundred blocks off has no reason to be an entity.
+ * <p>And one exception, for the work a town genuinely cannot let the clock do. A
+ * site somebody would see change is raised, paved and walled by hand — see
+ * {@code Settlement.isOverlooked} — and a claim is wider than the observed
+ * radius, so a crew judged purely on distance can be released on the walk out to
+ * the very plot it is wanted at. Both rules therefore bend for the people the
+ * town is actually waiting on ({@code Settlement.needsHandsFrom}).
+ *
+ * <p>The bend is narrower than it was, and that is fault N6 of the 2026-09-19
+ * playtest. It used to summon every builder in a watched town to whatever stood
+ * at the head of the queue, and run A's town was 424 by 497 blocks across: the
+ * crew was permanently wanted at a plot four hundred blocks off that no walk
+ * would ever finish, while eight buildings sat at {@code [PENDING placement]}
+ * under the words <em>waiting for hands, out of sight</em>. Ground nobody can see
+ * is the clock's now, so nobody is summoned to it, and the deadlock the bend was
+ * written against cannot arise. Everybody else is still judged by distance: a
+ * child or an idler two hundred blocks off has no reason to be an entity.
  */
 public final class EmbodimentPlanner {
 
@@ -63,7 +68,8 @@ public final class EmbodimentPlanner {
         boolean townWatched = settlement.claimIsWatched(bridge, settings);
 
         for (Person person : settlement.residents()) {
-            boolean needed = townWatched && settlement.needsHandsFrom(person);
+            boolean needed = townWatched
+                    && settlement.needsHandsFrom(person, bridge, settings);
             if (person.isEmbodied()) {
                 if (!needed && !bridge.playerWithin(person.position(),
                         settings.observedRadius() + RELEASE_MARGIN)) {

@@ -104,6 +104,10 @@ public final class MinerWorker {
             // ledger stands full behind a watched mine and pays it all out again
             // the moment the player leaves.
             com.civilization.sim.settlement.Seam.cut(mineBuilding, 1);
+            // And a block off this step's allowance, so MinePlanner's clock cuts
+            // one fewer. The pick is not a second seam; it is this step's digging,
+            // done at the face instead of in the books.
+            mineBuilding.creditByHand(1);
         }
         // Where the rock actually came out, so the load lands on the nearest
         // shelves rather than wherever the town happens to list first.

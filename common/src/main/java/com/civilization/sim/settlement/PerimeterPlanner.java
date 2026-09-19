@@ -295,7 +295,11 @@ public final class PerimeterPlanner {
         if (perimeter.laid() >= perimeter.length()) {
             return false;
         }
-        return settlement.isWatched(ctx,
+        // The next unlaid post's own ground, within a view distance of it — a
+        // wall must not stake itself where somebody can see it, and a ring on the
+        // far side of a large claim is not somewhere anybody can see. See
+        // Settlement.isOverlooked.
+        return settlement.isOverlooked(ctx,
                 perimeter.ringPositions().get(perimeter.laid()));
     }
 

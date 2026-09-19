@@ -149,6 +149,9 @@ public final class ShepherdWorker {
         // One pass is one turn, and a pair takes two -- so the ledger is handed
         // the pass's worth and works out for itself whether that finished a pair.
         Herd.feed(farm, culture, species, Herd.TURNS_PER_PAIR, simIntervalTicks);
+        // And the turn comes off this step's allowance, so Herd.advance's clock
+        // spends one fewer. The hands are not a second herd; they are this one.
+        farm.creditByHand(Herd.TURNS_PER_PAIR);
         return true;
     }
 
@@ -173,6 +176,9 @@ public final class ShepherdWorker {
         if (!Herd.cull(farm, species)) {
             return false;   // down to the breeding pair; the pen keeps them
         }
+        // A kill is a turn like any other, and it comes off this step's
+        // allowance so the clock does not cull a second beast for the same work.
+        farm.creditByHand(1);
         worker.getLookControl().setLookAt(beast, 30.0F, 30.0F);
         worker.swing(InteractionHand.MAIN_HAND);
         victim.hurtServer(level, level.damageSources().mobAttack(worker),

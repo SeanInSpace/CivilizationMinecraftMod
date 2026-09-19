@@ -595,14 +595,16 @@ public final class PathPlanner {
                 return;   // somebody is there to walk it out themselves
             }
             // And whether or not anybody is coming, a street does not pave
-            // itself in front of a player. Asked of the town now rather than of
-            // the stretch: a lane over the hill is still inside the claim, and a
-            // player on the square watching the town grow is close enough to the
-            // claim to be watching all of it. Asked after the crew question
-            // rather than instead of it, because the two refuse for different
-            // reasons and both refusals stand.
-            if (settlement.isWatched(ctx, segments.get(i).positions().getFirst())) {
-                return;   // watched ground: hands or nothing
+            // itself in front of a player. Asked of the stretch's own ground and
+            // of a whole view distance around it — see Settlement.isOverlooked.
+            // It used to be asked of the claim, on the argument that a player on
+            // the square is watching the town grow; a 429-block claim made that
+            // argument absurd, and a lane four hundred blocks over the hill
+            // waited on hands that were never going to walk there. Asked after
+            // the crew question rather than instead of it, because the two refuse
+            // for different reasons and both refusals stand.
+            if (settlement.isOverlooked(ctx, segments.get(i).positions().getFirst())) {
+                return;   // overlooked ground: hands or nothing
             }
             network.markOpened(i);
             return;   // one stretch a step, watched or not
