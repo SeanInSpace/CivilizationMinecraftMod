@@ -6,6 +6,104 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Three leftovers: a stack on the roof, a share of the passes, a lamp
+
+The three things the distance-and-arrival loop left on the goals list. Two of
+them are the same shape — *a rule that is a cliff rather than a slope* — and
+the third is a roof that had never been asked what a chimney stands on.
+
+### Fixed
+
+- **Chimney stacks stood beside the roof instead of coming out of it.** A
+  roof is a single-block shell and the stack was a straight column up the
+  plane of a short wall. On a gable end that wall is a solid triangle, so the
+  shaft is buried in it and only the pot shows — which is what a chimney looks
+  like. On a hip the roof slopes away on all four sides, so the wall plane is
+  the *lowest* course of the roof: the shaft crossed it at the eave and then
+  climbed **six courses of bare one-by-one masonry with air on every side**,
+  a stone post standing next to a house. Every highland house, inn, hall and
+  croft had one, and so did every smithy whose people hip their roofs.
+  Playtest N13 called them detached and they were.
+
+  The stack now has a breast: the one column between the shaft and the
+  climbing slope is filled to the roof's own top course, so every course of
+  the stack below the ridge has masonry against it and only the pot — two
+  courses, which is what `BlueprintPlacer.chimneyTops` needs to know a
+  chimney from a ridge — stands in the open. **It costs three blocks on a
+  nine-by-nine house and adds no height at all**, which is the whole point:
+  every declared height in `BuildingSizes` is the number it was. The previous
+  attempt moved the shaft inboard instead, which put a stone pillar in the
+  middle of somebody's floor and pushed the highland town hall from 17 to 19.
+
+  One height did move, downwards, and it was wrong before. The smithy raises
+  a brick stack of its own over "how high the plan already reached" — and on
+  the two peoples whose houses carry a chimney, what the plan already reached
+  was *the house chimney*. So the forge stack was built two courses over
+  another stack and stood four clear of the roof. It comes off the ridge now,
+  like every other chimney in the mod, and the smithy is declared **10**
+  courses rather than 12 — the height it always drew for the other five
+  peoples.
+
+  Pinned by `ChimneyStackTest`, level-free, over every building in the
+  catalog in every culture: no stack stands more than a pot proud of the
+  tallest thing beside it, and no course of a stack below its pot has air on
+  all four sides.
+
+- **The priority chain's nine tenths was a cliff, and a growing town lives
+  just under it.** `PublicWorks.keepingUp` let the next work run when the one
+  above it was within two items of done or nine tenths of the way there. A
+  town plans a lamp beside every new door and a street every time a house
+  goes up, so `lamps 581 of 683` — eighty-five hundredths — is where a living
+  town *stays*, one answer short of the rule, for ever. The dressing behind it
+  got nothing: no board, no headstone, no square, in a town that was nearly
+  lit.
+
+  The chain hands down a **share of the passes** now instead of a yes or a no.
+  A work that is keeping up lets everything past as before; a work that is
+  behind hands down a tenth of the passes for every tenth of its own plan it
+  has raised, capped at half — so it never keeps less than half while it is
+  behind, and it takes the lot the moment it catches up. The share is spread
+  across the ten rather than taken in a burst.
+
+  There is deliberately **no floor** under it. A work that has raised nothing
+  hands down nothing, because the one thing the old gate said that was true is
+  that the lamps keep people alive and the flowers do not, and a camp with no
+  light standing anywhere in it should not be fencing kitchen gardens.
+
+  **Measured**, headless, on a seeded town of forty on the recorded ground of
+  seed 8675309, fed enough to keep growing, over passes 1200–1600:
+
+  | | lamps per 100 passes | dressing per 100 passes |
+  |---|---|---|
+  | before | 11.25 | **0** (`lamps 165 of 758 standing`) |
+  | after | 11.25 | **20.0** (184 pieces standing) |
+
+  The lamps are the same number to two decimal places. The priority did not
+  move; what moved is that there is now something behind it.
+
+- **`/civ seed town 40` produced a town whose lamps never started.** The
+  playtest stood in one for twenty minutes reading `lamps 0 of 131`. It was
+  the same cliff one shelf over, in the timber: a seeded town is a stage
+  program's worth of buildings with a stage's worth of people poured into
+  them, so there is always a house at the head of its build queue and a house
+  is a hundred and twenty planks. The reserve held the *whole remaining cost*
+  of that job against everything below construction, and a lamp costs two. The
+  town's timber came in a few planks at a step, the house ate each one as it
+  arrived, and the stores never once reached the reserve.
+
+  Reproduced headless through the same `Founding.seeded` the command calls:
+  `timber 36 under 82 (80 held for the build queue: civilization:house)`,
+  `lamps 0 of 41` at four hundred steps, and at any number of steps you like.
+  The reserve was right and its arithmetic was not — reserving a season of a
+  job's future spending against two planks the town is holding today. It is
+  capped at nine tenths of what is actually in the stores now, so construction
+  still takes nine planks in every ten and the flat thirty-two-plank floor
+  still refuses a town in single figures.
+
+  **Measured** on the same seeded town, unfed, exactly as the command leaves
+  it: `lamps 0 of 41` for its entire life, against **155 of 155 lit and 23
+  pieces of dressing standing** by step 1600.
+
 ## A town raises its boards while you are standing in it
 
 Four faults from the second 2026-09-19 playtest, and two of them are the same

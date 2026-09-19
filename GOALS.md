@@ -501,16 +501,23 @@ kept only until a run has been watched over it.*
       outdoor workers to a real doorway; people who cannot reach a bed walk
       home; nameplates crosshair-only within four blocks and refreshed on a
       trade change; felling takes the crown (litter 215 → 4 a minute).
-- [ ] **Left by the distance-and-arrival loop.** Chimney stacks on hipped
-      roofs stand a block clear of the slope (`Parts.chimney` climbs a
-      straight column; a fix must keep the declared height). The priority
-      chain's nine-tenths `keepingUp` is a cliff a growing town lives just
-      under (`lamps 581 of 683` still stops the dressing). `/civ seed town
-      40` produces a town whose lamps never start. Raids come every 50 steps
+- [ ] **Left by the distance-and-arrival loop.** Raids come every 50 steps
       at every population (balance question). Hand overshoot on a watched
       farm is carried, not measured. A recording of seed 20260919's highland
       terraces would give the siting tests the buried case 8675309 cannot
-      show. Two-camp towns share one woodland claim.
+      show. Two-camp towns share one woodland claim. *(The detached chimney
+      stacks, the nine-tenths `keepingUp` cliff and `/civ seed town 40`'s
+      lampless town were taken off this list on 2026-09-19 — see the
+      changelog.)*
+- [ ] **Left by the three leftovers, 2026-09-19.** A seeded town walks out
+      its roads once, on the step its ground is read, and a town whose
+      buildings have not been drawn yet gets nothing from it and strikes the
+      debt off anyway: `/civ seed town 40` on recorded ground stands at zero
+      street segments for as long as it fails to complete another building.
+      And the lighting is crew-bound rather than clock-bound — a town fed
+      enough to grow explosively reached `lamps 49 of 1399` in sixteen
+      hundred steps, because `leaveItToTheCrew` stands the clock down every
+      step for a crew raising one lamp in fifty.
 - [x] **The immersion batch, 2026-09-18.** From the question "what part of
       the mod fails at immersiveness": after the living-town batch, the town
       had idle life and animals but nobody in it was a person, nothing in it

@@ -513,6 +513,117 @@ class PublicWorksTest {
         }
     }
 
+    // --- the share, which is what the chain hands down instead of a yes or no ---
+
+    /**
+     * The cliff a growing town lives just under, and the share that replaced it.
+     *
+     * <p>{@code lamps 581 of 683} is the measurement: eighty-five hundredths of a
+     * plan that grows by a lamp every time the town opens a street, so it is one
+     * answer short of {@code keepingUp}'s nine tenths and would have been for
+     * ever. Under the old rule that was a flat no and the dressing of that town
+     * was never once drawn.
+     */
+    @Test
+    void aWorkJustUnderNineTenthsHandsDownHalfInsteadOfNothing() {
+        assertFalse(PublicWorks.keepingUp(581, 683),
+                "the fault needs a work that the old rule calls behind");
+        assertEquals(PublicWorks.MOST_HANDED_DOWN, PublicWorks.shareOfPasses(581, 683),
+                "a work that is nearly there keeps half the passes and hands down"
+                        + " the other half; it used to hand down none of them");
+    }
+
+    @Test
+    void aWorkThatIsKeepingUpHandsDownEverything() {
+        assertEquals(PublicWorks.WHOLE_PASS, PublicWorks.shareOfPasses(683, 683));
+        assertEquals(PublicWorks.WHOLE_PASS, PublicWorks.shareOfPasses(681, 683),
+                "within KEEPING_UP items is keeping up, share or no share");
+        assertEquals(PublicWorks.WHOLE_PASS, PublicWorks.shareOfPasses(0, 0),
+                "a work with nothing to do is not behind");
+    }
+
+    @Test
+    void aWorkThatHasRaisedNothingStillHandsDownNothing() {
+        // The one thing the old gate was saying that was true: the lamps keep
+        // people alive and the flowers do not. A floor under the share was tried
+        // and it had a camp with no light standing anywhere in it fencing kitchen
+        // gardens, which is the complaint the priority chain exists to answer.
+        assertEquals(0, PublicWorks.shareOfPasses(0, 400));
+        assertEquals(1, PublicWorks.shareOfPasses(40, 400),
+                "a tenth of the way along hands down a tenth of the passes");
+        assertEquals(PublicWorks.MOST_HANDED_DOWN, PublicWorks.shareOfPasses(200, 400),
+                "and half way along is already the cap: the higher work never"
+                        + " keeps less than half while it is behind");
+    }
+
+    @Test
+    void aShareIsSpreadAcrossTenPassesRatherThanTakenInOneBurst() {
+        for (int share = 0; share <= PublicWorks.WHOLE_PASS; share++) {
+            int got = 0;
+            for (long pass = 0; pass < PublicWorks.WHOLE_PASS; pass++) {
+                if (PublicWorks.itsTurn(share, pass)) {
+                    got++;
+                }
+            }
+            assertEquals(share, got, "a share of " + share + " tenths came out as "
+                    + got + " passes in " + PublicWorks.WHOLE_PASS);
+        }
+        // Spread, not blocked: three tenths must not be three passes in a row and
+        // then seven of nothing, because the thing being shared out is a player's
+        // impression of a town doing something.
+        assertTrue(PublicWorks.itsTurn(3, 0));
+        assertFalse(PublicWorks.itsTurn(3, 1));
+        assertTrue(PublicWorks.itsTurn(3, 4));
+        // And a negative or wrapped pass counter must not fall out of the cycle.
+        assertEquals(PublicWorks.itsTurn(3, 0), PublicWorks.itsTurn(3, -10));
+    }
+
+    /**
+     * The other cliff, and the one that stopped {@code /civ seed town 40} lighting
+     * a single lamp: the timber the build queue is owed.
+     *
+     * <p>A seeded town is forty people in fifteen buildings, so there is always a
+     * house at the head of its queue and a house is a hundred and twenty planks.
+     * Reserving the whole of that against a lamp costing two meant a town holding
+     * thirty-six planks was told it was short, every step, for ever.
+     */
+    @Test
+    void theBuildQueueNeverHoldsMoreTimberThanTheTownIsStandingOn() {
+        Settlement town = town();
+        town.enqueueBuild(new com.civilization.sim.settlement.BuildTask(
+                "civilization:town_hall", new SimPos(40, 64, 0), 100));
+        town.stores().take(TownStores.WOOD, town.woodStock());
+        town.stores().add(TownStores.WOOD, 40);
+
+        assertTrue(PublicWorks.timberOwedToTheQueue(town) > town.woodStock(),
+                "the fixture needs a job that costs more than the town is holding,"
+                        + " which is every house in every town that has just been"
+                        + " seeded");
+        assertTrue(PublicWorks.timberHeldFromTheWorks(town) < town.woodStock(),
+                "a reserve equal to everything in the stores is a reserve the"
+                        + " lamps can never get past, and a seeded town measured"
+                        + " headless sat at lamps 0 of 41 for its whole life on"
+                        + " exactly that arithmetic");
+        assertEquals(town.woodStock() * PublicWorks.MOST_OF_THE_STORES / 10,
+                PublicWorks.timberHeldFromTheWorks(town),
+                "construction still takes nine planks in every ten");
+    }
+
+    @Test
+    void aQueueThatIsOwedLittleIsStillOwedAllOfIt() {
+        // The cap must not become a discount. A town sitting on plenty holds the
+        // whole of what its job actually costs, which is the rule the measured
+        // founding-party stall produced and is not what was wrong with it.
+        Settlement town = town();
+        town.enqueueBuild(new com.civilization.sim.settlement.BuildTask(
+                "civilization:town_hall", new SimPos(40, 64, 0), 100));
+        town.stores().take(TownStores.WOOD, town.woodStock());
+        town.stores().add(TownStores.WOOD, 4000);
+
+        assertEquals(PublicWorks.timberOwedToTheQueue(town),
+                PublicWorks.timberHeldFromTheWorks(town));
+    }
+
     /** Nothing loaded, nothing watching. */
     private static class QuietBridge implements WorldBridge {
         @Override public boolean playerWithin(SimPos pos, double radius) { return false; }

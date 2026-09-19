@@ -2777,6 +2777,24 @@ public final class Settlement {
     }
 
     /**
+     * Steps this town has taken with its public works, for sharing them out.
+     *
+     * <p>{@code PublicWorks.itsTurn} hands a work behind a busier one some share
+     * of the passes rather than none of them, and a share needs something to
+     * count passes with. This is it: one tick per step, taken before any work
+     * runs, so every gate asked during a step gets the same answer and
+     * {@code /civ info} agrees with what the town actually did.
+     *
+     * <p>Not saved. It is a rotation and not a total; a town that reloads and
+     * starts the cycle again has lost nothing but the phase of it.
+     */
+    private long worksPass;
+
+    public long worksPass() {
+        return worksPass;
+    }
+
+    /**
      * The way into this town, against a number naming the shape it was worked
      * out for.
      *
@@ -3290,6 +3308,9 @@ public final class Settlement {
             return;
         }
         mournedAlready = false;
+        // Before any work runs, so every gate asked during this step is asked
+        // about the same pass. See worksPass and PublicWorks.itsTurn.
+        worksPass++;
         putAwayLoosePile();
         advanceStage(ctx);
         planNextBuild(ctx);

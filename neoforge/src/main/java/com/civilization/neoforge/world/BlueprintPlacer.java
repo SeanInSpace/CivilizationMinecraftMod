@@ -322,39 +322,56 @@ public final class BlueprintPlacer {
     static List<BlockPos> chimneyTops(ServerLevel level, String blueprintId, BlockPos base,
                                       int facing) {
         StructurePlan plan = planFor(level, blueprintId, base, facing);
-        Map<Long, Integer> top = new HashMap<>();
-        Map<Long, Block> crown = new HashMap<>();
+        Map<BlockPos, Block> standing = new HashMap<>();
         for (Step step : plan.steps()) {
             if (step.state().isAir()) {
                 continue;
             }
-            long key = columnKey(step.pos());
-            Integer standing = top.get(key);
-            if (standing == null || step.pos().getY() > standing) {
-                top.put(key, step.pos().getY());
-                crown.put(key, step.state().getBlock());
-            }
+            standing.put(step.pos(), step.state().getBlock());
         }
-        Set<Long> stacked = new HashSet<>();
-        for (Step step : plan.steps()) {
-            long key = columnKey(step.pos());
-            Integer standing = top.get(key);
-            if (standing != null && step.pos().getY() == standing - 1
-                    && step.state().getBlock() == crown.get(key)) {
-                stacked.add(key);
+        return stacksAmong(standing, base.getY());
+    }
+
+    /**
+     * The same rule, over any set of cells somebody has already worked out.
+     *
+     * <p>Split out of {@link #chimneyTops} so the rule lives once and can be
+     * asked without a world. {@code ChimneyStackTest} draws a building straight
+     * off {@link #draw} and asks this what the placer will call a chimney, which
+     * is the only way a test can tell a stack from a ridge without copying the
+     * four conditions into a second file and letting them drift.
+     *
+     * @param standing every cell that is not air, as the last write left it
+     * @param floorY   the building's own floor, which {@link #CHIMNEY_MIN_RISE}
+     *                 is counted from
+     */
+    static List<BlockPos> stacksAmong(Map<BlockPos, Block> standing, int floorY) {
+        Map<Long, Integer> top = new HashMap<>();
+        Map<Long, Block> crown = new HashMap<>();
+        for (Map.Entry<BlockPos, Block> cell : standing.entrySet()) {
+            long key = columnKey(cell.getKey());
+            Integer high = top.get(key);
+            if (high == null || cell.getKey().getY() > high) {
+                top.put(key, cell.getKey().getY());
+                crown.put(key, cell.getValue());
             }
         }
         List<BlockPos> pots = new ArrayList<>();
         for (Map.Entry<Long, Integer> column : top.entrySet()) {
             long key = column.getKey();
             int high = column.getValue();
-            if (!stacked.contains(key) || high < base.getY() + CHIMNEY_MIN_RISE) {
+            int x = (int) (key >> 32);
+            int z = (int) key;
+            if (high < floorY + CHIMNEY_MIN_RISE) {
                 continue;
+            }
+            if (standing.get(new BlockPos(x, high - 1, z)) != crown.get(key)) {
+                continue;   // a lantern on a post, not a stack of masonry
             }
             if (!clearsNeighbours(top, key, high)) {
                 continue;
             }
-            pots.add(new BlockPos((int) (key >> 32), high, (int) key));
+            pots.add(new BlockPos(x, high, z));
         }
         pots.sort(Comparator.<BlockPos>comparingInt(pot -> pot.getY())
                 .thenComparingInt(pot -> pot.getX())
@@ -2519,10 +2536,11 @@ public final class BlueprintPlacer {
         // all find air where the bay is and leave it open.
         TradeParts.openBay(blocks, base, size, -1, wallHeight,
                 style.frame(), style.roofRidge());
-        Parts.dress(blocks, base, size, wallHeight, style);
-        // After it, because a chimney has to know how high the ridge came out.
-        Parts.chimney(blocks, base, rx, -1, 1, Parts.topOf(blocks, base, from) + 2,
-                Blocks.BRICKS);
+        // After it, because a chimney has to know how high the ridge came out --
+        // the ridge, which is what dress hands back, and not the top of the stack
+        // the style may already have put on that ridge.
+        int ridge = Parts.dress(blocks, base, size, wallHeight, style);
+        Parts.chimney(blocks, base, rx, -1, 1, ridge, Blocks.BRICKS);
 
         add(blocks, base.offset(-1, 1, -1), CivilizationBlocks.SMITH.get());
         add(blocks, base.offset(rx - 1, 1, -1),

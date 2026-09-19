@@ -631,18 +631,30 @@ public final class Furnishings {
         if (queued > PublicWorks.KEEPING_UP) {
             return "build queue " + queued + " over " + PublicWorks.KEEPING_UP;
         }
-        // Then the paving and then the lamps, the same way and for the same
-        // reason. See PublicWorks.keepingUp, which holds the whole argument.
+        // Then the paving and then the lamps -- as a share of the passes rather
+        // than as a gate. See PublicWorks.shareOfPasses, which holds the whole
+        // argument: a town living just under nine tenths of its lighting never
+        // raised a board with its own name on it, and a growing town lives just
+        // under nine tenths of its lighting for its whole life.
         PublicWorks.RoadWork roads = new PublicWorks.RoadWork();
         int owedRuns = roads.owedRuns(settlement);
         int runs = settlement.paths() == null ? 0 : settlement.paths().segments().size();
-        if (!PublicWorks.keepingUp(runs - owedRuns, runs)) {
-            return "paving " + owedRuns + " runs behind of " + runs;
-        }
         int lit = settlement.lightsRaised();
         int lamps = LightPlanner.wanted(settlement);
-        if (!PublicWorks.keepingUp(lit, lamps)) {
-            return "lamps " + lit + " of " + lamps + " standing";
+        int paving = PublicWorks.shareOfPasses(runs - owedRuns, runs);
+        int lighting = PublicWorks.shareOfPasses(lit, lamps);
+        // The tightest of them, not the two multiplied. Both numbers are the same
+        // estimate of how busy the town is, read off two works that grow together;
+        // multiplying them would count that business twice and leave a town behind
+        // on both at a hundredth of a pass, which is a standstill with arithmetic
+        // in front of it.
+        int share = Math.min(paving, lighting);
+        if (!PublicWorks.itsTurn(share, settlement.worksPass())) {
+            String behind = paving <= lighting
+                    ? "paving " + owedRuns + " runs behind of " + runs
+                    : "lamps " + lit + " of " + lamps + " standing";
+            return behind + " (dressing has " + share + " passes in "
+                    + PublicWorks.WHOLE_PASS + ")";
         }
         Furnishing piece = next(settlement);
         if (piece == null) {
@@ -653,7 +665,7 @@ public final class Furnishings {
         // PublicWorks.timberOwedToTheQueue: a garden fence is the last thing on
         // the list nobody needs, so it is the last thing that may dip into the
         // timber a bunkhouse is waiting on.
-        int held = PublicWorks.timberOwedToTheQueue(settlement);
+        int held = PublicWorks.timberHeldFromTheWorks(settlement);
         int owed = Math.max(TIMBER_KEPT_FOR_BUILDING, held) + piece.piece().cost().wood();
         if (settlement.woodStock() < owed) {
             String reason = "timber " + settlement.woodStock() + " under " + owed;
