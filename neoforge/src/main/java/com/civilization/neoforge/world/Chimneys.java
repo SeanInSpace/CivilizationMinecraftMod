@@ -84,6 +84,16 @@ public final class Chimneys {
         }
         List<BlockPos> found = BlueprintPlacer.chimneyTops(level, building.blueprintId(),
                 origin, building.facing());
+        if (found.isEmpty()) {
+            // No stack on this roof — which is not a fault and not rare. A whole
+            // people can build without chimneys; the vale does, and every hearth
+            // and cottage in every vale town in the world was consequently
+            // smokeless. A roof with a fire under it and no flue in it smokes
+            // through its ridge, so that is where the smoke is drawn from. See
+            // BlueprintPlacer.ridgeTops.
+            found = BlueprintPlacer.ridgeTops(level, building.blueprintId(),
+                    origin, building.facing());
+        }
         pots.put(key, found);
         return found;
     }

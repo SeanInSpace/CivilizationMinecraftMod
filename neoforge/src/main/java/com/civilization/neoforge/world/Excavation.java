@@ -342,7 +342,7 @@ public final class Excavation {
             }
             BlockState state = level.getBlockState(part);
             if (!state.isAir()) {
-                level.destroyBlock(part, false, null, 512);
+                TownBlocks.clear(level, part);
                 yieldTo(settlement, hands, state, part);
             }
             yard.remove(toSim(part));   // harmless if it was never wanted
@@ -567,7 +567,7 @@ public final class Excavation {
             stumps.remove(job.block);
         }
         BlockState broken = level.getBlockState(job.block);
-        level.destroyBlock(job.block, false, digger, 512);
+        TownBlocks.clear(level, job.block, true);
         yieldTo(settlement, hands, broken, job.block);
         harvest(level, digger, job);
         return true;
@@ -931,7 +931,7 @@ public final class Excavation {
             if (!level.getBlockState(pos).isAir()) {
                 clearPlantAbove(level, pos);
                 BlockState broken = level.getBlockState(pos);
-                level.destroyBlock(pos, false, null, 512);
+                TownBlocks.clear(level, pos);
                 // Nobody's hands: this is the hole emptied by the clock, so what
                 // comes out of it goes straight to the town's shelves, exactly as
                 // an unwatched materialization's clearing does.
@@ -948,7 +948,7 @@ public final class Excavation {
         BlockPos above = pos.above();
         BlockState overhead = level.getBlockState(above);
         if (!overhead.isAir() && overhead.canBeReplaced()) {
-            level.setBlock(above, net.minecraft.world.level.block.Blocks.AIR
+            TownBlocks.lay(level, above, net.minecraft.world.level.block.Blocks.AIR
                     .defaultBlockState(), 2);
         }
     }

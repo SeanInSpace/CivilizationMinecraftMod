@@ -6,6 +6,151 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town that dresses itself, rings, smokes, is called on, and stops littering
+
+Five faults from the 2026-09-19 playtest, all of them things a player standing
+in Wilbury saw or failed to see. One of the five turned out to be the cause of
+another two, so the headline is that one.
+
+**The public works were starving each other.** The mod builds a town in a
+priority chain — the houses, then the paving, then the lamps, then the dressing
+— and every link in it was written as a test for *completion*: nothing in the
+build queue, no owed street left unopened, every planned lamp standing. Each of
+those reads like the right sentence. Every one of them is a condition no living
+town is ever in, because a settlement queues a house when a family outgrows
+one, plans a street when a house goes up, and plans a lamp beside every new
+door. So the chain never prioritised; it starved, silently, from the far end
+inward, and nothing anywhere said so.
+
+The playtest measured the whole length of it without knowing that was what it
+was measuring. Wilbury, a vale town of 145 people at step 1335, had **463
+pieces of dressing planned and zero raised** — no square, no signpost, no inn
+board, no garden, no orchard, no woodpile, for its entire life. Behind that,
+its lighting was 261 lamps short for exactly the same reason. And the one sign
+anybody could find in the whole town was the trade board the inn's own
+blueprint hangs over its door, blank on both faces, because the board that was
+*meant* to carry the town's name had never been raised for anything to write
+on. "No signs in this town" was never a signage fault at all.
+
+### Fixed
+
+- **A town dresses itself, and its boards say what they are for.** The three
+  completion tests are now one shared question — is the work ahead *keeping
+  up*, meaning within two items of done or nine tenths of the way there. On the
+  playtest's own save, the same town went from `dressing: 0 of 463` to
+  `dressing: 248 of 918 raised` with lamps at 1817 of 1920, and the boards came
+  up with words on them. Before, the one sign in Wilbury read
+  `front_text: {messages: ["", "", "", ""]}`. After, `data get block` reads:
+
+  ```
+  -434, 75, -460  messages: ["The Hollybush", "inn", "Wilbury", ""]
+  -512, 71, -542  messages: ["Wilbury", "^ to the hall", "south", ""]
+  ```
+
+  Photograph: `surveys/fix_signs.png`, the inn board legible from the street.
+
+- **A board hangs where it can hang.** A wall sign does not stand in its own
+  column — it hangs in the column next to the post, and that column has ground
+  of its own. On the flat the two agree; on the hillside Wilbury stands on they
+  do not, so the paving beside a notice-board post was laid at exactly the
+  height the board wanted, the cell was solid, and the post went up every time
+  holding nothing. Boards now hang at the higher of the two columns' first free
+  course with the post built up to meet it, and if the preferred face is blocked
+  outright they take the next face round rather than not existing.
+
+- **The town stopped felling its own signposts.** Half the peoples cut their
+  posts out of timber, and timber is in `#minecraft:logs` — so the clearing crew
+  walked up to a crossing post, read a log, felled it as wild wood, and the
+  dressing raised it again on the next sweep, for ever. The clearing now spares
+  the culture's own post block, which is the argument the orchards already won
+  said about the pieces that are made of wood rather than the ones that grow.
+
+- **The dawn bell can ring.** Both bell searches — the morning's and the
+  alarm's — walked the single column directly above a building's origin, and a
+  belfry is not over the middle of a hall. In both playtested towns the bell sat
+  six blocks east and five up from the origin, identically, because that is
+  where the blueprint puts it; both searches returned null and both towns were
+  silent every morning of their lives. There is one finder now, shared by the
+  morning and the alarm, and it searches the building's measured footprint and
+  remembers the answer per building the way chimneys are remembered. The server
+  log now says so outright: `DAWNBELL Wilbury day 1 bell -412, 79, -428` —
+  which is the exact block the playtest had to find by bisecting the town with
+  `clone ... filtered minecraft:bell`.
+
+- **Chimneys smoke where somebody is standing, and vale roofs smoke at all.**
+  Smoke was gated on the player being within 64 blocks of the *town centre*,
+  which made it a rule about town size rather than about eyesight: Wilbury is
+  174 blocks across, so a player with their nose against an outlying cottage was
+  outside the gate and that cottage could never smoke, while a chimney they
+  could not see was being drawn. It is now per building, measured to the fire.
+  And the vale builds no chimney stacks at all — the playtest noted "no chimney
+  stack is visible on any vale roof" and was right — so `chimneyTops` correctly
+  found nothing and every hearth, cottage, inn and smithy in every vale town in
+  the world was smokeless. A roof with a fire under it and no flue in it now
+  smokes through its ridge, which is what a louvre is. Photograph:
+  `surveys/fix_smoke.png`, four plumes over the roofs at dusk from a cottage 70
+  blocks out from the middle.
+
+- **The caravan arrives.** The books had logged the trade on schedule for
+  thousands of steps and no trader, llama or tagged entity had ever appeared,
+  with no line of any kind in the log to say why. Two reasons, found by adding
+  one. The arrival was gated on a player being within the observed radius **of
+  the gate**, and the gate is the far end of the longest opened street — a
+  hundred blocks from the inn in a town this size — so a player standing in the
+  inn yard watching for a wagon was, every single time, the wrong side of the
+  test; a player at the inn now counts, because the inn is what they came to
+  watch. And the footing search was four blocks up and six down from the
+  *plan's* idea of the ground, which on a town spanning 33 blocks of height was
+  out by 23: the edge came back at y=108 over ground at y=85 and the wagon was
+  refused for want of anywhere to stand. It asks the heightmap when the narrow
+  band fails. Photograph: `surveys/fix_caravan.png` — "Caravan from the road"
+  and two pack llamas coming up the road, on a real visit window with a player
+  watching.
+
+- **The town's own work drops nothing.** The server log ran a continuous
+  stream of items appearing around a town nobody was touching — **215 a
+  minute**, almost all torches, plus wheat seeds, saplings and sticks. Every one
+  of the mod's `destroyBlock` calls already asked for no drops; the town was
+  never dropping the block it broke, it was dropping the blocks *next to* it.
+  A neighbour update destroys what can no longer stand and pays out for it,
+  because from vanilla's side that is a player knocking the support away, and
+  `UPDATE_SUPPRESS_DROPS` cannot help: it governs the block being replaced and
+  is masked off before the cascade runs. So the item is refused at the door
+  instead, for exactly the width of one block change inside one of the town's
+  own sweeps. Felled crowns are also taken down with the trunk now rather than
+  left to decay into saplings and sticks minutes later and half a town away.
+  Measured on the same save, same town, same sweeps: **215.3/minute before,
+  3.9/minute after**, and what is left is livestock — leather, eggs, scutes —
+  rather than the town's housekeeping.
+
+### Added
+
+- `/civ info` now carries a `lamps:` and a `dressing:` line, each with a count,
+  a per-kind tally and — when the work is not running — the reason in words
+  (`waiting: paving 19 runs behind of 491`). The playtest could see that a town
+  had one sign in it and had no way at all to tell whether the missing boards
+  were never planned, never raised, or raised and invisible, which are three
+  different faults that look identical from the ground.
+- `/civ dressing` lists every board the town has raised, where it stands, and
+  what it should say — so a `data get block` on it is one command rather than a
+  block sweep.
+- `CARAVAN` and `DAWNBELL` lines in the server log, behind the same debug switch
+  `ITEMPOP` uses. Every early return in the caravan's arrival now says which one
+  fired; there were seven silent ones and a feature that cannot be debugged from
+  a report is a feature that does not get fixed.
+
+### Known, not fixed
+
+- Wilbury's town square has a cottage standing in it: the notice-board post is
+  walled in on all four faces by cobblestone from y=106 to y=110, so its board
+  has nowhere to hang even with the two fixes above. That is a siting fault —
+  a building on the planned square — rather than a signage one, and it belongs
+  with the buried-buildings work.
+- The dressing sweep is additive by design and never takes down what it did not
+  just lay, so a board whose hang height moves (because the ground under it
+  changed) leaves the old one standing. Harmless, and visible only on a save
+  that was re-drawn against a changed plan.
+
 ## A town's streets arrive together, and a town has the hall it claims
 
 Three faults, all of them things a player sees rather than things a test

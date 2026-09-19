@@ -487,7 +487,7 @@ public final class PerimeterLayer {
                 break;
             }
             if (isOurs(level, at)) {
-                level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                TownBlocks.lay(level, at, Blocks.AIR.defaultBlockState(), TownBlocks.QUIET);
                 took = true;
             }
         }
@@ -861,7 +861,7 @@ public final class PerimeterLayer {
             // openings move while the wall is going up, following the streets as
             // they appear, so a post may already stand where the gate now hangs.
             if (replaceable(level, course.pos()) || isOurPost(level, course.pos())) {
-                level.setBlock(course.pos(), course.state(), Block.UPDATE_ALL);
+                TownBlocks.lay(level, course.pos(), course.state(), TownBlocks.QUIET);
                 return 1;
             }
             return 0;
@@ -889,12 +889,12 @@ public final class PerimeterLayer {
         if (!isOurPost(level, ground)) {
             return false;
         }
-        level.setBlock(ground, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        TownBlocks.lay(level, ground, Blocks.AIR.defaultBlockState(), TownBlocks.QUIET);
         for (int dy = 1; dy <= 2; dy++) {
             BlockPos above = ground.above(dy);
             BlockState state = level.getBlockState(above);
             if (isPostBlock(state) || isLamp(state)) {
-                level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                TownBlocks.lay(level, above, Blocks.AIR.defaultBlockState(), TownBlocks.QUIET);
             }
         }
         return true;
@@ -1118,7 +1118,7 @@ public final class PerimeterLayer {
             }
             BlockState state = level.getBlockState(above);
             if (isPostBlock(state) || isLamp(state)) {
-                level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                TownBlocks.lay(level, above, Blocks.AIR.defaultBlockState(), TownBlocks.QUIET);
             }
         }
     }
@@ -1156,7 +1156,7 @@ public final class PerimeterLayer {
                     }
                     BlockState growth = level.getBlockState(at);
                     if (WallClearing.isGrowth(growth)) {
-                        level.destroyBlock(at, false, null, 512);
+                        TownBlocks.clear(level, at);
                         // What the clock takes off the line is the town's, exactly
                         // as what a crew takes off it by hand is -- see Yield. No
                         // hands here, so it goes straight to the nearest shelves.
@@ -1194,7 +1194,7 @@ public final class PerimeterLayer {
             if (plant.isAir()) {
                 continue;   // the upper half went down with the lower one
             }
-            level.destroyBlock(at, false, null, 512);
+            TownBlocks.clear(level, at);
             Yield.keep(settlement, null, plant, at, Yield.Cause.CLEARING);
         }
     }
@@ -1206,7 +1206,7 @@ public final class PerimeterLayer {
         if (!replaceable(level, pos)) {
             return false;
         }
-        level.setBlock(pos, want, Block.UPDATE_ALL);
+        TownBlocks.lay(level, pos, want, TownBlocks.QUIET);
         // Only if it survived being placed. A block that pops off the moment it
         // is set -- a torch with nothing to hold it -- is not work done, and
         // counting it as work is what let one bad choice of block halt the

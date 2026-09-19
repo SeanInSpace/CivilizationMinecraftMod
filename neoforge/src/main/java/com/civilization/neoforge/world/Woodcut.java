@@ -104,15 +104,28 @@ public final class Woodcut {
         }
         java.util.function.Predicate<BlockPos> isLog =
                 at -> level.isLoaded(at) && level.getBlockState(at).is(BlockTags.LOGS);
+        BlockPos crown = null;
         for (BlockPos log : com.civilization.neoforge.world.Felling.treeAt(trunk, isLog)) {
             BlockState state = level.getBlockState(log);
-            level.destroyBlock(log, false, null, 512);
+            TownBlocks.clear(level, log, true);
+            if (crown == null || log.getY() > crown.getY()) {
+                crown = log;
+            }
             // CLEARING, and this is the call the whole distinction was drawn for.
             // A trunk taken off the ground between a town's own streets is spoil:
             // the crew was not working the wood, and debiting the forester's
             // Stand for it would have a camp report a felled belt because somebody
             // cleared the market square. See Yield.Cause.
             Yield.keep(settlement, hands, state, log, Yield.Cause.CLEARING);
+        }
+        if (crown != null) {
+            // And the canopy, once, off the top of the trunk that held it up. A
+            // tree felled out from under its leaves leaves them to decay over
+            // the following minutes, and decaying leaves drop saplings and
+            // sticks — which was much of the litter the playtest logged, and the
+            // part that read as coming from nowhere because it arrived long
+            // after the crew had moved on. See TownBlocks.clearCrown.
+            TownBlocks.clearCrown(level, crown);
         }
         // Done when nothing else is standing in it. Asked again rather than
         // assumed, so a cell with two trees in it is not written off after one.
@@ -167,7 +180,7 @@ public final class Woodcut {
                 if (Furnishings.inAPlanting(plantings, x, z)) {
                     continue;   // the town's own, and never this work's either
                 }
-                BlockPos found = trunkAt(level, x, z);
+                BlockPos found = trunkAt(level, settlement, x, z);
                 if (found == null) {
                     continue;
                 }
@@ -182,7 +195,8 @@ public final class Woodcut {
     }
 
     /** The lowest log in this column, or null if nothing is growing here. */
-    private static BlockPos trunkAt(ServerLevel level, int x, int z) {
+    private static BlockPos trunkAt(ServerLevel level, Settlement settlement,
+                                    int x, int z) {
         BlockPos column = new BlockPos(x, 0, z);
         if (!level.isLoaded(new BlockPos(x, level.getSeaLevel(), z))) {
             return null;
@@ -193,9 +207,25 @@ public final class Woodcut {
             if (!level.isLoaded(at)) {
                 continue;
             }
-            if (level.getBlockState(at).is(BlockTags.LOGS)) {
-                return at;
+            BlockState standing = level.getBlockState(at);
+            if (!standing.is(BlockTags.LOGS)) {
+                continue;
             }
+            // A signpost is not a tree, however much the tag says it is.
+            //
+            // Half the people in the mod cut their posts, their woodpiles and
+            // their fire-pit seats out of timber, and timber is in the logs tag
+            // — so the clearing walked up to a town's own crossing post, felled
+            // it as wild wood, and the dressing put it back on the next sweep,
+            // for ever. The playtest saw the far end of that: a town square with
+            // a notice board planned, raised, paid for and not standing, because
+            // the post it hangs on had been cut down again before anybody looked.
+            // It is the orchard argument above, said about the pieces that are
+            // made of wood rather than the ones that grow.
+            if (FurnishingLayer.isAPost(settlement, standing)) {
+                continue;
+            }
+            return at;
         }
         return null;
     }

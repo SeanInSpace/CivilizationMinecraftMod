@@ -376,7 +376,7 @@ public final class LightLayer {
             if (state.isAir() || !WallClearing.isPlant(state)) {
                 continue;
             }
-            level.destroyBlock(at, false, null, 512);
+            TownBlocks.clear(level, at);
             // Clearing, never felling. A tuft of grass pulled up to stand a lamp
             // post in is spoil; the forester's ledger has no opinion about it, and
             // a call that said otherwise is the whole of what Yield.Cause exists
@@ -392,7 +392,7 @@ public final class LightLayer {
         if (!replaceable(level, pos)) {
             return false;
         }
-        level.setBlock(pos, want, Block.UPDATE_ALL);
+        TownBlocks.lay(level, pos, want, TownBlocks.QUIET);
         // Only if it survived. A block that pops off the moment it is set is not
         // work done, and counting it as work is what let one bad choice of block
         // halt an entire wall -- see the class comment.

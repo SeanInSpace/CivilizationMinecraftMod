@@ -589,30 +589,57 @@ public final class Furnishings {
      * queue is owed.
      */
     public static boolean worthStarting(Settlement settlement) {
+        return whyNotStarting(settlement) == null;
+    }
+
+    /**
+     * Why this town is not dressing itself, or null when it is entitled to.
+     *
+     * <p>{@link #worthStarting}'s refusals, named instead of counted, because a
+     * playtest found a town of a hundred and forty-five people with four hundred
+     * and sixty-three pieces planned and <em>none</em> raised, and nothing
+     * anywhere said which of five gates had been shut for its entire life. The
+     * reason now rides on {@code /civ info}'s dressing line, so the same question
+     * takes one command instead of a debugger.
+     */
+    public static String whyNotStarting(Settlement settlement) {
         // The three cheap refusals first, and the order is a performance decision
         // as much as a priority one. Working out where a town's dressing goes is
         // the most expensive planning pass in the mod -- it walks every plot,
         // every street and every planned lamp against a few thousand candidate
         // positions -- and asking it on every step of every town would be paying
-        // for a plan almost none of them is entitled to act on. A growing town has
-        // something queued, and a town with something queued may not dress at all,
-        // so the question is answered in microseconds for as long as that is true.
-        if (!settlement.buildQueue().isEmpty()) {
-            return false;   // shelter and stores before anybody plants a hedge
+        // for a plan almost none of them is entitled to act on.
+        //
+        // Shelter first, and the queue is a backlog rather than a veto. This was
+        // "the queue must be empty", which a growing town never is.
+        int queued = settlement.buildQueue().size();
+        if (queued > PublicWorks.KEEPING_UP) {
+            return "build queue " + queued + " over " + PublicWorks.KEEPING_UP;
         }
-        if (new PublicWorks.RoadWork().nextStation(settlement) != null) {
-            return false;   // the paving leads
+        // Then the paving and then the lamps, the same way and for the same
+        // reason. See PublicWorks.keepingUp, which holds the whole argument.
+        PublicWorks.RoadWork roads = new PublicWorks.RoadWork();
+        int owedRuns = roads.owedRuns(settlement);
+        int runs = settlement.paths() == null ? 0 : settlement.paths().segments().size();
+        if (!PublicWorks.keepingUp(runs - owedRuns, runs)) {
+            return "paving " + owedRuns + " runs behind of " + runs;
         }
-        if (!LightPlanner.isLit(settlement)) {
-            return false;   // and the lamps come before the flowers
+        int lit = settlement.lightsRaised();
+        int lamps = LightPlanner.wanted(settlement);
+        if (!PublicWorks.keepingUp(lit, lamps)) {
+            return "lamps " + lit + " of " + lamps + " standing";
         }
         Furnishing piece = next(settlement);
         if (piece == null) {
-            return false;
+            return "nothing left to raise";
         }
-        return settlement.woodStock()
-                >= TIMBER_KEPT_FOR_BUILDING + piece.piece().cost().wood();
+        int owed = TIMBER_KEPT_FOR_BUILDING + piece.piece().cost().wood();
+        if (settlement.woodStock() < owed) {
+            return "timber " + settlement.woodStock() + " under " + owed;
+        }
+        return null;
     }
+
 
     // --- the clock -----------------------------------------------------------
 

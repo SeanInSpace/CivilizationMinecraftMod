@@ -1,6 +1,7 @@
 package com.civilization.neoforge.view;
 
 import com.civilization.neoforge.entity.PersonEntity;
+import com.civilization.neoforge.world.TownBlocks;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.person.Household;
 import com.civilization.sim.person.Person;
@@ -319,8 +320,8 @@ final class Doors {
         for (BlockPos half : new BlockPos[] {foot, foot.above()}) {
             BlockState leaf = level.getBlockState(half);
             if (leaf.getBlock() == door && leaf.getValue(DoorBlock.OPEN)) {
-                level.setBlock(half, leaf.setValue(DoorBlock.OPEN, false),
-                        Block.UPDATE_ALL);
+                TownBlocks.lay(level, half,
+                        leaf.setValue(DoorBlock.OPEN, false), Block.UPDATE_ALL);
                 swung = true;
             }
         }

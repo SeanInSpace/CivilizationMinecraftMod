@@ -2,7 +2,9 @@ package com.civilization.neoforge.view;
 
 import com.civilization.neoforge.entity.Pace;
 import com.civilization.neoforge.entity.PersonEntity;
+import com.civilization.neoforge.CivilizationConfig;
 import com.civilization.neoforge.CivilizationEntities;
+import com.civilization.neoforge.CivilizationMod;
 import com.civilization.sim.culture.Culture;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.settlement.Caravan;
@@ -18,6 +20,7 @@ import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.equine.AbstractChestedHorse;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -192,7 +195,11 @@ public final class Caravans {
         Visit visit = VISITING.get(settlement.id());
         boolean due = Caravan.isVisiting(world.stepsElapsed());
         if (visit == null) {
-            if (!due || !Caravan.hasAnInn(settlement)) {
+            if (!due) {
+                return;   // no wagon is on the clock; not a refusal, just a gap
+            }
+            if (!Caravan.hasAnInn(settlement)) {
+                refused(settlement, "no inn");
                 return;
             }
             // The cheap question before the dear one. This runs for every town
@@ -202,12 +209,17 @@ public final class Caravans {
             // purpose: the edge can lie a claim's width from the middle.
             if (!world.bridge().playerWithin(settlement.center(),
                     world.settings().observedRadius() + settlement.claimRadius())) {
+                refused(settlement, "no player within "
+                        + (world.settings().observedRadius() + settlement.claimRadius())
+                        + " of the middle");
                 return;
             }
             SimPos edge = Caravan.entersAt(settlement);
-            if (edge != null) {
-                arrive(level, world, settlement, edge);
+            if (edge == null) {
+                refused(settlement, "no way in — no opened, walkable run");
+                return;
             }
+            arrive(level, world, settlement, edge);
             return;
         }
         // A wagon on the ground is only kept while the town it is calling on
@@ -238,13 +250,38 @@ public final class Caravans {
     private static void arrive(ServerLevel level, SimWorld world, Settlement settlement,
                                SimPos edge) {
         BlockPos gate = footing(level, edge);
-        if (gate == null || !level.isLoaded(gate)) {
+        if (gate == null) {
+            refused(settlement, "no footing at the edge " + edge);
             return;
         }
-        if (!world.bridge().playerWithin(
+        if (!level.isLoaded(gate)) {
+            refused(settlement, "the edge at " + gate.toShortString() + " is not loaded");
+            return;
+        }
+        // Whether the arrival itself can be watched, which is a different
+        // question from whether the town can. The town is refused above on the
+        // middle plus a claim; this is asked about the column the trader would
+        // actually stand on.
+        //
+        // Measured to the inn as well as to the gate, and that is the fault
+        // this whole feature died of. The edge is the far end of the longest
+        // opened street — in a town a hundred and seventy blocks across that is
+        // a hundred blocks from the middle — so a player standing in the inn
+        // yard watching for a wagon was, every single time, outside the observed
+        // radius of the gate, and the caravan refused itself for want of an
+        // audience that was standing exactly where the audience is supposed to
+        // stand. A player watching the yard is watching the visit; the walk up
+        // the street is the part they see second.
+        boolean atTheGate = world.bridge().playerWithin(
                 new SimPos(gate.getX(), gate.getY(), gate.getZ()),
-                world.settings().observedRadius())) {
-            return;   // nobody to see it arrive, so nothing arrives
+                world.settings().observedRadius());
+        SimPos stall = Caravan.standsAt(settlement);
+        boolean atTheInn = stall != null
+                && world.bridge().playerWithin(stall, world.settings().observedRadius());
+        if (!atTheGate && !atTheInn) {
+            refused(settlement, "nobody within " + world.settings().observedRadius()
+                    + " of the gate " + gate.toShortString() + " or the inn " + stall);
+            return;
         }
         PersonEntity trader = new PersonEntity(CivilizationEntities.PERSON.get(), level);
         // The race of the town it is calling on rather than of the town it came
@@ -258,8 +295,11 @@ public final class Caravans {
         trader.setCustomNameVisible(true);
         trader.setPersistenceRequired();
         if (!level.addFreshEntity(trader)) {
+            refused(settlement, "the level refused the trader at "
+                    + gate.toShortString());
             return;
         }
+        arrived(settlement, gate);
         // Tagged after it is in the world, not before: the join hook refuses a
         // tagged body it does not own, and the wagon is not owned until the
         // map entry below. The tag is saved with the entity, which is the point.
@@ -434,6 +474,39 @@ public final class Caravans {
         }
     }
 
+    // --- saying why ------------------------------------------------------------
+
+    /**
+     * Why no wagon came, on the passes one was due and none did.
+     *
+     * <p>Added because the playtest could not tell a caravan that was refused
+     * from a caravan that was never asked for: the books logged the trade on
+     * schedule, no body ever appeared, and <em>no line of any kind</em> existed
+     * in the server log to say which of seven early returns had fired. Seven
+     * silent refusals in one method is a feature that cannot be debugged from a
+     * report, only from a debugger.
+     *
+     * <p>Behind {@code debugCommandsEnabled} like every other diagnostic in the
+     * mod, and at debug level besides, so a shipped server prints none of it. A
+     * refusal is also not a fault — a town nobody is near refuses one of these
+     * every visit window for the life of the world, by design.
+     */
+    private static void refused(Settlement settlement, String why) {
+        if (!CivilizationConfig.debugCommandsEnabled()) {
+            return;
+        }
+        CivilizationMod.LOGGER.info("CARAVAN {} refused: {}", settlement.name(), why);
+    }
+
+    /** And the one line that says a wagon did roll in, for the same reader. */
+    private static void arrived(Settlement settlement, BlockPos gate) {
+        if (!CivilizationConfig.debugCommandsEnabled()) {
+            return;
+        }
+        CivilizationMod.LOGGER.info("CARAVAN {} arrives at {}",
+                settlement.name(), gate.toShortString());
+    }
+
     // --- the plumbing ----------------------------------------------------------
 
     private static boolean alive(ServerLevel level, Visit visit) {
@@ -471,6 +544,33 @@ public final class Caravans {
         for (int down = 1; down <= 6; down++) {
             if (standable(level, start.below(down))) {
                 return start.below(down);
+            }
+        }
+        // And then ask the ground itself.
+        //
+        // The band above is right about the ordinary disagreement — a road
+        // laid a course higher or lower than the plan thought — and it is not
+        // nearly wide enough for the disagreement that actually stopped this
+        // feature. A town's edge is the far end of its longest street, and the
+        // y on that position is the <em>plan's</em> idea of the ground, which is
+        // the settlement's founding level. Wilbury's buildings span thirty-three
+        // blocks of height, so its western edge came back at y=108 over ground
+        // that is nowhere near it, every column in the band was solid hillside
+        // or open sky, and the wagon was refused for want of somewhere to stand
+        // every visit for the life of the world.
+        //
+        // The heightmap is the honest answer to "where is the ground here",
+        // costs one lookup, and is asked only when the cheap band has already
+        // failed — so nothing that used to work pays for it.
+        if (!level.isLoaded(start)) {
+            return null;
+        }
+        int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                at.x(), at.z());
+        BlockPos onTheGround = new BlockPos(at.x(), surface, at.z());
+        for (int up = 0; up <= 2; up++) {
+            if (standable(level, onTheGround.above(up))) {
+                return onTheGround.above(up);
             }
         }
         return null;

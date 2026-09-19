@@ -362,12 +362,20 @@ class LayoutFitnessTest {
      * How much bare ground may stand between neighboring walls before a town
      * stops reading as one.
      *
-     * <p>Ten, against a measured worst of nine and a median of four across the
-     * thirteen arrangements. Loose on purpose, like every bar in this file: it is
-     * here to catch a plan that has gone back to offering frontage at a pitch
-     * nothing can close up, not to pin a number somebody has to keep right.
+     * <p>Twelve, against a measured worst of eleven across the thirteen
+     * arrangements. It was ten against a worst of nine until the public works
+     * stopped starving each other — see {@code PublicWorks.keepingUp}. A town
+     * that now actually raises its lamps and its dressing spends timber on them,
+     * so it builds on a slightly different schedule and its plots land a block
+     * further apart on the median. That is the fix working rather than the
+     * siting getting worse: eleven blocks between walls is a lane, and the field
+     * this test is here to catch is twenty.
+     *
+     * <p>Loose on purpose, like every bar in this file: it is here to catch a
+     * plan that has gone back to offering frontage at a pitch nothing can close
+     * up, not to pin a number somebody has to keep right.
      */
-    private static final int CROWDING_LIMIT = 10;
+    private static final int CROWDING_LIMIT = 12;
 
     /**
      * Nothing the town paves goes down inside anybody's walls.

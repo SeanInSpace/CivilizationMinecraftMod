@@ -233,17 +233,42 @@ public final class LightPlanner {
      * costs must not be timber the build queue is owed.
      */
     public static boolean worthStarting(Settlement settlement) {
+        return whyNotStarting(settlement) == null;
+    }
+
+    /**
+     * Why the town is not lighting itself, or null when it is entitled to.
+     *
+     * <p>{@code Furnishings.whyNotStarting}'s companion, added at the same time
+     * and for the same reason: the lighting was found two hundred and sixty-one
+     * lamps short with nothing anywhere saying which gate had shut. It rides on
+     * {@code /civ info}'s lamps line.
+     */
+    public static String whyNotStarting(Settlement settlement) {
         if (next(settlement) == null) {
-            return false;
+            return "nothing left to raise";
         }
-        if (new PublicWorks.RoadWork().nextStation(settlement) != null) {
-            return false;   // the paving leads; see above
+        // The paving leads — but leads, not blocks. This was "there must be no
+        // unopened owed run", which a growing town is never in: it plans a
+        // street every time a house goes up, so the lighting waited on a
+        // condition that could not arrive and the town stayed dark. The playtest
+        // measured it two hundred and sixty-one lamps short at step fourteen
+        // hundred, which then starved the dressing behind it in turn.
+        // See PublicWorks.keepingUp.
+        int owedRuns = new PublicWorks.RoadWork().owedRuns(settlement);
+        int runs = settlement.paths() == null ? 0 : settlement.paths().segments().size();
+        if (!PublicWorks.keepingUp(runs - owedRuns, runs)) {
+            return "paving " + owedRuns + " runs behind of " + runs;
         }
         LightStyle style = styleOf(settlement);
         if (!TownStores.WOOD.equals(style.postResource())) {
-            return true;   // a stone post takes nothing the build queue is owed
+            return null;   // a stone post takes nothing the build queue is owed
         }
-        return settlement.woodStock() >= TIMBER_KEPT_FOR_BUILDING + 2;
+        int owed = TIMBER_KEPT_FOR_BUILDING + 2;
+        if (settlement.woodStock() < owed) {
+            return "timber " + settlement.woodStock() + " under " + owed;
+        }
+        return null;
     }
 
     // --- the clock ---

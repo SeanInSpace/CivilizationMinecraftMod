@@ -174,7 +174,8 @@ public final class Bridge {
             for (int dy = 1; dy <= HEADROOM; dy++) {
                 BlockPos above = on.above(dy);
                 if (level.isLoaded(above) && !level.getFluidState(above).isEmpty()) {
-                    level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    TownBlocks.lay(level, above, Blocks.AIR.defaultBlockState(),
+                            Block.UPDATE_CLIENTS);
                     laid++;
                 }
             }
@@ -220,7 +221,7 @@ public final class Bridge {
                 }
                 BlockState standing = level.getBlockState(pos);
                 if (standing.isAir() || !standing.getFluidState().isEmpty()) {
-                    level.setBlock(pos, Blocks.OAK_FENCE.defaultBlockState(),
+                    TownBlocks.lay(level, pos, Blocks.OAK_FENCE.defaultBlockState(),
                             Block.UPDATE_CLIENTS);
                     laid++;
                     continue;
@@ -236,7 +237,7 @@ public final class Bridge {
         if (!level.isLoaded(pos) || level.getBlockState(pos).is(want.getBlock())) {
             return 0;
         }
-        level.setBlock(pos, want, Block.UPDATE_CLIENTS);
+        TownBlocks.lay(level, pos, want, Block.UPDATE_CLIENTS);
         return 1;
     }
 

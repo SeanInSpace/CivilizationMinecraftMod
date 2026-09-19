@@ -269,14 +269,14 @@ public final class BlueprintPlacer {
                 BlockPos above = dig.above();
                 BlockState overhead = level.getBlockState(above);
                 if (!overhead.isAir() && overhead.canBeReplaced()) {
-                    level.setBlock(above, Blocks.AIR.defaultBlockState(),
+                    TownBlocks.lay(level, above, Blocks.AIR.defaultBlockState(),
                             Block.UPDATE_CLIENTS);
                 }
                 Spoil.Kind kind = spoilOf(level.getBlockState(dig));
                 if (kind.isSomething()) {
                     yielded.merge(kind.resource(), kind.perBlock(), Integer::sum);
                 }
-                level.destroyBlock(dig, false, null, 512);
+                TownBlocks.clear(level, dig);
             }
         }
         yielded.forEach(spoil::accept);
@@ -360,6 +360,66 @@ public final class BlueprintPlacer {
                 .thenComparingInt(pot -> pot.getX())
                 .thenComparingInt(pot -> pot.getZ()));
         return List.copyOf(pots.size() > CHIMNEY_CAP ? pots.subList(0, CHIMNEY_CAP) : pots);
+    }
+
+    /**
+     * The ridge of this building's roof: where its smoke comes out when it has
+     * no chimney to come out of.
+     *
+     * <p>Not every roof in the mod carries a stack. {@code Parts.dress} raises a
+     * chimney when the <em>house style</em> asks for one, and the vale style does
+     * not — the playtest looked over a whole vale town and reported "no chimney
+     * stack is visible on any vale roof", which was true and which meant every
+     * hearth, cottage, inn and smithy in that people's towns was silent and
+     * smokeless for ever, because {@link #chimneyTops} correctly found nothing
+     * and the smoke had nowhere to start.
+     *
+     * <p>A thatched roof with a fire under it still smokes; it seeps through the
+     * ridge, which is what a louvre is and what every pre-chimney hall in Europe
+     * did for a thousand years. So the fallback is honest rather than invented:
+     * the highest course of the building's own plan, at the column nearest the
+     * middle of it, which is the ridge line's midpoint on a gable and the apex on
+     * a hip.
+     *
+     * <p>Only ever a fallback. A building that has a stack smokes out of the
+     * stack, because that is where the hole is.
+     *
+     * @return one position, or empty for a plan that could not be read
+     */
+    static List<BlockPos> ridgeTops(ServerLevel level, String blueprintId, BlockPos base,
+                                    int facing) {
+        StructurePlan plan = planFor(level, blueprintId, base, facing);
+        int ridge = Integer.MIN_VALUE;
+        for (Step step : plan.steps()) {
+            if (!step.state().isAir() && step.pos().getY() > ridge) {
+                ridge = step.pos().getY();
+            }
+        }
+        if (ridge == Integer.MIN_VALUE) {
+            return List.of();
+        }
+        // Nearest the middle, with the tie broken on the coordinates so two
+        // calls on the same building agree. A ridge is a row of equal-height
+        // columns and picking "the first one met" would put the smoke at
+        // whichever gable end the plan happened to be walked from.
+        BlockPos best = null;
+        long nearest = Long.MAX_VALUE;
+        for (Step step : plan.steps()) {
+            if (step.state().isAir() || step.pos().getY() != ridge) {
+                continue;
+            }
+            long dx = step.pos().getX() - base.getX();
+            long dz = step.pos().getZ() - base.getZ();
+            long away = dx * dx + dz * dz;
+            if (away < nearest || (away == nearest && best != null
+                    && (step.pos().getX() < best.getX()
+                        || (step.pos().getX() == best.getX()
+                            && step.pos().getZ() < best.getZ())))) {
+                nearest = away;
+                best = step.pos().immutable();
+            }
+        }
+        return best == null ? List.of() : List.of(best);
     }
 
     /** Whether nothing next to this column comes within a chimney's clearance of it. */
@@ -1124,7 +1184,7 @@ public final class BlueprintPlacer {
     private static void strip(ServerLevel level, StructurePlan plan) {
         for (BlockPos leaf : plan.strip()) {
             if (level.isLoaded(leaf) && !level.getBlockState(leaf).isAir()) {
-                level.setBlock(leaf, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                TownBlocks.lay(level, leaf, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
             }
         }
     }
@@ -1199,7 +1259,7 @@ public final class BlueprintPlacer {
             }
         }
         evict(level, placement.pos(), placement.state());
-        level.setBlock(placement.pos(), placement.state(), Block.UPDATE_CLIENTS);
+        TownBlocks.lay(level, placement.pos(), placement.state(), Block.UPDATE_CLIENTS);
         if (placement.nbt() == null) {
             return;
         }

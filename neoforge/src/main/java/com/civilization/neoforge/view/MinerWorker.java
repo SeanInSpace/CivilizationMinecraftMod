@@ -109,7 +109,7 @@ public final class MinerWorker {
         // shelves rather than wherever the town happens to list first.
         SimPos cut = new SimPos(face.getX(), face.getY(), face.getZ());
         boolean ore = level.getBlockState(face).is(BlockTags.IRON_ORES);
-        level.destroyBlock(face, false);
+        com.civilization.neoforge.world.TownBlocks.clear(level, face, true);
         if (ore) {
             // Iron is the one thing a town cannot cut out of a hillside, and the
             // forge runs on it. Ore found while cutting is where it all comes from.

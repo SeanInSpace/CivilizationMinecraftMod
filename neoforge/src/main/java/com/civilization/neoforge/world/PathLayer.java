@@ -319,7 +319,7 @@ public final class PathLayer {
         // Fill: a block of earth on the low side, if the low side is ours.
         if (isPaveable(level.getBlockState(lower))
                 && level.getBlockState(lower.above()).isAir()) {
-            level.setBlock(lower.above(), Blocks.DIRT.defaultBlockState(),
+            TownBlocks.lay(level, lower.above(), Blocks.DIRT.defaultBlockState(),
                     Block.UPDATE_CLIENTS);
             return 1;
         }
@@ -328,7 +328,7 @@ public final class PathLayer {
         if (isPaveable(level.getBlockState(higher))
                 && isPaveable(level.getBlockState(higher.below()))
                 && level.getBlockState(higher.above()).isAir()) {
-            level.setBlock(higher, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            TownBlocks.lay(level, higher, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
             return 1;
         }
         return 0;
@@ -401,7 +401,7 @@ public final class PathLayer {
         if (!isPaveable(state)) {
             return 0;   // a floor, a roof, or water: not ours to pave
         }
-        level.setBlock(surface, Blocks.DIRT_PATH.defaultBlockState(), Block.UPDATE_CLIENTS);
+        TownBlocks.lay(level, surface, Blocks.DIRT_PATH.defaultBlockState(), Block.UPDATE_CLIENTS);
         clearOver(level, surface, town, hands);
         return 1;
     }
@@ -425,7 +425,7 @@ public final class PathLayer {
         for (BlockPos above : Overgrowth.overPaving(Overgrowth.over(level), surface,
                 Overgrowth.woodlandOf(town))) {
             BlockState growth = level.getBlockState(above);
-            level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            TownBlocks.lay(level, above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
             Yield.keep(town, hands, growth, above, Yield.Cause.CLEARING);
         }
     }

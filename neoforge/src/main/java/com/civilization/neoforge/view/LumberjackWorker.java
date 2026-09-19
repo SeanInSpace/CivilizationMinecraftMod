@@ -111,7 +111,18 @@ public final class LumberjackWorker {
      */
     public static boolean harvest(ServerLevel level, Settlement settlement,
                                   PersonEntity worker, BlockPos log) {
-        level.destroyBlock(log, false);
+        // Heard, because a lumberjack swinging an axe is meant to be: the break
+        // effect is the whole of what makes outdoor work audible. Quiet about
+        // items, though — the timber goes into the camp's store below, and
+        // anything the trunk was holding up drops nothing. See TownBlocks.
+        com.civilization.neoforge.world.TownBlocks.clear(level, log, true);
+        // The canopy only once the trunk under it is gone — which, for a hand
+        // cut, is the strike that took the topmost log. Asked of the block above
+        // rather than of the tree, so a lumberjack working up a trunk does not
+        // pay for the sweep on every course of it.
+        if (!level.getBlockState(log.above()).is(net.minecraft.tags.BlockTags.LOGS)) {
+            com.civilization.neoforge.world.TownBlocks.clearCrown(level, log);
+        }
         settlement.tallies().record(com.civilization.sim.settlement.Tallies.TREES_FELLED);
         // Put down at the camp, and added rather than set. setWoodStock means
         // "make the town hold exactly this", which empties every store and puts

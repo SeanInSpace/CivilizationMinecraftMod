@@ -12,6 +12,7 @@ import com.civilization.neoforge.view.PersonEntityManager;
 import com.civilization.neoforge.view.TickRate;
 import com.civilization.neoforge.world.StoreSync;
 import com.civilization.neoforge.world.HandDig;
+import com.civilization.neoforge.world.TownBlocks;
 import com.civilization.neoforge.world.TownAuditor;
 import com.civilization.sim.geom.SimPos;
 import com.civilization.sim.kingdom.Kingdom;
@@ -569,6 +570,27 @@ public final class CivilizationMod {
 
     private static void onEntityJoin(EntityJoinLevelEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        // The town's own housekeeping drops nothing.
+        //
+        // A sweep that re-lays a block knocks loose whatever was leaning on it —
+        // a torch off a wall the perimeter took down, a crop off ground the
+        // paving turned over — and vanilla pays out for every one of them,
+        // because from its side that is a player knocking the support out.
+        // Over a town's life that is a continuous drizzle of items onto the
+        // grass: the playtest measured two hundred and fifteen a minute, almost
+        // all of them torches, around a town nobody was touching.
+        //
+        // It is refused here rather than by a flag because a flag cannot reach
+        // it. Block.UPDATE_SUPPRESS_DROPS governs the block being replaced and
+        // is masked off before the neighbour cascade runs, so the drop happens
+        // three frames deeper in Level.neighborShapeChanged where nothing the
+        // caller passed still exists. See TownBlocks.atWork, which is open only
+        // for the width of one setBlock inside one of the town's own sweeps.
+        if (TownBlocks.atWork()
+                && event.getEntity() instanceof net.minecraft.world.entity.item.ItemEntity) {
+            event.setCanceled(true);
             return;
         }
         // Debug breadcrumb: every item that appears in the world, with what and

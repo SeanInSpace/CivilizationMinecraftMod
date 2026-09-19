@@ -11,7 +11,6 @@ import com.civilization.neoforge.bridge.NeoForgeWorldBridge;
 import com.civilization.neoforge.save.CivilizationSavedData;
 import com.civilization.neoforge.world.BlueprintPlacer;
 import net.minecraft.world.level.block.BedBlock;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import com.civilization.neoforge.world.Excavation;
@@ -3654,38 +3653,22 @@ public final class PersonEntityManager {
                 "The bell is rung — more than the watch can hold");
     }
 
-    /** The bell on a standing watchtower, or null if the town has no tower yet. */
-    private BlockPos findBell(Settlement settlement) {
-        for (Building building : settlement.buildings()) {
-            if (!building.blueprintId().contains("watchtower")) {
-                continue;
-            }
-            BlockPos origin = new BlockPos(building.origin().x(),
-                    building.origin().y(), building.origin().z());
-            if (!level.isLoaded(origin)) {
-                continue;
-            }
-            for (int dy = 0; dy <= BELL_SEARCH_HEIGHT; dy++) {
-                BlockPos at = origin.above(dy);
-                if (level.getBlockState(at).is(Blocks.BELL)) {
-                    return at;
-                }
-            }
-        }
-        return null;
-    }
-
     /**
-     * How far up a tower the bell might have ended up.
+     * The bell this town rings, or null if it has none standing.
      *
-     * <p>Comfortably past the top of the tallest tower the placer draws, and
-     * deliberately not exactly it. The tower grew two storeys when the civic
-     * buildings were given shapes of their own, and this number — which had been
-     * a snug fit round the old one — silently stopped finding the bell: the
-     * search runs up the tower's own origin column, so a bell one course above it
-     * is a town that cannot raise the alarm and says nothing about why.
+     * <p>{@code Ambience}'s finder rather than one of its own, and the sharing
+     * is the fix rather than tidiness. This used to look only up the column
+     * above a <em>watchtower's</em> origin, which meant two separate ways to
+     * miss the same bell: a town with a hall and no tower had nothing to ring at
+     * all, and a town with a tower whose bell hung off the origin column rang
+     * nothing either. {@link com.civilization.neoforge.world.Bells} searches the
+     * building's footprint and prefers the hall, so the alarm and the morning
+     * now ring the same bell — which is what a player standing in the street
+     * hears anyway.
      */
-    private static final int BELL_SEARCH_HEIGHT = 24;
+    private BlockPos findBell(Settlement settlement) {
+        return ambience.bells().of(settlement);
+    }
 
     /**
      * Who has something hostile standing too close to be working.
