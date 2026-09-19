@@ -473,6 +473,44 @@ kept only until a run has been watched over it.*
       asked a seventh time, and the two harness traps above are what the next
       headless run has to be set up against.
 
+- [x] **The distance-and-arrival loop, 2026-09-19.** Standing order from
+      the user: towns realistically distanced, roads present at spawn, and
+      visual and gameplay faults fixed wherever a real world shows them; loop
+      on playtests. Three fresh-world playtests so far (`surveys/PLAYTEST-2026-09-19*.md`).
+      Spacing: `worldgen.region` 1024 (min separation 640, nearest-neighbour
+      median ~1000), one guaranteed starter 256-512 from spawn, re-sited
+      inside the band when its ground refuses (747 → 365 and 808 → 362 blocks
+      on the two test seeds), never hostile, named from the seed. Roads: the
+      road ledger refused every hillside lane because the terrain oracle
+      rounds to four blocks (35 → 78 of 78 opened stretches drawn; every
+      door lane); the draw backlog no longer stalls at the first unopened
+      index (147 passes → 2), so the network is on the ground three seconds
+      after a player arrives. Economy: one ledger for hands and clock — a
+      watched town no longer starves (watched 300 steps: 0/0/0/0 →
+      grain 89, bread 598, timber 586, stone 512, equal to unwatched);
+      "watched" is per site, so a sprawling town's far half clock-builds;
+      `/civ step` bursts 50 a tick; a settled town's step 17 → 3.8 ms.
+      Siting: the square is reserved ground; seeded plots take the shelf rule
+      before they are raised; siting and audit share one shelf tolerance; the
+      audit clears blocked doorways; lumberjacks keep a quarter of the stand;
+      construction holds timber before lamps and dressing. Town: public works
+      keep up instead of waiting for completion, so lamps and dressing are
+      raised and every board is inscribed (22 signs round a heart, from 1
+      blank); the caravan enters within 120 blocks' walk of the inn; the bell
+      is found in the belfry; smoke is a plume per building; rain walks
+      outdoor workers to a real doorway; people who cannot reach a bed walk
+      home; nameplates crosshair-only within four blocks and refreshed on a
+      trade change; felling takes the crown (litter 215 → 4 a minute).
+- [ ] **Left by the distance-and-arrival loop.** Chimney stacks on hipped
+      roofs stand a block clear of the slope (`Parts.chimney` climbs a
+      straight column; a fix must keep the declared height). The priority
+      chain's nine-tenths `keepingUp` is a cliff a growing town lives just
+      under (`lamps 581 of 683` still stops the dressing). `/civ seed town
+      40` produces a town whose lamps never start. Raids come every 50 steps
+      at every population (balance question). Hand overshoot on a watched
+      farm is carried, not measured. A recording of seed 20260919's highland
+      terraces would give the siting tests the buried case 8675309 cannot
+      show. Two-camp towns share one woodland claim.
 - [x] **The immersion batch, 2026-09-18.** From the question "what part of
       the mod fails at immersiveness": after the living-town batch, the town
       had idle life and animals but nobody in it was a person, nothing in it
