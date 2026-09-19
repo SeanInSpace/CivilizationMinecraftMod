@@ -2,11 +2,14 @@ package com.civilization.neoforge.world;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
+
+import java.util.function.Predicate;
 
 /**
  * How a town lays and takes up its own blocks, without leaving items on the floor.
@@ -195,47 +198,54 @@ public final class TownBlocks {
      * and a crown hanging in the air for five minutes afterwards was never
      * something anybody wanted to look at.
      *
-     * <p>Bounded, and the bound is the point. It walks outward from the trunk's
-     * own column through connected leaves only, within {@link #CROWN_REACH} — so
-     * a canopy that touches the next tree along does not chain into felling a
-     * forest's worth of leaves in one tick.
+     * <p><strong>Bounded, and the bound used to be the box.</strong> The first cut
+     * of this only searched upward from the trunk position it was handed —
+     * {@code dy} from zero up, and never down — on the unstated assumption
+     * that a crown sits above its own top log. It does not: an oak's canopy hangs
+     * level with and below the log that holds it up, a spruce's layers run for
+     * courses under the tip, and a search that never looks down catches only the
+     * handful of leaves directly beside the very top block. That is why a
+     * playtest's log kept filling with birch saplings and oak sticks — 80% of the
+     * litter it measured — long after the count of standing trunks said felling
+     * was done: the crown that shed them was still up there, decaying on
+     * vanilla's own clock, because this method had never gone looking for it.
+     *
+     * <p>The shape of the search — the flood through connected leaves that
+     * decides which ones are still supported, and which are found too far from
+     * any real log — is {@link Felling#orphanedLeaves}, for the same reason
+     * {@link Felling#treeAt} is its own method rather than being written out
+     * again wherever a trunk is found: the topology is one question, asked with
+     * a level standing behind it here and asked bare in a test elsewhere.
      */
     public static void clearCrown(ServerLevel level, BlockPos trunk) {
-        for (int dy = 0; dy <= CROWN_REACH; dy++) {
-            for (int dx = -CROWN_REACH; dx <= CROWN_REACH; dx++) {
-                for (int dz = -CROWN_REACH; dz <= CROWN_REACH; dz++) {
-                    BlockPos at = trunk.offset(dx, dy, dz);
-                    if (!level.isLoaded(at)) {
-                        continue;
-                    }
-                    BlockState state = level.getBlockState(at);
-                    // Natural leaves only. A leaf block a player placed is
-                    // persistent and is somebody's hedge; taking that would be
-                    // the town tidying up a build.
-                    if (!(state.getBlock() instanceof LeavesBlock)) {
-                        continue;
-                    }
-                    if (state.hasProperty(LeavesBlock.PERSISTENT)
-                            && state.getValue(LeavesBlock.PERSISTENT)) {
-                        continue;
-                    }
-                    working++;
-                    try {
-                        level.setBlock(at, Blocks.AIR.defaultBlockState(), QUIET);
-                    } finally {
-                        working--;
-                    }
-                }
+        Predicate<BlockPos> isWood = at -> level.isLoaded(at) && level.getBlockState(at).is(BlockTags.LOGS);
+        Predicate<BlockPos> isLeaf = at -> level.isLoaded(at) && level.getBlockState(at).is(BlockTags.LEAVES);
+        for (BlockPos at : Felling.orphanedLeaves(trunk, LeavesBlock.DECAY_DISTANCE - 1, isWood, isLeaf)) {
+            if (!isNaturalLeaf(level.getBlockState(at))) {
+                continue;   // somebody's hedge, not tree litter — see isNaturalLeaf
+            }
+            working++;
+            try {
+                level.setBlock(at, Blocks.AIR.defaultBlockState(), QUIET);
+            } finally {
+                working--;
             }
         }
     }
 
     /**
-     * How far a crown reaches from the trunk that held it up: five blocks.
+     * Whether this is a leaf grown by the world rather than placed by a hand.
      *
-     * <p>Wider than an oak's canopy half-span and narrower than the gap between
-     * two trees the clearing would fell separately. Big enough that nothing is
-     * left hanging; small enough that one felling is one tree.
+     * <p>{@link BlockTags#LEAVES} rather than an {@code instanceof LeavesBlock}
+     * check, so a modded leaf that carries the tag but not the class is still
+     * read correctly. A persistent leaf is somebody's hedge or the corner of a
+     * build standing on its own {@code PERSISTENT} flag, not tree litter, and
+     * taking it would be the town tidying up a player's work.
      */
-    private static final int CROWN_REACH = 5;
+    private static boolean isNaturalLeaf(BlockState state) {
+        if (!state.is(BlockTags.LEAVES)) {
+            return false;
+        }
+        return !state.hasProperty(LeavesBlock.PERSISTENT) || !state.getValue(LeavesBlock.PERSISTENT);
+    }
 }

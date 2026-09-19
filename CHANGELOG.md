@@ -6,6 +6,187 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town raises its boards while you are standing in it
+
+Four faults from the second 2026-09-19 playtest, and two of them are the same
+sentence written in two places: *a town does not do the work you are there to
+watch*. The dressing — the boards, the posts, the headstones, the square —
+read `0 of 168` on one seed and `0 of 64` on the other, for the whole life of
+both towns, and the report line that was added last time to say why was
+**empty** for a hundred and sixty seconds of somebody watching it happen.
+An empty reason is worse than a wrong one: it says the mod has no opinion.
+
+### Fixed
+
+- **The clock stood aside for a watcher for ever, and the watcher was the
+  whole town.** A piece of dressing was never drawn by the clock while
+  anybody stood within `observedRadius` of it, on the sound rule that ground
+  somebody can see is ground a piece goes up on by hand or not at all. The
+  arithmetic under the rule was not sound: a town is about an
+  `observedRadius` across, so a player standing *in* one is within that
+  distance of every piece in its plan, and the veto covered all of it. The
+  hands the clock was standing aside for were never coming either —
+  `PublicWorks.availableTo` does not offer the dressing to a spare hand while
+  anything is queued, and puts it sixth behind five works that always have
+  something to do when nothing is. So the one work in the mod that exists to
+  be looked at was done by nobody, in any town anybody was looking at.
+
+  The veto is a delay now: three passes — fifteen seconds of somebody
+  standing over the very next piece in the plan — and then the clock draws it
+  anyway. Long enough that nothing appears under a player's cursor as they
+  walk up to it, which is the offence the rule was written against; short
+  enough that a town somebody lives in dresses itself at the rate a town
+  nobody visits does. And `PublicWorks.leaveItToTheCrew` no longer defers to
+  a crew for a work that crew is not being offered, which is the same mistake
+  its own documentation already describes one work further up the list.
+
+- **One piece the town could not pay for stopped every piece behind it, for
+  ever.** The plan is a prefix — the town raises `pieces.get(piecesRaised)`
+  and nothing else — which is what makes the count mean the same piece from
+  one pass to the next and is worth keeping. What it cost was that a single
+  unaffordable piece was a wall across the whole plan. Caught live in this
+  work's own headless re-run, in a town with every gate open and a hundred
+  and eighty-two pieces planned: `cannot pay for avenue_tree`, because the
+  town had no saplings, and behind that one tree stood fifty-seven hedges,
+  sixteen signposts, an inn board and its own name. The town is given twelve
+  passes — a minute — to come back with an armful, and then the piece is
+  passed over and said out loud. The minute is spent once per dry spell rather
+  than once per piece, because a town whose stores are bare is about to refuse
+  the next piece for the same reason and charging it a fresh minute each time
+  leaves a plan of three hundred taking five hours to walk.
+
+  **Measured**, headless, force-loaded, daylight held, on the same two towns
+  across the two builds:
+
+  | | before | after |
+  |---|---|---|
+  | grown town, 1,600 steps | `dressing: 0 of 192` — *no reason given* | `32 of 330 raised` |
+  | its square board | never raised | `(254, 74, 368)` reads `Ashmarch · town · founded day 1` |
+  | its crossing post | never raised | `(190, 74, 306)` reads `Ashmarch · ^ to the hall · south` |
+  | signs standing round its heart | **1**, blank on both faces | **22**, by `clone … filtered #minecraft:all_signs` over a 145×145×58 box |
+
+- **`/civ info` always says what the dressing is waiting on, and there is
+  always something to say.** The old line read `Furnishings.whyNotStarting`,
+  which is the list of refusals somebody thought of in advance; both faults
+  above are refusals nobody had. The clock writes down its own reason at the
+  point it refuses, and the line reads that — so the line now names the
+  watcher, the empty purse, the curfew and the passed-over piece as readily
+  as it named the paving and the lamps, and a dressing count that is not
+  moving can no longer be silent about it. When nothing is holding it up it
+  says `(raising)` rather than nothing, because "the clause is absent" and
+  "the work is happening" looked identical from the ground.
+
+- **A caravan calls at the inn and arrives where the inn is.** Run A's wagon
+  arrived, on time and exactly as planned, at (169, 69, 256) — **277 blocks**
+  from the inn at (261, 64, 511) it was calling at. A player stood in the inn
+  yard through two whole visit windows and saw nothing. `TownEdge` took the
+  gate nearest *any* road and the far end of the *longest* opened street, and
+  the longest street of a sprawling town is by construction the one running
+  furthest from everything, so the old rule selected hardest against the one
+  thing it was for.
+
+  The way in is now measured: `TownEdge.walkToTheInn` walks the town's own
+  opened streets from the edge to the inn's doorstep — along the network and
+  not as the crow flies, because a town built round a bluff has edges sixty
+  blocks from the inn and four hundred blocks' walk from it. Of the ways in
+  within 120 blocks' walk the town takes the **furthest out**, which keeps
+  the old rule's real point: an arrival is somebody coming in from outside,
+  and the nearest street end to the middle is the square. Gates still come
+  before street ends, because a wall with an opening cut in it has said where
+  people arrive. A town with nothing inside the cap gets its shortest walk
+  rather than no caravan at all.
+
+  The answer is memoized against the town's shape, because measuring a walk
+  made this a shortest path and `Caravans.tend` asks it of every town in the
+  world on every pass.
+
+- **Chimney smoke reads as a fire.** One particle per pot every two seconds
+  is a roof that shows nothing at all most of the time, so a player walking
+  through a town at dusk reads every hearth as cold. A lit pot now sends four
+  particles a pass with a little spread and rise — about a campfire's own
+  plume — and the range came in from 64 blocks to 48, per building, because
+  a plume is legible much further than a single mote was and there is no
+  reason to draw one for a roof nobody can see. The evening and night gate is
+  untouched.
+
+### Still broken
+
+- **The detached chimney stack (playtest N13) is not fixed.** The diagnosis is,
+  and it is worth writing down so the next attempt does not start from nothing.
+  A roof is a single-block-thick shell — `Parts.layRoof` puts one block per
+  column at that column's own course — and `Parts.chimney` climbs a *straight*
+  column from the floor to ridge+2. Against a gable that is right, because
+  `gableRoof` fills the gable end solid from the plate to the ridge and the
+  shaft is embedded in it the whole way up. A hip has no such wall: every side
+  slopes, and the slope is lowest directly over the eave, so above its own
+  eave course the shaft stands in air the roof has already receded out from
+  under. That is precisely the free-floating flue in
+  `surveys/playtest2_b_buried_mill.png`.
+
+  What does *not* work: moving the column inward to where the hip stands
+  tallest. It seats the stack, and it also pushes `human/highland`'s town hall
+  from its declared height of seventeen to nineteen, which
+  `BlueprintPlacerSizeTest` refuses and is right to — a building taller than
+  its declared height has a hillside through its roof. Whatever fixes this has
+  to keep the stack inside the height its kind declares, which probably means
+  the chimney rising out of its own roof course rather than out of the ridge.
+  Note also that `BlueprintPlacer.chimneyTops` only recognises a chimney that
+  stands two courses clear of everything round it, so a stack shortened to hug
+  the eave stops smoking.
+
+- **A seeded town never lights its streets**, and so never dresses itself:
+  `/civ seed town 40` gives `lamps 0 of 131 standing` twenty minutes later,
+  with the dressing correctly reporting that as its reason. Noticed while
+  measuring the above, not chased.
+
+## The crown a felled trunk leaves behind actually comes down with it
+
+A re-test of the previous entry's own claim. "Felled crowns are also taken
+down with the trunk now," it said, measured at 215/minute before and
+3.9/minute after — and the very next playtest caught it half true: litter was
+down to 39.2/minute, but 80 of the last 100 `ITEMPOP` lines were still birch
+saplings, oak saplings and sticks. `TownBlocks.clearCrown` existed and was
+being called; it just never found most of a tree's own canopy.
+
+### Fixed
+
+- **A crown search that only looked up.** `clearCrown` walked a box from the
+  trunk position it was handed, `dy` zero to five, sideways five either way —
+  straight up from the log that used to be the treetop, and never down. A real
+  canopy hangs level with that log and below it at least as often as above,
+  so the search was catching a handful of leaves at the very top of a tree and
+  leaving the rest of the crown standing to decay on vanilla's own clock,
+  exactly the "long after the axe had moved on" litter the previous entry was
+  trying to describe.
+
+- **No support check, either.** The old box took every natural leaf it found,
+  which is also wrong the other way: a box wide enough to reach a whole tall
+  crown is wide enough to reach into a neighbor's, at the five-block spacing
+  the town's own woodland is planted on. `Felling` now owns a second question
+  alongside "which logs are one tree" — `orphanedLeaves`, a flood through
+  connected leaves out from whatever wood is still standing, six-connected,
+  capped at vanilla's own seven-block decay distance. A leaf the flood reaches
+  is left alone, whoever's tree it belongs to; a leaf it never reaches is one
+  vanilla has already condemned. `Woodcut`, `LumberjackWorker`, `Excavation`
+  and the wall builder's own clearing (`Foreman.fell`) all call the same
+  `TownBlocks.clearCrown`, and all four now get a canopy that actually comes
+  down — the last two never called it at all before this, so a trunk cleared
+  off a building plot or cut out of a wall's corridor left its whole crown
+  standing regardless of the box's reach.
+
+  **Measured**, on a headless force-loaded world with one town clearing fresh
+  ground and two more standing, over a twenty-one minute run: **3.7
+  `ITEMPOP`/minute**, against the playtest's 39.2. What is left really is
+  livestock this time — of the 77 items that appeared, **48 were chicken eggs**
+  and 13 were kelp, and only 12 (8 oak saplings, 3 sticks, 1 birch sapling)
+  were tree decay: 16 per cent of the litter where the playtest measured 80.
+
+  One thing that was tried and did not work as evidence: the same window run
+  twice on one saved town, once with this fix and once without. A settled town
+  fells almost nothing, and both runs produced two items in three minutes, so
+  the pair says nothing about the crown either way. The number above is from a
+  town actually clearing ground, which is the only state in which this fault
+  exists at all.
 ## A town no longer starves because somebody is standing in it
 
 Four faults from the 2026-09-19 playtest — N1, N2, N6 and N9 — and the first

@@ -404,6 +404,16 @@ public final class PublicWorks {
      * have to — the roads were the first work a crew was offered, so "is anybody
      * here a builder" and "is anybody coming to this street" were the same
      * question.
+     *
+     * <p>And it does not wait for a crew that is not being <em>offered</em> this
+     * work at all. The second clause below — the build queue holding the last
+     * pair of hands — reads as "they are busy and will be back", and that is only
+     * true of a work {@link #availableTo} will hand them when they are. For a
+     * work it will not, there is no coming back: the queue of a growing town is
+     * never empty for long enough, so "they are busy" means "for ever". That is
+     * the whole of how a town came to stand undressed for its entire life with
+     * every gate open — the same mistake this method's own third paragraph
+     * describes, made one work further down the list.
      */
     public static boolean leaveItToTheCrew(Settlement settlement, WorldBridge bridge,
                                            Worksite work) {
@@ -411,8 +421,31 @@ public final class PublicWorks {
         if (chosen != null && chosen.getClass() == work.getClass()) {
             return true;
         }
-        return !settlement.buildQueue().isEmpty() && hasSpareHands(settlement)
-                && !canSpareAHand(settlement);
+        if (settlement.buildQueue().isEmpty() || !hasSpareHands(settlement)
+                || canSpareAHand(settlement)) {
+            return false;
+        }
+        // They are busy -- but "and will be back" is only true of a work they
+        // will be offered when they are. Asked last because it is the dear
+        // question and the three cheap ones above settle it nearly every time.
+        return isOffered(settlement, work);
+    }
+
+    /**
+     * Whether a spare hand would currently be offered this work at all.
+     *
+     * <p>{@link #availableTo}'s own list, asked rather than restated. Restating
+     * it is how the roads and the wall came to disagree about which of them a
+     * town was building, and a membership test spelled out here would be the
+     * same rule written down twice again.
+     */
+    private static boolean isOffered(Settlement settlement, Worksite work) {
+        for (Worksite offered : availableTo(settlement)) {
+            if (offered.getClass() == work.getClass()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

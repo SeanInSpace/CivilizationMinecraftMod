@@ -334,9 +334,25 @@ public final class Excavation {
         return stump;
     }
 
-    /** Brings a whole trunk down at the stump, and the timber with it. */
-    private void fell(ServerLevel level, Settlement settlement, Person hands, BlockPos stump) {
-        for (BlockPos part : Felling.treeAt(stump, isLogAt(level))) {
+    /**
+     * Brings a whole trunk down at the stump, and the timber with it.
+     *
+     * @return the tree's topmost log, so the caller can take its crown down too
+     *         once the stump itself — which this leaves standing for the caller
+     *         to retire — is also gone. A trunk cleared off a site without this
+     *         used to leave its canopy hanging to decay into saplings and sticks
+     *         over the following minutes, the same litter {@link Woodcut} and
+     *         {@link com.civilization.neoforge.view.LumberjackWorker} were fixed
+     *         against; a site crew's axe orphans a crown exactly as a
+     *         lumberjack's does.
+     */
+    private BlockPos fell(ServerLevel level, Settlement settlement, Person hands, BlockPos stump) {
+        Set<BlockPos> tree = Felling.treeAt(stump, isLogAt(level));
+        BlockPos crown = stump;
+        for (BlockPos part : tree) {
+            if (part.getY() > crown.getY()) {
+                crown = part;
+            }
             if (part.equals(stump)) {
                 continue;   // the stump itself is retired by the caller
             }
@@ -347,6 +363,7 @@ public final class Excavation {
             }
             yard.remove(toSim(part));   // harmless if it was never wanted
         }
+        return crown;
     }
 
     /**
@@ -562,13 +579,21 @@ public final class Excavation {
         // a mysterious drizzle of leaf litter, kelp and wheat seeds over every
         // worksite in town.
         clearPlantAbove(level, job.block);
+        BlockPos crown = null;
         if (job.tree) {
-            fell(level, settlement, hands, job.block);
+            crown = fell(level, settlement, hands, job.block);
             stumps.remove(job.block);
         }
         BlockState broken = level.getBlockState(job.block);
         TownBlocks.clear(level, job.block, true);
         yieldTo(settlement, hands, broken, job.block);
+        if (crown != null) {
+            // Only now: the stump above is the last of the trunk, and clearCrown
+            // reads the world it finds, so calling it before this block came down
+            // would have it treat the very log it is about to lose as support
+            // still standing.
+            TownBlocks.clearCrown(level, crown);
+        }
         harvest(level, digger, job);
         return true;
     }

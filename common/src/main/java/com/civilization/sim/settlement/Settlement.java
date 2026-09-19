@@ -2702,6 +2702,113 @@ public final class Settlement {
     }
 
     /**
+     * What stopped the dressing on the last pass, in words, or null if nothing did.
+     *
+     * <p><strong>Why a town writes this down at all.</strong> {@code /civ info}
+     * had a {@code (waiting: …)} clause on its dressing line already, and it read
+     * {@code Furnishings.whyNotStarting} — the <em>gates</em>. A playtest then
+     * watched a town for a hundred and sixty seconds with that clause
+     * <em>empty</em> and {@code dressing: 0 of 168} for the whole of it: every
+     * gate was open, the town was entitled to dress itself, and it raised
+     * nothing. A report that can only name the reasons somebody thought of in
+     * advance says nothing at all about the reason nobody did.
+     *
+     * <p>So the clock names its own refusal, at the point it refuses, and the
+     * report reads that instead of guessing. The invariant the line is worth
+     * having for: if the count is not moving, this says why, whatever the why
+     * turns out to be.
+     *
+     * <p>Not saved. It is a note about the pass that just happened, not a fact
+     * about the town — a reloaded settlement writes a fresh one on its first
+     * step, and until it does, a null here and a still count is itself the
+     * honest answer.
+     */
+    private String dressingHeldUpBy;
+
+    public String dressingHeldUpBy() {
+        return dressingHeldUpBy;
+    }
+
+    public void setDressingHeldUpBy(String reason) {
+        this.dressingHeldUpBy = reason;
+    }
+
+    /**
+     * Consecutive passes on which a watcher was the only thing holding the
+     * dressing up.
+     *
+     * <p>See {@code Furnishings.WATCHED_PASSES_BEFORE_DRAWING}. Reset the moment
+     * a piece goes up or anything else takes over as the reason, because the
+     * count is an argument about <em>this</em> piece and this player standing
+     * over it, not a total the town accumulates over its life.
+     *
+     * <p>Not saved, for {@link #dressingHeldUpBy}'s reason: it is worth at most
+     * the few passes it counts.
+     */
+    private int dressingWatchedPasses;
+
+    public int dressingWatchedPasses() {
+        return dressingWatchedPasses;
+    }
+
+    public void setDressingWatchedPasses(int passes) {
+        this.dressingWatchedPasses = Math.max(0, passes);
+    }
+
+    /**
+     * Consecutive passes the next piece of dressing has been unaffordable for.
+     *
+     * <p>See {@code Furnishings.PASSES_BEFORE_PASSING_OVER}. Its own counter
+     * rather than {@link #dressingWatchedPasses}'s, because the two are counting
+     * different waits with different answers at the end — one draws the piece
+     * anyway and the other gives up on it — and a single counter shared between
+     * them would have a player walking past a town reset its purse's patience.
+     *
+     * <p>Not saved, for {@link #dressingHeldUpBy}'s reason.
+     */
+    private int dressingUnpaidPasses;
+
+    public int dressingUnpaidPasses() {
+        return dressingUnpaidPasses;
+    }
+
+    public void setDressingUnpaidPasses(int passes) {
+        this.dressingUnpaidPasses = Math.max(0, passes);
+    }
+
+    /**
+     * The way into this town, against a number naming the shape it was worked
+     * out for.
+     *
+     * <p>{@link #cachedDressing}'s arrangement and it exists for a sharper
+     * version of the same reason. {@code TownEdge.of} used to be a walk of the
+     * gates against the runs; measuring the way to the inn along the streets
+     * made it a shortest path, and {@code Caravans.tend} asks it of every town
+     * in the world on every pass. A network is a finite thing a town finishes,
+     * so nearly every one of those asks has the same answer as the last.
+     *
+     * <p>Not saved, like the plan it is modelled on: the first pass after a load
+     * works it out again from the streets, which are saved.
+     */
+    private SimPos cachedEdge;
+    private long cachedEdgeStamp;
+    private boolean edgeIsCached;
+
+    public boolean hasCachedEdge(long stamp) {
+        return edgeIsCached && cachedEdgeStamp == stamp;
+    }
+
+    public SimPos cachedEdge() {
+        return cachedEdge;
+    }
+
+    public void cacheEdge(long stamp, SimPos edge) {
+        this.cachedEdgeStamp = stamp;
+        this.cachedEdge = edge;
+        this.edgeIsCached = true;
+    }
+
+    /**
      * The last dressing plan worked out for this town, and a number naming the
      * shape of the town it was worked out for.
      *

@@ -53,30 +53,91 @@ final class Ambience {
     // --- what it costs --------------------------------------------------------
 
     /**
-     * Manager passes between puffs of smoke: 2, so about one every two seconds.
+     * Manager passes between puffs of smoke: 1, so every pass the ambience
+     * runs draws its roofs.
      *
-     * <p>Campfire smoke lasts far longer than that on screen, so the column over
-     * a roof is continuous at this rate and would be no more continuous at twice
-     * it. The whole sweep is also skipped in daylight, which is two thirds of the
-     * clock.
+     * <p>Used to be 2 — about once every two seconds — and that was fault
+     * N12 from the 2026-09-19 survey: one lone particle every other pass
+     * reads as nothing at all against a roof at dusk, no matter how correct
+     * the building and the pot it came from are. The manager's own pass is
+     * a once-a-second beat ({@code PersonEntityManager.TICK_INTERVAL} is 20
+     * ticks), so 1 is as often as this can run without smoke being given a
+     * beat of its own; the plume is built from sending several particles
+     * each pass — see {@link #SMOKE_PARTICLES} — rather than from sending
+     * a single one more often, because more often than once a second is not
+     * on offer here.
      */
-    private static final int SMOKE_EVERY = 2;
+    private static final int SMOKE_EVERY = 1;
 
     /**
-     * How near a <em>fire</em> a player has to be for its smoke to be drawn: 64.
+     * How near a <em>fire</em> a player has to be for its smoke to be drawn: 48.
      *
      * <p>Per building, not per town. This was once measured to the middle of the
      * settlement, which made it a rule about town size rather than about
      * eyesight: a town wider than a hundred and twenty-eight blocks had roofs
      * that could never smoke no matter where anybody stood, and a player beside
      * one of them was refused while a chimney they could not see was drawn.
-     * Sixty-four blocks is about where a campfire plume stops being legible, and
-     * that is a fact about the particle rather than about the settlement.
+     *
+     * <p>Was sixty-four while a chimney only ever showed one particle. Now
+     * that a lit pot sends a small plume (see {@link #SMOKE_PARTICLES}) the
+     * cloud is legible well past that, and the number stops being about the
+     * particle's own lifespan and starts being about not drawing a roof's
+     * worth of extra smoke particles for chimneys nobody standing in the
+     * town can actually see — forty-eight is comfortably inside render
+     * distance on a default client and comfortably past where a rooftop
+     * itself is still readable as a rooftop.
      */
-    private static final double SMOKE_RANGE = 64.0;
+    private static final double SMOKE_RANGE = 48.0;
 
     /** How high above the pot the smoke starts, so it clears the masonry. */
     private static final double SMOKE_RISE = 1.1;
+
+    /**
+     * Particles sent per lit pot, per pass: 4.
+     *
+     * <p>A vanilla campfire's own cosy smoke is several puffs across the span
+     * one of our passes covers, not the single particle this used to send —
+     * that gap between "one" and "several" is the whole of what fault N12
+     * was pointing at. Four is enough to read as a small column rather than
+     * a stray mote without turning every lit roof in a town into a bonfire;
+     * see {@link #SMOKE_DRIFT} and {@link #SMOKE_LIFT} for how those four are
+     * spread so they read as a puff and not four particles stacked on top of
+     * each other.
+     */
+    private static final int SMOKE_PARTICLES = 4;
+
+    /**
+     * How far a puff scatters sideways from the pot: 0.12 blocks.
+     *
+     * <p>{@code ServerLevel.sendParticles} spreads a multi-particle call by a
+     * Gaussian of this width around the point given, in both position and
+     * initial motion, so this is what turns four particles spawned at one
+     * coordinate into four that drift apart sideways rather than four that
+     * sit on top of each other. Small enough that a plume still reads as one
+     * pot's smoke and not a cloud drifting off the roof.
+     */
+    private static final double SMOKE_DRIFT = 0.12;
+
+    /**
+     * How far a puff scatters upward from {@link #SMOKE_RISE}: 0.15 blocks.
+     *
+     * <p>The same Gaussian spread as {@link #SMOKE_DRIFT}, applied to the
+     * vertical axis instead, so the four particles a pass sends start at
+     * slightly different heights above the pot and read as a short rising
+     * column rather than a flat puff — the smoke's own drift upward after
+     * that is the particle's, not something this class has to fake.
+     */
+    private static final double SMOKE_LIFT = 0.15;
+
+    /**
+     * How much initial motion each smoke particle is given: 0.01.
+     *
+     * <p>A nudge, not a jet — campfire cosy smoke floats upward on its own
+     * once it exists, the way it does over a real campfire, so this only has
+     * to keep four particles spawned an instant apart from looking frozen in
+     * place relative to each other.
+     */
+    private static final double SMOKE_SPEED = 0.01;
 
     /**
      * One in this many passes, a given settler says something: 1 in 140.
@@ -348,9 +409,14 @@ final class Ambience {
                 continue;
             }
             for (BlockPos pot : chimneys.potsOf(building)) {
+                // Several particles in one call, not a loop of single ones:
+                // sendParticles(T, x, y, z, count, xOff, yOff, zOff, speed)
+                // is the same overload the sparks and flour above already
+                // use for "a handful at once", and count > 1 is what spreads
+                // them by SMOKE_DRIFT/SMOKE_LIFT instead of stacking them.
                 level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE,
                         pot.getX() + 0.5, pot.getY() + SMOKE_RISE, pot.getZ() + 0.5,
-                        1, 0.02, 0.0, 0.02, 0.005);
+                        SMOKE_PARTICLES, SMOKE_DRIFT, SMOKE_LIFT, SMOKE_DRIFT, SMOKE_SPEED);
             }
         }
     }

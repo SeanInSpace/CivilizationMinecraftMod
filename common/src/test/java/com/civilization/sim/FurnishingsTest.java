@@ -31,6 +31,7 @@ import java.util.TreeMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -451,13 +452,103 @@ class FurnishingsTest {
     @Test
     void theClockStandsAsideForSomebodyWatching() {
         Settlement town = dressableTown();
-        SimContext watched = new SimContext(new QuietBridge() {
-            @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
-        }, 0, SimSettings.SANDBOX);
-        Furnishings.advance(town, watched);
+        Furnishings.advance(town, watchedCtx());
         assertEquals(0, town.piecesRaised(),
                 "a flower bed that plants itself in front of a player is the one"
                         + " thing this must never look like");
+    }
+
+    /**
+     * The fault the second playtest measured on both its seeds: a town somebody
+     * is standing in is watched at every piece in its plan, so a veto on a
+     * watcher is a veto on the whole of its dressing, for the whole of its life.
+     */
+    @Test
+    void butItDoesNotStandAsideForEver() {
+        Settlement town = dressableTown();
+        SimContext watched = watchedCtx();
+        for (int pass = 0; pass < Furnishings.WATCHED_PASSES_BEFORE_DRAWING; pass++) {
+            Furnishings.advance(town, watched);
+        }
+        assertEquals(1, town.piecesRaised(),
+                "nobody is coming to this piece, so a clock that waits for hands"
+                        + " waits for nobody and the town is never dressed");
+        // And it goes on going up, at the ordinary rate, rather than once.
+        Furnishings.advance(town, watched);
+        Furnishings.advance(town, watched);
+        Furnishings.advance(town, watched);
+        assertEquals(2, town.piecesRaised(),
+                "each piece waits its own three passes, and then goes up");
+    }
+
+    @Test
+    void andTheTownSaysWhatIsHoldingItUpWhileItWaits() {
+        Settlement town = dressableTown();
+        Furnishings.advance(town, watchedCtx());
+        assertEquals(0, town.piecesRaised());
+        String held = Furnishings.whyNotRaising(town);
+        assertNotNull(held, "a dressing count that is not moving must say why");
+        assertTrue(held.contains("standing over it"),
+                "and the why has to be the real one: " + held);
+    }
+
+    /**
+     * The half of the fault that no gate could have reported. Every gate was
+     * open for a hundred and sixty seconds of a playtest and nothing was raised,
+     * so the report reads the clock's own note rather than re-asking the gates.
+     */
+    @Test
+    void aTownThatIsRaisingSaysSoRatherThanNothing() {
+        Settlement town = dressableTown();
+        Furnishings.advance(town, CTX);
+        assertEquals(1, town.piecesRaised());
+        assertNull(Furnishings.whyNotRaising(town),
+                "nothing is holding this town up and the line must not invent one");
+    }
+
+    /**
+     * The other half of the same playtest's zero, and the one no gate could have
+     * named: a town with every gate open, wood in three figures and nothing
+     * raised, because the first piece in its plan cost a sapling it did not have
+     * and the plan is a prefix.
+     */
+    @Test
+    void aPieceTheTownCannotAffordDoesNotBlockTheOnesBehindIt() {
+        Settlement town = dressableTown();
+        town.stores().take(TownStores.SAPLINGS,
+                town.stores().get(TownStores.SAPLINGS));
+        town.stores().take(TownStores.STONE, town.stores().get(TownStores.STONE));
+        int before = town.piecesRaised();
+        for (int pass = 0; pass < Furnishings.PASSES_BEFORE_PASSING_OVER - 1; pass++) {
+            Furnishings.advance(town, CTX);
+        }
+        assertEquals(before, town.piecesRaised(),
+                "the town is given a minute to come back with an armful before"
+                        + " anything gives up on the piece");
+        assertTrue(Furnishings.whyNotRaising(town).contains("cannot pay"),
+                "and it says what it is short of while it waits: "
+                        + Furnishings.whyNotRaising(town));
+        Furnishings.advance(town, CTX);
+        assertEquals(before + 1, town.piecesRaised(),
+                "one piece nothing in the stores can buy must not be a wall across"
+                        + " the whole of a town's dressing for the rest of its life");
+        assertTrue(Furnishings.whyNotRaising(town).startsWith("passed over"),
+                "and passing one over is said out loud, not done quietly: "
+                        + Furnishings.whyNotRaising(town));
+        // And the minute of patience is spent once per dry spell rather than
+        // once per piece: the stores are still bare, so the next piece goes the
+        // same way on the very next pass rather than after another twelve.
+        Furnishings.advance(town, CTX);
+        assertEquals(before + 2, town.piecesRaised(),
+                "a town with bare stores is about to refuse the next piece for the"
+                        + " same reason, and charging it a fresh minute each time"
+                        + " leaves a plan of three hundred taking five hours");
+    }
+
+    private static SimContext watchedCtx() {
+        return new SimContext(new QuietBridge() {
+            @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
+        }, 0, SimSettings.SANDBOX);
     }
 
     @Test

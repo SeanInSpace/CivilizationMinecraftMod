@@ -782,6 +782,12 @@ public final class Foreman {
      * decay by themselves, which is vanilla's own rule and what a player
      * expects to see. See {@link Felling}, which owns the shape of a tree and
      * the bounds on it.
+     *
+     * <p>The crown comes down with it, once the trunk is gone — the same call
+     * {@code Woodcut.fellOneIn} makes for the wood a town clears inside its own
+     * streets. Left to vanilla, an orphaned canopy sheds saplings and sticks for
+     * a minute or two after the axe has moved on, which a wall builder's stump
+     * is exactly as capable of leaving behind as a lumberjack's.
      */
     private static void fell(ServerLevel level, Settlement settlement, Person carrier,
                              BlockPos from) {
@@ -791,10 +797,17 @@ public final class Foreman {
         java.util.function.Predicate<BlockPos> isLog =
                 at -> level.isLoaded(at)
                         && level.getBlockState(at).is(net.minecraft.tags.BlockTags.LOGS);
+        BlockPos crown = null;
         for (BlockPos log : Felling.treeAt(from, isLog)) {
             BlockState state = level.getBlockState(log);
             com.civilization.neoforge.world.TownBlocks.clear(level, log, true);
             keep(settlement, carrier, state, log);
+            if (crown == null || log.getY() > crown.getY()) {
+                crown = log;
+            }
+        }
+        if (crown != null) {
+            com.civilization.neoforge.world.TownBlocks.clearCrown(level, crown);
         }
         // A lone leaf over the line belongs to a tree rooted somewhere else. It
         // is taken one leaf at a time, the way a person would, and the tree it
