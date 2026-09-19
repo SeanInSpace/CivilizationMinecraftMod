@@ -160,6 +160,31 @@ public final class Settlement {
     private final ArrayDeque<Grave> dead = new ArrayDeque<>();
 
     /**
+     * How many this town has buried altogether, ever.
+     *
+     * <p>A number rather than a list, and the only reason it exists is that the
+     * list is bounded and the row of stones is not. {@link #dead} is the last
+     * twelve names; the churchyard is every burial the town has made, and the
+     * two used to be the same fact — a stone per entry in the roster, paired to
+     * it by index. So the thirteenth death rotated the entire graveyard: the
+     * oldest name fell off the front, every remaining name shifted down one
+     * slot, and each standing headstone was recut with the name of the person
+     * buried <em>after</em> the one it was raised for. A memorial that renames
+     * its dead is worse than no memorial.
+     *
+     * <p>With the total written down, a stone's slot is its burial number and
+     * never moves again. A name that has aged off the roster simply stops being
+     * available, and the board it was cut into keeps it — see
+     * {@code FurnishingLayer.graveAt} and {@code inscribe}, which does nothing
+     * at all with an empty line list.
+     *
+     * <p>This is a count, which is what the save is allowed to hold: see the
+     * dressing doctrine — only counts and the dead go in, and where the row goes
+     * is still derived from the standing buildings and the opened streets.
+     */
+    private int buried;
+
+    /**
      * Steps the job at the head of the queue may sit without moving before a
      * starving town builds around it.
      *
@@ -2183,15 +2208,42 @@ public final class Settlement {
             return null;
         }
         dead.addLast(new Grave(gone.name(), gone.profession(), day));
+        buried++;
         while (dead.size() > DEAD_REMEMBERED) {
             dead.removeFirst();
         }
         return gone;
     }
 
-    /** The town's dead, oldest first. One stone apiece, in this order. */
+    /** The town's dead, oldest first. The last {@link #DEAD_REMEMBERED} of them. */
     public List<Grave> dead() {
         return List.copyOf(dead);
+    }
+
+    /**
+     * How many this town has buried altogether, which is how many stones its
+     * churchyard is planned from.
+     *
+     * <p>Always at least {@link #dead}'s size, and larger than it for any town
+     * that has lost more than a dozen people. See {@link #buried}, and
+     * {@code Furnishings.theGraves}, which caps the row it plans rather than the
+     * count it plans from.
+     */
+    public int buried() {
+        return buried;
+    }
+
+    /**
+     * How many burials fell off the front of the roster.
+     *
+     * <p>The offset between a stone's slot and its place in {@link #dead}: slot
+     * <em>i</em> is burial <em>i</em>, and burial <em>i</em> is
+     * {@code dead.get(i - agedOff())} while that is in range. Worked out here
+     * rather than at the two call sites so there is one subtraction in the mod
+     * that can be got the wrong way round.
+     */
+    public int agedOff() {
+        return Math.max(0, buried - dead.size());
     }
 
     /**
@@ -2214,6 +2266,22 @@ public final class Settlement {
         while (dead.size() > DEAD_REMEMBERED) {
             dead.removeFirst();
         }
+        buried = Math.max(buried, dead.size());
+    }
+
+    /**
+     * Puts the running burial count back when a world is loaded.
+     *
+     * <p>Floored at however many names came back with it, because the roster is
+     * the last slice of the total and a total smaller than its own slice is not
+     * a number this town could have written. That is also what a save from
+     * before this field existed decodes to: a town with nine dead in it is a
+     * town that has buried at least nine, its churchyard is nine stones, and it
+     * goes on from there. Called after {@link #restoreDead}, which is the only
+     * order in which the floor means anything.
+     */
+    public void restoreBuried(int total) {
+        buried = Math.max(Math.max(0, total), dead.size());
     }
 
     public Person resident(Person.Id personId) {

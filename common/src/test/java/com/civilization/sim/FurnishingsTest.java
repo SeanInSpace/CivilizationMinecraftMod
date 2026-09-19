@@ -571,6 +571,196 @@ class FurnishingsTest {
 
     // --- the one thing the dressing writes down ------------------------------
 
+    // --- how full a heap stands ----------------------------------------------
+
+    @Test
+    void aHeapClimbsAStepForEachStackTheStoreHolds() {
+        assertEquals(1, Furnishings.coursesFor(0, 64));
+        assertEquals(1, Furnishings.coursesFor(63, 64));
+        assertEquals(2, Furnishings.coursesFor(64, 64));
+        assertEquals(3, Furnishings.coursesFor(128, 64));
+        assertEquals(Furnishings.HEAP_STEPS, Furnishings.coursesFor(100000, 64),
+                "the top step is open-ended: past a point a woodpile is a woodpile");
+        assertEquals(1, Furnishings.coursesFor(-40, 64),
+                "a negative stock is not a negative pile");
+    }
+
+    /**
+     * A woodpile reads the camp's timber and a rick reads the granary's grain,
+     * and everything else stands at its full height whatever the town holds.
+     */
+    @Test
+    void onlyTheTwoHeapsReadTheStoresAtAll() {
+        Settlement town = dressableTown();
+        Furnishings.Furnishing pile = new Furnishings.Furnishing(
+                town.center(), Furnishings.Piece.WOODPILE, 0);
+        Furnishings.Furnishing rick = new Furnishings.Furnishing(
+                town.center(), Furnishings.Piece.HAYSTACK, 0);
+        Furnishings.Furnishing fence = new Furnishings.Furnishing(
+                town.center(), Furnishings.Piece.HEDGE, 0);
+        assertEquals(Furnishings.HEAP_STEPS, Furnishings.heapOf(town, fence),
+                "a hedge got shorter because the granary was empty");
+
+        // dressableTown has no camp and no granary, so both fall back on what the
+        // town holds altogether -- and it was given 512 wood and no grain.
+        assertEquals(Furnishings.HEAP_STEPS, Furnishings.heapOf(town, pile),
+                "five hundred logs and a pile one course high");
+        assertEquals(1, Furnishings.heapOf(town, rick),
+                "no grain anywhere and a rick standing at its tallest");
+    }
+
+    @Test
+    void aCampWithATimberYardOfItsOwnIsWhatTheWoodpileReads() {
+        Settlement town = dressableTown();
+        Building camp = house(town, "civilization:lumber_camp", 24, -24, 0);
+        Furnishings.Furnishing pile = new Furnishings.Furnishing(
+                town.center(), Furnishings.Piece.WOODPILE, 0);
+        assertEquals(1, Furnishings.heapOf(town, pile),
+                "the camp's own yard is empty and the pile beside it is full,"
+                        + " which is the pile telling a lie about the camp");
+        camp.stores().add(TownStores.WOOD, Furnishings.TIMBER_PER_COURSE);
+        assertEquals(2, Furnishings.heapOf(town, pile));
+        camp.stores().add(TownStores.WOOD, Furnishings.TIMBER_PER_COURSE);
+        assertEquals(Furnishings.HEAP_STEPS, Furnishings.heapOf(town, pile));
+    }
+
+    /**
+     * And the one thing that must not follow from any of it: the plan itself
+     * does not move when a log does.
+     *
+     * <p>{@code Furnishings.pieces} is memoized on the town's shape, and a stock
+     * changes every step. Folding how full a heap is into that memo would throw
+     * the most expensive plan in the mod away several times a second — so the
+     * height is asked separately, at the moment a piece is drawn, and the list
+     * of pieces has to come out identical either way.
+     */
+    @Test
+    void movingTheStoreDoesNotMoveThePlan() {
+        Settlement town = dressableTown();
+        Building camp = house(town, "civilization:lumber_camp", 24, -24, 0);
+        List<Furnishings.Furnishing> before = Furnishings.pieces(town);
+        camp.stores().add(TownStores.WOOD, 4096);
+        assertEquals(before, Furnishings.pieces(town),
+                "a load of timber arriving re-sited the town's dressing");
+    }
+
+    // --- the thirteenth death ------------------------------------------------
+
+    /** Buries {@code many} people without changing how many the town has. */
+    private static void buryAll(Settlement town, int many) {
+        for (int i = 0; i < many; i++) {
+            Person lost = new Person(
+                    Person.Id.random(), "Lost " + i, Profession.FARMER, town.center());
+            town.addResident(lost);
+            town.bury(lost.id(), i);
+        }
+    }
+
+    /**
+     * The row goes on growing after the roster of names has stopped.
+     *
+     * <p>The whole of the fault. The stones used to be planned one per entry in
+     * {@code Settlement.dead}, which is bounded at a dozen — so a town's
+     * thirteenth burial planned no thirteenth stone, and worse, the twelve it
+     * did plan were paired to the roster by index, so every board in the
+     * churchyard was recut with the name of the person buried after the one it
+     * was raised for.
+     */
+    @Test
+    void theRowGrowsPastTheDozenTheTownRemembersNamesFor() {
+        Settlement town = dressableTown();
+        buryAll(town, Settlement.DEAD_REMEMBERED + 5);
+        assertEquals(Settlement.DEAD_REMEMBERED, town.dead().size(),
+                "the names are still bounded, which is the point of the count");
+        assertEquals(Settlement.DEAD_REMEMBERED + 5, town.buried());
+        assertEquals(Settlement.DEAD_REMEMBERED + 5,
+                Furnishings.graves(town).size(),
+                "the churchyard stopped at a dozen, so five people the town"
+                        + " buried have no stone and never will");
+    }
+
+    /**
+     * A stone's slot is its burial number and never moves.
+     *
+     * <p>Asked across the boundary the bug lived on: the row is snapshotted at
+     * twelve burials, six more people are buried, and every stone already
+     * standing has to be exactly where it was. If a slot moved, the board on it
+     * is now somebody else's board — which is the whole reason the count is
+     * written down at all.
+     */
+    @Test
+    void aStoneKeepsItsSlotWhenTheOldestNameFallsOff() {
+        Settlement town = dressableTown();
+        buryAll(town, Settlement.DEAD_REMEMBERED);
+        List<Furnishings.Furnishing> before = Furnishings.graves(town);
+        buryAll(town, 6);
+        List<Furnishings.Furnishing> after = Furnishings.graves(town);
+        assertTrue(after.size() > before.size(), "no new stone was planned at all");
+        for (int i = 0; i < before.size(); i++) {
+            assertEquals(before.get(i), after.get(i),
+                    "stone " + i + " moved when six more people were buried, so"
+                            + " the board on it now names the wrong person");
+        }
+    }
+
+    /**
+     * The offset between the row and the roster, which is what says whose name
+     * a stone still has.
+     */
+    @Test
+    void whatHasAgedOffIsTheGapBetweenTheRowAndTheRoster() {
+        Settlement town = dressableTown();
+        buryAll(town, 5);
+        assertEquals(0, town.agedOff(), "nothing has fallen off a roster of five");
+
+        Settlement older = dressableTown();
+        buryAll(older, Settlement.DEAD_REMEMBERED + 5);
+        assertEquals(5, older.agedOff(),
+                "five names fell off, so the roster now starts at burial five");
+        // Which is the assertion the boards depend on: the first name the town
+        // still has is the one buried agedOff() places into the row, so stone
+        // five is the stone it belongs on and stones nought to four have none.
+        assertEquals("Lost " + older.agedOff(), older.dead().getFirst().name(),
+                "the offset is the only arithmetic in this unit and it is off by"
+                        + " one, which means every board is off by one");
+    }
+
+    /**
+     * A century of deaths does not ring the town.
+     *
+     * <p>The row is capped at {@link Furnishings#GRAVES_PLANNED} stones and the
+     * cap is a stop rather than a window: once it is reached the churchyard is
+     * simply full and stays exactly as it stands, which is both what a
+     * churchyard does and the only reading whose slots stay inside the claim.
+     */
+    @Test
+    void theChurchyardFillsUpRatherThanRingingTheVillage() {
+        Settlement town = dressableTown();
+        buryAll(town, Furnishings.GRAVES_PLANNED);
+        List<Furnishings.Furnishing> full = Furnishings.graves(town);
+        assertTrue(full.size() <= Furnishings.GRAVES_PLANNED,
+                "the cap is not a cap: " + full.size() + " stones planned");
+        buryAll(town, 80);
+        assertEquals(full, Furnishings.graves(town),
+                "eighty more deaths moved the churchyard, which is eighty stones"
+                        + " of cobble laid round the outside of a village");
+    }
+
+    @Test
+    void aRestoredCountIsNeverSmallerThanTheNamesItCameBackWith() {
+        Settlement town = ringTown();
+        town.restoreDead(List.of(
+                new Settlement.Grave("Ada", Profession.FARMER, 1),
+                new Settlement.Grave("Bran", Profession.MINER, 2)));
+        town.restoreBuried(0);
+        assertEquals(2, town.buried(),
+                "a town with two names in its save has buried at least two, and a"
+                        + " total under that would plan a churchyard shorter than"
+                        + " the roster it is read against");
+        town.restoreBuried(40);
+        assertEquals(40, town.buried());
+    }
+
     @Test
     void theDeadAreBoundedAndTheOldestFallOff() {
         Settlement town = ringTown();

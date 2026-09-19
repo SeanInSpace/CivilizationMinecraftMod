@@ -98,18 +98,40 @@ public final class FurnishingLayer {
      *              {@link #inscribe}, which is the only reader.
      */
     public record Course(BlockPos pos, BlockState state, boolean soil,
-                         List<String> lines) {
+                         List<String> lines, boolean clear) {
 
         public Course {
             lines = List.copyOf(lines);
         }
 
         public Course(BlockPos pos, BlockState state) {
-            this(pos, state, false, List.of());
+            this(pos, state, false, List.of(), false);
         }
 
         public Course(BlockPos pos, BlockState state, boolean soil) {
-            this(pos, state, soil, List.of());
+            this(pos, state, soil, List.of(), false);
+        }
+
+        public Course(BlockPos pos, BlockState state, boolean soil, List<String> lines) {
+            this(pos, state, soil, lines, false);
+        }
+
+        /**
+         * A cell this piece is <em>not</em> filling, and the block it would have
+         * put there if it were.
+         *
+         * <p>The whole of the dressing's removal path, and it is deliberately
+         * this narrow. The sweep has always been additive and repair-only, which
+         * is what keeps it from ever eating something a player built; a piece
+         * that can shrink has to be able to take a block away, and the only
+         * block it may take away is the one <em>it itself</em> would have put in
+         * that exact cell at its tallest. The state travels with the course so
+         * the comparison is against a block state rather than against a guess —
+         * see {@code strip}, which refuses anything that is not that state
+         * exactly.
+         */
+        public static Course gone(BlockPos pos, BlockState would) {
+            return new Course(pos, would, false, List.of(), true);
         }
     }
 
@@ -219,14 +241,45 @@ public final class FurnishingLayer {
                                     Furnishings.Furnishing piece,
                                     Signage.Plaque plaque,
                                     Settlement.Grave whose) {
+        return plan(site, piece, plaque, whose, Furnishings.HEAP_STEPS);
+    }
+
+    /**
+     * The same, told how full the two heaps are standing.
+     *
+     * <p>A woodpile and a rick are the only pieces in the town whose shape is
+     * not settled by where they are: the camp's timber and the granary's grain
+     * are what they are made of, and a pile that stayed the same height through
+     * a winter that emptied the store is a pile that is saying something untrue
+     * about the town. {@code Furnishings.heapOf} is the arithmetic and is in
+     * {@code common}; this is the shape.
+     *
+     * <p>Handed in for the same reason the plaque and the grave are: this
+     * method's argument is that a piece can be checked on every culture without
+     * a running game, and a stock is one more thing a size test would have to
+     * build. It also keeps the stock out of {@code Furnishings.pieces}, whose
+     * memo would otherwise be thrown away every time a log moved.
+     *
+     * <p>The plan a short heap returns carries the cells it is <em>not</em>
+     * filling as well as the ones it is — see {@link Course#gone} — so that the
+     * sweep can take down what a taller one left standing. Every other piece,
+     * and either heap at its tallest, returns nothing but blocks to lay, which
+     * is what the dressing has always been.
+     */
+    public static List<Course> plan(BlueprintPlacer.Site site,
+                                    Furnishings.Furnishing piece,
+                                    Signage.Plaque plaque,
+                                    Settlement.Grave whose,
+                                    int heap) {
         FurnishingStyle style = FurnishingStyle.of(site.culture());
         Palette palette = paletteOf(style);
         List<String> lines = Signage.linesFor(piece.piece(), plaque, piece.facing(), whose);
+        int tall = Math.max(1, Math.min(Furnishings.HEAP_STEPS, heap));
         List<Course> courses = new ArrayList<>();
         switch (piece.piece()) {
             case YARD -> yard(site, courses, piece, palette);
-            case WOODPILE -> woodpile(site, courses, piece, palette);
-            case HAYSTACK -> haystack(site, courses, piece);
+            case WOODPILE -> woodpile(site, courses, piece, palette, tall);
+            case HAYSTACK -> haystack(site, courses, piece, tall);
             case CRATES -> crates(site, courses, piece, palette);
             case WELL -> well(site, courses, piece, palette);
             case SQUARE -> square(site, courses, piece, palette, lines);
@@ -294,9 +347,24 @@ public final class FurnishingLayer {
         }
     }
 
-    /** Split logs stacked two courses high, three long and two deep. */
+    /**
+     * Split logs, three long and two deep, and as tall as the camp is doing.
+     *
+     * <p>Three steps, {@code heap} deciding which: a single course of rounds on
+     * the ground, the back row stacked to two, and the whole pile squared up at
+     * three — a back row three high and a front row two, which is a wall of
+     * timber from the road.
+     *
+     * <p>Every cell the <em>tallest</em> pile would use is in the plan either
+     * way. The ones this height does not want come back as {@link Course#gone},
+     * carrying the log they would have been, so a camp that has spent its winter
+     * loses courses off the top of its pile instead of standing a full one over
+     * an empty store. Nothing else in the dressing can take a block away and
+     * nothing else needs to: a fence is the same fence whatever the town holds.
+     */
     private static void woodpile(BlueprintPlacer.Site site, List<Course> out,
-                                 Furnishings.Furnishing piece, Palette palette) {
+                                 Furnishings.Furnishing piece, Palette palette,
+                                 int heap) {
         SimPos at = piece.at();
         for (int dx = -1; dx <= 0; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
@@ -309,28 +377,55 @@ public final class FurnishingLayer {
                 BlockState log = palette.log().defaultBlockState().setValue(
                         RotatedPillarBlock.AXIS,
                         acrossX(piece.facing()) ? Direction.Axis.X : Direction.Axis.Z);
-                out.add(new Course(new BlockPos(x, ground, z), log));
-                if (dx == -1) {
-                    out.add(new Course(new BlockPos(x, ground + 1, z), log));
-                }
+                boolean back = dx == -1;
+                // What this column is at its tallest, and what it is now.
+                int most = back ? Furnishings.HEAP_STEPS : 2;
+                int high = back ? heap : Math.max(1, heap - 1);
+                stack(out, new BlockPos(x, ground, z), log, high, most);
             }
         }
     }
 
-    /** A rick: four bales and one on top, which is what a farm does with its straw. */
+    /**
+     * A rick: four bales, a second course, and a cap — as much of it as the
+     * granary has grain for.
+     *
+     * <p>{@link #woodpile}'s shape said about hay. One course of bales is what a
+     * farm has after a thin harvest, the cap goes on at two, and the second full
+     * course at three.
+     */
     private static void haystack(BlueprintPlacer.Site site, List<Course> out,
-                                 Furnishings.Furnishing piece) {
+                                 Furnishings.Furnishing piece, int heap) {
         SimPos at = piece.at();
+        BlockState bale = Blocks.HAY_BLOCK.defaultBlockState();
         for (int dx = 0; dx <= 1; dx++) {
             for (int dz = 0; dz <= 1; dz++) {
                 int x = at.x() + dx;
                 int z = at.z() + dz;
-                out.add(new Course(new BlockPos(x, site.groundLevel(x, z), z),
-                        Blocks.HAY_BLOCK.defaultBlockState()));
+                boolean crown = dx == 0 && dz == 0;
+                int most = crown ? Furnishings.HEAP_STEPS : 2;
+                int high = crown ? heap : Math.max(1, heap - 1);
+                stack(out, new BlockPos(x, site.groundLevel(x, z), z), bale, high, most);
             }
         }
-        out.add(new Course(new BlockPos(at.x(), site.groundLevel(at.x(), at.z()) + 1,
-                at.z()), Blocks.HAY_BLOCK.defaultBlockState()));
+    }
+
+    /**
+     * One column of a heap: {@code high} courses of it standing, and every cell
+     * between there and {@code most} asked to be empty.
+     *
+     * <p>The one place in the dressing that plans a removal, and it plans it as
+     * a cell this piece owns rather than as a box to clear: the cells above
+     * {@code most} are not the piece's business at any height and are never
+     * looked at, so a player's chimney over a woodpile is untouched by anything
+     * this could ever emit.
+     */
+    private static void stack(List<Course> out, BlockPos foot, BlockState of,
+                              int high, int most) {
+        for (int up = 0; up < most; up++) {
+            BlockPos at = foot.above(up);
+            out.add(up < high ? new Course(at, of) : Course.gone(at, of));
+        }
     }
 
     /** Barrels and crates stood outside a store, which is what a store overflows with. */
@@ -706,26 +801,37 @@ public final class FurnishingLayer {
         }
         return plan(siteFor(level, settlement), pieces.get(index),
                 plaqueFor(level, settlement),
-                graveAt(settlement, pieces.get(index)));
+                graveAt(settlement, pieces.get(index)),
+                Furnishings.heapOf(settlement, pieces.get(index)));
     }
 
     /**
      * Whose grave this stone is, or null when the piece is not one.
      *
      * <p>Worked out rather than written down, and it is worked out from one
-     * fact: {@code Furnishings.graves} lists the planned stones in the order
-     * {@code Settlement.dead} lists the people they are for. That is a property
-     * the siting is written to have — the row is dug outward from its first
-     * stone in exactly the order the center-outward sort will put it in — so the
-     * <em>i</em>th stone is for the <em>i</em>th of the dead and nothing has to
-     * carry a name through the plan to say so.
+     * fact: {@code Furnishings.graves} lists the planned stones in the order the
+     * town made the burials they are for. That is a property the siting is
+     * written to have — the row is dug outward from its first stone in exactly
+     * the order the center-outward sort will put it in — so the <em>i</em>th
+     * stone is for the <em>i</em>th burial and nothing has to carry a name
+     * through the plan to say so.
      *
-     * <p>Null for a stone the plan has and the roster has not, which is the state
-     * between a town burying its twelfth person and the oldest falling off the
-     * list. A board with nothing on it is left exactly as it stands — see
-     * {@link #inscribe}, which does nothing at all with an empty line list — so a
-     * stone whose name has aged out keeps the name it was cut with rather than
-     * being scrubbed blank.
+     * <p><strong>The i-th burial, not the i-th name on the roster</strong>, and
+     * that distinction is the whole of this. {@code Settlement.dead} keeps the
+     * last twelve names and the row keeps every stone, so once a town has
+     * buried thirteen the two lists have different lengths and reading one by
+     * the other's index is reading the wrong person: the first stone would be
+     * recut with the second person's name, the second with the third's, and
+     * every board in the churchyard would be rewritten on the thirteenth death
+     * and again on every death after it. {@code Settlement.agedOff} is the
+     * offset between them.
+     *
+     * <p>Null for a stone whose name the town no longer has — which is now the
+     * ordinary state of an old grave rather than a brief window. A board with
+     * nothing on it is left exactly as it stands — see {@link #inscribe}, which
+     * does nothing at all with an empty line list — so a stone whose name has
+     * aged out keeps the name it was cut with, for ever, which is what a
+     * headstone is.
      */
     static Settlement.Grave graveAt(Settlement settlement, Furnishings.Furnishing piece) {
         if (settlement == null || piece == null
@@ -733,8 +839,12 @@ public final class FurnishingLayer {
             return null;
         }
         int stone = Furnishings.graves(settlement).indexOf(piece);
+        if (stone < 0) {
+            return null;
+        }
         List<Settlement.Grave> dead = settlement.dead();
-        return stone < 0 || stone >= dead.size() ? null : dead.get(stone);
+        int which = stone - settlement.agedOff();
+        return which < 0 || which >= dead.size() ? null : dead.get(which);
     }
 
     /**
@@ -809,6 +919,14 @@ public final class FurnishingLayer {
      */
     public static Course owed(ServerLevel level, List<Course> plan) {
         for (Course course : plan) {
+            if (course.clear()) {
+                // A cell the piece is deliberately leaving empty is not a block
+                // anybody is owed. Taking one down is the sweep's business and
+                // not a builder's: there is nothing to walk to and nothing to
+                // swing at, and a crew handed one would stand at an empty square
+                // of air for ever waiting to finish the piece.
+                continue;
+            }
             if (!level.isLoaded(course.pos())) {
                 continue;   // unread ground is not work owed; it is work unseen
             }
@@ -886,7 +1004,10 @@ public final class FurnishingLayer {
      */
     public static boolean oursStandsAt(ServerLevel level, Settlement settlement, int index) {
         for (Course course : planAt(level, settlement, index)) {
-            if (level.isLoaded(course.pos())
+            // A cell the piece is deliberately not filling says nothing about
+            // whether the piece is standing: an empty course above a short
+            // woodpile is the pile being short, not the pile being gone.
+            if (!course.clear() && level.isLoaded(course.pos())
                     && stands(level.getBlockState(course.pos()), course)) {
                 return true;
             }
@@ -975,7 +1096,8 @@ public final class FurnishingLayer {
                                  Settlement settlement, Furnishings.Furnishing piece,
                                  Signage.Plaque plaque) {
         boolean placed = false;
-        for (Course course : plan(site, piece, plaque, graveAt(settlement, piece))) {
+        for (Course course : plan(site, piece, plaque, graveAt(settlement, piece),
+                Furnishings.heapOf(settlement, piece))) {
             placed |= put(level, course);
         }
         return placed;
@@ -1015,6 +1137,9 @@ public final class FurnishingLayer {
         if (!level.isLoaded(course.pos())) {
             return false;
         }
+        if (course.clear()) {
+            return strip(level, course);
+        }
         if (stands(level.getBlockState(course.pos()), course)) {
             // Standing, but not necessarily saying the right thing. A board is
             // the one course whose correctness is not settled by the block being
@@ -1034,6 +1159,39 @@ public final class FurnishingLayer {
             inscribe(level, course);
         }
         return took;
+    }
+
+    /**
+     * Takes down one course of a heap that has got shorter.
+     *
+     * <p><strong>The only removal the dressing sweep can make</strong>, and the
+     * rule is one line of code: the block standing in the cell has to be
+     * <em>exactly</em> the state this piece would have laid there itself. Not
+     * "a log", not "wood", not "something replaceable" — the same block state,
+     * which is an identity comparison because block states are interned. A
+     * different species of log, a log turned the other way, a chest, a torch, a
+     * sapling that seeded, a wall a player built through the pile: every one of
+     * them is somebody else's and is left exactly as it stands, and the heap
+     * simply keeps the course it cannot clear.
+     *
+     * <p>The cost of the rule, said plainly because it is real: a player who
+     * stacks an identical log into a cell the town's own pile uses will have it
+     * taken when the store falls. That is the price of the pile being able to
+     * shrink at all, and it is bounded to six cells beside a lumber camp and
+     * four beside a farm.
+     *
+     * <p>No drops, and nothing goes on anybody's books. A course that comes off
+     * a woodpile is not timber recovered — it was never timber spent. The pile
+     * is dressing and dressing is worth nothing; see {@code Furnishings.Cost},
+     * which charges for a piece being raised and knows nothing about how tall it
+     * happens to stand.
+     */
+    private static boolean strip(ServerLevel level, Course course) {
+        if (level.getBlockState(course.pos()) != course.state()) {
+            return false;
+        }
+        level.removeBlock(course.pos(), false);
+        return level.getBlockState(course.pos()).isAir();
     }
 
     /**

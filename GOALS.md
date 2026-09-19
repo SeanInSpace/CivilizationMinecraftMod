@@ -500,17 +500,15 @@ kept only until a run has been watched over it.*
       model, the nameplate fade, sounds, sign writes, the walk, the llamas on a
       leash over a hill, whether twelve cobble walls read as a churchyard) is
       read rather than measured.
-- [ ] **Left by the immersion batch.** The caravan trader stands in the inn
-      yard rather than sitting: `Pastimes` seats only residents and its seat
-      map is emptied by release/reap, neither of which knows a visitor exists,
-      so a seated stranger would leave an invisible seat behind. The woodpile
-      and the rick stay one-shot props: the dressing sweep has no path that
-      removes a block, so a pile that tracked the timber ledger could grow and
-      never shrink. Signposts point at the hall, not at a gate. Rain and night
-      still change the people and not the town: lamps burn all day, doors are
-      never shut for the night, no weather response. `atWork` for a greeting is
-      reconstructed on the entity from clock and pastime rather than read from
-      the routine's own `offWork`.
+- [ ] **Left by the immersion batch.** Signposts point at the hall, not at a
+      gate. Lamps burn all day. `atWork` for a greeting is reconstructed on the
+      entity from clock and pastime rather than read from the routine's own
+      `offWork`. Rain moves the people and not the work: the outdoor trades
+      take shelter as a pastime, but the work sweeps are deliberately not gated
+      on the weather, because `FoodPlanner.growHarvest` has no floor under a
+      watched field and a rainy watched town that downed tools would fall
+      behind an unwatched one. A watched farmer therefore still farms in a
+      downpour, and only the people the ledgers have let go of go inside.
 - [x] **The living-town batch, 2026-09-16.** From the screenshot of a ring
       town that was a road around grass. Dressing: yards behind family homes,
       woodpiles, haystacks, crates, a well and a paved square with benches at

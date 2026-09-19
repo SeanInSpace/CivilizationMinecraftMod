@@ -831,12 +831,23 @@ public final class CivilizationCodecs {
             // The dead. Absent reads as a town that has never lost anybody, which
             // is the right answer for a save written before there were graves.
             GRAVE.listOf().optionalFieldOf("dead", List.of()).forGetter(Settlement::dead),
+            // And how many there have been altogether, which is a count and so
+            // is allowed in the save where the row of stones is not. The names
+            // above are bounded at a dozen and the churchyard is not, so a stone
+            // is paired to a burial <em>number</em> rather than to a place in
+            // that list -- see Settlement.buried, which is the whole reason a
+            // town's thirteenth death no longer recuts every board it has.
+            //
+            // Absent reads as nought and is then floored to however many names
+            // came back, so a town saved before this existed keeps exactly the
+            // churchyard it had and grows from there.
+            Codec.INT.optionalFieldOf("buried", 0).forGetter(Settlement::buried),
             HOLDINGS.fieldOf("holdings").forGetter(Holdings::of),
             DEFENSE.fieldOf("defense").forGetter(Defense::of),
             WORKS.fieldOf("works").forGetter(Works::of),
             QUESTS.fieldOf("quests").forGetter(Quests::of)
     ).apply(i, (id, name, center, claimRadius, charter, residents, households, events,
-                dead, holdings, defense, works, quests) -> {
+                dead, buried, holdings, defense, works, quests) -> {
         Settlement settlement = new Settlement(id, name, center, claimRadius);
         settlement.setThreatLevel(defense.threatLevel());
         settlement.loosePile().restore(holdings.goods());
@@ -865,6 +876,9 @@ public final class CivilizationCodecs {
         households.forEach(settlement::addHousehold);
         events.forEach(e -> settlement.logEvent(e.step(), e.message()));
         settlement.restoreDead(dead);
+        // After the names, because the total is floored by however many of them
+        // there are and a floor applied before them would floor against nothing.
+        settlement.restoreBuried(buried);
         settlement.quests().restore(quests.offered(), quests.done());
         settlement.standing().restore(quests.standing());
         // After the buildings, because adding one can push the cursor past it.

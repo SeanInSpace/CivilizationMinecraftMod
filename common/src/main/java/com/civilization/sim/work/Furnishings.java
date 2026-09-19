@@ -162,12 +162,16 @@ public final class Furnishings {
          * One stone for one of the town's dead, in a row on the outer verge.
          *
          * <p>The only piece on this list that is not a function of the buildings
-         * and the streets alone: there is one for each entry in
-         * {@code Settlement.dead}, so a town that has never lost anybody has no
-         * graveyard and a town that has lost twelve has twelve stones. Where the
-         * row goes is derived like everything else here — see {@code theGraves} —
-         * which is what lets a town bury somebody who starved while nobody was
-         * looking and have the grave be there when somebody comes back.
+         * and the streets alone: there is one for every burial the town has ever
+         * made — {@code Settlement.buried}, capped at {@link #GRAVES_PLANNED} —
+         * so a town that has never lost anybody has no graveyard and a town that
+         * has lost twenty has twenty stones. Counted off the running total and
+         * not off {@code Settlement.dead}, which keeps only the last dozen names:
+         * pairing the row to that list made a town's thirteenth death recut every
+         * board it had. Where the row goes is derived like everything else here —
+         * see {@code theGraves} — which is what lets a town bury somebody who
+         * starved while nobody was looking and have the grave be there when
+         * somebody comes back.
          *
          * <p>A block of stone and a plank for the board, which is what a marker
          * costs, and the clearance of a thing in its own right rather than of a
@@ -355,10 +359,14 @@ public final class Furnishings {
         h = mix(h ^ (settlement.cultureId() == null ? 0 : settlement.cultureId().hashCode()));
         h = mix(h ^ settlement.residents().size());
         // The one input to this plan that is not the town's shape. A grave is
-        // planned per entry in the dead, so a death has to move the memo or a
-        // town would bury somebody and grow no churchyard until the next house
-        // went up. See Piece.GRAVE.
-        h = mix(h ^ settlement.dead().size());
+        // planned per burial the town has ever made, so a death has to move the
+        // memo or a town would bury somebody and grow no churchyard until the
+        // next house went up. See Piece.GRAVE.
+        //
+        // The running total and not the roster's size, which stops moving at
+        // twelve: a town's thirteenth death would otherwise leave the memo
+        // unchanged and the thirteenth stone unplanned for ever.
+        h = mix(h ^ settlement.buried());
         for (Building building : settlement.buildings()) {
             h = mix(h ^ building.origin().x());
             h = mix(h ^ building.origin().z());
@@ -778,6 +786,93 @@ public final class Furnishings {
                 && Homes.isFamilyHome(building.blueprintId());
     }
 
+    // --- how full a heap stands ------------------------------------------------
+
+    /**
+     * How many courses a heap can stand: three.
+     *
+     * <p>Three and not ten, because what is being said is "the camp is doing
+     * well" and there are three answers to that from across a street: a few
+     * logs, a stack, a wall of timber. A pile with ten heights is a pile whose
+     * height nobody reads.
+     */
+    public static final int HEAP_STEPS = 3;
+
+    /**
+     * Timber in the camp per course of woodpile: 64.
+     *
+     * <p>A stack of logs. Under one the pile is a few split rounds, at one it is
+     * a proper stack, at two it is the wall of timber a camp with a good season
+     * behind it has — and the top step is open-ended, so a camp sitting on a
+     * thousand logs looks the same as one sitting on two hundred, which is
+     * right: past a point a woodpile is just a woodpile.
+     */
+    public static final int TIMBER_PER_COURSE = 64;
+
+    /** Grain in the granary per course of rick: 32. A rick is smaller than a stack. */
+    public static final int GRAIN_PER_COURSE = 32;
+
+    /**
+     * How full this piece stands, from one to {@link #HEAP_STEPS}.
+     *
+     * <p><strong>Derived and never written down</strong>, exactly like where the
+     * piece goes — and deliberately <em>outside</em> {@link #pieces}, which is
+     * memoized on {@link #shapeOf}. A store changes every step and the shape of
+     * a town does not; folding the stock into the memo would throw the most
+     * expensive plan in the mod away several times a second to move one log.
+     * So the list of pieces is a fact about the buildings and the streets as it
+     * always was, and how tall two of them stand is asked separately, by the
+     * sweep, at the moment it draws one.
+     *
+     * <p>Everything that is not a heap answers {@link #HEAP_STEPS}: a fence is
+     * a fence at any hour and a headstone does not get shorter.
+     */
+    public static int heapOf(Settlement settlement, Furnishing piece) {
+        if (settlement == null || piece == null) {
+            return HEAP_STEPS;
+        }
+        return switch (piece.piece()) {
+            case WOODPILE -> coursesFor(
+                    heldIn(settlement, BuildingRole.LUMBER_CAMP, TownStores.WOOD),
+                    TIMBER_PER_COURSE);
+            case HAYSTACK -> coursesFor(
+                    heldIn(settlement, BuildingRole.GRANARY, TownStores.GRAIN),
+                    GRAIN_PER_COURSE);
+            default -> HEAP_STEPS;
+        };
+    }
+
+    /** One course to start with, and one more for each {@code per} held. */
+    public static int coursesFor(int held, int per) {
+        if (per <= 0) {
+            return HEAP_STEPS;
+        }
+        return Math.max(1, Math.min(HEAP_STEPS, 1 + Math.max(0, held) / per));
+    }
+
+    /**
+     * What the buildings of this role are holding, or what the town holds
+     * altogether where it has raised none of them.
+     *
+     * <p>The building's own store first, because the piece is beside that
+     * building and a woodpile is made of the camp's timber rather than of the
+     * town's idea of timber. The fallback is for the towns that stand one of
+     * these anyway: a woodpile goes beside a hearth as well as beside a camp,
+     * and a village whose firewood is in its storehouse should not have a pile
+     * that is permanently one log high.
+     */
+    private static int heldIn(Settlement settlement, BuildingRole role, String good) {
+        List<Building> holders = settlement.buildingsWithRole(role);
+        if (holders.isEmpty()) {
+            return settlement.stores().get(good);
+        }
+        int held = 0;
+        for (Building building : holders) {
+            held += building.stores().get(good);
+        }
+        return held;
+    }
+
     /** A woodpile beside every lumber camp and every hearth. */
     private static void theWoodpiles(Settlement settlement, FurnishingStyle style,
                                      Keepouts ground, List<Furnishing> out) {
@@ -1191,6 +1286,34 @@ public final class Furnishings {
     public static final int BEYOND_THE_LAST_HOUSE = 8;
 
     /**
+     * How many stones the row is ever planned to hold: twenty-four.
+     *
+     * <p>Twice what the town remembers names for, and a hard stop. A settlement
+     * that lives long enough buries everybody in it several times over, and a
+     * churchyard planned from an unbounded count would be a ring of cobble
+     * {@link #GRAVES_APART} blocks a stone right round the outside of the
+     * village — a hundred deaths is three hundred blocks of verge, which is
+     * further out than the claim goes.
+     *
+     * <p>What the cap does <em>not</em> do is move anything. Slot <em>i</em> is
+     * burial <em>i</em> for ever; the cap only says that burials past the
+     * twenty-fourth get no stone of their own, so the churchyard stops growing
+     * rather than starting again. That is the right shape for the thing: a
+     * village has a graveyard, and then the graveyard is full.
+     *
+     * <p>The other reading — keep the <em>newest</em> twenty-four and let the
+     * oldest stop being redrawn — was written out and rejected. The row's slots
+     * are absolute, so the newest twenty-four of a hundred burials sit at slots
+     * seventy-six to ninety-nine, which is a hundred and fifty blocks from the
+     * head of the row and outside any claim: {@code Keepouts} would refuse every
+     * one of them and the churchyard would silently vanish. Finding those slots
+     * at all would also mean walking the row from nought every time the plan is
+     * made, which is a cost that grows for ever inside the most expensive
+     * planning pass in the mod.
+     */
+    public static final int GRAVES_PLANNED = 24;
+
+    /**
      * A row of stones on the outer verge, one for each of the town's dead.
      *
      * <p><strong>Why it is here at all.</strong> A settler starved, or was killed
@@ -1215,7 +1338,11 @@ public final class Furnishings {
      */
     private static void theGraves(Settlement settlement, FurnishingStyle style,
                                   Keepouts ground, List<Furnishing> out) {
-        int buried = settlement.dead().size();
+        // Every burial the town has ever made, not the dozen it still has names
+        // for — see Settlement.buried. Planning from the roster made the row
+        // stop at twelve stones and, far worse, made the thirteenth death
+        // rewrite every board in the churchyard with the next name along.
+        int buried = Math.min(settlement.buried(), GRAVES_PLANNED);
         if (buried <= 0 || !style.raises(Piece.GRAVE)) {
             return;
         }
