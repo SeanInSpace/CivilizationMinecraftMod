@@ -222,7 +222,7 @@ class DeadTownTest {
                 "a town with nobody alive was allowed to mend a road");
 
         // Drawn: the record goes down, once.
-        town.paths().setLaidThrough(1);
+        town.paths().markLaid(0);
 
         for (int step = 1; step <= SILENT_STEPS; step++) {
             town.step(new SimContext(ground, step, SimSettings.SANDBOX));
@@ -235,20 +235,30 @@ class DeadTownTest {
                 "a town with nobody alive opened another road");
     }
 
-    /** A road once drawn stays drawn, so nothing can walk the mark backwards. */
+    /**
+     * A road once drawn stays drawn, and drawing one says nothing about the next.
+     *
+     * <p>This used to be a high-water mark, and asserted that the mark only ever
+     * went forward. The record is per stretch now, because a town opens the
+     * streets it has earned rather than every stretch in index order — so the
+     * thing to pin is that a stretch drawn out of turn is the only stretch the
+     * record claims.
+     */
     @Test
-    void theMarkOnADrawnRoadOnlyEverGoesForward() {
+    void aDrawnRoadIsRememberedAndOnlyThatRoad() {
         PathNetwork paths = new PathNetwork(
                 List.of(new PathNetwork.Segment(new SimPos(0, 64, 0), new SimPos(0, 64, 6)),
                         new PathNetwork.Segment(new SimPos(0, 64, 6), new SimPos(6, 64, 6))),
                 List.of());
-        paths.setLaidThrough(2);
-        paths.setLaidThrough(0);
-        assertEquals(2, paths.laidThrough(), "a road already drawn was forgotten");
+        paths.markLaid(1);
+        paths.markLaid(1);
+        assertEquals(1, paths.laidCount(), "one road drawn twice was counted twice");
         assertTrue(paths.isLaid(1), "a drawn stretch stopped counting as drawn");
-        paths.setLaidThrough(99);
-        assertEquals(2, paths.laidThrough(),
-                "the mark ran past the end of the network");
+        assertFalse(paths.isLaid(0),
+                "drawing the second stretch crossed the first one off as well");
+        paths.markLaid(99);
+        assertEquals(1, paths.laidCount(),
+                "the record took a stretch past the end of the network");
     }
 
     /** The living half, so the fix cannot be "nobody ever mends anything". */
@@ -261,7 +271,7 @@ class DeadTownTest {
                 List.of(new PathNetwork.Segment(new SimPos(0, 64, 0), new SimPos(0, 64, 6))),
                 List.of()));
         town.paths().markOpened(0);
-        town.paths().setLaidThrough(1);
+        town.paths().markLaid(0);
         assertTrue(RoadUpkeep.mayMend(town, 0),
                 "a town with people in it stopped keeping its own road");
         assertFalse(RoadUpkeep.mayMend(town, 1),

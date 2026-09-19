@@ -3443,6 +3443,10 @@ public final class Settlement {
 
     private void planNextBuild(SimContext ctx) {
         planSurvivalBuild(ctx);
+        // The seat, which is what the stage the town is claiming means.
+        if (planTheSeat(ctx)) {
+            return;
+        }
         // Fields, before the town is hungry rather than after. Asked ahead of
         // the empty-queue test because it is the one want allowed to speak to a
         // head that has stopped moving; see planFarmAhead.
@@ -3479,8 +3483,76 @@ public final class Settlement {
         wanted.ifPresent(type -> orderBuild(ctx, type));
     }
 
+    /**
+     * A chartered town orders its seat, and it does not wait its turn.
+     *
+     * <p><strong>What went wrong.</strong> A settlement reported itself a TOWN
+     * with no town hall, and both halves of that were working as written. The
+     * hall is the TOWN program's headline build — the capstone the whole staging
+     * design exists to hold back, and the reason FOUNDING.md reads a stage off a
+     * census with "a hall means TOWN". But the stage is what <em>lets</em> the
+     * hall be ordered, so for a while every TOWN is a TOWN without one, and
+     * "for a while" was as long as the rest of the town's wants took: the
+     * program was asked only once the build queue had run dry, and a growing
+     * town's queue does not run dry. A village the world wrote down is a TOWN on
+     * its very first step, by {@code StagePlanner.readyToAdvance}'s own
+     * definition — so it held the title with the hall nowhere, not standing and
+     * not even ordered, behind a farm.
+     *
+     * <p><strong>The rule.</strong> A town that holds the stage orders the seat
+     * at once, without waiting for its queue to drain, and the order goes to the
+     * front of that queue — behind only the job already in hand, ahead of the
+     * fields and ahead of anything the catalog fancies afterwards. Nothing else
+     * in the program gets this: the seat is the one building that <em>is</em>
+     * the stage rather than a consequence of it, and a town claiming a charter
+     * it has not built is the settlement telling the player something untrue
+     * about itself.
+     *
+     * <p><strong>Asked of the program rather than of a name.</strong>
+     * {@link StagePlanner#nextProgramWant} is the one place that knows what this
+     * people's seat is — a town hall, a warhost's great hut, a mire chieftain's
+     * hut — and knows that a warhost's already stands, so nothing is ordered for
+     * them. At TOWN the program is exactly the seat and nothing else, so asking
+     * it is asking about the hall and there is no second copy of that list.
+     *
+     * @return whether an order was placed, which ends the step's planning
+     */
+    private boolean planTheSeat(SimContext ctx) {
+        if (!stage.atLeast(SettlementStage.TOWN)) {
+            return false;   // the hall is off the table, which is the whole ladder
+        }
+        // And not before the streets, which is the same order everything else in
+        // this town is built in. A hall is sited against a curb — see
+        // againstTheCurb — and its plot is ground the road router must keep off;
+        // ordered on a town with no network yet, it picks raw ground and then
+        // stands in the way of the streets that were about to be routed through
+        // it. Measured on the village the world writes down, whose whole network
+        // is walked out in one pass on its first step: ordering the hall ahead of
+        // that pass left the town with no roads at all.
+        if (seededRoadsOwed || paths().isEmpty()) {
+            return false;
+        }
+        Optional<BuildingType> seat = StagePlanner.nextProgramWant(this);
+        if (seat.isEmpty()) {
+            return false;   // it stands, it is ordered, or these hands have one
+        }
+        orderBuild(ctx, seat.get(), true);
+        return true;
+    }
+
     /** Sites and queues one building — the shared tail of program and catalog. */
     private void orderBuild(SimContext ctx, BuildingType type) {
+        orderBuild(ctx, type, false);
+    }
+
+    /**
+     * The same, with the choice of where in the queue it lands.
+     *
+     * @param atTheHead whether this order goes to the front of the queue rather
+     *                  than the back of it, which only the town's own seat does
+     *                  — see {@link #planTheSeat}
+     */
+    private void orderBuild(SimContext ctx, BuildingType type, boolean atTheHead) {
         SimPos flat = chooseSite(ctx, type);
 
         // Read the way it should look BEFORE moving it. The plan answers that
@@ -3505,7 +3577,15 @@ public final class Settlement {
         BuildTask ordered = new BuildTask(type.id(), plot, type.workCost());
         ordered.setFacing(facing);
         payForLeveling(plot, type.plotSpan(), ctx);
-        buildQueue.add(ordered);
+        if (atTheHead) {
+            // Next, rather than instead of. A town does not knock off the job in
+            // hand to start its hall — half a cottage standing open while the
+            // crew walks away is nobody's idea of a charter — but nothing
+            // ordered afterwards gets in front of it either.
+            buildQueue.add(Math.min(1, buildQueue.size()), ordered);
+        } else {
+            buildQueue.add(ordered);
+        }
     }
 
     /**

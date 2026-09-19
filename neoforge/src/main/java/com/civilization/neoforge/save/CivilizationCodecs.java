@@ -345,12 +345,17 @@ public final class CivilizationCodecs {
                     .forGetter(PathNetwork::routedStreets),
             Codec.INT.listOf().optionalFieldOf("streets_refused", List.of())
                     .forGetter(PathNetwork::refusedStreets),
-            // How far the stones have actually gone down, as opposed to how far
-            // the town has walked its streets out. This lived in the drawing
+            // Which stretches the stones have actually gone down on, as opposed
+            // to which the town has walked out. This lived in the drawing
             // sweep's memory, so every server start forgot that the roads had
             // ever been drawn and re-laid the lot -- which for a town with
             // nobody left in it is a road crew nobody could have hired.
-            Codec.INT.fieldOf("laid_through").forGetter(PathNetwork::laidThrough),
+            //
+            // A list and no longer a count: a town opens the streets it has
+            // earned rather than every stretch in index order, so what has been
+            // drawn is a set with holes in it and a number cannot say which.
+            Codec.INT.listOf().optionalFieldOf("laid", List.of())
+                    .forGetter(PathNetwork::laidSegments),
             // Which planned stretch each run was laid for, as index-then-key
             // pairs. A run that has forgotten its street cannot take part in a
             // rule about a street, and the rule that says a circuit opens when
@@ -359,13 +364,13 @@ public final class CivilizationCodecs {
             // for as long as the town stood.
             Codec.INT.listOf().optionalFieldOf("run_streets", List.of())
                     .forGetter(PathNetwork::runStreetPairs)
-    ).apply(i, (segments, joined, opened, streetsLaidFor, routed, refused, laidThrough,
+    ).apply(i, (segments, joined, opened, streetsLaidFor, routed, refused, laid,
                 runStreets) -> {
         PathNetwork network = new PathNetwork(segments, joined);
         network.restoreOpened(opened);
         network.setStreetsLaidFor(streetsLaidFor);
         network.restoreStreets(routed, refused);
-        network.setLaidThrough(laidThrough);
+        network.restoreLaid(laid);
         network.restoreRunStreets(runStreets);
         return network;
     }));

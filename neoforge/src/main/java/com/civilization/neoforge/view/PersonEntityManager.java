@@ -1900,45 +1900,42 @@ public final class PersonEntityManager {
         // back into showed its houses at once and then drew its streets in
         // slowly around you, one at a time, for as long as you stood there.
         //
-        // So: everything opened since the last sweep goes down together. Only
-        // the tail is new, because segments are appended, so this costs nothing
-        // on the steps where nothing has changed.
-        int swept = settlement.paths().laidThrough();
-        if (swept < segments.size()) {
+        // So: everything opened and not yet drawn goes down together, oldest
+        // opened first. RoadUpkeep.backlog names them, because which stretches
+        // the town is owed is the simulation's question and has no world in it;
+        // what is left here is the half that needs one -- whether the ground is
+        // loaded, and the blocks.
+        //
+        // It used to walk the network by index from a high-water mark, which
+        // held only while a town opened every stretch it had in order. It does
+        // not: it opens what it fronts and what leads to its square, so its
+        // opened set has holes, and the walk stopped at the first one. Every
+        // stretch past that hole fell through to the round-robin below, at one
+        // a second -- which is the very thing this backlog exists to prevent.
+        List<Integer> owed = RoadUpkeep.backlog(settlement, PAVE_AT_ONCE);
+        if (!owed.isEmpty()) {
             int done = 0;
-            int i = swept;
-            for (; i < segments.size() && done < PAVE_AT_ONCE; i++) {
-                if (settlement.paths().isUnwalkable(i)) {
-                    // A stair, not a street: nobody will ever open it, so waiting
-                    // on it is waiting forever. The mark used to stop here, and
-                    // with it every stretch further down the list -- which left
-                    // the round-robin below to draw them at one a second, so a
-                    // town that arrived with forty roads drew them one at a time
-                    // in front of whoever was standing in it. That is the very
-                    // thing this backlog exists to prevent.
+            for (int index : owed) {
+                if (!groundIsHere(segments.get(index))) {
+                    // Nobody can see this stretch, so nothing can be laid on it.
+                    // Stepped over rather than stopped at, and the record is why:
+                    // PathLayer no-ops on unloaded ground and reports nothing, so
+                    // a mark that advanced anyway would tick every road of an away
+                    // town off as done without a block being placed. Nothing is
+                    // struck off here that was not drawn, so a stretch out of
+                    // sight simply stays owed and the loaded ones beside it do
+                    // not wait behind it.
                     continue;
                 }
-                if (!RoadUpkeep.mayDraw(settlement, i)) {
-                    break;   // the network is opened in order; wait for this one
-                }
-                if (!groundIsHere(segments.get(i))) {
-                    // Nobody can see this stretch, so nothing can be laid on it.
-                    // Stopping here rather than stepping over it is the whole
-                    // point: PathLayer no-ops on unloaded ground and reports
-                    // nothing, so a mark that advanced anyway would tick every
-                    // road of an away town off as done without a block being
-                    // placed -- and then the arrival this exists to serve would
-                    // find the work already crossed out.
-                    break;
-                }
-                PathLayer.mend(level, settlement, segments.get(i));
+                PathLayer.mend(level, settlement, segments.get(index));
+                settlement.paths().markLaid(index);
                 done++;
             }
-            settlement.paths().setLaidThrough(i);
             if (done > 0) {
                 if (done > 4) {
                     CivilizationMod.LOGGER.info("PAVED {} laid {} stretches at once ({} of {})",
-                            settlement.name(), done, i, segments.size());
+                            settlement.name(), done, settlement.paths().laidCount(),
+                            settlement.paths().openedCount());
                 }
                 return true;
             }

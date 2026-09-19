@@ -75,7 +75,7 @@ class SaveKeySpellingTest {
             "buildings", "next_plot", "plot", "footprint", "condition", "ledgers",
             "stand", "seam", "ripe", "paths", "segments", "width", "lumber_area",
             "mine_area", "haul", "pockets", "households", "events", "seeded",
-            "seeded_roads_owed", "dig_done", "laid_through", "streets_laid_for",
+            "seeded_roads_owed", "dig_done", "laid", "streets_laid_for",
             // The board, which is the fifth group beside charter/holdings/
             // defense/works and reaches three levels down into a reward.
             "quests", "offered", "notice", "kind", "detail", "reward", "offered_on",
@@ -241,7 +241,7 @@ class SaveKeySpellingTest {
         roads.restoreOpened(List.of(0));
         roads.setStreetsLaidFor(2);
         roads.restoreStreets(List.of(0), List.of(1));
-        roads.setLaidThrough(1);
+        roads.markLaid(0);
         town.setPaths(roads);
 
         town.setLumberArea(new WorkArea(new SimPos(480, 72, -540), 48));
