@@ -111,7 +111,7 @@ So the grid is twice as wide and the opening is one town instead of nine.
 - **A region is 1024 blocks across, not 512.** The margin that holds neighbours
   apart is five sixteenths of it, so nothing in a world can now stand closer
   than **640 blocks** to anything else. Measured over 200 seeds: a town's
-  nearest neighbour is 653 blocks away at worst, **1007 at the median** and 1064
+  nearest neighbour is 653 blocks away at worst, **1007 at the median** and 1063
   on average, against 324 and 504 at the old dial. One town per 1730 blocks of
   world at the unchanged 35 percent chance — about 17 within four thousand
   blocks of you, where there used to be 69.
@@ -119,10 +119,12 @@ So the grid is twice as wide and the opening is one town instead of nine.
   spawn region follow `worldgen.site_chance` like everywhere else. The starter
   is placed at the point of its own jitter window nearest the spawn point but
   never within **256 blocks** of it — a minute's walk, and outside any claim, so
-  you are not spawning inside somebody's turnip field. Measured over 200 seeds
-  it lands 257 to 406 blocks out, 258 at the median, and a world opens with
-  **1.75 towns inside its first kilometre**: the one it was promised, plus
-  whatever the dice added.
+  you are not spawning inside somebody's turnip field. How much further than 256
+  is drawn per world from [256, 512], so the walk to the first town varies with
+  the seed the way the bearing always did: measured over 200 seeds it lands
+  **259 to 514 blocks out, 381 at the median**. A world opens with **1.75 towns
+  inside its first kilometre**: the one it was promised, plus whatever the dice
+  added.
 - **The join message and `/civ sites` look two regions out**, 2048 blocks by
   default rather than a flat kilometre, and the heading says so. A kilometre was
   two regions when a region was 512; at 1024 it reached the starter town and

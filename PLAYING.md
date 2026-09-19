@@ -391,9 +391,10 @@ Per-world settings in `<world>/serverconfig/civilization-server.toml`:
 A new world does not wait for you to go looking. The one region holding the
 world spawn is settled whatever the dice say, and its town is raised as the
 level loads rather than when somebody walks past — so the first time you look
-around, there is a town **two hundred and sixty to four hundred blocks away**,
-near enough to reach before dark and far enough that you did not spawn in
-somebody's turnip field.
+around, there is a town **two hundred and sixty to five hundred blocks away** —
+how far is drawn from the seed, like everything else about it, so the first walk
+is not the same walk in every world. Near enough to reach before dark, and far
+enough that you did not spawn in somebody's turnip field.
 
 One town, not nine. The mod used to guarantee the spawn region *and its eight
 neighbours*, which gave every world an opening cluster denser than any other

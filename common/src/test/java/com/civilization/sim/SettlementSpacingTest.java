@@ -144,6 +144,25 @@ class SettlementSpacingTest {
                     "a starter town landed " + Math.round(walk)
                             + " blocks out, past its own region");
         }
+
+        // And the walk is a fact about the seed rather than a constant. The
+        // keep-out used to be a flat 256, so four worlds in five put their
+        // starter at 257 or 258 and the only thing that varied was which way you
+        // set off. Drawn per world from [256, 512], the distance has to spread
+        // and its middle has to sit well clear of its floor.
+        double shortest = starters.get(0);
+        double longest = starters.get(starters.size() - 1);
+        assertTrue(shortest <= SettlementSites.STARTER_MIN_FROM_SPAWN + 16,
+                "the nearest starter over " + WORLDS + " worlds was "
+                        + Math.round(shortest) + " blocks out, so the floor of "
+                        + SettlementSites.STARTER_MIN_FROM_SPAWN + " is never reached");
+        assertTrue(longest >= 480,
+                "the furthest starter over " + WORLDS + " worlds was only "
+                        + Math.round(longest) + " blocks out");
+        assertTrue(median(starters) > shortest + 5,
+                "the median starter is " + Math.round(median(starters))
+                        + " blocks out against a minimum of " + Math.round(shortest)
+                        + " — the walk is still the same walk in every world");
     }
 
     @Test

@@ -57,7 +57,7 @@ public final class SettlementSites {
      * daylight, so a world's closest pairs were touching.
      *
      * <p>Measured over 200 seeds ({@code SettlementSpacingTest}): the nearest
-     * neighbour a town has is 653 blocks at worst, 1007 at the median and 1064
+     * neighbour a town has is 653 blocks at worst, 1007 at the median and 1063
      * on average. The same measurement at 512 gives 324 and 504.
      *
      * <p>Must stay at least {@code 2 * EDGE_MARGIN}, or the jitter window
@@ -158,15 +158,35 @@ public final class SettlementSites {
      * spawn point outright.
      *
      * <p>256 is about a minute's walk and comfortably outside any claim, so the
-     * first thing a new world shows you is a town you have to walk to. Measured
-     * over 200 seeds the starter lands between 257 and 406 blocks out, 258 at
-     * the median — the keep-out is what usually decides it, because the nearest
-     * point of the jitter window is nearer than this more often than not.
+     * first thing a new world shows you is a town you have to walk to.
      *
      * <p>Capped by {@link Grid#starterMinFromSpawn} where the region is too
      * small to hold it.
      */
     public static final int STARTER_MIN_FROM_SPAWN = 256;
+
+    /**
+     * How far out the keep-out may be drawn, in blocks.
+     *
+     * <p>The floor alone was a world where the starter town stood 257 or 258
+     * blocks from the spawn point in more than four worlds in five, because the
+     * nearest point of the jitter window is usually nearer than the floor and
+     * the floor then decided everything. The bearing already varied with the
+     * seed; the walk did not, and a promise that is always the same length reads
+     * as a rule rather than a place.
+     *
+     * <p>So the keep-out is drawn per world from {@code [STARTER_MIN_FROM_SPAWN,
+     * STARTER_MAX_FROM_SPAWN]} on its own hash stream, and 512 is the far end:
+     * twice the floor, still a walk rather than an expedition, and inside what
+     * the jitter window can actually reach at the shipped region. Measured over
+     * 200 seeds the starter now lands between 259 and 514 blocks out, 381 at the
+     * median and 390 on average, where the flat floor gave 257 to 406 with a
+     * median of 258.
+     *
+     * <p>Scaled down with the region by {@link Grid#starterKeepOut}, which will
+     * not ask for more than half a region.
+     */
+    public static final int STARTER_MAX_FROM_SPAWN = 512;
 
     /**
      * The y a site carries until somebody resolves it.
@@ -187,6 +207,7 @@ public final class SettlementSites {
     private static final long SALT_CULTURE = 0x5EED_0003L;
     private static final long SALT_ARRANGEMENT = 0x5EED_0004L;
     private static final long SALT_STARTER = 0x5EED_0005L;
+    private static final long SALT_STARTER_REACH = 0x5EED_0006L;
 
     /**
      * A place a town belongs, and whose it is.
@@ -299,6 +320,32 @@ public final class SettlementSites {
                     jitterSpan() * 7 / 10 - 2));
         }
 
+        /**
+         * How far this world in particular keeps its starter town off the spawn
+         * point, in blocks.
+         *
+         * <p>Drawn from {@code [starterMinFromSpawn, ceiling]} on its own hash
+         * stream, so the walk to the first town varies with the seed the way the
+         * bearing already did. The ceiling is
+         * {@link #STARTER_MAX_FROM_SPAWN} or half a region, whichever is less —
+         * a world with tight regions cannot be asked for a 512-block walk to a
+         * town that has to fit inside one.
+         *
+         * <p>A <em>request</em>, not a promise. The promise is
+         * {@link #starterMinFromSpawn}: the site must land inside the jitter
+         * window, and where the draw asks for more than that window can reach
+         * {@link #starterSite} gives back the furthest of it, which is always at
+         * least the floor.
+         */
+        public int starterKeepOut(long worldSeed, int regionX, int regionZ) {
+            int floor = starterMinFromSpawn();
+            int ceiling = Math.max(floor,
+                    Math.min(STARTER_MAX_FROM_SPAWN, region / 2));
+            return floor + (int) Long.remainderUnsigned(
+                    hash(worldSeed, regionX, regionZ, SALT_STARTER_REACH),
+                    ceiling - floor + 1L);
+        }
+
         /** Which region a block column belongs to. */
         public int regionOf(int blockCoordinate) {
             return Math.floorDiv(blockCoordinate, region);
@@ -388,28 +435,30 @@ public final class SettlementSites {
          * <p>Two rules, and they are the whole method. The site must lie in its
          * region's ordinary jitter window — which is what makes it spaced like
          * every other site rather than specially handled — and it must be at
-         * least {@link #starterMinFromSpawn} blocks from the spawn point.
+         * least {@link #starterMinFromSpawn} blocks from the spawn point. Where
+         * in the room left by those two it goes is {@link #starterKeepOut}'s
+         * draw, so the walk to the first town is a fact about the seed.
          *
          * <p>So: clamp the spawn point into the window, which is the nearest
-         * point of it. If that already clears the keep-out, take it; this is the
-         * common case, because the window is a seventh of the region's area and
-         * a spawn point usually falls outside it. Otherwise walk the ring at the
-         * keep-out itself and take the first bearing that lands in the window,
-         * starting from a hashed bearing so the town is not northeast of every
-         * world's spawn.
+         * point of it. If that already stands further off than this world asked
+         * for, take it — a town is not pushed away from a player to satisfy a
+         * number. Otherwise walk the ring at the drawn distance and take the
+         * first bearing that lands in the window, starting from a hashed bearing
+         * so the town is not northeast of every world's spawn. If nothing on the
+         * ring is in the window — which is what a draw larger than the window
+         * can reach means — take the furthest corner of the window, which is the
+         * closest this world can get to what it asked for.
          *
-         * <p>The ring always meets the window when the keep-out is capped as
-         * {@link #starterMinFromSpawn} caps it: the nearest point of the window
-         * is inside the ring (that is the branch we are in) and the furthest
-         * corner is outside it, and the window is connected, so some point of it
-         * sits at exactly the keep-out. The sweep is 720 bearings and a sliver
-         * thinner than half a degree could still slip between them, which is
-         * what the corner is for — it is always far enough, so the promise never
-         * rests on the sweep.
+         * <p>That corner is what keeps the floor a promise rather than a hope.
+         * The furthest corner of a square from any point is at least half a
+         * diagonal away, and {@link #starterMinFromSpawn} is capped below that,
+         * so the fallback always clears the floor however the draw came out. The
+         * ring sweep is 720 bearings and a sliver thinner than half a degree
+         * could slip between them; the corner catches that too.
          *
-         * <p>The ring radius is the keep-out plus two blocks, so that rounding a
-         * bearing to a block column cannot land a site at 255 and make a liar of
-         * the constant.
+         * <p>The ring radius is the drawn distance plus two blocks, so that
+         * rounding a bearing to a block column cannot land a site at 255 and
+         * make a liar of the constant.
          */
         private SimPos starterSite(long worldSeed, int regionX, int regionZ) {
             SimPos at = spawn.orElseThrow();
@@ -418,16 +467,16 @@ public final class SettlementSites {
             long lowZ = (long) regionZ * region + margin;
             long highX = lowX + jitterSpan();
             long highZ = lowZ + jitterSpan();
-            int keepOut = starterMinFromSpawn();
-            long keepOutSq = (long) keepOut * keepOut;
+            int wanted = starterKeepOut(worldSeed, regionX, regionZ);
+            long wantedSq = (long) wanted * wanted;
 
             int nearX = (int) Math.max(lowX, Math.min(highX, at.x()));
             int nearZ = (int) Math.max(lowZ, Math.min(highZ, at.z()));
-            if (away(nearX, nearZ, at) >= keepOutSq) {
+            if (away(nearX, nearZ, at) >= wantedSq) {
                 return new SimPos(nearX, UNRESOLVED_Y, nearZ);
             }
 
-            double radius = keepOut + 2.0;
+            double radius = wanted + 2.0;
             int from = (int) Long.remainderUnsigned(
                     hash(worldSeed, regionX, regionZ, SALT_STARTER), BEARINGS);
             for (int step = 0; step < BEARINGS; step++) {
@@ -444,8 +493,8 @@ public final class SettlementSites {
                 }
             }
 
-            // The window's furthest corner, which is at least half a diagonal
-            // from anywhere and so always clears a capped keep-out.
+            // The window's furthest corner: as near as this world can come to
+            // the distance it drew, and never under the floor.
             int cornerX = (int) (away(lowX, at.x()) >= away(highX, at.x()) ? lowX : highX);
             int cornerZ = (int) (away(lowZ, at.z()) >= away(highZ, at.z()) ? lowZ : highZ);
             return new SimPos(cornerX, UNRESOLVED_Y, cornerZ);
