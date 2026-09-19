@@ -296,7 +296,14 @@ public final class BuildingSizes {
         table.put("lumber_camp", new Size(7, 7, 8));
         table.put("mine", new Size(7, 7, 8));
         table.put("granary", new Size(7, 7, 10));
-        table.put("smith", new Size(9, 7, 12));
+        // Ten and not twelve. The smithy's brick stack used to be raised over
+        // whatever the plan already reached, and on the two peoples whose houses
+        // carry a chimney that was the house chimney -- so the forge stack was
+        // built two courses over another stack rather than over the ridge, and
+        // stood four courses clear of the roof. It comes out of the ridge now,
+        // like every other chimney in the mod, and the smithy is the height it
+        // always drew everywhere else.
+        table.put("smith", new Size(9, 7, 10));
         table.put("storehouse", new Size(9, 7, 10));
         table.put("workshop", new Size(9, 7, 10));
 

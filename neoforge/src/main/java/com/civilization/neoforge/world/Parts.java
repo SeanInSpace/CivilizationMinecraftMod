@@ -362,21 +362,102 @@ final class Parts {
     // --- what goes on a roof, and beside a wall ------------------------------
 
     /**
-     * A chimney: one column of masonry from the floor up through the roof.
+     * How far the pot stands over the roof it comes out of.
+     *
+     * <p>Two, and it has to stay two: {@code BlueprintPlacer.chimneyTops} knows a
+     * chimney by a column that clears all eight of its neighbours by at least
+     * this much, and a stack that cleared by less would be read as a ridge and
+     * stop smoking. It is also the reason the breast below stops at the roof's
+     * own top course — one course higher and the stack would no longer be a
+     * chimney anywhere in the mod, silently, because a building with no stack
+     * falls back to smoking out of its ridge and nothing says which happened.
+     */
+    static final int POT_OVER_ROOF = 2;
+
+    /**
+     * A chimney: one column of masonry from the floor up through the roof, with
+     * whatever it takes beside it to keep the stack on the roof.
      *
      * <p>Drawn in the plane of a wall rather than out in the room, so it takes
      * the wall's own cells and nothing of the floor a household lives on. It is
      * written after the roof on purpose: the course where it crosses the slope
      * is a cell the roof has already filled, and the later write is what stands.
      *
-     * @param toY the course of the pot, which wants to clear the ridge or the
-     *            smoke blows straight back down it
+     * <p><strong>The wall plane is the lowest point of a hipped roof, and that
+     * is the whole of what went wrong.</strong> A gable end is a solid triangle,
+     * so a shaft climbing the short wall is buried in masonry until it comes out
+     * three courses under the pot and reads as a chimney. A hip slopes away on
+     * every side, so the same shaft crosses the roof at the eave — one course
+     * over the wall plate — and then climbs five or six courses of bare 1×1
+     * column with air on all four sides of it, a stone post standing beside a
+     * roof rather than coming out of one. Playtest N13 called them detached and
+     * they were.
+     *
+     * <p>The fix is {@link #breast}: the one column between the shaft and the
+     * climbing slope is filled to the roof's own top course, so every course of
+     * the shaft below the ridge has masonry against it. It is a chimney breast,
+     * it costs three blocks on a nine-by-nine house, and — the point — it adds no
+     * height at all, so every declared height in {@code BuildingSizes} is the
+     * number it was. Moving the shaft inboard instead is what the previous
+     * attempt did, and it both put a stone pillar in the middle of somebody's
+     * floor and pushed the highland hall two courses over its declared height.
+     *
+     * @param roofTop the topmost course of the roof this comes out of, relative
+     *                to {@code base}. The pot goes {@link #POT_OVER_ROOF} above
+     *                it, which is what makes the column a chimney, and the breast
+     *                stops at it, which is what keeps the column a chimney.
      */
     static void chimney(List<Placement> blocks, BlockPos base, int dx, int dz,
-                        int fromY, int toY, Block masonry) {
-        for (int y = fromY; y <= toY; y++) {
+                        int fromY, int roofTop, Block masonry) {
+        // Before the shaft, because it reads the course the roof left at the
+        // shaft's own column and the shaft is about to write over it.
+        breast(blocks, base, dx, dz, roofTop, masonry);
+        for (int y = fromY; y <= roofTop + POT_OVER_ROOF; y++) {
             add(blocks, base.offset(dx, y, dz), masonry);
         }
+    }
+
+    /**
+     * The one column of masonry that joins a shaft to a slope climbing away from it.
+     *
+     * <p>Only the immediately inboard column, and only up to the roof's top
+     * course. That is enough and the arithmetic says why: a roof rises by at most
+     * one course per cell — {@link #insetCourses} measures along the axes for
+     * exactly that reason — so the shaft's first course above its own roof cell
+     * already has the next column's roof cell beside it, and every course above
+     * that has this fill. Filling the whole wedge out to the ridge would hold the
+     * stack up just as well, and would put a stone plane up the side of every
+     * hill house to do it.
+     *
+     * <p>Does nothing where the roof does not climb away — a gable end, a flat
+     * roof with a parapet, a capped hip already at its ceiling — because there
+     * the shaft is against masonry already and a breast would be a lump.
+     */
+    private static void breast(List<Placement> blocks, BlockPos base, int shaftX, int dz,
+                               int roofTop, Block masonry) {
+        int inward = shaftX > 0 ? -1 : 1;
+        int underShaft = surfaceAt(blocks, base, shaftX, dz);
+        int slope = surfaceAt(blocks, base, shaftX + inward, dz);
+        if (slope <= underShaft || slope > roofTop) {
+            return;
+        }
+        for (int y = slope + 1; y <= roofTop; y++) {
+            add(blocks, base.offset(shaftX + inward, y, dz), masonry);
+        }
+    }
+
+    /** The highest course anything is drawn at in one column, or {@link Integer#MIN_VALUE}. */
+    private static int surfaceAt(List<Placement> blocks, BlockPos base, int dx, int dz) {
+        int x = base.getX() + dx;
+        int z = base.getZ() + dz;
+        int top = Integer.MIN_VALUE;
+        for (Placement placement : blocks) {
+            BlockPos pos = placement.pos();
+            if (pos.getX() == x && pos.getZ() == z && !placement.state().isAir()) {
+                top = Math.max(top, pos.getY() - base.getY());
+            }
+        }
+        return top;
     }
 
     /**
@@ -637,9 +718,17 @@ final class Parts {
      * <p>Written to be called by any building and not only by a house. The trade
      * buildings are the same box underneath, and this is the vocabulary they
      * will be given.
+     *
+     * @return the topmost course of the <em>roof</em>, relative to {@code base},
+     *         not counting the stack that may be standing on it. A building that
+     *         raises a second chimney of its own — the smithy's brick one — needs
+     *         the ridge, and reading it back off the finished plan gives it the
+     *         top of the style's own stack instead: the smithy's forge chimney
+     *         was two courses higher than the house chimney beside it for exactly
+     *         that reason, and stood four courses clear of the roof.
      */
-    static void dress(List<Placement> blocks, BlockPos base, BuildingSizes.Size size,
-                      int wallHeight, HouseStyle style) {
+    static int dress(List<Placement> blocks, BlockPos base, BuildingSizes.Size size,
+                     int wallHeight, HouseStyle style) {
         HouseStyle.Variation how = HouseStyle.Variation.forOrigin(base);
         int rx = size.width() / 2;
         HouseStyle.Roof shape = style.roofFor(size);
@@ -666,11 +755,12 @@ final class Parts {
             }
         }
         if (style.chimney()) {
-            chimney(blocks, base, how.chimneySide() * rx, 1, 1, top + 2, style.plinth());
+            chimney(blocks, base, how.chimneySide() * rx, 1, 1, top, style.plinth());
         }
         if (how.shutters()) {
             shutters(blocks, base, size, 2, style.trapdoor());
         }
+        return top;
     }
 
     /**

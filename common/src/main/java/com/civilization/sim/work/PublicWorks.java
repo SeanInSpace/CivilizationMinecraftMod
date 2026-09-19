@@ -180,6 +180,80 @@ public final class PublicWorks {
         return (long) done * 10L >= (long) wanted * KEEPING_UP_TENTHS;
     }
 
+    /** A whole pass: what a lower work gets when nothing above it is behind. */
+    public static final int WHOLE_PASS = 10;
+
+    /**
+     * The most of a pass a work behind its plan ever hands down, in tenths: five.
+     *
+     * <p>Half, which is to say a work that is behind keeps at least half whatever
+     * else is true. It is still the priority and still takes the larger part of
+     * the town's attention; a priority that took <em>all</em> of it is a priority
+     * that starves everything under it, which is what the whole of this file has
+     * now been rewritten twice to stop doing.
+     */
+    public static final int MOST_HANDED_DOWN = 5;
+
+    /**
+     * The share of the passes a work lets through to the work below it, in tenths.
+     *
+     * <p><strong>The cliff this replaces.</strong> {@link #keepingUp} is a yes or
+     * a no, and a growing town lives just under the nine tenths that makes it a
+     * yes: a settlement measured at {@code lamps 581 of 683} is eighty-five
+     * hundredths of the way through a plan that grows by a lamp every time it
+     * opens a street, so it was one answer away from letting the dressing run and
+     * would have been for ever. Zero boards, zero headstones, zero square, in a
+     * town that had been standing for its whole life and was <em>nearly</em>
+     * lit — which is the least deserving version of nothing there is.
+     *
+     * <p>So the chain is a share and not a gate. A work that is keeping up lets
+     * everything past, as before. A work that is behind hands down at most
+     * {@link #MOST_HANDED_DOWN} tenths of the passes and keeps the rest, in
+     * proportion to how far along it already is: the lamps at 581 of 683 hand
+     * down five passes in ten, at half their plan they hand down five, at a fifth
+     * they hand down two. The priority is intact — the higher work never gets
+     * less than half while it is behind, and it gets the lot the moment it
+     * catches up — and the lower work is no longer at the standstill it was.
+     *
+     * <p><strong>No floor under it, deliberately.</strong> A work that has raised
+     * nothing hands down nothing, which is the one place the old gate was saying
+     * something true: {@code "the lamps keep people alive and the flowers do
+     * not"}, and a town with no light standing anywhere in it is a town that
+     * should not be planting a hedge. A floor of one pass in ten was tried and it
+     * had a camp with no lamps at all fencing kitchen gardens, which is the
+     * complaint the priority chain exists to answer rather than an improvement on
+     * it. The proportion reaches the cap at half, so any town that is genuinely
+     * lit and merely growing — which is the whole of the fault — gets the full
+     * half.
+     *
+     * @param done   how many of the higher work's items are standing
+     * @param wanted how many its shape currently calls for
+     */
+    public static int shareOfPasses(int done, int wanted) {
+        if (keepingUp(done, wanted)) {
+            return WHOLE_PASS;
+        }
+        int along = wanted <= 0 ? WHOLE_PASS : (int) ((long) done * WHOLE_PASS / wanted);
+        return Math.min(MOST_HANDED_DOWN, along);
+    }
+
+    /**
+     * Whether this pass is one of the lower work's share of them.
+     *
+     * <p>Spread rather than blocked: three tenths is passes nought, four and
+     * seven of every ten, not nought, one and two. A work that got its whole
+     * share in one burst and then nothing for seven passes is a work that stops
+     * for seven passes, and the thing being shared out here is the impression a
+     * player has of a town doing something.
+     */
+    public static boolean itsTurn(int share, long pass) {
+        if (share >= WHOLE_PASS) {
+            return true;
+        }
+        long at = Math.floorMod(pass, WHOLE_PASS);
+        return Math.floorMod(at * share, WHOLE_PASS) < share;
+    }
+
     /**
      * Timber a second job has to cost before it is worth holding for as well: 64.
      *
@@ -232,6 +306,46 @@ public final class PublicWorks {
             }
         }
         return owed;
+    }
+
+    /**
+     * Tenths of the stores the build queue may hold against the works below it: nine.
+     *
+     * <p><strong>The reserve was a cliff of the same shape as the old
+     * {@link #keepingUp}, and it is the one that stopped {@code /civ seed town
+     * 40} lighting a single lamp.</strong> A seeded town is forty people in
+     * fifteen buildings, so its build queue is never empty and its head job is
+     * always a house — a hundred and twenty planks. {@link #timberOwedToTheQueue}
+     * reserved the whole of that remaining cost, and a lamp costs two, so a town
+     * whose timber comes in at a few planks a step could hold thirty-six in its
+     * stores and still be told it was short. Measured headless on the recorded
+     * ground: {@code lamps 0 of 41}, {@code timber 36 under 82 (80 held for the
+     * build queue: civilization:house)}, unchanged at four hundred steps, and
+     * unchanged for ever after that — the house eats each plank as it arrives and
+     * the reserve is never reached.
+     *
+     * <p>The reserve was right and its arithmetic was not: a job is paid for a
+     * few planks at a time as it is worked, so reserving its whole remaining cost
+     * is reserving a season of future spending against two planks the town has
+     * today. Capping the hold at nine tenths of what is actually in the stores
+     * keeps construction's priority exactly — it still takes nine of every ten
+     * planks and the flat {@code TIMBER_KEPT_FOR_BUILDING} floor still refuses a
+     * town with single figures — and leaves the tenth for the lamps that were
+     * getting none of it.
+     */
+    public static final int MOST_OF_THE_STORES = 9;
+
+    /**
+     * The timber the queue is owed, as much of it as the stores can spare.
+     *
+     * <p>{@link #timberOwedToTheQueue} capped at {@link #MOST_OF_THE_STORES}
+     * tenths of what the town is actually holding. What the works below
+     * construction ask, because what they need to know is not what the job costs
+     * but whether there is a plank in the town that is not spoken for.
+     */
+    public static int timberHeldFromTheWorks(Settlement settlement) {
+        int owed = timberOwedToTheQueue(settlement);
+        return Math.min(owed, settlement.woodStock() * MOST_OF_THE_STORES / 10);
     }
 
     /** What one queued job still owes the stores in timber. */

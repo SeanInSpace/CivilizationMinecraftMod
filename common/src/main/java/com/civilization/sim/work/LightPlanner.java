@@ -289,6 +289,16 @@ public final class LightPlanner {
         // measured it two hundred and sixty-one lamps short at step fourteen
         // hundred, which then starved the dressing behind it in turn.
         // See PublicWorks.keepingUp.
+        //
+        // Deliberately still a gate here and a share one link further down, in
+        // Furnishings. A lamp stands on the verge of an opened street, so a
+        // lighting crew running ahead of the paving is a crew waiting on ground
+        // that is not there yet -- the roads lead the lamps in a way the lamps do
+        // not lead the dressing. Measured: sharing this one out as well moved
+        // three unrelated grown-town tests, because a town that lights before it
+        // paves spends a few hundred planks earlier and is a different town by
+        // step four hundred. The cliff the share was written for is the one
+        // below, where the dressing was getting nothing at all.
         int owedRuns = new PublicWorks.RoadWork().owedRuns(settlement);
         int runs = settlement.paths() == null ? 0 : settlement.paths().segments().size();
         if (!PublicWorks.keepingUp(runs - owedRuns, runs)) {
@@ -304,7 +314,7 @@ public final class LightPlanner {
         // growing -- see PublicWorks.timberOwedToTheQueue, which holds the
         // measurement. Construction outranks the lamps for timber the way it
         // already outranks them for hands.
-        int held = PublicWorks.timberOwedToTheQueue(settlement);
+        int held = PublicWorks.timberHeldFromTheWorks(settlement);
         int owed = Math.max(TIMBER_KEPT_FOR_BUILDING, held) + 2;
         if (settlement.woodStock() < owed) {
             String reason = "timber " + settlement.woodStock() + " under " + owed;

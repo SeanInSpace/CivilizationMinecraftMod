@@ -439,6 +439,36 @@ class FurnishingsTest {
                 "the lamps keep people alive and the flowers do not");
     }
 
+    /**
+     * And the town that is <em>nearly</em> lit dresses itself, which is the fault
+     * the nine-tenths rule left behind.
+     *
+     * <p>{@code lamps 581 of 683} is eighty-five hundredths, and a town that plans
+     * a lamp beside every new door lives at eighty-five hundredths for its whole
+     * life. {@link PublicWorks#keepingUp} calls that behind, and behind used to
+     * mean nothing at all: no board, no headstone, no square, in a town one answer
+     * short of the rule. It hands down half the passes now — see
+     * {@link PublicWorks#shareOfPasses} — so the dressing goes on while the lamps
+     * keep the priority and the larger half of the work.
+     */
+    @Test
+    void aTownThatIsNearlyLitGoesOnDressingItself() {
+        Settlement town = dressableTown();
+        int lamps = LightPlanner.wanted(town);
+        assertTrue(lamps >= 20, "the fixture needs enough lamps to be 85% of");
+
+        town.setLightsRaised(lamps * 85 / 100);
+        assertFalse(PublicWorks.keepingUp(town.lightsRaised(), lamps),
+                "at eighty-five hundredths the old rule says behind, which is the"
+                        + " whole of the fault");
+        assertEquals(PublicWorks.MOST_HANDED_DOWN,
+                PublicWorks.shareOfPasses(town.lightsRaised(), lamps));
+        assertTrue(Furnishings.worthStarting(town),
+                "a town measured at lamps 581 of 683 raised none of its five"
+                        + " hundred and fifty-three planned pieces, for its whole"
+                        + " life, because eighty-five hundredths was a no");
+    }
+
     @Test
     void theClockRaisesAPieceAndPaysForIt() {
         Settlement town = dressableTown();
