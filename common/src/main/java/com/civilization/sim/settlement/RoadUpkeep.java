@@ -1,5 +1,8 @@
 package com.civilization.sim.settlement;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Whether a stretch of road may have blocks put on it, and on what grounds.
  *
@@ -42,6 +45,47 @@ public final class RoadUpkeep {
     public static boolean mayDraw(Settlement settlement, int index) {
         PathNetwork paths = settlement.paths();
         return paths.isOpened(index) && !paths.isLaid(index);
+    }
+
+    /**
+     * Every stretch the town is owed a first drawing of, oldest opened first.
+     *
+     * <p>The town's backlog of gravel, and the reason it is computed here rather
+     * than in the sweep that lays it: the sweep used to walk the network by
+     * index from a high-water mark, which was only ever correct because streets
+     * were opened in index order. {@code StreetDemand} opens the ones a town has
+     * earned — what it fronts, the ways to its square, the rings that have
+     * filled — so the opened set has holes in it, and a walk from a mark stopped
+     * dead at the first one. Everything past it fell through to the round-robin
+     * behind the backlog, which draws one stretch a second.
+     *
+     * <p>So the walk is over what is <em>opened</em>, in the order it was
+     * opened, and each stretch is struck off on its own. An index nobody has
+     * walked out is not a wall any more; it is simply not in the list.
+     *
+     * @param most how many to hand back at once, because drawing one writes
+     *             blocks and a town arriving owed two hundred of them must not
+     *             land in a single frame
+     */
+    public static List<Integer> backlog(Settlement settlement, int most) {
+        PathNetwork paths = settlement.paths();
+        if (paths == null || most <= 0) {
+            return List.of();
+        }
+        List<Integer> owed = new ArrayList<>();
+        for (int index : paths.openedSegments()) {
+            // Through mayDraw rather than restating it, so there is one
+            // definition of what may be drawn and this is only the order to
+            // draw them in.
+            if (!mayDraw(settlement, index)) {
+                continue;
+            }
+            owed.add(index);
+            if (owed.size() >= most) {
+                break;
+            }
+        }
+        return owed;
     }
 
     /**

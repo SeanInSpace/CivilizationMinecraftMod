@@ -360,37 +360,68 @@ public final class PathNetwork {
     }
 
     /**
-     * How far along the network the stones have actually gone down.
+     * Which stretches the stones have actually gone down on.
      *
      * <p>Opened is not laid. A town that grows unwatched opens its streets by
      * the clock, with nobody standing on them and no blocks placed; the ground
      * only gets its gravel when somebody is there to see it. So the network
-     * carries two marks, and the difference between them is the difference
+     * carries two records, and the difference between them is the difference
      * between the first drawing of a road and every visit after it.
      *
-     * <p>A high-water mark rather than a set, because stretches are only ever
-     * appended and only ever laid in order — the same reason the sweep that
-     * lays them keeps one number. And persisted, which is the point: it used to
-     * live in the drawing code's memory, so every server start forgot that the
-     * roads had ever been drawn and laid the whole town again from the first
-     * stretch. For a living town that was invisible, because re-laying a sound
-     * road writes nothing. For a dead one it was a road crew.
+     * <p>Persisted, which was always the point: this used to live in the drawing
+     * code's memory, so every server start forgot that the roads had ever been
+     * drawn and laid the whole town again from the first stretch. For a living
+     * town that was invisible, because re-laying a sound road writes nothing.
+     * For a dead one it was a road crew.
+     *
+     * <p><strong>A set, and no longer a high-water mark.</strong> The mark was
+     * sound while a town opened every stretch of its network in index order: a
+     * number said as much as a set, and the sweep that laid them kept one number
+     * for the same reason. {@code StreetDemand} ended that — a town opens the
+     * streets it fronts, the ways to its square and the rings that have filled,
+     * so its opened set has holes in it. Against a mark, the first hole was a
+     * wall: everything past it read as un-laid forever, the backlog stopped
+     * there, and the stretches beyond were drawn only by the one-a-second
+     * round-robin behind it. A town you walked back into drew its streets in
+     * around you one at a time for as long as you stood there, which is the
+     * exact fault the backlog was written to prevent.
+     *
+     * <p>Insertion-ordered, so the save reads back in the order the stones went
+     * down rather than in whatever order a hash chose.
      */
-    private int laidThrough;
+    private final Set<Integer> laid = new LinkedHashSet<>();
 
     /** How many stretches have been drawn into the world at least once. */
-    public int laidThrough() {
-        return laidThrough;
+    public int laidCount() {
+        return laid.size();
     }
 
     /** Whether this stretch has ever been drawn into the world. */
     public boolean isLaid(int index) {
-        return index >= 0 && index < laidThrough;
+        return laid.contains(index);
     }
 
-    /** Moves the mark on. Never backwards: a road once drawn stays drawn. */
-    public void setLaidThrough(int through) {
-        laidThrough = Math.max(laidThrough, Math.min(through, segments.size()));
+    /** Records a stretch drawn. A road once drawn stays drawn. */
+    public void markLaid(int index) {
+        if (index >= 0 && index < segments.size()) {
+            laid.add(index);
+        }
+    }
+
+    /** Every stretch drawn at least once, for saving. */
+    public List<Integer> laidSegments() {
+        return List.copyOf(laid);
+    }
+
+    /** Restores the drawn stretches from a save. */
+    public void restoreLaid(List<Integer> indices) {
+        laid.clear();
+        if (indices == null) {
+            return;
+        }
+        for (int index : indices) {
+            markLaid(index);
+        }
     }
 
     public List<Segment> segments() {

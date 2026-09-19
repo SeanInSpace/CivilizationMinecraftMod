@@ -19,7 +19,10 @@ import com.civilization.sim.world.SimContext;
 import com.civilization.sim.world.SimSettings;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -234,28 +237,67 @@ class QuestPlannerTest {
                 "/civ step has to reproduce a board, or a fault seen once is gone");
     }
 
+    /**
+     * How many towns are put side by side, and why it is not two.
+     *
+     * <p>This was two towns with random ids, and it went red once and passed on
+     * the rerun. The reason is the thing the test is about: the roll is a hash of
+     * the settlement's id, so which ask comes up when is a function of the id,
+     * and an unlucky pair of ids can walk the same board the whole way down a
+     * run — a handful of asks are available, the board suppresses a repeat, and
+     * only so many orders of them exist. A test that is a coin flip on the id it
+     * was handed reports the weather.
+     *
+     * <p>So the ids are fixed and there are eight of them. Fixed, so the answer
+     * is the same every run and a red is a finding rather than a draw; eight,
+     * because the claim is about the planner rather than about one pair —
+     * "these towns do not all ask the same thing in lockstep" is false only if
+     * the roll has genuinely stopped reading the settlement, which is exactly
+     * what this exists to catch.
+     */
+    private static final int TOWNS_COMPARED = 8;
+
+    /** One of a fixed spread of towns, identical but for the id it rolls on. */
+    private static Settlement troubled(int nth) {
+        Settlement town = stocked(new Settlement(
+                new Settlement.Id(new UUID(0x51A57L * (nth + 1), 0xB0A4DL - nth)),
+                "Testburg", HERE, 64));
+        town.setThreatLevel(Alarm.ALARMED_AT);
+        town.setStock(TownStores.FOOD, 0);
+        town.addBuilding(storehouseAt(20, 0));
+        return town;
+    }
+
     @Test
-    void twoDifferentTownsDoNotAskTheSameThingInLockstep() {
+    void differentTownsDoNotAskTheSameThingInLockstep() {
         // Not a guarantee about any one step -- two towns with one trouble each
         // will agree -- but over a run the boards have to be able to differ, or
         // the seed is not carrying the settlement at all.
-        Settlement one = calm();
-        Settlement two = calm();
-        for (Settlement town : List.of(one, two)) {
-            town.setThreatLevel(Alarm.ALARMED_AT);
-            town.setStock(TownStores.FOOD, 0);
-            town.addBuilding(storehouseAt(20, 0));
+        List<Settlement> towns = new ArrayList<>();
+        for (int nth = 0; nth < TOWNS_COMPARED; nth++) {
+            towns.add(troubled(nth));
         }
 
+        // Compared within a step and never across one: a board grows as the run
+        // goes on, so a set gathered over the whole run would hold more than one
+        // entry however lockstep the towns were, and would assert nothing.
         boolean everDiffered = false;
         for (long step = 0; step <= QuestPlanner.OFFER_EVERY * 8; step++) {
-            QuestPlanner.advance(one, at(step));
-            QuestPlanner.advance(two, at(step));
-            if (!one.quests().offered().equals(two.quests().offered())) {
+            for (Settlement town : towns) {
+                QuestPlanner.advance(town, at(step));
+            }
+            Set<List<Quest>> thisStep = new LinkedHashSet<>();
+            for (Settlement town : towns) {
+                thisStep.add(town.quests().offered());
+            }
+            if (thisStep.size() > 1) {
                 everDiffered = true;
             }
         }
-        assertTrue(everDiffered, "the roll is not reading the settlement's own id");
+        assertTrue(everDiffered,
+                "eight towns with eight different ids posted the same board as each"
+                        + " other on every step of a whole run: the roll is not"
+                        + " reading the settlement's own id");
     }
 
     // --- the board is bounded ---

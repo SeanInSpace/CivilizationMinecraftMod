@@ -121,7 +121,13 @@ class SimWorldTest {
         world.step();
 
         assertTrue(bakery.isComplete());
-        assertTrue(settlement.buildQueue().isEmpty(), "completed task should leave the queue");
+        // The finished job leaves the queue; what is behind it is the town's own
+        // hall. This fixture is a settlement at the default stage, which is TOWN,
+        // and a town without a hall now orders one rather than waiting for its
+        // queue to run dry — see Settlement.planTheSeat. So the claim here is
+        // that the bakery is gone, not that nothing is left.
+        assertFalse(settlement.buildQueue().contains(bakery),
+                "completed task should leave the queue");
     }
 
     @Test

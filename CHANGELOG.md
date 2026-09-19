@@ -6,6 +6,65 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town's streets arrive together, and a town has the hall it claims
+
+Three faults, all of them things a player sees rather than things a test
+noticed.
+
+The first is the one you stand in. Walk back into a town you have been away
+from and its houses are all there at once — and then its streets are drawn in
+around you, one a second, for as long as you stand there. There is a backlog
+whose whole job is to prevent exactly that, and it had quietly stopped working:
+it walked the network by index from a high-water mark, which was correct only
+while a town opened every stretch it had in index order. Since streets began
+opening where a town has earned them — what it fronts, the ways to its square,
+the rings that have filled — the opened set has holes in it, and the walk
+stopped dead at the first hole. Everything past it fell through to the
+one-a-second sweep behind the backlog.
+
+The second is one line of `/civ info`. Millbrook, the spawn town of seed
+8675309, read **TOWN** with no town hall anywhere: not standing, not even
+ordered. FOUNDING.md reads a stage off a census — *a hall means TOWN* — and
+PLAYING.md says the hall is the last thing built. Both were true of the design
+and neither was true of that town. The hall is the TOWN program's headline
+build, so every town is briefly a town without one; what made "briefly" into
+"for as long as it had anything else to do" is that the program was consulted
+only once the build queue had run dry, and a growing town's queue does not run
+dry. A village the world writes down is a TOWN on its very first step, so it
+wore the title from the beginning with its hall behind a farm.
+
+### Fixed
+
+- **A town's opened streets go down together instead of one a second.** The
+  record of what has been drawn is per stretch now rather than a count, and the
+  sweep walks what the town has *opened*, in the order it opened it. A stretch
+  nobody has walked out is no longer a wall the backlog stops at; it is simply
+  not in the list. A stretch whose ground is not loaded is stepped over rather
+  than waited on, and nothing is crossed off that was not actually drawn.
+  Measured on a seeded village on the recorded hillside of seed 8675309 — 148
+  stretches planned, 114 of them opened, the first unopened one at index 9:
+  **147 passes before, 2 after.** A pass is a second, so that is two and a half
+  minutes of watching gravel appear, against two seconds.
+- **A town that holds its charter orders its hall at once, at the front of the
+  queue.** It no longer waits for the town's ordinary wants to run dry: the seat
+  is asked for the moment the stage is held and goes in front of everything
+  ordered afterwards — behind only the job already in hand, because a town does
+  not walk off a half-built cottage to start its hall. It is still not ordered
+  before the town has streets to set it back from: a hall sited on raw ground
+  reserves the very middle the streets were about to be routed through. On the
+  spawn town that moves the hall from **thirteen steps after the charter to
+  two**, and on a town grown from a camp it puts the hall in front of the
+  houses, the warehouses and the watchtowers it used to queue behind. Whose hall
+  it is stays the people's business — a warhost's great hut already stands, so
+  nothing is ordered for them.
+- **Two towns asking the same thing is a finding again, not a coin flip.** The
+  quest-board test that checks a town's notices are rolled off its own id used
+  two settlements with random ids, and an unlucky pair walked the same board the
+  whole way down a run — it went red once and passed on the rerun. Eight fixed
+  ids now, so the answer is the same every time and a red means the roll has
+  genuinely stopped reading the settlement. No change to the planner: it was
+  never locking towns in step.
+
 ## The town at the spawn point gets its streets back
 
 A player reported that the town raised at world start had no roads between its
