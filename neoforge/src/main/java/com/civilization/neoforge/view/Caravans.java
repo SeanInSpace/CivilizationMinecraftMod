@@ -134,13 +134,38 @@ public final class Caravans {
     private static final Map<Settlement.Id, Integer> LEAVING = new HashMap<>();
 
     /**
+     * Who is holding the seat under each town's trader.
+     *
+     * <p>{@code Pastimes} owns the seat entity and is the only thing that can
+     * take it out of the world, so a wagon that has asked for one has to
+     * remember which seating it asked — there is one per level and the static
+     * maps up here are not. Entered when the trader sits and dropped by
+     * {@link #clear} and {@link #forget}, which are the two ways a visit ends.
+     */
+    private static final Map<Settlement.Id, Pastimes> SEATED = new HashMap<>();
+
+    /**
      * Drops everything remembered about a world that is closing.
      *
      * <p>{@code FurnishingLayer.forget}'s housekeeping. The entity ids in here
      * belong to a level that is going away, and a stale one would have the next
      * session's first pass looking up a body that cannot exist.
+     *
+     * <p>And it gets every trader out of his chair first. A seat is an entity of
+     * our own making that is saved with its chunk, so a world closed on a
+     * trader sitting at the inn would otherwise leave an invisible block display
+     * in the yard that nothing remembers and nothing can find — the exact fault
+     * {@code Pastimes.stop} exists to prevent for a resident, said again for
+     * somebody who is on no roster at all.
      */
     public static void forget() {
+        for (Map.Entry<Settlement.Id, Pastimes> held : SEATED.entrySet()) {
+            Visit visit = VISITING.get(held.getKey());
+            if (visit != null) {
+                held.getValue().releaseVisitor(visit.trader());
+            }
+        }
+        SEATED.clear();
         VISITING.clear();
         LEAVING.clear();
     }
@@ -162,7 +187,8 @@ public final class Caravans {
      * advances once per town per pass, so in a world holding a multiple of its
      * period in towns the same one wins every time and the rest never run at all.
      */
-    static void tend(ServerLevel level, SimWorld world, Settlement settlement) {
+    static void tend(ServerLevel level, SimWorld world, Settlement settlement,
+                     Pastimes seating) {
         Visit visit = VISITING.get(settlement.id());
         boolean due = Caravan.isVisiting(world.stepsElapsed());
         if (visit == null) {
@@ -190,14 +216,14 @@ public final class Caravans {
         if (!alive(level, visit)) {
             // Something killed the trader, or its chunk went away and took it
             // with it. Either way the wagon is over; the books never knew.
-            clear(level, settlement, visit);
+            clear(level, settlement, visit, seating);
             return;
         }
         if (due && visit.arrivedOn() == Caravan.arrivedOn(world.stepsElapsed())) {
-            stayAWhile(level, settlement, visit);
+            stayAWhile(level, settlement, visit, seating);
             return;
         }
-        leave(level, settlement, visit);
+        leave(level, settlement, visit, seating);
     }
 
     // --- coming in -------------------------------------------------------------
@@ -298,42 +324,75 @@ public final class Caravans {
 
     // --- being here, and going again -------------------------------------------
 
-    /** Walks the trader to the inn and lets it stand about once it is there. */
-    private static void stayAWhile(ServerLevel level, Settlement settlement, Visit visit) {
+    /**
+     * Walks the trader to the inn and sits it down once it is there.
+     *
+     * <p>Sitting rather than standing, and the seat is asked of {@code Pastimes}
+     * rather than made here, because the seat is a live entity and this class
+     * has no lifecycle for one — {@code Pastimes} already owns every
+     * {@code civilization_seat} in the world and already knows how to sweep one
+     * up. What it did <em>not</em> know is that a body might not be on anybody's
+     * roster; see {@code Pastimes.seatVisitor}, which is that and nothing else.
+     *
+     * <p>Once seated the trader is left entirely alone. A rider has no
+     * navigation worth issuing and re-aiming one every pass at a yard he is
+     * three blocks off — because the bench beside the door was — would be a
+     * trader shuffling in his chair for the whole visit.
+     */
+    private static void stayAWhile(ServerLevel level, Settlement settlement, Visit visit,
+                                   Pastimes seating) {
         PersonEntity trader = traderOf(level, visit);
         if (trader == null) {
             return;
+        }
+        if (seating != null && seating.isVisitorSeated(visit.trader())) {
+            return;   // sat down, and staying sat
         }
         SimPos stall = Caravan.standsAt(settlement);
         BlockPos yard = footing(level, stall);
         if (yard == null) {
             return;
         }
-        if (near(trader, yard, ARRIVED)) {
-            // Standing in the inn yard with the animals behind it, which is the
-            // whole of what a caravan does when it gets where it is going. Facing
-            // the inn rather than wherever the pathfinder left it looking.
+        BlockPos seat = seating == null ? yard : seating.visitorSeatNear(yard);
+        if (near(trader, seat, ARRIVED)) {
+            // Where a caravan gets to when it gets where it is going: off the
+            // road, facing the inn, and sitting down if there is anything to sit
+            // on. Facing it rather than wherever the pathfinder left him looking.
             trader.getNavigation().stop();
             trader.getLookControl().setLookAt(
                     yard.getX() + 0.5, yard.getY() + 1.0, yard.getZ() + 0.5);
+            if (seating != null && seating.seatVisitor(visit.trader(), trader, seat)) {
+                SEATED.put(settlement.id(), seating);
+            }
             return;
         }
-        trader.getNavigation().moveTo(yard.getX() + 0.5, yard.getY(), yard.getZ() + 0.5,
+        trader.getNavigation().moveTo(seat.getX() + 0.5, seat.getY(), seat.getZ() + 0.5,
                 Pace.WALK);
     }
 
     /**
      * Walks the trader back out and takes the whole wagon off the map when it
      * gets there — or when it plainly is not going to.
+     *
+     * <p>Out of the chair first, and unconditionally. A rider is not steered by
+     * anything, so a trader still sitting when his visit ended would take every
+     * one of {@link #LEAVING_PASSES} standing still and then be removed from the
+     * seat he was sitting on — which works, and which is half a minute of a
+     * stranger who will not leave.
      */
-    private static void leave(ServerLevel level, Settlement settlement, Visit visit) {
+    private static void leave(ServerLevel level, Settlement settlement, Visit visit,
+                              Pastimes seating) {
+        if (seating != null) {
+            seating.releaseVisitor(visit.trader());
+            SEATED.remove(settlement.id());
+        }
         PersonEntity trader = traderOf(level, visit);
         int tries = LEAVING.merge(settlement.id(), 1, Integer::sum);
         SimPos edge = Caravan.entersAt(settlement);
         BlockPos gate = edge == null ? null : footing(level, edge);
         if (trader == null || gate == null || tries > LEAVING_PASSES
                 || near(trader, gate, AWAY)) {
-            clear(level, settlement, visit);
+            clear(level, settlement, visit, seating);
             return;
         }
         trader.getNavigation().moveTo(gate.getX() + 0.5, gate.getY(), gate.getZ() + 0.5,
@@ -348,7 +407,16 @@ public final class Caravans {
      * "whatever llamas are near the gate" would eat the pair a player walked in
      * from three biomes away, and no apology covers that.
      */
-    private static void clear(ServerLevel level, Settlement settlement, Visit visit) {
+    private static void clear(ServerLevel level, Settlement settlement, Visit visit,
+                              Pastimes seating) {
+        // Before the body goes, for the reason PersonEntityManager.release gets
+        // its people out of their chairs before it despawns them: the seat is an
+        // entity of ours and a body discarded while riding one leaves it in the
+        // yard for ever, invisible, with nothing left that remembers it.
+        if (seating != null) {
+            seating.releaseVisitor(visit.trader());
+        }
+        SEATED.remove(settlement.id());
         VISITING.remove(settlement.id());
         LEAVING.remove(settlement.id());
         for (UUID id : visit.pack()) {

@@ -205,6 +205,46 @@ public final class Leisure {
         return Curfew.isCurfew(dayTime, lead) ? Hour.EVENING : Hour.DAY;
     }
 
+    // --- weather ------------------------------------------------------------------
+
+    /**
+     * What it is doing over the town, which is {@link Hour}'s other half.
+     *
+     * <p>Two states and not a rainfall figure, for the same reason the hour has
+     * three parts and not a clock: what is being decided is whether somebody
+     * stands in the square or goes inside, and there is no third answer to that.
+     *
+     * <p>Read <em>at the town's centre</em> by whoever calls in — weather in
+     * Minecraft is per-biome, so a village on a desert edge can have a dry
+     * square and a wet field, and the town's own middle is the one column that
+     * is always the town's.
+     */
+    public enum Sky {
+
+        /** Dry, or dry enough to stand about in. */
+        FAIR,
+
+        /**
+         * Raining or worse.
+         *
+         * <p>A thunderstorm is the same answer as a shower here on purpose.
+         * The difference between the two is how dark it is and how much is
+         * spawning, and neither of those is this decision — a settler who has
+         * gone indoors out of the rain has nowhere further to go when it turns
+         * to thunder.
+         */
+        WET;
+
+        public boolean isWet() {
+            return this == WET;
+        }
+    }
+
+    /** The sky, off the two flags a level answers with. */
+    public static Sky skyOf(boolean raining, boolean thundering) {
+        return raining || thundering ? Sky.WET : Sky.FAIR;
+    }
+
     // --- who --------------------------------------------------------------------
 
     /**
@@ -304,7 +344,60 @@ public final class Leisure {
      */
     public static boolean hasWork(Profession what, Hour hour, boolean tooWeak,
                                   Openings open) {
+        return hasWork(what, hour, Sky.FAIR, tooWeak, open);
+    }
+
+    /**
+     * Whether a trade is plied out of doors, and so is one the rain stops.
+     *
+     * <p>The list is the one the town can see from the road: the rows, the
+     * belt, the shaft, the pens, and a build site with no roof on it yet. A
+     * pioneer is a builder who has not got a town round him yet and is the most
+     * out of doors of the lot.
+     *
+     * <p>Two deliberate absences. The <strong>watch</strong> is not here because
+     * a guard does not answer this question at all — see {@link #forGuard}, and
+     * the branch below that says a guard's leisure is his own post: the whole
+     * point of a sentry is that he is standing where the town put him, and a
+     * wall nobody is on because it was drizzling is not a wall. The
+     * <strong>trader</strong> is not here either, because a market stall is a
+     * roof on four posts and always has been — see {@code TradeParts}, which
+     * builds it that way.
+     */
+    public static boolean isOutdoorTrade(Profession what) {
+        return switch (what) {
+            case FARMER, LUMBERJACK, MINER, SHEPHERD, FORAGER, BUILDER, PIONEER -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * The same question, told what it is doing outside.
+     *
+     * <p>Rain takes the outdoor trades off the roster and leaves every other
+     * answer exactly as it was: the forge, the mill, the bench and the stall are
+     * all under a roof, so a wet smith is a working smith. That is the whole of
+     * the weather rule, and it is here rather than in the platform for the
+     * reason every other line of this class is — "who goes inside when it rains"
+     * is a list, and a list that lived in a steering loop is a list nobody can
+     * check.
+     *
+     * <p><strong>It takes nothing off anybody's books.</strong> Answering no
+     * here makes somebody <em>eligible</em> for a pastime; it does not stop the
+     * town's work. The hands that actually cut a field are the platform's
+     * {@code FarmWorker} and its siblings, and those are not gated on this and
+     * must not be — {@code FoodPlanner.growHarvest} has no floor under a watched
+     * field any more, so a rainy town whose farmers downed tools would produce
+     * less than the same town with nobody looking at it, which is the one
+     * asymmetry the mod does not allow. A pastime never outbids work, and the
+     * weather does not get to be an exception to that.
+     */
+    public static boolean hasWork(Profession what, Hour hour, Sky sky, boolean tooWeak,
+                                  Openings open) {
         if (hour != Hour.DAY || tooWeak) {
+            return false;
+        }
+        if (sky != null && sky.isWet() && isOutdoorTrade(what)) {
             return false;
         }
         if (open.handsOnAWork()) {
@@ -408,6 +501,29 @@ public final class Leisure {
      * out to the well has undone the curfew.
      */
     private static int weightOf(Pastime what, Hour hour) {
+        return weightOf(what, hour, Sky.FAIR);
+    }
+
+    /**
+     * The same table, with the weather over it.
+     *
+     * <p>Rain is a second refusal laid on top of the hour's, and it works the
+     * same way: an open-air pastime weighs nothing while it is raining, at every
+     * hour, so what is left on offer is the inn, your own fire, and a doorway to
+     * stand in out of it. Nobody is <em>sent</em> anywhere by this — it only
+     * changes which of the places the town already has somebody picks — which is
+     * why it costs nothing and why it is allowed to exist at all.
+     *
+     * <p>A doorway counts as under a roof, and that is the one judgment call in
+     * here. An eave overhangs every door this mod draws by a block — see
+     * {@code Parts}, which is why a porch needs no roof of its own — so leaning
+     * on a neighbour's door in the rain is standing out of it, and it is also
+     * exactly what people do.
+     */
+    private static int weightOf(Pastime what, Hour hour, Sky sky) {
+        if (sky != null && sky.isWet() && !underCover(what)) {
+            return 0;
+        }
         return switch (hour) {
             case DAY -> switch (what) {
                 case WELL -> 4;
@@ -445,7 +561,28 @@ public final class Leisure {
      * half-minute out.
      */
     public static boolean stillFits(Pastime what, Hour hour) {
-        return what == Pastime.POST || weightOf(what, hour) > 0;
+        return stillFits(what, hour, Sky.FAIR);
+    }
+
+    /**
+     * Somewhere a body is standing out of the weather, or does not need to be.
+     *
+     * <p>The inn and the hearth are rooms; a doorway has the eave over it. The
+     * post is here because a guard's is not a pastime in the sense the rest of
+     * this file means — he is not offered one and never chooses one, and the
+     * watch keeps the wall in the rain exactly as it keeps it in the dark.
+     */
+    public static boolean underCover(Pastime what) {
+        return what == Pastime.INN || what == Pastime.HEARTH
+                || what == Pastime.DOORWAY || what == Pastime.POST;
+    }
+
+    /**
+     * The same, with the weather over it: it starting to rain gets somebody up
+     * off the bench in the square and walks them in, exactly the way dusk does.
+     */
+    public static boolean stillFits(Pastime what, Hour hour, Sky sky) {
+        return what == Pastime.POST || weightOf(what, hour, sky) > 0;
     }
 
     /**
@@ -465,19 +602,32 @@ public final class Leisure {
      *         exactly as they did before this existed
      */
     public static Place choose(UUID who, long tick, Hour hour, List<Place> offered) {
+        return choose(who, tick, hour, Sky.FAIR, offered);
+    }
+
+    /**
+     * The same, with the weather over the town.
+     *
+     * <p>A wet town with no roof on offer — no inn, no hearth, no houses to lean
+     * on — answers null, and its people stand exactly where they were standing,
+     * which is what they did before any of this existed and is the right answer
+     * for a camp of four huts in a downpour.
+     */
+    public static Place choose(UUID who, long tick, Hour hour, Sky sky,
+                               List<Place> offered) {
         if (offered == null || offered.isEmpty()) {
             return null;
         }
         long total = 0;
         for (Place place : offered) {
-            total += weightOf(place.what(), hour);
+            total += weightOf(place.what(), hour, sky);
         }
         if (total <= 0) {
             return null;
         }
         long roll = Math.floorMod(mix(who, tick), total);
         for (Place place : offered) {
-            roll -= weightOf(place.what(), hour);
+            roll -= weightOf(place.what(), hour, sky);
             if (roll < 0) {
                 return place;
             }
@@ -493,7 +643,13 @@ public final class Leisure {
 
     /** The whole decision in one call: what, where, and for how long. */
     public static Rest restFor(UUID who, long tick, Hour hour, List<Place> offered) {
-        Place place = choose(who, tick, hour, offered);
+        return restFor(who, tick, hour, Sky.FAIR, offered);
+    }
+
+    /** The same, with the weather over the town. */
+    public static Rest restFor(UUID who, long tick, Hour hour, Sky sky,
+                               List<Place> offered) {
+        Place place = choose(who, tick, hour, sky, offered);
         if (place == null) {
             return null;
         }

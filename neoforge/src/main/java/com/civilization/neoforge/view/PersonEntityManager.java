@@ -442,12 +442,21 @@ public final class PersonEntityManager {
 
     private final Ambience ambience;
 
+    /**
+     * And the third: the town's doors, shut once it has gone to bed.
+     *
+     * <p>Beside the other two and for the same reason — it moves blocks a player
+     * can see and nothing a ledger can. See {@link Doors}.
+     */
+    private final Doors doors;
+
     public PersonEntityManager(ServerLevel level, SimWorld world) {
         this.level = Objects.requireNonNull(level, "level");
         this.world = Objects.requireNonNull(world, "world");
         this.pastimes = new Pastimes(level, world, tracked::get,
                 id -> steeredByBuild.contains(id) || sparedForWorks.containsValue(id));
         this.ambience = new Ambience(level, world, tracked::get);
+        this.doors = new Doors(level, tracked::get);
     }
 
     /**
@@ -493,6 +502,12 @@ public final class PersonEntityManager {
                 ringTheBell(settlement);
                 markPeril(settlement);
                 dailyRoutine(settlement);
+                // After the routine has walked everybody in, because that is
+                // what the question "is anybody still out" is asked of. Nothing
+                // here steers anybody; it only shuts what the walk home left
+                // swinging. See Doors.
+                doors.shutForTheNight(settlement, isBedtime(),
+                        Math.floorDiv(clock(), NightRest.DAY));
                 // Deliberately here and not later. Everything below this line
                 // that steers anybody steers them for work, and by running
                 // first, leisure loses every argument with work without either
@@ -502,7 +517,7 @@ public final class PersonEntityManager {
                 // A stranger on the road, which is the one thing that has ever
                 // walked into a town here that was not a raider. Theatre over a
                 // ledger InnPlanner has already settled: see Caravans.
-                Caravans.tend(level, world, settlement);
+                Caravans.tend(level, world, settlement, pastimes);
                 checkHouseAccess(settlement);
                 changed |= workLumberjacks(settlement);
                 workFarmers(settlement);
@@ -4531,6 +4546,7 @@ public final class PersonEntityManager {
             }
         }
         pastimes.stopAll();
+        doors.forget();
         tracked.clear();
         CivilizationSavedData.get(level).setDirty();
     }

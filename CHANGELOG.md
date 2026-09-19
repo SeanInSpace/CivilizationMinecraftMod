@@ -6,6 +6,95 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The town shuts its doors, and the churchyard stops renaming its dead
+
+Four follow-ups the last two immersion batches left, and none of them is worth
+anything: a door, a doorway out of the rain, a chair and a headstone touch no
+store, no ledger and no yield. One of them was a real bug — a village that had
+buried thirteen people rewrote every board in its graveyard with the wrong name,
+on the night of the thirteenth death and on every death after it.
+
+### Added
+
+- **Doors shut for the night.** Once the curfew has walked a household in and
+  nobody who lives there is still outside, the town closes that home's door;
+  the hearth and the inn close on the hour whoever is in them. At dawn nothing
+  is needed — a settler walking out opens the door and vanilla's own goal shuts
+  it behind them. The leaf is read off the building's plan (`Building.doorstep`
+  and the step inward from it, three cells and no search), never scanned for.
+- **Rain sends people under a roof.** While it is raining over the middle of the
+  town, the open-air pastimes weigh nothing: anybody at leisure goes to the inn,
+  their own fire, or a neighbour's doorway instead of the well or the square,
+  and somebody already sitting in the square gets up and walks in. The outdoor
+  trades — farmer, lumberjack, miner, shepherd, forager, builder — come off the
+  leisure roster while it rains, so the moment their work lets go of them they
+  shelter. The watch stays out. The indoor trades are unaffected, and so is the
+  alarm, which outranks all of it as it always has.
+- **The caravan trader sits down at the inn.** On a bench beside the door if the
+  town has one, on the step if it has not. `Pastimes` has grown a small
+  lifecycle for a body that is on nobody's roster, keyed by entity id rather
+  than by person id, and `Caravans` releases it on every path out of a visit —
+  leaving, dying, the chunk going away, the world closing.
+- **Woodpile and rick heights track the stores behind them**, in three steps: a
+  course of rounds, a stack, a wall of timber at 64 and 128 logs in the camp's
+  own yard, and the same for a rick at 32 and 64 grain in the granary. A town
+  with no camp or granary of its own reads its pooled stock instead.
+
+### Fixed
+
+- **Headstones stop rotating on the thirteenth death.** A town keeps the last
+  twelve names and its churchyard keeps every stone, and the two used to be
+  paired by index — so the thirteenth burial pushed the oldest name off the
+  front, shifted every remaining name down a slot, and had the drawing sweep
+  recut each standing board with the name of the person buried after the one it
+  was raised for. Twelve headstones, all of them lying, on the same night. The
+  settlement now keeps a running burial count, a stone's slot is its burial
+  number and never moves, and a name the town has forgotten leaves its board
+  exactly as it was cut. The planned row is capped at 24 stones, so the
+  churchyard fills up rather than ringing the village.
+
+### Notes
+
+- **You need a level to see any of it.** The door sweep, the seat, the shelter
+  and the heap heights are all block states and bodies against a running world;
+  what is covered in `common` is the arithmetic — who shelters, how full a heap
+  stands, which burial a slot is for — and in `neoforge` the level-free plans:
+  where the door is read off a building of each facing and an authored one, and
+  what a churchyard's boards say across the thirteenth death.
+- **Save compatibility is waived (2026-09-11).** The settlement gains a `buried`
+  count; a save without it reads as nought and is then floored by however many
+  names came back, so an existing town keeps exactly the churchyard it had.
+- **The dressing sweep can now remove a block, and only one kind of block.** A
+  heap that has got shorter asks for the cells above it to be emptied, and the
+  sweep clears one only when the block standing in it is *exactly* the state
+  that piece would have laid there itself. Anything else — a different log, a
+  log turned the other way, a chest, a wall a player built through the pile — is
+  left where it is and the heap simply keeps the course. The cost, said plainly:
+  a player who stacks an identical log into one of the six cells beside a lumber
+  camp will lose it when the camp's store falls.
+- **The rain does not stop the town working, deliberately.** Gating the work
+  sweeps on the weather was written out and rejected: `FoodPlanner.growHarvest`
+  has no floor under a watched field, so a watched rainy town whose farmers
+  downed tools would produce less than the same town with nobody looking at it,
+  which is the one asymmetry this mod does not allow. The weather decides which
+  place an idle body walks to and nothing else.
+- **The belief that `OpenDoorGoal` leaves the last settler's door open is
+  false.** Reading it: `canUse` needs `horizontalCollision`, and the door is
+  then shut either by `DoorInteractGoal.tick` setting `passed` the instant the
+  body crosses the plane, or by `forgetTime` running out twenty ticks later. The
+  hole that is real is a body removed — despawned by the embodiment planner, or
+  killed — between opening a door and passing through it, whose goals are
+  dropped rather than stopped. The bedtime sweep closes that one too.
+- The buildings this mod *draws* cut a doorway and hang nothing in it, so the
+  doors this shuts are the ones authored blueprints carry and the ones players
+  hang themselves. A village of drawn cottages finds nothing to close.
+- Rejected for the grave cap: keeping the *newest* twenty-four stones and
+  letting the oldest stop being redrawn. The row's slots are absolute, so the
+  newest twenty-four of a hundred burials sit a hundred and fifty blocks out —
+  outside any claim, refused stone by stone, and the churchyard would silently
+  vanish. Finding those slots would also mean walking the row from nought on
+  every plan, inside the most expensive planning pass in the mod.
+
 ## A town prospects for its timber
 
 A settlement that ran out of wood put its lumber camp on the next plot the plan

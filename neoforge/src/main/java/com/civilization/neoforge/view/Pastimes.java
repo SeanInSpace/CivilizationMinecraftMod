@@ -23,7 +23,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -147,6 +149,7 @@ final class Pastimes {
         long now = level.getGameTime();
         long clock = level.getDefaultClockTime();
         Leisure.Hour hour = Leisure.hourOf(clock, Curfew.LEAD_TICKS);
+        Leisure.Sky sky = skyOver(settlement);
         Alarm alarm = settlement.alarm();
         // The one thing leisure must never win an argument with. This pass runs
         // after the daily routine and its steering therefore beats it, which is
@@ -177,7 +180,7 @@ final class Pastimes {
                     bodied && view.isInDanger(),
                     bodied && view.isSleeping(),
                     person.haul() != null || FoodPlanner.isGoingToEat(person),
-                    Leisure.hasWork(person.profession(), hour,
+                    Leisure.hasWork(person.profession(), hour, sky,
                             person.isTooWeakToWork(), openingsFor(town, person)));
             if (!Leisure.mayRest(who)) {
                 stop(id, view);
@@ -194,7 +197,7 @@ final class Pastimes {
 
             Sitting held = at.get(id);
             if (held != null && (now >= held.endsAt()
-                    || !Leisure.stillFits(held.what(), hour))) {
+                    || !Leisure.stillFits(held.what(), hour, sky))) {
                 stop(id, view);
                 held = null;
             }
@@ -211,7 +214,7 @@ final class Pastimes {
                 List<Leisure.Place> offered = crowned
                         ? Leisure.forKing(KingPlanner.rallyPoint(settlement), offer.places())
                         : offer.places();
-                Leisure.Rest rest = Leisure.restFor(id, now, hour, offered);
+                Leisure.Rest rest = Leisure.restFor(id, now, hour, sky, offered);
                 if (rest == null) {
                     continue;   // nothing on offer at this hour; stand as before
                 }
@@ -233,6 +236,45 @@ final class Pastimes {
             }
         }
         chat(present, now);
+    }
+
+    /**
+     * What it is doing over this town, asked at the town's own middle.
+     *
+     * <p>Per town and not per level, because weather in Minecraft is per biome:
+     * a village on a desert edge stands in a dry square while its far field is
+     * in a downpour, and {@code level.isRaining()} would have it sheltering from
+     * somebody else's rain. {@code isRainingAt} is the column question and
+     * answers false in a desert, under a roof, and below the surface — all of
+     * which are the right answer for the block it was asked about.
+     *
+     * <p><strong>Asked at the top of the column, not at the plan's y.</strong>
+     * {@code Level.precipitationAt} refuses any position the motion-blocking
+     * heightmap stands above — which is every block a settlement's recorded
+     * centre ever is, because that centre is the ground somebody walks on rather
+     * than the air over it. Asked there it answers "not raining" in a
+     * thunderstorm, for ever, and the whole feature would have been dead code
+     * that ran. So the surface is taken first and the question is asked of that.
+     *
+     * <p>Thunder is the dimension's rather than the column's — there is no
+     * per-block thunder — so it is only taken to mean weather here where the
+     * middle of the town is under open sky. A town in a biome it does not rain
+     * in is dry through an ordinary storm, which {@code isRainingAt} already
+     * says by itself; a blizzard over it is still a reason to be inside.
+     *
+     * <p><strong>It is worth nothing.</strong> Nothing downstream of this answer
+     * touches a store, a field, a ledger or a yield — it decides which of the
+     * places the town already has an idle body walks to, and that is all. See
+     * {@code Leisure.hasWork}, which says at length why the work sweeps are
+     * deliberately not gated on it.
+     */
+    private Leisure.Sky skyOver(Settlement settlement) {
+        SimPos center = settlement.center();
+        BlockPos sky = new BlockPos(center.x(),
+                level.getHeight(Heightmap.Types.MOTION_BLOCKING, center.x(), center.z()),
+                center.z());
+        return Leisure.skyOf(level.isRainingAt(sky),
+                level.isThundering() && level.canSeeSky(sky));
     }
 
     /**
@@ -347,22 +389,144 @@ final class Pastimes {
         if (seats.containsKey(id)) {
             return;
         }
+        Display seat = seatUnder(view, on);
+        if (seat != null) {
+            seats.put(id, seat);
+        }
+    }
+
+    /**
+     * Puts an invisible seat under a body and gets the body onto it.
+     *
+     * <p>The whole of the trick, with nothing in it about who is sitting: the
+     * residents' seats and a visitor's are the same three entities' worth of
+     * work, and the only difference between them is which map remembers it.
+     *
+     * @return the seat, or null if either half of it failed
+     */
+    private Display seatUnder(Entity rider, BlockPos on) {
         Display seat = new Display.BlockDisplay(EntityTypes.BLOCK_DISPLAY, level);
         seat.setPos(on.getX() + 0.5, on.getY() + SEAT_HEIGHT, on.getZ() + 0.5);
         seat.setInvulnerable(true);
         seat.setSilent(true);
         seat.addTag(SEAT_TAG);
         if (!level.addFreshEntity(seat)) {
-            return;
+            return null;
         }
         // Forced, because a mob will not otherwise volunteer to ride anything,
         // and with the event suppressed: nothing about sitting on a bench is a
         // mount, and the advancement machinery should not hear about it.
-        if (!view.startRiding(seat, true, false)) {
+        if (!rider.startRiding(seat, true, false)) {
             seat.discard();
+            return null;
+        }
+        return seat;
+    }
+
+    // --- somebody who does not live here ------------------------------------------
+
+    /**
+     * How far from the door a visitor's seat may be: 3 blocks.
+     *
+     * <p>Much tighter than the ten the square's furniture is looked for over,
+     * and for a reason that is about the body rather than about the bench. A
+     * seat is taken by teleporting somebody onto it, so a bench found across the
+     * yard would be a stranger who walked to the door and then jumped to the
+     * far wall. Three blocks is a bench <em>at</em> the door, which is the only
+     * kind worth having here.
+     */
+    private static final int VISITOR_BENCH_REACH = 3;
+
+    /**
+     * Seats under bodies that are on nobody's roster.
+     *
+     * <p>Its own map, and that is the whole design. {@link #seats} is keyed by
+     * person id and is emptied by {@link #stop}, which is called from
+     * {@code release} and {@code reapOrphans} — both of which walk the town's
+     * <em>residents</em> and neither of which has ever heard of a stranger. Put
+     * a visitor in that map and his seat is a {@code civilization_seat} nothing
+     * will ever look up again: invisible, solid to nobody, standing in the inn
+     * yard for the rest of the save.
+     *
+     * <p>So a visitor is keyed by his <em>entity</em> id and let go of by
+     * whoever put him down. See {@code Caravans}, which is the only caller and
+     * releases on every path out of a visit — the trader leaving, the trader
+     * dying, the chunk going away, the world closing.
+     */
+    private final Map<UUID, Display> visitorSeats = new HashMap<>();
+
+    /**
+     * Where a stranger at this door would sit: a bench beside it, or the
+     * doorway itself.
+     *
+     * <p>The doorway is a real answer and not a fallback that gave up. Sitting
+     * on the step outside an inn is what somebody waiting outside an inn does,
+     * and most towns in this mod have no bench at the inn at all — the square's
+     * furniture is found near the market, which is somewhere else.
+     */
+    BlockPos visitorSeatNear(BlockPos doorway) {
+        List<SimPos> benches = world.bridge().leisureSpots(
+                new SimPos(doorway.getX(), doorway.getY(), doorway.getZ()),
+                VISITOR_BENCH_REACH, Leisure.Pastime.BENCH, FURNITURE_KEPT);
+        BlockPos best = doorway;
+        double nearest = Double.MAX_VALUE;
+        for (SimPos bench : benches) {
+            BlockPos at = new BlockPos(bench.x(), bench.y(), bench.z());
+            double away = at.distSqr(doorway);
+            if (away < nearest) {
+                nearest = away;
+                best = at;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Sits a body that does not live here down, keyed by its entity id.
+     *
+     * <p>Idempotent: asking again for somebody already seated is a map lookup
+     * and nothing else, so a caller may simply ask on every pass.
+     *
+     * @return whether it is now sitting
+     */
+    boolean seatVisitor(UUID entityId, Entity body, BlockPos on) {
+        if (visitorSeats.containsKey(entityId)) {
+            return true;
+        }
+        if (body == null || body.isRemoved()) {
+            return false;
+        }
+        Display seat = seatUnder(body, on);
+        if (seat == null) {
+            return false;
+        }
+        visitorSeats.put(entityId, seat);
+        return true;
+    }
+
+    /** Whether this body is on one of our seats. */
+    boolean isVisitorSeated(UUID entityId) {
+        return visitorSeats.containsKey(entityId);
+    }
+
+    /**
+     * Gets a visitor up and takes the seat out of the world.
+     *
+     * <p>Safe for an id that was never seated, and safe for a body that has
+     * already gone: the seat is ours and outlives the rider, which is exactly
+     * the state this exists to prevent becoming permanent.
+     */
+    void releaseVisitor(UUID entityId) {
+        Display seat = visitorSeats.remove(entityId);
+        if (seat == null) {
             return;
         }
-        seats.put(id, seat);
+        for (Entity rider : List.copyOf(seat.getPassengers())) {
+            rider.stopRiding();
+        }
+        if (!seat.isRemoved()) {
+            seat.discard();
+        }
     }
 
     /**
@@ -595,6 +759,12 @@ final class Pastimes {
     void stopAll() {
         for (UUID id : List.copyOf(seats.keySet())) {
             stop(id, viewOf.apply(id));
+        }
+        // And the strangers', which no roster walk would have reached. See
+        // visitorSeats: this is the backstop for a world closing on somebody
+        // sitting at the inn, and Caravans.forget is the one that names him.
+        for (UUID id : List.copyOf(visitorSeats.keySet())) {
+            releaseVisitor(id);
         }
         at.clear();
         talkingTo.clear();

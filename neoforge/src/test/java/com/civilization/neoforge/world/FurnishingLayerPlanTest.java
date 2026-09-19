@@ -16,6 +16,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -391,6 +392,247 @@ class FurnishingLayerPlanTest {
                 boardOf(FurnishingLayer.plan(flatFor(Culture.of(town.cultureId())),
                         stone, com.civilization.sim.work.Signage.Plaque.NONE,
                         FurnishingLayer.graveAt(town, stone))).getFirst());
+    }
+
+    // --- the thirteenth death ------------------------------------------------
+
+    /** The same town, with however many "Lost <em>n</em>" burials in it. */
+    private static com.civilization.sim.settlement.Settlement burials(int many) {
+        com.civilization.sim.settlement.Settlement town = buriedThree();
+        // buriedThree's three go back out again, so the numbering below is the
+        // burial number and the assertions can be read.
+        town.restoreDead(List.of());
+        town.restoreBuried(0);
+        for (int i = 0; i < many; i++) {
+            com.civilization.sim.person.Person lost =
+                    new com.civilization.sim.person.Person(
+                            com.civilization.sim.person.Person.Id.random(), "Lost " + i,
+                            com.civilization.sim.person.Profession.MILLER, town.center());
+            town.addResident(lost);
+            town.bury(lost.id(), i);
+        }
+        return town;
+    }
+
+    /** What each planned stone's board says, by slot, blank where it says nothing. */
+    private static List<String> boardsOf(
+            com.civilization.sim.settlement.Settlement town) {
+        Culture people = Culture.of(town.cultureId());
+        List<String> said = new java.util.ArrayList<>();
+        for (Furnishings.Furnishing stone : Furnishings.graves(town)) {
+            List<String> board = boardOf(FurnishingLayer.plan(flatFor(people), stone,
+                    com.civilization.sim.work.Signage.Plaque.NONE,
+                    FurnishingLayer.graveAt(town, stone)));
+            said.add(board.isEmpty() ? "" : board.getFirst());
+        }
+        return said;
+    }
+
+    /**
+     * The fault this unit exists for, stated as the picture a player sees.
+     *
+     * <p>The row used to be planned one stone per entry in {@code Settlement.dead}
+     * and paired to it by index. That list is bounded at twelve, so a town's
+     * thirteenth burial pushed the oldest name off the front and shifted every
+     * remaining name down a slot — and the drawing sweep then recut every board
+     * in the churchyard with the name of the person buried <em>after</em> the one
+     * it was raised for. Twelve headstones, all of them lying, on the same night.
+     *
+     * <p>So the assertion is not that the boards are right but that they do not
+     * <em>change</em>: a stone already cut either says what it said or says
+     * nothing, and saying nothing leaves the real board in the world exactly as
+     * it stands — see {@code FurnishingLayer.inscribe}, which does nothing at all
+     * with an empty line list.
+     */
+    @Test
+    void noBoardIsEverRecutWithSomebodyElsesName() {
+        com.civilization.sim.settlement.Settlement town =
+                burials(com.civilization.sim.settlement.Settlement.DEAD_REMEMBERED);
+        List<String> before = boardsOf(town);
+        assertEquals("Lost 0", before.getFirst(),
+                "the row and the roster start out agreeing");
+
+        for (int more = 1; more <= 8; more++) {
+            com.civilization.sim.person.Person lost =
+                    new com.civilization.sim.person.Person(
+                            com.civilization.sim.person.Person.Id.random(),
+                            "Later " + more,
+                            com.civilization.sim.person.Profession.MILLER,
+                            town.center());
+            town.addResident(lost);
+            town.bury(lost.id(), 40 + more);
+            List<String> now = boardsOf(town);
+            assertTrue(now.size() >= before.size(),
+                    "the churchyard shrank when somebody was buried in it");
+            for (int stone = 0; stone < before.size(); stone++) {
+                if (before.get(stone).isEmpty()) {
+                    continue;
+                }
+                assertTrue(now.get(stone).isEmpty()
+                                || now.get(stone).equals(before.get(stone)),
+                        "after " + more + " more deaths, stone " + stone
+                                + " reads \"" + now.get(stone) + "\" and was cut"
+                                + " \"" + before.get(stone) + "\"");
+            }
+            // And the newest death got a stone of its own rather than taking
+            // somebody else's.
+            assertEquals("Later " + more, now.get(now.size() - 1),
+                    "the newest grave is unmarked, or is marked with an older name");
+        }
+    }
+
+    /**
+     * A name the town has forgotten leaves its stone alone.
+     *
+     * <p>Null out of {@code graveAt} has to mean "say nothing", not "say
+     * nothing <em>yet</em>": the plan hands the piece an empty line list, the
+     * sweep writes no text, and the board keeps the name it was cut with for as
+     * long as the stone stands.
+     */
+    @Test
+    void aStoneWhoseNameHasAgedOffIsHandedNothingToWrite() {
+        com.civilization.sim.settlement.Settlement town =
+                burials(com.civilization.sim.settlement.Settlement.DEAD_REMEMBERED + 6);
+        List<Furnishings.Furnishing> stones = Furnishings.graves(town);
+        assertEquals(6, town.agedOff(), "six names should have fallen off");
+        for (int stone = 0; stone < stones.size(); stone++) {
+            List<FurnishingLayer.Course> plan = FurnishingLayer.plan(
+                    flatFor(Culture.of(town.cultureId())), stones.get(stone),
+                    com.civilization.sim.work.Signage.Plaque.NONE,
+                    FurnishingLayer.graveAt(town, stones.get(stone)));
+            List<String> board = boardOf(plan);
+            if (stone < town.agedOff()) {
+                assertTrue(board.isEmpty(),
+                        "stone " + stone + " is older than anything the town"
+                                + " remembers and was handed \"" + board + "\" to"
+                                + " cut over the name already on it");
+            } else {
+                assertEquals("Lost " + stone, board.getFirst(),
+                        "stone " + stone + " names the wrong burial");
+            }
+        }
+    }
+
+    // --- the two heaps -------------------------------------------------------
+
+    /** A heap of this kind, planned at this many courses. */
+    private static List<FurnishingLayer.Course> heap(Furnishings.Piece kind, int courses) {
+        return FurnishingLayer.plan(flatFor(Culture.of("civilization:human/norman")),
+                new Furnishings.Furnishing(AT, kind, 0),
+                com.civilization.sim.work.Signage.Plaque.NONE, null, courses);
+    }
+
+    /** The courses of a plan that actually lay a block. */
+    private static List<FurnishingLayer.Course> laid(List<FurnishingLayer.Course> plan) {
+        List<FurnishingLayer.Course> out = new java.util.ArrayList<>();
+        for (FurnishingLayer.Course course : plan) {
+            if (!course.clear()) {
+                out.add(course);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * A pile that says something about the camp behind it.
+     *
+     * <p>Three steps, and each one has to be visibly more than the last from the
+     * road — more blocks and a higher top — or the whole point of reading the
+     * stock off it is lost.
+     */
+    @Test
+    void aHeapStandsTallerTheFullerTheStoreBehindItIs() {
+        for (Furnishings.Piece kind : List.of(Furnishings.Piece.WOODPILE,
+                Furnishings.Piece.HAYSTACK)) {
+            int blocks = 0;
+            int top = Integer.MIN_VALUE;
+            for (int courses = 1; courses <= Furnishings.HEAP_STEPS; courses++) {
+                List<FurnishingLayer.Course> standing = laid(heap(kind, courses));
+                int highest = Integer.MIN_VALUE;
+                for (FurnishingLayer.Course course : standing) {
+                    highest = Math.max(highest, course.pos().getY());
+                }
+                assertTrue(standing.size() > blocks,
+                        kind + " at " + courses + " courses is no bigger than at "
+                                + (courses - 1));
+                assertTrue(highest > top,
+                        kind + " at " + courses + " courses is no taller than at "
+                                + (courses - 1));
+                blocks = standing.size();
+                top = highest;
+            }
+        }
+    }
+
+    /**
+     * The removal path, and the whole of what it is allowed to touch.
+     *
+     * <p>Every cell a short heap asks to have emptied has to be a cell the full
+     * one fills, with the same block state in it. If it were anything else the
+     * sweep would be taking down something that was never the town's — which is
+     * the exact property the dressing has always had, and the reason it was
+     * additive until this.
+     */
+    @Test
+    void aShortHeapOnlyAsksForCellsItsOwnFullSelfWouldHaveFilled() {
+        for (Furnishings.Piece kind : List.of(Furnishings.Piece.WOODPILE,
+                Furnishings.Piece.HAYSTACK)) {
+            java.util.Map<BlockPos, net.minecraft.world.level.block.state.BlockState> full =
+                    new java.util.HashMap<>();
+            for (FurnishingLayer.Course course : heap(kind, Furnishings.HEAP_STEPS)) {
+                assertFalse(course.clear(),
+                        kind + " at its tallest asks for a cell to be emptied,"
+                                + " which is a piece that can never finish");
+                full.put(course.pos(), course.state());
+            }
+            for (int courses = 1; courses < Furnishings.HEAP_STEPS; courses++) {
+                int asked = 0;
+                for (FurnishingLayer.Course course : heap(kind, courses)) {
+                    if (!course.clear()) {
+                        continue;
+                    }
+                    asked++;
+                    assertTrue(full.containsKey(course.pos()),
+                            kind + " at " + courses + " courses asks to empty "
+                                    + course.pos() + ", which its own full self"
+                                    + " never fills — that is somebody else's block");
+                    assertSame(full.get(course.pos()), course.state(),
+                            "and it carries the wrong block state for the cell, so"
+                                    + " the sweep would compare against a guess");
+                }
+                assertTrue(asked > 0,
+                        kind + " at " + courses + " courses takes nothing down, so"
+                                + " a pile that grew tall never gets shorter again");
+            }
+        }
+    }
+
+    /** Nothing but the two heaps can ever take a block away. */
+    @Test
+    void noOtherPieceCanRemoveAnything() {
+        for (Culture culture : peoples()) {
+            FurnishingStyle style = FurnishingStyle.of(culture);
+            for (Furnishings.Piece kind : Furnishings.Piece.values()) {
+                if (!style.raises(kind)) {
+                    continue;
+                }
+                for (int courses = 1; courses <= Furnishings.HEAP_STEPS; courses++) {
+                    if (kind == Furnishings.Piece.WOODPILE
+                            || kind == Furnishings.Piece.HAYSTACK) {
+                        continue;
+                    }
+                    for (FurnishingLayer.Course course : FurnishingLayer.plan(
+                            flatFor(culture), new Furnishings.Furnishing(AT, kind, 0),
+                            com.civilization.sim.work.Signage.Plaque.NONE, null,
+                            courses)) {
+                        assertFalse(course.clear(),
+                                culture.id() + "'s " + kind + " wants to take a"
+                                        + " block away, and the dressing sweep is"
+                                        + " additive for everything but a heap");
+                    }
+                }
+            }
+        }
     }
 
     /** The lines on the one sign block in a plan, or none if there is none. */
