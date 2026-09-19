@@ -648,8 +648,8 @@ public final class WorldgenSettlements {
         site = asDrawn.get();
 
         String name = Culture.of(site.cultureId()).townNames().isEmpty()
-                ? pickName(world, site, List.of("Wayside"))
-                : pickName(world, site, Culture.of(site.cultureId()).townNames());
+                ? pickName(level, world, site, List.of("Wayside"))
+                : pickName(level, world, site, Culture.of(site.cultureId()).townNames());
         // A shire is named after its town and a warband after its chief's line.
         // The settlement keeps the town name either way; only the realm differs.
         Kingdom kingdom = new Kingdom(Kingdom.Id.random(),
@@ -763,11 +763,20 @@ public final class WorldgenSettlements {
      *
      * <p>The walking and the qualifying are {@link TownNames}', so they can be
      * put to a pool smaller than the number of towns without a world to generate.
+     *
+     * <p><strong>And the seed, which it never had.</strong> Two playtest worlds
+     * both named their starter town Ashmarch. The hash was {@code x * 31 + z} and
+     * nothing else, and a starter's column is chosen by machinery that puts two
+     * worlds' starters near the same place — same region, same spacing, same
+     * jitter lattice — so the same weak sum gave the same index into the same
+     * pool. Every other worldgen decision here already takes the seed and a named
+     * salt; naming was the one that did not. See {@code TownNames.hashFor}.
      */
-    private static String pickName(SimWorld world, SettlementSites.Site site,
-                                   List<String> pool) {
+    private static String pickName(ServerLevel level, SimWorld world,
+                                   SettlementSites.Site site, List<String> pool) {
         return TownNames.pick(pool,
-                site.center().x() * 31 + site.center().z(), namesTaken(world));
+                TownNames.hashFor(level.getSeed(), site.center().x(), site.center().z()),
+                namesTaken(world));
     }
 
     /** Every settlement name standing in this world, of any culture. */

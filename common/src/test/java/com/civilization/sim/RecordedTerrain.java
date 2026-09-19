@@ -149,11 +149,26 @@ public final class RecordedTerrain implements WorldBridge {
         return bulkFall(plot, radius) <= BuildPlanner.LEVELABLE_FALL;
     }
 
+    /**
+     * The floor a crew would lay here, the way the placer lays it.
+     *
+     * <p>{@code Grade.floorFor} rather than the origin column's own ground, which
+     * is what this answered until the second playtest. {@code BlueprintPlacer}
+     * takes the median across the whole plot and holds it down to what the
+     * underpinning can reach — that is {@code Grade.floorAcross}, and the placer
+     * delegates to it — so a fixture answering the middle column alone was a
+     * fixture that could not exhibit the fault of a building sunk into a dip its
+     * own middle happened to sit in. A test double that cannot exhibit the fault
+     * certifies the fault, which is the whole reason this class exists.
+     */
     @Override
     public Footprint materializeBlueprint(String id, SimPos origin, boolean surveyed,
                                           int facing) {
         int span = BuildPlanner.plotSpanOf(id, BuildCatalog.DEFAULT);
-        return new Footprint(groundAt(origin.x(), origin.z()), span, span, 5);
+        return new Footprint(
+                com.civilization.sim.settlement.Grade.floorFor(this, origin, span,
+                        com.civilization.sim.settlement.Grade.isField(id)),
+                span, span, 5);
     }
 
     @Override

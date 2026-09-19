@@ -485,7 +485,7 @@ public final class Founding {
                 TownPlan.Plot fixed = theMiddlesOwn(town, want.get(), ground);
                 if (fixed != null) {
                     town.addBuilding(standing(town, want.get(),
-                            onTheGround(fixed, ground)));
+                            onTheGround(fixed, ground), ground));
                     town.tallies().record(Tallies.BUILDINGS_RAISED);
                     continue;
                 }
@@ -504,7 +504,7 @@ public final class Founding {
                     break;
                 }
                 town.addBuilding(standing(town, want.get(),
-                        onTheGround(plan.plot(taken++), ground)));
+                        onTheGround(plan.plot(taken++), ground), ground));
                 town.tallies().record(Tallies.BUILDINGS_RAISED);
             }
             if (reached == upTo) {
@@ -642,7 +642,8 @@ public final class Founding {
     }
 
     /** One building of the program, as the unwatched clock would have left it. */
-    private static Building standing(Settlement town, BuildingType type, TownPlan.Plot plot) {
+    private static Building standing(Settlement town, BuildingType type, TownPlan.Plot plot,
+                                     com.civilization.sim.platform.WorldBridge ground) {
         Building raised = new Building(type.id(), plot.at(), BEFORE_THE_FIRST_STEP, false);
         raised.setFacing(plot.facing());
         // Standing since before the first step, with nothing behind it. The
@@ -662,7 +663,19 @@ public final class Founding {
                     ForesterStand.SAPLINGS_ON_HAND, LumberPlanner.MAX_SAPLINGS);
         }
         int span = BuildPlanner.plotSpanOf(type.id(), town.catalog());
-        raised.setFootprint(new Footprint(plot.at().y(), span, span, A_STORY));
+        // The floor the crew will actually lay, not the column the plot's middle
+        // happens to stand on. They are the same number on level ground and they
+        // are not on a terrace: the middle can sit in a dip several courses below
+        // the median of the plot, and the audit reads this y as the floor. A
+        // seeded town whose footprints claimed the dip read as buried on arrival
+        // under ground nobody had to move. Grade.floorFor is the placer's own
+        // rule — see Grade.floorAcross — so what is written here is what will be
+        // built, which is the only thing that makes a step-0 audit mean anything.
+        raised.setFootprint(new Footprint(
+                ground == null ? plot.at().y()
+                        : Grade.floorFor(ground, plot.at(), span,
+                                Grade.isField(type.id())),
+                span, span, A_STORY));
         // Left unsurveyed on purpose. Surveyed means somebody stood on this
         // ground and worked to it; nobody has, so the height is an estimate and
         // relocatePending is still allowed to move the building off a river.

@@ -54,6 +54,50 @@ public final class TownNames {
     }
 
     /**
+     * The number a site hashes to, given the world it stands in.
+     *
+     * <p><strong>The report.</strong> Two worlds, seed 8675309 and seed 20260919,
+     * six hundred blocks and one biome apart, and both raised a starter town
+     * called <em>Ashmarch</em>. It is the first word a new player reads and it was
+     * going to be the same word in every world.
+     *
+     * <p>The cause was that {@link #pick} had never been told which world it was
+     * naming. Its caller hashed the site's position and nothing else — {@code x *
+     * 31 + z} — and a starter town's position is chosen by machinery that is
+     * itself only weakly a function of the seed: the same region, the same
+     * spacing, the same jitter lattice, so two worlds put their starter within a
+     * stone's throw of the same column and {@code x * 31 + z} then handed them the
+     * same index into the same pool. Every other worldgen decision already takes
+     * the seed and a named salt — {@code SettlementSites.hash} — and naming was
+     * the one that did not.
+     *
+     * <p>The seed goes in, and the site stays in, because both facts matter. A
+     * name that ignored the seed is this report; a name that ignored the site
+     * would give one world's nine towns the same name. Avalanched rather than
+     * added, because the coordinates of towns on a spacing grid differ in high
+     * bits and a plain sum of them collides along whole diagonals — the same
+     * warning {@code Kingdom.nameFor} carries about its own hash.
+     *
+     * <p>The name is still a pure function of the seed and the place, so a world
+     * regenerated from the same seed names its towns exactly as it did before.
+     * That is what {@link #pick}'s determinism note means and it is untouched.
+     */
+    public static int hashFor(long worldSeed, int x, int z) {
+        long h = worldSeed * 0x9E3779B97F4A7C15L;
+        h = mix(h ^ ((long) x * 0x2545F4914F6CDD1DL));
+        h = mix(h ^ ((long) z * 0x8A5CD789635D2DFFL));
+        return (int) (h ^ (h >>> 32));
+    }
+
+    /** splitmix64's finaliser: the avalanche the note above asks for. */
+    private static long mix(long x) {
+        long h = x;
+        h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
+        h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;
+        return h ^ (h >>> 31);
+    }
+
+    /**
      * A name for a town at this site: the hashed one if it is free, the nearest
      * free one along the pool if it is not.
      *

@@ -14,7 +14,10 @@ import com.civilization.neoforge.world.StoreSync;
 import com.civilization.neoforge.world.HandDig;
 import com.civilization.neoforge.world.TownBlocks;
 import com.civilization.neoforge.world.TownAuditor;
+import com.civilization.neoforge.world.BlueprintPlacer;
+import com.civilization.neoforge.world.LevelWorldView;
 import com.civilization.sim.geom.SimPos;
+import com.civilization.sim.work.Spoil;
 import com.civilization.sim.kingdom.Kingdom;
 import com.civilization.sim.quest.QuestPlanner;
 import com.civilization.sim.settlement.Settlement;
@@ -233,6 +236,11 @@ public final class CivilizationMod {
             // in the log, so it has to be put right for the player who never
             // turns debug commands on.
             razeRuins();
+            // And ungated for the same reason: the audit has been reporting
+            // houses with no way in since it was written and nothing ever put one
+            // right. A player who never turns debug commands on is exactly the
+            // player who cannot get into the house.
+            openShutDoorways();
             if (CivilizationConfig.debugCommandsEnabled()) {
                 auditTowns();
             }
@@ -264,6 +272,48 @@ public final class CivilizationMod {
                     // nothing else marks it dirty: the simulation mutates these
                     // objects in place.
                     CivilizationSavedData.get(entry.getKey()).setDirty();
+                }
+            }
+        }
+    }
+
+    /**
+     * Digs out the doorway of any building the audit says has no way in.
+     *
+     * <p>On the audit's beat because it is the audit's finding — see
+     * {@link TownAuditor#openDoorways}, which decides what has to come out and
+     * why this only ever clears rather than builds. All that is here is the
+     * level: the blocks are set to air and what they were is credited to the
+     * town, exactly as the apron cut credits the hillside it takes off a plot.
+     *
+     * <p>A minute's cadence, and nothing is re-cut once the way is open: a
+     * building with a doorstep somebody can stand on hands back nothing to do,
+     * so a town at rest costs this the wall ring of each of its buildings and no
+     * block changes at all.
+     */
+    private static void openShutDoorways() {
+        for (Map.Entry<ServerLevel, SimWorld> entry : SIMULATIONS.entrySet()) {
+            ServerLevel level = entry.getKey();
+            for (var kingdom : entry.getValue().kingdoms()) {
+                for (var settlement : kingdom.settlements()) {
+                    var opened = TownAuditor.openDoorways(new LevelWorldView(level),
+                            settlement, at -> {
+                                // Whatever comes out of the doorway belongs to the
+                                // town, exactly as the hillside cut off a plot
+                                // does. Credited where it was dug, so it lands on
+                                // the shelves nearest the house it came out of.
+                                var kind = BlueprintPlacer.spoilOf(level.getBlockState(at));
+                                if (kind.isSomething()) {
+                                    Spoil.credit(settlement,
+                                            new SimPos(at.getX(), at.getY(), at.getZ()),
+                                            kind.resource(), kind.perBlock());
+                                }
+                                TownBlocks.clear(level, at);
+                            });
+                    for (var building : opened) {
+                        LOGGER.info("DOORWAY {} {} at {} was dug out", settlement.name(),
+                                building.blueprintId(), building.origin());
+                    }
                 }
             }
         }

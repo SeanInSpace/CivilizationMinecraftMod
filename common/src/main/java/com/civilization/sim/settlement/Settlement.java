@@ -4360,26 +4360,38 @@ public final class Settlement {
             // anyway and what the auditor judges it by.
             return false;
         }
-        if (ctx.bridge().isSiteSuitable(building.origin(), BuildPlanner.PLOT_PROBE_RADIUS)) {
+        int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalog);
+        boolean field = Grade.isField(building.blueprintId());
+        // Both questions, which is the whole of the second playtest's buried
+        // town. This used to ask isSiteSuitable alone — how far the ground falls
+        // across the bulk of the plot — and a plot cut into a terrace falls
+        // hardly at all across its bulk while standing seven courses under the
+        // hillside on every side. The shelf rule was applied when the plan was
+        // laid, in chunks nobody had loaded, against a bridge answering from the
+        // generator's estimate; this is the first and only moment the real ground
+        // is readable, and it was not being re-asked. See Grade.groundFault.
+        if (Grade.willTake(ctx.bridge(), building.origin(), span, field)) {
             return false;
         }
-        int span = BuildPlanner.plotSpanOf(building.blueprintId(), catalog);
         if (building.isSeeded()) {
             if (moveOnThePlan(ctx, building, span)) {
                 return true;
             }
             if (!ctx.bridge().standsInWater(building.origin(),
-                    BuildPlanner.PLOT_PROBE_RADIUS)) {
+                    BuildPlanner.PLOT_PROBE_RADIUS)
+                    && Grade.shelf(ctx.bridge(), building.origin(), span, field)
+                            == Grade.Shelf.LEVEL) {
                 // Nothing on the plan is better, so it is drawn where the world
                 // wrote it. Poor ground inside a town is still a town, and that
                 // is the whole of the rule SEEDED_MOVE_REACH states.
                 return false;
             }
-            // Except for the one thing that is never poor ground. A building in
-            // a river reads as broken however sound it is and however neatly it
-            // sits in the plan, so this and only this falls through to the wide
-            // search below — the same exception every other siting path in this
-            // class makes for open water.
+            // Two things the plan's own neighborhood does not get to settle, and
+            // they are the two the audit reports as broken rather than poor: a
+            // building in a river, and a building in a pit. Neither is "poor
+            // ground inside a town" — nobody can walk into either — so both fall
+            // through to the wide search below, which is the same exception every
+            // other siting path in this class already makes for open water.
         }
         int spentTo = nextPlotIndex;
         SimPos moved = chooseSite(ctx, span, building.role());
@@ -4392,9 +4404,9 @@ public final class Settlement {
         //
         if (moved.equals(building.origin())
                 || !mayRelocateTo(ctx, building, moved)
-                || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
-                        >= ctx.bridge().siteFault(building.origin(),
-                                BuildPlanner.PLOT_PROBE_RADIUS)) {
+                || Grade.groundFault(ctx.bridge(), moved, span, field)
+                        >= Grade.groundFault(ctx.bridge(), building.origin(), span,
+                                field)) {
             giveTheSlotBack(spentTo);
             return false;   // nowhere better; draw it here and make the best of it
         }
@@ -4461,8 +4473,14 @@ public final class Settlement {
         if (refusedRecently(to, ctx.step())) {
             return false;
         }
+        // Both halves of the ground's verdict, because "one question both ask"
+        // is what this method is for and the shelf is half the question. A
+        // relocation that lands a building in a pit has moved it from ground the
+        // audit condemns to ground the audit condemns.
         return !ctx.bridge().isLoaded(to)
-                || ctx.bridge().isSiteSuitable(to, BuildPlanner.PLOT_PROBE_RADIUS);
+                || Grade.willTake(ctx.bridge(), to,
+                        BuildPlanner.plotSpanOf(building.blueprintId(), catalog),
+                        Grade.isField(building.blueprintId()));
     }
 
     /** A plot, as the key its column is remembered by. */
@@ -4613,7 +4631,12 @@ public final class Settlement {
     private boolean moveOnThePlan(SimContext ctx, Building building, int span) {
         TownPlan plan = arrangement().planFor(center, Founding.PLOTS_ENOUGH_FOR_ANY_PROGRAM);
         int townGround = ctx.bridge().groundHeight(center);
-        int standing = ctx.bridge().siteFault(building.origin(), BuildPlanner.PLOT_PROBE_RADIUS);
+        boolean field = Grade.isField(building.blueprintId());
+        // Both halves of the verdict on both sides of the comparison. Asking
+        // siteFault alone meant a building in a pit scored the same as a building
+        // on level ground — both flat — so the nearest plot that could have taken
+        // it was never "better" and the seeded town stayed in its pits.
+        int standing = Grade.groundFault(ctx.bridge(), building.origin(), span, field);
         SimPos best = null;
         long bestAway = Long.MAX_VALUE;
         for (TownPlan.Plot plot : plan.plots()) {
@@ -4635,7 +4658,7 @@ public final class Settlement {
             if (away >= bestAway) {
                 continue;   // further than something already accepted
             }
-            if (ctx.bridge().siteFault(at, BuildPlanner.PLOT_PROBE_RADIUS) >= standing) {
+            if (Grade.groundFault(ctx.bridge(), at, span, field) >= standing) {
                 continue;   // not better; only different
             }
             if (!mayRelocateTo(ctx, building, at)) {
@@ -4800,12 +4823,17 @@ public final class Settlement {
         if (task.siteY() != BuildTask.UNSET_SITE_Y || task.workDone() > 0) {
             return false;   // already surveyed and under way; moving it now loses work
         }
+        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalog);
+        boolean field = Grade.isField(task.blueprintId());
+        // The same two questions the siting asked when it chose this plot, asked
+        // again now that the chunk is real. A task sited in an unloaded chunk was
+        // judged against the generator's estimate, and the shelf the estimate
+        // promised is not always the shelf the world has. See Grade.groundFault.
         if (!ctx.bridge().isLoaded(task.origin())
-                || ctx.bridge().isSiteSuitable(task.origin(), BuildPlanner.PLOT_PROBE_RADIUS)) {
+                || Grade.willTake(ctx.bridge(), task.origin(), span, field)) {
             return false;
         }
 
-        int span = BuildPlanner.plotSpanOf(task.blueprintId(), catalog);
         int spentTo = nextPlotIndex;
         SimPos moved = chooseSite(ctx, span, BuildingRole.of(task.blueprintId()));
         // Better, or stay. The identity test alone was not enough, and on ground
@@ -4819,9 +4847,8 @@ public final class Settlement {
         // best of it" since it was written; this is that sentence, with better
         // meaning measurably better rather than merely different.
         if (moved.equals(task.origin())
-                || ctx.bridge().siteFault(moved, BuildPlanner.PLOT_PROBE_RADIUS)
-                        >= ctx.bridge().siteFault(task.origin(),
-                                BuildPlanner.PLOT_PROBE_RADIUS)) {
+                || Grade.groundFault(ctx.bridge(), moved, span, field)
+                        >= Grade.groundFault(ctx.bridge(), task.origin(), span, field)) {
             giveTheSlotBack(spentTo);
             return false;   // nowhere better; build it here and make the best of it
         }

@@ -283,6 +283,57 @@ public final class Grade {
     }
 
     /**
+     * Everything the ground has to say about a plot, as one number.
+     *
+     * <p>Two questions, and until this existed only ever one of them was asked
+     * outside the two siting loops. {@code WorldBridge.siteFault} measures how far
+     * the ground falls across the bulk of a plot; {@link #shelf} asks whether the
+     * ring one step outside the walls can be brought to the floor. A plot on a
+     * terrace passes the first — it is flat — and fails the second, because the
+     * terrace above it stands seven courses proud on every side.
+     *
+     * <p><strong>Why it had to be one number.</strong> {@code Settlement.chooseSite}
+     * and {@code Founding.roomFor} both ask both questions and both rank the answer
+     * this same way. Every <em>other</em> path that judges ground — the two
+     * relocations, the plan walk they share, and the test of whether a relocation
+     * may take a plot at all — asked {@code siteFault} alone. That is the whole of
+     * the second playtest's buried town: the seeded plan is laid in chunks nobody
+     * has loaded, where the bridge answers from the generator's estimate and is
+     * wrong by courses, and the one moment the real ground is finally readable —
+     * {@code Settlement.relocatePending}, called from {@code materializePending} a
+     * line before the blueprint is drawn — asked the question that terraces pass.
+     * So the shelf rule was applied to fiction and never re-applied to the world,
+     * and eleven of sixteen buildings went up in pits.
+     *
+     * <p>Ranked rather than refused outright, in {@code chooseSite}'s own idiom: a
+     * town with nothing but terraces to build on must still build, and the ranking
+     * is what decides which terrace. Anything the shelf condemns scores worse than
+     * every gradable slope, because a slope is ground the crew can cut into and a
+     * pit is ground the auditor will condemn however gently it falls.
+     *
+     * @param span  the plot's width, walls plus the doorstep ring
+     * @param field whether this is a crop field; see {@link #floorAcross}
+     */
+    public static int groundFault(WorldBridge ground, SimPos plot, int span,
+                                  boolean field) {
+        int fault = ground.siteFault(plot, BuildPlanner.PLOT_PROBE_RADIUS);
+        if (fault == WorldBridge.SITE_FAULT_OPEN_WATER) {
+            return fault;   // nothing ranks worse, and the shelf of a lake is moot
+        }
+        Shelf shelf = shelf(ground, plot, span, field);
+        if (shelf != Shelf.LEVEL) {
+            fault = Math.max(fault, BuildPlanner.LEVELABLE_FALL + shelf.ordinal());
+        }
+        return fault;
+    }
+
+    /** Whether the ground will take this plot on both counts. See {@link #groundFault}. */
+    public static boolean willTake(WorldBridge ground, SimPos plot, int span,
+                                   boolean field) {
+        return groundFault(ground, plot, span, field) == WorldBridge.SITE_FAULT_NONE;
+    }
+
+    /**
      * The floor a building on this plot will be given, read off the ground.
      *
      * <p>The plot's own columns, sampled as the survey samples them, put through

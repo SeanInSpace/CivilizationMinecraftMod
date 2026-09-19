@@ -408,7 +408,7 @@ public final class PersonEntity extends PathfinderMob {
             return InteractionResult.SUCCESS;
         }
         Person person = person();
-        String name = hasCustomName() ? getCustomName().getString() : "Settler";
+        String name = nameFor(person);
 
         ItemStack offered = player.getItemInHand(hand);
         if (person != null && !offered.isEmpty() && !player.isShiftKeyDown()) {
@@ -454,6 +454,43 @@ public final class PersonEntity extends PathfinderMob {
         player.sendSystemMessage(Component.literal(
                 name + ": \"" + greeting(person) + "\""));
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * What to call this settler: their name, and the trade they have <em>now</em>.
+     *
+     * <p><strong>The report.</strong> A person panel reading {@code Farmer 6 —
+     * Farmer} in its title over {@code Carpenter · hunger 58/99} in its body. Both
+     * lines were about the same settler and one of them was months out of date.
+     *
+     * <p>The plate was written once, at {@code PersonEntityManager.embody}, and
+     * never again; the panel's title read the plate and its subtitle read the
+     * simulation. Jobs are reassigned constantly — one playtest run moved guards
+     * 7 → 10 → 12 → 14 inside four minutes — so the trade on the plate was
+     * routinely one the settler no longer had.
+     *
+     * <p>One rule, in one place, and both the plate and the panel come through
+     * it. {@code PersonEntityManager.nameplate} rewrites the plate from here
+     * whenever the trade has moved, and this method is what the panel, the
+     * greeting and the chat lines ask for a name, so none of them can be reading
+     * a different vintage of the same fact.
+     *
+     * <p>The stored custom name is still the fallback, and it matters: a body the
+     * simulation cannot place has no profession to read and keeps whatever it was
+     * called. So does a trader or a raider, neither of which is a settler.
+     */
+    public String nameFor(Person person) {
+        if (person != null) {
+            return plateFor(person);
+        }
+        return hasCustomName() ? getCustomName().getString() : "Settler";
+    }
+
+    /** The plate a settler wears: {@code Name — Trade}, both read live. */
+    public static String plateFor(Person person) {
+        String trade = person.profession().name().toLowerCase(java.util.Locale.ROOT);
+        return person.name() + " — "
+                + Character.toUpperCase(trade.charAt(0)) + trade.substring(1);
     }
 
     /**

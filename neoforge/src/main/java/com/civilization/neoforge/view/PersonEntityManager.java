@@ -3338,7 +3338,7 @@ public final class PersonEntityManager {
         SimPos pos = walkInFrom(settlement, person);
         int y = standableY(pos);
         view.setPos(pos.x() + 0.5, y, pos.z() + 0.5);
-        view.setCustomName(Component.literal(person.name() + " — " + pretty(person)));
+        view.setCustomName(Component.literal(PersonEntity.plateFor(person)));
         // Named, but not labelled from across the valley. See nameplate below:
         // the routine turns this on for anybody a player is actually standing
         // near, and a body is embodied long before that is true.
@@ -3946,7 +3946,22 @@ public final class PersonEntityManager {
      * walking every embodied settler in the town, so this costs the loop nothing
      * but the lookup.
      */
-    private void nameplate(PersonEntity view) {
+    private void nameplate(PersonEntity view, Person person) {
+        // And what it says, which nothing refreshed until the playtest caught it.
+        // The plate was written at embody and never again, so a settler retrained
+        // from farmer to carpenter went on wearing "Farmer" for the life of the
+        // body — and the person panel read its title off the plate while reading
+        // its subtitle off the simulation, which is how one screen came to say
+        // "Farmer 6 — Farmer" over "Carpenter". See PersonEntity.nameFor.
+        //
+        // A string compare per settler per pass, which is nothing beside the walk
+        // this loop is already doing, and the setter is skipped when it agrees so
+        // no packet goes out for a settler whose trade has not moved.
+        String plate = PersonEntity.plateFor(person);
+        Component shown = view.getCustomName();
+        if (shown == null || !plate.equals(shown.getString())) {
+            view.setCustomName(Component.literal(plate));
+        }
         view.setCustomNameVisible(level.getNearestPlayer(view, NAMEPLATE_RANGE) != null);
     }
 
@@ -3990,7 +4005,7 @@ public final class PersonEntityManager {
             if (view == null || view.isRemoved()) {
                 continue;
             }
-            nameplate(view);
+            nameplate(view, person);
 
             boolean guard = person.profession() == Profession.GUARD;
             SimPos home = homes.get(person.id().value());
@@ -4610,11 +4625,6 @@ public final class PersonEntityManager {
         doors.forget();
         tracked.clear();
         CivilizationSavedData.get(level).setDirty();
-    }
-
-    private static String pretty(Person person) {
-        String name = person.profession().name().toLowerCase(Locale.ROOT);
-        return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
     // --- claim borders ---

@@ -6,6 +6,108 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The shelf rule gets asked about the real ground, and a shut house gets dug out
+
+Four faults from the second playtest of 2026-09-19. The first is the previous
+entry's rule, applied to the wrong world; the rest are three places where the
+mod knew something and never did anything about it.
+
+### Fixed
+
+- **A town the world wrote down is no longer buried by the time you walk up to
+  it.** `/civ audit` on run B, a highland thorp on seed 20260919, reported
+  **eleven of sixteen** buildings buried — the mill under seven courses, the inn
+  and the hall under six. The shelf rule from the entry below had been written
+  and the seeded siting had been asking it since the day it was written, so on
+  the face of it this could not happen.
+
+  It happened because the siting was asking it about ground nobody had looked
+  at. A seeded plan is laid in unloaded chunks, where the bridge answers from the
+  generator's estimate — right about the hillside, wrong about the column, by
+  about eight courses. The one moment the real ground is readable is the instant
+  before the blueprint is drawn, and what ran there asked `isSiteSuitable`: how
+  far does the ground fall across the bulk of this plot. **A terrace is flat.**
+  It passes. So the shelf rule was applied to a fiction and never once re-applied
+  to the world, and the same held for the build queue's own last-moment check and
+  for the plan walk both of them share.
+
+  There is one number now — the fall across a plot, raised by the shelf's verdict
+  on it — and every path that judges ground reads it: the two relocations, the
+  plan walk, and the test of whether a relocation may take a plot at all. A plot
+  the audit would condemn is a plot the town moves off before it builds, which is
+  the only window there is.
+
+  A seeded building also writes down the floor the crew will actually lay rather
+  than the height of the column its middle happens to sit on. On level ground
+  those are the same number; on a terrace the middle can sit in a dip several
+  courses below its own plot, and the audit reads that number as the floor.
+
+  **What could not be measured, stated plainly.** The recorded ground of seed
+  8675309 cannot exhibit this fault at all. Swept plot by plot over the whole
+  captured field — six and a half thousand of them — the shelf rule returns
+  "buried" exactly **nought** times, because buried means the ground stands over
+  the floor on *every* side and open hillside almost never does. That fixture is
+  kept as a regression guard and it was green before this change as well. The
+  test that was red is a plateau with hollows dug into it *after* the plan is
+  laid, which is the causality of the fault exactly: the plan cannot have been
+  informed by ground nobody read.
+
+- **A house with no way in gets one dug.** `/civ audit` on run A:
+  `civilization:house @ 164, 79, 565: no way in — 1 gap(s) in 32 wall columns`.
+  One of thirty. The audit caught it, which is what the audit is for, and then
+  nothing whatever happened — the house stood shut for the life of the world.
+
+  The finding feeds a repair now, and deliberately only the cheap half of one.
+  Whatever is *standing* in the doorway and on the doorstep comes out: two courses
+  in the wall ring at the chosen column, two courses outside it at the height the
+  ground there actually stands, and nothing else. That is the afternoon's work a
+  crew with shovels would do about a hillside that slumped back over a threshold
+  or a tree that grew across it, and it is the same pair of columns and the same
+  three heights the audit already walks, so what is cleared is exactly what the
+  audit is asking for. Whatever comes out is credited to the town where it was
+  dug, as the apron cut already is.
+
+  A doorway that opens onto a **drop** is left alone and goes on being reported.
+  Clearing cannot conjure ground, the cure is to move the house, and an audit
+  that stopped mentioning a house nobody can enter would be worse than one that
+  did not fix it.
+
+- **Two worlds no longer both call their first town Ashmarch.** Seed 8675309 and
+  seed 20260919 raised a burgher town and a highland town, in different biomes in
+  different worlds, and gave them the same name — the first word a new player
+  reads, and it was going to be the same word in every world.
+
+  The namer had never been told which world it was naming. Its caller hashed the
+  site's position and nothing else, `x * 31 + z`, and a starter town's column is
+  chosen by machinery that puts two worlds' starters near the same place: same
+  region, same spacing, same jitter lattice. So the same weak sum handed them the
+  same index into the same pool. Every other worldgen draw already takes the seed
+  and a named salt; naming was the one that did not.
+
+  The seed goes in and the site stays in, avalanched rather than added — towns sit
+  on a spacing grid and a plain sum of such coordinates collides along whole
+  diagonals. A hundred worlds at one fixed column now reach every name in the
+  burghers' pool, where the old hash reached exactly one. The name is still a pure
+  function of the seed and the place, so a world regenerated from its seed names
+  its towns exactly as it did.
+
+- **A settler's nameplate says the trade the settler has.** A person panel read
+  `Farmer 6 — Farmer` in its title over `Carpenter · hunger 58/99` in its body.
+  Both lines were about the same settler, on the same screen, and they disagreed;
+  the greetings drifted the same way, `Farmer 8 — Guard`, `Farmer 6 — Miller`.
+
+  Two vintages of one fact. The plate was written once, when the body was first
+  spawned, and nothing ever rewrote it; the panel's title read the plate while its
+  subtitle read the simulation. Jobs are reassigned constantly — one run moved
+  guards 7 → 10 → 12 → 14 inside four minutes — so the plate was routinely a trade
+  the settler no longer had.
+
+  The plate is derived from the person rather than stored, the routine that
+  already walks every embodied settler each pass rewrites it when the trade has
+  moved, and the panel, the greeting and the chat lines all ask the same method
+  for a name. A string compare per settler per pass, and no packet goes out for
+  anybody whose trade has not changed.
+
 ## The square stops running away, and the audit stops condemning level ground
 
 Two siting faults from the 2026-09-19 playtest. They look unrelated and they

@@ -333,6 +333,132 @@ public final class TownAuditor {
     }
 
     /**
+     * Cuts a way into every building of a town that has not got one.
+     *
+     * <p><strong>The report.</strong> {@code /civ audit} on the second playtest's
+     * run A: {@code civilization:house @ 164, 79, 565: no way in — 1 gap(s) in 32
+     * wall columns}. One of thirty. The audit caught it, which is the point of the
+     * audit; nothing in the mod put it right, and a house nobody can walk into
+     * stays that way for the life of the world.
+     *
+     * <p><strong>The cheap half of the cure, and it is deliberately the cheap
+     * half.</strong> A doorway is refused for one of two reasons and only one of
+     * them is a digging job. Either something is <em>standing</em> in the way —
+     * the hillside the doorstep was cut into slumped back, a tree grew across the
+     * threshold, the apron was never cut at all — and then a crew with shovels
+     * opens it in an afternoon; or the ground outside the door is not there,
+     * which is a building perched over a drop and a siting fault, not a clearing
+     * one. This does the first and declines the second, and declining it is
+     * visible: the audit goes on reporting the building, which is the right
+     * outcome for a fault whose cure is to move the house.
+     *
+     * <p><strong>What it takes out.</strong> The doorway cell and the doorstep,
+     * and nothing else: two courses in the wall ring at the chosen column, and two
+     * courses outside it at the height the ground there actually stands. That is
+     * the same pair of columns {@link #checkDoorway} walks and the same three
+     * heights it will accept, so what is cleared is exactly what the audit is
+     * asking for and not a block more. No walls come down, no floor is touched,
+     * and a building with a way in already is not looked at twice.
+     *
+     * <p><strong>The taker rather than a level.</strong> {@link WorldView} is
+     * eight questions and a clock and is meant to stay that way — see its own
+     * note. So the caller hands in what to do with a block: the server sets it to
+     * air and credits the town, a test collects them in a list. The geometry is
+     * the thing worth testing and the geometry is all that is here.
+     *
+     * @param take what to do with each block that has to come out
+     * @return the buildings a way was opened into
+     */
+    public static List<Building> openDoorways(WorldView world, Settlement settlement,
+                                              java.util.function.Consumer<BlockPos> take) {
+        List<Building> opened = new ArrayList<>();
+        for (Building building : List.copyOf(settlement.buildings())) {
+            if (!building.isMaterialized()) {
+                continue;
+            }
+            Footprint plot = building.footprint();
+            if (!plot.isKnown() || !hasSomethingToEnter(plot)) {
+                continue;
+            }
+            BlockPos origin = new BlockPos(building.origin().x(), building.origin().y(),
+                    building.origin().z());
+            if (!world.isLoaded(origin)) {
+                continue;   // nobody is there to dig, and nothing to judge either
+            }
+            List<BlockPos> toClear = doorwayToOpen(world, origin, plot);
+            if (toClear.isEmpty()) {
+                continue;
+            }
+            toClear.forEach(take);
+            opened.add(building);
+        }
+        return opened;
+    }
+
+    /**
+     * The blocks that stand between this building and a doorway, or nothing.
+     *
+     * <p>Nothing has three meanings and they are all correct answers: the
+     * building has a way in already, the wall ring cannot be read, or every gap
+     * in it faces a drop the shovels cannot mend. The last is the case this
+     * declines; see {@link #openDoorways}.
+     *
+     * <p>The column chosen is the one that costs the fewest blocks, and among
+     * equals the one whose doorstep is level with the floor — a door onto its own
+     * floor line rather than one onto a step, which is what a crew would pick and
+     * what looks least like a burrow.
+     */
+    static List<BlockPos> doorwayToOpen(WorldView world, BlockPos origin, Footprint plot) {
+        int floor = plot.y();
+        int wallHalfW = Math.max(1, plot.width() / 2 - BlueprintPlacer.APRON_MARGIN);
+        int wallHalfD = Math.max(1, plot.depth() / 2 - BlueprintPlacer.APRON_MARGIN);
+
+        List<BlockPos> best = null;
+        int bestStep = Integer.MAX_VALUE;
+        for (BlockPos wall : ring(origin, wallHalfW, wallHalfD, 1)) {
+            BlockPos feet = new BlockPos(wall.getX(), floor + 1, wall.getZ());
+            if (world.isFenceGate(feet)) {
+                return List.of();   // a gate is a way in, even one kept shut
+            }
+            Direction out = outward(origin, wall);
+            BlockPos outside = feet.relative(out);
+            for (int dy = -1; dy <= 1; dy++) {
+                BlockPos stands = new BlockPos(outside.getX(), floor + dy,
+                        outside.getZ());
+                if (!world.isStandable(stands)) {
+                    continue;   // no ground here; clearing cannot make any
+                }
+                List<BlockPos> cells = new ArrayList<>();
+                if (!world.isPassable(feet)) {
+                    cells.add(feet);
+                }
+                if (!world.isPassable(feet.above())) {
+                    cells.add(feet.above());
+                }
+                if (!world.isPassable(stands.above())) {
+                    cells.add(stands.above());
+                }
+                if (!world.isPassable(stands.above(2))) {
+                    cells.add(stands.above(2));
+                }
+                if (cells.isEmpty()) {
+                    // This column is already a doorway with somewhere to stand
+                    // outside it, which is the audit's own test passing. Nothing
+                    // is owed and nothing must be dug.
+                    return List.of();
+                }
+                // Ties to the doorstep on the floor line; see the note above.
+                int cost = cells.size() * 4 + Math.abs(dy);
+                if (cost < bestStep) {
+                    bestStep = cost;
+                    best = cells;
+                }
+            }
+        }
+        return best == null ? List.of() : best;
+    }
+
+    /**
      * Drops everything the auditor remembers from one sweep to the next.
      *
      * <p>Both memories are session-scoped by nature and neither says so on its
