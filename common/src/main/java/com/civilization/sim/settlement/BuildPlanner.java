@@ -523,6 +523,143 @@ public final class BuildPlanner {
      */
     public static final int MOST_SPENT_PRODUCERS = 1;
 
+    /**
+     * How wooded ground has to be before a camp is worth raising on it: four
+     * columns in a hundred carrying a trunk.
+     *
+     * <p>A percentage, on {@code WorldBridge.woodedness}'s own scale, and the
+     * number is {@link Stand#UNSURVEYED}'s arithmetic read backwards. A camp's
+     * default claim reaches {@link LumberPlanner#DEFAULT_RADIUS} — about
+     * eighteen hundred squares of ground — and a stand grown full at
+     * {@link ForesterStand#SPACING} stands one trunk to every twenty-five of
+     * them, which is the seventy-two trees an unsurveyed camp is credited with.
+     * One in twenty-five is four in a hundred.
+     *
+     * <p>So the floor is exactly this: <em>ground at least as wooded as the wood
+     * the camp would grow for itself.</em> Below it a shed adds nothing a
+     * sapling would not have added anyway — which is the whole reason a bare
+     * camp must not order another one — and at or above it there is a day's
+     * felling standing there on the morning the doors open, which is what a
+     * jack raised to rescue a timber shortage is for.
+     *
+     * <p>Deliberately low rather than ambitious. The live probe reads sixteen
+     * columns round a plot, so it can only report in steps of six: a floor of
+     * four is "there is at least one tree here", which is the honest minimum and
+     * the one a real oak wood actually clears. Raised to twenty it would refuse
+     * every forest in the game, because a forest's trunks are five blocks apart
+     * and not two.
+     */
+    public static final int WOODED_ENOUGH = 4;
+
+    /**
+     * How far past its own claim a town will send a camp to find trees: 48
+     * blocks.
+     *
+     * <p>The town is prospecting, not colonizing, and the bound is what a
+     * lumberjack's day can stand. Three numbers set it:
+     *
+     * <ul>
+     *   <li>{@code Economy.WORTH_THE_WALK} is twenty — what a load has to be
+     *       worth before somebody carries it across the village. A camp's own
+     *       walk is longer than that by construction, because the camp is where
+     *       the load starts; what the figure sets is the scale on which walking
+     *       is a real cost in this mod, and forty-eight is that scale walked
+     *       twice and a bit.</li>
+     *   <li>{@link ForesterStand#BELT} is fifteen — three ranks of trees outside
+     *       the houses, which is the woodland every camp already reaches for.
+     *       Forty-eight is three belts, so a camp sent the whole way out is
+     *       working ground the town could plausibly have planted itself.</li>
+     *   <li>{@code PathPlanner.MAX_ROUTE} is 192, and a camp out here still gets
+     *       a road like any other building. Forty-eight past the claim leaves
+     *       the router the whole of its reach to find a way there.</li>
+     * </ul>
+     *
+     * <p>Past this the honest answer is that the country is bare: see
+     * {@link #lumberCampsAllowed}, and the line {@code /civ info} prints when a
+     * town is living with the shortage.
+     */
+    public static final int PROSPECT_REACH = 48;
+
+    /**
+     * Residents a town wants per lumber camp: twenty, and never fewer than one
+     * camp.
+     *
+     * <p>The stopping condition, and the fix does not work without one. The
+     * first replacement is a town going to look for new woodland, which is the
+     * whole point. The fourteenth is a town discovering that another shed does
+     * not make trees — and fourteen is not hypothetical, it is what a
+     * high-street town of eight buildings actually built when a bare camp was
+     * read as a spent one.
+     *
+     * <p>Twenty, because that is roughly the population at which a town has a
+     * second lumberjack to put in a second camp at all: {@code JobPlanner}'s
+     * staffing wants one jack in a village and two in a town, and a camp with
+     * nobody in it is a shed. Below twenty a town gets exactly one camp,
+     * prospected onto the best wood it can find, and a shortage past that is a
+     * shortage it lives with.
+     */
+    public static final int RESIDENTS_PER_LUMBER_CAMP = 20;
+
+    /** How many lumber camps this town's people can actually keep in work. */
+    public static int lumberCampsAllowed(Settlement settlement) {
+        return Math.max(1, settlement.population() / RESIDENTS_PER_LUMBER_CAMP);
+    }
+
+    /** The camps this town has standing. */
+    public static List<Building> lumberCamps(Settlement settlement) {
+        return settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP);
+    }
+
+    /**
+     * Whether this camp is standing on ground that will not grow it any more
+     * timber.
+     *
+     * <p>The one question a timber shortage asks of a camp already standing, and
+     * the answer that decides between waiting and prospecting. Three things have
+     * to be true at once, and the middle one is the one the first attempt at
+     * this bug got wrong:
+     *
+     * <ul>
+     *   <li>somebody has <strong>counted</strong> it — an unread camp is not an
+     *       empty one;</li>
+     *   <li>it is <strong>bare</strong>, with neither a trunk to fell nor a
+     *       sapling coming up;</li>
+     *   <li>it has been bare <strong>long enough for a sapling to have come
+     *       up</strong> had one been planted — {@link Stand#isWaitingForSeed}.</li>
+     * </ul>
+     *
+     * <p>Only then is the camp on dead ground rather than in a lean season, and
+     * only then may the town go and look for a wood. Even then it is the cap in
+     * {@link #lumberCampsAllowed} that decides whether it may, and
+     * {@code Settlement.takeWoodedPlot} that decides where.
+     */
+    public static boolean campIsWorkedOut(Building camp, long step,
+                                          com.civilization.sim.world.SimSettings settings) {
+        return Stand.isBare(camp) && !Stand.isWaitingForSeed(camp, step, settings);
+    }
+
+    /**
+     * Whether a town in bare country has given up on ordering more camps.
+     *
+     * <p>What {@code /civ info} prints as the reason a town is short of timber
+     * with nothing on the build queue about it. True when every camp it has is
+     * worked out and it is not allowed another — which is the "town in bare
+     * country" outcome, stated rather than silent.
+     */
+    public static boolean livesWithATimberShortage(Settlement settlement, long step,
+            com.civilization.sim.world.SimSettings settings) {
+        List<Building> camps = lumberCamps(settlement);
+        if (camps.isEmpty() || camps.size() < lumberCampsAllowed(settlement)) {
+            return false;
+        }
+        for (Building camp : camps) {
+            if (!campIsWorkedOut(camp, step, settings)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Builder-steps for a producer ordered out of turn; the catalog cost is used when known. */
     public static final int PRODUCER_WORK = 30;
 
@@ -565,17 +702,50 @@ public final class BuildPlanner {
 
     /**
      * @param bridge the world to ask about ground, or null when there is none.
-     *               Only used to keep an urgent build out of open water.
+     *               Keeps an urgent build out of open water, and is what a camp
+     *               is prospected on — see {@code Settlement.takeWoodedPlot}.
      */
     public static boolean requestProducer(Settlement settlement, String resource, long step,
                                           com.civilization.sim.platform.WorldBridge bridge) {
+        return requestProducer(settlement, resource, step, bridge,
+                com.civilization.sim.world.SimSettings.DEFAULTS);
+    }
+
+    /** The same, asked out of a running step, so the clock's own pace is known. */
+    public static boolean requestProducer(Settlement settlement, String resource,
+                                          com.civilization.sim.world.SimContext ctx) {
+        return requestProducer(settlement, resource, ctx.step(), ctx.bridge(), ctx.settings());
+    }
+
+    /**
+     * @param settings the clock's pace, which is what tells a camp waiting for
+     *                 seed from a camp on dead ground: see
+     *                 {@link Stand#growingSteps}.
+     */
+    public static boolean requestProducer(Settlement settlement, String resource, long step,
+                                          com.civilization.sim.platform.WorldBridge bridge,
+                                          com.civilization.sim.world.SimSettings settings) {
         String producer = PRODUCER_OF.get(resource);
         if (producer == null) {
             return false;
         }
+        boolean timber = producer.equals(PRODUCER_OF.get(TownStores.WOOD));
         int spent = 0;
+        int camps = 0;
         for (Building standing : settlement.buildings()) {
             if (!standing.blueprintId().equals(producer)) {
+                continue;
+            }
+            if (timber) {
+                // A stand grows back and a seam does not, so the question asked
+                // of a camp is not the one asked of a mine. A camp with trees,
+                // with saplings coming up, or simply felled bare this morning is
+                // a camp the town is waiting on, and another shed does not make
+                // it a wood any sooner. See campIsWorkedOut.
+                camps++;
+                if (!campIsWorkedOut(standing, step, settings)) {
+                    return false;
+                }
                 continue;
             }
             // A producer that is standing and still has something in it. One
@@ -589,6 +759,21 @@ public final class BuildPlanner {
         }
         if (spent > MOST_SPENT_PRODUCERS) {
             return false;   // the country is bare, not the building
+        }
+        if (timber && camps >= lumberCampsAllowed(settlement)) {
+            // Every camp it has is worked out and its people cannot keep
+            // another. This is the "town in bare country" outcome, and the town
+            // says so once rather than ordering sheds about it.
+            // No numbers in the line, deliberately: sayOnce dedupes on the exact
+            // words, and a message carrying the population would be a new
+            // message every time somebody was born — one refusal repeating
+            // would scrub the town's whole history out of its twenty events.
+            // The counts belong on the report, which is asked rather than
+            // pushed; see livesWithATimberShortage.
+            sayOnce(settlement, step, "Out of wood, every lumber camp stands on bare"
+                    + " ground, and there are not the people to keep another"
+                    + " — the town does without");
+            return false;
         }
         for (BuildTask queued : settlement.buildQueue()) {
             if (queued.blueprintId().equals(producer)) {
@@ -622,11 +807,27 @@ public final class BuildPlanner {
         // through the side of the town hall — an urgent build is still a build,
         // and gets the same ground rules as any other.
         int span = plotSpanOf(producer, settlement.catalog());
-        SimPos plot = settlement.takeNextPlot(span, bridge);
+        // And a camp goes where the trees are, which no other producer asks.
+        // A shed is worth what is growing round it and nothing else: ordered
+        // onto the next ring slot it reads as bare on the day it opens, which is
+        // how the town came to keep ordering more. See takeWoodedPlot.
+        SimPos plot = timber
+                ? settlement.takeWoodedPlot(span, bridge)
+                : settlement.takeNextPlot(span, bridge);
+        // A camp prospected past the claim is still the town's building, so the
+        // town claims the ground it stands on — exactly as an ordinary siting
+        // does when a plot lands outside. Without this the camp is a shed in
+        // nobody's territory: unwatched, unclaimed, and not a place the road
+        // planner or the forester's belt will follow it to.
+        boolean prospected = !settlement.contains(plot);
+        settlement.claimGroundFor(plot);
         BuildTask ordered = new BuildTask(producer, plot, work);
         ordered.setFacing(settlement.arrangement().facingFor(settlement.center(), plot));
         settlement.enqueueUrgent(ordered);
         String announcement = "Out of " + resource + " — work starts on a " + readableName(producer);
+        if (timber && prospected) {
+            announcement += " out at " + plot + ", where the trees are";
+        }
         if (hands != null) {
             hands.setProfession(trade);
             announcement += ", and " + hands.name() + " takes up "

@@ -21,6 +21,7 @@ import com.civilization.sim.settlement.Perimeter;
 import com.civilization.sim.settlement.Settlement;
 import com.civilization.sim.settlement.SettlementStage;
 import com.civilization.sim.settlement.SettlementEvent;
+import com.civilization.sim.settlement.Stand;
 import com.civilization.sim.settlement.WorkArea;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -476,10 +477,12 @@ public final class CivilizationCodecs {
      * sentinels rather than zero, because "nobody has counted this" and "felled
      * bare" are opposite facts and zero is the second one.
      */
-    private record Ledgers(int ripeHundredths, int stand, int growing, int seam) {
+    private record Ledgers(int ripeHundredths, int stand, int growing, int seam,
+                           long standCounted) {
         static Ledgers of(Building building) {
             return new Ledgers(building.ripeHundredths(), building.standThousandths(),
-                    building.growingThousandths(), building.stoneSeam());
+                    building.growingThousandths(), building.stoneSeam(),
+                    building.standCountedStep());
         }
     }
 
@@ -490,7 +493,14 @@ public final class CivilizationCodecs {
             Codec.INT.fieldOf("stand").forGetter(Ledgers::stand),
             Codec.INT.fieldOf("growing").forGetter(Ledgers::growing),
             // Blocks of stone left in the seam. See Seam.
-            Codec.INT.fieldOf("seam").forGetter(Ledgers::seam)
+            Codec.INT.fieldOf("seam").forGetter(Ledgers::seam),
+            // The step the stand was last counted. A bare camp is a camp waiting
+            // for seed until a growing season has passed over it, so how long it
+            // has been bare has to survive a save the same way the count does.
+            // Optional and never-counted by default: a world saved before the
+            // mark existed is a world where nobody has looked since.
+            Codec.LONG.optionalFieldOf("stand_counted", Stand.NEVER_COUNTED)
+                    .forGetter(Ledgers::standCounted)
     ).apply(i, Ledgers::new));
 
     /**
@@ -567,6 +577,7 @@ public final class CivilizationCodecs {
         building.setStandThousandths(ledgers.stand());
         building.setGrowingThousandths(ledgers.growing());
         building.setStoneSeam(ledgers.seam());
+        building.setStandCountedStep(ledgers.standCounted());
         authored.ifPresent(building::setAuthored);
         if (!held.isEmpty()) {
             building.stores().restore(held);

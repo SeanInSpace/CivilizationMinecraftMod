@@ -694,6 +694,28 @@ public final class Settlement {
                 break;
             }
         }
+        // A lumber camp offered nothing but bare ground goes prospecting, and
+        // this is where the town's FIRST camp is sited rather than in
+        // {@code BuildPlanner.requestProducer} — the shortage path only ever
+        // orders the second and later ones. Without the hook here the whole
+        // decision is a rule about camps a town in bare country never gets as
+        // far as building: measured on the recorded ground of seed 8675309 with
+        // a wood a hundred and ten blocks out, the town put its one camp on a
+        // meadow, brought in nothing, and stalled at eight buildings.
+        //
+        // Weighed against {@link #siteCost}'s own preference rather than
+        // replacing it. The cost already charges a camp for the trees it is
+        // missing, which is the right trade against a long walk while there are
+        // any trees at all; what it cannot do is refuse, and a preference among
+        // meadows is still a meadow.
+        if (role == BuildingRole.LUMBER_CAMP
+                && (best == null || ctx.bridge().woodedness(best,
+                        BuildPlanner.PLOT_PROBE_RADIUS) < BuildPlanner.WOODED_ENOUGH)) {
+            SimPos wood = prospectForWood(span, ctx.bridge());
+            if (wood != null) {
+                return wood;   // ground off the ring; no slot is spent reaching it
+            }
+        }
         if (best != null) {
             // Advanced to the first fit rather than past the one taken, so the
             // slots passed over stay available to the next building. The one
@@ -2644,6 +2666,179 @@ public final class Settlement {
     }
 
     /**
+     * Widens the claim to hold this ground, if it does not already.
+     *
+     * <p>The same two lines {@link #chooseSite}'s caller and {@code orderUrgent}
+     * both write, named once because a third caller now needs them: a lumber
+     * camp prospected out past the houses. A building the town raises on ground
+     * it has not claimed is a building outside its own territory — nobody
+     * watches it, no road is owed to it, and the forester's belt is staked
+     * against a claim that does not reach it.
+     */
+    public void claimGroundFor(SimPos plot) {
+        if (!contains(plot)) {
+            claimRadius = BuildPlanner.claimRadiusFor(center, plot,
+                    arrangement().claimMargin());
+        }
+    }
+
+    /**
+     * The plot a lumber camp actually wants: the most wooded ground the town can
+     * reach, rather than the next slot in the ring.
+     *
+     * <p><strong>The bug this exists for.</strong> A camp is the one building
+     * whose whole worth is what happens to be growing round it, and the urgent
+     * path handed it whichever ring slot came next. On bare ground that camp
+     * reads as felled out on the day it opens; treat that as a spent producer
+     * and the next shortage orders another, and a high-street town of eight
+     * buildings comes out with fourteen lumber camps and not one extra log. The
+     * answer is not to stop counting — it is to stop putting the shed where
+     * there are no trees.
+     *
+     * <p>Two looks, in order:
+     *
+     * <ol>
+     *   <li><strong>The plan's own offers</strong>, exactly the ones
+     *       {@link #takeNextPlot} would have walked, scored by
+     *       {@code WorldBridge.woodedness} instead of taken first-come. The most
+     *       wooded of them wins if it clears {@link BuildPlanner#WOODED_ENOUGH}.</li>
+     *   <li><strong>Ground outside the claim</strong>, out to
+     *       {@link BuildPlanner#PROSPECT_REACH} past its edge, along the eight
+     *       compass points and the outward line of every street the town has
+     *       actually opened — because a town walks out along its own roads
+     *       before it walks across country. Same floor, same refusals: no water,
+     *       no hillside, nobody else's ground.</li>
+     * </ol>
+     *
+     * <p>And if neither finds a wood, the ordinary urgent walk answers, because a
+     * town out of timber still has to put its camp somewhere. What stops that
+     * becoming a row of sheds is not this method: it is the cap in
+     * {@link BuildPlanner#lumberCampsAllowed} and the growing window in
+     * {@link Stand#isWaitingForSeed}.
+     *
+     * @param bridge the world to ask about trees; with none there is nothing to
+     *               prospect on and the ordinary walk answers
+     */
+    public SimPos takeWoodedPlot(int span, com.civilization.sim.platform.WorldBridge bridge) {
+        if (bridge == null) {
+            return takeNextPlot(span, null);
+        }
+        SimPos best = null;
+        int bestIndex = 0;
+        int bestWoods = -1;
+        int weighed = 0;
+        for (int attempt = 0; attempt < BuildPlanner.PLOT_ATTEMPTS
+                && weighed < SITE_CHOICES; attempt++) {
+            int index = nextPlotIndex + attempt;
+            SimPos candidate = arrangement().plotFor(center, index);
+            if (!isPlotFree(candidate, span, null)) {
+                continue;
+            }
+            if (bridge.standsInWater(candidate, BuildPlanner.PLOT_PROBE_RADIUS)) {
+                continue;
+            }
+            weighed++;
+            int woods = bridge.woodedness(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
+            if (woods > bestWoods) {
+                bestWoods = woods;
+                best = candidate;
+                bestIndex = index;
+            }
+        }
+        if (best != null && bestWoods >= BuildPlanner.WOODED_ENOUGH) {
+            nextPlotIndex = bestIndex + 1;
+            return best;
+        }
+        SimPos prospected = prospectForWood(span, bridge);
+        if (prospected != null) {
+            return prospected;
+        }
+        return takeNextPlot(span, bridge);
+    }
+
+    /**
+     * How far apart the rings of a prospecting walk are: a chunk.
+     *
+     * <p>Sixteen, because that is the grain the world is actually stored at —
+     * two candidates inside one chunk are two readings of very nearly the same
+     * wood, and the walk is paying a {@code woodedness} probe for each. Three
+     * rings inside {@link BuildPlanner#PROSPECT_REACH}, which is enough to tell
+     * a wood from a meadow and few enough that a town short of timber is not
+     * spending its step surveying.
+     */
+    private static final int PROSPECT_STRIDE = 16;
+
+    /**
+     * The most wooded ground outside the claim, or null when there is none worth
+     * walking to.
+     *
+     * <p>Along the compass points and the town's own opened streets, because
+     * those are the two ways anybody actually leaves a village: the lanes it has
+     * built, and failing those, straight out. Scored by woodedness like every
+     * other candidate, refused for water and for a slope by the same
+     * {@code siteFault} that refuses any other plot, and held to the same floor —
+     * a camp sent forty-eight blocks to stand on a meadow is worse than a camp
+     * on the meadow next door.
+     */
+    private SimPos prospectForWood(int span, com.civilization.sim.platform.WorldBridge bridge) {
+        List<double[]> ways = new ArrayList<>();
+        for (int point = 0; point < 8; point++) {
+            double angle = point * Math.PI / 4;
+            ways.add(new double[] {Math.cos(angle), Math.sin(angle)});
+        }
+        for (int i = 0; i < paths.segments().size(); i++) {
+            if (!paths.isOpened(i)) {
+                continue;   // a street the town has not walked is not a way out
+            }
+            PathNetwork.Segment run = paths.segments().get(i);
+            SimPos far = run.from().horizontalDistanceSq(center)
+                    >= run.to().horizontalDistanceSq(center) ? run.from() : run.to();
+            double away = far.horizontalDistance(center);
+            if (away < 1) {
+                continue;
+            }
+            ways.add(new double[] {(far.x() - center.x()) / away, (far.z() - center.z()) / away});
+        }
+        SimPos sound = null;
+        int soundWoods = BuildPlanner.WOODED_ENOUGH - 1;
+        SimPos rough = null;
+        int roughWoods = BuildPlanner.WOODED_ENOUGH - 1;
+        for (double[] way : ways) {
+            for (int out = claimRadius + PROSPECT_STRIDE;
+                    out <= claimRadius + BuildPlanner.PROSPECT_REACH; out += PROSPECT_STRIDE) {
+                SimPos flat = new SimPos(center.x() + (int) Math.round(way[0] * out),
+                        center.y(), center.z() + (int) Math.round(way[1] * out));
+                SimPos candidate = new SimPos(flat.x(), bridge.surfaceHeight(flat), flat.z());
+                if (!isPlotFree(candidate, span, null)) {
+                    continue;   // taken ground is not poor ground, it is somebody's
+                }
+                int fault = bridge.siteFault(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
+                if (fault == com.civilization.sim.platform.WorldBridge.SITE_FAULT_OPEN_WATER) {
+                    continue;   // not poor ground; not ground
+                }
+                int woods = bridge.woodedness(candidate, BuildPlanner.PLOT_PROBE_RADIUS);
+                // Sound ground first and a slope only if there is no sound
+                // ground with trees on it — the same order takeNextPlot walks
+                // once it is past the easy slots, and for the same reason: an
+                // urgent build will stand on a hillside rather than not stand.
+                // Refusing every rough candidate outright was measured and it
+                // never prospected at all: real jagged country fails a strict
+                // grade nearly everywhere a wood actually grows.
+                if (fault == com.civilization.sim.platform.WorldBridge.SITE_FAULT_NONE) {
+                    if (woods > soundWoods) {
+                        soundWoods = woods;
+                        sound = candidate;
+                    }
+                } else if (woods > roughWoods) {
+                    roughWoods = woods;
+                    rough = candidate;
+                }
+            }
+        }
+        return sound != null ? sound : rough;
+    }
+
+    /**
      * Advance this settlement by one simulation step.
      *
      * <p>Called from the slow scheduler, not from the 20 Hz game tick. Everything
@@ -3588,7 +3783,7 @@ public final class Settlement {
                 // back to waiting — the stone that had actually stopped the work
                 // was never once asked about, so no mine was ever ordered.
                 for (String resource : missing) {
-                    if (BuildPlanner.requestProducer(this, resource, ctx.step(), ctx.bridge())) {
+                    if (BuildPlanner.requestProducer(this, resource, ctx)) {
                         break;
                     }
                 }

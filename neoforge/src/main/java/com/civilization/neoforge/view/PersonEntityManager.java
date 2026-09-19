@@ -1153,7 +1153,13 @@ public final class PersonEntityManager {
                 BlueprintPlacer.Shortage shortage =
                         BlueprintPlacer.shortageFor(level, settlement, task);
                 if (shortage != null) {
-                    BuildPlanner.requestProducer(settlement, shortage.resource(), world.stepsElapsed());
+                    // With the world to hand, and that matters now rather than
+                    // being tidiness: a lumber camp is sited on surveyed
+                    // woodedness, so a shortage asked without a bridge would put
+                    // the watched town's camp on the next ring slot while the
+                    // unwatched town's went to the trees. Two books for one rule.
+                    BuildPlanner.requestProducer(settlement, shortage.resource(),
+                            world.stepsElapsed(), world.bridge(), world.settings());
                 }
 
                 boolean workedAny = false;

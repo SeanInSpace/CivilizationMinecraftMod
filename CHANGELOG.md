@@ -6,6 +6,65 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## A town prospects for its timber
+
+A settlement that ran out of wood put its lumber camp on the next plot the plan
+happened to offer. On a meadow that camp has nothing to fell, so the town kept
+its shed, kept its shortage, and stopped building — a high-street town grown four
+hundred steps on the recorded ground of seed 8675309, with the nearest wood a
+hundred and ten blocks out, finished with eight buildings and the eight logs it
+was founded with. The obvious fix, treating a bare camp as spent the way a cut-out
+mine is, was built and measured and is worse: it ordered another shed onto the
+next meadow and then another, **fourteen lumber camps in a town of eight
+buildings and still eight logs**. A seam does not grow back and a stand does, so
+a bare camp is a camp waiting for seed rather than a camp on dead ground, and
+another shed does not make saplings.
+
+So the town goes and looks for the trees instead.
+
+### Changed
+
+- **A lumber camp is now sited on woodedness rather than on the next free plot.**
+  Among the plots the plan offers it takes the most wooded that has at least one
+  column in twenty-five carrying a trunk — the density a stand the camp would
+  grow for itself actually has. If every plot in the ring is bare, the town
+  prospects: ground up to **48 blocks past its own claim**, along the compass
+  points and outward along every street it has actually opened, refused for water
+  and steepness by the same rules that site anything else. A camp that ends up
+  out there is claimed, roaded and worked like any other building, and the town's
+  woodland claim follows it.
+- Measured on the fixture above, with the wood a hundred and ten blocks out:
+  **8 buildings, 1 camp on a meadow, 8 logs → 11 buildings, 1 camp in the wood,
+  1,618 logs.**
+- **A town will not order a second camp while the first one is waiting for seed.**
+  A camp with saplings in the ground, or one counted bare less than a growing
+  season ago, is a camp having a lean spring. Only a camp counted bare, with
+  nothing coming up, and bare for longer than a sapling takes to come up counts
+  as standing on dead ground.
+- **Lumber camps are capped at one per twenty residents, and never fewer than
+  one.** Past the cap the shortage is one the town lives with, which is the
+  honest end of prospecting when there is genuinely no wood in reach. On the same
+  ground with the wood pushed out to four hundred blocks the town keeps its one
+  camp and does without — where the withdrawn fix built its fourteen.
+- `/civ info` says so, on the wood line: every camp on bare ground, how many camps
+  the town's people can keep, and that it is doing without.
+
+### Notes
+
+- A building now remembers the step its stand was last counted, which is what
+  tells a lean season from dead ground. Save compatibility is waived, so the new
+  `stand_counted` key is simply written; a save without it reads as "nobody has
+  looked".
+- The floor and the prospecting apply to the camp a town builds in the ordinary
+  course as well as to one a shortage orders. Scoping it to the shortage alone
+  was measured and changed nothing: the shortage path only ever orders the
+  *second* camp, and the first one — the one a town in bare country is stuck with
+  — is sited by the ordinary planner.
+- Grown-town fixtures: the whole `:common` suite is green with no fixture
+  rewritten. The earlier attempt moved four grown towns and made the road-backlog
+  and curb measurements worse; this one moves none of them, because it changes
+  where a camp goes rather than how many buildings a town orders.
+
 ## The unwatched town draws after all
 
 ### Fixed

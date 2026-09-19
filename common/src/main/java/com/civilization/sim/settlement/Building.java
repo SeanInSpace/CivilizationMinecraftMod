@@ -153,6 +153,21 @@ public final class Building {
     private int growingThousandths;
 
     /**
+     * The step somebody last counted this camp's trees. See {@link Stand}.
+     *
+     * <p>A bare camp is not a finished one — a stand grows back, which is the
+     * whole difference between timber and stone — so "bare" on its own must
+     * never order a second camp. What tells a camp waiting for seed from a camp
+     * on dead ground is <em>how long</em> it has been bare, and that needs the
+     * moment of the count rather than only its result. See
+     * {@code BuildPlanner.campIsWorkedOut}.
+     *
+     * <p>{@link Stand#NEVER_COUNTED} until the first count, which is the same
+     * fact {@link Stand#UNCOUNTED} carries in the ledger beside it.
+     */
+    private long standCountedStep = Stand.NEVER_COUNTED;
+
+    /**
      * A mine's remaining stone, in blocks. See {@link Seam}.
      *
      * <p>{@link Seam#UNCOUNTED} until the ground has been counted, for the same
@@ -520,6 +535,15 @@ public final class Building {
 
     public void setGrowingThousandths(int thousandths) {
         this.growingThousandths = Math.max(0, thousandths);
+    }
+
+    /** The step this camp's trees were last counted, or {@link Stand#NEVER_COUNTED}. */
+    public long standCountedStep() {
+        return standCountedStep;
+    }
+
+    public void setStandCountedStep(long step) {
+        this.standCountedStep = step;
     }
 
     /** This mine's remaining stone, in blocks. See {@link Seam}. */

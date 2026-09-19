@@ -883,7 +883,7 @@ public final class PerimeterPlanner {
         if (affordable <= 0) {
             if (settlement.woodStock() < WOOD_PER_POST) {
                 // Same rule as any other build that runs dry: go make more timber.
-                BuildPlanner.requestProducer(settlement, TownStores.WOOD, ctx.step(), ctx.bridge());
+                BuildPlanner.requestProducer(settlement, TownStores.WOOD, ctx);
             }
             return;   // no coin is not a fault; it is a town that cannot afford a wall yet
         }

@@ -23,6 +23,7 @@ import com.civilization.sim.settlement.BuildTask;
 import com.civilization.sim.settlement.Building;
 import com.civilization.sim.settlement.BuildingRole;
 import com.civilization.sim.settlement.Seam;
+import com.civilization.sim.settlement.BuildPlanner;
 import com.civilization.sim.settlement.Stand;
 import com.civilization.sim.settlement.FoodPlanner;
 import com.civilization.sim.settlement.Garrison;
@@ -831,6 +832,21 @@ public final class CivilizationCommand {
                             sb.append("  (BARE — nothing to fell and nothing planted)");
                         }
                     }
+                }
+                // And what the town intends to do about it, which used to be
+                // nothing said anywhere. A town whose every camp is on dead
+                // ground and whose people cannot keep another camp is not a town
+                // with a bug in it — it is a town in bare country, and the
+                // report has to be able to say so or the only reading left is
+                // "the wood line is stuck".
+                if (BuildPlanner.livesWithATimberShortage(
+                        s, world.stepsElapsed(), world.settings())) {
+                    sb.append("\n      wood: every camp is on bare ground and ")
+                            .append(s.population()).append(" people keep ")
+                            .append(BuildPlanner.lumberCampsAllowed(s))
+                            .append(" — the town does without (one camp per ")
+                            .append(BuildPlanner.RESIDENTS_PER_LUMBER_CAMP)
+                            .append(" residents)");
                 }
                 for (Building mine : s.buildingsWithRole(BuildingRole.MINE)) {
                     sb.append("\n      stone: ");

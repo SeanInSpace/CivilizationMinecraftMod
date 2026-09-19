@@ -504,7 +504,7 @@ public final class ForesterStand {
         // told us the ground is bare — it may be thick with trees the generator
         // put there — so the camp is left uncounted and counts for itself.
         if (planted > 0) {
-            Stand.recount(camp, planted);
+            Stand.recount(camp, planted, ctx.step());
             town.logEvent(ctx.step(), "The wood around the lumber camp stands "
                     + planted + " trees deep");
         }

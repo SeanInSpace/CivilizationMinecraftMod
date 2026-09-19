@@ -98,6 +98,17 @@ public final class Stand {
     public static final int UNSURVEYED = 72;
 
     /**
+     * A step number meaning "nobody has counted this camp yet".
+     *
+     * <p>The companion to {@link #UNCOUNTED}, kept beside it on the building so
+     * the ledger records <em>when</em> as well as <em>what</em>. Negative, so it
+     * can never be mistaken for a real step: step zero is a real step, and a
+     * camp counted on the step the world was made is not a camp nobody has
+     * looked at.
+     */
+    public static final long NEVER_COUNTED = -1;
+
+    /**
      * Game ticks for a planted sapling to come up a tree: 24,000 — one in-game
      * day, on average.
      *
@@ -205,6 +216,57 @@ public final class Stand {
      */
     public static void recount(Building camp, int trees) {
         camp.setStandThousandths(Math.max(0, trees) * PER_TREE);
+    }
+
+    /**
+     * The same, and remembering when it was done.
+     *
+     * <p>Every count that a clock or a pair of eyes actually made goes through
+     * here, because the moment matters as much as the number: a camp counted
+     * bare this step is a camp whose saplings have had no time at all, and a
+     * camp counted bare a growing season ago is a camp standing on ground that
+     * grows nothing. Only {@code BuildPlanner} asks, and it is the difference
+     * between waiting and prospecting.
+     *
+     * <p>The two-argument form is kept for the callers with no step to hand —
+     * a fixture setting a stand up, mostly — and leaves the mark where it was.
+     */
+    public static void recount(Building camp, int trees, long step) {
+        recount(camp, trees);
+        camp.setStandCountedStep(step);
+    }
+
+    /**
+     * Whether this camp is a camp waiting for seed rather than a camp finished.
+     *
+     * <p>A seam does not grow back and a stand does; that is the one difference
+     * the two trades are built around, and reading a bare camp as a spent one is
+     * what built fourteen sheds in a town of eight buildings. A camp is still
+     * waiting while either is true:
+     *
+     * <ul>
+     *   <li>something is <strong>coming up</strong> — {@link #growing} above
+     *       nought is saplings in the ground, and another shed does not make
+     *       them mature any sooner;</li>
+     *   <li>its stand was <strong>counted recently</strong> — inside
+     *       {@link #growingSteps}, which is how long a sapling takes. A camp
+     *       felled bare this morning has not yet had the day it needs, whether
+     *       or not its jacks have had a sapling to put down.</li>
+     * </ul>
+     *
+     * <p>A camp nobody has ever counted is waiting too, and that is not a third
+     * rule but the same one: {@link #UNCOUNTED} is not an empty wood, so there
+     * is nothing here to replace.
+     */
+    public static boolean isWaitingForSeed(Building camp, long step, SimSettings settings) {
+        if (!isCounted(camp)) {
+            return true;   // nobody has looked; see UNCOUNTED
+        }
+        if (camp.growingThousandths() > 0) {
+            return true;
+        }
+        long counted = camp.standCountedStep();
+        return counted != NEVER_COUNTED && step - counted < growingSteps(settings);
     }
 
     /**

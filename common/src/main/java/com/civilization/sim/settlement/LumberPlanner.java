@@ -63,13 +63,70 @@ public final class LumberPlanner {
     }
 
     public static void advance(Settlement settlement, SimContext ctx) {
-        SimPos camp = campPos(settlement);
-        if (settlement.lumberArea() == null && camp != null) {
-            settlement.setLumberArea(new WorkArea(camp, DEFAULT_RADIUS));
-            settlement.logEvent(ctx.step(),
-                    "The lumber camp claims the woodland around " + camp);
-        }
+        stakeTheWoodland(settlement, ctx);
         workTheWood(settlement, ctx);
+    }
+
+    /**
+     * Puts the town's woodland claim where the wood is.
+     *
+     * <p>A town keeps one woodland claim, and it used to be staked once around
+     * the first camp that ever stood and then never moved. That was right while
+     * a town only ever had one camp. It stopped being right the day a town could
+     * prospect: a camp raised out in the trees because the old one was standing
+     * on bare ground would have left the claim — and therefore every count,
+     * every felling and every replanting — back on the bare ground it was raised
+     * to escape.
+     *
+     * <p>So the claim follows the camp that has a wood in it. It moves for
+     * exactly two reasons and no others: there is no claim yet, or the camp
+     * holding it is worked out while another camp is not. A claim a player has
+     * pointed somewhere by hand is never overruled — it is centered on no camp
+     * at all, and is left alone for the same reason {@link ForesterStand#raise}
+     * leaves it alone.
+     *
+     * <p>A claim that is moved keeps its radius and changes its middle — the
+     * same thing {@code Settlement.restakeWorkArea} does for a mine that
+     * relocates, and for the same reason: how wide a camp works is the player's
+     * dial, and following a camp must not quietly turn it. A first claim is the
+     * default width, exactly as it always was.
+     */
+    private static void stakeTheWoodland(Settlement settlement, SimContext ctx) {
+        List<Building> camps = settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP);
+        if (camps.isEmpty()) {
+            return;
+        }
+        WorkArea staked = settlement.lumberArea();
+        Building holder = null;
+        for (Building camp : camps) {
+            if (staked != null && camp.origin().equals(staked.center())) {
+                holder = camp;
+            }
+        }
+        if (staked != null && holder == null) {
+            return;   // somebody aimed this claim by hand; it is their decision
+        }
+        if (holder != null
+                && !BuildPlanner.campIsWorkedOut(holder, ctx.step(), ctx.settings())) {
+            return;   // the claim is on a camp with a wood in it
+        }
+        Building working = null;
+        for (Building camp : camps) {
+            if (!BuildPlanner.campIsWorkedOut(camp, ctx.step(), ctx.settings())) {
+                working = camp;
+                break;
+            }
+        }
+        if (working == null) {
+            working = camps.getFirst();   // all bare; the claim stays with a camp
+        }
+        if (holder == working) {
+            return;
+        }
+        settlement.setLumberArea(new WorkArea(working.origin(),
+                staked == null ? DEFAULT_RADIUS : staked.radius()));
+        settlement.logEvent(ctx.step(),
+                "The lumber camp claims the woodland around " + working.origin());
     }
 
     /**
@@ -190,7 +247,8 @@ public final class LumberPlanner {
             if (ctx.bridge().isLoaded(camp.origin())) {
                 WorkArea area = settlement.lumberArea();
                 int radius = area == null ? DEFAULT_RADIUS : area.radius();
-                Stand.recount(camp, ctx.bridge().countTreesNear(camp.origin(), radius));
+                Stand.recount(camp, ctx.bridge().countTreesNear(camp.origin(), radius),
+                        ctx.step());
             } else if (!Stand.isCounted(camp)) {
                 // Nobody can look, and nearly nobody ever can: a town on the far
                 // side of the world is unloaded almost all of its life. Treating
@@ -199,7 +257,7 @@ public final class LumberPlanner {
                 // and jams its build queue forever. So the camp is credited with
                 // the stand its own siting implies until the day somebody can
                 // count it. See Stand.UNSURVEYED.
-                Stand.recount(camp, Stand.UNSURVEYED);
+                Stand.recount(camp, Stand.UNSURVEYED, ctx.step());
             }
         }
         camp.setWatched(watched);

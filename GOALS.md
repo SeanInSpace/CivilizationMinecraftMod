@@ -35,21 +35,9 @@ starts until the town in hand is right.*
 carries the measurement it was found by, so the fix can be checked against
 it. Design questions and rebalances live under the next heading, not here.*
 
-- [ ] **A town in bare country can never get its timber back, and nobody has
-      decided what it should do instead.** The mine fix was proposed for the camp
-      too: skip a camp whose stand is bare with nothing coming up, so the town
-      goes and finds new woodland. Built and measured, it builds sheds. A camp
-      ordered onto a ring slot with no trees on it reads as bare the moment it is
-      counted, so the next shortage orders another, and a high-street town of
-      eight buildings grown 400 steps came out with **fourteen lumber camps and
-      not one extra log** — with four grown-town fixtures changing towns for it,
-      two of them for the worse. The reason is the one difference the two trades
-      are built around: a seam does not grow back and a stand does, so a bare camp
-      is a camp waiting for seed rather than a camp on dead ground, and another
-      shed does not make saplings. So only the mine is treated as spent.
-      What is actually wanted is a decision rather than a fix: should a town
-      prospect — send a camp to woodedness it has surveyed, rather than to the next
-      ring slot — and how far may it send one?
+*Nothing open. The two that stood here on 2026-09-19 — the unwatched town that
+drew nothing, and the town in bare country that could not get its timber back —
+are both under Done.*
 
 ---
 
@@ -398,6 +386,54 @@ work has landed, which changes what a street looks like from the middle of it.
 *Newest first. Everything older has been dropped -- it was proven by the
 endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
+
+- [x] **A town in bare country goes and finds the wood, 2026-09-19.** The
+      decision the entry asked for, taken and built: **a town prospects.** A
+      lumber camp is sited on surveyed woodedness rather than on the next ring
+      slot. Among the plots the plan offers it takes the most wooded that clears
+      `BuildPlanner.WOODED_ENOUGH` — 4 percent of columns carrying a trunk, which
+      is `Stand.UNSURVEYED`'s own arithmetic read backwards: one trunk to every
+      `ForesterStand.SPACING` squared, which is the density of a stand the camp
+      would grow for itself, so the floor is "at least as wooded as the wood this
+      camp would plant". If every plot in the ring is under the floor the town
+      looks outside its claim, out to `claimRadius + BuildPlanner.PROSPECT_REACH`
+      (48 blocks — three forester belts, and the scale `Economy.WORTH_THE_WALK`
+      sets for walking, walked twice and a bit) along the compass points and the
+      outward line of every street it has actually opened, refused for water and
+      steepness by the same rules that site anything else. A camp out there is
+      claimed, roaded and worked like any other building, and the town's one
+      woodland claim follows whichever camp has a wood in it. A camp with
+      saplings coming up, or counted bare less than `Stand.growingSteps` ago, is
+      a camp waiting for seed and never causes another to be ordered; camps are
+      capped at one per `BuildPlanner.RESIDENTS_PER_LUMBER_CAMP` (20) residents,
+      minimum one; and `/civ info` says on the wood line when a town is past the
+      cap and doing without.
+
+      **Measured** on the entry's own fixture — a high-street town grown 400
+      steps on the recorded ground of seed 8675309, bare for 110 blocks around
+      the middle and wooded beyond:
+
+      | | buildings | lumber camps | logs |
+      |---|---|---|---|
+      | the withdrawn fix (bare camp read as spent, unbounded) | 21 | **14** | 8 |
+      | before | 8 | 1, on a meadow | 8 |
+      | after | 11 | **1**, in the wood | **1,618** |
+
+      The fourteen reproduces exactly on the same ground with the wood pushed to
+      400 blocks, where there is nothing to walk to; the rule answers that case
+      with one camp and a line in the report, which is the "town in bare country"
+      outcome stated rather than papered over. `:common` 1514 green (1503 + 11
+      new), `:neoforge` 583 green. **No grown-town fixture moved** — the earlier
+      attempt changed four towns and made the road-backlog and curb measurements
+      worse, and this one changes where a camp goes rather than how many
+      buildings a town orders.
+
+      One thing found on the way and worth knowing: the shortage path
+      (`BuildPlanner.requestProducer`) only ever orders a town's *second* camp.
+      The first — the one a town in bare country is actually stuck with — is
+      sited by the ordinary planner, so the floor and the prospecting are hooked
+      into `Settlement.chooseSite` as well. Scoped to the shortage alone the
+      whole decision measured as a no-op. Not yet seen in a world.
 
 - [x] **"A town that grew unwatched draws nothing at all until somebody
       arrives" was the harness, not the mod, 2026-09-19.** The remaining
