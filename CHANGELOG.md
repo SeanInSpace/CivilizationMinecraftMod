@@ -6,6 +6,76 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The town at the spawn point gets its streets back
+
+A player reported that the town raised at world start had no roads between its
+buildings. It had not, and the two recent street changes were not why.
+
+Reproduced headless on seed 8675309, at the moment the spawn town Millbrook is
+raised: 75 stretches planned, **35 opened**, and every one of those 35 actually
+drawn on the ground — so the drawing was working perfectly and there was simply
+nothing to draw. Of the 40 unopened, only 5 were stretches
+`StreetDemand` had judged the town did not yet owe. The other 35 were thrown out
+by the steepness gate, **14 of the town's 29 door lanes among them**. Seven of
+fifteen buildings had no lane at all and three had half of one — a lane that
+leaves the door and stops in the grass.
+
+The gate reads the ground through `WorldBridge.groundHeight`, and the live one is
+`TerrainOracle`, which remembers columns on a **four-block grid**. It rounds
+because sampling the generator per column once took sixty seconds of a tick and
+killed the server twice, and its own note says four blocks is finer than anything
+reading it can tell. One caller could tell. Asked column by column along a run —
+*is this column more than a step above the last?* — a rounded reading of an
+ordinary hillside comes back as four blocks of table top and then a cliff. Every
+refused lane had a profile of exactly that shape: `81,81,81,81,75,75,75,...`. A
+slope of one block per column, which a player strolls up without noticing there
+is a slope, read as a four-block wall and was refused.
+
+No fixture in this project could show it. `TerrainFake` is three sine waves and
+`RecordedTerrain` is a recording, and both answer for every column, so on a
+fixture the question is the question it reads as. The suite was green and the
+world was broken, and those were the same fact.
+
+### Fixed
+
+- **A world now says how finely it can see, and the road gate judges at that
+  resolution.** `WorldBridge.groundGrain` is 1 by default — a fixture that holds
+  the ground in an array answers for every column — and the NeoForge bridge
+  reports the oracle's four. `PathPlanner.unwalkable` scales its allowance by it:
+  a bridge that knows every column is held to the same two blocks between
+  neighbours it always was, and one that knows one column in four is allowed the
+  eight that a two-in-one slope shows up as once it is rounded. A cliff is still
+  a cliff at either resolution, and where a coarse reading flatters a real one
+  `PathLayer` is standing on the blocks themselves and leaves the wall unpaved.
+- The gate also holds the road to the same climb the crew that builds it does.
+  It was refusing anything above **one** block a step while `PathLayer.grade`
+  cuts and fills **two** — the town's ledger was stricter than the town's road
+  crew, which is a ledger refusing roads that would have been built. There was a
+  constant for it, `GRADABLE_ROAD_STEP`, documented as exactly this rule and
+  wired to nothing: the only method reading it had no callers.
+- Measured on seed 8675309, the spawn town Millbrook at the step it is raised:
+  **35 of 72 stretches opened → 56 of 72**. A minute later, grown, it stands at
+  **78 opened of 103 planned, every one of them drawn**, and **37 of 37 door
+  lanes open against 15 of 29** — every building in the town now has a lane to
+  its door. The other spawn towns move the same way: Stonebridge 31 → 44 ways
+  deep, Thornring 42 → 51.
+- Pictures, from the same camera over the same town on the same seed:
+  `surveys/roads_before_millbrook_overhead.png` — a broken arc, a T-stub and
+  houses standing in grass — against
+  `surveys/roads_after_millbrook_overhead.png`, which is a ring with spokes and a
+  lane to every door. `surveys/roads_before_millbrook_angled.png` and
+  `surveys/roads_after_millbrook_angled.png` are the same pair from the side.
+
+### Notes
+
+- Pinned by `CoarseGroundRoadsTest`, which asks the gate the same slope at both
+  resolutions and grows a whole town on the recorded hillside twice, once read
+  per column and once read one column in four. The two towns must open the same
+  roads. Before the fix the coarse reading cost four of twenty-five.
+- The two suspects named in the report — a seeded town owing only what a grown
+  one would have opened (`StreetDemand`), and the road hub moving to the square —
+  are both innocent. `StreetDemand` accounted for 5 unopened stretches of 40 and
+  was doing what it says it does.
 ## The town shuts its doors, and the churchyard stops renaming its dead
 
 Four follow-ups the last two immersion batches left, and none of them is worth
