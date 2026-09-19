@@ -338,6 +338,25 @@ public final class Settlement {
      */
     private int sightingMemory;
 
+    /**
+     * Whether something hostile was actually in view on the step just finished,
+     * as opposed to being remembered from an earlier one.
+     *
+     * <p>{@link #sightingMemory} cannot answer this and never could: it is set to
+     * its full value on <em>every</em> step a hostile is seen, so it reads the
+     * same during a raid and for the eight steps after the last raider dies. The
+     * threat level itself is worse — it falls by one a step from whatever the
+     * raid was worth, so a town that fought off sixteen attackers stays at least
+     * <em>wary</em> for dozens of steps, and a town raided every fifty is never
+     * anything else. That is why four greetings in five in the playtest were
+     * "Get indoors!": the town was technically alarmed almost all the time.
+     *
+     * <p>Not persisted. It is an observation about one step, and a save reloaded
+     * mid-raid gets a fresh one on its first step from the same eyes that set
+     * this one.
+     */
+    private transient boolean dangerInView;
+
     /** Food banked in the granary. The founding party arrives provisioned. */
     private int foodStock = FoodPlanner.STARTING_PROVISIONS;
 
@@ -2157,6 +2176,7 @@ public final class Settlement {
             threatLevel = worth;
         }
         sightingMemory = SIGHTING_MEMORY_STEPS;
+        dangerInView = true;
     }
 
     /**
@@ -2172,11 +2192,29 @@ public final class Settlement {
             threatLevel = Alarm.ALARMED_AT;
         }
         sightingMemory = SIGHTING_MEMORY_STEPS;
+        dangerInView = true;
     }
 
     /** Whether the town is still going on what it last saw rather than what it sees. */
     public boolean remembersSighting() {
         return sightingMemory > 0;
+    }
+
+    /**
+     * Whether there is something hostile in view <em>now</em>.
+     *
+     * <p>The question anybody standing in the town would answer by looking up,
+     * and the one the alarm greeting asks. {@link #alarm} is a mood that outlasts
+     * its cause by design — the watch stays out, the lumberjacks stay in — and a
+     * mood is the right thing to steer a town by and the wrong thing to put in
+     * somebody's mouth. A settler who says "Something's out there. Move." while
+     * nothing is out there is not context-aware, he is stuck.
+     *
+     * <p>See {@link #dangerInView} for why neither {@link #remembersSighting} nor
+     * the threat level can stand in for this.
+     */
+    public boolean isDangerInView() {
+        return dangerInView;
     }
 
     public void setThreatLevel(int threatLevel) {
@@ -5026,6 +5064,10 @@ public final class Settlement {
      * the last of them dies.
      */
     private void decayThreat() {
+        // Cleared here and set again by sighted() later in the same step, which
+        // runs after this one -- so by the time anybody outside the step can ask,
+        // it says what this step's eyes saw and not what the last one's did.
+        dangerInView = false;
         if (sightingMemory > 0) {
             sightingMemory--;
             return;

@@ -97,7 +97,7 @@ public final class PersonInventoryScreen extends Screen {
         if (nutrition > 0) {
             lines.add("Enough food to undo " + nutrition + " hunger");
         }
-        person.errand().ifPresent(errand -> lines.add(errandLine(errand)));
+        person.errand().ifPresent(errand -> lines.add(errandLine(errand, person.hunger())));
         lines.add("Their own belongings; nothing can be taken.");
         return List.copyOf(lines);
     }
@@ -110,14 +110,26 @@ public final class PersonInventoryScreen extends Screen {
      * "the storehouse" at both ends would identify neither. Same kind at both
      * ends gets an indefinite article, which is the most this payload honestly
      * knows: it carries the kinds of store, not which building.
+     *
+     * <p><strong>The meal line reads the hunger the header reads.</strong> It
+     * used to say "too weak to work" at every meal errand whatever the number
+     * beside it said, so a settler at 21 of 99 was labelled <em>well fed</em> in
+     * the title and <em>too weak to work</em> two lines below it — one panel,
+     * two answers, and the one that was wrong was the one that was never asked.
+     * Walking to the granary is what somebody merely <em>hungry</em> does, and
+     * it is the reason they do not go on to become weak; only the weak rung is
+     * the rung the town takes people off the job at, and that rung is
+     * {@code Person.HUNGER_WEAK} — the same threshold {@code Appetite.of} steps
+     * at and the same one {@code Person.isTooWeakToWork} asks.
      */
-    private static String errandLine(PersonInventoryPayload.Errand errand) {
+    private static String errandLine(PersonInventoryPayload.Errand errand, int hunger) {
         String what = errand.resource().replace('_', ' ');
         boolean sameKind = errand.from().equals(errand.to());
         if (HaulTask.Store.SELF.name().equals(errand.to())) {
             // A meal has one leg and no delivery, so the fetching wording would
             // read as an errand for somebody else's dinner.
-            return "Errand: too weak to work — gone to the "
+            String why = hunger >= Person.HUNGER_WEAK ? "too weak to work — " : "";
+            return "Errand: " + why + "gone to the "
                     + place(errand.from()) + " to eat";
         }
         return errand.carried() > 0

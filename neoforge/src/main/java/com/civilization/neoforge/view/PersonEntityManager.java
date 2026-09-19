@@ -1989,7 +1989,8 @@ public final class PersonEntityManager {
     private boolean workShepherds(Settlement settlement) {
         // The pens are on a ring plot, behind the wall. A shepherd only comes in
         // when everybody does.
-        if (settlement.alarm().callsIn(Profession.SHEPHERD) || underCurfew()) {
+        if (settlement.alarm().callsIn(Profession.SHEPHERD) || underCurfew()
+                || rainedOff(settlement, Profession.SHEPHERD)) {
             return false;
         }
         boolean changed = false;
@@ -2013,7 +2014,8 @@ public final class PersonEntityManager {
 
     private boolean workMiners(Settlement settlement) {
         if (settlement.mineArea() == null
-                || settlement.alarm().callsIn(Profession.MINER) || underCurfew()) {
+                || settlement.alarm().callsIn(Profession.MINER) || underCurfew()
+                || rainedOff(settlement, Profession.MINER)) {
             return false;
         }
         boolean changed = false;
@@ -2036,6 +2038,9 @@ public final class PersonEntityManager {
 
     /** Every embodied farmer works their field: harvest, tend, plant. */
     private void workFarmers(Settlement settlement) {
+        if (rainedOff(settlement, Profession.FARMER)) {
+            return;   // the rows keep; see rainedOff
+        }
         if (underCurfew()) {
             // Nobody is sent out to a row at dusk. The farmers already standing in
             // one are walked home by dailyRoutine, on their own lead -- the far
@@ -2059,7 +2064,8 @@ public final class PersonEntityManager {
 
     private boolean workLumberjacks(Settlement settlement) {
         if (settlement.lumberArea() == null || level.isDarkOutside()
-                || settlement.alarm().callsIn(Profession.LUMBERJACK) || underCurfew()) {
+                || settlement.alarm().callsIn(Profession.LUMBERJACK) || underCurfew()
+                || rainedOff(settlement, Profession.LUMBERJACK)) {
             return false;
         }
         boolean changed = false;
@@ -3748,10 +3754,41 @@ public final class PersonEntityManager {
      * at dusk, and "the middle of town" is a point on the map rather than a
      * doorway.
      *
-     * <p>{@link #nearestBuilding} already falls back to the center, so this cannot
-     * answer null for a town with anything standing in it at all.
+     * <p><strong>The third answer used to be the work face.</strong> It read
+     * {@code nearestBuilding(settlement, "", person.position())}, and both
+     * arguments were wrong. {@code endsWith("")} is true of every building a town
+     * has, so a mine, a lumber camp and a field all counted as somewhere to spend
+     * the night; and measuring from {@code person.position()} asked which of them
+     * was nearest <em>to where they were already standing</em>, which is the one
+     * they had been working at all day. So an unhoused lumberjack's shelter was
+     * the lumber camp at his elbow. He was declared home without moving: the
+     * distance that decides when to set off came out at nothing, so the curfew
+     * never sent him anywhere, and the arrival radius was satisfied before he
+     * took a step, so the walk home was never asked for either. That is the whole
+     * of "people sleep where they work" — nobody was stranded by a bad path, they
+     * were told they had arrived.
+     *
+     * <p>So the last resort is now a place in the <em>town</em>, chosen without
+     * reference to where the person happens to be: the inn, then the hall, then
+     * the hearth, then whichever house stands nearest the middle, and the middle
+     * itself if the town has nothing raised at all. A roof is better than a
+     * point, but a point in the square beats a doorway at the tree line — the
+     * player is owed a village with its people in it at dusk, and a settler who
+     * cannot be given a bed can at least be given the fire everybody else is at.
      */
-    private SimPos shelterFor(Settlement settlement, Person person, SimPos home) {
+    /**
+     * Where a town puts somebody it has no bed for, best first.
+     *
+     * <p>The inn leads because an inn is the building whose whole purpose is
+     * somebody with nowhere else to be; the hall is the town's own roof; the
+     * hearth is its fire. Held as a constant because {@link #shelterFor} is
+     * asked once per settler per tick and a fresh list each time would be an
+     * allocation per person per tick for three fixed values.
+     */
+    private static final List<BuildingRole> GATHERING_PLACES =
+            List.of(BuildingRole.INN, BuildingRole.HALL, BuildingRole.HEARTH);
+
+    private SimPos shelterFor(Settlement settlement, SimPos home) {
         if (home != null) {
             return home;
         }
@@ -3761,7 +3798,16 @@ public final class PersonEntityManager {
                 return building.doorstep();
             }
         }
-        return nearestBuilding(settlement, "", person.position());
+        for (BuildingRole role : GATHERING_PLACES) {
+            Building gathering = settlement.buildingWithRole(role);
+            if (gathering != null && gathering.isMaterialized()) {
+                return gathering.doorstep();
+            }
+        }
+        // Measured from the middle and not from the sleeper, for the reason
+        // above: this is "where does the town put somebody", not "what is within
+        // arm's reach of wherever they stopped".
+        return nearestBuilding(settlement, "house", settlement.center());
     }
 
     /**
@@ -3777,7 +3823,7 @@ public final class PersonEntityManager {
     private List<Person> inDepartureOrder(Settlement settlement, Map<UUID, SimPos> homes) {
         List<Curfew.Walk<Person>> walks = new ArrayList<>();
         for (Person person : settlement.residents()) {
-            SimPos shelter = shelterFor(settlement, person, homes.get(person.id().value()));
+            SimPos shelter = shelterFor(settlement, homes.get(person.id().value()));
             walks.add(new Curfew.Walk<>(person,
                     shelter == null ? 0 : person.position().horizontalDistance(shelter)));
         }
@@ -3855,13 +3901,45 @@ public final class PersonEntityManager {
     }
 
     /**
+     * Whether the rain has taken this trade off the roster for the moment.
+     *
+     * <p>The other half of {@code Leisure.hasWork}'s weather rule, and the half
+     * that was missing. Leisure had been answering "this farmer is free" under
+     * rain since the rule was written, and it was true for exactly as long as it
+     * took this class to reach {@link #workFarmers} in the same pass and steer
+     * him back to the row — leisure runs first precisely so that work outranks
+     * it, so the one thing work had to do was stop asking. The town never moved
+     * an inch and the measurements said so: 3 of 12 under cover before the rain,
+     * 2 of 11 after it.
+     *
+     * <p>Which trades count is {@code Leisure.isOutdoorTrade}'s list and not a
+     * second one kept here. A miner's face is under a hill and his walk to it is
+     * not; that judgment is already made and made once.
+     *
+     * <p><strong>The books are not touched.</strong> This stops the steering and
+     * nothing else — it is the same gate {@link #underCurfew} already puts in
+     * front of all four of these sweeps every dusk, in the same place, of the
+     * same shape. A watched field whose farmer has gone to stand in a doorway
+     * stands ripe exactly as it stands ripe through the curfew and the night,
+     * and {@code FoodPlanner.growHarvest} keeps ripening it for the clock to cut
+     * the moment the town is unwatched. No ledger gains or loses a grain for the
+     * weather, and no harvest arithmetic anywhere asks whether it is raining.
+     */
+    private boolean rainedOff(Settlement settlement, Profession what) {
+        return Leisure.isOutdoorTrade(what) && pastimes.skyOver(settlement).isWet();
+    }
+
+    /**
      * How near a player has to be for a settler's name to float over them.
      *
-     * <p>Eight blocks: conversational distance, and about the range at which you
-     * could read the plate anyway. The number is small on purpose — see
-     * {@link #nameplate}.
+     * <p>Four blocks: near enough to speak to. It was eight, which is about the
+     * range at which a plate is still legible on its own — but legibility on its
+     * own was the mistake, because eight blocks of a market square holds three
+     * people and their three plates were drawn through each other. Matched to
+     * {@code PersonRenderer.NAME_RANGE_SQR}, which is where the rule that
+     * actually decides is now stated.
      */
-    public static final double NAMEPLATE_RANGE = 8.0;
+    public static final double NAMEPLATE_RANGE = 4.0;
 
     /**
      * Shows a settler's name only to somebody standing next to them.
@@ -3871,10 +3949,13 @@ public final class PersonEntityManager {
      * wall was a field of white text, and none of it was information — you cannot
      * read a name at forty blocks and you did not want thirty of them at once.
      *
-     * <p>Turning the flag off does not make a settler anonymous. Vanilla draws a
-     * custom name regardless of this flag when the player's crosshair is on the
-     * entity, so the name is still there for anybody who looks at somebody in
-     * particular — which is the only time it was ever worth having.
+     * <p>Turning the flag off does not make a settler anonymous, and turning it
+     * on is no longer what puts a plate over one. The rule that decides is
+     * {@code PersonRenderer.shouldShowName}, on the client, and it asks for the
+     * crosshair as well as the range — the name is there for anybody who looks
+     * at somebody in particular, which is the only time it was ever worth
+     * having. This flag is kept in step with it so the two halves cannot come to
+     * disagree, not because the drawing consults it.
      *
      * <p>Here rather than in the entity's own tick for two reasons: it is per
      * manager pass rather than per tick, which is twenty times less work for a
@@ -3940,7 +4021,7 @@ public final class PersonEntityManager {
             // Where they are walking to: their household's home, the bunkhouse if
             // the town never housed them, and failing both the middle of town,
             // which is what homeOf already answers and is a door either way.
-            SimPos shelter = shelterFor(settlement, person, home);
+            SimPos shelter = shelterFor(settlement, home);
             boolean goHome = !guard && Curfew.sendsHome(clock,
                     shelter == null ? 0 : person.position().horizontalDistance(shelter),
                     Curfew.LEAD_TICKS);

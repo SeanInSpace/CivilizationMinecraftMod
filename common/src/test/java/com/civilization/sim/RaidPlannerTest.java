@@ -250,6 +250,38 @@ class RaidPlannerTest {
         assertEquals(2, s.threatLevel(), "and the alarm has started to fall");
     }
 
+    /**
+     * What a settler is entitled to shout about: something in view, not a mood.
+     *
+     * <p>The playtest found four greetings in five were alarm lines, because a
+     * town raided every fifty steps is never calm — the threat level falls by one
+     * a step from whatever the raid was worth, so "the alarm is raised" is true
+     * almost all of the time and says nothing about whether there is anything to
+     * see. Neither the threat level nor {@link Settlement#remembersSighting} can
+     * tell the two apart: the memory is refreshed on every step a hostile is
+     * seen, so it reads the same during a raid and for the eight steps after the
+     * last raider dies. This is the fact that separates them.
+     */
+    @Test
+    void theTownKnowsWhetherTheDangerIsInViewOrOnlyRemembered() {
+        Settlement s = settlement(1, 2, 0);
+        WarBridge bridge = new WarBridge();
+        bridge.hostiles = 3;
+        s.step(new SimContext(bridge, 0, SimSettings.SANDBOX));
+
+        assertTrue(s.isDangerInView(), "three of them are standing there");
+        assertTrue(s.alarm().isRaised());
+
+        // The step after they are gone: the town is still alarmed and still
+        // remembers, and there is nothing whatever to look at.
+        bridge.hostiles = 0;
+        s.step(new SimContext(bridge, 1, SimSettings.SANDBOX));
+
+        assertFalse(s.isDangerInView(), "nothing is out there any more");
+        assertTrue(s.remembersSighting(), "though the town has not forgotten it");
+        assertTrue(s.alarm().isRaised(), "and is still standing to arms");
+    }
+
     // --- a town too new to have been noticed ---
 
     /**

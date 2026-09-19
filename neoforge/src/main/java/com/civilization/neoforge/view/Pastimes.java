@@ -264,18 +264,51 @@ final class Pastimes {
      *
      * <p><strong>It is worth nothing.</strong> Nothing downstream of this answer
      * touches a store, a field, a ledger or a yield — it decides which of the
-     * places the town already has an idle body walks to, and that is all. See
-     * {@code Leisure.hasWork}, which says at length why the work sweeps are
-     * deliberately not gated on it.
+     * places the town already has an idle body walks to, and which bodies the
+     * work sweeps stand aside for, and that is all.
+     *
+     * <p>Shared with {@code PersonEntityManager} rather than read twice. The
+     * whole of the rain fault was two halves that disagreed — leisure freed a
+     * farmer and the farm sweep fetched him straight back — and two separate
+     * readings of the same sky is how that kind of disagreement gets rebuilt.
      */
-    private Leisure.Sky skyOver(Settlement settlement) {
+    Leisure.Sky skyOver(Settlement settlement) {
+        // Asked once a second by this class and four times a tick by the work
+        // sweeps, so the dry answer has to be free. A dimension that is not
+        // raining cannot be raining on any column in it -- precipitationAt says
+        // so itself, first line -- and that is two field reads against a
+        // heightmap walk and a biome lookup.
+        if (!level.isRaining() && !level.isThundering()) {
+            return Leisure.Sky.FAIR;
+        }
+        long now = level.getGameTime();
+        Wet cached = wet.get(settlement.id().value());
+        if (cached != null && cached.at() == now) {
+            return cached.sky();
+        }
         SimPos center = settlement.center();
         BlockPos sky = new BlockPos(center.x(),
                 level.getHeight(Heightmap.Types.MOTION_BLOCKING, center.x(), center.z()),
                 center.z());
-        return Leisure.skyOf(level.isRainingAt(sky),
+        Leisure.Sky answer = Leisure.skyOf(level.isRainingAt(sky),
                 level.isThundering() && level.canSeeSky(sky));
+        wet.put(settlement.id().value(), new Wet(now, answer));
+        return answer;
     }
+
+    /** One town's sky, and the tick it was read on. */
+    private record Wet(long at, Leisure.Sky sky) {
+    }
+
+    /**
+     * The wet answer, held for the tick it was worked out on.
+     *
+     * <p>Every caller inside one tick wants the same answer and the weather does
+     * not turn over between two lines of the same pass. Keyed by settlement
+     * because the question is per town: rain is per biome, so two towns in one
+     * world genuinely differ.
+     */
+    private final Map<UUID, Wet> wet = new HashMap<>();
 
     /**
      * What this town has on offer for each trade, gathered once a pass.
