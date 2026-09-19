@@ -496,7 +496,13 @@ public final class PersonEntity extends PathfinderMob {
         boolean curfew = Curfew.isCurfew(clock, Curfew.LEAD_TICKS);
         boolean evening = NightRest.isNight(clock) || curfew;
         Leisure.Pastime pastime = leisure();
-        boolean alarm = settlement != null && settlement.alarm().isRaised();
+        // Raised *and* something actually in view. The alarm outlasts its cause
+        // on purpose -- see Settlement.isDangerInView -- and Wilbury at pop 91
+        // was raided often enough that it was essentially never down, so four
+        // greetings in five were "Get indoors!" with nothing in sight. The mood
+        // still keeps the lumberjacks in; it no longer does the talking.
+        boolean alarm = settlement != null && settlement.alarm().isRaised()
+                && settlement.isDangerInView();
         // At work means exactly what the routine means by it: the town is still
         // handing out work, nothing hostile is in view, and this is a trade that
         // has somewhere to be. The watch is the exception the routine already

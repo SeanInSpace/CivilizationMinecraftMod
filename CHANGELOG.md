@@ -6,6 +6,98 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The rain gets people indoors, and the night gets them home
+
+Six people-side faults from the playtest of 2026-09-19, and every one of them
+is something you watch rather than something a ledger records. Two of them were
+features that had been written, tested and then quietly overruled by the pass
+that ran next.
+
+The rain is the clearest case. `Leisure.hasWork` has taken the outdoor trades
+off the roster in wet weather since the weather rule was written, and
+`Pastimes` has been reading the sky over each town's own middle — correctly,
+at the top of the column, because the heightmap refuses the question anywhere
+lower. Both halves worked. What happened was that leisure freed a farmer and
+then, four lines further down the same tick, `workFarmers` steered him back to
+the row he had just left. The sweeps were deliberately not gated on the
+weather, on the grounds that gating them would take something off the books —
+and that reasoning had missed that the sweeps already stand down wholesale
+under the curfew, every dusk, with no ledger consequence at all. Measured in a
+birch forest in real rain, cover went 3-of-12 to 2-of-11: the feature was dead
+code that ran.
+
+The night is the other. At midnight there was not one citizen within sixty
+blocks of the town centre, while the idle report had them standing at their
+work faces two hundred blocks out. Nobody was stranded by a bad path. The
+last-resort shelter — where somebody with no bed of their own is sent — asked
+for `nearestBuilding(settlement, "", person.position())`, and both arguments
+were wrong: `endsWith("")` matches a mine and a lumber camp as readily as a
+house, and measuring from the person's own feet picks whichever of them they
+had been working at all day. So an unhoused lumberjack's home was the lumber
+camp at his elbow. He was told he had arrived: the distance that decides when
+to set off came out at nothing, and the arrival radius was already satisfied.
+
+### Fixed
+
+- **Outdoor workers go indoors when it rains.** The four sweeps that steer the
+  outdoor trades — farmers, lumberjacks, miners, shepherds — now stand down in
+  the wet the same way they already stand down under the curfew, and in the
+  same place, so leisure's offer of a doorway or an inn survives the rest of
+  the tick. Which trades count is `Leisure.isOutdoorTrade`'s list rather than a
+  second one; the sky is read once per town and shared, so the two halves
+  cannot come to disagree again. **No ledger is touched.** A watched field
+  whose farmer is standing in a doorway stands ripe exactly as it does through
+  every dusk, and `FoodPlanner.growHarvest` goes on ripening it for the clock
+  to cut the moment nobody is looking — no harvest arithmetic anywhere asks
+  whether it is raining.
+- **Somebody with no bed walks into town instead of sleeping at the tree
+  line.** The last-resort shelter is a place in the town now, chosen without
+  reference to where the person happens to be standing: the inn, then the hall,
+  then the hearth, then the nearest house to the middle, and the middle itself
+  for a town with nothing raised. A settler the town cannot give a bed can at
+  least be given the fire everybody else is at.
+- **One nameplate at a time, and only the one you are looking at.** Three
+  citizens within eight blocks used to draw three plates through each other —
+  the playtest photographed `BrihtwaCuthberRingwJoaderTrader`, which is not
+  three names but one ruined one. The rule is vanilla's own now, said out loud
+  in `PersonRenderer` because `LivingEntityRenderer` replaces the crosshair
+  rule with a team one that no humanoid renderer ever inherits: the name shows
+  when the settler is under your crosshair and within four blocks. Sneaking
+  still hides it.
+- **The person panel stops contradicting itself.** `Farmer · hunger 21/99 (well
+  fed)` sat above `Errand: too weak to work — gone to the granary to eat`. The
+  errand line had "too weak to work" written into it for every meal errand,
+  whatever the number two lines above said. It reads the hunger the header
+  reads now, at the same threshold — so a merely hungry settler is simply
+  walking to the granary, which is the reason they never become weak.
+- **A town of ninety stops numbering its people.** `Beorn Hayward 2`,
+  `Herewald Reeve 2` and `Puttoc Combe 2` were all walking around one town: the
+  family pool held thirty names and the town held more than thirty households,
+  so the surname itself was numbered. Every culture's given and family pools are
+  sixty names deep now, up from forty and thirty, and the test that guards them
+  asks for sixty of each. The given-name search already preferred another name
+  from the pool to a digit; it now has enough pool to do it with.
+- **Settlers stop shouting about a raid that is over.** The alarm greeting fired
+  on `alarm().isRaised()`, which is a mood that outlasts its cause by design —
+  the threat level falls by one a step from whatever the raid was worth, so a
+  town raided every fifty steps is essentially never calm. Four greetings in
+  five were "Get indoors!". The greeting now also asks whether anything is
+  actually in view this step. The mood still keeps the lumberjacks in; it no
+  longer does the talking.
+
+### A note left for whoever balances the raids
+
+The greeting is fixed; the cadence behind it is a question rather than a bug, so
+nothing was changed about it. `raidIntervalSteps` is a flat **50** at every
+population (`SimSettings.DEFAULT_RAID_INTERVAL_STEPS`), while the strength that
+arrives scales — `min(16, 1 + pop/8 + jitter)`, so about 7–9 raiders at pop 48
+and 12–14 at pop 91, against a hard ceiling of 16. A big town is therefore
+raided exactly as *often* as a small one and much harder each time, and the
+threat it is left carrying falls by only one a step. Thornring on seed 20260919
+had repelled **eight raids by step 601**. If a town of ninety should get longer
+between raids rather than only bigger ones, the interval is the dial, and it is
+per-world config already.
+
 ## A town's streets arrive together, and a town has the hall it claims
 
 Three faults, all of them things a player sees rather than things a test

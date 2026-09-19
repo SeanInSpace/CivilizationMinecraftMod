@@ -79,15 +79,15 @@ class NamesTest {
     // --- (a) the pools are deep enough for the policy to work at all ---
 
     @Test
-    @DisplayName("every people has forty given names and thirty family names of its own")
+    @DisplayName("every people has sixty given names and sixty family names of its own")
     void everyPeopleHasEnoughNamesToGoRound() {
         for (Culture culture : Culture.all()) {
-            assertTrue(culture.givenNames().size() >= 40,
+            assertTrue(culture.givenNames().size() >= 60,
                     culture.id() + " has only " + culture.givenNames().size()
-                            + " given names; a town of forty would start repeating");
-            assertTrue(culture.familyNames().size() >= 30,
+                            + " given names; a town of sixty would start repeating");
+            assertTrue(culture.familyNames().size() >= 60,
                     culture.id() + " has only " + culture.familyNames().size()
-                            + " family names; a town of thirty households would");
+                            + " family names; a town of sixty households would");
             assertEquals(culture.givenNames().size(),
                     Set.copyOf(culture.givenNames()).size(),
                     culture.id() + " lists a given name twice, which is a pool"

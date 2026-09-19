@@ -174,7 +174,12 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Chandler", "Fowler", "Tanner", "Carter", "Sawyer", "Wright", "Glover",
             "Cartwright", "Barber", "Falconer", "Marshal", "Sergeant", "Bailiff",
             "Forester", "Warrener", "Parmenter", "Lorimer", "Hooper", "Fuller",
-            "Dyer", "Skinner", "Palfreyman");
+            "Dyer", "Skinner", "Palfreyman", "Thresher", "Salter", "Chapman", "Mercer",
+            "Draper", "Webster", "Walker", "Naylor", "Wheeler", "Plowman", "Bowyer",
+            "Arrowsmith", "Goldsmith", "Farrier", "Currier", "Cordwainer", "Latimer",
+            "Spicer", "Vintner", "Butler", "Pantler", "Almoner", "Woodward",
+            "Chamberlain", "Constable", "Verderer", "Slater", "Shingler", "Brewster",
+            "Carpenter");
 
     static final List<String> NORMAN_GIVEN = List.of(
             "Ada", "Bren", "Cyn", "Dov", "Esa", "Fen", "Gil", "Hana", "Ivo", "Jor",
@@ -182,7 +187,9 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Sibyl", "Tancred", "Urse", "Verel", "Warin", "Ysolde", "Aveline",
             "Bertran", "Constance", "Drogo", "Emma", "Fulk", "Geva", "Hamon",
             "Isabel", "Joscelin", "Lambert", "Melisant", "Odo", "Ranulf", "Sewal",
-            "Tiffania");
+            "Tiffania", "Alard", "Baldwin", "Clarembald", "Denis", "Eudo", "Fulbert",
+            "Gerard", "Hawise", "Ingram", "Juliana", "Mahaut", "Nigel", "Oliva",
+            "Payn", "Reynald", "Sibert", "Thibaut", "Ursula", "Walkelin", "Yvette");
 
     /** Highland families: the ground they graze, which is what a hill people own. */
     static final List<String> HIGHLAND_FAMILIES = List.of(
@@ -190,7 +197,13 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Kinloch", "Lochhead", "Fernie", "Heatherlie", "Rowanlea", "Tarbert",
             "Dunmore", "Balmore", "Corrie", "Sheiling", "Drover", "Harrower",
             "Peatman", "Whinney", "Gowrie", "Airlie", "Blairmore", "Cranstoun",
-            "Dalziel", "Elphin", "Fintry", "Garvock", "Halkirk", "Inchbrae");
+            "Dalziel", "Elphin", "Fintry", "Garvock", "Halkirk", "Inchbrae", "Jedburn",
+            "Kilbride", "Lanrick", "Monzie", "Nethybrae", "Ochilvie", "Pitlour",
+            "Rannoch", "Strowan", "Tullibard", "Urquhart", "Vaternish", "Wamphray",
+            "Yetholm", "Abernethy", "Balquhidder", "Carnbee", "Drumlanrig",
+            "Edderton", "Fetteresso", "Glenshee", "Hopetoun", "Innerleith",
+            "Kildrummy", "Leckie", "Mossgiel", "Newbigging", "Pennyghael",
+            "Rothiemay", "Tarland");
 
     static final List<String> HIGHLAND_GIVEN = List.of(
             "Ailsa", "Aonghas", "Beathag", "Bhaltair", "Cailean", "Coll", "Dughall",
@@ -199,7 +212,10 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Lachlan", "Latharna", "Moira", "Murchadh", "Nairn", "Niallghas",
             "Oighrig", "Padraig", "Peigi", "Raonaid", "Ruairidh", "Seonaid",
             "Sorley", "Somhairle", "Tormod", "Torcuil", "Una", "Uilleam", "Ysenda",
-            "Ceit", "Morag");
+            "Ceit", "Morag", "Alasdair", "Bridei", "Caitriona", "Diarmad", "Ealasaid",
+            "Gillanders", "Innes", "Iomhar", "Lasair", "Maolmhuire", "Mairead",
+            "Nechtan", "Oisean", "Raghnall", "Sileas", "Struan", "Taran", "Ualan",
+            "Muireall", "Cormag");
 
     /** Burgher families: the guild and the counting house, never the field. */
     static final List<String> BURGHER_FAMILIES = List.of(
@@ -208,7 +224,13 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Tolman", "Wisselaar", "Zeeman", "Bankmann", "Marktveld", "Pfeffer",
             "Salzmann", "Tuchmann", "Bergemann", "Lindhorst", "Osterkamp",
             "Rademaker", "Steenbeek", "Verhoeven", "Weghuis", "Zoutman",
-            "Kaufmann", "Hovenier");
+            "Kaufmann", "Hovenier", "Boekhouder", "Glasmaker", "Hoedemaker",
+            "Zilversmit", "Muntmeester", "Waagmeester", "Lakenman", "Vellekoop",
+            "Schuitema", "Wijnhoven", "Korenmann", "Speldemaker", "Tinnegieter",
+            "Bierkamp", "Vlasman", "Zeepman", "Ankersmit", "Grutter", "Kistemaker",
+            "Pottebakker", "Riemersma", "Stoffels", "Touwslager", "Veenstra",
+            "Wagemaker", "Zandstra", "Handelaar", "Renteman", "Schippers",
+            "Olieslager");
 
     static final List<String> BURGHER_GIVEN = List.of(
             "Adelheid", "Bartel", "Claes", "Dirk", "Elsbeth", "Frans", "Geert",
@@ -217,7 +239,10 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Volker", "Wibbe", "Xander", "Ysbrand", "Zwaantje", "Annecke",
             "Berndt", "Coenraad", "Dieuwke", "Egbert", "Femke", "Gerrit",
             "Heijltje", "Imme", "Jannick", "Katrijn", "Lambrecht", "Mechteld",
-            "Nele");
+            "Nele", "Aleid", "Barthold", "Cornelis", "Diederik", "Everdine", "Floris",
+            "Gijsbert", "Hilleke", "Jacoba", "Kunigonde", "Lubbert", "Marijke",
+            "Neeltje", "Ockert", "Pauwels", "Roelof", "Steven", "Trijntje",
+            "Willem", "Zeger");
 
     /** Vale families: the work of the green and the common, in the old tongue. */
     static final List<String> VALE_FAMILIES = List.of(
@@ -226,7 +251,12 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Applegarth", "Meadows", "Byreman", "Croftwell", "Pightle", "Lammas",
             "Hollybed", "Oxlease", "Sheepwash", "Windlesham", "Nettlebed",
             "Beanacre", "Furlong", "Headland", "Longmead", "Hazeldene",
-            "Waterdell", "Greenhow");
+            "Waterdell", "Greenhow", "Barleymow", "Cowleaze", "Dovecote", "Elmhurst",
+            "Fallowfield", "Gorsemoor", "Harrowfield", "Inglelea", "Kingscombe",
+            "Linchets", "Marlpit", "Netherby", "Oatlands", "Plashet", "Quickset",
+            "Rushmead", "Sedgebrook", "Tapleigh", "Underhill", "Wheatsheaf",
+            "Ashcroft", "Brookwater", "Cherryhay", "Downland", "Eweleaze",
+            "Foldgate", "Granger", "Hopyard", "Mowbarrow", "Withybed");
 
     static final List<String> VALE_GIVEN = List.of(
             "Alis", "Bede", "Cwen", "Dunstan", "Edith", "Frith", "Godric", "Hilda",
@@ -234,7 +264,11 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Ceolwyn", "Deorwine", "Eadgyth", "Leofwine", "Wynflaed", "Aethelric",
             "Beorn", "Cuthbert", "Dunna", "Eanswith", "Golda", "Herewald",
             "Ingild", "Kenelm", "Lufu", "Merewald", "Nothelm", "Oswine", "Puttoc",
-            "Raedwald", "Saewynn", "Tidhelm", "Ulfa", "Wilburh", "Yffi", "Aldgyth");
+            "Raedwald", "Saewynn", "Tidhelm", "Ulfa", "Wilburh", "Yffi", "Aldgyth",
+            "Aelfric", "Berhtwulf", "Ceolred", "Dudda", "Eadwig", "Frithuswith",
+            "Garmund", "Heregyth", "Ida", "Leofgifu", "Mildburh", "Nunna", "Osburh",
+            "Penda", "Sigeric", "Tatwine", "Wigstan", "Wulfgyth", "Aethelflaed",
+            "Ealdred");
 
     /**
      * Orc families: what the bearer has done to somebody, which is the only
@@ -247,7 +281,13 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Skullpike", "Irongut", "Ashfist", "Boneyoke", "Cleaverarm", "Doomhorn",
             "Flinttooth", "Gutripper", "Hammerjaw", "Ironhorn", "Killhand",
             "Maulfist", "Nightfang", "Oxbreaker", "Pyrehand", "Ragetusk",
-            "Scarhide", "Trollbane", "Wraithaxe");
+            "Scarhide", "Trollbane", "Wraithaxe", "Axegrim", "Bloodtusk",
+            "Bonecleaver", "Brandhorn", "Charskull", "Deathgrip", "Dirgehowl",
+            "Fleshhook", "Gnawbone", "Gravemaul", "Grimspear", "Hookjaw", "Ironscar",
+            "Jawbreaker", "Kragfist", "Marrowdrink", "Neckwring", "Oathbreaker",
+            "Pikeblood", "Quarrelfang", "Rendarm", "Ribsplitter", "Sawtooth",
+            "Screamhorn", "Skinflay", "Slaughterhand", "Spinecrack", "Throatripper",
+            "Warbrand", "Widowmaul");
 
     static final List<String> ORC_GIVEN = List.of(
             "Brak", "Durg", "Ghal", "Hrok", "Kazh", "Morg", "Rurk", "Thok", "Uzga",
@@ -255,7 +295,10 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Ikzul", "Jurgak", "Krugg", "Lodak", "Mazgar", "Nargak", "Ogruk",
             "Prazh", "Qorak", "Rhogg", "Skarrg", "Targuk", "Ulgar", "Vrazh",
             "Wogrim", "Xarrg", "Yazgur", "Zugg", "Bhorka", "Drokka", "Ghorbak",
-            "Muzruk", "Shargul");
+            "Muzruk", "Shargul", "Azgul", "Brukka", "Dorgash", "Ezgarr", "Fhulk",
+            "Gazruk", "Hragga", "Ithkar", "Jazgul", "Korrag", "Lugbash", "Mirgul",
+            "Nakrash", "Ozgar", "Rukkag", "Snagra", "Thurgak", "Vokrim", "Wazgul",
+            "Zrakka");
 
     /** Goblin families: the mire itself, and what it smells of. */
     static final List<String> GOBLIN_FAMILIES = List.of(
@@ -263,14 +306,22 @@ public record Culture(String id, List<String> pennedAnimals, List<String> layout
             "Sludge", "Bogwattle", "Rotgut", "Fenscrape", "Mirestink", "Grubhole",
             "Slimefoot", "Peatbelly", "Reekmaw", "Croakbottom", "Leechbite",
             "Muckpaw", "Nettlegrub", "Ooze", "Puddlejaw", "Quagmaw", "Scumtooth",
-            "Toadwallow", "Wormrot", "Boghopper", "Cinderscab", "Drainmuck");
+            "Toadwallow", "Wormrot", "Boghopper", "Cinderscab", "Drainmuck",
+            "Eelgrub", "Fenwhistle", "Gnatpicker", "Hogwallow", "Inkbog", "Jarrot",
+            "Knucklemuck", "Lampreylick", "Midgebite", "Newtcatcher", "Offalcrust",
+            "Pondscum", "Quillmire", "Ragwater", "Slugpocket", "Tadpick",
+            "Underooze", "Vermincrawl", "Weedchoke", "Mudgullet", "Sporecough",
+            "Bilewater", "Crustytoe", "Dungheap", "Flyspeck", "Gristlechew",
+            "Marshrattle", "Rathoard", "Swillbucket", "Wartknuckle");
 
     static final List<String> GOBLIN_GIVEN = List.of(
             "Zib", "Krek", "Nub", "Vex", "Grot", "Hix", "Snee", "Ug", "Yark", "Pib",
             "Blib", "Chig", "Dreg", "Eelk", "Fizz", "Gnik", "Hobb", "Iggle", "Jib",
             "Klub", "Lurk", "Mig", "Nizz", "Oont", "Pluk", "Quib", "Rigg", "Squib",
             "Tob", "Ubb", "Vug", "Wubb", "Xip", "Yig", "Zog", "Blent", "Crud",
-            "Drib", "Fenk", "Glop");
+            "Drib", "Fenk", "Glop", "Bix", "Chuk", "Dob", "Flib", "Gurk", "Hesk",
+            "Ilk", "Jek", "Kib", "Lug", "Mub", "Nok", "Ort", "Pesk", "Rud", "Skug",
+            "Tik", "Vib", "Wix", "Zunk");
 
     /*
      * ---- The inn boards ----
