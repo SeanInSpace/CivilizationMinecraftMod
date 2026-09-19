@@ -338,7 +338,7 @@ public final class CivilizationCommand {
                 int raised = Math.min(s.piecesRaised(), planned.size());
                 sb.append("\n").append(s.name()).append(": ")
                         .append(raised).append(" of ").append(planned.size());
-                String stalled = Furnishings.whyNotStarting(s);
+                String stalled = Furnishings.whyNotRaising(s);
                 if (stalled != null) {
                     sb.append(" (waiting: ").append(stalled).append(")");
                 }
@@ -804,10 +804,14 @@ public final class CivilizationCommand {
                 sb.append("\n      dressing: ")
                         .append(s.piecesRaised()).append(" of ")
                         .append(Furnishings.wanted(s)).append(" raised");
-                String stalled = Furnishings.whyNotStarting(s);
-                if (stalled != null) {
-                    sb.append(" (waiting: ").append(stalled).append(")");
-                }
+                // Always a clause, never sometimes one. An empty (waiting: …) is
+                // what a playtest read for a hundred and sixty seconds off a town
+                // that raised nothing in them, and "the line is absent" and "the
+                // work is happening" looked identical from the ground. They do
+                // not now: a dressing line either names what is holding it up or
+                // says it is raising.
+                String stalled = Furnishings.whyNotRaising(s);
+                sb.append(stalled != null ? " (waiting: " + stalled + ")" : " (raising)");
                 Map<Furnishings.Piece, int[]> tally = new EnumMap<>(Furnishings.Piece.class);
                 List<Furnishings.Furnishing> planned = Furnishings.pieces(s);
                 for (int p = 0; p < planned.size(); p++) {

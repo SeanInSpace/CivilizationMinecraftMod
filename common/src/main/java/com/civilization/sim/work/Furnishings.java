@@ -19,6 +19,7 @@ import com.civilization.sim.world.SimContext;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * What a town puts on the ground between its buildings.
@@ -669,47 +670,196 @@ public final class Furnishings {
     // --- the clock -----------------------------------------------------------
 
     /**
-     * One step of dressing for a town nobody is looking at.
+     * Passes a watcher may hold the next piece of dressing up for: three.
      *
-     * <p>The same four refusals every other public work's clock has, in the same
-     * order and for the same reasons: a dead town does nothing, nobody works after
+     * <p><strong>The refusal this bounds used to be unbounded, and that was the
+     * fault.</strong> The clock stood aside for anybody standing within
+     * {@code observedRadius} of the piece, on the rule that ground somebody can
+     * see is ground a piece is raised on by a hand or not at all. That rule is
+     * right and its arithmetic was not: a town is an {@code observedRadius}
+     * across, so a player standing <em>in</em> one is within that distance of
+     * every piece in its plan, and the clock therefore stood aside from all of
+     * it, for ever. The hands it stood aside for were never coming either — see
+     * {@link PublicWorks#availableTo}, which does not offer the dressing to a
+     * spare hand while anything is queued, and which puts it sixth when nothing
+     * is. So the one work in the mod that exists to be looked at was drawn by
+     * nobody in any town anybody was looking at. Measured twice, on two seeds:
+     * {@code dressing: 0 of 168} and {@code 0 of 64}, for the whole life of both
+     * towns, with every gate open and no reason given.
+     *
+     * <p>Three passes, and the number comes off the step interval. A piece goes
+     * up at most one to a step and a step is {@code SimWorld.SIM_INTERVAL_TICKS}
+     * — five seconds — so three passes is fifteen seconds of somebody standing
+     * over the very next piece in the plan before it is drawn anyway. That is
+     * long enough that nothing appears under a player's cursor in the moment
+     * they walk up to it, which is the offence the original rule was written
+     * against, and short enough that a town somebody lives in still dresses
+     * itself at the rate a town nobody visits does. It is also nearly free: a
+     * plan is hundreds of pieces and a player is near a handful of them, so the
+     * wait is paid on a few pieces of a town's whole dressing rather than on all
+     * of it.
+     */
+    public static final int WATCHED_PASSES_BEFORE_DRAWING = 3;
+
+    /**
+     * Passes a piece the town cannot pay for holds up the whole plan: twelve.
+     *
+     * <p><strong>The plan is a prefix, and that makes an unaffordable piece a
+     * wall across the whole of it.</strong> {@link #next} hands out
+     * {@code pieces.get(piecesRaised)} and nothing else, so the town works
+     * strictly in order — which is what makes the count mean the same piece from
+     * one pass to the next, and is worth keeping. The cost of it is that one
+     * piece nothing in the stores can buy stops every piece behind it, for ever,
+     * however cheap they are and however much of what <em>they</em> cost the town
+     * is sitting on. A playtest found exactly that shape and could not see it: a
+     * town of a hundred and eighty-two planned pieces with every gate open, wood
+     * in three figures, and {@code 0} raised, because the first piece in its plan
+     * was an avenue tree and it had no saplings. The old report had no line for
+     * it, so the reason it gave was none at all.
+     *
+     * <p>Twelve passes is a minute at {@code SimWorld.SIM_INTERVAL_TICKS}, which
+     * is long enough for a forester to come back with an armful — the ordinary
+     * case, where the town is not poor, merely between deliveries — and short
+     * enough that a town missing a resource it has no way of getting does not
+     * lose its whole dressing to it.
+     *
+     * <p>The piece is then <em>counted</em> rather than built, which is the same
+     * thing {@code PublicWorks.DressingWork.completeOne} already does for a patch
+     * of ground that refuses a fence: "a yard the town is not going to have, and
+     * a crew that would not count it would stand there for ever". The one
+     * difference worth stating plainly is that the drawing layer will lay a
+     * passed-over piece if the ground ever suits it, so a town can end up with a
+     * sapling it never paid for. That is the price, it is one sapling, and it is
+     * set against a town that otherwise never raises a board with its own name on
+     * it.
+     */
+    public static final int PASSES_BEFORE_PASSING_OVER = 12;
+
+    /**
+     * One step of dressing for a town whose own hands are not going to get to it.
+     *
+     * <p>The same refusals every other public work's clock has, in the same order
+     * and for the same reasons: a dead town does nothing, nobody works after
      * dark, hands on the work mean there is no clock, and ground somebody can see
      * is ground where a piece is raised by a hand or not at all. A flower bed that
      * plants itself in front of a player is the one thing this must never look
      * like — and it is a worse offense here than anywhere else on the list,
      * because dressing is the part of a town a player is actually looking at.
+     *
+     * <p>The last of those is now a delay rather than a veto: see
+     * {@link #WATCHED_PASSES_BEFORE_DRAWING}, and the two towns that stood
+     * undressed for their entire lives because a veto is what it was.
+     *
+     * <p>Every way out of here writes down why on the settlement, because the
+     * reason a town is not dressing itself turned out to be one nobody had
+     * thought to gate on, and a report that lists only the gates said nothing at
+     * all. See {@code Settlement.dressingHeldUpBy}.
      */
     public static void advance(Settlement settlement, SimContext ctx) {
+        settlement.setDressingHeldUpBy(refuse(settlement, ctx));
+    }
+
+    /**
+     * {@link #advance}'s body: does the work, and returns what stopped it, or
+     * null if nothing did.
+     *
+     * <p>Split out only so that every refusal is a {@code return} of the words
+     * for it and none of them can be added later without words. The alternative
+     * — setting a field at each of seven exits — is the arrangement that let the
+     * silent one be written in the first place.
+     */
+    private static String refuse(Settlement settlement, SimContext ctx) {
         if (!settlement.hasLivingResidents()) {
-            return;
+            settlement.setDressingWatchedPasses(0);
+            return "nobody left alive to raise it";
         }
         if (com.civilization.sim.person.Curfew.idlesUnwatchedWork(
                 ctx.bridge().dayTime(), com.civilization.sim.person.Curfew.LEAD_TICKS)) {
-            return;
+            // Not a stall, and the pass count survives it: a night is not the
+            // player giving up on the piece they are standing over, it is the
+            // same piece waiting for morning with the same person beside it.
+            return "after dark";
         }
         for (int raised = 0; raised < PIECES_PER_STEP; raised++) {
             // The gate before the plan, never the other way round: see
             // worthStarting, whose first three questions are the ones that keep
             // this out of the step loop of every growing town in the world.
-            if (!worthStarting(settlement)) {
-                return;
+            String shut = whyNotStarting(settlement);
+            if (shut != null) {
+                settlement.setDressingWatchedPasses(0);
+                return shut;
             }
             Furnishing piece = next(settlement);
             if (piece == null) {
-                return;
+                settlement.setDressingWatchedPasses(0);
+                return "nothing left to raise";
             }
             if (PublicWorks.leaveItToTheCrew(settlement, ctx.bridge(),
                     new PublicWorks.DressingWork())) {
-                return;
+                settlement.setDressingWatchedPasses(0);
+                return "the crew is coming to it";
             }
             if (ctx.bridge().playerWithin(piece.at(), ctx.settings().observedRadius())) {
-                return;
+                int waited = settlement.dressingWatchedPasses() + 1;
+                if (waited < WATCHED_PASSES_BEFORE_DRAWING) {
+                    settlement.setDressingWatchedPasses(waited);
+                    return "somebody is standing over it (" + waited + " of "
+                            + WATCHED_PASSES_BEFORE_DRAWING + " passes)";
+                }
+                // Waited long enough. Nobody is coming -- leaveItToTheCrew has
+                // already said so -- and a piece nobody raises is a piece the
+                // town never has. The count is deliberately left standing: if
+                // the purse refuses this piece below, the watcher's wait is
+                // already served and must not be served again next pass, or a
+                // player standing over an unaffordable piece would keep
+                // restarting the only clock that gets past them.
+            } else {
+                settlement.setDressingWatchedPasses(0);
             }
+            String kind = piece.piece().name().toLowerCase(Locale.ROOT);
             if (!payFor(settlement, piece.piece())) {
-                return;
+                int waited = settlement.dressingUnpaidPasses() + 1;
+                settlement.setDressingUnpaidPasses(waited);
+                if (waited < PASSES_BEFORE_PASSING_OVER) {
+                    return "cannot pay for " + kind + " (" + waited + " of "
+                            + PASSES_BEFORE_PASSING_OVER + " passes)";
+                }
+                // Passed over. See PASSES_BEFORE_PASSING_OVER: the plan is a
+                // prefix, so a piece the town will never afford is a piece every
+                // other piece in the town is queued behind for ever.
+                //
+                // The count is NOT reset here, and that is the difference
+                // between a minute of patience per dry spell and a minute per
+                // piece. A town whose stores are bare is about to refuse the
+                // next piece for the same reason and the one after that, and
+                // charging it a fresh minute each time leaves a plan of three
+                // hundred pieces taking five hours to walk -- which is the fault
+                // this exists to end, arrived at slowly. It is reset where it
+                // means something: the pass a piece is actually paid for.
+                settlement.setDressingWatchedPasses(0);
+                settlement.setPiecesRaised(settlement.piecesRaised() + 1);
+                return "passed over " + kind + ": nothing in the stores to raise it with";
             }
+            settlement.setDressingUnpaidPasses(0);
+            settlement.setDressingWatchedPasses(0);
             settlement.setPiecesRaised(settlement.piecesRaised() + 1);
         }
+        return null;
+    }
+
+    /**
+     * Why this town's dressing is not moving, in words, or null when it is.
+     *
+     * <p>What {@code /civ info} and {@code /civ dressing} ask, and the reason
+     * they ask it rather than {@link #whyNotStarting}: the gates are only the
+     * reasons somebody thought of in advance, and the fault that cost two towns
+     * their whole dressing was not one of them. This reads the clock's own note
+     * from the last pass and falls back to the gates for a town that has not
+     * stepped yet.
+     */
+    public static String whyNotRaising(Settlement settlement) {
+        String noted = settlement.dressingHeldUpBy();
+        return noted != null ? noted : whyNotStarting(settlement);
     }
 
     /**

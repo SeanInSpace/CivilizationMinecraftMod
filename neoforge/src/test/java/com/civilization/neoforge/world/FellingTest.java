@@ -68,8 +68,18 @@ class FellingTest {
             return logs::contains;
         }
 
+        /** Whether a position is foliage at all, for {@link Felling#orphanedLeaves}. */
+        Predicate<BlockPos> isLeaf() {
+            return leaves::contains;
+        }
+
         Set<BlockPos> felledFrom(int x, int y, int z) {
             return Felling.treeAt(new BlockPos(x, y, z), isLog());
+        }
+
+        /** {@link Felling#orphanedLeaves}, asked of this wood. */
+        Set<BlockPos> orphanedFrom(int x, int y, int z, int supportReach) {
+            return Felling.orphanedLeaves(new BlockPos(x, y, z), supportReach, isLog(), isLeaf());
         }
     }
 
@@ -231,5 +241,84 @@ class FellingTest {
 
         assertEquals(9, felled.size());
         assertTrue(felled.contains(at(0, GROUND, 0)), "the stump comes down too");
+    }
+
+    // --- the crown a felled trunk leaves behind (N8) ---
+
+    @Test
+    void aCrownHangingBelowTheTopLogIsStillFound() {
+        // The fault a playtest measured: TownBlocks.clearCrown used to search
+        // only upward from the trunk position it was handed, and a real canopy
+        // hangs level with and below the log that held it up at least as often
+        // as above it. The trunk here is already gone — a felled tree's logs
+        // are air by the time orphanedLeaves is asked — so every one of these
+        // leaves has nothing left to lean on.
+        Wood wood = new Wood()
+                .leaf(0, GROUND, 0)        // level with where the top log stood
+                .leaf(0, GROUND - 1, 0)    // one below
+                .leaf(0, GROUND - 2, 0);   // two below
+
+        Set<BlockPos> orphaned = wood.orphanedFrom(0, GROUND, 0, 6);
+
+        assertEquals(3, orphaned.size(), "all three, not only the ones at or above the top log");
+    }
+
+    @Test
+    void aLeafStillTouchingRealWoodIsLeftAlone() {
+        // A neighbor's trunk is still standing, and a leaf of its own canopy
+        // reaches into the box this felling searches. Taking it just because it
+        // is nearby is the fault Felling was already written against for logs.
+        Wood wood = new Wood()
+                .log(4, GROUND, 0)     // the neighbor's own trunk, untouched
+                .leaf(3, GROUND, 0);   // touches it directly
+
+        Set<BlockPos> orphaned = wood.orphanedFrom(0, GROUND, 0, 6);
+
+        assertTrue(orphaned.isEmpty(), "still one step from real wood — somebody's standing tree");
+    }
+
+    @Test
+    void supportCarriesThroughAChainOfConnectedLeaves() {
+        // Vanilla's own distance is not "touching a log", it is "some number of
+        // leaf-to-leaf steps from one" — a whole canopy is supported by the one
+        // log at its center. A leaf reached this way, however many leaves the
+        // path crosses, is exactly as safe as one touching the log directly.
+        Wood wood = new Wood().log(7, GROUND, 0);
+        for (int x = 0; x <= 6; x++) {
+            wood.leaf(x, GROUND, 0);
+        }
+
+        Set<BlockPos> orphaned = wood.orphanedFrom(3, GROUND, 0, 6);
+
+        assertFalse(orphaned.contains(at(1, GROUND, 0)),
+                "six leaf-steps from the log — still within vanilla's own reach");
+    }
+
+    @Test
+    void theSupportCapMatchesVanillasOwnDecayDistance() {
+        // The same chain, one leaf longer: the far end is now seven steps from
+        // the only log in reach, which is past what vanilla itself would carry —
+        // LeavesBlock decays at a distance of seven — so this leaf comes down
+        // even though it is connected, leaf to leaf, all the way back.
+        Wood wood = new Wood().log(7, GROUND, 0);
+        for (int x = 0; x <= 6; x++) {
+            wood.leaf(x, GROUND, 0);
+        }
+
+        Set<BlockPos> orphaned = wood.orphanedFrom(3, GROUND, 0, 6);
+
+        assertTrue(orphaned.contains(at(0, GROUND, 0)),
+                "seven leaf-steps out is past what vanilla would ever save");
+    }
+
+    @Test
+    void aLoneOrphanedLeafWithNoWoodAnywhereNearComesDown() {
+        // The simplest case, stated on its own: nothing stands within reach at
+        // all, so the one leaf that is there has nothing to be supported by.
+        Wood wood = new Wood().leaf(2, GROUND, 2);
+
+        Set<BlockPos> orphaned = wood.orphanedFrom(0, GROUND, 0, 6);
+
+        assertEquals(Set.of(at(2, GROUND, 2)), orphaned);
     }
 }

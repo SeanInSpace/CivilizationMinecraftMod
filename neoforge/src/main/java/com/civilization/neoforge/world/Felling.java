@@ -1,10 +1,13 @@
 package com.civilization.neoforge.world;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -154,6 +157,81 @@ public final class Felling {
      */
     public static boolean isOneTree(BlockPos stump, BlockPos other, Predicate<BlockPos> isLog) {
         return treeAt(stump, isLog).contains(other);
+    }
+
+    /**
+     * Every leaf within reach of a felled trunk that is too far from any real
+     * wood to survive: the ones vanilla itself would decay, found the way
+     * vanilla finds them rather than guessed at with a box.
+     *
+     * <p><strong>Why a box was not enough.</strong> {@code TownBlocks.clearCrown}
+     * used to take every natural leaf inside a box around the trunk, no
+     * questions asked, and a box has two ways to be wrong: too small, and it
+     * misses leaves it should take — which is what happened, because the first
+     * version only searched upward from the trunk position it was handed, and a
+     * crown hangs level with and below the log that holds it up at least as
+     * often as above it. Too large, and it takes a neighbor's canopy along with
+     * the one just felled, exactly the fault this class was written against for
+     * logs. Asking "is this leaf still supported" answers both at once: the box
+     * only proposes candidates now, wide enough to be sure nothing real is
+     * missed, and support is what decides which of them actually comes down.
+     *
+     * <p>Support is a flood, six-connected — the same neighborhood vanilla's own
+     * {@code LeavesBlock.updateDistance} reads — out from every position the
+     * caller says is real wood, through leaves only, capped at
+     * {@code supportReach} steps. A leaf the flood reaches is within vanilla's
+     * own decay distance of a log that is still standing, whoever's tree that
+     * log belongs to, and is left alone. A leaf the flood never reaches is a
+     * leaf vanilla has already condemned, whether or not anybody comes back to
+     * take it.
+     *
+     * @param trunk        where the felled tree's topmost log stood; itself air
+     *                     by the time this is asked, along with the rest of its
+     *                     own trunk
+     * @param supportReach how many steps of flood still count as supported —
+     *                     vanilla's own decay distance, minus one, since a log
+     *                     itself is the flood's distance-zero seed
+     * @param isWood       whether a position still holds real, standing timber
+     * @param isLeaf       whether a position is foliage at all, persistent or
+     *                     not — persistence is not a question of shape, and is
+     *                     left to the caller
+     */
+    public static Set<BlockPos> orphanedLeaves(BlockPos trunk, int supportReach,
+                                                Predicate<BlockPos> isWood,
+                                                Predicate<BlockPos> isLeaf) {
+        Map<BlockPos, Integer> distanceFromWood = new HashMap<>();
+        Deque<BlockPos> frontier = new ArrayDeque<>();
+        Set<BlockPos> candidates = new LinkedHashSet<>();
+        for (int dx = -REACH_SIDEWAYS; dx <= REACH_SIDEWAYS; dx++) {
+            for (int dy = -REACH_SIDEWAYS; dy <= REACH_SIDEWAYS; dy++) {
+                for (int dz = -REACH_SIDEWAYS; dz <= REACH_SIDEWAYS; dz++) {
+                    BlockPos at = trunk.offset(dx, dy, dz);
+                    if (isWood.test(at)) {
+                        distanceFromWood.put(at, 0);
+                        frontier.add(at);
+                    } else if (isLeaf.test(at)) {
+                        candidates.add(at);
+                    }
+                }
+            }
+        }
+        while (!frontier.isEmpty()) {
+            BlockPos at = frontier.removeFirst();
+            int next = distanceFromWood.get(at) + 1;
+            if (next > supportReach) {
+                continue;   // one more step out is a leaf the flood would not save either
+            }
+            for (Direction direction : Direction.values()) {
+                BlockPos neighbor = at.relative(direction);
+                if (distanceFromWood.containsKey(neighbor) || !isLeaf.test(neighbor)) {
+                    continue;
+                }
+                distanceFromWood.put(neighbor, next);
+                frontier.add(neighbor);
+            }
+        }
+        candidates.removeIf(distanceFromWood::containsKey);
+        return candidates;
     }
 
     /** Whether this position is still inside the box one tree may occupy. */

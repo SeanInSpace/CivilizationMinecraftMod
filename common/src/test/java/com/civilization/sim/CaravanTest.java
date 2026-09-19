@@ -282,6 +282,89 @@ class CaravanTest {
         assertTrue(TownEdge.onAnOpenedStreet(town, way));
     }
 
+    /**
+     * The second playtest's N4, in the shape it was measured in: a sprawling
+     * town whose inn stood at (261, 64, 511) and whose caravan arrived, on time
+     * and exactly as planned, two hundred and seventy-seven blocks away at the
+     * far end of the longest opened street. A player standing in the inn yard
+     * sat through two whole visit windows and saw nothing.
+     */
+    @Test
+    void theWagonDoesNotCallAtAnInnAndArriveAcrossTheTown() {
+        Settlement town = new Settlement(Settlement.Id.random(), "Sprawl", CENTER, 512);
+        town.setCultureId("civilization:human/norman");
+        PathNetwork paths = new PathNetwork();
+        // The long high street of a town four hundred blocks across, and an
+        // ordinary lane off the middle of it.
+        paths.add(new PathNetwork.Segment(CENTER, new SimPos(0, 64, 280), 8));
+        paths.add(new PathNetwork.Segment(CENTER, new SimPos(0, 64, -80), 8));
+        paths.markOpened(0);
+        paths.markOpened(1);
+        town.setPaths(paths);
+        Building inn = new Building("civilization:inn", new SimPos(12, 64, 0), 1, true);
+        inn.setFootprint(new Footprint(64, 9, 9, 5));
+        town.addBuilding(inn);
+
+        SimPos way = TownEdge.of(town);
+        assertNotNull(way);
+        assertEquals(new SimPos(0, 64, -80), way,
+                "the longest street of a sprawling town is by construction the"
+                        + " one running furthest from everything, so choosing it"
+                        + " puts the wagon where nobody is");
+        double walk = TownEdge.walkToTheInn(town, way);
+        assertTrue(walk <= TownEdge.WALK_TO_THE_INN,
+                "the walk from the arrival to the inn it is calling at is " + walk
+                        + " blocks, over the " + TownEdge.WALK_TO_THE_INN
+                        + " a player told a caravan has called will make");
+        assertTrue(TownEdge.onAnOpenedStreet(town, way),
+                "and it is still on a road, which is the invariant of the class");
+    }
+
+    @Test
+    void andTheGateItComesInBySeesTheInnToo() {
+        Settlement town = innTown("Gated");
+        // Two gates on a ring of street: one across the town from the inn at
+        // (12, 64, 0), one beside it. The old rule took whichever gate happened
+        // to graze a lane first.
+        SimPos near = new SimPos(48, 64, 0);
+        SimPos far = new SimPos(-48, 64, 0);
+        town.setPerimeter(new Perimeter(
+                List.of(new SimPos(-52, 64, -52), new SimPos(52, 64, -52),
+                        new SimPos(52, 64, 52), new SimPos(-52, 64, 52)),
+                List.of(far, near), 0));
+
+        SimPos way = TownEdge.of(town);
+        assertNotNull(way);
+        assertTrue(way.horizontalDistance(near) < way.horizontalDistance(far),
+                "of two gates a town cut, the one it brings a wagon in by is the"
+                        + " one whose walk reaches the inn: the way in was " + way);
+        assertTrue(TownEdge.walkToTheInn(town, way) <= TownEdge.WALK_TO_THE_INN);
+        assertTrue(TownEdge.onAnOpenedStreet(town, way));
+    }
+
+    @Test
+    void aTownTooBigForAnyOfThisStillGetsItsWagon() {
+        Settlement town = new Settlement(Settlement.Id.random(), "Vast", CENTER, 512);
+        town.setCultureId("civilization:human/norman");
+        PathNetwork paths = new PathNetwork();
+        // Every way in is a hike. The cap gives way rather than the caravan.
+        paths.add(new PathNetwork.Segment(CENTER, new SimPos(0, 64, 400), 8));
+        paths.add(new PathNetwork.Segment(CENTER, new SimPos(0, 64, -300), 8));
+        paths.markOpened(0);
+        paths.markOpened(1);
+        town.setPaths(paths);
+        Building inn = new Building("civilization:inn", new SimPos(12, 64, 0), 1, true);
+        inn.setFootprint(new Footprint(64, 9, 9, 5));
+        town.addBuilding(inn);
+
+        SimPos way = TownEdge.of(town);
+        assertEquals(new SimPos(0, 64, -300), way,
+                "with nothing inside the cap the shortest walk of a bad set wins,"
+                        + " because a town with opened streets is a town a wagon"
+                        + " can reach and refusing one would stop caravans calling"
+                        + " on exactly the towns this was written for");
+    }
+
     @Test
     void anUnopenedStreetIsNotAWayIn() {
         Settlement town = new Settlement(Settlement.Id.random(), "Planned", CENTER, 160);
