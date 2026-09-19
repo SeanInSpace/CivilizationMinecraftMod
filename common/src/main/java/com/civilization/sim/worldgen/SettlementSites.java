@@ -49,23 +49,30 @@ public final class SettlementSites {
      * each other's claims. Larger regions give a comfortable minimum separation
      * and a world where you can walk for a long time and see nothing.
      *
-     * <p>512 puts sites an average of about {@code REGION / sqrt(SPAWN_CHANCE)}
-     * apart — roughly 870 blocks at the chance below — which is a few minutes'
-     * walk, and leaves room for a margin twice the radius of a grown town.
+     * <p>1024 gives one site per {@code REGION / sqrt(SPAWN_CHANCE)} of world —
+     * a pitch of roughly 1730 blocks at the chance below — and puts the floor
+     * under {@link #MIN_SEPARATION} at 640, which is twice the width of a grown
+     * town. It was 512, and 512 was too tight to be honest about: a floor of 320
+     * between two towns each up to 300 blocks across is twenty blocks of
+     * daylight, so a world's closest pairs were touching.
+     *
+     * <p>Measured over 200 seeds ({@code SettlementSpacingTest}): the nearest
+     * neighbour a town has is 653 blocks at worst, 1007 at the median and 1064
+     * on average. The same measurement at 512 gives 324 and 504.
      *
      * <p>Must stay at least {@code 2 * EDGE_MARGIN}, or the jitter window
      * inverts and the separation guarantee below is worthless.
      */
-    public static final int REGION = 512;
+    public static final int REGION = 1024;
 
     /**
      * How far inside its own region a site is kept, as sixteenths of the region.
      *
      * <p>A fraction rather than a length, because the region is a dial now and
-     * a fixed margin does not survive being turned. At 512 five sixteenths is
-     * the 160 this was written as; at 256 it is 80, which is the honest answer —
-     * halve the spacing and you halve the daylight between two towns, and
-     * {@link #MIN_SEPARATION} stops covering a grown town's sprawl. That cost is
+     * a fixed margin does not survive being turned. At 1024 five sixteenths is
+     * 320; at 256 it is 80, which is the honest answer — halve the region and
+     * you halve the daylight between two towns, and by 256
+     * {@link #MIN_SEPARATION} has stopped covering a grown town's sprawl. That cost is
      * documented in PLAYING.md rather than hidden by clamping the margin, because
      * a margin that refuses to shrink would simply invert the jitter window and
      * put every site on its region's midline.
@@ -96,20 +103,21 @@ public final class SettlementSites {
      * therefore {@code 2 * EDGE_MARGIN} exactly, reached when two side-by-side
      * regions both jitter hard against the edge they share.
      *
-     * <p>Why 320 and not less: a grown town is up to about 300 blocks across, so
-     * two of them centered 320 apart have twenty blocks of daylight between their
-     * outer edges. Anything tighter and their claims, their fields and their
-     * roads are arguing over the same ground — a fight nothing downstream is
-     * equipped to settle, because neither town knows the other exists until both
-     * are already standing.
+     * <p>Why 640 and not less: a grown town is up to about 300 blocks across, so
+     * two of them centered 640 apart have a town's width of open country between
+     * their outer edges. The old 320 was the same arithmetic on a 512-block
+     * region and left twenty blocks — technically a gap, and in play two towns
+     * whose claims, fields and roads were arguing over the same ground, a fight
+     * nothing downstream is equipped to settle because neither town knows the
+     * other exists until both are already standing.
      */
     public static final int MIN_SEPARATION = 2 * EDGE_MARGIN;
 
     /**
      * How much of each region the jitter may use, in blocks, per axis.
      *
-     * <p>What is left of the region once both margins are taken out. At 192 a
-     * site can sit anywhere in a 192-block square about the region's middle,
+     * <p>What is left of the region once both margins are taken out. At 384 a
+     * site can sit anywhere in a 384-block square about the region's middle,
      * which is enough that the grid never reads as a grid on a map — the whole
      * reason for jittering rather than planting on the lattice.
      */
@@ -139,20 +147,26 @@ public final class SettlementSites {
     public static final double SPAWN_CHANCE = DEFAULT_SITE_PERCENT / 100.0;
 
     /**
-     * How far from the world spawn the spawn town is set down, per axis, in blocks.
+     * How close the starter town may come to the world spawn, in blocks.
      *
-     * <p>140 on each axis is 198 blocks corner to corner, which is the promise:
-     * a player who spawns and turns around is looking at a town, not at a
-     * horizon. The lower bound two thirds of the way down keeps it from landing
-     * on the spawn point itself — a town whose market square is where you
-     * appear is not a discovery, it is a spawn building.
+     * <p>A keep-out rather than a leash, which is the shape this wanted all
+     * along. The starter site is placed at the point of its own jitter window
+     * nearest the spawn point, so it is as close as the ordinary geometry
+     * allows; this is the one thing that pushes back. A town nearer than this is
+     * a town the player spawns <em>inside</em> — appearing in somebody's turnip
+     * field is not a discovery, and at 150 blocks a grown one has swallowed the
+     * spawn point outright.
      *
-     * <p>Capped at just under half a region, because the whole scheme rests on
-     * at least one of {@code spawn ± leash} lying inside the spawn region on
-     * each axis, which needs {@code 2 * leash < region}. At the 256 floor that
-     * makes the leash 127 and the walk 180 blocks.
+     * <p>256 is about a minute's walk and comfortably outside any claim, so the
+     * first thing a new world shows you is a town you have to walk to. Measured
+     * over 200 seeds the starter lands between 257 and 406 blocks out, 258 at
+     * the median — the keep-out is what usually decides it, because the nearest
+     * point of the jitter window is nearer than this more often than not.
+     *
+     * <p>Capped by {@link Grid#starterMinFromSpawn} where the region is too
+     * small to hold it.
      */
-    private static final int HOME_LEASH = 140;
+    public static final int STARTER_MIN_FROM_SPAWN = 256;
 
     /**
      * The y a site carries until somebody resolves it.
@@ -172,8 +186,7 @@ public final class SettlementSites {
     private static final long SALT_JITTER = 0x5EED_0002L;
     private static final long SALT_CULTURE = 0x5EED_0003L;
     private static final long SALT_ARRANGEMENT = 0x5EED_0004L;
-    private static final long SALT_HOME_X = 0x5EED_0005L;
-    private static final long SALT_HOME_Z = 0x5EED_0006L;
+    private static final long SALT_STARTER = 0x5EED_0005L;
 
     /**
      * A place a town belongs, and whose it is.
@@ -198,28 +211,38 @@ public final class SettlementSites {
      *
      * <p>The spawn anchor is the interesting field. Without it the grid is what
      * it always was: a hash decides each region independently and a new world
-     * may have nothing within a kilometer. With it, the region holding the world
-     * spawn and its eight neighbors always hold a site, and the middle one is
-     * set down {@link #HOME_LEASH} blocks from the spawn point — so a world
-     * begins with a town you can see and eight more a short walk out, which is
-     * what Millénaire's opening actually felt like.
+     * may have nothing within a kilometer. With it, the <em>one</em> region
+     * holding the world spawn always holds a site, placed at the point of its
+     * own jitter window nearest the spawn point and never closer to it than
+     * {@link #STARTER_MIN_FROM_SPAWN} — so a world begins beside a town, and
+     * beside exactly one.
+     *
+     * <p>It used to guarantee nine: the spawn region and all eight neighbors. A
+     * world therefore opened with a town two hundred blocks out and eight more
+     * inside a few minutes' walk, which is denser than anywhere the chance ever
+     * produces and made the first square kilometer of every world look nothing
+     * like the rest of it. One is the promise worth keeping — a player should
+     * meet somebody in their first minutes — and the eight were the mod showing
+     * off. They now follow {@code sitePercent} like every other region, which is
+     * also what let the starter site move inside the ordinary jitter window and
+     * took a whole hold-back pass out of this class.
      *
      * @param region      how wide a square of world holds at most one site
-     * @param sitePercent how often a region holds one at all, outside the nine
+     * @param sitePercent how often a region holds one at all, the spawn region
+     *                    aside
      * @param spawn       the world spawn, or empty for a grid with no anchor
      *                    (which is exactly the old behavior)
      */
     public record Grid(int region, int sitePercent, Optional<SimPos> spawn) {
 
-        /** The shipped world: 512-block regions, 35 percent, no anchor. */
+        /** The shipped world: 1024-block regions, 35 percent, no anchor. */
         public static final Grid DEFAULT =
                 new Grid(REGION, DEFAULT_SITE_PERCENT, Optional.empty());
 
         /**
          * Sixteen is the floor, and it is geometry rather than taste: below it
-         * {@link #edgeMargin} bottoms out at one block and the window
-         * {@link #heldBack} needs — a region wider than three margins — closes.
-         * The config's own floor is 256.
+         * {@link #edgeMargin} bottoms out at one block and the jitter window
+         * every site is placed in closes. The config's own floor is 256.
          */
         public Grid {
             if (region < 16) {
@@ -240,10 +263,12 @@ public final class SettlementSites {
         /**
          * The closest two sites can ever be, in blocks.
          *
-         * <p>Holds across the nine anchored regions too, which is not free: the
-         * middle one is placed first, near spawn and without a margin of its
-         * own, and each of the eight is then held back to the far side of its
-         * region until it clears this. See {@link #jitterAxis}.
+         * <p>Holds across the spawn region as well, and now holds for free:
+         * every site in the world, starter included, is placed inside its own
+         * region's jitter window, so the argument on {@link #MIN_SEPARATION} is
+         * the whole argument. The starter used to ignore its margins and be
+         * paid for by pushing its eight neighbors away; there are no guaranteed
+         * neighbors any more, and nothing to push.
          */
         public int minSeparation() {
             return 2 * edgeMargin();
@@ -254,9 +279,24 @@ public final class SettlementSites {
             return region - 2 * edgeMargin();
         }
 
-        /** How far from spawn the spawn town is set down, per axis. */
-        public int homeLeash() {
-            return Math.min(HOME_LEASH, region / 2 - 1);
+        /**
+         * How far the starter town is kept off the spawn point, in blocks.
+         *
+         * <p>{@link #STARTER_MIN_FROM_SPAWN}, unless the region is too small to
+         * hold it. The site has to land inside a {@link #jitterSpan} square, and
+         * the furthest corner of a square from any point in the plane is at
+         * least {@code side * sqrt(2) / 2} away — so a keep-out up to seven
+         * tenths of the side is always reachable and one past it may not be. The
+         * two blocks come off for the rounding in {@link #starterSite}.
+         *
+         * <p>At the shipped region the cap is 266 and does not bite. At the
+         * config's 256 floor it does: the keep-out there is 65 blocks, which is
+         * the honest answer for a world that asked for towns four times as thick
+         * on the ground.
+         */
+        public int starterMinFromSpawn() {
+            return Math.max(1, Math.min(STARTER_MIN_FROM_SPAWN,
+                    jitterSpan() * 7 / 10 - 2));
         }
 
         /** Which region a block column belongs to. */
@@ -277,41 +317,6 @@ public final class SettlementSites {
             return spawn.map(at -> new int[]{regionOf(at.x()), regionOf(at.z())});
         }
 
-        /**
-         * The nine regions guaranteed a site, nearest the spawn point first.
-         *
-         * <p>Empty for an unanchored grid. The order is the one the world start
-         * wants: whatever refuses its ground, the next candidate out is already
-         * the next best place for the town a player is about to look for.
-         */
-        public List<int[]> anchoredRegions(long worldSeed) {
-            Optional<int[]> home = homeRegion();
-            if (home.isEmpty()) {
-                return List.of();
-            }
-            SimPos at = spawn.orElseThrow();
-            int[] middle = home.get();
-            List<int[]> all = new ArrayList<>();
-            for (int dz = -1; dz <= 1; dz++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    all.add(new int[]{middle[0] + dx, middle[1] + dz});
-                }
-            }
-            all.sort(Comparator.comparingLong(coords ->
-                    siteIn(worldSeed, coords[0], coords[1], Map.of())
-                            .map(site -> site.center().horizontalDistanceSq(at))
-                            .orElse(Long.MAX_VALUE)));
-            return all;
-        }
-
-        /** Whether this region is one of the nine a spawn anchor guarantees. */
-        public boolean isAnchored(int regionX, int regionZ) {
-            Optional<int[]> home = homeRegion();
-            return home.isPresent()
-                    && Math.abs(regionX - home.get()[0]) <= 1
-                    && Math.abs(regionZ - home.get()[1]) <= 1;
-        }
-
         /** Whether this is the region the world spawn itself falls in. */
         public boolean isHome(int regionX, int regionZ) {
             Optional<int[]> home = homeRegion();
@@ -322,38 +327,29 @@ public final class SettlementSites {
         /** @see SettlementSites#siteIn(long, int, int, Map) */
         public Optional<Site> siteIn(long worldSeed, int regionX, int regionZ,
                                      Map<String, Integer> weights) {
-            boolean anchored = isAnchored(regionX, regionZ);
-            if (!anchored && unitInterval(hash(worldSeed, regionX, regionZ, SALT_SPAWN))
+            boolean starter = isHome(regionX, regionZ);
+            if (!starter && unitInterval(hash(worldSeed, regionX, regionZ, SALT_SPAWN))
                     >= sitePercent / 100.0) {
                 return Optional.empty();
             }
-            int x;
-            int z;
-            if (isHome(regionX, regionZ)) {
-                SimPos at = spawn.orElseThrow();
-                x = homeAxis(worldSeed, regionX, regionZ, at.x(), regionX, SALT_HOME_X);
-                z = homeAxis(worldSeed, regionX, regionZ, at.z(), regionZ, SALT_HOME_Z);
+            SimPos center;
+            if (starter) {
+                center = starterSite(worldSeed, regionX, regionZ);
             } else {
                 long jitter = hash(worldSeed, regionX, regionZ, SALT_JITTER);
                 // Two draws from one hash: the low half places the site on x and
                 // the high half on z. Reusing the same bits for both would put
                 // every site on a diagonal of its region.
-                x = jitterAxis(jitter & 0xFFFF_FFFFL, regionX);
-                z = jitterAxis(jitter >>> 32, regionZ);
-                if (anchored) {
-                    int[] home = homeRegion().orElseThrow();
-                    x = heldBack(worldSeed, home, x, regionX - home[0], 0);
-                    z = heldBack(worldSeed, home, z, regionZ - home[1], 1);
-                }
+                center = new SimPos(jitterAxis(jitter & 0xFFFF_FFFFL, regionX),
+                        UNRESOLVED_Y, jitterAxis(jitter >>> 32, regionZ));
             }
-            SimPos center = new SimPos(x, UNRESOLVED_Y, z);
             // The one region in the world whose people are decided rather than
             // drawn. The town a player spawns looking at must not be a goblin
             // camp: a first settlement that shoots at you on sight is not an
             // introduction to the mod, it is a death screen, and the whole reason
-            // the nine anchored sites exist is that somebody should meet a town in
-            // their first minute. Everywhere else the draw stands.
-            boolean mustBeFriendly = isHome(regionX, regionZ);
+            // the starter site exists is that somebody should meet a town in
+            // their first minutes. Everywhere else the draw stands.
+            boolean mustBeFriendly = starter;
             String layout = arrangementFor(worldSeed, regionX, regionZ, weights,
                     mustBeFriendly);
             return Optional.of(new Site(center,
@@ -386,45 +382,85 @@ public final class SettlementSites {
         }
 
         /**
-         * Where the spawn town goes on one axis.
+         * Where the starter town goes: as near the spawn point as the rules
+         * allow, and no nearer.
          *
-         * <p>{@link #HOME_LEASH} blocks from the spawn point, on whichever side
-         * still lies inside the region. At least one side always does, because
-         * the leash is capped below half a region: if {@code p + d} runs past
-         * the far edge then {@code p} is already more than {@code d} from the
-         * near one. Where both fit, the hash chooses, so the town is not always
-         * northeast of every world's spawn.
+         * <p>Two rules, and they are the whole method. The site must lie in its
+         * region's ordinary jitter window — which is what makes it spaced like
+         * every other site rather than specially handled — and it must be at
+         * least {@link #starterMinFromSpawn} blocks from the spawn point.
          *
-         * <p>No margin is applied here, and that is the point. The margin is a
-         * spacing rule between neighbors, and this site's neighbors are the
-         * eight regions around it — all of which are held back from it by
-         * {@link #heldBack} instead. Spending the margin here would push the
-         * town back toward its region's middle and lose the one thing this
-         * method exists to guarantee.
+         * <p>So: clamp the spawn point into the window, which is the nearest
+         * point of it. If that already clears the keep-out, take it; this is the
+         * common case, because the window is a seventh of the region's area and
+         * a spawn point usually falls outside it. Otherwise walk the ring at the
+         * keep-out itself and take the first bearing that lands in the window,
+         * starting from a hashed bearing so the town is not northeast of every
+         * world's spawn.
+         *
+         * <p>The ring always meets the window when the keep-out is capped as
+         * {@link #starterMinFromSpawn} caps it: the nearest point of the window
+         * is inside the ring (that is the branch we are in) and the furthest
+         * corner is outside it, and the window is connected, so some point of it
+         * sits at exactly the keep-out. The sweep is 720 bearings and a sliver
+         * thinner than half a degree could still slip between them, which is
+         * what the corner is for — it is always far enough, so the promise never
+         * rests on the sweep.
+         *
+         * <p>The ring radius is the keep-out plus two blocks, so that rounding a
+         * bearing to a block column cannot land a site at 255 and make a liar of
+         * the constant.
          */
-        private int homeAxis(long worldSeed, int regionX, int regionZ,
-                             int anchor, int regionIndex, long salt) {
-            long low = (long) regionIndex * region;
-            long high = low + region - 1;
-            int leash = homeLeash();
-            int nearest = Math.max(1, leash * 2 / 3);
-            long draw = hash(worldSeed, regionX, regionZ, salt);
-            int walk = nearest + (int) Long.remainderUnsigned(
-                    draw >>> 1, leash - nearest + 1L);
-            long plus = anchor + (long) walk;
-            long minus = anchor - (long) walk;
-            boolean canAdd = plus <= high;
-            boolean canSubtract = minus >= low;
-            if (canAdd && canSubtract) {
-                return (int) ((draw & 1L) == 0 ? plus : minus);
+        private SimPos starterSite(long worldSeed, int regionX, int regionZ) {
+            SimPos at = spawn.orElseThrow();
+            int margin = edgeMargin();
+            long lowX = (long) regionX * region + margin;
+            long lowZ = (long) regionZ * region + margin;
+            long highX = lowX + jitterSpan();
+            long highZ = lowZ + jitterSpan();
+            int keepOut = starterMinFromSpawn();
+            long keepOutSq = (long) keepOut * keepOut;
+
+            int nearX = (int) Math.max(lowX, Math.min(highX, at.x()));
+            int nearZ = (int) Math.max(lowZ, Math.min(highZ, at.z()));
+            if (away(nearX, nearZ, at) >= keepOutSq) {
+                return new SimPos(nearX, UNRESOLVED_Y, nearZ);
             }
-            if (canAdd) {
-                return (int) plus;
+
+            double radius = keepOut + 2.0;
+            int from = (int) Long.remainderUnsigned(
+                    hash(worldSeed, regionX, regionZ, SALT_STARTER), BEARINGS);
+            for (int step = 0; step < BEARINGS; step++) {
+                // StrictMath rather than Math: Math.cos and Math.sin are allowed
+                // an ulp of slack and may be implemented differently by different
+                // JVMs, which at this radius is enough to round to a different
+                // block. A world's towns must not move when the game is relaunched
+                // on another runtime.
+                double turn = 2 * Math.PI * ((from + step) % BEARINGS) / BEARINGS;
+                long x = at.x() + Math.round(StrictMath.cos(turn) * radius);
+                long z = at.z() + Math.round(StrictMath.sin(turn) * radius);
+                if (x >= lowX && x <= highX && z >= lowZ && z <= highZ) {
+                    return new SimPos((int) x, UNRESOLVED_Y, (int) z);
+                }
             }
-            if (canSubtract) {
-                return (int) minus;
-            }
-            return (int) Math.max(low, Math.min(high, plus));   // region under 2*leash
+
+            // The window's furthest corner, which is at least half a diagonal
+            // from anywhere and so always clears a capped keep-out.
+            int cornerX = (int) (away(lowX, at.x()) >= away(highX, at.x()) ? lowX : highX);
+            int cornerZ = (int) (away(lowZ, at.z()) >= away(highZ, at.z()) ? lowZ : highZ);
+            return new SimPos(cornerX, UNRESOLVED_Y, cornerZ);
+        }
+
+        /** How far apart two coordinates are on one axis. */
+        private static long away(long edge, int anchor) {
+            return Math.abs(edge - anchor);
+        }
+
+        /** Squared horizontal distance from a column to the spawn point. */
+        private static long away(int x, int z, SimPos at) {
+            long dx = (long) x - at.x();
+            long dz = (long) z - at.z();
+            return dx * dx + dz * dz;
         }
 
         /** The ordinary jitter: somewhere in the region's middle, margins aside. */
@@ -437,39 +473,16 @@ public final class SettlementSites {
             return (int) ((long) regionIndex * region + offset);
         }
 
-        /**
-         * One of the eight, pushed clear of the spawn town.
-         *
-         * <p>The spawn town ignores its region's margins, so the guarantee that
-         * two sites are never closer than {@link #minSeparation} has to be paid
-         * for from this side. A neighbor west of the spawn region is capped at
-         * {@code homeX - minSeparation}; one east of it is floored at
-         * {@code homeX + minSeparation}; one in the same column is left alone,
-         * because its separation is coming from the other axis.
-         *
-         * <p>The window never closes. A neighbor's own far edge sits a whole
-         * region plus a margin away from the spawn region's near edge, and the
-         * spawn town is at most a region from that edge, so the room left is at
-         * least {@code region - 3 * edgeMargin()} — a sixteenth of a region,
-         * positive for every region size this grid allows.
-         */
-        private int heldBack(long worldSeed, int[] home, int placed, int delta, int axis) {
-            if (delta == 0) {
-                return placed;
-            }
-            Optional<SimPos> anchor = spawn;
-            if (anchor.isEmpty()) {
-                return placed;
-            }
-            int homeSite = axis == 0
-                    ? homeAxis(worldSeed, home[0], home[1], anchor.get().x(), home[0], SALT_HOME_X)
-                    : homeAxis(worldSeed, home[0], home[1], anchor.get().z(), home[1], SALT_HOME_Z);
-            int gap = minSeparation();
-            return delta < 0
-                    ? Math.min(placed, homeSite - gap)
-                    : Math.max(placed, homeSite + gap);
-        }
     }
+
+    /**
+     * Bearings the starter's ring walk tries, over a full turn.
+     *
+     * <p>720, so half a degree apart — about two blocks of arc at the keep-out.
+     * Finer would be pointless (a town is placed to the block) and coarser would
+     * throw the walk onto its corner fallback more often than it deserves.
+     */
+    private static final int BEARINGS = 720;
 
     private SettlementSites() {
     }

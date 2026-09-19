@@ -6,6 +6,56 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## Towns you have to walk to
+
+Two towns three hundred and twenty blocks apart, each of them up to three
+hundred blocks across, are two towns with twenty blocks of daylight between
+their outer edges — and a new world handed you nine of them. The spawn region
+and all eight of its neighbours were settled whatever the dice said, so every
+world opened with a cluster denser than any other square kilometre it would
+ever produce, and then went quiet. Neither half of that was a world anybody
+lives in.
+
+So the grid is twice as wide and the opening is one town instead of nine.
+
+### Changed
+
+- **A region is 1024 blocks across, not 512.** The margin that holds neighbours
+  apart is five sixteenths of it, so nothing in a world can now stand closer
+  than **640 blocks** to anything else. Measured over 200 seeds: a town's
+  nearest neighbour is 653 blocks away at worst, **1007 at the median** and 1064
+  on average, against 324 and 504 at the old dial. One town per 1730 blocks of
+  world at the unchanged 35 percent chance — about 17 within four thousand
+  blocks of you, where there used to be 69.
+- **A new world guarantees one town, not nine.** The eight neighbours of the
+  spawn region follow `worldgen.site_chance` like everywhere else. The starter
+  is placed at the point of its own jitter window nearest the spawn point but
+  never within **256 blocks** of it — a minute's walk, and outside any claim, so
+  you are not spawning inside somebody's turnip field. Measured over 200 seeds
+  it lands 257 to 406 blocks out, 258 at the median, and a world opens with
+  **1.75 towns inside its first kilometre**: the one it was promised, plus
+  whatever the dice added.
+- **The join message and `/civ sites` look two regions out**, 2048 blocks by
+  default rather than a flat kilometre, and the heading says so. A kilometre was
+  two regions when a region was 512; at 1024 it reached the starter town and
+  usually nothing else, which is a directory with one entry in it.
+- **`worldgen.region` now ranges 256 to 4096**, and its config comment carries
+  the measured numbers for each dial. PLAYING.md's density table is measured
+  rather than estimated now — see `SettlementSpacingTest`, which is where every
+  number in this entry comes from.
+
+### Worth knowing
+
+- The starter town no longer ignores its region's margins, so the machinery that
+  used to shove its eight neighbours clear of it is gone. Every site in the
+  world, starter included, is now placed by the same rule, and the separation
+  floor falls out of the geometry with nothing to enforce it at runtime.
+- Sites move. A world carried over from before this will find its unraised towns
+  somewhere else, because the region grid it is cut into is twice as wide — and
+  because the ledger remembers regions by coordinate, a town already standing
+  may end up sharing its new region with a site the world has not looked at yet.
+  Towns that exist stay exactly where they are; nothing demolishes itself.
+
 ## A town prospects for its timber
 
 A settlement that ran out of wood put its lumber camp on the next plot the plan

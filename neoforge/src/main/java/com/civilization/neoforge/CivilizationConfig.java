@@ -86,24 +86,27 @@ public final class CivilizationConfig {
     /**
      * How wide a square of world holds at most one town.
      *
-     * <p>The density dial, and the only one that matters. 512 is the shipped
-     * world and stays it; 256 is Millénaire's, roughly four times as many towns
-     * for the same ground, and it is not free. See PLAYING.md — in short: the
-     * margin that keeps neighbors apart is a fraction of this number, so at 256
-     * two towns may stand 160 blocks apart and a grown town is up to 300 across.
-     * They will build into each other. Every raised town also costs the server a
-     * simulation step, a manager pass, and villagers whenever somebody is
-     * watching it.
+     * <p>The density dial, and the only one that matters. 1024 is the shipped
+     * world; 512 was, and was too tight — the margin that keeps neighbors apart
+     * is a fraction of this number, so at 512 two towns could stand 320 blocks
+     * apart and a grown town is up to 300 across. 256 is Millénaire's, sixteen
+     * times as many towns as the default for the same ground and a 160-block
+     * floor, which is two towns sharing a claim. See PLAYING.md. Every raised
+     * town also costs the server a simulation step, a manager pass, and
+     * villagers whenever somebody is watching it.
      */
     public static final ModConfigSpec.IntValue WORLDGEN_REGION = BUILDER
             .comment("Blocks across a region, which holds at most one town.",
-                    "512 (default) puts towns about 870 blocks apart on average.",
-                    "256 is Millenaire-like density and roughly four times as many",
-                    "towns -- at 256 the minimum separation falls to 160 blocks and",
-                    "towns up to 300 blocks across will grow into each other.",
+                    "1024 (default) leaves a town's nearest neighbour about 1000",
+                    "blocks off (653 at worst, measured over 200 seeds) and puts",
+                    "one town per 1730 blocks of world.",
+                    "512 halves all of that: neighbours about 500 blocks apart and",
+                    "a floor of 320, which two towns up to 300 blocks across will",
+                    "close. 256 is Millenaire-like density, sixteen times the",
+                    "towns, and a floor of 160 -- they will build into each other.",
                     "Changing this on an existing world moves every site that has",
                     "not been raised yet; towns already standing stay where they are.")
-            .defineInRange("worldgen.region", SettlementSites.REGION, 256, 2048);
+            .defineInRange("worldgen.region", SettlementSites.REGION, 256, 4096);
 
     /**
      * How often a region holds a town at all.
@@ -114,8 +117,9 @@ public final class CivilizationConfig {
     public static final ModConfigSpec.IntValue WORLDGEN_SITE_CHANCE = BUILDER
             .comment("Percent of regions that hold a town. 35 is what the mod has",
                     "always done; this exposes the number rather than changing it.",
-                    "The nine regions around the world spawn are settled whatever",
-                    "this says, so a new world always begins beside a town.")
+                    "The one region holding the world spawn is settled whatever",
+                    "this says, so a new world always begins within a few hundred",
+                    "blocks of a town -- and of exactly one.")
             .defineInRange("worldgen.site_chance",
                     SettlementSites.DEFAULT_SITE_PERCENT, 0, 100);
 

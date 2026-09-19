@@ -384,12 +384,14 @@ public final class CivilizationCommand {
         // The player's question first, the chooser's answer second. "Where do I
         // go" and "is the chooser working" are different questions, and the
         // listing below only ever answered the second one.
+        int earshot = com.civilization.neoforge.world.SiteDirectory.earshot(level);
         StringBuilder sb = new StringBuilder(
-                com.civilization.neoforge.world.SiteDirectory.heading(0));
+                com.civilization.neoforge.world.SiteDirectory.heading(0, earshot));
         List<String> directory = com.civilization.neoforge.world.SiteDirectory.lines(level, here);
         if (!directory.isEmpty()) {
             sb.setLength(0);
-            sb.append(com.civilization.neoforge.world.SiteDirectory.heading(directory.size()));
+            sb.append(com.civilization.neoforge.world.SiteDirectory.heading(
+                    directory.size(), earshot));
             directory.forEach(line -> sb.append("\n").append(line));
         }
 
@@ -1150,9 +1152,10 @@ public final class CivilizationCommand {
      * raised, which reads as a filter and is not one: the loop below walks every
      * kingdom in the dimension and every settlement in every kingdom, and logs a
      * {@code LIST} line for each. What it cannot do is list a town the world has
-     * not raised yet, and the world raises them lazily — nine around the spawn
-     * point at one per tick, everything else at one per second as somebody comes
-     * near. So the listing was a true count of a total that was still climbing.
+     * not raised yet, and the world raises them lazily — the one at the spawn
+     * point as the level loads, everything else at one per second as somebody
+     * comes near. So the listing was a true count of a total that was still
+     * climbing.
      * It now says so, which is the actual fix; see {@link SettlementListing}.
      */
     private static int list(CommandContext<CommandSourceStack> ctx) {
@@ -1191,12 +1194,16 @@ public final class CivilizationCommand {
     }
 
     /**
-     * How many of the world's spawn regions have not been settled or refused yet.
+     * Whether the world's spawn region has been settled or refused yet, as a
+     * count — one or nought.
      *
      * <p>Counted here rather than asked of the worldgen class, because the
      * ledger and the grid are both already public and this is the only caller
      * that wants the number rather than the yes-or-no
      * {@code WorldgenSettlements.spawnTownsSettled} answers.
+     *
+     * <p>A count rather than a flag because it was nine regions and the report
+     * reads "3 regions to go"; there is one now, and the sentence still works.
      *
      * <p>Zero for any dimension the anchor does not touch, which is every
      * dimension but the overworld, and zero when worldgen is off.
@@ -1207,13 +1214,9 @@ public final class CivilizationCommand {
         }
         var ledger = com.civilization.neoforge.save.SiteLedger.get(level);
         var grid = com.civilization.neoforge.world.WorldgenSettlements.gridFor(level);
-        int pending = 0;
-        for (int[] region : grid.anchoredRegions(level.getSeed())) {
-            if (ledger.entry(region[0], region[1]).isEmpty()) {
-                pending++;
-            }
-        }
-        return pending;
+        return grid.homeRegion()
+                .filter(region -> ledger.entry(region[0], region[1]).isEmpty())
+                .isPresent() ? 1 : 0;
     }
 
     /** A line break in a chat report. Named so no editor can eat the escape. */

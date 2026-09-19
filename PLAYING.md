@@ -380,7 +380,7 @@ Per-world settings in `<world>/serverconfig/civilization-server.toml`:
 | `economy.watched_floor_percent.<resource>` | 0 | Share credited when you *are* near but nobody is working |
 | `worldgen.enabled` | true | Whether the world has towns in it you did not found |
 | `worldgen.reach` | 256 | How close you must come before one is raised |
-| `worldgen.region` | 512 | Blocks across a region, which holds at most one town — **the density dial** |
+| `worldgen.region` | 1024 | Blocks across a region, which holds at most one town — **the density dial** |
 | `worldgen.site_chance` | 35 | Percent of regions that hold a town at all |
 | `worldgen.wayfinder_on_join` | true | Whether you are handed a wayfinder on your first join |
 | `worldgen.arrangements.<shape>` | see below | How likely each town shape is, weighted against the others |
@@ -388,23 +388,30 @@ Per-world settings in `<world>/serverconfig/civilization-server.toml`:
 
 ### Finding the towns you did not found
 
-A new world does not wait for you to go looking. The nine regions around the
-world spawn are settled whatever the dice say, and they are raised as the level
-loads rather than when somebody walks past — so the first time you look around,
-there is a town about **two hundred blocks away**, and eight more within a few
-minutes' walk.
+A new world does not wait for you to go looking. The one region holding the
+world spawn is settled whatever the dice say, and its town is raised as the
+level loads rather than when somebody walks past — so the first time you look
+around, there is a town **two hundred and sixty to four hundred blocks away**,
+near enough to reach before dark and far enough that you did not spawn in
+somebody's turnip field.
+
+One town, not nine. The mod used to guarantee the spawn region *and its eight
+neighbours*, which gave every world an opening cluster denser than any other
+square kilometre of it; the neighbours now take their chances like everywhere
+else. Measured over 200 seeds, a world opens with 1.75 towns inside its first
+kilometre — the one it was promised, and whatever the dice added.
 
 Two things point you at them.
 
 **The join message.** Every time you log in, chat lists the settlements within
-1024 blocks — nearest first, at most five — with a distance and a compass point:
+two regions — 2048 blocks by default, nearest first, at most five — with a
+distance and a compass point:
 
 ```
-Settlements within 1024 blocks:
-  Haldstead — 186 blocks NE
-  Corbray — 604 blocks S
-  a Norman crossroads — 911 blocks W (not raised yet)
-  an orc Warhost stronghold — 980 blocks NE (not raised yet)
+Settlements within 2048 blocks:
+  Haldstead — 286 blocks NE
+  a Norman crossroads — 1204 blocks W (not raised yet)
+  an orc Warhost stronghold — 1786 blocks NE (not raised yet)
 ```
 
 A town with a name has been raised and has people in it. One described by its
@@ -434,37 +441,46 @@ iron      redstone iron
 ### How dense you want your world
 
 `worldgen.region` is how wide a square of world holds at most one town, and it
-is the only dial that really changes what a world feels like. **512 is the
-default and there is a reason it stays there.**
+is the only dial that really changes what a world feels like. **1024 is the
+default, and it was 512 until the towns were measured.**
 
-| `worldgen.region` | Towns within 4096 blocks | Closest two towns can be |
-|---|---|---|
-| 256 | ~300 | 160 blocks |
-| 512 (default) | ~82 | 320 blocks |
-| 1024 | ~20 | 640 blocks |
+| `worldgen.region` | Towns within 4096 blocks | Closest two towns can be | Typical walk to the next town |
+|---|---|---|---|
+| 256 | ~282 | 160 blocks | 253 |
+| 512 | ~69 | 320 blocks | 504 |
+| 1024 (default) | ~17 | 640 blocks | 1018 |
+| 2048 | ~4 | 1280 blocks | 2136 |
 
-Set it to 256 and you get something close to Millénaire's density — roughly four
-times as many towns for the same ground. Two things pay for it:
+The last column is the measured median distance from a town to its nearest
+neighbour. At 512 that was 504 blocks with a floor of 320 — and a grown town
+here is 150 to 300 blocks across, so the world's closest pairs were very nearly
+touching, with each other's claims, fields and roads arguing over
+the same ground. Neither town knows the other exists until both are standing,
+so nothing downstream can settle that fight. 1024 doubles every one of those
+numbers: nothing closer than 640, a thousand blocks between neighbours as a
+rule.
+
+Set it to 256 and you get something close to Millénaire's density — roughly
+sixteen times as many towns as the default, for the same ground. Two things pay
+for it:
 
 - **Towns grow into each other.** The margin that keeps neighbours apart is a
-  fraction of the region, so halving the region halves the minimum separation:
-  320 blocks becomes 160. A grown town here is 150 to 300 blocks across. Two
-  centers 160 apart means two towns building on the same ground, with each
-  other's claims, fields and roads arguing over it — and neither town knows the
-  other exists until both are standing.
+  fraction of the region, so quartering the region quarters the minimum
+  separation: 640 blocks becomes 160. Two centres 160 apart means two towns
+  building on the same ground.
 - **Every town costs tick budget.** A raised town is a simulation step, a
   manager pass, and — whenever you are near enough to see it — a crowd of
-  embodied villagers. Four times the towns is four times that bill wherever they
-  are clustered.
+  embodied villagers. Sixteen times the towns is sixteen times that bill
+  wherever they are clustered.
 
-Above 512 the margin only grows, so 1024 and 2048 cost nothing but walking.
+Above 1024 the margin only grows, so 2048 and 4096 cost nothing but walking.
 
 `worldgen.site_chance` is the other half of the density: the percent of regions
 that hold a town at all, 35 by default. That number is not new — it is what the
 mod has always done, now written down where a world can change it. Lowering it
-thins the scatter without bringing any two towns closer together. **The nine
-regions around spawn ignore it**, so even at 0 a world still starts beside a
-town and the rest of the map is empty.
+thins the scatter without bringing any two towns closer together. **The region
+holding the world spawn ignores it**, so even at 0 a world still starts within
+a few hundred blocks of a town — one town, and the rest of the map empty.
 
 Changing either dial on an existing world moves every site that has not been
 raised yet. Towns already standing stay exactly where they are — the ledger

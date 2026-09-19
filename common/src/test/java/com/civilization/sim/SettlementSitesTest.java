@@ -129,8 +129,8 @@ class SettlementSitesTest {
         // coincidence -- and would hide MIN_SEPARATION having been written down
         // far below what the jitter window actually allows, which is the way
         // this promise rots without any test going red. Over 576 regions two
-        // neighbors do jitter towards the edge they share: measured at 340
-        // blocks against a floor of 320.
+        // neighbors do jitter towards the edge they share: measured at 705
+        // blocks against a floor of 640.
         long closest = Long.MAX_VALUE;
         List<SettlementSites.Site> found = sweep(SEED, 24);
         for (int i = 0; i < found.size(); i++) {
@@ -203,9 +203,12 @@ class SettlementSitesTest {
         // build in it, so a table that asks for greens gets whoever builds a
         // green. That is the intended behavior and would make a pinned culture
         // a test of the table rather than of the grid.
-        assertEquals(new SimPos(-275, SettlementSites.UNRESOLVED_Y, 224),
+        // Moved when the region went from 512 to 1024: a wider region is a
+        // wider jitter window on the same hash stream, so every site in every
+        // world is somewhere else. That is the tuning pass being announced.
+        assertEquals(new SimPos(-648, SettlementSites.UNRESOLVED_Y, 507),
                 SettlementSites.siteIn(SEED, -1, 0).orElseThrow().center());
-        assertEquals(new SimPos(-1265, SettlementSites.UNRESOLVED_Y, -1357),
+        assertEquals(new SimPos(-2465, SettlementSites.UNRESOLVED_Y, -2656),
                 SettlementSites.siteIn(SEED, -3, -3).orElseThrow().center());
         assertTrue(SettlementSites.siteIn(SEED, 0, 0).isEmpty(),
                 "region (0, 0) has always been empty under this seed");

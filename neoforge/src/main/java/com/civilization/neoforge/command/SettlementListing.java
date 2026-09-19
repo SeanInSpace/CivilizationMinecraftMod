@@ -14,8 +14,8 @@ import java.util.List;
  * settlement in every kingdom, with no radius, no page size and no early return,
  * and a {@code LIST} line goes into the log for each one it finds. So the
  * listing was right about the moment it was asked, and the moment was the
- * problem: the nine towns around the world spawn are raised one per tick by
- * {@code WorldgenSettlements.tickAnchor} and everything past those nine is
+ * problem: the town at the world spawn is raised over the level's first ticks by
+ * {@code WorldgenSettlements.tickAnchor} and everything past it is
  * raised at most one per second as somebody walks near it, so a listing typed
  * while the world is still coming up is a snapshot of a total that is still
  * climbing.

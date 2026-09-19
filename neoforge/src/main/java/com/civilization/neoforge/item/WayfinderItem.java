@@ -92,7 +92,7 @@ public final class WayfinderItem extends Item {
         if (near.isEmpty()) {
             player.sendSystemMessage(Component.literal(
                     "The needle turns and turns — no settlement within "
-                            + SiteDirectory.EARSHOT + " blocks."));
+                            + SiteDirectory.earshot(server) + " blocks."));
             return InteractionResult.FAIL;
         }
         SiteDirectory.Near chosen = near.get(nextAfter(held, near));
@@ -148,7 +148,7 @@ public final class WayfinderItem extends Item {
      *
      * <p>The current target is matched by position, because that is all the
      * component stores. A target that has fallen off the list — the player
-     * walked out of {@link SiteDirectory#EARSHOT} of it, or it was never on the
+     * walked out of {@link SiteDirectory#earshot} of it, or it was never on the
      * list — starts the walk over at the nearest, which is the useful answer
      * rather than the pedantic one.
      */

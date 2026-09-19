@@ -531,7 +531,8 @@ public final class CivilizationMod {
         java.util.List<com.civilization.neoforge.world.SiteDirectory.Near> near =
                 com.civilization.neoforge.world.SiteDirectory.near(level, here);
         StringBuilder said = new StringBuilder(
-                com.civilization.neoforge.world.SiteDirectory.heading(near.size()));
+                com.civilization.neoforge.world.SiteDirectory.heading(near.size(),
+                        com.civilization.neoforge.world.SiteDirectory.earshot(level)));
         for (com.civilization.neoforge.world.SiteDirectory.Near town : near) {
             said.append("\n").append(com.civilization.neoforge.world.SiteDirectory.line(
                     town.what(), town.standing(),

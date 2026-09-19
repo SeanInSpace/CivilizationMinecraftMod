@@ -32,7 +32,7 @@ import java.util.Optional;
  * direction and a distance — and that one message is most of why its worlds felt
  * inhabited from the first minute rather than after an hour of walking. This is
  * that message. Nearest first, at most {@link #MOST_LISTED}, inside
- * {@link #EARSHOT}.
+ * {@link #earshot(ServerLevel)}.
  *
  * <p>Deliberately free of anything a chat line does not need. The formatting
  * half takes numbers and returns a string, which is why it can be tested
@@ -44,13 +44,34 @@ public final class SiteDirectory {
     }
 
     /**
-     * How far out a town is worth mentioning, in blocks.
+     * How far out a town is worth mentioning, in blocks, at the shipped region.
      *
-     * <p>A kilometer. Two regions and a bit at the default pitch, which reaches
-     * the whole of the guaranteed nine and usually a scattered site or two past
-     * them. Further than this is not a direction, it is a project.
+     * <p>Two regions. It was a flat kilometer, which was two regions when a
+     * region was 512 and is one now — and one region reaches the starter town
+     * and, most of the time, nothing else at all. A join message that says "one
+     * settlement nearby" in every world is a message that has stopped being a
+     * directory.
+     *
+     * <p>Two regions is the honest width for this: it is the distance at which
+     * the grid guarantees you are looking at somebody else's region, so the list
+     * says what is out there rather than what the world start put there. At the
+     * default that is 2048 blocks — a walk, but a walk with a destination, which
+     * is the whole point of printing a bearing.
+     *
+     * @see #earshot(ServerLevel)
      */
-    public static final int EARSHOT = 1024;
+    public static final int EARSHOT = 2 * SettlementSites.REGION;
+
+    /**
+     * The same, for the region <em>this</em> world is set to.
+     *
+     * <p>Follows the dial rather than the shipped number, because a world that
+     * has widened its regions has also pushed its towns out of a fixed earshot
+     * and would get an empty list every time.
+     */
+    public static int earshot(ServerLevel level) {
+        return 2 * WorldgenSettlements.gridFor(level).region();
+    }
 
     /**
      * How many towns are named before the list is cut.
@@ -214,7 +235,8 @@ public final class SiteDirectory {
      */
     public static List<Near> near(ServerLevel level, SimPos from) {
         List<Near> found = new ArrayList<>();
-        long earshot = (long) EARSHOT * EARSHOT;
+        int reach = earshot(level);
+        long earshot = (long) reach * reach;
         SimWorld world = CivilizationMod.simulationFor(level);
         if (world != null) {
             for (Kingdom kingdom : world.kingdoms()) {
@@ -231,7 +253,7 @@ public final class SiteDirectory {
             SettlementSites.Grid grid = WorldgenSettlements.gridFor(level);
             Map<String, Integer> weights = CivilizationConfig.arrangementWeights();
             for (SettlementSites.Site site
-                    : grid.near(level.getSeed(), from, EARSHOT, weights)) {
+                    : grid.near(level.getSeed(), from, reach, weights)) {
                 Optional<SiteLedger.Entry> decided =
                         ledger.entry(grid.regionXOf(site), grid.regionZOf(site));
                 if (decided.isPresent() && !decided.get().accepted()) {
@@ -266,10 +288,17 @@ public final class SiteDirectory {
     /** Squared blocks within which a center is the same town. */
     private static final long SAME_TOWN = 64L * 64L;
 
-    /** The heading the join message goes under. */
-    public static String heading(int howMany) {
+    /**
+     * The heading the join message goes under.
+     *
+     * <p>Takes the reach rather than reading {@link #EARSHOT}, because the
+     * number in the sentence has to be the number the list was gathered with —
+     * a world that has widened its regions is told about a wider circle and the
+     * heading must say so.
+     */
+    public static String heading(int howMany, int reach) {
         return howMany == 0
-                ? "No settlement within " + EARSHOT + " blocks."
-                : "Settlements within " + EARSHOT + " blocks:";
+                ? "No settlement within " + reach + " blocks."
+                : "Settlements within " + reach + " blocks:";
     }
 }

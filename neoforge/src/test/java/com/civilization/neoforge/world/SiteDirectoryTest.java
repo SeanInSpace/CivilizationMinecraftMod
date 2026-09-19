@@ -125,9 +125,16 @@ class SiteDirectoryTest {
     @Test
     @DisplayName("the heading says how far it looked either way")
     void theHeadingSaysHowFarItLookedEitherWay() {
-        assertTrue(SiteDirectory.heading(0).contains(String.valueOf(SiteDirectory.EARSHOT)));
-        assertTrue(SiteDirectory.heading(3).contains(String.valueOf(SiteDirectory.EARSHOT)));
-        assertTrue(SiteDirectory.heading(0).startsWith("No settlement"));
+        // The reach is passed in now rather than read off a constant: it follows
+        // worldgen.region, and the number in the sentence has to be the number
+        // the list was gathered with.
+        assertTrue(SiteDirectory.heading(0, SiteDirectory.EARSHOT)
+                .contains(String.valueOf(SiteDirectory.EARSHOT)));
+        assertTrue(SiteDirectory.heading(3, SiteDirectory.EARSHOT)
+                .contains(String.valueOf(SiteDirectory.EARSHOT)));
+        assertTrue(SiteDirectory.heading(3, 4096).contains("4096"));
+        assertTrue(SiteDirectory.heading(0, SiteDirectory.EARSHOT)
+                .startsWith("No settlement"));
     }
 
     @Test

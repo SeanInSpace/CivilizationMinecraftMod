@@ -51,15 +51,18 @@ import java.util.Set;
  * <p><strong>With one exception, and it is the point of this class now.</strong>
  * Laziness is right everywhere except at the beginning. A player who spawns into
  * an empty world and walks for ten minutes without meeting anybody has been shown
- * nothing of what the mod is; Millénaire's opening was several villages inside a
- * few hundred blocks, findable at once. So the nine regions around the world
- * spawn are guaranteed a site by {@link SettlementSites.Grid} and raised at world
- * start rather than on approach — {@link #tickAnchor} works through them one per
- * tick, so they are standing within a few seconds of the level loading and before
- * anybody has had time to look. Everything past those nine is lazy exactly as
- * before.
+ * nothing of what the mod is. So the one region holding the world spawn is
+ * guaranteed a site by {@link SettlementSites.Grid} and raised at world start
+ * rather than on approach — {@link #tickAnchor} does it before anybody has had
+ * time to look. Everything else in the world is lazy exactly as before.
  *
- * <p><strong>And the ground is read before any of them is raised.</strong> A town
+ * <p>It was nine regions, raised one per tick. Nine towns inside a few minutes'
+ * walk is denser than the chance ever produces anywhere else, so every world
+ * opened with a cluster and then went quiet; one is the promise worth keeping.
+ * The neighbors take their chances like everywhere else, and where the dice have
+ * put one nearby a player meets it on approach.
+ *
+ * <p><strong>And the ground is read before a town is raised.</strong> A town
  * sited on unloaded chunks is sited blind — the terrain test answers "suitable"
  * to ground nobody has looked at — so its plots are a guess, and the guess is
  * found out one building at a time on the step a player walks up to it. See
@@ -93,9 +96,9 @@ public final class WorldgenSettlements {
      * Whether this level's spawn towns are standing, or never will be.
      *
      * <p>Asked by the join greeting, which has a race to lose otherwise: the
-     * nine go up one a tick from the moment the level loads, and a player
-     * joining a single-player world is in before the first of them. Told "a
-     * Norman crossroads, 186 blocks northeast, not raised yet" about all nine,
+     * starter goes up from the moment the level loads, and a player joining a
+     * single-player world is in before it. Told "a Norman crossroads, 286 blocks
+     * northeast, not raised yet" about the one town the world promised them,
      * they would be reading a promise instead of a directory.
      *
      * <p>True immediately where there is nothing to wait for — worldgen off, or
@@ -108,13 +111,13 @@ public final class WorldgenSettlements {
     }
 
     /**
-     * How far out the anchor will look if all nine spawn regions refuse.
+     * How far out the anchor will look if the spawn region refuses its ground.
      *
-     * <p>Three regions. Nine refusals means spawn is in the middle of an ocean
-     * or a mountain range, which is rare and not impossible; rather than leave
-     * the promise broken this widens to the ordinary scattered sites and takes
-     * the nearest ground that will hold a town. It may be a long walk. It is
-     * still a town.
+     * <p>Three regions. A refusal means the ground the arithmetic picked is an
+     * ocean or a cliff face, which is not rare at all now that there is one
+     * candidate rather than nine; rather than leave the promise broken this
+     * widens to the ordinary scattered sites and takes the nearest ground that
+     * will hold a town. It may be a long walk. It is still a town.
      */
     private static final int FALLBACK_REGIONS = 3;
 
@@ -137,17 +140,17 @@ public final class WorldgenSettlements {
     }
 
     /**
-     * Raises the towns around the world spawn, one per tick until they stand.
+     * Raises the town at the world spawn, as soon as its ground can be read.
      *
      * <p>On its own beat rather than the sweep's, and the beat is every tick:
-     * the whole value of these nine is that they are there before the player
-     * looks, and nine sweeps a second apart is nine seconds of an empty world.
-     * One town a tick for nine ticks is inside the terrain oracle's own per-tick
-     * budget — the hard promise that class makes — and finishes in under half a
-     * second.
+     * the whole value of this town is that it is there before the player looks,
+     * and the sweep runs once a second. Reading one claim is inside the terrain
+     * oracle's own per-tick budget — the hard promise that class makes — and
+     * takes about nine ticks, so the town is standing about half a second into
+     * the level loading.
      *
-     * <p>Costs nothing once they are settled, and nothing on a world where
-     * worldgen is off.
+     * <p>Costs nothing once it is settled, and nothing on a world where worldgen
+     * is off.
      */
     public static void tickAnchor(ServerLevel level) {
         if (!CivilizationConfig.WORLDGEN_ENABLED.get()
@@ -164,11 +167,10 @@ public final class WorldgenSettlements {
         Map<String, Integer> weights = CivilizationConfig.arrangementWeights();
         long seed = level.getSeed();
 
-        // The nine, nearest the spawn point first. Refused ground still refuses;
-        // taking them in this order is what makes "then try the next one out"
-        // fall out of the loop rather than needing to be written.
-        boolean anyStanding = false;
-        for (int[] region : grid.anchoredRegions(seed)) {
+        // The one region a world is promised.
+        Optional<int[]> home = grid.homeRegion();
+        if (home.isPresent()) {
+            int[] region = home.get();
             Optional<SiteLedger.Entry> decided = ledger.entry(region[0], region[1]);
             if (decided.isEmpty()) {
                 // A resolve that answers "still reading its ground" writes no
@@ -178,17 +180,16 @@ public final class WorldgenSettlements {
                 // standing where it looks like it is.
                 grid.siteIn(seed, region[0], region[1], weights).ifPresent(site ->
                         resolve(level, world, ledger, site, region[0], region[1]));
-                return;   // one a tick
+                return;
             }
-            anyStanding |= decided.get().accepted();
-        }
-        if (anyStanding) {
-            ANCHORED.add(level.dimension());
-            return;
+            if (decided.get().accepted()) {
+                ANCHORED.add(level.dimension());
+                return;
+            }
         }
 
-        // All nine looked at, all nine refused. Widen rather than break the
-        // promise: the ordinary scattered sites, nearest the spawn point first.
+        // Looked at and refused. Widen rather than break the promise: the
+        // ordinary scattered sites, nearest the spawn point first.
         SimPos spawn = worldSpawn(level);
         for (SettlementSites.Site site
                 : grid.near(seed, spawn, FALLBACK_REGIONS * grid.region(), weights)) {
@@ -463,8 +464,8 @@ public final class WorldgenSettlements {
      * <p>Eight. The arithmetic that decides it is in {@link ClaimGround}: a
      * sixty-four block claim is sixty-two to sixty-nine chunks depending on where
      * in its own chunk the center falls, so a town's ground is in hand after nine
-     * ticks and the nine spawn towns after about eighty — under four seconds of
-     * world start, with nobody yet in the world to feel any of it.
+     * ticks — half a second of world start, with nobody yet in the world to feel
+     * any of it.
      *
      * <p>Not the whole claim at once, which was the first shape of this and is
      * what the class's own comment on {@link #PER_SWEEP} warns against: seventy

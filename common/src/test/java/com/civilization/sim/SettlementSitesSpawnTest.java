@@ -15,8 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The promise a new world makes: there is a town over there, and eight more
- * behind it.
+ * The promise a new world makes: there is a town over there. One town.
  *
  * <p>The unanchored grid is a scatter, and a scatter is allowed to be empty —
  * a third of regions hold a site and a player can spawn in the two thirds that
@@ -24,18 +23,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * through and the wrong world to start in, which is what Millénaire understood
  * and this suite pins down.
  *
+ * <p>The promise used to be nine towns, and nine was the mod showing off: a
+ * cluster in the first kilometer that no other kilometer of the world ever
+ * produced. It is one now, and the other eight regions take their chances like
+ * everywhere else — see {@code SettlementSpacingTest}, which measures what that
+ * did to the world.
+ *
  * <p>What is checked is a guarantee, not a tendency, so everything here sweeps
  * a thousand seeds with the spawn point thrown anywhere in the world rather
  * than at a convenient origin. The awkward cases are exactly the ones a real
  * world produces: a spawn point sitting on a region boundary, or in a region's
- * corner, where the naive fix — jitter the site toward spawn inside the usual
- * margins — leaves the town 226 blocks away at the far side of the margin it
- * was not allowed to cross.
+ * corner, where the naive fix — clamp the spawn point into the jitter window —
+ * puts the town on top of the player.
  */
 class SettlementSitesSpawnTest {
 
-    /** How far a spawn town may be from the spawn point. */
-    private static final double SIGHT = 200.0;
+    /**
+     * How far a starter town may be from the spawn point.
+     *
+     * <p>Its own region and no further, which is geometry: the site lands in a
+     * jitter window that stops a margin short of the region's edge, and the
+     * spawn point is inside the same region, so the furthest the two can be is
+     * {@code (region - margin) * sqrt(2)} — 996 blocks at the shipped region.
+     */
+    private static final double SIGHT = SettlementSites.REGION;
 
     private static final Map<String, Integer> ANY = Map.of();
 
@@ -52,7 +63,8 @@ class SettlementSitesSpawnTest {
         // And the cases a random sweep will not reliably hit: the spawn point
         // exactly on a region corner, on each edge, and dead in the middle.
         // The corner is the one the old approach could not serve.
-        for (int[] offset : new int[][]{{0, 0}, {0, 511}, {511, 0}, {511, 511}, {256, 256}}) {
+        for (int[] offset : new int[][]{
+                {0, 0}, {0, 1023}, {1023, 0}, {1023, 1023}, {512, 512}}) {
             all.add(new long[]{4242L, offset[0], offset[1]});
         }
         return all;
@@ -78,8 +90,8 @@ class SettlementSitesSpawnTest {
     }
 
     @Test
-    @DisplayName("the spawn town is within sight of the spawn point")
-    void theSpawnTownIsWithinSightOfTheSpawnPoint() {
+    @DisplayName("the starter town is a walk away, not a neighbour and not a horizon")
+    void theStarterTownIsAWalkAway() {
         double furthest = 0;
         double nearest = Double.MAX_VALUE;
         for (long[] world : worlds()) {
@@ -95,44 +107,39 @@ class SettlementSitesSpawnTest {
                     "spawn town " + Math.round(walk) + " blocks out for seed "
                             + world[0] + " spawning at " + at);
         }
-        System.out.printf("spawn town: %.0f to %.0f blocks from the spawn point%n",
+        System.out.printf("starter town: %.0f to %.0f blocks from the spawn point%n",
                 nearest, furthest);
         // Not on top of the player either. A town whose square is where you
-        // appear is a spawn building, not a discovery.
-        assertTrue(nearest >= 100, "a spawn town landed " + nearest + " blocks away");
+        // appear is a spawn building, not a discovery -- and a grown one would
+        // have swallowed the spawn point outright.
+        assertTrue(nearest >= SettlementSites.STARTER_MIN_FROM_SPAWN,
+                "a starter town landed " + nearest + " blocks away");
     }
 
     @Test
-    @DisplayName("all nine regions around spawn hold sites")
-    void allNineRegionsAroundSpawnHoldSites() {
-        for (long[] world : worlds()) {
-            SettlementSites.Grid grid = gridAt(world[1], world[2]);
-            List<int[]> nine = grid.anchoredRegions(world[0]);
-            assertEquals(9, nine.size());
-            for (int[] region : nine) {
-                assertTrue(grid.siteIn(world[0], region[0], region[1], ANY).isPresent(),
-                        "region " + region[0] + "," + region[1]
-                                + " is one of the nine and holds nothing");
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("the nine are listed nearest the spawn point first")
-    void theNineAreListedNearestTheSpawnPointFirst() {
+    @DisplayName("the spawn region is the only one a world is promised")
+    void theSpawnRegionIsTheOnlyOneAWorldIsPromised() {
+        // With the chance turned off entirely, a world holds exactly one site:
+        // the starter. Everything else in the five-by-five block around it is
+        // whatever the dice said, which is the whole of this change.
         for (long[] world : worlds()) {
             SimPos at = new SimPos((int) world[1], 64, (int) world[2]);
-            SettlementSites.Grid grid = SettlementSites.Grid.DEFAULT.anchoredAt(at);
-            List<int[]> nine = grid.anchoredRegions(world[0]);
-            assertTrue(grid.isHome(nine.get(0)[0], nine.get(0)[1]),
-                    "the nearest of the nine is not the spawn region itself");
-            long previous = -1;
-            for (int[] region : nine) {
-                long away = grid.siteIn(world[0], region[0], region[1], ANY)
-                        .orElseThrow().center().horizontalDistanceSq(at);
-                assertTrue(away >= previous, "the nine came back out of order");
-                previous = away;
+            SettlementSites.Grid certain = new SettlementSites.Grid(
+                    SettlementSites.REGION, 0, Optional.of(at));
+            int[] home = certain.homeRegion().orElseThrow();
+            int held = 0;
+            for (int dz = -2; dz <= 2; dz++) {
+                for (int dx = -2; dx <= 2; dx++) {
+                    if (certain.siteIn(world[0], home[0] + dx, home[1] + dz, ANY)
+                            .isPresent()) {
+                        held++;
+                    }
+                }
             }
+            assertEquals(1, held, "a world with site_chance 0 held " + held
+                    + " sites around its spawn point");
+            assertTrue(certain.siteIn(world[0], home[0], home[1], ANY).isPresent(),
+                    "the one site a world is promised is not in the spawn region");
         }
     }
 
@@ -155,9 +162,10 @@ class SettlementSitesSpawnTest {
     /**
      * Every pair of sites in the five-by-five block around spawn, at every seed.
      *
-     * <p>Five rather than three, because the interesting failure is not between
-     * two of the nine — it is one of the eight, pushed outward to clear the
-     * spawn town, landing on top of a tenth region nobody was thinking about.
+     * <p>Five rather than three, because the interesting failure is not the
+     * starter against its own region — it is the starter, pushed off the spawn
+     * point by its keep-out, landing on top of a neighbour nobody was thinking
+     * about.
      */
     private void checkSeparation(SettlementSites.Grid unanchored) {
         long floorSq = (long) unanchored.minSeparation() * unanchored.minSeparation();
