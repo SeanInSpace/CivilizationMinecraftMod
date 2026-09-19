@@ -212,6 +212,76 @@ class SimWorldTest {
                 "construction nobody saw must still appear, whole");
     }
 
+    /**
+     * Ground that is loaded and has nobody on it is ground the clock draws on.
+     *
+     * <p>Written from a wrong hypothesis that cost six runs. A town grown
+     * unwatched inside a force-loaded box was reported to have materialized
+     * nothing — 120 buildings all pending, the ring read as nothing looked at —
+     * and the conclusion drawn was that the unwatched drawing refuses
+     * force-loaded ground. It does not, and there is no third state for it to
+     * refuse: the only question {@code materializePending} asks is
+     * {@code isLoaded}. The measurement was an artifact of the harness, whose
+     * force-load never existed ({@code /forceload add} takes at most 256 chunks
+     * a command and the box asked for 400), so the ground genuinely was not
+     * loaded and the refusal was correct.
+     *
+     * <p>Re-measured on a dedicated server, seed 8675309: a town founded and
+     * grown 500 steps with no player in the world and its claim genuinely
+     * force-loaded drew 12 of 12 buildings; a seeded town in the same box drew
+     * 16 of 16. So this is the rule, pinned in the one direction the old
+     * test left implicit — {@code loaded} is never flipped here and nobody is
+     * ever near.
+     */
+    @Test
+    void loadedGroundWithNobodyNearIsStillDrawnOn() {
+        FakeBridge bridge = new FakeBridge();
+        bridge.loaded = true;       // held open by a force-load, or by somebody far away
+        bridge.observed = false;    // and not one player within sight of it
+        BuildTask bakery = new BuildTask("civilization:norman/bakery", new SimPos(10, 64, 10), 2);
+        Settlement settlement = settlementWithBuilders(2, bakery);
+        SimWorld world = worldWith(bridge, settlement);
+
+        world.step();
+        world.step();
+
+        assertEquals(1, settlement.buildings().size(), "the clock finished it");
+        assertEquals(1, bridge.materialized.size(),
+                "loaded ground is drawn on whether or not anybody is standing on it");
+        assertTrue(settlement.buildings().getFirst().isMaterialized(),
+                "and the record says so, rather than staying pending for an arrival");
+    }
+
+    /**
+     * The other half of the same rule: ground nobody has loaded is left alone
+     * however long the town runs, and the building waits rather than being lost.
+     *
+     * <p>Measured in the same session: a town founded 4000 blocks out on ground
+     * nothing had loaded and grown 400 steps held all 17 of its buildings
+     * pending — correctly — and drew every one of them on the first step after
+     * a force-load covered its claim.
+     */
+    @Test
+    void unloadedGroundIsNeverDrawnOnHoweverLongItRuns() {
+        FakeBridge bridge = new FakeBridge();
+        BuildTask bakery = new BuildTask("civilization:norman/bakery", new SimPos(10, 64, 10), 2);
+        Settlement settlement = settlementWithBuilders(2, bakery);
+        SimWorld world = worldWith(bridge, settlement);
+
+        for (int step = 0; step < 20; step++) {
+            world.step();
+        }
+
+        assertEquals(1, settlement.buildings().size(), "it was built and recorded");
+        assertTrue(bridge.materialized.isEmpty(), "and never stamped onto ground nobody has read");
+        assertFalse(settlement.buildings().getFirst().isMaterialized(), "so it is still owed a drawing");
+
+        bridge.loaded = true;
+        world.step();
+
+        assertEquals(1, bridge.materialized.size(), "and gets it on the first step the ground answers");
+    }
+
     @Test
     void claimRadiusBoundsTerritory() {
         Settlement settlement = new Settlement(

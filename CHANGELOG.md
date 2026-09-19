@@ -6,6 +6,36 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The unwatched town draws after all
+
+### Fixed
+
+- **Nothing, and that is the entry.** The standing report was that a town grown
+  with nobody near it never appears in the world until a player walks up to it.
+  Re-measured on a dedicated server with no player in the world at all, seed
+  8675309: a town founded inside genuinely force-loaded ground and grown 500
+  steps stood 12 buildings of 12, none pending; a seeded town in the same box
+  grown 500 steps stood 16 of 16 with a wall of 156 posts laid, 151 standing, 5
+  gateways and no holes; and a town grown 400 steps on ground nothing had
+  loaded held all 17 of its buildings waiting — as it should — and drew every
+  one of them on the first step after that ground was loaded, the blocks
+  checked by asking the world rather than by reading the town's own report.
+  A town draws itself on any ground the server is holding open, whether a
+  player is holding it, a force-load is, or the world spawn is.
+
+### Notes
+
+- The old measurement came from a test harness rather than from the game, and
+  both of its traps are worth knowing before the next headless run.
+  `/forceload add` refuses more than 256 chunks in one command, so the 320×320
+  box that run was measured in — 400 chunks — was never loaded at all, and
+  every building correctly refused to draw on ground that was not there. And a
+  dedicated server with nobody logged in pauses itself after a minute and stops
+  ticking, so the sweeps that draw walls, lamps, furnishings and felling stop
+  with it, while `/civ step` carries on advancing the town's books. Between
+  them those two produce the reported symptom exactly, on a mod that is
+  behaving correctly.
+
 ## Review of the immersion batch
 
 ### Fixed

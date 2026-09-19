@@ -35,56 +35,6 @@ starts until the town in hand is right.*
 carries the measurement it was found by, so the fix can be checked against
 it. Design questions and rebalances live under the next heading, not here.*
 
-- [ ] **A town that grew unwatched draws nothing at all until somebody
-      arrives.** The hypothesis this item carried for six runs — that the
-      manager is starved of ticks — is now measured and **false**, and what is
-      left in its place is sharper.
-
-      **The pacing is instrumented, and it is fine.** `PersonEntityManager.tick`
-      marks a `TickRate` as its first act, per manager instance rather than
-      statically, over a window of one minute of real time; it reads out as
-      `pace=/min pacegap= paceover=` on the `AUDIT` vitals line and at the head
-      of `/civ info`, with the intended rate printed beside it. The gap is
-      printed next to the mean because a mean hides it. `PerimeterLayer` now
-      derives its post budget from real seconds since that settlement's last
-      sweep (`DrawBudget`, capped at five seconds of arrears), so a per-pass
-      budget is a per-second budget again.
-
-      Measured: unwatched, under `/civ step` load, **pace=57.8/min with a worst
-      gap of 4.8 s**; with a player standing in the town, **60.0/min against 60
-      intended**. The server is not starving the manager on this build. Every
-      timing figure in this file taken on the assumption that it was can be read
-      at face value again.
-
-      **What the world run actually showed.** A town grown 511 steps unwatched
-      inside a 320×320 force-load box materialized **nothing**: every one of 120
-      listed buildings read `[PENDING placement]` and the ring read `looked=0`.
-      The same town then drew **80 buildings within 150 seconds** of a player
-      standing in it. Nothing was slow. Nothing was drawn.
-
-      So the fault is not pacing and never was: the unwatched materialization
-      path does not treat force-loaded ground as ground it may draw on. That is
-      the next thing to chase, and it is one question rather than six — find
-      what that path asks about a chunk before it will build on it, and why a
-      force-load does not satisfy it.
-
-      **A warning about the instrumentation, which cost more than the bug.**
-      Five wrong conclusions in a row, each from a probe rather than from the
-      code: a `return` read without measuring; a probe that skipped the
-      `isLoaded` guard the real code has and so manufactured bedrock footings; a
-      sample interval that aliased exactly with the ring length and made a moving
-      cursor look frozen; a `static` counter shared across three dimension
-      managers, so the Nether's empty world read as the overworld losing its
-      kingdoms; and a probe capped to the first twelve calls, which only ever
-      sampled the growth phase. **Measure the thing, in the function that does
-      the work, across the window that matters.**
-
-      **Re-test before more work.** The seed-world playtest of 2026-09-12
-      watched Stonebridge, unvisited and 300 blocks off, raise its town hall
-      with nobody near it, so the unwatched path draws on ground the world
-      loaded on its own. What is still unproven is the force-load box this
-      item was measured in.
-
 - [ ] **A town in bare country can never get its timber back, and nobody has
       decided what it should do instead.** The mine fix was proposed for the camp
       too: skip a camp whose stand is bare with nothing coming up, so the town
@@ -448,6 +398,44 @@ work has landed, which changes what a street looks like from the middle of it.
 *Newest first. Everything older has been dropped -- it was proven by the
 endurance and client playtests and lives in the git history. What is here is
 kept only until a run has been watched over it.*
+
+- [x] **"A town that grew unwatched draws nothing at all until somebody
+      arrives" was the harness, not the mod, 2026-09-19.** The remaining
+      hypothesis — that the unwatched drawing refuses force-loaded ground — is
+      measured and false, and so was the measurement that produced it. There is
+      no third state for the drawing to refuse: `Settlement.materializePending`
+      asks `WorldBridge.isLoaded` and nothing else, and in 26.2 `Level.isLoaded`
+      is `isInValidBounds && ChunkSource.hasChunk`, which is a holder at or above
+      `ChunkLevel.byStatus(FULL)`, while `TicketStorage.updateChunkForced` adds
+      `TicketType.FORCED` (flags 15: persist, loading, simulation, keep the
+      dimension active) at `ChunkMap.FORCED_TICKET_LEVEL`, which is
+      `byStatus(ENTITY_TICKING)` = 31. A force-loaded chunk is FULL and
+      entity-ticking and answers `isLoaded`, `hasChunkAt` and
+      `isPositionEntityTicking` alike — read off the real classes rather than
+      recalled. **Why the old run said otherwise:** `/forceload add` takes at
+      most 256 chunks in one command and a 320×320 box is 400, so the command
+      was refused outright — "Too many chunks in the specified area (maximum
+      256, but specified 400)", reproduced — the box never existed, the ground
+      genuinely was not loaded, and 120 buildings `[PENDING placement]` with the
+      ring at `looked=0` is the right answer to the question that was actually
+      asked. A second trap sat behind it: a dedicated server with nobody on it
+      pauses after `pause-when-empty-seconds` (60 by default) and stops
+      ticking, so `PersonEntityManager.tick` never runs and nothing is drawn at
+      all while `/civ step` goes on advancing the books — last `WALLDRAW` at
+      01:30:30, the pause line at 01:30:31, nothing after it. **Re-measured**,
+      seed 8675309, dedicated server, no player anywhere in the world, ground
+      force-loaded 225 chunks at a time: a town founded at (1624, 71, 1616)
+      inside the box and grown 500 steps drew **12 of 12** buildings, none
+      pending; `/civ seed town 60` at (1604, 62, 2076) grown 500 steps drew
+      **16 of 16**, none pending, and its wall read laid 156, standing 151, 5
+      gateways, **0 genuinely missing**; and a town at (3952, 104, 3968) grown
+      400 steps on ground nothing had loaded held **17 of 17** pending —
+      correctly — then drew **all 17 on the first step** after one force-load
+      covered its claim, confirmed by asking the world for the block rather
+      than trusting the report. Nothing in the mod changed. Two tests in
+      `SimWorldTest` pin the rule in both directions so the question cannot be
+      asked a seventh time, and the two harness traps above are what the next
+      headless run has to be set up against.
 
 - [x] **The immersion batch, 2026-09-18.** From the question "what part of
       the mod fails at immersiveness": after the living-town batch, the town
