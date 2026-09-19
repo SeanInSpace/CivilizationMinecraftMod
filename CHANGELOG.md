@@ -6,6 +6,80 @@ Entries are written for somebody coming back to this after a month. A line
 says what is different in the game, not which files moved — the commit
 messages carry the reasoning and the measurements.
 
+## The square stops running away, and the audit stops condemning level ground
+
+Two siting faults from the 2026-09-19 playtest. They look unrelated and they
+have the same shape: a rule written down twice, in two places, with two
+different answers — and in both cases the half nobody was reading was the half
+that was right.
+
+### Fixed
+
+- **Nothing stands on the town square any more, and the square stands in the
+  middle of the town.** A player flying into Wilbury found the notice-board post
+  at the heart of the paved square walled in by cobblestone on all four faces
+  from y=106 to y=110. A cottage was standing on the square. The first line of
+  `Heart` has said since the class was written that the square "is not a plot
+  and never becomes one", and nothing anywhere enforced it — so the dressing
+  sited the square on whatever ground was free *at that moment*, which in the
+  middle of a town is nothing for long.
+
+  Grown on the recorded ground of seed 8675309, every arrangement, seven hundred
+  steps, recording where the square was planned at every one of them:
+
+  | arrangement | places it was planned | ended under a building | finished |
+  |---|---|---|---|
+  | thorp | 8 | 5 | 30 blocks out |
+  | crossroads | 6 | 0 | 13 blocks out |
+  | ring_streets | 6 | 0 | 12 blocks out |
+  | organic | 6 | 1 | 34 blocks out |
+  | ring | 5 | 3 | 31 blocks out |
+  | crescents | 5 | 3 | 28 blocks out |
+  | high_street | 4 | 1 | 23 blocks out |
+  | radial_concentric | 4 | 1 | 18 blocks out |
+
+  Two faults in one, with one cause. The square **wandered** — up to eight
+  places in a single town's life, each move leaving its paving and its post
+  behind in the world for the next house to be built around — and it wandered
+  **away from the middle**, finishing twenty to thirty-four blocks out in six of
+  the eight. The reason it ran is that the roads *aim* at the square: it is the
+  hub every lane converges on, so by construction every column near it is inside
+  a carriageway's clearance, and the dressing's keepout refused it there. The
+  square was being evicted for being a square.
+
+  It is ground the plan holds now, the way the carriageways are ground
+  `PathPlanner.heldGround` keeps a road off, and it is decided on step one from
+  the arrangement and the town's centre alone rather than from whatever happens
+  to be standing. After: **one place per arrangement, at the middle, with
+  nothing built on it anywhere.**
+
+  It costs the innermost course of plots, which is the same price `Heart`
+  already records for putting the hall in the middle. Measured on a fixture with
+  sound ground for forty-eight blocks and refused past it, the town builds the
+  same thirty buildings and one of them ends up on the rim instead of near the
+  heart.
+
+- **The audit stopped calling a building buried when the crew had already dug it
+  out.** `/civ audit` on Wilbury reported the hearth, the lumber camp and the
+  mine as "buried — the ground stands up to **3** above its floor on every
+  side". Three is not a coincidence: it is exactly what the excavation takes
+  off. `BlueprintPlacer` cuts the apron ring — the columns one step outside the
+  walls — for three courses above the floor line, and packs the same ring three
+  courses back up where the ground falls short. The auditor measured that very
+  ring and tolerated **one**. So the siting accepted ground its own colleagues
+  could level, the audit condemned the building that went up on it, and both
+  were behaving exactly as written.
+
+  There was a third copy of the number, too: `Grade` carried a `SHELF_TOLERANCE`
+  of one, documented as mirroring the auditor's, and read by nothing at all. The
+  disagreement was written down three times and enforced once.
+
+  There is one piece of arithmetic now and the audit calls it, so the question
+  "can the crew reach this ground" has one answer wherever it is asked. The
+  reach is three, because three is what the placer digs. The shared rule also
+  reads a **rectangle** rather than a square, which is the audit's geometry and
+  the honest one: a building is thirteen by eleven as often as not, and a square
+  ring round it samples the ground at the corners of a box nobody built.
 ## A founding camp is allowed to cut the wood it is standing in
 
 Two changes that were each right on their own and wrong together. The tree

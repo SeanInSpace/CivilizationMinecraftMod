@@ -236,17 +236,19 @@ class LeastBadSiteTest {
         // found, and the whole of this machinery stays out of the way.
         Settlement s = town();
         GradedGround ground = new GradedGround(s.arrangement());
-        // Plot three, not plot nought. The middle of a town is the hall's ground
-        // now and is held against everybody until a hall is ordered -- see Heart
-        // -- and on the ring that reserve covers the first three slots. Which
-        // slot is the first one on offer is beside the point of this test: what
-        // it is about is that ground the plan accepts is taken where it is found
-        // rather than weighed against the refusals.
-        ground.fault(3, 0);
+        // Plot eight, not plot nought, and it has moved outward twice for the
+        // same kind of reason. The middle of a town is the hall's ground until a
+        // hall is ordered, and it is the square's ground for ever -- see Heart --
+        // so on the ring those two reserves between them cover the whole of the
+        // innermost course of offers. Which slot is the first one on offer is
+        // beside the point of this test: what it is about is that ground the plan
+        // accepts is taken where it is found rather than weighed against the
+        // refusals.
+        ground.fault(8, 0);
 
         s.step(new SimContext(ground, 0, SimSettings.SANDBOX));
 
-        assertPlot(s, 3, sited(s), "sound ground was passed over");
+        assertPlot(s, 8, sited(s), "sound ground was passed over");
     }
 
     @Test
@@ -373,15 +375,36 @@ class LeastBadSiteTest {
      * search had already looked at every one of those plots and was throwing
      * the answers away.
      */
-    private static final int HEMMED_IN_COURSES_CEILING = 80;
+    private static final int HEMMED_IN_COURSES_CEILING = 40;
 
     /**
      * And no single building on ground worse than this.
      *
-     * <p>Three measured, five allowed, eight without the ranking. The gap
-     * between five and eight is what makes this a test rather than a record.
+     * <p><strong>Seven, and it was five.</strong> The number moved because the
+     * town square became ground the plan holds empty — see {@code Heart.onTheSquare}
+     * — and this fixture is sound for forty-eight blocks and refused past it, so a
+     * thirteen-block reserve takes a hole out of the middle of the only good ground
+     * there is. Measured on the same fixture with the reserve switched off and on:
+     *
+     * <pre>
+     *                          buildings   faulted   courses   worst
+     *   without the reserve           30        20        28       2
+     *   with it                       30        19        34       7
+     *   without the ranking at all    45        35       119       8
+     * </pre>
+     *
+     * <p>Thirty buildings either way: the town does not lose a building, it loses
+     * its most central plots and one building ends up on the rim. That is the price
+     * of a town with a square in the middle of it, and it is the same price
+     * {@code Heart} already records for the hall.
+     *
+     * <p>Seven against an unranked eight is too narrow a gap to be the whole test,
+     * so the courses ceiling above carries the weight instead: thirty-four measured
+     * against a hundred and nineteen unranked, pinned at forty. The total fault a
+     * town accepts is what the ranking actually governs; the worst single plot is a
+     * property of where the good ground runs out.
      */
-    private static final int HEMMED_IN_WORST_CEILING = 5;
+    private static final int HEMMED_IN_WORST_CEILING = 7;
 
     /** Forty-five measured. Nine is what it managed before, and is a failure. */
     private static final int MIN_BUILDINGS = 20;

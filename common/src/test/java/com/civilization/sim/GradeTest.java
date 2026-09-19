@@ -285,6 +285,151 @@ class GradeTest {
                         + "ground round it");
     }
 
+    /**
+     * The audit reads the same ring at the same reach the siting does.
+     *
+     * <p><strong>The second fault in the report, and the sharper one.</strong>
+     * There were two shelf tolerances for one ring. {@link Grade} allowed three
+     * courses, because that is what {@code BlueprintPlacer.finish} cuts off the
+     * apron and what {@code BlueprintPlacer.foundation} packs back up on it;
+     * {@code TownAuditor} allowed one, over the same ring, and had its own
+     * constant to do it with. {@code Grade} also carried a dead
+     * {@code SHELF_TOLERANCE} of one, documented as mirroring the auditor's and
+     * read by nothing, so the disagreement was written down three times and
+     * enforced once.
+     *
+     * <p>The placer settles which number is right, and it is three. The apron cut
+     * runs over the columns at {@code rx + APRON_MARGIN} — with
+     * {@link BuildingSizes#APRON} at one, exactly the ring one step outside the
+     * walls the auditor measures — for {@code APRON_HEADROOM} courses above the
+     * floor. The crew really does take three courses off that exact ring, so an
+     * auditor tolerating one was condemning buildings its own colleagues had
+     * already levelled. "Buried — the ground stands up to 3 above its floor on
+     * every side" is that sentence in the audit's own words, and the 3 in it is
+     * the cut's reach.
+     *
+     * <p>Entered through {@code Grade.around}, which is the call
+     * {@code TownAuditor.checkShelf} now makes: the two are one piece of
+     * arithmetic rather than two copies of it, so this pins the audit and not a
+     * lookalike.
+     */
+    @Test
+    void theAuditReadsTheSameRingAtTheSameReachTheCutHas() {
+        SimPos middle = new SimPos(0, GRADE, 0);
+        int span = 9;
+        int wallHalf = Math.max(1, span / 2 - BuildingSizes.APRON);
+
+        // A floor sunk exactly as far as the apron cut reaches down to it. The
+        // crew shovels this out; it is ground, not a pit.
+        Grade.Reading reachable = Grade.around(
+                (x, z) -> GRADE, middle, wallHalf, wallHalf, GRADE - 1 - Grade.CUT_REACH);
+        assertEquals(Grade.Shelf.LEVEL, reachable.shelf(),
+                "the audit must not condemn a shelf the apron cut takes off — "
+                        + "that was the whole of the disagreement");
+
+        // One course further and nothing in the placement pass can reach it.
+        Grade.Reading beyond = Grade.around(
+                (x, z) -> GRADE, middle, wallHalf, wallHalf,
+                GRADE - 1 - (Grade.CUT_REACH + 1));
+        assertEquals(Grade.Shelf.BURIED, beyond.shelf(),
+                "and it must still condemn ground nothing can reach");
+        assertEquals(Grade.CUT_REACH + 1, beyond.worstAbove(),
+                "and say by how much, which is what the report quoted");
+
+        // The mirror, on the fill's side: the doorstep goes in whole or not at all
+        // and reaches FILL_REACH down, so that is where perched begins.
+        assertEquals(Grade.Shelf.LEVEL, Grade.around(
+                        (x, z) -> GRADE, middle, wallHalf, wallHalf,
+                        GRADE - 1 + Grade.FILL_REACH).shelf(),
+                "a drop the doorstep packs up is a step, not a perch");
+        assertEquals(Grade.Shelf.PERCHED, Grade.around(
+                        (x, z) -> GRADE, middle, wallHalf, wallHalf,
+                        GRADE - 1 + Grade.FILL_REACH + 1).shelf(),
+                "and one course past its reach is a floor hanging in the air");
+    }
+
+    /**
+     * And on real ground: nothing the siting accepts is a building the audit
+     * calls buried.
+     *
+     * <p>The invariant the two tolerances broke, swept over the recorded hillside
+     * rather than over one constructed shape — every arrangement, at a spread of
+     * centers, seeded and then judged with the geometry {@code TownAuditor} uses:
+     * the footprint the placement reported, and the floor {@link Grade#floorFor}
+     * gives it.
+     *
+     * <p><strong>It reads zero, and that is the result rather than an absence of
+     * one.</strong> {@code Founding.roomFor} refuses ground the shelf rule
+     * condemns, so a seeded town has no buried buildings <em>if and only if</em>
+     * the rule the siting refused by and the rule the audit condemns by are the
+     * same rule. They were not, and that is what the report was. This goes red the
+     * moment somebody gives either side a number of its own again.
+     */
+    @Test
+    void nothingTheSitingAcceptsIsBuriedWhenTheAuditReadsIt() {
+        RecordedTerrain ground = RecordedTerrain.of(RecordedTerrain.SEED_8675309);
+        List<String> condemned = new ArrayList<>();
+        int judged = 0;
+        for (String layout : SWEPT_ARRANGEMENTS) {
+            for (int x = -100; x <= 200; x += 100) {
+                for (int z = 60; z <= 300; z += 80) {
+                    Settlement town = Founding.seeded(new SimPos(x, 0, z), "Agree",
+                            SettlementStage.VILLAGE, BuildCatalog.DEFAULT,
+                            "civilization:human/burgher",
+                            Founding.AS_THE_STAGE_HOUSES, layout, ground);
+                    for (Building standing : town.buildings()) {
+                        Footprint plot = standing.footprint();
+                        if (!plot.isKnown()) {
+                            continue;   // never placed; there is no shelf to read
+                        }
+                        int span = BuildPlanner.plotSpanOf(standing.blueprintId(),
+                                town.catalog());
+                        SimPos at = new SimPos(standing.origin().x(),
+                                ground.groundHeight(standing.origin()),
+                                standing.origin().z());
+                        int floor = Grade.floorFor(ground, at, span,
+                                Grade.isField(standing.blueprintId()));
+                        Grade.Reading reading = Grade.around(
+                                (cx, cz) -> ground.groundHeight(new SimPos(cx, at.y(), cz)),
+                                at,
+                                Math.max(1, plot.width() / 2 - BuildingSizes.APRON),
+                                Math.max(1, plot.depth() / 2 - BuildingSizes.APRON),
+                                floor);
+                        judged++;
+                        if (reading.shelf() != Grade.Shelf.LEVEL) {
+                            condemned.add(layout + " " + standing.blueprintId() + " at "
+                                    + standing.origin() + " " + reading.shelf()
+                                    + " by " + Math.max(reading.worstAbove(),
+                                            reading.worstBelow()));
+                        }
+                    }
+                }
+            }
+        }
+        assertTrue(judged >= BUILDINGS_WORTH_SWEEPING,
+                "only " + judged + " buildings were judged, so this sweep is no"
+                        + " longer measuring anything");
+        assertEquals(List.of(), condemned,
+                condemned.size() + " of " + judged + " seeded buildings would be"
+                        + " condemned by the audit that passed the siting");
+    }
+
+    /**
+     * The arrangements the sweep above seeds in.
+     *
+     * <p>Named rather than gathered from {@code Culture}, because this seeds one
+     * people's town in each and a goblin camp laid out as a bastide is not a thing
+     * the sweep is about. These are the arrangements a human town is drawn in, and
+     * between them they cover the lattice ones and the street-first ones, which is
+     * the distinction any of this turns on.
+     */
+    private static final List<String> SWEPT_ARRANGEMENTS =
+            List.of("ring", "radial_concentric", "ring_streets", "high_street",
+                    "crossroads", "bastide", "green", "thorp");
+
+    /** A floor under the sweep, so it cannot go green by seeding nothing. */
+    private static final int BUILDINGS_WORTH_SWEEPING = 500;
+
     @Test
     void theFloorRuleIsTheOneThePlacerUses() {
         // The other disagreement the report came from, stated as arithmetic. A crew

@@ -340,7 +340,11 @@ class SettlementFaultsTest {
                 List.of(), 0));
 
         SimPos onTheLine = new SimPos(40, 72, 0);      // a post of that ring
-        SimPos wellInside = new SimPos(0, 72, 0);
+        // Inside the ring and off the middle. The middle itself is not free
+        // ground and has not been for some time: it is the hall's until a hall is
+        // ordered and the square's for ever -- see Heart -- so a control point
+        // standing on it tests the square's reserve rather than the palisade.
+        SimPos wellInside = new SimPos(0, 72, 24);
         assertFalse(town.isPlotFree(onTheLine, 9, null),
                 "ground under the palisade was offered as free");
         assertTrue(town.isPlotFree(wellInside, 9, null),

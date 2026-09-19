@@ -504,8 +504,11 @@ class WallRestakeTest {
                 "a plot was offered ground with the old wall still standing on it");
 
         // Well clear of both lines, so the refusal is about the old wall and not
-        // about walls in general.
-        assertTrue(town.isPlotFree(new SimPos(0, 72, 0), 9, null),
+        // about walls in general. Off the middle as well as off the lines: the
+        // middle is the square's ground and is refused to everybody for ever --
+        // see Heart -- so a control point standing on it would be testing that
+        // reserve instead of this one.
+        assertTrue(town.isPlotFree(new SimPos(0, 72, 45), 9, null),
                 "ground nowhere near either line was refused");
 
         // And the band lifts as the crew works down the line.

@@ -112,10 +112,18 @@ class FoundedRoadsTest {
     /**
      * A town opens one stretch a step, so it is allowed to be a little behind.
      *
-     * <p>Two, for the pair a newly raised building plans at once. Any more than
-     * that is not a lag, it is a backlog.
+     * <p>Three, and it was two — two being the pair a newly raised building plans
+     * at once. The third is the town square becoming ground the plan holds empty:
+     * the innermost course of plots is no longer on offer, so a camp's first
+     * buildings stand further apart and further from the hub, and a building that
+     * lands out there plans a stretch to the hub as well as to its neighbor.
+     * Measured over two hundred steps the worst moment is step 23 — six planned,
+     * three opened — and it closes again.
+     *
+     * <p>Any more than three is not a lag, it is a backlog, and the fault this
+     * test was written for was seventeen of twenty-seven.
      */
-    private static final int ALLOWED_LAG = 2;
+    private static final int ALLOWED_LAG = 3;
 
     /** A charter party, standing up, with somebody watching them. */
     private static Settlement chartered() {
