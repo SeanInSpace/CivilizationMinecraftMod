@@ -74,8 +74,42 @@ public final class Leisure {
      * has in motion for work, so leisure at most doubles the traffic and never
      * more. Anybody over the cap simply keeps standing where they are, and is
      * offered a pastime again on the next pass.
+     *
+     * <p><strong>Standing where they are is not a neutral outcome in the
+     * rain.</strong> See {@link #SHELTER_WALKS_AT_ONCE}: on a dry day the person
+     * the cap turned away loses nothing but a stroll to the well, and on a wet
+     * one they lose the roof.
      */
     public static final int WALKS_AT_ONCE = 6;
+
+    /**
+     * The same cap for somebody walking out of the rain: 16.
+     *
+     * <p>Written against the second half of the rain fault. Rain does not arrive
+     * for one settler at a time — it arrives for the town, on one tick, and
+     * {@code hasWork} takes every farmer, lumberjack, miner, shepherd, forager
+     * and builder off the roster in the same pass. A town of forty therefore has
+     * a dozen people wanting cover on the same second, {@link #WALKS_AT_ONCE}
+     * admits six of them, and the rest hit the cap and keep standing exactly
+     * where the work sweep dropped them: in the rows, in the open. The census
+     * bore this out — people under open sky went <em>up</em>, 9 to 12, when it
+     * started raining, which is a town that stopped working and did not go
+     * inside.
+     *
+     * <p>So the cap is kept and a second, looser one is laid beside it for the
+     * one walk that has a cost to being refused. It is a cap and not an
+     * exemption on purpose: the thing {@link #WALKS_AT_ONCE} is defending is
+     * vanilla's pathfinder, and "everybody at once, unbounded" would hand a town
+     * of eighty eighty routes on the tick the weather turned. Sixteen is the
+     * whole outdoor half of a large town and roughly one tick's worth of
+     * routing; a town bigger than that clears its remainder on the next pass, a
+     * second later, which is a settler who takes one extra second to reach a
+     * doorway rather than one who never reaches it.
+     *
+     * <p>It is worth nothing, in the sense the rest of this file means: which
+     * bodies walk where has no ledger under it. See {@code Pastimes.tend}.
+     */
+    public static final int SHELTER_WALKS_AT_ONCE = 16;
 
     /**
      * Ticks between assignment passes: 20, which is one a second.
@@ -519,6 +553,18 @@ public final class Leisure {
      * {@code Parts}, which is why a porch needs no roof of its own — so leaning
      * on a neighbour's door in the rain is standing out of it, and it is also
      * exactly what people do.
+     *
+     * <p><strong>And that judgment is a claim about a position, not only about a
+     * kind.</strong> It was the most expensive line in the file for exactly that
+     * reason: the doorway weighs 2 at {@link Hour#DAY} against the inn's 1 and
+     * the hearth's 1, so in the rain it is the likeliest thing on the table, and
+     * the platform was resolving it to the middle of the market square whenever
+     * the town had no second housed family to lean on. Every settler the rain
+     * took off the rows was then walked out into the open and told they were in
+     * a porch — the census read 14 of 19 under cover before, 14 of 18 after, and
+     * the count under open sky rose from 9 to 12. The weight was never wrong;
+     * the address was. See {@link #shelterIn} for the contract that now stands
+     * over the offer, and {@code Pastimes.offerIn} for the half that honours it.
      */
     private static int weightOf(Pastime what, Hour hour, Sky sky) {
         if (sky != null && sky.isWet() && !underCover(what)) {
@@ -575,6 +621,74 @@ public final class Leisure {
     public static boolean underCover(Pastime what) {
         return what == Pastime.INN || what == Pastime.HEARTH
                 || what == Pastime.DOORWAY || what == Pastime.POST;
+    }
+
+    /**
+     * The sheltered half of an offer: the places somebody may be sent to in the
+     * rain, and nothing else.
+     *
+     * <p>{@link #weightOf} already refuses every open-air pastime while it is
+     * wet, so this changes no answer that was right — it removes the way one
+     * could be got wrong. The rain fault was not a weight: it was an offer that
+     * carried a {@link Pastime#DOORWAY} whose position was the middle of the
+     * open square, so the one entry with the highest wet weight in the table
+     * walked people <em>into</em> the rain, and the census read 9 people under
+     * open sky before and 12 after. A kind that says "under a roof" and a
+     * position that is not one is the shape of that fault, and this is the sieve
+     * the wet pass is run through so that the shape cannot come back by a
+     * different door.
+     *
+     * <p>The caller's part of the bargain is the half this cannot check: a
+     * {@link Place} whose pastime is {@link #underCover} must carry a position
+     * that genuinely is — an inn's room, a hearth or hall interior, a real
+     * door with its eave over it. See {@code Pastimes.offerIn}, which now builds
+     * the doorway entry out of the town's housed doors and offers none at all
+     * when there are none, rather than standing in a square and calling it a
+     * porch.
+     *
+     * @return the sheltered places, in the order given; empty when the town has
+     *         nowhere dry, which is a real answer and not a failure — a camp of
+     *         four open huts in a downpour has nowhere to send anybody, and its
+     *         people stand where they were standing
+     */
+    public static List<Place> shelterIn(List<Place> offered) {
+        if (offered == null || offered.isEmpty()) {
+            return List.of();
+        }
+        List<Place> dry = new ArrayList<>();
+        for (Place place : offered) {
+            if (underCover(place.what())) {
+                dry.add(place);
+            }
+        }
+        return List.copyOf(dry);
+    }
+
+    /**
+     * Whether this walk is somebody getting out of the rain rather than somebody
+     * strolling to the well.
+     *
+     * <p>The one distinction {@link #SHELTER_WALKS_AT_ONCE} turns on. Note that
+     * it is asked of the pastime already chosen and not of the person: in the
+     * wet, the chooser only ever hands back something {@link #underCover}
+     * accepts, so in practice this is "is it raining" — said as a property of
+     * the walk so that the looser cap can never be reached by a walk to the
+     * square.
+     */
+    public static boolean isShelterRun(Pastime what, Sky sky) {
+        return sky != null && sky.isWet() && underCover(what);
+    }
+
+    /**
+     * How many of this town's people may be walking at once, for a walk of this
+     * kind under this sky.
+     *
+     * <p>Two caps and one question, so that no caller has to remember which of
+     * them applies. Everything that is not a run for cover is bounded by
+     * {@link #WALKS_AT_ONCE} exactly as it always was.
+     */
+    public static int walkCap(Pastime what, Sky sky) {
+        return isShelterRun(what, sky) ? SHELTER_WALKS_AT_ONCE : WALKS_AT_ONCE;
     }
 
     /**

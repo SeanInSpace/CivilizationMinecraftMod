@@ -1179,14 +1179,31 @@ public final class FoodPlanner {
      * world, growing at Minecraft's own rate, cut by the farmers the town
      * actually has. See {@link Field}, which owns all of that arithmetic.
      *
-     * <p>Two fidelities, one ledger. Every field ripens every step, watched or
-     * not, because the world grows crops in a loaded chunk and the ledger is
-     * only keeping count. Where somebody is watching, {@code FarmWorker}'s real
-     * hands do the cutting — they credit the farm and they debit the ledger
-     * through {@link Field#cut}, and the clock takes nothing. There is no floor
-     * under that any more: a watched farm whose farmers have stopped grows a
-     * field of ripe wheat that nobody cuts, and standing in it looking at it is
-     * the truthful thing for a player to be able to do.
+     * <p>Two fidelities, one ledger, <strong>one budget</strong>. Every field
+     * ripens every step, watched or not, because the world grows crops in a
+     * loaded chunk and the ledger is only keeping count. The step's harvest is
+     * however many swings the town's farmers are worth, and that number does not
+     * change because somebody walked up. {@code FarmWorker}'s real hands spend
+     * out of it — each cut sheaf credits the farm, debits the ripeness through
+     * {@link Field#cut} and books a swing through {@code Building.creditByHand}
+     * — and the clock then spends whatever the hands left.
+     *
+     * <p>It used to be "hands or clock", and a watched farm whose farmers had
+     * stopped grew a field of ripe wheat that nobody cut. That read well and it
+     * killed towns. Farmers stop for reasons that have nothing to do with
+     * farming — out of reach, unspawned, asleep, boxed in, or simply given no
+     * game tick to move in, which is every step of a {@code /civ step} burst —
+     * and every one of those was a step the town ate through and did not earn.
+     * The playtest of 2026-09-19 measured it: the same town over the same three
+     * hundred steps went to a granary of 449 with the player six hundred blocks
+     * off and to 144 and falling with him standing in the square, and died at
+     * step 1213 with sixty people in it.
+     *
+     * <p>So the clock no longer stands aside; it settles up. Where the crew keeps
+     * pace it credits nothing and every sheaf was cut in front of you, which is
+     * the show the hands were written for. Where the crew cannot, the books
+     * still balance. What a player can never do is change what the field is
+     * worth by looking at it.
      *
      * <p>Hands do two things in a field and both count. A swing goes into the
      * harvest if there is anything ripe to take and into the rows if there is
@@ -1212,11 +1229,14 @@ public final class FoodPlanner {
         // watch the other two stand ripe.
         int strokes = hands * Field.BLOCKS_PER_FARMER_PER_STEP;
         for (Building farm : farms) {
-            // Asked of the town, not of the field. A player at the square is
-            // near enough to the claim to be watching, and a farm inside the
-            // ring he cannot make out is still his town's field: the clock does
-            // not reap it for him. An outlying field beyond the ring answers for
-            // itself — see Settlement.isWatched(ctx, site).
+            // Asked of the field's own ground, not of its town — see
+            // Settlement.isWatched(ctx, site), and fault N6 for the 429-block
+            // claim that made "somewhere in the town" stop meaning anything.
+            //
+            // And it no longer decides what the field is worth: the clock settles
+            // up with the hands either way. All it decides now is whether the
+            // wheat blocks in the world have to be made to agree with the ledger,
+            // which is only worth doing where somebody can see the blocks.
             boolean watched = settlement.isWatched(ctx, farm.origin());
             if (watched && !farm.wasWatched()) {
                 ctx.bridge().setFieldRipeness(farm.origin(), farm.footprint(),
@@ -1224,23 +1244,47 @@ public final class FoodPlanner {
             }
             farm.setWatched(watched);
             Field.ripen(farm, ctx);
+            // Sheaves the farmers themselves cut off this field since the last
+            // step, already on its shelf and already off its ripeness ledger —
+            // see FarmWorker and Building.creditByHand. Taken whether or not the
+            // field is watched, because the answer on an unwatched one is nought
+            // and a counter that is only sometimes drained is a counter that
+            // eventually pays a step's work out twice.
+            int byHand = farm.takeHandYield();
             if (strokes <= 0) {
-                continue;   // the hands ran out before the fields did
+                // The hands ran out before the fields did. Whatever this one's
+                // crew managed is carried whole into the next step rather than
+                // written off, for the same reason the overshoot below is: a
+                // swing the clock never budgeted for is a swing it owes back.
+                farm.creditByHand(byHand);
+                continue;
             }
             // One field can only take so many hands, however many the town has.
             int here = Math.min(strokes, FARMERS_PER_FARM * Field.BLOCKS_PER_FARMER_PER_STEP);
             strokes -= here;
-            if (!watched) {
-                // A full farm stops the harvest and the field stays ripe. That is
-                // the hauling bottleneck made visible rather than a loss: nothing
-                // rots, and the moment a farmer carries a load to the granary the
-                // field is still there waiting to be cut.
-                int room = Math.max(0, FARM_GRAIN_CAP - Field.grainStored(farm));
-                int cut = Field.harvest(farm, Math.min(here, room));
-                here -= cut;
-                if (cut > 0) {
-                    Field.deliver(farm, cut);
-                }
+            // The swings the crew has already spent here come off this field's
+            // allowance before the clock spends any of it. That is the whole of
+            // the two-fidelity rule now: not "hands or clock" but one budget,
+            // spent by whichever of them is in a position to spend it.
+            //
+            // Anything the hands did over the allowance is carried rather than
+            // dropped. A farmer gets a swing every manager pass and a step is
+            // five of them against an allowance of four, so a busy field runs a
+            // little ahead; carried, the clock pays that much less back on the
+            // steps after, and the two fidelities converge instead of the
+            // watched one quietly earning a free swing every step.
+            int spent = Math.min(byHand, here);
+            farm.creditByHand(byHand - spent);
+            here -= spent;
+            // A full farm stops the harvest and the field stays ripe. That is
+            // the hauling bottleneck made visible rather than a loss: nothing
+            // rots, and the moment a farmer carries a load to the granary the
+            // field is still there waiting to be cut.
+            int room = Math.max(0, FARM_GRAIN_CAP - Field.grainStored(farm));
+            int cut = Field.harvest(farm, Math.min(here, room));
+            here -= cut;
+            if (cut > 0) {
+                Field.deliver(farm, cut);
             }
             // Whatever the hands did not spend cutting, they spent in the rows.
             // See Field.tend: this is what keeps the unwatched field running at

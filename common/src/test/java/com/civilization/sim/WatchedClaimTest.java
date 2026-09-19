@@ -23,21 +23,38 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Watchedness belongs to the claim, not to the site.
+ * Two questions about one player, and the difference between them.
  *
- * <p>Millbrook is the town that made the case. Its hall, mine and mill were all
+ * <p>Millbrook is the town that started it. Its hall, mine and mill were all
  * logged {@code Materialized … surveyed false} — stamped in whole by the clock —
  * while the player who reported it stood at the town center 109 blocks away and
- * watched them appear in the distance. Every one of those sites was honestly
- * unwatched by the old test, because the old test asked at the site and the ring
- * is wider than the observed radius. The rule was right and the question was
- * wrong.
+ * watched them appear in the distance. Asking at the site said those plots were
+ * unwatched, and they were, by the observed radius; they were also perfectly
+ * visible. So this file used to say <em>watchedness belongs to the claim</em>:
+ * a player within {@code observed_radius} of any part of a town made the whole
+ * town watched, and a watched town had no clock at all.
  *
- * <p>So the question is asked of the town now. A player within
- * {@code observed_radius} of any part of a town's claim makes the whole town
- * watched, and a watched town has no clock at all: every site is raised by hand,
- * the roads are walked out, the wall goes up post by post, and work with nobody
- * at it waits and says so.
+ * <p>That answer was too big, and fault N6 of the 2026-09-19 playtest is the
+ * bill. Run A's town finished 424 by 497 blocks across, 429 from the middle to
+ * its furthest corner. A player in the square therefore made ground four hundred
+ * blocks away "watched" — which meant it was neither raised by hand, because
+ * nobody could walk there and back, nor by the clock, because the town counted as
+ * watched. Eight buildings sat at {@code [PENDING placement]} for the whole run
+ * under the words <em>waiting for hands, out of sight</em>. Out of sight is
+ * precisely the case the clock exists for.
+ *
+ * <p>So there are two questions now, and they are different sizes.
+ * {@link Settlement#isWatched(SimContext, SimPos)} asks whether anybody is
+ * standing on <em>this</em> ground, within the observed radius, and it decides
+ * where the world's blocks have to be made to agree with the ledger.
+ * {@link Settlement#isOverlooked} asks whether anybody could <em>see</em> this
+ * ground change — a whole view distance, twice the observed radius — and it is
+ * what the build queue, the roads and the wall ask, because Millbrook was never a
+ * question about work. It was a question about magic.
+ *
+ * <p>What neither of them decides any more is what a site produces. A farm, a
+ * stand or a seam is worth the same on both sides of both lines; see
+ * {@code WatchedBooksTest}.
  */
 class WatchedClaimTest {
 
@@ -98,26 +115,81 @@ class WatchedClaimTest {
         return task;
     }
 
-    // --- the claim is the unit ---
+    // --- the claim, the site, and the sight of it ---
 
+    /**
+     * The split fault N6 forced, measured on Millbrook's own arithmetic.
+     *
+     * <p>This was {@code aplayerInsideTheClaimWatchesEverySiteInIt} and it looped
+     * over four sites asserting {@code isWatched} of every one: "every site of a
+     * watched town is watched". That is the exact rule a 429-block claim made
+     * absurd — under it, ground four hundred blocks from anybody was work no hand
+     * could reach and no clock would touch, and run A's eight
+     * {@code [PENDING placement]} buildings are what that looks like from inside
+     * the game.
+     *
+     * <p>One player, one step, four pieces of ground, three different answers.
+     */
     @Test
-    void aplayerInsideTheClaimWatchesEverySiteInIt() {
-        // Millbrook's own arithmetic: the player is 100 blocks from the center,
-        // which is nowhere near either outlying plot, and every one of them is
-        // his to watch because all of them are his town.
+    void eachSiteAnswersForItsOwnGroundAndSightIsTheWiderQuestion() {
         Settlement town = town();
         Bridge bridge = new Bridge(new SimPos(100, 64, 0));
         SimContext ctx = new SimContext(bridge, 1, SimSettings.SANDBOX);
 
         assertTrue(town.isWatched(ctx), "he is standing in the claim");
-        for (SimPos site : List.of(
-                new SimPos(0, 64, 0),        // the square, 100 off him
-                new SimPos(-109, 64, 0),     // the mine, 209 off him
-                new SimPos(0, 64, -120),     // the mill, over the ridge
-                new SimPos(90, 64, 90))) {   // the hall
-            assertTrue(town.isWatched(ctx, site),
-                    "every site of a watched town is watched: " + site);
+
+        // The hall, 90 blocks off him: he is standing near enough to it that the
+        // world's blocks there must be made to agree with the ledger.
+        SimPos hall = new SimPos(90, 64, 90);
+        assertTrue(town.isWatched(ctx, hall), "somebody is on that ground");
+        assertTrue(town.isOverlooked(ctx, hall), "and can obviously see it");
+
+        // The square (100 off) and the mill over the ridge (156 off): nobody is
+        // standing on either, so neither is hands-only work — but both are well
+        // inside a view distance, and a cottage must not stand up out of bare
+        // ground while he is looking that way. This is Millbrook, and it is still
+        // fixed.
+        for (SimPos inSight : List.of(new SimPos(0, 64, 0), new SimPos(0, 64, -120))) {
+            assertFalse(town.isWatched(ctx, inSight),
+                    "nobody is standing at " + inSight + ", and the claim does not"
+                            + " get to say otherwise");
+            assertTrue(town.isOverlooked(ctx, inSight),
+                    "but he would watch it change: " + inSight);
         }
+
+        // The mine, 209 blocks off him and over his own horizon. Nobody can reach
+        // it and nobody can see it, so it is the clock's — which is the whole of
+        // the correction, and the difference between a town that builds itself
+        // out and eight plots that wait forever.
+        SimPos mine = new SimPos(-109, 64, 0);
+        assertFalse(town.isWatched(ctx, mine), "no hand is anywhere near the mine");
+        assertFalse(town.isOverlooked(ctx, mine),
+                "and past a whole view distance there is nothing to watch appear,"
+                        + " so the clock may have it");
+    }
+
+    /**
+     * And the sight question is exactly twice the standing question, which is one
+     * view distance at the shipped radius.
+     */
+    @Test
+    void sightIsTwoObservedRadiiAndNotTheClaim() {
+        Settlement town = town();
+        SimPos site = new SimPos(0, 64, 0);
+        double sight = RADIUS * Settlement.SIGHT_RADII;
+
+        SimContext justInside = new SimContext(
+                new Bridge(new SimPos((int) sight - 1, 64, 0)), 1, SimSettings.SANDBOX);
+        SimContext justOutside = new SimContext(
+                new Bridge(new SimPos((int) sight + 1, 64, 0)), 1, SimSettings.SANDBOX);
+
+        assertTrue(town.isOverlooked(justInside, site));
+        assertFalse(town.isOverlooked(justOutside, site),
+                "a line drawn at a render distance rather than at a claim radius:"
+                        + " the claim of a grown town is nothing a player can see"
+                        + " across");
+        assertFalse(town.isWatched(justInside, site),
+                "and it is the wider of the two questions, not the same one");
     }
 
     @Test
@@ -227,31 +299,70 @@ class WatchedClaimTest {
 
     // --- bodies for the far work ---
 
+    /**
+     * A body is kept for work the clock will not do, and not for work it will.
+     *
+     * <p>This was {@code awatchedTownKeepsTheBodyItSentToTheFarSite}, and it
+     * asserted only the first half: a builder past the release margin stays
+     * embodied while anything at all is queued, because under the claim rule the
+     * clock would never touch a queued plot and releasing him would strand the
+     * work forever. Fault N6 of the 2026-09-19 playtest is that rule applied to a
+     * town 424 by 497 blocks across. The crew was permanently <em>needed</em> at
+     * whatever stood at the head of the queue, and the head of the queue was four
+     * hundred blocks off — a walk no step ever finished. Eight buildings sat at
+     * {@code [PENDING placement]} and the builders sat in the field on the way to
+     * the first of them.
+     *
+     * <p>{@code Settlement.needsHandsFrom} takes the world now, and asks whether
+     * the queue head is somewhere a player would actually see a building rise
+     * ({@code Settlement.isOverlooked}). Ground nobody can see is the clock's, so
+     * nobody is bent out of the distance rule to reach it — and the deadlock the
+     * bend existed to prevent cannot arise, because the work is no longer waiting
+     * on hands at all.
+     */
     @Test
-    void awatchedTownKeepsTheBodyItSentToTheFarSite() {
-        // The deadlock the claim rule would otherwise create. The plot is inside
-        // the claim, so the clock will not touch it; the builder walking out to
-        // it passes the release margin, and releasing him would leave the work
-        // waiting forever on hands it was never going to be allowed to have.
-        Settlement town = townWithBuilder(true);
+    void abodyIsKeptForWorkNoClockWillDoAndReleasedForWorkItWill() {
         SimPos farSide = new SimPos(-120, 64, 0);
-        town.enqueueBuild(surveyed(farSide));
-        Person builder = town.residents().iterator().next();
-        builder.setPosition(farSide);
         // The player stands on the ring rather than in the square, which is what
         // puts the far side of the claim out past the release margin at all: a
         // claim is only a little wider than the margin, and the two edges of it
         // are a quarter of a kilometer apart.
         Bridge bridge = new Bridge(new SimPos(CLAIM, 64, 0));
 
-        assertFalse(bridge.playerWithin(builder.position(),
+        // A queue head he would watch rise: it is thirty blocks from where he is
+        // standing. Nothing may build it but hands, so the hand sent out to the
+        // far side of the claim is kept however far away he has walked.
+        Settlement needed = townWithBuilder(true);
+        needed.enqueueBuild(surveyed(new SimPos(100, 64, 0)));
+        Person kept = needed.residents().iterator().next();
+        kept.setPosition(farSide);
+
+        assertFalse(bridge.playerWithin(kept.position(),
                         RADIUS + EmbodimentPlanner.RELEASE_MARGIN),
                 "he is well past the release margin");
+        assertTrue(EmbodimentPlanner.plan(needed, bridge, SimSettings.SANDBOX)
+                        .toRelease().isEmpty(),
+                "and he stays, because that plot cannot be raised by anything else");
 
-        EmbodimentPlanner.Plan plan =
-                EmbodimentPlanner.plan(town, bridge, SimSettings.SANDBOX);
+        // The same builder in the same place, with the queue head out on the far
+        // side instead — 250 blocks from the player, past any view distance he
+        // has. That is the clock's ground now, so the town is not waiting on him
+        // and there is no reason to hold a body in a field nobody can see.
+        Settlement clocks = townWithBuilder(true);
+        clocks.enqueueBuild(surveyed(farSide));
+        Person spare = clocks.residents().iterator().next();
+        spare.setPosition(farSide);
 
-        assertTrue(plan.toRelease().isEmpty(), "and he stays, because the town needs him");
+        SimContext ctx = new SimContext(bridge, 1, SimSettings.SANDBOX);
+        assertFalse(clocks.isOverlooked(ctx, farSide),
+                "nobody could watch that plot go up");
+        assertFalse(clocks.needsHandsFrom(spare, bridge, SimSettings.SANDBOX),
+                "so the town does not want him there — which is what run A's crew"
+                        + " was never told");
+        assertTrue(EmbodimentPlanner.plan(clocks, bridge, SimSettings.SANDBOX)
+                        .toRelease().contains(spare),
+                "and he goes back to being a record rather than standing in a"
+                        + " field four hundred blocks from anybody");
     }
 
     @Test

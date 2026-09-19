@@ -80,8 +80,18 @@ class WorldgenTownTest {
         SimPos player;
         /** How far a server answers for chunks around them. */
         int horizon = Integer.MAX_VALUE;
+        /**
+         * Whether anybody is there at all. True for the whole of this file bar
+         * one control: a generated town is watched from step zero by definition,
+         * because it is raised on the step somebody came near it. Turning it off
+         * is how {@link #andWhatItBuildsAfterwardsIsStillWalkedOutByHands} shows
+         * that the road it refused to pave was a road it could have paved.
+         */
+        boolean anybodyHere = true;
 
-        @Override public boolean playerWithin(SimPos pos, double radius) { return true; }
+        @Override public boolean playerWithin(SimPos pos, double radius) {
+            return anybodyHere;
+        }
 
         @Override public boolean isLoaded(SimPos pos) {
             return player == null || player.horizontalDistance(pos) <= horizon;
@@ -299,6 +309,23 @@ class WorldgenTownTest {
         for (Person resident : town.residents()) {
             resident.setEmbodied(false);
         }
+
+        // Something for it to fail to pave. This line is new, and the reason for
+        // it is a doctrine change rather than a fault: the clock settles up with
+        // the hands now instead of standing aside for them, so a watched town
+        // earns its timber and stone like any other and builds out faster. By
+        // step three hundred this one's network read "72 planned, 71 opened, 1
+        // too steep, 0 untrodden" — finished — and a test that asserts nothing
+        // opened itself over a network with nothing left to open asserts nothing
+        // at all. So the town is handed one more building to front, which is a
+        // lane it must plan and, with the crew gone and somebody standing in the
+        // square, must not walk.
+        SimPos plot = new SimPos(town.center().x() + 24, 0, town.center().z() + 24);
+        plot = new SimPos(plot.x(), bridge.surfaceHeight(plot), plot.z());
+        Building extra = new Building("civilization:house", plot, STEPS, true);
+        extra.setFootprint(bridge.materializeBlueprint("civilization:house", plot, true, 0));
+        town.addBuilding(extra);
+
         int openedBefore = networkOf(town).opened();
         for (int step = STEPS + 1; step <= STEPS + 40; step++) {
             town.step(new SimContext(bridge, step, SimSettings.SANDBOX));
@@ -309,6 +336,19 @@ class WorldgenTownTest {
                 "nothing may open itself in front of a player: " + roads);
         assertTrue(roads.outstanding() > 0,
                 "and the town went on planning roads it now cannot walk: " + roads);
+
+        // The control, and what gives the two lines above their teeth: the same
+        // town, the same empty crew, the same untrodden lane — and the player
+        // walks off. It opens. So the refusal was his presence and not a network
+        // that had nothing left in it.
+        bridge.anybodyHere = false;
+        for (int step = STEPS + 41; step <= STEPS + 60; step++) {
+            town.step(new SimContext(bridge, step, SimSettings.SANDBOX));
+        }
+
+        assertTrue(networkOf(town).opened() > openedBefore,
+                "and with nobody looking the clock walks it out after all: "
+                        + networkOf(town));
     }
 
     @Test

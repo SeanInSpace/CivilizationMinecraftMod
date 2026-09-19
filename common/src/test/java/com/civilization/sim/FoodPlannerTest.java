@@ -113,48 +113,117 @@ class FoodPlannerTest {
         @Override public void log(String message) { }
     }
 
-    @Test
-    void theClockStandsAsideWhereRealHandsAreFarming() {
-        // A watched farm with fresh real harvests must NOT also be credited by
-        // the clock. The wheat is not scenery any more, and double-crediting
-        // would make watched towns richer than unwatched ones.
+    /** A watched field of standing wheat with one farmer to its name. */
+    private static Settlement oneRipeFarm() {
         Settlement s = settlement();
         Building farm = new Building("civilization:farm", new SimPos(10, 64, 0), 1, true);
         s.addBuilding(farm);
         add(s, Profession.FARMER);
-
         ripe(farm, 20);
-        SimContext watched = new SimContext(new WatchingBridge(), 5, SimSettings.SANDBOX);
-        farm.touchRealHarvest(4);   // a farmer cut wheat here one step ago
-        int before = Field.grainStored(farm);
-        FoodPlanner.advance(s, watched);
-        assertEquals(before, Field.grainStored(farm),
-                "where somebody is watching, the hands are the harvest");
+        return s;
     }
 
+    private static Building farmOf(Settlement s) {
+        return s.buildings().getFirst();
+    }
+
+    /**
+     * One budget, spent by whichever fidelity is in a position to spend it.
+     *
+     * <p>This was {@code theClockStandsAsideWhereRealHandsAreFarming}, and it
+     * asserted that a watched farm with a fresh real harvest against its name was
+     * credited nothing at all by the clock. The intent was right — double-crediting
+     * would make watched towns richer than unwatched ones — and the mechanism was
+     * a disaster, because "stand aside" is not "settle up". A farmer who cut one
+     * sheaf and a farmer who cut none looked identical to the ledger, and so did a
+     * farmer who was asleep, unspawned, boxed in by terrain, or simply given no
+     * game tick to move in. The playtest of 2026-09-19 measured the bill: the same
+     * town over the same three hundred steps, granary 0 to 449 with the player six
+     * hundred blocks away against 467 down to 144 and still falling with him
+     * standing in the square, and the town dead at step 1213 with sixty people
+     * left in it.
+     *
+     * <p>So the step's harvest is worked out once, the real sickles book what they
+     * spend of it through {@code Building.creditByHand}, and the clock credits the
+     * remainder — nothing at all where the crew keeps up, all of it where there is
+     * no crew. What a player cannot do, by standing anywhere, is change what the
+     * field is worth.
+     */
     @Test
-    void aWatchedFieldNobodyCanReachJustStandsThereRipe() {
-        // Watched, and no real harvest for a long while: the farmers cannot get
-        // to the field. There used to be a floor here — after a grace period the
-        // clock took the watched farm back over, so that being looked at could
-        // never starve a town. It is gone, deliberately. A field of ripe wheat
-        // with nobody cutting it is the truth, and it is a truth a player can
-        // walk over and see.
-        Settlement s = settlement();
-        Building farm = new Building("civilization:farm", new SimPos(10, 64, 0), 1, true);
-        s.addBuilding(farm);
-        add(s, Profession.FARMER);
-        ripe(farm, 20);
+    void theClockCreditsExactlyWhatTheHandsDidNotCut() {
+        // What one step of this field is worth, with no hand having booked any
+        // of it. Taken from the run rather than written down, because the number
+        // is the farmers' pace and this test is not about the farmers' pace.
+        Settlement idle = oneRipeFarm();
+        FoodPlanner.advance(idle,
+                new SimContext(new WatchingBridge(), 5, SimSettings.SANDBOX));
+        int allowance = Field.grainStored(farmOf(idle));
+        assertTrue(allowance > 0,
+                "a watched field of standing wheat is worth something, and that"
+                        + " is the whole of the correction");
 
-        SimContext watched = new SimContext(new WatchingBridge(), 100, SimSettings.SANDBOX);
-        farm.touchRealHarvest(1);   // stale
-        int before = Field.grainStored(farm);
-        FoodPlanner.advance(s, watched);
+        // The crew keeping up: they book the step's whole allowance, so the
+        // clock has nothing left to credit and every sheaf on that shelf was cut
+        // by somebody the player could watch cutting it.
+        Settlement kept = oneRipeFarm();
+        farmOf(kept).creditByHand(allowance);
+        FoodPlanner.advance(kept,
+                new SimContext(new WatchingBridge(), 5, SimSettings.SANDBOX));
+        assertEquals(0, Field.grainStored(farmOf(kept)),
+                "where the hands did the work, the clock pays for none of it —"
+                        + " a watched town must never come out richer");
 
-        assertEquals(before, Field.grainStored(farm),
-                "no floor: an unworked watched field yields nothing at all");
-        assertTrue(Field.ripeBlocks(farm) >= 20,
-                "and what it grew is still standing in it, waiting for somebody");
+        // And a crew that managed one swing of it leaves the rest of the budget
+        // for the clock, which is the case neither of the two old rules could
+        // express.
+        Settlement partly = oneRipeFarm();
+        farmOf(partly).creditByHand(1);
+        FoodPlanner.advance(partly,
+                new SimContext(new WatchingBridge(), 5, SimSettings.SANDBOX));
+        assertEquals(allowance - 1, Field.grainStored(farmOf(partly)),
+                "one sheaf off the budget, and the clock cuts the rest");
+    }
+
+    /**
+     * A field nobody can reach is still worth what it is worth.
+     *
+     * <p>This was {@code aWatchedFieldNobodyCanReachJustStandsThereRipe}, and the
+     * comment under it argued the case with some conviction: a field of ripe wheat
+     * with nobody cutting it is the truth, and it is a truth a player can walk over
+     * and see. It is also a town's death certificate. "The farmers cannot get to
+     * the field" is the ordinary state of a watched town — out of reach, unspawned,
+     * walking, asleep, or given no game tick at all, which is every step of a
+     * {@code /civ step} burst — and under the old rule every one of those steps was
+     * a step the town ate through and did not earn. Run A of the 2026-09-19
+     * playtest starved from 467 loaves to 144 and falling while somebody stood in
+     * its square, and died at step 1213 with a population of sixty.
+     *
+     * <p>What is guaranteed instead: the field pays the same whether or not
+     * anybody is looking at it. The wheat that the clock cuts is gone off the
+     * ripeness ledger exactly as a sickle would have taken it, so the player who
+     * walks out to look at the field sees a field that has been worked.
+     */
+    @Test
+    void aWatchedFieldNobodyCanReachIsStillCutByTheClock() {
+        Settlement watched = oneRipeFarm();
+        Settlement alone = oneRipeFarm();
+
+        // Watched, and no real harvest for a long while: nobody is cutting here,
+        // and nobody has been for ninety-nine steps.
+        farmOf(watched).touchRealHarvest(1);   // stale
+        FoodPlanner.advance(watched,
+                new SimContext(new WatchingBridge(), 100, SimSettings.SANDBOX));
+        FoodPlanner.advance(alone, new SimContext(new QuietBridge(), 100, SimSettings.SANDBOX));
+
+        assertTrue(Field.grainStored(farmOf(watched)) > 0,
+                "no floor and no standing aside: the field is worked, because"
+                        + " being looked at is not a reason for wheat to stop"
+                        + " being wheat");
+        assertEquals(Field.grainStored(farmOf(alone)), Field.grainStored(farmOf(watched)),
+                "and worked to exactly the sheaf an unwatched one would be");
+        assertEquals(Field.ripeBlocks(farmOf(alone)), Field.ripeBlocks(farmOf(watched)),
+                "with the same wheat left standing in it afterwards — the books"
+                        + " balance on both sides, not just the granary's");
     }
 
     @Test

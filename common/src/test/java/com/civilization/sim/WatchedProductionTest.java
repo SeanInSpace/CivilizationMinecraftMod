@@ -31,11 +31,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * saying so.
  *
  * <p>The floor is gone, along with the grace period and the yield tables under
- * both trades. What is left is one rule, the same one the fields keep: where
- * there is a hand there is no clock. In front of a player only real work counts;
- * away from one the clock works the same ledger at the same pace — and a camp
- * with no trees and no saplings produces nothing at either fidelity, which is
- * not a bug to be papered over but the state of the woodland, visibly.
+ * both trades. So, now, is the rule it was propping up. <em>Where there is a
+ * hand there is no clock</em> read beautifully and starved towns: the playtest of
+ * 2026-09-19 ran one town for three hundred steps twice over, changing nothing
+ * but where the player stood, and got a granary of 449 with him six hundred
+ * blocks off against 144 and falling with him in the square — and a dead town at
+ * step 1213 with sixty people in it. Hands are not a second implementation of the
+ * ledger. They are bodies, and a body can be out of reach, unspawned, walking,
+ * asleep, boxed in by terrain, or simply given no game tick at all, which is
+ * every step of a {@code /civ step} burst.
+ *
+ * <p>What is left is <strong>one budget</strong>. The step's yield is worked out
+ * exactly as it always was; the real axes and picks book what they spend of it
+ * ({@code Building.creditByHand}) and the clock credits the remainder. A watched
+ * camp and an unwatched one therefore come out log for log — and a camp with no
+ * trees and no saplings still produces nothing at either fidelity, which is not a
+ * bug to be papered over but the state of the woodland, visibly.
  */
 class WatchedProductionTest {
 
@@ -102,17 +113,35 @@ class WatchedProductionTest {
 
     // --- timber ---
 
+    /**
+     * Fifty steps of idle axes under a player's eye earn what fifty unwatched
+     * steps earn, because idleness is not a property of the wood.
+     *
+     * <p>This was {@code aWatchedCampEarnsNothingFromTheClockHoweverLongItsAxesAreIdle},
+     * and it asserted nought — "there is no length of idleness that puts the clock
+     * back in the wood". Fifty steps of a stand of twelve trees standing untouched
+     * in front of somebody is exactly the state the playtest found and exactly why
+     * its towns starved: nobody was <em>refusing</em> to fell, there was simply no
+     * body there to swing, and the ledger was told to pretend that meant the trees
+     * were unfellable.
+     */
     @Test
-    void aWatchedCampEarnsNothingFromTheClockHoweverLongItsAxesAreIdle() {
-        Settlement town = townWith("civilization:lumber_camp", Profession.LUMBERJACK);
+    void aWatchedCampFellsWhatAnUnwatchedOneFellsHoweverIdleItsAxesAre() {
+        Settlement watched = townWith("civilization:lumber_camp", Profession.LUMBERJACK);
+        Settlement alone = townWith("civilization:lumber_camp", Profession.LUMBERJACK);
 
         for (int step = 1; step <= 50; step++) {
-            LumberPlanner.advance(town, at(new Watched(), step));
+            LumberPlanner.advance(watched, at(new Watched(), step));
+            LumberPlanner.advance(alone, at(new Alone(), step));
         }
 
-        assertEquals(0, town.stores().get(TownStores.WOOD),
-                "in front of a player only real axes cut real logs — there is no"
-                        + " length of idleness that puts the clock back in the wood");
+        assertEquals(alone.stores().get(TownStores.WOOD),
+                watched.stores().get(TownStores.WOOD),
+                "fifty steps, one claim, and the only difference is who is looking"
+                        + " at it — the books have to come out the same");
+        assertTrue(watched.stores().get(TownStores.WOOD) > 0,
+                "and the claim was worth felling, which is what makes the"
+                        + " comparison above mean anything");
     }
 
     @Test
@@ -196,24 +225,51 @@ class WatchedProductionTest {
 
         // And the guess is a placeholder, not a gift: the day somebody walks up,
         // the real trunks are counted and whatever they say is what the camp has.
+        //
+        // Measured as standing-plus-taken rather than as a bare tree count. This
+        // line used to read assertEquals(12, Stand.trees(...)), which held only
+        // because a watched camp felled nothing on the step somebody arrived —
+        // the clock stood aside for axes that were not there. It settles up with
+        // them now, so the arrival step also cuts its twelve logs, and what the
+        // assertion is really about is whose number the ledger is running on.
+        int guessedStore = town.stores().get(TownStores.WOOD);
         LumberPlanner.advance(town, at(new Watched(), 2));
+        int cutOnArrival = town.stores().get(TownStores.WOOD) - guessedStore;
 
-        assertEquals(12, Stand.trees(only(town)),
-                "the world's number, taken on arrival and believed");
+        assertEquals(12 * Stand.LOGS_PER_TREE,
+                Stand.logs(only(town)) + cutOnArrival,
+                "the world's number, taken on arrival and believed: twelve trees'"
+                        + " worth standing and stacked, and not a log of the"
+                        + " seventy-two the camp had been guessing at");
+        assertTrue(cutOnArrival > 0,
+                "and the step that took the count still worked the claim, because"
+                        + " being counted is not a holiday");
     }
 
     // --- stone ---
 
+    /**
+     * The stone half of the same correction. This was
+     * {@code aWatchedMineEarnsNothingFromTheClockHoweverLongItsPicksAreIdle} and
+     * asserted nought; a seam of two thousand blocks does not stop being two
+     * thousand blocks because somebody walked up to the adit.
+     */
     @Test
-    void aWatchedMineEarnsNothingFromTheClockHoweverLongItsPicksAreIdle() {
-        Settlement town = townWith("civilization:mine", Profession.MINER);
+    void aWatchedMineCutsWhatAnUnwatchedOneCutsHoweverIdleItsPicksAre() {
+        Settlement watched = townWith("civilization:mine", Profession.MINER);
+        Settlement alone = townWith("civilization:mine", Profession.MINER);
 
         for (int step = 1; step <= 50; step++) {
-            MinePlanner.advance(town, at(new Watched(), step));
+            MinePlanner.advance(watched, at(new Watched(), step));
+            MinePlanner.advance(alone, at(new Alone(), step));
         }
 
-        assertEquals(0, town.stores().get(TownStores.STONE),
-                "in front of a player only real picks cut real stone");
+        assertEquals(alone.stores().get(TownStores.STONE),
+                watched.stores().get(TownStores.STONE),
+                "the rock under a mine is not a percentage and it is not an"
+                        + " audience either");
+        assertTrue(watched.stores().get(TownStores.STONE) > 0,
+                "and there was rock down there to cut");
     }
 
     @Test

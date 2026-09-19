@@ -137,6 +137,146 @@ class RainShelterTest {
         }
     }
 
+    /**
+     * The table's half of the rule, said exhaustively rather than by sampling.
+     *
+     * <p>{@link #everyPastimeOfferedInTheRainIsUnderARoof} says that a
+     * particular town's offer never yields an open-air answer, which is a
+     * statement about that offer. This says the stronger thing the platform is
+     * entitled to rely on: every pastime {@link Leisure#underCover} rejects is
+     * refused outright in the wet, at every hour, whatever else is or is not on
+     * the table. Written as its own test because the platform now sieves its
+     * offer through {@code Leisure.shelterIn} on the strength of it.
+     */
+    @Test
+    void everyOpenAirPastimeIsRefusedInTheWetAtEveryHour() {
+        for (Leisure.Pastime what : Leisure.Pastime.values()) {
+            if (Leisure.underCover(what)) {
+                continue;
+            }
+            for (Leisure.Hour hour : Leisure.Hour.values()) {
+                assertFalse(Leisure.stillFits(what, hour, Leisure.Sky.WET),
+                        what + " still fits at " + hour + " in the rain, so"
+                                + " somebody is standing at one");
+                // And the same said through the chooser, which is the only way
+                // anybody is ever sent to one: an offer of nothing but this
+                // pastime weighs nothing at all in the wet.
+                assertNull(Leisure.choose(SOMEBODY, 3L, hour, Leisure.Sky.WET,
+                                List.of(new Leisure.Place(what, new SimPos(1, 64, 1)))),
+                        what + " was chosen at " + hour + " in the rain");
+            }
+        }
+    }
+
+    /**
+     * An offer with no roof in it yields no shelter, rather than an open-air
+     * place wearing a sheltered name.
+     *
+     * <p>This is the rain fault stated as a rule. The platform used to put a
+     * {@code DOORWAY} on the table whenever the town had families in it, housed
+     * or not, with the middle of the market square as its position — and a
+     * doorway is the heaviest thing in the wet table, weighing more at
+     * {@link Leisure.Hour#DAY} than the inn and the hearth together. So a town
+     * whose families were not yet housed offered a porch it did not have, and
+     * every settler the rain took off the rows was walked into the open to
+     * stand in it: the census read cover flat at 14 while the count under open
+     * sky went from 9 to 12, and the farm rows emptied from 3 to 0. Nothing
+     * here could have caught that, because the fault was in the position and
+     * not the kind — so what is pinned instead is the sieve the platform now
+     * runs its offer through, and the fact that an empty sieve is an empty
+     * answer rather than a fallback.
+     */
+    @Test
+    void anOfferWithNoRoofInItYieldsNoShelterRatherThanAnOpenAirOne() {
+        List<Leisure.Place> outdoorsOnly = List.of(
+                new Leisure.Place(Leisure.Pastime.SQUARE, new SimPos(0, 64, 0)),
+                new Leisure.Place(Leisure.Pastime.WELL, new SimPos(4, 64, 0)),
+                new Leisure.Place(Leisure.Pastime.BENCH, new SimPos(3, 64, 3)),
+                new Leisure.Place(Leisure.Pastime.FENCE, new SimPos(12, 64, 2)),
+                new Leisure.Place(Leisure.Pastime.FARM_GATE, new SimPos(30, 64, 30)));
+        assertTrue(Leisure.shelterIn(outdoorsOnly).isEmpty(),
+                "a town of open ground found a roof in itself");
+        for (Leisure.Hour hour : Leisure.Hour.values()) {
+            assertNull(Leisure.restFor(SOMEBODY, 11L, hour, Leisure.Sky.WET,
+                            Leisure.shelterIn(outdoorsOnly)),
+                    "somewhere dry was invented at " + hour + " out of a square,"
+                            + " a well, a bench, a fence and a field gate");
+        }
+
+        // And the sieve keeps what is really there, in the order it was given,
+        // so nothing that was on offer is lost by passing through it.
+        assertEquals(
+                List.of(new Leisure.Place(Leisure.Pastime.INN, new SimPos(0, 64, 12)),
+                        new Leisure.Place(Leisure.Pastime.HEARTH, new SimPos(-8, 64, 0)),
+                        new Leisure.Place(Leisure.Pastime.DOORWAY, new SimPos(-8, 64, 8))),
+                Leisure.shelterIn(wholeTown()));
+        assertTrue(Leisure.shelterIn(List.of()).isEmpty());
+        assertTrue(Leisure.shelterIn(null).isEmpty());
+
+        // A town with one roof in it still has an answer, which is the third
+        // thing the rule needs: the sieve must not be a way of answering null.
+        for (Leisure.Pastime roof : List.of(Leisure.Pastime.INN,
+                Leisure.Pastime.HEARTH, Leisure.Pastime.DOORWAY)) {
+            List<Leisure.Place> one = new ArrayList<>(outdoorsOnly);
+            one.add(new Leisure.Place(roof, new SimPos(-2, 64, -2)));
+            Leisure.Rest rest = Leisure.restFor(SOMEBODY, 11L, Leisure.Hour.DAY,
+                    Leisure.Sky.WET, Leisure.shelterIn(one));
+            assertNotNull(rest, "a town with a " + roof + " in it sent nobody to it");
+            assertEquals(roof, rest.what());
+            assertEquals(new SimPos(-2, 64, -2), rest.where());
+        }
+    }
+
+    // --- the cap on getting there ----------------------------------------------------
+
+    /**
+     * Walking out of the rain is not rationed the way strolling to the well is.
+     *
+     * <p>The second half of the fault, and the reason the first half was not
+     * the whole of it. Rain does not arrive one settler at a time: it arrives
+     * for the town, and {@link Leisure#hasWork} takes every outdoor trade off
+     * the roster in the same pass. A town with a dozen people in its fields
+     * therefore wants a dozen doorways on one tick, {@link
+     * Leisure#WALKS_AT_ONCE} admits six, and the other six keep standing in the
+     * rows — which is the count under open sky going up rather than down.
+     *
+     * <p>What is asserted is that the two caps are distinct, that the looser one
+     * is reachable only by a walk that is genuinely a run for cover, and that
+     * the cap still exists: an unbounded answer here would be a town handing
+     * vanilla eighty routes on the tick the weather turned.
+     */
+    @Test
+    void aRunForCoverIsCappedMoreLooselyThanAStrollToTheWell() {
+        assertTrue(Leisure.SHELTER_WALKS_AT_ONCE > Leisure.WALKS_AT_ONCE,
+                "the rain cap is no looser than the fair-weather one, so half a"
+                        + " town is still standing in the wet");
+        assertTrue(Leisure.SHELTER_WALKS_AT_ONCE < Integer.MAX_VALUE,
+                "the cap was removed rather than widened; it is there to bound"
+                        + " pathfinding and a downpour is when that matters most");
+
+        for (Leisure.Pastime what : Leisure.Pastime.values()) {
+            // Fair weather is untouched, for every kind. Nothing about a dry day
+            // changed, and a dry day is when nearly every pastime is taken.
+            assertFalse(Leisure.isShelterRun(what, Leisure.Sky.FAIR));
+            assertEquals(Leisure.WALKS_AT_ONCE,
+                    Leisure.walkCap(what, Leisure.Sky.FAIR),
+                    what + " got the rain's cap on a dry day");
+            assertEquals(Leisure.WALKS_AT_ONCE, Leisure.walkCap(what, null),
+                    what + " got the rain's cap with no sky read at all");
+
+            // And in the wet only the roofs are let through, which is the point
+            // of asking the question of the walk rather than of the weather: a
+            // walk to the square can never reach the looser cap even if some
+            // future offer contrives to put one on the table in a downpour.
+            assertEquals(Leisure.underCover(what),
+                    Leisure.isShelterRun(what, Leisure.Sky.WET));
+            assertEquals(Leisure.underCover(what)
+                            ? Leisure.SHELTER_WALKS_AT_ONCE : Leisure.WALKS_AT_ONCE,
+                    Leisure.walkCap(what, Leisure.Sky.WET),
+                    what + " is capped wrongly in the rain");
+        }
+    }
+
     @Test
     void aTownWithNoRoofOnOfferSendsNobodyAnywhere() {
         List<Leisure.Place> outdoorsOnly = new ArrayList<>();

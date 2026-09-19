@@ -74,22 +74,40 @@ public final class MinePlanner {
         int places = mines.size();
         for (int i = 0; i < places; i++) {
             Building mine = mines.get(i);
-            if (reckonSeam(settlement, mine, ctx)) {
-                continue;   // where there is a hand there is no clock
-            }
+            reckonSeam(settlement, mine, ctx);
+            // Blocks the picks themselves have already taken out of this seam
+            // since the last step — see MinerWorker. Drained every step, watched
+            // or not, for the reason LumberPlanner drains its own: a counter read
+            // only sometimes eventually pays one step's digging out twice.
+            int byHand = mine.takeHandYield();
             int share = Workforce.shareOf(miners, i, places);
             if (share <= 0 || !wantsStone) {
+                mine.creditByHand(byHand);   // carried, not written off
                 continue;
             }
-            dig(settlement, mine, share, ctx);
+            dig(settlement, mine, share, byHand, ctx);
         }
     }
 
-    /** One mine's digging for one step, and the ore turned up while cutting it. */
-    private static void dig(Settlement settlement, Building mine, int miners, SimContext ctx) {
+    /**
+     * One mine's digging for one step, and the ore turned up while cutting it.
+     *
+     * @param byHand blocks the mine's own picks already cut this step, which come
+     *               off the miners' allowance before the clock spends any of it.
+     *               A watched shaft whose crew is keeping up leaves nothing here;
+     *               one whose crew is stuck on a ladder is still worth what the
+     *               rock under it is worth.
+     */
+    private static void dig(Settlement settlement, Building mine, int miners, int byHand,
+                            SimContext ctx) {
         int room = Math.max(0, stoneCapacity(settlement) - settlement.stoneStock());
-        int cut = Seam.cut(mine,
-                Math.min(miners * Seam.STONE_PER_MINER_PER_STEP, room));
+        // Whatever the picks did over the step's allowance is carried into the
+        // next step rather than dropped — the same carry the fields and the
+        // claim keep, and for the same reason.
+        int allowance = miners * Seam.STONE_PER_MINER_PER_STEP;
+        int spent = Math.min(byHand, allowance);
+        mine.creditByHand(byHand - spent);
+        int cut = Seam.cut(mine, Math.min(allowance - spent, room));
         if (cut <= 0) {
             return;
         }

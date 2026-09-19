@@ -609,9 +609,16 @@ public final class Herd {
      *
      * <p>Every compound is stocked if it never has been, fed by whatever
      * shepherds the town has, and culled where a pen has filled or the town is
-     * hungry. A watched compound is fed and culled by hand instead — see
-     * {@code ShepherdWorker} — so the clock stands aside for it entirely, the
-     * same way {@code growHarvest} stands aside for a watched field.
+     * hungry. A watched compound is fed and culled by hand as well — see
+     * {@code ShepherdWorker} — and those turns come off this step's allowance
+     * before the clock spends any of it, exactly the way {@code growHarvest}
+     * settles up with a watched field.
+     *
+     * <p>The clock used to stand aside for a watched compound altogether, and
+     * that is the pens' share of the fault that starved the 2026-09-19
+     * playtest's towns: a shepherd who cannot reach the gate is not a reason for
+     * a full pen to stop being full. A pen is worth what it holds, and it holds
+     * the same whether or not anybody is leaning on the fence.
      */
     public static void advance(Settlement settlement, SimContext ctx, boolean starving) {
         List<Building> compounds = settlement.buildingsWithRole(BuildingRole.ANIMAL_FARM);
@@ -623,15 +630,26 @@ public final class Herd {
         int turns = shepherds * TURNS_PER_SHEPHERD_PER_STEP;
         for (Building farm : compounds) {
             stock(farm, culture);
-            boolean watched = settlement.isWatched(ctx, farm.origin());
-            farm.setWatched(watched);
-            if (watched || turns <= 0) {
-                continue;   // real hands are doing this, or there are no hands at all
+            farm.setWatched(settlement.isWatched(ctx, farm.origin()));
+            // Turns the shepherds themselves have already taken at this compound
+            // since the last step -- see ShepherdWorker, which culls and feeds
+            // through these same two methods and books the turn here.
+            int byHand = farm.takeHandYield();
+            if (turns <= 0) {
+                farm.creditByHand(byHand);   // carried, not written off
+                continue;                    // there are no hands at all
             }
             // One compound can only take so many shepherds, however many the
             // town has -- the same rule the fields run under.
             int here = Math.min(turns, TURNS_PER_SHEPHERD_PER_STEP);
             turns -= here;
+            // And what the real shepherds already spent comes off it, so the pens
+            // are worth the same whether or not anybody is leaning on the gate.
+            // Turns taken over the allowance are carried into the next step
+            // rather than dropped, the way the fields and the claim carry theirs.
+            int spent = Math.min(byHand, here);
+            farm.creditByHand(byHand - spent);
+            here -= spent;
             List<String> kept = speciesOf(culture);
             // The culling first, across every pen, because a full pen is the one
             // thing at a compound that will not wait: it is what stops a herd

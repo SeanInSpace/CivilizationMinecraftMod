@@ -204,6 +204,36 @@ public final class Building {
      */
     private boolean watched;
 
+    /**
+     * Units of this building's own ledger that real hands have spent since the
+     * clock last settled up — sheaves cut off the field, logs off the stand,
+     * blocks off the seam.
+     *
+     * <p>This is the number that makes one ledger serve two fidelities, and it
+     * replaces a rule that read beautifully and starved towns: <em>where there
+     * is a hand there is no clock</em>. Under that rule a watched site earned
+     * only what its bodies actually did, and bodies are not a second
+     * implementation of the ledger — they are out of reach, unspawned, walking,
+     * asleep, boxed in by terrain, or simply not there at all because no game
+     * tick has passed. A player standing in a town was therefore a player
+     * watching it starve: the playtest of 2026-09-19 ran the same town for the
+     * same three hundred steps and got a granary of 449 alone against 144 and
+     * falling with somebody in the square.
+     *
+     * <p>So the clock never stops. It works out the step's yield exactly as it
+     * always did, subtracts what the hands have already booked here, and credits
+     * the remainder. Where the crew keeps up this is zero and every sheaf in the
+     * granary was cut by somebody in front of you; where it cannot, the books
+     * still balance. Neither fidelity can outproduce the other in either
+     * direction, which is the whole of what "the same books watched or not"
+     * means.
+     *
+     * <p>Not persisted, and it must not be: it is a within-step tally, read and
+     * cleared by the planner on the same step the hands filled it. A saved copy
+     * would be a step's work credited twice across a reload.
+     */
+    private int handYield;
+
     public Building(String blueprintId, SimPos origin, long completedOnStep) {
         this(blueprintId, origin, completedOnStep, false);
     }
@@ -517,6 +547,35 @@ public final class Building {
     /** Whether real hands have worked this farm recently enough to trust them. */
     public boolean harvestedWithin(long step, int grace) {
         return lastRealHarvestStep != Long.MIN_VALUE && step - lastRealHarvestStep <= grace;
+    }
+
+    /**
+     * Books a unit of this site's ledger against the hands that actually spent
+     * it, so the clock does not pay for it a second time.
+     *
+     * <p>Called from the one place each trade's real work lands — a farmer's
+     * sickle, a jack's axe, a miner's pick — beside the ledger debit itself, so
+     * the credit and the claim on the step's budget cannot come apart.
+     */
+    public void creditByHand(int units) {
+        if (units > 0) {
+            handYield += units;
+        }
+    }
+
+    /**
+     * What the hands have done here since the last step, and a fresh slate.
+     *
+     * <p>Read-and-clear on purpose. The planner asks once a step, spends the
+     * answer against that step's budget, and leaves the counter empty for the
+     * ticks that follow — which is what keeps a slow step (or a burst, where no
+     * tick passes at all and the answer is a truthful nought) from carrying a
+     * neighbour's work into its own arithmetic.
+     */
+    public int takeHandYield() {
+        int done = handYield;
+        handYield = 0;
+        return done;
     }
 
     public void setFoodStored(int foodStored) {

@@ -137,12 +137,19 @@ public final class LumberPlanner {
      * be one: {@code YieldPolicy} still lists {@code wood} and {@code saplings},
      * and nothing reads either any more.
      *
-     * <p>Felling is world work — {@code LumberjackWorker} swings the axe — but
-     * that only runs where a player is close enough to see it, and an unwatched
-     * town that produced nothing stopped building forever the moment you walked
-     * away. So the clock fells too, off the same ledger, at the same pace, and
-     * puts the same saplings back. What it will not do is fell a tree that is
-     * not there.
+     * <p>Felling is world work — {@code LumberjackWorker} swings the axe — but an
+     * axe only swings where a player is close enough to see it, and the camp is
+     * worth the same either way. So the jacks' pace for the step is worked out
+     * once, the real axes spend out of it, and the clock fells whatever is left
+     * of it off the same ledger and puts the same saplings back.
+     *
+     * <p>The clock used to stop dead at a watched camp — <em>where there is a
+     * hand there is no clock</em> — and that is the timber half of the fault
+     * that starved the 2026-09-19 playtest's towns. A crew that cannot reach its
+     * own trees, or that is given no game tick to swing in because the ledger is
+     * being burst forward by {@code /civ step}, is not a reason for a forty-tree
+     * stand to yield nothing. What the clock will not do, then or now, is fell a
+     * tree that is not there.
      */
     private static void workTheWood(Settlement settlement, SimContext ctx) {
         List<Building> camps = settlement.buildingsWithRole(BuildingRole.LUMBER_CAMP);
@@ -156,16 +163,20 @@ public final class LumberPlanner {
         int places = camps.size();
         for (int i = 0; i < places; i++) {
             Building camp = camps.get(i);
-            boolean watched = reckonStand(settlement, camp, ctx);
+            reckonStand(settlement, camp, ctx);
             // The wood grows whether or not the town wants it and whether or not
             // anybody is there: a loaded chunk grows its own saplings and this is
             // only mirroring them.
             Stand.grow(camp, ctx);
-            if (watched) {
-                continue;   // where there is a hand there is no clock
-            }
+            // Logs the axes themselves have already taken off this claim since
+            // the last step — see LumberjackWorker, which debits Stand and books
+            // the same log here. Drained every step, watched or not, because on
+            // an unwatched claim it is nought and a counter read only sometimes
+            // is a counter that eventually pays one step's felling out twice.
+            int byHand = camp.takeHandYield();
             int share = Workforce.shareOf(jacks, i, places);
             if (share <= 0) {
+                camp.creditByHand(byHand);   // carried, not written off
                 continue;
             }
             // Put down at the camp that felled it, not into the town at large,
@@ -173,7 +184,7 @@ public final class LumberPlanner {
             // The ceiling is still the whole town's: produceNear measures the
             // room it has left before each drop.
             if (wantsTimber) {
-                fell(settlement, camp, share);
+                fell(settlement, camp, share, byHand);
             }
             // A jack with nothing left to cut, or a town with nowhere to put
             // what he cuts, goes and puts the wood back — which is exactly what
@@ -184,16 +195,31 @@ public final class LumberPlanner {
         }
     }
 
-    /** One camp's felling for one step, and the saplings that come off the crowns. */
-    private static void fell(Settlement settlement, Building camp, int jacks) {
+    /**
+     * One camp's felling for one step, and the saplings that come off the crowns.
+     *
+     * @param byHand logs the camp's own axes already took this step, which come
+     *               off the jacks' allowance before the clock touches it — see
+     *               {@code Building.creditByHand}. A watched claim whose crew is
+     *               keeping up leaves nothing here for the clock to do; one whose
+     *               crew cannot reach the trees is still worth what its stand
+     *               says it is worth, because being looked at is not a reason for
+     *               a wood to stop being a wood.
+     */
+    private static void fell(Settlement settlement, Building camp, int jacks, int byHand) {
         int room = Math.max(0, woodCapacity(settlement) - settlement.woodStock());
         // Three ceilings, and the third is the one that was missing: the jacks'
         // own pace, the room left in the stores, and what the camp is allowed to
         // take at all. See Stand.reserveTrees — without it a claim is felled to
         // the last trunk, because the stores of a building town are never full
         // and so the second ceiling never bites.
-        int logs = Stand.fell(camp, Math.min(
-                Math.min(jacks * Stand.LOGS_PER_JACK_PER_STEP, room),
+        // Anything the axes did over the step's allowance is carried into the
+        // next step rather than dropped, so a fast afternoon at the claim is not
+        // a free log — see FoodPlanner.growHarvest, which carries the same way.
+        int allowance = jacks * Stand.LOGS_PER_JACK_PER_STEP;
+        int spent = Math.min(byHand, allowance);
+        camp.creditByHand(byHand - spent);
+        int logs = Stand.fell(camp, Math.min(Math.min(allowance - spent, room),
                 Stand.fellableLogs(camp)));
         if (logs <= 0) {
             return;

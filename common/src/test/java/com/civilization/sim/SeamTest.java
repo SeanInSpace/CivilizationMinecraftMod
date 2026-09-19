@@ -127,16 +127,44 @@ class SeamTest {
                         + " the ratio the mine ran at before the seam existed");
     }
 
+    /**
+     * A watched shaft is worth exactly what an unwatched one is worth.
+     *
+     * <p>This read {@code aWatchedMineIsLeftToItsPicks} and asserted the
+     * opposite: twenty watched steps brought up nought stone and left all two
+     * thousand blocks in the rock. That was <em>where there is a hand there is no
+     * clock</em>, and the 2026-09-19 playtest priced it. The same town, the same
+     * three hundred steps, and the only difference being where the player stood:
+     * a granary of 449 alone against 144 and falling while watched, and a town
+     * dead at step 1213 with sixty people in it. A pick swings only where a body
+     * is spawned, in reach and given a game tick — none of which is a fact about
+     * the rock, and all of which are false on every step of a {@code /civ step}
+     * burst.
+     *
+     * <p>So the miners' pace for the step is worked out once and the hands spend
+     * out of it, the clock taking whatever is left — see
+     * {@code Building.creditByHand} and {@code MinePlanner.dig}. Neither of these
+     * shafts has a pick swinging in it, which is exactly the case that used to
+     * yield nothing, and they must come out block for block.
+     */
     @Test
-    void aWatchedMineIsLeftToItsPicks() {
-        Settlement town = mineTown(2);
+    void aWatchedMineCutsExactlyWhatAnUnwatchedOneCuts() {
+        Settlement watched = mineTown(2);
+        Settlement alone = mineTown(2);
 
         for (int step = 1; step <= 20; step++) {
-            MinePlanner.advance(town, new SimContext(new Standing(), step, SHIPPED));
+            MinePlanner.advance(watched, new SimContext(new Standing(), step, SHIPPED));
+            MinePlanner.advance(alone, new SimContext(new Alone(), step, SHIPPED));
         }
 
-        assertEquals(0, town.stores().get(TownStores.STONE));
-        assertEquals(2000, Seam.remaining(only(town)), "and the rock is all still there");
+        assertEquals(alone.stores().get(TownStores.STONE),
+                watched.stores().get(TownStores.STONE),
+                "being looked at is not a reason for a seam to stop being a seam");
+        assertEquals(Seam.remaining(only(alone)), Seam.remaining(only(watched)),
+                "and the same rock came out of the same workings");
+        assertTrue(watched.stores().get(TownStores.STONE) > 0,
+                "which is two mines that are working, not two that are"
+                        + " identically idle");
     }
 
     @Test
@@ -149,6 +177,18 @@ class SeamTest {
         assertEquals(99, Seam.remaining(mine));
     }
 
+    /**
+     * The count taken on arrival beats whatever the ledger was carrying.
+     *
+     * <p>Same subject, corrected arithmetic. The assertion used to be a flat
+     * {@code 40}, and it could be, because a watched mine was cut by nothing: the
+     * recount landed and the step ended. The clock works a watched shaft now —
+     * the hands spend the step's allowance and it credits the remainder, which
+     * here is all of it, because a fixture has no bodies in it — so the step that
+     * takes the count also takes its first six blocks. Forty <em>less one step's
+     * digging</em> is the same claim it always was: the ledger's five thousand
+     * were a fiction and the world's forty are not.
+     */
     @Test
     void walkingUpToAMineCountsWhatIsActuallyDownThere() {
         Settlement town = mineTown(1);
@@ -158,8 +198,12 @@ class SeamTest {
 
         MinePlanner.advance(town, new SimContext(arriving, 1, SHIPPED));
 
-        assertEquals(40, Seam.remaining(only(town)),
-                "the rock is its own truth, and the count on arrival wins");
+        assertEquals(40 - Seam.STONE_PER_MINER_PER_STEP, Seam.remaining(only(town)),
+                "the rock is its own truth, and the count on arrival wins — the"
+                        + " five thousand the ledger held are gone, not carried");
+        assertEquals(Seam.STONE_PER_MINER_PER_STEP, town.stores().get(TownStores.STONE),
+                "and the one miner's step came out of the forty that are really"
+                        + " down there, which is the whole point of counting");
     }
 
     // --- running out ---

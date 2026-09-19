@@ -168,20 +168,46 @@ class UnwatchedFarmingTest {
 
     // --- the two fidelities ---
 
+    /**
+     * A watched field keeps the same books as an unwatched one.
+     *
+     * <p>This was {@code aWatchedFieldRipensAndIsNotCutByTheClock}, and it
+     * asserted that twenty watched steps put nothing at all into the town —
+     * "in front of a player only real hands harvest". That rule is what this
+     * file's own subject, a town that lives on honest fields, could not survive
+     * a player walking into. The playtest of 2026-09-19 ran one town twice for
+     * three hundred steps and changed nothing but where he stood: granary 0 to
+     * 449 six hundred blocks away, 467 down to 144 and still falling from the
+     * square, and the town dead at step 1213 with a population of sixty.
+     *
+     * <p>The hands and the clock spend one budget now — {@code Building.creditByHand}
+     * — and this fixture embodies nobody, so the whole of that budget is the
+     * clock's on both sides of the comparison. Twenty steps watched and twenty
+     * steps alone have to come out sheaf for sheaf and blade for blade.
+     */
     @Test
-    void aWatchedFieldRipensAndIsNotCutByTheClock() {
-        Settlement town = oneFieldTown();
-        Building farm = town.buildings().get(0);
-        farm.setRipeHundredths(2000);
+    void aWatchedFieldIsWorkedExactlyAsAnUnwatchedOneIs() {
+        Settlement watched = oneFieldTown();
+        Settlement alone = oneFieldTown();
+        watched.buildings().get(0).setRipeHundredths(2000);
+        alone.buildings().get(0).setRipeHundredths(2000);
 
         for (int step = 1; step <= 20; step++) {
-            FoodPlanner.advance(town, new SimContext(new Standing(), step, shipped()));
+            FoodPlanner.advance(watched, new SimContext(new Standing(), step, shipped()));
+            FoodPlanner.advance(alone, new SimContext(new Alone(), step, shipped()));
         }
 
-        assertEquals(0, FoodPlanner.totalFood(town),
-                "in front of a player only real hands harvest");
-        assertTrue(Field.ripeBlocks(farm) > 20,
-                "and the world went on growing the crops while they watched");
+        assertEquals(FoodPlanner.farmGrain(alone), FoodPlanner.farmGrain(watched),
+                "the sheaves on the shelf are the same sheaves, because being"
+                        + " looked at is not a reason for wheat to stop being"
+                        + " wheat");
+        assertTrue(FoodPlanner.farmGrain(watched) > 0,
+                "and there are some: twenty watched steps of a ripe field used to"
+                        + " be twenty steps of a town eating and not earning");
+        assertEquals(Field.ripeBlocks(alone.buildings().get(0)),
+                Field.ripeBlocks(watched.buildings().get(0)),
+                "and the same wheat is left standing in both, so the ledger the"
+                        + " player walks out to look at is the honest one");
     }
 
     @Test
