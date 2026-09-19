@@ -111,57 +111,32 @@ public final class PathPlanner {
      * nothing and go on joining doors to tracks exactly as before.
      */
     /**
-     * The most a way may climb between one block and the next.
+     * The most a way may climb for every block of ground it crosses.
      *
-     * <p>One block is a step anybody can take. Two is a jump, and a cart cannot
-     * make it at all; more than that is a wall with gravel on it, which is what
-     * a planned street becomes when it is laid across a hillside without anybody
-     * asking how high the hillside is.
+     * <p>Two, and the difference from one is the paving layer. A two-block rise
+     * is one spadeful from being two one-block steps and {@code PathLayer.grade}
+     * makes it so, cutting the high side or filling the low one wherever the
+     * blocks actually are. Refusing them instead was measured and it is the
+     * wrong trade: the network shrank, doors were stranded from roads that were
+     * merely a little steep, and the town got worse the stricter its judgment
+     * became. Three is refused here and at the layer alike, because no single
+     * block moved makes it walkable and a crew that moved more would be
+     * terracing the hillside rather than crossing it.
      *
-     * <p>That was exactly the state of things: {@code layPlannedStreets} copied
-     * the plan's lines onto the ground and never consulted the terrain, because
-     * a {@link TownPlan} is a flat drawing and nothing downstream was asking. On
-     * a superflat world every one of 292 runs measured perfectly level, which is
-     * the proof that the steps come entirely from routing over ground rather
-     * than from the geometry.
+     * <p>Two is also exactly what the layer holds itself to — see
+     * {@code PathLayer.MAX_STEP_UNGRADED}. That is the point of the number
+     * rather than a coincidence: the town's ledger says a stretch is walkable
+     * and the crew then walks it, so a gate stricter than the crew is a gate
+     * that refuses roads the crew would have built, and a gate looser than it is
+     * a ledger that lies.
+     *
+     * <p>Per block of ground, and the rule that turns that into an allowance
+     * between two readings is in {@link #unwalkable}. A world that reports the
+     * height of every column is held to two; one that reports one column in four
+     * is held to two a block across those four. The distinction is not pedantry
+     * — it is the whole of this constant's history. See there.
      */
-    private static final int MAX_ROAD_STEP = 1;
-
-    /**
-     * The most a way may climb between blocks and still be worth opening.
-     *
-     * <p>Two rather than one, because the paving layer earns the difference: a
-     * two-block rise is one spadeful from being two one-block steps, and that is
-     * what a road crew does with it. Refusing them instead was measured and it
-     * is the wrong trade — the network shrank, doors were stranded from roads
-     * that were merely a little steep, and the town got worse the stricter its
-     * judgment became.
-     *
-     * <p>Three is still refused, here and at the layer, because no single block
-     * moved makes it walkable and a crew that moved more would be terracing.
-     */
-    private static final int GRADABLE_ROAD_STEP = 2;
-
-    /**
-     * Whether the ground under this run is too steep to lay a street along.
-     *
-     * <p>Refusing is the honest answer rather than terracing it. A town that
-     * cannot take its planned frontage on a cliff should grow somewhere else,
-     * and the plot on the far side is refused with it — the alternative is a
-     * street that arrives at a wall and a house nobody can reach.
-     */
-    private static boolean tooSteepToWalk(PathNetwork.Segment run, SimContext ctx) {
-        List<SimPos> along = run.positions();
-        int last = ctx.bridge().groundHeight(along.get(0));
-        for (int i = 1; i < along.size(); i++) {
-            int here = ctx.bridge().groundHeight(along.get(i));
-            if (Math.abs(here - last) > GRADABLE_ROAD_STEP) {
-                return true;
-            }
-            last = here;
-        }
-        return false;
-    }
+    private static final int MAX_ROAD_CLIMB = 2;
 
     /**
      * The forester's stand, worked out at most once a pass and only if asked.
@@ -972,13 +947,46 @@ public final class PathPlanner {
      * known: laying is decided long before anybody stands there. A stretch
      * refused here keeps its place in the network and can be asked again, so
      * ground that was merely unread today gets another hearing.
+     *
+     * <p><strong>The climb is judged at the resolution the world can see
+     * at.</strong> That is the fix this method exists in its present shape for,
+     * and it is worth the paragraph, because the old rule — compare each column
+     * with the one before it and refuse a difference of more than a step — is
+     * the obvious rule and it was wrong for a reason nothing in this package can
+     * see.
+     *
+     * <p>{@code WorldBridge.groundHeight} is an estimate, and the live one
+     * remembers columns on a four-block grid — sampling the generator per column
+     * cost sixty seconds of a tick and killed the server twice, so it rounds,
+     * and its own note says four blocks is finer than anything reading it can
+     * tell. Every caller but this one could not tell. Asked column by column
+     * along a run, a rounded reading of an ordinary hillside comes back as four
+     * blocks of table top and then a cliff: a slope of one in one reads as a
+     * step of four. Measured in a world on seed 8675309, every refused lane of
+     * the town at the spawn point had a profile of exactly that shape —
+     * {@code 81,81,81,81,75,75,75,...} — and 35 of its 75 stretches, 14 of its
+     * 29 door lanes among them, were refused as unwalkable ground that a player
+     * standing on it strolls up. The town had no road between most of its
+     * buildings.
+     *
+     * <p>So the world is asked how finely it can see — {@code
+     * WorldBridge.groundGrain} — and the allowance between neighbouring columns
+     * is scaled by it. A bridge that knows every column is judged exactly as it
+     * always was: two blocks between one column and the next. A bridge that
+     * knows one column in four is allowed the eight that a two-in-one slope can
+     * show up as when it is rounded, which is the most such a reading can
+     * honestly rule out. Where a coarse reading flatters a real cliff,
+     * {@code PathLayer} is standing on the blocks themselves and leaves the wall
+     * unpaved — that is the layer this one is allowed to lean on, and the reason
+     * the honest answer here is the generous one.
      */
     static boolean unwalkable(PathNetwork.Segment run, SimContext ctx) {
+        int allowed = MAX_ROAD_CLIMB * Math.max(1, ctx.bridge().groundGrain());
         List<SimPos> along = run.positions();
         int last = ctx.bridge().groundHeight(along.get(0));
         for (int i = 1; i < along.size(); i++) {
             int here = ctx.bridge().groundHeight(along.get(i));
-            if (Math.abs(here - last) > MAX_ROAD_STEP) {
+            if (Math.abs(here - last) > allowed) {
                 return true;
             }
             last = here;

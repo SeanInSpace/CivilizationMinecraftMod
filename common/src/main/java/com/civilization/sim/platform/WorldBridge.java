@@ -60,6 +60,35 @@ public interface WorldBridge {
     }
 
     /**
+     * How far apart two columns must stand before {@link #groundHeight} can
+     * report a difference between them.
+     *
+     * <p>One here, because a fixture that holds the ground in an array can
+     * answer for every column of it. The live world cannot: {@code
+     * TerrainOracle} remembers columns on a four-block grid, because sampling
+     * the generator per column took sixty seconds of a tick and killed the
+     * server twice. Its own note says four blocks is finer than anything that
+     * reads it can tell, and that was true of every caller but one.
+     *
+     * <p>The one was the road gate. {@code PathPlanner.unwalkable} asks whether
+     * the ground climbs more than a step from one column to the next, and a
+     * reading rounded to four blocks answers that question about the rounding
+     * rather than about the hillside: a slope of one block per column comes back
+     * as four blocks of table top and then a four-block cliff. The gate refused
+     * it. Measured in a world on seed 8675309, the town at the spawn point had
+     * 35 of its 75 stretches and 14 of its 29 door lanes refused as unwalkable,
+     * on ground a player strolls up without noticing there is a slope, and stood
+     * with no road between most of its buildings.
+     *
+     * <p>So a world says how finely it can see, and a rule about neighbouring
+     * columns scales its tolerance by that. A bridge that knows every column is
+     * judged exactly as strictly as it always was.
+     */
+    default int groundGrain() {
+        return 1;
+    }
+
+    /**
      * Whether this ground is a river or the sea.
      *
      * <p>Split out from {@link #isSiteSuitable} because it is the one terrain

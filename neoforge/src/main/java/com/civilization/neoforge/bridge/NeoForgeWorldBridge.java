@@ -130,6 +130,21 @@ public final class NeoForgeWorldBridge implements WorldBridge {
         return oracle.height(pos.x(), pos.z());
     }
 
+    /**
+     * And how finely that answer is actually resolved, which is not per column.
+     *
+     * <p>The oracle remembers ground on {@link TerrainOracle#GRAIN}-block cells
+     * and every column of a cell is handed the cell's own reading. Saying so out
+     * loud is the whole of the road fix: a rule about the step between
+     * neighbouring columns, asked of a reading that cannot see between them,
+     * measures the rounding instead of the hillside. See
+     * {@code PathPlanner.unwalkable}.
+     */
+    @Override
+    public int groundGrain() {
+        return TerrainOracle.GRAIN;
+    }
+
     @Override
     public int surfaceHeight(SimPos pos) {
         if (!level.isLoaded(toBlockPos(pos))) {
